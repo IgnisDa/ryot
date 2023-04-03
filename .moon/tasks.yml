@@ -1,0 +1,22 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+fileGroups:
+  configs:
+    - '*.{js,json}'
+
+  sources:
+    - 'src/**/*'
+    - 'types/**/*'
+
+  tests:
+    - 'tests/**/*.test.*'
+    - '**/__tests__/**/*'
+
+  assets:
+    - 'assets/**/*'
+    - 'images/**/*'
+    - 'static/**/*'
+    - '**/*.{scss,css}'
+    - '**/*.mdx'
+
+tasks: {}

@@ -1,0 +1,71 @@
+.DS_Store
+/node_modules
+
+**/*.rs.bk
+wasm-pack.log
+
+build/
+/dist
+tmp
+/target
+.env
+.dev.vars
+
+surreal.db
+
+.turbo
+
+dist
+.solid
+.output
+.vercel
+.netlify
+netlify
+
+# dependencies
+node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+*.launch
+.settings/
+.vscode
+
+# Temp
+gitignore
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
+# next.js
+.next/
+out/
+build
+nextjs-routes.d.ts
+
+# moon
+.moon/cache
+.moon/docker
+
+# react email
+.react-email
+apps/mails/dist
+
+# tests
+**/*/coverage
+
+# moon
+.moon/cache
+.moon/docker

@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/trackona:cached
+    command: sleep infinity
+    ports:
+      - '8000:8000'
+    user: archlinux
+    depends_on:
+      mail:
+        condition: service_healthy

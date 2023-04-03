@@ -1,0 +1,14 @@
+[[language]]
+name = "typescript"
+auto-format = true
+formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.ts"] }
+
+[[language]]
+name = "javascript"
+auto-format = true
+formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.js"] }
+
+[[language]]
+name = "json"
+auto-format = true
+formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.json"] }
