@@ -1,4 +1,11 @@
 {
 	"name": "@trackona/root",
-	"packageManager": "yarn@3.5.0"
+	"packageManager": "yarn@3.5.0",
+	"workspaces": ["apps/*"],
+	"engines": {
+		"node": "19.8.1"
+	},
+	"dependencies": {
+		"typescript": "5.0.2"
+	}
 }

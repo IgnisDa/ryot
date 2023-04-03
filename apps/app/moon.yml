@@ -1,0 +1,56 @@
+tasks:
+  build:
+    command:
+      - qwik
+      - build
+    platform: node
+  build-client:
+    command:
+      - vite
+      - build
+    platform: node
+  build-preview:
+    command:
+      - vite
+      - build
+      - --ssr
+      - src/entry.preview.tsx
+    platform: node
+  build-types:
+    command:
+      - tsc
+      - --incremental
+      - --noEmit
+    platform: node
+  deploy:
+    command:
+      - echo
+      - Run "moon run app:qwik -- add" to install a server adapter
+    platform: system
+  dev:
+    command:
+      - vite
+      - --mode
+      - ssr
+    local: true
+    platform: node
+  dev-debug:
+    command:
+      - node
+      - --inspect-brk
+      - ./node_modules/vite/bin/vite.js
+      - --mode
+      - ssr
+      - --force
+    platform: node
+  qwik:
+    command: qwik
+    platform: node
+  start:
+    command:
+      - vite
+      - --open
+      - --mode
+      - ssr
+    local: true
+    platform: node

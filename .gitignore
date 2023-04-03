@@ -69,3 +69,9 @@ apps/mails/dist
 # moon
 .moon/cache
 .moon/docker
+
+# Nuxt
+.nuxt
+.nitro
+.cache
+.output

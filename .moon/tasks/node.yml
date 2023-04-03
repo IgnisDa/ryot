@@ -1,0 +1,54 @@
+$schema: "https://moonrepo.dev/schemas/tasks.json"
+
+fileGroups:
+  app:
+    - "app/**/*"
+    - "lib/**/*"
+
+  configs:
+    - "*.{js,json}"
+
+  sources:
+    - "src/**/*"
+    - "types/**/*"
+
+  tests:
+    - "tests/**/*.test.*"
+    - "**/__tests__/**/*"
+
+  assets:
+    - "assets/**/*"
+    - "images/**/*"
+    - "static/**/*"
+    - "**/*.{scss,css}"
+    - "**/*.mdx"
+
+tasks:
+  lint:
+    command: "rome check ."
+    inputs:
+      - "/rome.json"
+      - "@group(app)"
+      - "@group(sources)"
+      - "@group(tests)"
+
+  format:
+    command: "rome format ."
+    inputs:
+      - "/rome.json"
+      - "@group(app)"
+      - "@group(sources)"
+      - "@group(tests)"
+
+  typecheck:
+    command:
+      - tsc
+      - "--build"
+      - "--verbose"
+    inputs:
+      - "@group(app)"
+      - "@globs(sources)"
+      - "@globs(tests)"
+      - "tsconfig.json"
+      - "tsconfig.*.json"
+      - "/tsconfig.options.json"

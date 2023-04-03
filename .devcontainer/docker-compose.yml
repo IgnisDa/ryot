@@ -10,7 +10,5 @@ services:
     command: sleep infinity
     ports:
       - '8000:8000'
+      - '3000:3000'
     user: archlinux
-    depends_on:
-      mail:
-        condition: service_healthy
