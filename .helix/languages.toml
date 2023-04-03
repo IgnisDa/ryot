@@ -12,3 +12,13 @@ formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.j
 name = "json"
 auto-format = true
 formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.json"] }
+
+[[language]]
+name = "tsx"
+auto-format = true
+formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.tsx"] }
+
+[[language]]
+name = "jsx"
+auto-format = true
+formatter = { command = "rome", args = ["format", "--stdin-file-path", "source.jsx"] }

@@ -9,5 +9,8 @@
 	},
 	"dependencies": {
 		"typescript": "5.0.2"
+	},
+	"devDependencies": {
+		"rome": "12.0.0"
 	}
 }
