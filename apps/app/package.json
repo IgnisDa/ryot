@@ -1,12 +1,12 @@
 {
-  "name": "@trackona/app",
-  "private": true,
-  "devDependencies": {
-    "@builder.io/qwik": "0.100.0",
-    "@builder.io/qwik-city": "~0.100.0",
-    "@types/node": "^18.15.9",
-    "undici": "5.21.0",
-    "vite": "4.2.1",
-    "vite-tsconfig-paths": "3.5.0"
-  }
+	"name": "@trackona/app",
+	"private": true,
+	"devDependencies": {
+		"@builder.io/qwik": "0.100.0",
+		"@builder.io/qwik-city": "~0.100.0",
+		"@types/node": "^18.15.9",
+		"undici": "5.21.0",
+		"vite": "4.2.1",
+		"vite-tsconfig-paths": "3.5.0"
+	}
 }

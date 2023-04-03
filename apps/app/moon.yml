@@ -1,56 +1,43 @@
+fileGroups:
+  qwik:
+    - 'src/**/*'
+    - 'adapters/**/*'
+    - 'vite.config.ts'
+
 tasks:
   build:
-    command:
-      - qwik
-      - build
-    platform: node
+    command: noop
+    deps:
+      - '~:build-client'
+      - '~:build-server'
+    options:
+      runDepsInParallel: false
+
   build-client:
-    command:
-      - vite
+    command: 'vite build'
+    inputs:
+      - '@group(qwik)'
+    outputs:
+      - 'dist'
+
+  build-server:
+    command: vite
+    args:
       - build
-    platform: node
-  build-preview:
-    command:
-      - vite
-      - build
-      - --ssr
-      - src/entry.preview.tsx
-    platform: node
-  build-types:
-    command:
-      - tsc
-      - --incremental
-      - --noEmit
-    platform: node
-  deploy:
-    command:
-      - echo
-      - Run "moon run app:qwik -- add" to install a server adapter
-    platform: system
+      - '--config'
+      - 'adapters/static/vite.config.ts'
+    inputs:
+      - '@group(qwik)'
+    outputs:
+      - 'server'
+      - 'dist'
+
   dev:
-    command:
-      - vite
-      - --mode
-      - ssr
+    command: vite
+    args:
+      - '--mode'
+      - 'ssr'
+      - '--host'
+      - '--port'
+      - '3000'
     local: true
-    platform: node
-  dev-debug:
-    command:
-      - node
-      - --inspect-brk
-      - ./node_modules/vite/bin/vite.js
-      - --mode
-      - ssr
-      - --force
-    platform: node
-  qwik:
-    command: qwik
-    platform: node
-  start:
-    command:
-      - vite
-      - --open
-      - --mode
-      - ssr
-    local: true
-    platform: node
