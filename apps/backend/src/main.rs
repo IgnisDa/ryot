@@ -33,17 +33,18 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
         return index_html().await;
     }
 
-    match Assets::get(path) {
-        Some(content) => {
-            let body = boxed(Full::from(content.data));
-            let mime = mime_guess::from_path(path).first_or_octet_stream();
-
-            Response::builder()
-                .header(header::CONTENT_TYPE, mime.as_ref())
-                .body(body)
-                .unwrap()
+    match Assets::iter().find(|asset| asset == path) {
+        Some(p) => get_asset(&p).await.unwrap(),
+        None => {
+            let mut path_components = path.split('/').collect::<Vec<_>>();
+            let last_elm = path_components.last_mut().unwrap();
+            let path_segment = format!("{}/index.html", last_elm);
+            *last_elm = &path_segment;
+            match get_asset(&path_components.join("/")).await {
+                Some(asset) => asset,
+                None => not_found().await,
+            }
         }
-        None => not_found().await,
     }
 }
 
@@ -65,4 +66,15 @@ async fn not_found() -> Response {
         .status(StatusCode::NOT_FOUND)
         .body(boxed(Full::from("404")))
         .unwrap()
+}
+
+async fn get_asset(path: &'_ str) -> Option<Response> {
+    Assets::get(path).map(|content| {
+        let body = boxed(Full::from(content.data));
+        let mime = mime_guess::from_path(path).first_or_octet_stream();
+        Response::builder()
+            .header(header::CONTENT_TYPE, mime.as_ref())
+            .body(body)
+            .unwrap()
+    })
 }
