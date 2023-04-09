@@ -75,3 +75,6 @@ apps/mails/dist
 .nitro
 .cache
 .output
+
+# rust
+target
