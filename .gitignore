@@ -1,44 +1,16 @@
+# System Files
 .DS_Store
-/node_modules
+Thumbs.db
 
-**/*.rs.bk
-wasm-pack.log
-
-build/
-/dist
 tmp
-/target
+target
 .env
 .dev.vars
 
 surreal.db
 
-.turbo
-
-dist
-.solid
-.output
-.vercel
-.netlify
-netlify
-
 # dependencies
 node_modules
-
-# IDEs and editors
-/.idea
-.project
-.classpath
-*.launch
-.settings/
-.vscode
-
-# Temp
-gitignore
-
-# System Files
-.DS_Store
-Thumbs.db
 
 # Yarn
 .yarn/*
@@ -59,22 +31,5 @@ nextjs-routes.d.ts
 .moon/cache
 .moon/docker
 
-# react email
-.react-email
-apps/mails/dist
-
 # tests
 **/*/coverage
-
-# moon
-.moon/cache
-.moon/docker
-
-# Nuxt
-.nuxt
-.nitro
-.cache
-.output
-
-# rust
-target
