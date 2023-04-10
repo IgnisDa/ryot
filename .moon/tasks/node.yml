@@ -4,6 +4,7 @@ fileGroups:
   app:
     - "app/**/*"
     - "lib/**/*"
+    - "src/**/*"
 
   configs:
     - "*.{js,json}"

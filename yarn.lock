@@ -369,9 +369,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trackona/app@workspace:apps/app":
+"@trackona/app@workspace:apps/frontend":
   version: 0.0.0-use.local
-  resolution: "@trackona/app@workspace:apps/app"
+  resolution: "@trackona/app@workspace:apps/frontend"
   dependencies:
     "@builder.io/qwik": 0.100.0
     "@builder.io/qwik-city": 0.100.0

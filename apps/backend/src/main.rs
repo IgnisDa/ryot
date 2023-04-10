@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 static INDEX_HTML: &str = "index.html";
 
 #[derive(RustEmbed)]
-#[folder = "../app/dist/"]
+#[folder = "../frontend/dist/"]
 struct Assets;
 
 #[tokio::main]

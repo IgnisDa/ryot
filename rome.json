@@ -2,8 +2,8 @@
 	"$schema": "./node_modules/rome/configuration_schema.json",
 	"files": {
 		"ignore": [
-			".next", "dist", "coverage", "build", "tmp", "node_modules", ".solid",
-			"libs/generated/**", "**/.react-email/**", "apps/app/server/**"
+			"dist", "coverage", "build", "tmp", "node_modules", "libs/generated/**",
+			"apps/server/server/**"
 		]
 	},
 	"linter": {
@@ -18,5 +18,8 @@
 				"noExplicitAny": "warn"
 			}
 		}
+	},
+	"organizeImports": {
+		"enabled": true
 	}
 }
