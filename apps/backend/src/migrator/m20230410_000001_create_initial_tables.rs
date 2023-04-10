@@ -10,9 +10,7 @@ pub struct Migration;
 #[derive(Iden, EnumIter)]
 pub enum MediaItemMetadataImageType {
     Table,
-    #[iden = "poster"]
     Poster,
-    #[iden = "backdrop"]
     Backdrop,
 }
 
@@ -21,7 +19,7 @@ pub enum MediaItemMetadataImageType {
 enum MediaItemMetadataImage {
     Table,
     Id,
-    Type,
+    Lot,
     Url,
     MetadataId,
 }
@@ -29,15 +27,10 @@ enum MediaItemMetadataImage {
 #[derive(Iden, EnumIter)]
 pub enum MediaItemType {
     Table,
-    #[iden = "audio_book"]
     AudioBook,
-    #[iden = "book"]
     Book,
-    #[iden = "movie"]
     Movie,
-    #[iden = "show"]
     Show,
-    #[iden = "video_game"]
     VideoGame,
 }
 
@@ -47,7 +40,7 @@ enum MediaItemMetadata {
     Table,
     Id,
     CreatedOn,
-    Type,
+    Lot,
     // the time when this entry was last updated internally, this can only be
     // updated using jobs
     LastUpdatedOn,
@@ -83,7 +76,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MediaItemMetadataImage::Type)
+                        ColumnDef::new(MediaItemMetadataImage::Lot)
                             .enumeration(
                                 MediaItemMetadataImageType::Table,
                                 MediaItemMetadataImageType::iter().skip(1),
@@ -126,7 +119,7 @@ impl MigrationTrait for Migration {
                             .default(Utc::now()),
                     )
                     .col(
-                        ColumnDef::new(MediaItemMetadata::Type)
+                        ColumnDef::new(MediaItemMetadata::Lot)
                             .enumeration(MediaItemType::Table, MediaItemType::iter().skip(1))
                             .not_null(),
                     )
