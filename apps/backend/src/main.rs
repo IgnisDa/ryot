@@ -87,14 +87,3 @@ async fn not_found() -> Response {
         .body(boxed(Full::from("404")))
         .unwrap()
 }
-
-async fn get_asset(path: &'_ str) -> Option<Response> {
-    Assets::get(path).map(|content| {
-        let body = boxed(Full::from(content.data));
-        let mime = mime_guess::from_path(path).first_or_octet_stream();
-        Response::builder()
-            .header(header::CONTENT_TYPE, mime.as_ref())
-            .body(body)
-            .unwrap()
-    })
-}
