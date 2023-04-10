@@ -10,3 +10,5 @@ impl MigratorTrait for Migrator {
         vec![Box::new(m20230410_000001_create_initial_tables::Migration)]
     }
 }
+
+pub use m20230410_000001_create_initial_tables::{MediaItemLot, MediaItemMetadataImageLot};

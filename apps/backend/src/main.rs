@@ -1,7 +1,7 @@
 use crate::{
     config::get_figment_config,
     entities::{media_item_metadata, prelude::*},
-    migrator::Migrator,
+    migrator::{MediaItemLot, Migrator},
 };
 use axum::{
     body::{boxed, Full},
@@ -41,7 +41,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let metadata = media_item_metadata::ActiveModel {
         title: ActiveValue::Set("hello world!".to_owned()),
         description: ActiveValue::Set(Some("wow  1".to_owned())),
-        lot: ActiveValue::Set("VideoGame".to_string()),
+        lot: ActiveValue::Set(MediaItemLot::VideoGame),
+        // lot: ActiveValue::Set("VideoGame".to_owned()),
         ..Default::default()
     };
     MediaItemMetadata::insert(metadata).exec(&conn).await?;
