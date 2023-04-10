@@ -18,7 +18,7 @@ mod migrator;
 static INDEX_HTML: &str = "index.html";
 
 #[derive(RustEmbed)]
-#[folder = "../app/out/"]
+#[folder = "../frontend/out/"]
 struct Assets;
 
 #[tokio::main]

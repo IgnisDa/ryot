@@ -1,37 +1,36 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "target": "ES2017",
-    "module": "ES2020",
+    "target": "es5",
     "lib": [
-      "es2020",
-      "DOM",
-      "WebWorker",
-      "DOM.Iterable"
+      "dom",
+      "dom.iterable",
+      "esnext"
     ],
-    "jsx": "react-jsx",
-    "jsxImportSource": "@builder.io/qwik",
+    "allowJs": true,
+    "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "incremental": true,
-    "isolatedModules": true,
-    "outDir": "../../.moon/cache/types/apps/frontend",
     "noEmit": true,
-    "types": [
-      "node",
-      "vite/client"
-    ],
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
     "paths": {
-      "~/*": [
+      "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "outDir": "../../.moon/cache/types/apps/frontend"
   },
   "include": [
-    "src"
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

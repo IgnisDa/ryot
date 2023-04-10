@@ -1,43 +1,19 @@
 fileGroups:
-  qwik:
+  next:
+    - 'pages/**/*'
+    - 'public/**/*'
     - 'src/**/*'
-    - 'adapters/**/*'
-    - 'vite.config.ts'
+    - 'next-env.d.ts'
+    - 'next.config.*'
 
 tasks:
-  build:
-    command: noop
-    deps:
-      - '~:build-client'
-      - '~:build-server'
-    options:
-      runDepsInParallel: false
-
-  build-client:
-    command: 'vite build'
-    inputs:
-      - '@group(qwik)'
-    outputs:
-      - 'dist'
-
-  build-server:
-    command: vite
-    args:
-      - build
-      - '--config'
-      - 'adapters/static/vite.config.ts'
-    inputs:
-      - '@group(qwik)'
-    outputs:
-      - 'server'
-      - 'dist'
-
   dev:
-    command: vite
-    args:
-      - '--mode'
-      - 'ssr'
-      - '--host'
-      - '--port'
-      - '3000'
+    command: 'next dev'
     local: true
+
+  build:
+    command: 'next build'
+    inputs:
+      - '@group(next)'
+    outputs:
+      - 'out'
