@@ -1,9 +1,16 @@
-use crate::{config::get_figment_config, migrator::Migrator};
+use crate::{
+    config::get_figment_config,
+    graphql::{GraphqlSchema, MutationRoot, QueryRoot},
+    migrator::Migrator,
+};
+use async_graphql::{http::GraphiQLSource, EmptySubscription, Schema};
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     body::{boxed, Full},
     http::{header, StatusCode, Uri},
-    response::{IntoResponse, Response},
-    routing::Router,
+    response::{Html, IntoResponse, Response},
+    routing::{get, Router},
+    Extension,
 };
 use config::AppConfig;
 use dotenvy::dotenv;
@@ -14,6 +21,7 @@ use std::{error::Error, net::SocketAddr};
 
 mod config;
 mod entities;
+mod graphql;
 mod migrator;
 
 static INDEX_HTML: &str = "index.html";
@@ -21,6 +29,14 @@ static INDEX_HTML: &str = "index.html";
 #[derive(RustEmbed)]
 #[folder = "../frontend/out/"]
 struct Assets;
+
+async fn graphql_handler(schema: Extension<GraphqlSchema>, req: GraphQLRequest) -> GraphQLResponse {
+    schema.execute(req.into_inner()).await.into()
+}
+
+async fn graphql_playground() -> impl IntoResponse {
+    Html(GraphiQLSource::build().endpoint("/graphql").finish())
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -33,7 +49,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .expect("Database connection failed");
     Migrator::up(&conn, None).await.unwrap();
 
-    let app = Router::new().fallback(static_handler);
+    let schema = Schema::build(
+        QueryRoot::default(),
+        MutationRoot::default(),
+        EmptySubscription,
+    )
+    .data(conn)
+    .finish();
+    let app = Router::new()
+        .route("/graphql", get(graphql_playground).post(graphql_handler))
+        .layer(Extension(schema))
+        .fallback(static_handler);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
     tracing::info!("Listening on {}", addr);
