@@ -13,6 +13,7 @@ use sea_orm_migration::MigratorTrait;
 use std::{error::Error, net::SocketAddr};
 
 mod config;
+mod entities;
 mod migrator;
 
 static INDEX_HTML: &str = "index.html";
