@@ -1,0 +1,19 @@
+fileGroups:
+  next:
+    - 'pages/**/*'
+    - 'public/**/*'
+    - 'src/**/*'
+    - 'next-env.d.ts'
+    - 'next.config.*'
+
+tasks:
+  dev:
+    command: 'next dev'
+    local: true
+
+  build:
+    command: 'next build'
+    inputs:
+      - '@group(next)'
+    outputs:
+      - 'out'
