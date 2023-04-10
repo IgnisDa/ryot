@@ -5,3 +5,5 @@ procs:
     shell: "cargo watch -qx 'run --package trackona_backend'"
     env:
       RUST_LOG: "tower_http=trace,trackona=trace"
+  Frontend:
+    shell: "moon run frontend:dev"
