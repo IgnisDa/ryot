@@ -1,11 +1,16 @@
+use crate::config::get_figment_config;
 use axum::{
     body::{boxed, Full},
     http::{header, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::Router,
 };
+use config::AppConfig;
+use dotenvy::dotenv;
 use rust_embed::RustEmbed;
-use std::net::SocketAddr;
+use std::{error::Error, net::SocketAddr};
+
+mod config;
 
 static INDEX_HTML: &str = "index.html";
 
@@ -14,8 +19,10 @@ static INDEX_HTML: &str = "index.html";
 struct Assets;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
+    dotenv().ok();
+    let config: AppConfig = get_figment_config().extract()?;
     let app = Router::new().fallback(static_handler);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
@@ -24,6 +31,7 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+    Ok(())
 }
 
 async fn static_handler(uri: Uri) -> impl IntoResponse {

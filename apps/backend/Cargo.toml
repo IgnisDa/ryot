@@ -7,8 +7,12 @@ edition = "2021"
 
 [dependencies]
 axum = "0.6.12"
+dotenvy = "0.15.7"
+figment = { version = "0.10.8", features = ["env"] }
 mime_guess = "2.0.4"
 rust-embed = "6.6.1"
+sea-orm = { version = "0.11.1", features = ["sqlx-mysql", "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "debug-print"] }
+serde = { version = "1.0.159", features = ["derive"] }
 tokio = { version = "1.27.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
