@@ -1,4 +1,4 @@
-use crate::config::get_figment_config;
+use crate::{config::get_figment_config, migrator::Migrator};
 use axum::{
     body::{boxed, Full},
     http::{header, StatusCode, Uri},
@@ -8,9 +8,12 @@ use axum::{
 use config::AppConfig;
 use dotenvy::dotenv;
 use rust_embed::RustEmbed;
+use sea_orm::{Database, DatabaseConnection};
+use sea_orm_migration::MigratorTrait;
 use std::{error::Error, net::SocketAddr};
 
 mod config;
+mod migrator;
 
 static INDEX_HTML: &str = "index.html";
 
@@ -23,6 +26,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config: AppConfig = get_figment_config().extract()?;
+
+    let conn = Database::connect(&config.db.url)
+        .await
+        .expect("Database connection failed");
+    Migrator::up(&conn, None).await.unwrap();
+
     let app = Router::new().fallback(static_handler);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
