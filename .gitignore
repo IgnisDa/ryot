@@ -78,7 +78,3 @@ apps/mails/dist
 
 # rust
 target
-
-# Solid
-.solid
-.output
