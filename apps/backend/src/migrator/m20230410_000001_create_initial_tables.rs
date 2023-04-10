@@ -1,5 +1,5 @@
 use chrono::Utc;
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, Iterable};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -8,11 +8,12 @@ static METADATA_TO_IMAGE_FOREIGN_KEY: &str = "metadata_to_image_foreign_key";
 
 pub struct Migration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "i32", db_type = "Integer")]
+#[derive(Iden, EnumIter)]
 pub enum MediaItemMetadataImageLot {
-    Poster = 0,
-    Backdrop = 1,
+    #[iden = "media_item_metadata_image_lot_enum"]
+    Enum,
+    Poster,
+    Backdrop,
 }
 
 // This is responsible for storing common metadata about all media items
@@ -80,8 +81,8 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(MediaItemMetadataImage::Lot)
                             .enumeration(
-                                MediaItemMetadataImageLotEnum.into_iden(),
-                                MediaItemMetadataImageLotEnum.into_iter(),
+                                MediaItemMetadataImageLot::Enum,
+                                MediaItemMetadataImageLot::iter(),
                             )
                             .not_null(),
                     )
