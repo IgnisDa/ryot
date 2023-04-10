@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.68"
 axum = "0.6.12"
+chrono = "0.4.24"
 dotenvy = "0.15.7"
 figment = { version = "0.10.8", features = ["env"] }
 mime_guess = "2.0.4"
