@@ -8,7 +8,7 @@ static METADATA_TO_IMAGE_FOREIGN_KEY: &str = "metadata_to_image_foreign_key";
 pub struct Migration;
 
 #[derive(Iden, EnumIter)]
-pub enum MediaItemMetadataImageType {
+pub enum MediaItemMetadataImageLot {
     Table,
     Poster,
     Backdrop,
@@ -23,9 +23,10 @@ enum MediaItemMetadataImage {
     Url,
     MetadataId,
 }
+
 // The different types of media that can be stored
 #[derive(Iden, EnumIter)]
-pub enum MediaItemType {
+pub enum MediaItemLot {
     Table,
     AudioBook,
     Book,
@@ -78,8 +79,8 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(MediaItemMetadataImage::Lot)
                             .enumeration(
-                                MediaItemMetadataImageType::Table,
-                                MediaItemMetadataImageType::iter().skip(1),
+                                MediaItemMetadataImageLot::Table,
+                                MediaItemMetadataImageLot::iter().skip(1),
                             )
                             .not_null(),
                     )
@@ -120,7 +121,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MediaItemMetadata::Lot)
-                            .enumeration(MediaItemType::Table, MediaItemType::iter().skip(1))
+                            .enumeration(MediaItemLot::Table, MediaItemLot::iter().skip(1))
                             .not_null(),
                     )
                     .col(
