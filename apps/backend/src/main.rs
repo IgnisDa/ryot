@@ -1,8 +1,4 @@
-use crate::{
-    config::get_figment_config,
-    entities::{media_item_metadata, prelude::*},
-    migrator::{MediaItemLot, Migrator},
-};
+use crate::{config::get_figment_config, migrator::Migrator};
 use axum::{
     body::{boxed, Full},
     http::{header, StatusCode, Uri},
@@ -12,7 +8,7 @@ use axum::{
 use config::AppConfig;
 use dotenvy::dotenv;
 use rust_embed::RustEmbed;
-use sea_orm::{ActiveValue, Database, EntityTrait};
+use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 use std::{error::Error, net::SocketAddr};
 
@@ -36,19 +32,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await
         .expect("Database connection failed");
     Migrator::up(&conn, None).await.unwrap();
-
-    // testing here
-    let metadata = media_item_metadata::ActiveModel {
-        title: ActiveValue::Set("hello world!".to_owned()),
-        description: ActiveValue::Set(Some("wow  1".to_owned())),
-        lot: ActiveValue::Set(MediaItemLot::VideoGame),
-        // lot: ActiveValue::Set("VideoGame".to_owned()),
-        ..Default::default()
-    };
-    MediaItemMetadata::insert(metadata).exec(&conn).await?;
-    let res = MediaItemMetadata::find().all(&conn).await?;
-    dbg!(&res);
-    //
 
     let app = Router::new().fallback(static_handler);
 
