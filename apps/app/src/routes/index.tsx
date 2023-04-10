@@ -12,10 +12,10 @@ export default component$(() => {
 	});
 
 	return (
-		<>
-			<div class="text-red-400 bg-yellow-700">This is the index page</div>
+		<div>
+			This is the index page
 			<div>{JSON.stringify(data)}</div>
-		</>
+		</div>
 	);
 });
 
