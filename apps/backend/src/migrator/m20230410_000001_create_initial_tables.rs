@@ -1,17 +1,18 @@
 use chrono::Utc;
-use sea_orm::{EnumIter, Iterable};
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 static METADATA_TITLE_INDEX: &str = "media_item_metadata__title__index";
 static METADATA_TO_IMAGE_FOREIGN_KEY: &str = "metadata_to_image_foreign_key";
 
 pub struct Migration;
 
-#[derive(Iden, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[sea_orm(rs_type = "i32", db_type = "Integer")]
 pub enum MediaItemMetadataImageLot {
-    Table,
-    Poster,
-    Backdrop,
+    Poster = 0,
+    Backdrop = 1,
 }
 
 // This is responsible for storing common metadata about all media items
@@ -25,14 +26,14 @@ enum MediaItemMetadataImage {
 }
 
 // The different types of media that can be stored
-#[derive(Iden, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[sea_orm(rs_type = "i32", db_type = "Integer")]
 pub enum MediaItemLot {
-    Table,
-    AudioBook,
-    Book,
-    Movie,
-    Show,
-    VideoGame,
+    AudioBook = 0,
+    Book = 1,
+    Movie = 2,
+    Show = 3,
+    VideoGame = 4,
 }
 
 // This is responsible for storing common metadata about all media items
@@ -79,8 +80,8 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(MediaItemMetadataImage::Lot)
                             .enumeration(
-                                MediaItemMetadataImageLot::Table,
-                                MediaItemMetadataImageLot::iter().skip(1),
+                                MediaItemMetadataImageLotEnum.into_iden(),
+                                MediaItemMetadataImageLotEnum.into_iter(),
                             )
                             .not_null(),
                     )
@@ -121,7 +122,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MediaItemMetadata::Lot)
-                            .enumeration(MediaItemLot::Table, MediaItemLot::iter().skip(1))
+                            .enumeration(MediaItemLotEnum.into_iden(), MediaItemLotEnum.into_iter())
                             .not_null(),
                     )
                     .col(
