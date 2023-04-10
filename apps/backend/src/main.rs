@@ -8,7 +8,7 @@ use axum::{
 use config::AppConfig;
 use dotenvy::dotenv;
 use rust_embed::RustEmbed;
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 use std::{error::Error, net::SocketAddr};
 
@@ -18,7 +18,7 @@ mod migrator;
 static INDEX_HTML: &str = "index.html";
 
 #[derive(RustEmbed)]
-#[folder = "../frontend/dist/"]
+#[folder = "../app/out/"]
 struct Assets;
 
 #[tokio::main]
