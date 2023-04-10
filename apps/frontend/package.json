@@ -1,5 +1,5 @@
 {
-	"name": "@trackona/app",
+	"name": "@trackona/frontend",
 	"private": true,
 	"devDependencies": {
 		"@builder.io/qwik": "0.100.0",
