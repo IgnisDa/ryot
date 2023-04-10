@@ -44,24 +44,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn static_handler(uri: Uri) -> impl IntoResponse {
-    let path = uri.path().trim_start_matches('/');
+    let mut path = uri.path().trim_start_matches('/').to_owned();
 
     if path.is_empty() || path == INDEX_HTML {
         return index_html().await;
     }
 
-    match Assets::iter().find(|asset| asset == path) {
-        Some(p) => get_asset(&p).await.unwrap(),
-        None => {
-            let mut path_components = path.split('/').collect::<Vec<_>>();
-            let last_elm = path_components.last_mut().unwrap();
-            let path_segment = format!("{}/index.html", last_elm);
-            *last_elm = &path_segment;
-            match get_asset(&path_components.join("/")).await {
-                Some(asset) => asset,
-                None => not_found().await,
-            }
+    if !path.contains(".") {
+        path.push_str(".html");
+    }
+
+    match Assets::get(&path) {
+        Some(content) => {
+            let body = boxed(Full::from(content.data));
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+
+            Response::builder()
+                .header(header::CONTENT_TYPE, mime.as_ref())
+                .body(body)
+                .unwrap()
         }
+        None => not_found().await,
     }
 }
 
