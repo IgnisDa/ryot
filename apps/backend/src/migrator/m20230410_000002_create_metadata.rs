@@ -1,4 +1,3 @@
-use chrono::Utc;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -63,7 +62,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(MediaItemMetadata::CreatedOn)
                             .date_time()
                             .not_null()
-                            .default(Utc::now()),
+                            .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(MediaItemMetadata::Lot)
@@ -74,7 +73,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(MediaItemMetadata::LastUpdatedOn)
                             .date_time()
                             .not_null()
-                            .default(Utc::now()),
+                            .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(MediaItemMetadata::Title).string().not_null())
                     .col(ColumnDef::new(MediaItemMetadata::Description).text())
