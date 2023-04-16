@@ -5,3 +5,4 @@ pub mod prelude;
 pub mod book;
 pub mod media_item_metadata;
 pub mod media_item_metadata_image;
+pub mod open_library_key;

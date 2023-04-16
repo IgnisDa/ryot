@@ -49,6 +49,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .expect("Database connection failed");
     Migrator::up(&conn, None).await.unwrap();
 
+    // testing code
+    use crate::{
+        config::get_figment_config,
+        entities::{book, media_item_metadata, prelude::*},
+        migrator::{MediaItemLot, Migrator},
+    };
+    use sea_orm::{ActiveValue, EntityTrait};
+    let metadata = media_item_metadata::ActiveModel {
+        title: ActiveValue::Set("hello world!".to_owned()),
+        description: ActiveValue::Set(Some("wow  1".to_owned())),
+        lot: ActiveValue::Set(MediaItemLot::VideoGame),
+        ..Default::default()
+    };
+    MediaItemMetadata::insert(metadata.clone())
+        .exec(&conn)
+        .await?;
+    let book = book::ActiveModel {
+        metadata_id: (metadata.id),
+        ..Default::default()
+    };
+    Book::insert(book).exec(&conn).await?;
+    let res = Book::find().all(&conn).await?;
+    dbg!(&res);
+
+    // testing code end
+
     let schema = Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
