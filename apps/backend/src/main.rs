@@ -51,9 +51,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // testing code
     use crate::{
-        config::get_figment_config,
         entities::{book, media_item_metadata, prelude::*},
-        migrator::{MediaItemLot, Migrator},
+        migrator::MediaItemLot,
     };
     use sea_orm::{ActiveValue, EntityTrait};
     let metadata = media_item_metadata::ActiveModel {
@@ -72,7 +71,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Book::insert(book).exec(&conn).await?;
     let res = Book::find().all(&conn).await?;
     dbg!(&res);
-
     // testing code end
 
     let schema = Schema::build(
