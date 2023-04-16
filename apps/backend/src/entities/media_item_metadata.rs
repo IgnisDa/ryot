@@ -21,7 +21,7 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_one = "super::book::Entity")]
     Book,
-    #[sea_orm(has_many = "super::media_item_metadata_image::Entity")]
+    #[sea_orm(has_one = "super::media_item_metadata_image::Entity")]
     MediaItemMetadataImage,
 }
 
