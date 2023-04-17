@@ -1,12 +1,15 @@
-use figment::{providers::Env, Figment};
-use serde::{Deserialize, Serialize};
+use figment::{
+    providers::{Env, Format, Json, Toml, Yaml},
+    Figment,
+};
+use serde::Deserialize;
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct DatabaseConfig {
     pub url: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct OpenlibraryConfig {
     #[serde(default = "OpenlibraryConfig::api_url")]
     pub url: String,
@@ -23,22 +26,28 @@ impl OpenlibraryConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct BookConfig {
     pub openlibrary: OpenlibraryConfig,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct SchedulerConfig {}
+// #[derive(Deserialize, Debug, Clone, Serialize)]
+// pub struct SchedulerConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct AppConfig {
     pub database: DatabaseConfig,
     pub books: BookConfig,
-    pub scheduler: SchedulerConfig,
+    // pub scheduler: SchedulerConfig,
 }
 
 /// Get the figment configuration that is used across the apps.
 pub fn get_figment_config() -> Figment {
-    Figment::new().merge(Env::raw().split("_"))
+    let config = "config";
+    let app = "trackona";
+    Figment::new()
+        .merge(Env::raw().split("_"))
+        .merge(Json::file(format!("{config}/{app}.json")))
+        .merge(Toml::file(format!("{config}/{app}.toml")))
+        .merge(Yaml::file(format!("{config}/{app}.yaml")))
 }
