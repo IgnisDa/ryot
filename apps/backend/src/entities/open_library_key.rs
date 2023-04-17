@@ -25,7 +25,14 @@ pub enum Relation {
 
 impl Related<super::book::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Book.def()
+        super::book_open_library_key::Relation::Book.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::book_open_library_key::Relation::OpenLibraryKey
+                .def()
+                .rev(),
+        )
     }
 }
 

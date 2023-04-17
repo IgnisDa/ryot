@@ -32,7 +32,10 @@ impl Related<super::media_item_metadata::Entity> for Entity {
 
 impl Related<super::open_library_key::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::OpenLibraryKey.def()
+        super::book_open_library_key::Relation::OpenLibraryKey.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::book_open_library_key::Relation::Book.def().rev())
     }
 }
 

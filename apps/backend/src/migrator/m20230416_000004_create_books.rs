@@ -8,6 +8,13 @@ static OPENLIBRARY_KEY_TO_BOOK_FOREIGN_KEY: &str = "openlibrary_key_to_book_fore
 pub struct Migration;
 
 #[derive(Iden)]
+enum BookOpenLibraryKey {
+    Table,
+    BookId,
+    OpenLibraryKeyId,
+}
+
+#[derive(Iden)]
 enum OpenLibraryKey {
     Table,
     Id,
@@ -29,6 +36,48 @@ impl MigrationName for Migration {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(BookOpenLibraryKey::Table)
+                    .col(
+                        ColumnDef::new(BookOpenLibraryKey::BookId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(BookOpenLibraryKey::OpenLibraryKeyId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .name("pk-book_openlibrary-key")
+                            .col(BookOpenLibraryKey::BookId)
+                            .col(BookOpenLibraryKey::OpenLibraryKeyId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-book_book-openlibrary-key_id")
+                            .from(BookOpenLibraryKey::Table, BookOpenLibraryKey::BookId)
+                            .to(Book::Table, Book::MetadataId)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-openlibrary-key_book-openlibrary-key_id")
+                            .from(
+                                BookOpenLibraryKey::Table,
+                                BookOpenLibraryKey::OpenLibraryKeyId,
+                            )
+                            .to(OpenLibraryKey::Table, OpenLibraryKey::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -80,6 +129,9 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(OpenLibraryKey::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(BookOpenLibraryKey::Table).to_owned())
             .await?;
         Ok(())
     }
