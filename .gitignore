@@ -7,7 +7,9 @@ target
 .env
 .dev.vars
 
-surreal.db
+*.db
+*.db-shm
+*.db-wal
 
 # dependencies
 node_modules

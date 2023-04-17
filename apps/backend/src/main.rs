@@ -1,7 +1,15 @@
 use crate::{
-    config::{get_figment_config, AppConfig},
+    background::{refresh_media, RefreshMedia},
+    config::{get_figment_config, AppConfig, SchedulerMode},
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
+};
+use apalis::{
+    layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
+    // mysql::MysqlStorage,
+    // postgres::PostgresStorage,
+    prelude::{Monitor, Storage, WorkerBuilder, WorkerFactoryFn},
+    sqlite::SqliteStorage,
 };
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
@@ -16,8 +24,13 @@ use dotenvy::dotenv;
 use rust_embed::RustEmbed;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
-use std::{error::Error, net::SocketAddr};
+use std::{
+    error::Error,
+    io::{Error as IoError, ErrorKind as IoErrorKind},
+    net::SocketAddr,
+};
 
+mod background;
 mod books;
 mod config;
 mod entities;
@@ -43,7 +56,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config: AppConfig = get_figment_config().extract()?;
-    dbg!(&config);
 
     let conn = Database::connect(&config.db.url)
         .await
@@ -117,6 +129,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dbg!(&res);
     // testing code end
 
+    // #[derive(Clone)]
+    // enum AppStorage<T> {
+    //     Sqlite(SqliteStorage<T>),
+    //     Mysql(MysqlStorage<T>),
+    //     Postgres(PostgresStorage<T>),
+    // }
+
+    let mut storage = match config.scheduler.mode {
+        SchedulerMode::Sqlite => {
+            let st = SqliteStorage::connect(&config.scheduler.url).await.unwrap();
+            st.setup().await.unwrap();
+            st
+        }
+        _ => todo!()
+        // SchedulerMode::Mysql => {
+        //     Box::new(MysqlStorage::connect(config.scheduler.url).await.unwrap())
+        // }
+        // SchedulerMode::Postgres => Box::new(
+        //     PostgresStorage::connect(config.scheduler.url)
+        //         .await
+        //         .unwrap(),
+        // ),
+    };
+    // storage.push(RefreshMedia {}).await?;
+
     let schema = get_schema(conn.clone(), &config);
 
     let app = Router::new()
@@ -126,10 +163,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
     tracing::info!("Listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+
+    let monitor = async {
+        let monitor = Monitor::new()
+            .register_with_count(1, move |_| {
+                WorkerBuilder::new(storage.clone())
+                    .layer(ApalisExtension(config.clone()))
+                    .layer(ApalisExtension(conn.clone()))
+                    .layer(ApalisTraceLayer::new())
+                    .build_fn(refresh_media)
+            })
+            .run()
+            .await;
+        Ok(monitor)
+    };
+    let http = async {
+        axum::Server::bind(&addr)
+            .serve(app.into_make_service())
+            .await
+            .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
+    };
+
+    let _res = tokio::try_join!(http, monitor).expect("Could not start services");
+
     Ok(())
 }
 
