@@ -2,7 +2,13 @@ use async_graphql::{Context, EmptySubscription, MergedObject, Object, Result, Sc
 use sea_orm::DatabaseConnection;
 use std::env;
 
-use crate::{books::openlibrary::OpenlibraryService, config::AppConfig};
+use crate::{
+    books::{
+        openlibrary::OpenlibraryService,
+        resolver::{BooksQuery, BooksService},
+    },
+    config::AppConfig,
+};
 
 #[derive(Default)]
 struct CoreQuery;
@@ -25,7 +31,7 @@ impl CoreMutation {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery);
+pub struct QueryRoot(CoreQuery, BooksQuery);
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(CoreMutation);
@@ -33,14 +39,18 @@ pub struct MutationRoot(CoreMutation);
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
-    let openlibrary_service = OpenlibraryService::new(&config.book.openlibrary.url);
+    let openlibrary_service = OpenlibraryService::new(
+        &config.book.openlibrary.url,
+        &config.book.openlibrary.cover_image,
+    );
+    let book_service = BooksService::new(&openlibrary_service);
     let schema = Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
         EmptySubscription,
     )
     .data(conn)
-    .data(openlibrary_service)
+    .data(book_service)
     .finish();
     schema
 }
