@@ -12,6 +12,7 @@ pub use m20230410_000001_create_metadata::{
 };
 pub use m20230416_000002_create_creator::Creator;
 pub use m20230416_000003_create_book::Book;
+pub use m20230417_000004_create_user::UserLot;
 
 pub struct Migrator;
 
