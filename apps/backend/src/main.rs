@@ -29,6 +29,8 @@ use std::{
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
 };
+use tokio::sync::mpsc;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 mod background;
 mod books;
@@ -136,7 +138,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     Postgres(PostgresStorage<T>),
     // }
 
-    let mut storage = match config.scheduler.mode {
+    let storage = match config.scheduler.mode {
         SchedulerMode::Sqlite => {
             let st = SqliteStorage::connect(&config.scheduler.url).await.unwrap();
             st.setup().await.unwrap();
@@ -152,7 +154,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
         //         .unwrap(),
         // ),
     };
-    // storage.push(RefreshMedia {}).await?;
+
+    let (tx, mut rx) = mpsc::channel::<u8>(1);
+    let mut new_storage = storage.clone();
+    tokio::spawn(async move {
+        loop {
+            if let Some(_) = rx.recv().await {
+                new_storage.push(RefreshMedia {}).await.unwrap();
+            }
+        }
+    });
+
+    let sched = JobScheduler::new().await.unwrap();
+    sched.shutdown_on_ctrl_c();
+
+    sched
+        .add(
+            Job::new_async("1/10 * * * * *", move |_uuid, _l| {
+                let tx = tx.clone();
+                Box::pin(async move {
+                    tx.send(1).await.unwrap();
+                })
+            })
+            .unwrap(),
+        )
+        .await
+        .unwrap();
 
     let schema = get_schema(conn.clone(), &config);
 
@@ -183,8 +210,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };
+    let scheduler = async { Ok(sched.start().await) };
 
-    let _res = tokio::try_join!(http, monitor).expect("Could not start services");
+    let _res = tokio::try_join!(monitor, http, scheduler).expect("Could not start services");
 
     Ok(())
 }
