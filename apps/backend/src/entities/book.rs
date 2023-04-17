@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
+    pub open_library_keys: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -20,22 +21,11 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     MediaItemMetadata,
-    #[sea_orm(has_many = "super::open_library_key::Entity")]
-    OpenLibraryKey,
 }
 
 impl Related<super::media_item_metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MediaItemMetadata.def()
-    }
-}
-
-impl Related<super::open_library_key::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::book_open_library_key::Relation::OpenLibraryKey.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::book_open_library_key::Relation::Book.def().rev())
     }
 }
 
