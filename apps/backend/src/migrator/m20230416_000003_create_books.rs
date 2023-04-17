@@ -1,9 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230410_000002_create_metadata::MediaItemMetadata;
-
-static BOOK_TO_METADATA_FOREIGN_KEY: &str = "book_to_metadata_foreign_key";
-static OPENLIBRARY_KEY_TO_BOOK_FOREIGN_KEY: &str = "openlibrary_key_to_book_foreign_key";
+use super::MediaItemMetadata;
 
 pub struct Migration;
 
@@ -29,7 +26,7 @@ pub enum Book {
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230416_000004_create_books"
+        "m20230416_000003_create_books"
     }
 }
 
@@ -92,10 +89,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(OpenLibraryKey::Key).string().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name(OPENLIBRARY_KEY_TO_BOOK_FOREIGN_KEY)
+                            .name("openlibrary_key_to_book_foreign_key")
                             .from(OpenLibraryKey::Table, OpenLibraryKey::Id)
                             .to(Book::Table, Book::MetadataId)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -112,10 +110,11 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(BOOK_TO_METADATA_FOREIGN_KEY)
+                            .name("book_to_metadata_foreign_key")
                             .from(Book::Table, Book::MetadataId)
                             .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
