@@ -21,8 +21,6 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_one = "super::book::Entity")]
     Book,
-    #[sea_orm(has_many = "super::creator::Entity")]
-    Creator,
     #[sea_orm(has_many = "super::media_item_metadata_image::Entity")]
     MediaItemMetadataImage,
 }
@@ -33,15 +31,22 @@ impl Related<super::book::Entity> for Entity {
     }
 }
 
-impl Related<super::creator::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Creator.def()
-    }
-}
-
 impl Related<super::media_item_metadata_image::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MediaItemMetadataImage.def()
+    }
+}
+
+impl Related<super::creator::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::media_item_creator::Relation::Creator.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::media_item_creator::Relation::MediaItemMetadata
+                .def()
+                .rev(),
+        )
     }
 }
 

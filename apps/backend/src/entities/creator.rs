@@ -12,20 +12,14 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::media_item_metadata::Entity",
-        from = "Column::Id",
-        to = "super::media_item_metadata::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    MediaItemMetadata,
-}
+pub enum Relation {}
 
 impl Related<super::media_item_metadata::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::MediaItemMetadata.def()
+        super::media_item_creator::Relation::MediaItemMetadata.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::media_item_creator::Relation::Creator.def().rev())
     }
 }
 

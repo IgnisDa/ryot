@@ -80,14 +80,6 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Creator::Name).string().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("creator_to_book_foreign_key")
-                            .from(Creator::Table, Creator::Id)
-                            .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
