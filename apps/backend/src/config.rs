@@ -4,9 +4,17 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
     pub url: String,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: "sqlite:./app.db?mode=rwc".to_owned(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
@@ -29,11 +37,18 @@ pub struct BookConfig {
     pub openlibrary: OpenlibraryConfig,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct SchedulerConfig {}
+
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
+    #[serde(default)]
     pub database: DatabaseConfig,
     #[serde(default)]
     pub books: BookConfig,
