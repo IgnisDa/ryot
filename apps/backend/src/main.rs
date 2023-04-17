@@ -50,27 +50,52 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Migrator::up(&conn, None).await.unwrap();
 
     // testing code
-    // use crate::{
-    //     entities::{book, media_item_metadata, prelude::*},
-    //     migrator::MediaItemLot,
-    // };
-    // use sea_orm::{ActiveValue, EntityTrait};
-    // let metadata = media_item_metadata::ActiveModel {
-    //     title: ActiveValue::Set("hello world!".to_owned()),
-    //     description: ActiveValue::Set(Some("wow  1".to_owned())),
-    //     lot: ActiveValue::Set(MediaItemLot::VideoGame),
-    //     ..Default::default()
-    // };
-    // MediaItemMetadata::insert(metadata.clone())
-    //     .exec(&conn)
-    //     .await?;
-    // let book = book::ActiveModel {
-    //     metadata_id: (metadata.id),
-    //     ..Default::default()
-    // };
-    // Book::insert(book).exec(&conn).await?;
-    // let res = Book::find().all(&conn).await?;
-    // dbg!(&res);
+    use crate::{
+        entities::{book, media_item_metadata, media_item_metadata_image, prelude::*},
+        migrator::{MediaItemLot, MediaItemMetadataImageLot},
+    };
+    use sea_orm::{ActiveValue, EntityTrait, ModelTrait};
+    let metadata = media_item_metadata::ActiveModel {
+        title: ActiveValue::Set("hello world!".to_owned()),
+        description: ActiveValue::Set(Some("wow  1".to_owned())),
+        lot: ActiveValue::Set(MediaItemLot::VideoGame),
+        ..Default::default()
+    };
+    let rsp = MediaItemMetadata::insert(metadata.clone())
+        .exec(&conn)
+        .await?;
+    let image = media_item_metadata_image::ActiveModel {
+        url: ActiveValue::Set("hello".to_owned()),
+        lot: ActiveValue::Set(MediaItemMetadataImageLot::Poster),
+        metadata_id: ActiveValue::Set(rsp.last_insert_id),
+        ..Default::default()
+    };
+    MediaItemMetadataImage::insert(image.clone())
+        .exec(&conn)
+        .await?;
+    let image = media_item_metadata_image::ActiveModel {
+        url: ActiveValue::Set("hello 1".to_owned()),
+        lot: ActiveValue::Set(MediaItemMetadataImageLot::Backdrop),
+        metadata_id: ActiveValue::Set(rsp.last_insert_id),
+        ..Default::default()
+    };
+    MediaItemMetadataImage::insert(image.clone())
+        .exec(&conn)
+        .await?;
+    let mim = MediaItemMetadata::find_by_id(rsp.last_insert_id)
+        .one(&conn)
+        .await?
+        .unwrap();
+    let images = mim.find_related(MediaItemMetadataImage).all(&conn).await?;
+    dbg!(&images);
+
+    let book = book::ActiveModel {
+        metadata_id: (metadata.id),
+        ..Default::default()
+    };
+    Book::insert(book).exec(&conn).await?;
+    let res = Book::find().all(&conn).await?;
+    dbg!(&res);
     // testing code end
 
     let schema = Schema::build(
