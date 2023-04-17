@@ -18,6 +18,7 @@ pub struct BooksQuery;
 
 #[Object]
 impl BooksQuery {
+    /// Search for a list of books by a particular search query and an offset.
     async fn books_search(
         &self,
         gql_ctx: &Context<'_>,
@@ -28,16 +29,6 @@ impl BooksQuery {
             .data_unchecked::<BooksService>()
             .books_search(&query, offset)
             .await
-    }
-}
-
-#[derive(Default)]
-struct BooksMutation;
-
-#[Object]
-impl BooksMutation {
-    async fn pass(&self, _gql_ctx: &Context<'_>) -> Result<bool> {
-        Ok(true)
     }
 }
 
@@ -52,14 +43,18 @@ impl BooksService {
             openlibrary_service: Arc::new(openlibrary_service.clone()),
         }
     }
+}
 
+impl BooksService {
     // Get book details from all sources
     async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<Vec<BookSearch>> {
-        let a = self
-            .openlibrary_service
-            .search(query, offset)
-            .await
-            .unwrap();
-        Ok(a)
+        let mut books = vec![];
+        books.extend(
+            self.openlibrary_service
+                .search(query, offset)
+                .await
+                .unwrap(),
+        );
+        Ok(books)
     }
 }

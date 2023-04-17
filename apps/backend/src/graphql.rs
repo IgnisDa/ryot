@@ -15,6 +15,7 @@ struct CoreQuery;
 
 #[Object]
 impl CoreQuery {
+    /// Get the version of the service running.
     async fn version(&self, _gql_ctx: &Context<'_>) -> Result<String> {
         Ok(env!("CARGO_PKG_VERSION").to_owned())
     }
