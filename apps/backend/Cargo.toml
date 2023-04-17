@@ -19,6 +19,7 @@ rust-embed = "6.6.1"
 sea-orm = { version = "0.11.1", features = ["sqlx-mysql", "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "debug-print"] }
 sea-orm-migration = "0.11.1"
 serde = { version = "1.0.159", features = ["derive"] }
+serde_json = "1.0.96"
 surf = "2.3.2"
 tokio = { version = "1.27.0", features = ["full"] }
 tokio-cron-scheduler = { version = "0.9.4", features = ["signal"] }
