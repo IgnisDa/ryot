@@ -51,10 +51,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // testing code
     use crate::{
-        entities::{book, media_item_metadata, media_item_metadata_image, prelude::*},
+        entities::{
+            book, creator, media_item_creator, media_item_metadata, media_item_metadata_image,
+            prelude::*,
+        },
         migrator::{MediaItemLot, MediaItemMetadataImageLot},
     };
     use sea_orm::{ActiveValue, EntityTrait, ModelTrait};
+
+    let crt = creator::ActiveModel {
+        name: ActiveValue::Set("JK Rowling".to_owned()),
+        ..Default::default()
+    };
+    let crt = Creator::insert(crt.clone()).exec(&conn).await?;
+
     let metadata = media_item_metadata::ActiveModel {
         title: ActiveValue::Set("hello world!".to_owned()),
         description: ActiveValue::Set(Some("wow  1".to_owned())),
@@ -64,6 +74,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rsp = MediaItemMetadata::insert(metadata.clone())
         .exec(&conn)
         .await?;
+
+    let rel = media_item_creator::ActiveModel {
+        media_item_id: ActiveValue::Set(rsp.last_insert_id),
+        creator_id: ActiveValue::Set(crt.last_insert_id),
+    };
+    MediaItemCreator::insert(rel.clone()).exec(&conn).await?;
+
     let image = media_item_metadata_image::ActiveModel {
         url: ActiveValue::Set("hello".to_owned()),
         lot: ActiveValue::Set(MediaItemMetadataImageLot::Poster),
@@ -87,7 +104,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?
         .unwrap();
     let images = mim.find_related(MediaItemMetadataImage).all(&conn).await?;
-    dbg!(&images);
+    let crts = mim.find_related(Creator).all(&conn).await?;
+    dbg!(&images, &crts);
 
     let book = book::ActiveModel {
         metadata_id: (metadata.id),
