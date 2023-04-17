@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config: AppConfig = get_figment_config().extract()?;
+    dbg!(&config);
 
     let conn = Database::connect(&config.db.url)
         .await
@@ -116,7 +117,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dbg!(&res);
     // testing code end
 
-    let schema = get_schema(conn.clone());
+    let schema = get_schema(conn.clone(), &config);
 
     let app = Router::new()
         .route("/graphql", get(graphql_playground).post(graphql_handler))

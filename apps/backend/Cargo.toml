@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.70"
 async-graphql = { version = "5.0.7", features = ["log", "uuid"] }
 async-graphql-axum = "5.0.7"
-async-trait = "0.1.68"
 axum = "0.6.12"
 chrono = "0.4.24"
 dotenvy = "0.15.7"
@@ -18,6 +18,7 @@ rust-embed = "6.6.1"
 sea-orm = { version = "0.11.1", features = ["sqlx-mysql", "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "debug-print"] }
 sea-orm-migration = "0.11.1"
 serde = { version = "1.0.159", features = ["derive"] }
+surf = "2.3.2"
 tokio = { version = "1.27.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
