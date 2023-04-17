@@ -4,6 +4,7 @@ use crate::{
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
 };
+use anyhow::Result;
 use apalis::{
     layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
     prelude::{Monitor, Storage, WorkerBuilder, WorkerFactoryFn},
@@ -24,6 +25,7 @@ use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 use std::{
     error::Error,
+    fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
 };
@@ -52,10 +54,11 @@ async fn graphql_playground() -> impl IntoResponse {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config: AppConfig = get_figment_config().extract()?;
+    fs::write("computed.json", serde_json::to_string_pretty(&config)?)?;
 
     let conn = Database::connect(&config.database.url)
         .await

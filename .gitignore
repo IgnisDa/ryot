@@ -35,3 +35,4 @@ nextjs-routes.d.ts
 
 # tests
 **/*/coverage
+computed.json

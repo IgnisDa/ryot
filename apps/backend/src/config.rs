@@ -2,14 +2,14 @@ use figment::{
     providers::{Env, Format, Json, Toml, Yaml},
     Figment,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct DatabaseConfig {
     pub url: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct OpenlibraryConfig {
     #[serde(default = "OpenlibraryConfig::api_url")]
     pub url: String,
@@ -26,15 +26,15 @@ impl OpenlibraryConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct BookConfig {
     pub openlibrary: OpenlibraryConfig,
 }
 
-// #[derive(Deserialize, Debug, Clone, Serialize)]
+// #[derive(Deserialize, Debug, Clone, Serialize, Serialize)]
 // pub struct SchedulerConfig {}
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
     pub database: DatabaseConfig,
     pub books: BookConfig,
