@@ -1,4 +1,6 @@
-use async_graphql::{Context, EmptySubscription, MergedObject, Object, Result, Schema};
+use async_graphql::{
+    Context, EmptySubscription, MergedObject, Object, Result, Schema, SimpleObject,
+};
 use sea_orm::DatabaseConnection;
 use std::env;
 
@@ -10,6 +12,11 @@ use crate::{
     config::AppConfig,
     users::resolver::{UsersMutation, UsersService},
 };
+
+#[derive(Debug, SimpleObject)]
+pub struct IdObject {
+    pub id: i32,
+}
 
 #[derive(Default)]
 struct CoreQuery;
@@ -37,7 +44,7 @@ pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema
     );
     let book_service = BooksService::new(&openlibrary_service);
     let users_service = UsersService::new(&conn);
-    let schema = Schema::build(
+    Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
         EmptySubscription,
@@ -45,6 +52,5 @@ pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema
     .data(conn)
     .data(book_service)
     .data(users_service)
-    .finish();
-    schema
+    .finish()
 }

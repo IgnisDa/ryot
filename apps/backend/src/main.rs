@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
     let mut new_storage = storage.clone();
     tokio::spawn(async move {
         loop {
-            if let Some(_) = rx.recv().await {
+            if (rx.recv().await).is_some() {
                 new_storage.push(RefreshMedia {}).await.unwrap();
             }
         }
@@ -140,7 +140,7 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
         return index_html().await;
     }
 
-    if !path.contains(".") {
+    if !path.contains('.') {
         path.push_str(".html");
     }
 
