@@ -1,9 +1,9 @@
 use crate::{
-    config::get_figment_config,
-    graphql::{GraphqlSchema, MutationRoot, QueryRoot},
+    config::{get_figment_config, AppConfig},
+    graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
 };
-use async_graphql::{http::GraphiQLSource, EmptySubscription, Schema};
+use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     body::{boxed, Full},
@@ -12,13 +12,13 @@ use axum::{
     routing::{get, Router},
     Extension,
 };
-use config::AppConfig;
 use dotenvy::dotenv;
 use rust_embed::RustEmbed;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 use std::{error::Error, net::SocketAddr};
 
+mod books;
 mod config;
 mod entities;
 mod graphql;
@@ -116,13 +116,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dbg!(&res);
     // testing code end
 
-    let schema = Schema::build(
-        QueryRoot::default(),
-        MutationRoot::default(),
-        EmptySubscription,
-    )
-    .data(conn)
-    .finish();
+    let schema = get_schema(conn.clone());
+
     let app = Router::new()
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .layer(Extension(schema))
