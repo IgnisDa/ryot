@@ -13,6 +13,6 @@ pub async fn refresh_media(
     ctx: JobContext,
 ) -> Result<JobResult, JobError> {
     tracing::info!("Refreshing media items");
-    dbg!(ctx, information);
+    // dbg!(ctx, information);
     Ok(JobResult::Success)
 }
