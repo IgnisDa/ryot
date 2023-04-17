@@ -1,13 +1,11 @@
 use crate::{
     background::{refresh_media, RefreshMedia},
-    config::{get_figment_config, AppConfig, SchedulerMode},
+    config::{get_figment_config, AppConfig},
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
 };
 use apalis::{
     layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
-    // mysql::MysqlStorage,
-    // postgres::PostgresStorage,
     prelude::{Monitor, Storage, WorkerBuilder, WorkerFactoryFn},
     sqlite::SqliteStorage,
 };
@@ -131,28 +129,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dbg!(&res);
     // testing code end
 
-    // #[derive(Clone)]
-    // enum AppStorage<T> {
-    //     Sqlite(SqliteStorage<T>),
-    //     Mysql(MysqlStorage<T>),
-    //     Postgres(PostgresStorage<T>),
-    // }
-
-    let storage = match config.scheduler.mode {
-        SchedulerMode::Sqlite => {
-            let st = SqliteStorage::connect(&config.scheduler.url).await.unwrap();
-            st.setup().await.unwrap();
-            st
-        }
-        _ => todo!()
-        // SchedulerMode::Mysql => {
-        //     Box::new(MysqlStorage::connect(config.scheduler.url).await.unwrap())
-        // }
-        // SchedulerMode::Postgres => Box::new(
-        //     PostgresStorage::connect(config.scheduler.url)
-        //         .await
-        //         .unwrap(),
-        // ),
+    let storage = {
+        let st = SqliteStorage::connect(":memory:").await.unwrap();
+        st.setup().await.unwrap();
+        st
     };
 
     let (tx, mut rx) = mpsc::channel::<u8>(1);

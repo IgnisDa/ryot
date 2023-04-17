@@ -24,21 +24,7 @@ pub struct BookConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub enum SchedulerMode {
-    #[default]
-    #[serde(rename = "sqlite")]
-    Sqlite,
-    #[serde(rename = "mysql")]
-    Mysql,
-    #[serde(rename = "postgres")]
-    Postgres,
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct SchedulerConfig {
-    pub mode: SchedulerMode,
-    pub url: String,
-}
+pub struct SchedulerConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
