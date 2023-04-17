@@ -16,7 +16,7 @@ use axum::{
     http::{header, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, Router},
-    Extension,
+    Extension, Server,
 };
 use dotenvy::dotenv;
 use rust_embed::RustEmbed;
@@ -27,7 +27,7 @@ use std::{
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
 };
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc::channel, try_join};
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 mod background;
@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         st
     };
 
-    let (tx, mut rx) = mpsc::channel::<u8>(1);
+    let (tx, mut rx) = channel::<u8>(1);
     let mut new_storage = storage.clone();
     tokio::spawn(async move {
         loop {
@@ -185,14 +185,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Ok(monitor)
     };
     let http = async {
-        axum::Server::bind(&addr)
+        Server::bind(&addr)
             .serve(app.into_make_service())
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };
     let scheduler = async { Ok(sched.start().await) };
 
-    let _res = tokio::try_join!(monitor, http, scheduler).expect("Could not start services");
+    let _res = try_join!(monitor, http, scheduler).expect("Could not start services");
 
     Ok(())
 }
