@@ -37,6 +37,7 @@ mod config;
 mod entities;
 mod graphql;
 mod migrator;
+mod users;
 
 static INDEX_HTML: &str = "index.html";
 

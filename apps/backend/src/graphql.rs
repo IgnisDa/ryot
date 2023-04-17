@@ -8,6 +8,7 @@ use crate::{
         resolver::{BooksQuery, BooksService},
     },
     config::AppConfig,
+    users::resolver::{UsersMutation, UsersService},
 };
 
 #[derive(Default)]
@@ -21,21 +22,11 @@ impl CoreQuery {
     }
 }
 
-#[derive(Default)]
-struct CoreMutation;
-
-#[Object]
-impl CoreMutation {
-    async fn pass(&self, _gql_ctx: &Context<'_>) -> Result<bool> {
-        Ok(true)
-    }
-}
-
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(CoreQuery, BooksQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(CoreMutation);
+pub struct MutationRoot(UsersMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
@@ -45,6 +36,7 @@ pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema
         &config.books.openlibrary.cover_image,
     );
     let book_service = BooksService::new(&openlibrary_service);
+    let users_service = UsersService::new(&conn);
     let schema = Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
@@ -52,6 +44,7 @@ pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema
     )
     .data(conn)
     .data(book_service)
+    .data(users_service)
     .finish();
     schema
 }
