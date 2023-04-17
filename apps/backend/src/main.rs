@@ -24,7 +24,6 @@ use rust_embed::RustEmbed;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 use std::{
-    error::Error,
     fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
