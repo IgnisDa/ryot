@@ -17,7 +17,7 @@ pub enum Relation {
         belongs_to = "super::book::Entity",
         from = "Column::Id",
         to = "super::book::Column::MetadataId",
-        on_update = "NoAction",
+        on_update = "Cascade",
         on_delete = "Cascade"
     )]
     Book,

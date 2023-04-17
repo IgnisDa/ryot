@@ -17,7 +17,7 @@ pub enum Relation {
         belongs_to = "super::media_item_metadata::Entity",
         from = "Column::Id",
         to = "super::media_item_metadata::Column::Id",
-        on_update = "NoAction",
+        on_update = "Cascade",
         on_delete = "Cascade"
     )]
     MediaItemMetadata,
