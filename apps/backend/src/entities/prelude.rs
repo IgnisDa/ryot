@@ -7,3 +7,4 @@ pub use super::media_item_creator::Entity as MediaItemCreator;
 pub use super::media_item_metadata::Entity as MediaItemMetadata;
 pub use super::media_item_metadata_image::Entity as MediaItemMetadataImage;
 pub use super::open_library_key::Entity as OpenLibraryKey;
+pub use super::user::Entity as User;
