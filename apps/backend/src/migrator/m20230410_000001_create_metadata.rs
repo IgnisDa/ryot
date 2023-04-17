@@ -2,6 +2,8 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use super::Creator;
+
 static METADATA_TITLE_INDEX: &str = "media_item_metadata__title__index";
 
 pub struct Migration;
@@ -59,7 +61,7 @@ pub enum MediaItemMetadata {
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230410_000002_create_metadata"
+        "m20230410_000001_create_metadata"
     }
 }
 
@@ -103,6 +105,14 @@ impl MigrationTrait for Migration {
                                 MediaItemMetadataImage::MetadataId,
                             )
                             .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("book_to_creator_foreign_key")
+                            .from(MediaItemMetadata::Table, MediaItemMetadata::Id)
+                            .to(Creator::Table, Creator::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

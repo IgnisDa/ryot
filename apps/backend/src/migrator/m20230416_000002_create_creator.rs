@@ -2,7 +2,16 @@ use sea_orm_migration::prelude::*;
 
 use super::MediaItemMetadata;
 
+static PRIMARY_KEY_INDEX: &str = "pk-media-item_creator";
+
 pub struct Migration;
+
+#[derive(Iden)]
+pub enum MediaItemCreator {
+    Table,
+    MediaItemId,
+    CreatorId,
+}
 
 #[derive(Iden)]
 pub enum Creator {
@@ -20,6 +29,45 @@ impl MigrationName for Migration {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(MediaItemCreator::Table)
+                    .col(
+                        ColumnDef::new(MediaItemCreator::MediaItemId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MediaItemCreator::CreatorId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .name(PRIMARY_KEY_INDEX)
+                            .col(MediaItemCreator::MediaItemId)
+                            .col(MediaItemCreator::CreatorId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-media-item_media-item-creator_id")
+                            .from(MediaItemCreator::Table, MediaItemCreator::MediaItemId)
+                            .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-creator-item_media-item-creator_id")
+                            .from(MediaItemCreator::Table, MediaItemCreator::CreatorId)
+                            .to(Creator::Table, Creator::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
