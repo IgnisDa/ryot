@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let config: AppConfig = get_figment_config().extract()?;
 
-    let conn = Database::connect(&config.db.url)
+    let conn = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
     Migrator::up(&conn, None).await.unwrap();

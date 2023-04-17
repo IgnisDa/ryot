@@ -40,8 +40,8 @@ pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
     let openlibrary_service = OpenlibraryService::new(
-        &config.book.openlibrary.url,
-        &config.book.openlibrary.cover_image,
+        &config.books.openlibrary.url,
+        &config.books.openlibrary.cover_image,
     );
     let book_service = BooksService::new(&openlibrary_service);
     let schema = Schema::build(

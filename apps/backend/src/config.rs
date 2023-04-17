@@ -33,12 +33,12 @@ pub struct SchedulerConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct AppConfig {
-    pub db: DatabaseConfig,
-    pub book: BookConfig,
+    pub database: DatabaseConfig,
+    pub books: BookConfig,
     pub scheduler: SchedulerConfig,
 }
 
 /// Get the figment configuration that is used across the apps.
 pub fn get_figment_config() -> Figment {
-    Figment::new().merge(Env::prefixed("APP_").split("__"))
+    Figment::new().merge(Env::raw().split("_"))
 }
