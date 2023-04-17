@@ -2,7 +2,7 @@ use sea_orm_migration::prelude::*;
 
 mod m20230410_000001_create_metadata;
 mod m20230416_000002_create_creator;
-mod m20230416_000003_create_books;
+mod m20230416_000003_create_book;
 
 pub struct Migrator;
 
@@ -12,7 +12,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20230410_000001_create_metadata::Migration),
             Box::new(m20230416_000002_create_creator::Migration),
-            Box::new(m20230416_000003_create_books::Migration),
+            Box::new(m20230416_000003_create_book::Migration),
         ]
     }
 }
@@ -21,4 +21,4 @@ pub use m20230410_000001_create_metadata::{
     MediaItemLot, MediaItemMetadata, MediaItemMetadataImageLot,
 };
 pub use m20230416_000002_create_creator::Creator;
-pub use m20230416_000003_create_books::Book;
+pub use m20230416_000003_create_book::Book;

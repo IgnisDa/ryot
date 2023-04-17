@@ -26,7 +26,7 @@ pub enum Book {
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230416_000003_create_books"
+        "m20230416_000003_create_book"
     }
 }
 
