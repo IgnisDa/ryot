@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.options.json",
+	"files": [],
+	"references": [
+		{
+			"path": "apps/frontend"
+		},
+		{
+			"path": "libs/graphql"
+		}
+	]
+}

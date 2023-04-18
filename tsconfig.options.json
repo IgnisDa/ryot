@@ -1,0 +1,11 @@
+{
+	"extends": "tsconfig-moon/tsconfig.projects.json",
+	"compilerOptions": {
+		"composite": true,
+		"incremental": true,
+		"noEmitOnError": true,
+		"skipLibCheck": true,
+		"moduleResolution": "nodenext",
+		"target": "es2022"
+	}
+}

@@ -1,0 +1,12 @@
+{
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"module": "commonjs",
+		"lib": ["ESNext", "DOM"],
+		"preserveConstEnums": true,
+		"strict": true,
+		"outDir": "../../.moon/cache/types/libs/graphql"
+	},
+	"exclude": [],
+	"references": []
+}

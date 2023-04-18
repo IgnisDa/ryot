@@ -1,0 +1,6 @@
+{
+	"name": "@trackona/graphql",
+	"dependencies": {
+		"graphql-request": "6.0.0"
+	}
+}

@@ -32,5 +32,10 @@
   ],
   "exclude": [
     "node_modules"
+  ],
+  "references": [
+    {
+      "path": "../../libs/graphql"
+    }
   ]
 }
