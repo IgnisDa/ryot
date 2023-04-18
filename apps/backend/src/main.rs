@@ -31,7 +31,7 @@ use tower_http::{
 
 use crate::{
     background::{refresh_media, RefreshMedia},
-    config::{get_figment_config, AppConfig},
+    config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
 };
@@ -62,7 +62,7 @@ async fn graphql_playground() -> impl IntoResponse {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
-    let config: AppConfig = get_figment_config().extract()?;
+    let config = get_app_config()?;
     fs::write("computed.json", serde_json::to_string_pretty(&config)?)?;
 
     let conn = Database::connect(&config.database.url)

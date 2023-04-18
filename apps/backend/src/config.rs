@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use figment::{
     providers::{Env, Format, Json, Serialized, Toml, Yaml},
     Figment,
@@ -72,7 +73,7 @@ pub struct AppConfig {
 }
 
 /// Get the figment configuration that is used across the apps.
-pub fn get_figment_config() -> Figment {
+pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = "trackona";
     Figment::new()
@@ -81,4 +82,6 @@ pub fn get_figment_config() -> Figment {
         .merge(Json::file(format!("{config}/{app}.json")))
         .merge(Toml::file(format!("{config}/{app}.toml")))
         .merge(Yaml::file(format!("{config}/{app}.yaml")))
+        .extract()
+        .map_err(|e| anyhow!(e))
 }
