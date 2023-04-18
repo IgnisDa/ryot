@@ -1,9 +1,3 @@
-use crate::{
-    background::{refresh_media, RefreshMedia},
-    config::{get_figment_config, AppConfig},
-    graphql::{get_schema, GraphqlSchema},
-    migrator::Migrator,
-};
 use anyhow::Result;
 use apalis::{
     layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
@@ -14,7 +8,7 @@ use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     body::{boxed, Full},
-    http::{header, StatusCode, Uri},
+    http::{header, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, Router},
     Extension, Server,
@@ -30,6 +24,17 @@ use std::{
 };
 use tokio::{sync::mpsc::channel, try_join};
 use tokio_cron_scheduler::{Job, JobScheduler};
+use tower_http::{
+    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
+    trace::TraceLayer as TowerTraceLayer,
+};
+
+use crate::{
+    background::{refresh_media, RefreshMedia},
+    config::{get_figment_config, AppConfig},
+    graphql::{get_schema, GraphqlSchema},
+    migrator::Migrator,
+};
 
 mod background;
 mod books;
@@ -99,9 +104,25 @@ async fn main() -> Result<()> {
 
     let schema = get_schema(conn.clone(), &config);
 
+    let cors = TowerCorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
+        .allow_origin(
+            config
+                .web
+                .cors_origins
+                .iter()
+                .map(|f| f.parse().unwrap())
+                .collect::<Vec<_>>(),
+        )
+        .allow_credentials(true);
+
     let app = Router::new()
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .layer(Extension(schema))
+        .layer(TowerTraceLayer::new_for_http())
+        .layer(TowerCatchPanicLayer::new())
+        .layer(cors)
         .fallback(static_handler);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));

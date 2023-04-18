@@ -46,6 +46,19 @@ impl Default for SchedulerConfig {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct WebConfig {
+    pub cors_origins: Vec<String>,
+}
+
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self {
+            cors_origins: vec!["http://localhost:3000".to_owned()],
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
@@ -54,6 +67,8 @@ pub struct AppConfig {
     pub books: BookConfig,
     #[serde(default)]
     pub scheduler: SchedulerConfig,
+    #[serde(default)]
+    pub web: WebConfig,
 }
 
 /// Get the figment configuration that is used across the apps.
