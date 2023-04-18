@@ -43,7 +43,9 @@ export default function App({ Component, pageProps }: AppProps) {
 						direction={"column"}
 						style={{ minHeight: "100vh" }}
 					>
-						<Component {...pageProps} />
+						<Flex style={{ flexGrow: 1 }}>
+							<Component {...pageProps} />
+						</Flex>
 						<Footer />
 					</Flex>
 				</QueryClientProvider>
