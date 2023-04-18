@@ -11,6 +11,7 @@ use crate::migrator::TokenLot;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    #[sea_orm(indexed, unique)]
     pub value: String,
     pub lot: TokenLot,
     pub user_id: i32,

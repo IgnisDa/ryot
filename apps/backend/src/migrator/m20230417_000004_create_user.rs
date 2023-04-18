@@ -3,6 +3,7 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
 static USER_NAME_INDEX: &str = "user__name__index";
+static TOKEN_VALUE_INDEX: &str = "token__value__index";
 
 pub struct Migration;
 
@@ -64,7 +65,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Token::Value).string().not_null())
+                    .col(
+                        ColumnDef::new(Token::Value)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(
                         ColumnDef::new(Token::Lot)
                             .enumeration(TokenLotEnum.into_iden(), TokenLotEnum.into_iter())
@@ -86,6 +92,15 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Token::LastUsed).date_time())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(TOKEN_VALUE_INDEX)
+                    .table(Token::Table)
+                    .col(Token::Value)
                     .to_owned(),
             )
             .await?;
@@ -128,10 +143,13 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(Token::Table).to_owned())
             .await?;
         manager
-            .drop_index(Index::drop().name(USER_NAME_INDEX).to_owned())
+            .drop_index(Index::drop().name(TOKEN_VALUE_INDEX).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(User::Table).to_owned())
+            .await?;
+        manager
+            .drop_index(Index::drop().name(USER_NAME_INDEX).to_owned())
             .await?;
         Ok(())
     }
