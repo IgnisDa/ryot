@@ -6,7 +6,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "media_item_metadata")]
+#[sea_orm(table_name = "metadata")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
@@ -21,8 +21,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_one = "super::book::Entity")]
     Book,
-    #[sea_orm(has_many = "super::media_item_metadata_image::Entity")]
-    MediaItemMetadataImage,
+    #[sea_orm(has_many = "super::metadata_image::Entity")]
+    MetadataImage,
 }
 
 impl Related<super::book::Entity> for Entity {
@@ -31,22 +31,27 @@ impl Related<super::book::Entity> for Entity {
     }
 }
 
-impl Related<super::media_item_metadata_image::Entity> for Entity {
+impl Related<super::metadata_image::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::MediaItemMetadataImage.def()
+        Relation::MetadataImage.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_to_metadata::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_to_metadata::Relation::Metadata.def().rev())
     }
 }
 
 impl Related<super::creator::Entity> for Entity {
     fn to() -> RelationDef {
-        super::media_item_creator::Relation::Creator.def()
+        super::metadata_to_creator::Relation::Creator.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(
-            super::media_item_creator::Relation::MediaItemMetadata
-                .def()
-                .rev(),
-        )
+        Some(super::metadata_to_creator::Relation::Metadata.def().rev())
     }
 }
 

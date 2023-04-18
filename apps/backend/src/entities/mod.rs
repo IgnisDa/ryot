@@ -4,7 +4,9 @@ pub mod prelude;
 
 pub mod book;
 pub mod creator;
-pub mod media_item_creator;
-pub mod media_item_metadata;
-pub mod media_item_metadata_image;
+pub mod metadata;
+pub mod metadata_image;
+pub mod metadata_to_creator;
+pub mod token;
 pub mod user;
+pub mod user_to_metadata;

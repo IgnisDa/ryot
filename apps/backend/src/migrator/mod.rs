@@ -10,7 +10,7 @@ mod m20230417_000004_create_user;
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
 pub use m20230416_000003_create_book::Book;
-pub use m20230417_000004_create_user::UserLot;
+pub use m20230417_000004_create_user::{TokenLot, UserLot};
 
 pub struct Migrator;
 

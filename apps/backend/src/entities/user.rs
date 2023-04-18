@@ -10,7 +10,6 @@ use crate::migrator::{StringVec, UserLot};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    #[sea_orm(unique)]
     pub name: String,
     pub password: String,
     pub lot: UserLot,
@@ -18,6 +17,24 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "super::token::Entity")]
+    Token,
+}
+
+impl Related<super::token::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Token.def()
+    }
+}
+
+impl Related<super::metadata::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_to_metadata::Relation::Metadata.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_to_metadata::Relation::User.def().rev())
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

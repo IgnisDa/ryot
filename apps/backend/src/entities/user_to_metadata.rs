@@ -4,43 +4,44 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "media_item_creator")]
+#[sea_orm(table_name = "user_to_metadata")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub media_item_id: i32,
+    pub user_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub creator_id: i32,
+    pub metadata_id: i32,
+    pub last_updated_on: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::creator::Entity",
-        from = "Column::CreatorId",
-        to = "super::creator::Column::Id",
+        belongs_to = "super::metadata::Entity",
+        from = "Column::UserId",
+        to = "super::metadata::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    Creator,
+    Metadata,
     #[sea_orm(
-        belongs_to = "super::media_item_metadata::Entity",
-        from = "Column::MediaItemId",
-        to = "super::media_item_metadata::Column::Id",
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    MediaItemMetadata,
+    User,
 }
 
-impl Related<super::creator::Entity> for Entity {
+impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Creator.def()
+        Relation::Metadata.def()
     }
 }
 
-impl Related<super::media_item_metadata::Entity> for Entity {
+impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::MediaItemMetadata.def()
+        Relation::User.def()
     }
 }
 

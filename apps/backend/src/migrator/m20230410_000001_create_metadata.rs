@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::m20230417_000004_create_user::User;
 
-static METADATA_TITLE_INDEX: &str = "media_item_metadata__title__index";
+static METADATA_TITLE_INDEX: &str = "metadata__title__index";
 
 pub struct Migration;
 
