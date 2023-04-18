@@ -71,12 +71,18 @@ export default function Page() {
 				[t.fn.largerThan("xl")]: { width: "30%" },
 			})}
 		>
-			<TextInput label="Username" {...register("username")} />
-			<PasswordInput label="Password" mt="md" {...register("password")} />
+			<TextInput label="Username" {...register("username")} required />
+			<PasswordInput
+				label="Password"
+				mt="md"
+				{...register("password")}
+				required
+			/>
 			<PasswordInput
 				label="Confirm password"
 				mt="md"
 				{...register("confirm")}
+				required
 			/>
 			{errors.confirm && <Text color="red">{errors.confirm.message}</Text>}
 			<Button mt="md" type="submit" loading={registerUser.isLoading} w="100%">
