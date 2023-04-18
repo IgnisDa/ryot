@@ -2,6 +2,7 @@
 	"name": "@trackona/frontend",
 	"private": true,
 	"dependencies": {
+		"@tanstack/react-query": "4.29.3",
 		"@trackona/generated": "workspace:*",
 		"@trackona/graphql": "workspace:*",
 		"@types/node": "18.15.11",

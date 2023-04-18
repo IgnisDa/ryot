@@ -1,4 +1,5 @@
 {
+	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"target": "es5",
 		"lib": ["dom", "dom.iterable", "esnext"],
@@ -15,7 +16,9 @@
 		"jsx": "preserve",
 		"incremental": true,
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"@trackona/generated/*": ["../../libs/generated/src/*"],
+			"@trackona/graphql/*": ["../../libs/graphql/src/*"]
 		},
 		"outDir": "../../.moon/cache/types/apps/frontend"
 	},
