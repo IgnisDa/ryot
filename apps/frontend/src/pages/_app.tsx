@@ -26,7 +26,9 @@ export default function App({ Component, pageProps }: AppProps) {
 					<Head>
 						<title>Trackona</title>
 					</Head>
-					<div className={`${inter.className} min-h-screen flex flex-col`}>
+					<div
+						className={`${inter.className} min-h-screen flex flex-col to-blue-950 from-slate-950 bg-gradient-to-b text-slate-100`}
+					>
 						<Container as="main" className="flex-grow">
 							<Component {...pageProps} />
 						</Container>
