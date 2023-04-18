@@ -1,18 +1,15 @@
-import { Input, Container, Row, Button } from "@nextui-org/react";
+import { Input, Container, Button, Spacer } from "@nextui-org/react";
 
 export default function Page() {
 	return (
-		<Container className="my-auto" as="form">
-			<Row>
-				<Input label="Username" />
-			</Row>
-			<Row>
-				<Input.Password label="Password" />
-			</Row>
-			<Row>
-				<Input.Password label="Confirm password" />
-			</Row>
-			<Button color="primary">Register</Button>
+		<Container css={{ marginBottom: "auto", marginTop: "auto" }} as="form">
+			<Input label="Username" />
+			<Spacer y={0.5} />
+			<Input.Password label="Password" />
+			<Spacer y={0.5} />
+			<Input.Password label="Confirm password" />
+			<Spacer y={1} />
+			<Button>Register</Button>
 		</Container>
 	);
 }

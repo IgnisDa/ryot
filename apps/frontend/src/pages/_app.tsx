@@ -1,4 +1,9 @@
-import { Container, NextUIProvider, createTheme } from "@nextui-org/react";
+import {
+	Container,
+	NextUIProvider,
+	Text,
+	createTheme,
+} from "@nextui-org/react";
 import { gqlClient, queryClient } from "@/lib/api";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { VERSION } from "@trackona/graphql/backend/queries";
@@ -19,7 +24,14 @@ const Footer = () => {
 		return version;
 	});
 
-	return <footer>You are running version {version.data}</footer>;
+	return (
+		<Container as="footer" css={{ textAlign: "center", padding: "20px" }}>
+			You are running version{" "}
+			<Text color="error" css={{ display: "inline" }} weight={"bold"}>
+				{version.data}
+			</Text>
+		</Container>
+	);
 };
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -30,12 +42,17 @@ export default function App({ Component, pageProps }: AppProps) {
 					<Head>
 						<title>Trackona</title>
 					</Head>
-					<div className={`${inter.className}`}>
-						<Container as="main">
+					<Container
+						className={`${inter.className}`}
+						display="flex"
+						direction="column"
+						css={{ minHeight: "100vh" }}
+					>
+						<Container display="flex" as="main" css={{ flexGrow: 1 }}>
 							<Component {...pageProps} />
 						</Container>
 						<Footer />
-					</div>
+					</Container>
 				</QueryClientProvider>
 			</NextUIProvider>
 		</>
