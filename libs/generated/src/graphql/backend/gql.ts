@@ -13,8 +13,8 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Therefore it is highly recommended to use the babel or swc plugin for production.
  */
 const documents = {
-    "\n  mutation RegisterUser($username: String!, $password: String!) {\n    registerUser(username: $username, password: $password){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n": types.RegisterUserDocument,
-    "\n  mutation LoginUser($username: String!, $password: String!) {\n    loginUser(username: $username, password: $password) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n": types.LoginUserDocument,
+    "\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n": types.RegisterUserDocument,
+    "\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n": types.LoginUserDocument,
     "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n    \tidentifier\n    \ttitle\n    \tauthorNames\n    \timage\n  \t}\n\t}\n": types.BooksSearchDocument,
     "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
 };
@@ -36,11 +36,11 @@ export function graphql(source: string): unknown;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation RegisterUser($username: String!, $password: String!) {\n    registerUser(username: $username, password: $password){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation RegisterUser($username: String!, $password: String!) {\n    registerUser(username: $username, password: $password){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n"];
+export function graphql(source: "\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation LoginUser($username: String!, $password: String!) {\n    loginUser(username: $username, password: $password) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation LoginUser($username: String!, $password: String!) {\n    loginUser(username: $username, password: $password) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n"];
+export function graphql(source: "\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

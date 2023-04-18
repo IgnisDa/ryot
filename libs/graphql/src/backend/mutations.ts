@@ -1,8 +1,8 @@
 import { graphql } from "@trackona/generated/graphql/backend";
 
 export const REGISTER_USER = graphql(`
-  mutation RegisterUser($username: String!, $password: String!) {
-    registerUser(username: $username, password: $password){
+  mutation RegisterUser($input: UserInput!) {
+    registerUser(input: $input){
       __typename
       ... on RegisterError {
         error
@@ -15,8 +15,8 @@ export const REGISTER_USER = graphql(`
 `);
 
 export const LOGIN_USER = graphql(`
-  mutation LoginUser($username: String!, $password: String!) {
-    loginUser(username: $username, password: $password) {
+  mutation LoginUser($input: UserInput!) {
+    loginUser(input: $input) {
       __typename
       ... on LoginError {
         error

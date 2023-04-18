@@ -1,4 +1,4 @@
-use async_graphql::{Context, Enum, Object, Result, SimpleObject, Union};
+use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
 use scrypt::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Scrypt,
@@ -25,25 +25,19 @@ impl UsersMutation {
     async fn register_user(
         &self,
         gql_ctx: &Context<'_>,
-        username: String,
-        #[graphql(secret)] password: String,
+        input: UserInput,
     ) -> Result<RegisterResult> {
         gql_ctx
             .data_unchecked::<UsersService>()
-            .register_user(&username, &password)
+            .register_user(&input.username, &input.password)
             .await
     }
 
     /// Login a user using their username and password and return an API key.
-    async fn login_user(
-        &self,
-        gql_ctx: &Context<'_>,
-        username: String,
-        #[graphql(secret)] password: String,
-    ) -> Result<LoginResult> {
+    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
         gql_ctx
             .data_unchecked::<UsersService>()
-            .login_user(&username, &password)
+            .login_user(&input.username, &input.password)
             .await
     }
 }
@@ -122,6 +116,13 @@ impl UsersService {
         user.update(&self.db).await.unwrap();
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
+}
+
+#[derive(Debug, InputObject)]
+struct UserInput {
+    username: String,
+    #[graphql(secret)]
+    password: String,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
