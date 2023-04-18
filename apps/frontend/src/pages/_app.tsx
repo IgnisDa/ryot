@@ -10,7 +10,6 @@ import { VERSION } from "@trackona/graphql/backend/queries";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
 import Head from "next/head";
-// import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
