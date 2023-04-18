@@ -5,8 +5,15 @@
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"strict": true,
-		"outDir": "../../.moon/cache/types/libs/graphql"
+		"outDir": "../../.moon/cache/types/libs/graphql",
+		"paths": {
+			"@trackona/generated/*": ["../generated/src/*"]
+		}
 	},
 	"exclude": [],
-	"references": []
+	"references": [
+		{
+			"path": "../generated"
+		}
+	]
 }
