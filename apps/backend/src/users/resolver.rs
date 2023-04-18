@@ -3,6 +3,7 @@ use argon2::{
     Argon2,
 };
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
+use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, Set,
@@ -10,9 +11,12 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    entities::{prelude::User, user},
+    entities::{
+        prelude::{Token, User},
+        token, user,
+    },
     graphql::IdObject,
-    migrator::{StringVec, UserLot},
+    migrator::{StringVec, TokenLot, UserLot},
 };
 
 fn get_hasher() -> Argon2<'static> {
@@ -117,7 +121,17 @@ impl UsersService {
         let mut all_keys = user.api_keys.clone().unwrap().0;
         all_keys.push(api_key.to_string());
         user.api_keys = Set(StringVec(all_keys));
-        user.update(&self.db).await.unwrap();
+        let user = user.update(&self.db).await.unwrap();
+
+        let token = token::ActiveModel {
+            value: ActiveValue::Set(api_key.to_string()),
+            lot: ActiveValue::Set(TokenLot::Login),
+            user_id: ActiveValue::Set(user.id),
+            last_used: ActiveValue::Set(Some(Utc::now())),
+            ..Default::default()
+        };
+        Token::insert(token).exec(&self.db).await.unwrap();
+
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 }
