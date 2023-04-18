@@ -1,13 +1,23 @@
 import { Flex, Container, Text, MantineProvider } from "@mantine/core";
-import { gqlClient, queryClient } from "@/lib/api";
+import { gqlClient, queryClient } from "@/lib/services/api";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { VERSION } from "@trackona/graphql/backend/queries";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
 import { Notifications } from "@mantine/notifications";
 import Head from "next/head";
+import type { ReactElement, ReactNode } from "react";
+import type { NextPage } from "next";
 
 const inter = Inter({ subsets: ["latin"] });
+
+export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
+	getLayout?: (page: ReactElement) => ReactNode;
+};
+
+type AppPropsWithLayout = AppProps & {
+	Component: NextPageWithLayout;
+};
 
 const Footer = () => {
 	const version = useQuery(["version"], async () => {
@@ -25,7 +35,9 @@ const Footer = () => {
 	);
 };
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps }: AppPropsWithLayout) {
+	const getLayout = Component.getLayout ?? ((page) => page);
+
 	return (
 		<>
 			<MantineProvider
@@ -44,7 +56,7 @@ export default function App({ Component, pageProps }: AppProps) {
 						style={{ minHeight: "100vh" }}
 					>
 						<Flex style={{ flexGrow: 1 }}>
-							<Component {...pageProps} />
+							{getLayout(<Component {...pageProps} />)}{" "}
 						</Flex>
 						<Footer />
 					</Flex>

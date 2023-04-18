@@ -7,7 +7,7 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { gqlClient } from "@/lib/api";
+import { gqlClient } from "@/lib/services/api";
 import { useRouter } from "next/router";
 import { Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { match } from "ts-pattern";

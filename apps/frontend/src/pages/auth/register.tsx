@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Text, Button, TextInput, PasswordInput, Box } from "@mantine/core";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { gqlClient } from "@/lib/api";
+import { gqlClient } from "@/lib/services/api";
 import { notifications } from "@mantine/notifications";
 import { useRouter } from "next/router";
 
