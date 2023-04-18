@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::MediaItemMetadata;
+use super::Metadata;
 
 static PRIMARY_KEY_INDEX: &str = "pk-media-item_creator";
 
@@ -53,7 +53,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-media-item_media-item-creator_id")
                             .from(MediaItemCreator::Table, MediaItemCreator::MediaItemId)
-                            .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
+                            .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

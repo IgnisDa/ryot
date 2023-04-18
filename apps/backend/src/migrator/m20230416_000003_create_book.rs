@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::MediaItemMetadata;
+use super::Metadata;
 
 pub struct Migration;
 
@@ -34,7 +34,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("book_to_metadata_foreign_key")
                             .from(Book::Table, Book::MetadataId)
-                            .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
+                            .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

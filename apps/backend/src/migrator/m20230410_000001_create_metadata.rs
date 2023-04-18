@@ -2,13 +2,15 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use super::m20230417_000004_create_user::User;
+
 static METADATA_TITLE_INDEX: &str = "media_item_metadata__title__index";
 
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
-pub enum MediaItemMetadataImageLot {
+pub enum MetadataImageLot {
     #[sea_orm(string_value = "B")]
     Backdrop,
     #[sea_orm(string_value = "P")]
@@ -17,7 +19,7 @@ pub enum MediaItemMetadataImageLot {
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
-enum MediaItemMetadataImage {
+enum MetadataImage {
     Table,
     Id,
     Lot,
@@ -28,7 +30,7 @@ enum MediaItemMetadataImage {
 // The different types of media that can be stored
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
-pub enum MediaItemLot {
+pub enum MetadataLot {
     #[sea_orm(string_value = "AB")]
     AudioBook,
     #[sea_orm(string_value = "BO")]
@@ -43,7 +45,7 @@ pub enum MediaItemLot {
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
-pub enum MediaItemMetadata {
+pub enum Metadata {
     Table,
     Id,
     CreatedOn,
@@ -69,40 +71,33 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MediaItemMetadataImage::Table)
+                    .table(MetadataImage::Table)
                     .col(
-                        ColumnDef::new(MediaItemMetadataImage::Id)
+                        ColumnDef::new(MetadataImage::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(MetadataImage::Url).string().not_null())
                     .col(
-                        ColumnDef::new(MediaItemMetadataImage::Url)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MediaItemMetadataImage::Lot)
+                        ColumnDef::new(MetadataImage::Lot)
                             .enumeration(
-                                MediaItemMetadataImageLotEnum.into_iden(),
-                                MediaItemMetadataImageLotEnum.into_iter(),
+                                MetadataImageLotEnum.into_iden(),
+                                MetadataImageLotEnum.into_iter(),
                             )
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MediaItemMetadataImage::MetadataId)
+                        ColumnDef::new(MetadataImage::MetadataId)
                             .integer()
                             .not_null(),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("metadata_to_image_foreign_key")
-                            .from(
-                                MediaItemMetadataImage::Table,
-                                MediaItemMetadataImage::MetadataId,
-                            )
-                            .to(MediaItemMetadata::Table, MediaItemMetadata::Id)
+                            .from(MetadataImage::Table, MetadataImage::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -112,33 +107,36 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MediaItemMetadata::Table)
+                    .table(Metadata::Table)
                     .col(
-                        ColumnDef::new(MediaItemMetadata::Id)
+                        ColumnDef::new(Metadata::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(MediaItemMetadata::CreatedOn)
+                        ColumnDef::new(Metadata::CreatedOn)
                             .date_time()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
-                        ColumnDef::new(MediaItemMetadata::Lot)
-                            .enumeration(MediaItemLotEnum.into_iden(), MediaItemLotEnum.into_iter())
+                        ColumnDef::new(Metadata::Lot)
+                            .enumeration(
+                                MetadataImageLotEnum.into_iden(),
+                                MetadataImageLotEnum.into_iter(),
+                            )
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MediaItemMetadata::LastUpdatedOn)
+                        ColumnDef::new(Metadata::LastUpdatedOn)
                             .date_time()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(MediaItemMetadata::Title).string().not_null())
-                    .col(ColumnDef::new(MediaItemMetadata::Description).text())
+                    .col(ColumnDef::new(Metadata::Title).string().not_null())
+                    .col(ColumnDef::new(Metadata::Description).text())
                     .to_owned(),
             )
             .await?;
@@ -146,8 +144,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name(METADATA_TITLE_INDEX)
-                    .table(MediaItemMetadata::Table)
-                    .col(MediaItemMetadata::Title)
+                    .table(Metadata::Table)
+                    .col(Metadata::Title)
                     .to_owned(),
             )
             .await?;
@@ -159,14 +157,10 @@ impl MigrationTrait for Migration {
             .drop_index(Index::drop().name(METADATA_TITLE_INDEX).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(MediaItemMetadata::Table).to_owned())
+            .drop_table(Table::drop().table(Metadata::Table).to_owned())
             .await?;
         manager
-            .drop_table(
-                Table::drop()
-                    .table(MediaItemMetadataImage::Table)
-                    .to_owned(),
-            )
+            .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
             .await?;
         Ok(())
     }

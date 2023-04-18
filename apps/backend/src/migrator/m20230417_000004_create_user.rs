@@ -16,7 +16,7 @@ pub enum UserLot {
 }
 
 #[derive(Iden)]
-enum User {
+pub enum User {
     Table,
     Id,
     Name,
