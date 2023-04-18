@@ -43,6 +43,13 @@ pub enum MetadataLot {
     VideoGame,
 }
 
+#[derive(Iden)]
+enum UserToMetadata {
+    Table,
+    UserId,
+    MetadataId,
+}
+
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
 pub enum Metadata {
@@ -107,6 +114,47 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
+                    .table(UserToMetadata::Table)
+                    .col(ColumnDef::new(UserToMetadata::UserId).integer().not_null())
+                    .col(
+                        ColumnDef::new(UserToMetadata::MetadataId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .name("pk-user_metadata")
+                            .col(UserToMetadata::UserId)
+                            .col(UserToMetadata::MetadataId),
+                    )
+                    .col(
+                        ColumnDef::new(Metadata::LastUpdatedOn)
+                            .date_time()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user_metadata-user_id")
+                            .from(UserToMetadata::Table, UserToMetadata::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user_metadata-metadata_id")
+                            .from(UserToMetadata::Table, UserToMetadata::UserId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_table(
+                Table::create()
                     .table(Metadata::Table)
                     .col(
                         ColumnDef::new(Metadata::Id)
@@ -154,13 +202,16 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_index(Index::drop().name(METADATA_TITLE_INDEX).to_owned())
+            .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(UserToMetadata::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Metadata::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
+            .drop_index(Index::drop().name(METADATA_TITLE_INDEX).to_owned())
             .await?;
         Ok(())
     }
