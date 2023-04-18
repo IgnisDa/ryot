@@ -6,7 +6,10 @@ export default function Page() {
 	const booksSearch = useQuery({
 		queryKey: ["booksSearch"],
 		queryFn: async () => {
-			const {} = await gqlClient.request(BOOKS_SEARCH);
+			const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
+				query: "Throne of Glass",
+			});
+			return booksSearch;
 		},
 	});
 
