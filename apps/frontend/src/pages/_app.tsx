@@ -1,13 +1,17 @@
-import { Container, NextUIProvider } from "@nextui-org/react";
+import { Container, NextUIProvider, createTheme } from "@nextui-org/react";
 import { gqlClient, queryClient } from "@/lib/api";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { VERSION } from "@trackona/graphql/backend/queries";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
 import Head from "next/head";
-import "@/styles/globals.css";
+// import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+
+const theme = createTheme({
+	type: "dark",
+});
 
 const Footer = () => {
 	const version = useQuery(["version"], async () => {
@@ -21,15 +25,13 @@ const Footer = () => {
 export default function App({ Component, pageProps }: AppProps) {
 	return (
 		<>
-			<NextUIProvider>
+			<NextUIProvider theme={theme}>
 				<QueryClientProvider client={queryClient}>
 					<Head>
 						<title>Trackona</title>
 					</Head>
-					<div
-						className={`${inter.className} min-h-screen flex flex-col to-blue-950 from-slate-950 bg-gradient-to-b text-slate-100`}
-					>
-						<Container as="main" className="flex-grow">
+					<div className={`${inter.className}`}>
+						<Container as="main">
 							<Component {...pageProps} />
 						</Container>
 						<Footer />
