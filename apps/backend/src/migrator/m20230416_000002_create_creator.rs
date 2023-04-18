@@ -7,9 +7,9 @@ static PRIMARY_KEY_INDEX: &str = "pk-media-item_creator";
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum MediaItemCreator {
+pub enum MetadataToCreator {
     Table,
-    MediaItemId,
+    MetadataId,
     CreatorId,
 }
 
@@ -32,27 +32,27 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MediaItemCreator::Table)
+                    .table(MetadataToCreator::Table)
                     .col(
-                        ColumnDef::new(MediaItemCreator::MediaItemId)
+                        ColumnDef::new(MetadataToCreator::MetadataId)
                             .integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MediaItemCreator::CreatorId)
+                        ColumnDef::new(MetadataToCreator::CreatorId)
                             .integer()
                             .not_null(),
                     )
                     .primary_key(
                         Index::create()
                             .name(PRIMARY_KEY_INDEX)
-                            .col(MediaItemCreator::MediaItemId)
-                            .col(MediaItemCreator::CreatorId),
+                            .col(MetadataToCreator::MetadataId)
+                            .col(MetadataToCreator::CreatorId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-media-item_media-item-creator_id")
-                            .from(MediaItemCreator::Table, MediaItemCreator::MediaItemId)
+                            .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -60,7 +60,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-creator-item_media-item-creator_id")
-                            .from(MediaItemCreator::Table, MediaItemCreator::CreatorId)
+                            .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
                             .to(Creator::Table, Creator::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
