@@ -12,8 +12,8 @@ async-graphql = { version = "5.0.7", features = ["log", "uuid"] }
 async-graphql-axum = "5.0.7"
 axum = "0.6.12"
 chrono = "0.4.24"
-confique = "0.2.3"
 dotenvy = "0.15.7"
+figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 mime_guess = "2.0.4"
 rust-embed = "6.6.1"
 scrypt = { version = "0.11.0", default-features = false, features = ["simple"] }

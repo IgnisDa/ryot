@@ -1,27 +1,44 @@
 use anyhow::{anyhow, Result};
-use confique::Config;
+use figment::{
+    providers::{Env, Format, Json, Serialized, Toml, Yaml},
+    Figment,
+};
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
-    #[config(default = "sqlite:./app.db?mode=rwc")]
     pub url: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: "sqlite:./app.db?mode=rwc".to_owned(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct OpenlibraryConfig {
-    #[config(default = "https://openlibrary.org")]
     pub url: String,
-    #[config(default = "https://covers.openlibrary.org/b")]
     pub cover_image: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+impl Default for OpenlibraryConfig {
+    fn default() -> Self {
+        Self {
+            url: "https://openlibrary.org".to_owned(),
+            cover_image: "https://covers.openlibrary.org/b".to_owned(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct BookConfig {
     pub openlibrary: OpenlibraryConfig,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct SchedulerConfig {}
 
 impl Default for SchedulerConfig {
@@ -30,33 +47,41 @@ impl Default for SchedulerConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct WebConfig {
-    #[config(default = ["http://localhost:3000"])]
     pub cors_origins: Vec<String>,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self {
+            cors_origins: vec!["http://localhost:3000".to_owned()],
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
-    #[config(nested)]
+    #[serde(default)]
     pub database: DatabaseConfig,
-    #[config(nested)]
+    #[serde(default)]
     pub books: BookConfig,
-    #[config(nested)]
+    #[serde(default)]
     pub scheduler: SchedulerConfig,
-    #[config(nested)]
+    #[serde(default)]
     pub web: WebConfig,
 }
 
-/// Get the configuration to be used in this application.
+/// Get the figment configuration that is used across the apps.
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = "trackona";
-    AppConfig::builder()
-        .env()
-        .file(format!("{config}/{app}.json"))
-        .file(format!("{config}/{app}.toml"))
-        .file(format!("{config}/{app}.yaml"))
-        .load()
+    Figment::new()
+        .merge(Serialized::defaults(AppConfig::default()))
+        .merge(Env::raw().split("_"))
+        .merge(Json::file(format!("{config}/{app}.json")))
+        .merge(Toml::file(format!("{config}/{app}.toml")))
+        .merge(Yaml::file(format!("{config}/{app}.yaml")))
+        .extract()
         .map_err(|e| anyhow!(e))
 }
