@@ -4,6 +4,8 @@ use argon2::{
 };
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
+use cookie::Cookie;
+use http::header::SET_COOKIE;
 use sea_orm::{
     ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
 };
@@ -17,6 +19,8 @@ use crate::{
     graphql::IdObject,
     migrator::{TokenLot, UserLot},
 };
+
+static TOKEN_NAME: &str = "auth";
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
@@ -42,10 +46,18 @@ impl UsersMutation {
 
     /// Login a user using their username and password and return an API key.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        gql_ctx
+        let api_key = gql_ctx
             .data_unchecked::<UsersService>()
             .login_user(&input.username, &input.password)
-            .await
+            .await?;
+        if let LoginResult::Ok(LoginResponse { api_key }) = api_key {
+            let cookie = Cookie::build(TOKEN_NAME, api_key.to_string())
+                .secure(true)
+                .http_only(true)
+                .finish();
+            gql_ctx.insert_http_header(SET_COOKIE, cookie.to_string());
+        };
+        Ok(api_key)
     }
 }
 
