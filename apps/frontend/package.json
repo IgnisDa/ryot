@@ -9,6 +9,7 @@
 		"@mantine/hooks": "6.0.8",
 		"@mantine/next": "6.0.8",
 		"@mantine/notifications": "6.0.8",
+		"@tabler/icons-react": "2.16.0",
 		"@tanstack/react-query": "4.29.3",
 		"@trackona/generated": "workspace:*",
 		"@trackona/graphql": "workspace:*",

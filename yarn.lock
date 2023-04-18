@@ -1962,6 +1962,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tabler/icons-react@npm:2.16.0":
+  version: 2.16.0
+  resolution: "@tabler/icons-react@npm:2.16.0"
+  dependencies:
+    "@tabler/icons": 2.16.0
+    prop-types: ^15.7.2
+  peerDependencies:
+    react: ^16.5.1 || ^17.0.0 || ^18.0.0
+  checksum: b56aecfaf6bfaf16a471c456dcbb50d5b7aec7d63b9fd7b3cb7cd143e71109ed12e2b920b87b48f408220040b2a0aed406f37c16d21382366d2d46dcdf751891
+  languageName: node
+  linkType: hard
+
+"@tabler/icons@npm:2.16.0":
+  version: 2.16.0
+  resolution: "@tabler/icons@npm:2.16.0"
+  checksum: b2802764b9a4503091408828a7e4d7abd72a76902c28a245014981dcd209a948f65c1fd41f862bed43b5510bfe8dc041b47147bd4c3543cc0d97709cc63441e5
+  languageName: node
+  linkType: hard
+
 "@tanstack/query-core@npm:4.29.1":
   version: 4.29.1
   resolution: "@tanstack/query-core@npm:4.29.1"
@@ -2006,6 +2025,7 @@ __metadata:
     "@mantine/hooks": 6.0.8
     "@mantine/next": 6.0.8
     "@mantine/notifications": 6.0.8
+    "@tabler/icons-react": 2.16.0
     "@tanstack/react-query": 4.29.3
     "@trackona/generated": "workspace:*"
     "@trackona/graphql": "workspace:*"
@@ -4750,7 +4770,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.6.2":
+"prop-types@npm:^15.6.2, prop-types@npm:^15.7.2":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
