@@ -2,8 +2,13 @@
 	"name": "@trackona/frontend",
 	"private": true,
 	"dependencies": {
+		"@emotion/react": "11.10.6",
+		"@emotion/server": "11.10.0",
 		"@hookform/resolvers": "3.1.0",
-		"@nextui-org/react": "1.0.0-beta.12",
+		"@mantine/core": "6.0.8",
+		"@mantine/hooks": "6.0.8",
+		"@mantine/next": "6.0.8",
+		"@mantine/notifications": "6.0.8",
 		"@tanstack/react-query": "4.29.3",
 		"@trackona/generated": "workspace:*",
 		"@trackona/graphql": "workspace:*",
@@ -14,6 +19,7 @@
 		"react": "18.2.0",
 		"react-dom": "18.2.0",
 		"react-hook-form": "7.43.9",
+		"ts-pattern": "4.2.2",
 		"typescript": "5.0.4",
 		"zod": "3.21.4"
 	}

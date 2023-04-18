@@ -5,11 +5,13 @@ import {
 import { LOGIN_USER } from "@trackona/graphql/backend/mutations";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Text, Input, Container, Button, Spacer } from "@nextui-org/react";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { gqlClient } from "@/lib/api";
 import { useRouter } from "next/router";
+import { Box, Button, PasswordInput, TextInput } from "@mantine/core";
+import { match } from "ts-pattern";
+import { notifications } from "@mantine/notifications";
 
 const formSchema = z.object({
 	username: z.string(),
@@ -25,7 +27,26 @@ export default function Page() {
 			return loginUser;
 		},
 		onSuccess: (data) => {
-			if (data.__typename === "LoginResponse") router.push("/");
+			if (data.__typename === "LoginResponse") {
+				router.push("/");
+				return;
+			} else {
+				const message = match(data.error)
+					.with(
+						LoginErrorVariant.CredentialsMismatch,
+						() => "The password provided was incorrect",
+					)
+					.with(
+						LoginErrorVariant.UsernameDoesNotExist,
+						() => "The username provided does not exist",
+					)
+					.exhaustive();
+				notifications.show({
+					title: "Error in login",
+					message,
+					color: "red",
+				});
+			}
 		},
 	});
 	const { register, handleSubmit } = useForm<FormSchema>({
@@ -36,46 +57,24 @@ export default function Page() {
 	};
 
 	return (
-		<Container
-			css={{ marginBottom: "auto", marginTop: "auto" }}
-			as="form"
-			xs
+		<Box
+			component="form"
+			my={"auto"}
+			mx={"auto"}
 			onSubmit={handleSubmit(onSubmit)}
+			sx={(t) => ({
+				width: "80%",
+				[t.fn.largerThan("sm")]: { width: "60%" },
+				[t.fn.largerThan("md")]: { width: "50%" },
+				[t.fn.largerThan("lg")]: { width: "40%" },
+				[t.fn.largerThan("xl")]: { width: "30%" },
+			})}
 		>
-			<Input
-				label="Username"
-				css={{ width: "100%" }}
-				{...register("username")}
-			/>
-			<Spacer y={0.5} />
-			<Input.Password
-				label="Password"
-				css={{ width: "100%" }}
-				{...register("password")}
-			/>
-			<Spacer y={1} />
-			{loginUser.data && loginUser.data.__typename === "LoginError" && (
-				<>
-					<Text color="red">
-						{((variant: LoginErrorVariant) => {
-							switch (variant) {
-								case LoginErrorVariant.CredentialsMismatch:
-									return "The password provided was incorrect";
-								case LoginErrorVariant.UsernameDoesNotExist:
-									return "The given username does not exist";
-							}
-						})(loginUser.data.error)}
-					</Text>
-					<Spacer y={1} />
-				</>
-			)}
-			<Button
-				css={{ width: "100%" }}
-				type="submit"
-				disabled={loginUser.isLoading}
-			>
+			<TextInput label="Username" {...register("username")} />
+			<PasswordInput label="Password" mt="md" {...register("password")} />
+			<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
 				Login
 			</Button>
-		</Container>
+		</Box>
 	);
 }

@@ -1,21 +1,13 @@
-import {
-	Container,
-	NextUIProvider,
-	Text,
-	createTheme,
-} from "@nextui-org/react";
+import { Flex, Container, Text, MantineProvider } from "@mantine/core";
 import { gqlClient, queryClient } from "@/lib/api";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { VERSION } from "@trackona/graphql/backend/queries";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
+import { Notifications } from "@mantine/notifications";
 import Head from "next/head";
 
 const inter = Inter({ subsets: ["latin"] });
-
-const theme = createTheme({
-	type: "dark",
-});
 
 const Footer = () => {
 	const version = useQuery(["version"], async () => {
@@ -24,9 +16,9 @@ const Footer = () => {
 	});
 
 	return (
-		<Container as="footer" css={{ textAlign: "center", padding: "20px" }}>
+		<Container p={8}>
 			You are running version{" "}
-			<Text color="error" css={{ display: "inline" }} weight={"bold"}>
+			<Text color="red" weight={"bold"} style={{ display: "inline" }}>
 				{version.data}
 			</Text>
 		</Container>
@@ -36,28 +28,26 @@ const Footer = () => {
 export default function App({ Component, pageProps }: AppProps) {
 	return (
 		<>
-			<NextUIProvider theme={theme}>
+			<MantineProvider
+				withGlobalStyles
+				withNormalizeCSS
+				theme={{ colorScheme: "dark" }}
+			>
+				<Notifications />
 				<QueryClientProvider client={queryClient}>
 					<Head>
 						<title>Trackona</title>
 					</Head>
-					<Container
+					<Flex
 						className={`${inter.className}`}
-						display="flex"
-						direction="column"
-						css={{ minHeight: "100vh", padding: 0 }}
+						direction={"column"}
+						style={{ minHeight: "100vh" }}
 					>
-						<Container
-							display="flex"
-							as="main"
-							css={{ flexGrow: 1, padding: 0 }}
-						>
-							<Component {...pageProps} />
-						</Container>
+						<Component {...pageProps} />
 						<Footer />
-					</Container>
+					</Flex>
 				</QueryClientProvider>
-			</NextUIProvider>
+			</MantineProvider>
 		</>
 	);
 }
