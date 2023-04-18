@@ -53,7 +53,6 @@ impl UsersMutation {
         if let LoginResult::Ok(LoginResponse { api_key }) = api_key {
             let cookie = Cookie::build(TOKEN_NAME, api_key.to_string())
                 .secure(true)
-                .http_only(true)
                 .finish();
             gql_ctx.insert_http_header(SET_COOKIE, cookie.to_string());
         };
