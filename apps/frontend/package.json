@@ -2,6 +2,7 @@
 	"name": "@trackona/frontend",
 	"private": true,
 	"dependencies": {
+		"@nextui-org/react": "1.0.0-beta.12",
 		"@tanstack/react-query": "4.29.3",
 		"@trackona/generated": "workspace:*",
 		"@trackona/graphql": "workspace:*",
