@@ -5,6 +5,7 @@ export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 	if (keepAlive) headers["connection"] = "keep-alive";
 	return new GraphQLClient(`${baseUrl}/graphql`, {
 		headers,
+		credentials: "include",
 	});
 };
 
