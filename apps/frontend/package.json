@@ -2,6 +2,7 @@
 	"name": "@trackona/frontend",
 	"private": true,
 	"dependencies": {
+		"@hookform/resolvers": "3.1.0",
 		"@nextui-org/react": "1.0.0-beta.12",
 		"@tanstack/react-query": "4.29.3",
 		"@trackona/generated": "workspace:*",
@@ -12,6 +13,8 @@
 		"next": "13.3.0",
 		"react": "18.2.0",
 		"react-dom": "18.2.0",
-		"typescript": "5.0.4"
+		"react-hook-form": "7.43.9",
+		"typescript": "5.0.4",
+		"zod": "3.21.4"
 	}
 }
