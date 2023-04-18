@@ -17,6 +17,7 @@
 		"@types/react-dom": "18.0.11",
 		"next": "13.3.0",
 		"react": "18.2.0",
+		"react-cookie": "4.1.1",
 		"react-dom": "18.2.0",
 		"react-hook-form": "7.43.9",
 		"ts-pattern": "4.2.2",
