@@ -16,6 +16,7 @@ const documents = {
     "\n  mutation RegisterUser($username: String!, $password: String!) {\n    registerUser(username: $username, password: $password){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n": types.RegisterUserDocument,
     "\n  mutation LoginUser($username: String!, $password: String!) {\n    loginUser(username: $username, password: $password) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n": types.LoginUserDocument,
     "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n    \tidentifier\n    \ttitle\n    \tauthorNames\n    \timage\n  \t}\n\t}\n": types.BooksSearchDocument,
+    "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
 };
 
 /**
@@ -44,6 +45,10 @@ export function graphql(source: "\n  mutation LoginUser($username: String!, $pas
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n    \tidentifier\n    \ttitle\n    \tauthorNames\n    \timage\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n    \tidentifier\n    \ttitle\n    \tauthorNames\n    \timage\n  \t}\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery Version {\n\t\tversion\n\t}\n"): (typeof documents)["\n\tquery Version {\n\t\tversion\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

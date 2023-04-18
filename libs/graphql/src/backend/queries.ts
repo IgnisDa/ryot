@@ -10,3 +10,9 @@ export const BOOKS_SEARCH = graphql(`
   	}
 	}
 `);
+
+export const VERSION = graphql(`
+	query Version {
+		version
+	}
+`);
