@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::{StringVec, UserLot};
+use crate::migrator::UserLot;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "user")]
@@ -13,7 +13,6 @@ pub struct Model {
     pub name: String,
     pub password: String,
     pub lot: UserLot,
-    pub api_keys: StringVec,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -42,7 +42,6 @@ pub enum User {
     Name,
     Password,
     Lot,
-    ApiKeys,
 }
 
 impl MigrationName for Migration {
@@ -107,12 +106,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(User::Lot)
                             .enumeration(UserLotEnum.into_iden(), UserLotEnum.into_iter())
                             .default(UserLot::Admin)
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(User::ApiKeys)
-                            .json()
-                            .default("[]")
                             .not_null(),
                     )
                     .to_owned(),
