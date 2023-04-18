@@ -46,9 +46,13 @@ export default function App({ Component, pageProps }: AppProps) {
 						className={`${inter.className}`}
 						display="flex"
 						direction="column"
-						css={{ minHeight: "100vh" }}
+						css={{ minHeight: "100vh", padding: 0 }}
 					>
-						<Container display="flex" as="main" css={{ flexGrow: 1 }}>
+						<Container
+							display="flex"
+							as="main"
+							css={{ flexGrow: 1, padding: 0 }}
+						>
 							<Component {...pageProps} />
 						</Container>
 						<Footer />
