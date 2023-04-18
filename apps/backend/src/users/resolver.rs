@@ -1,8 +1,8 @@
-use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
-use scrypt::{
+use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-    Scrypt,
+    Argon2,
 };
+use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, Set,
@@ -14,6 +14,10 @@ use crate::{
     graphql::IdObject,
     migrator::{StringVec, UserLot},
 };
+
+fn get_hasher() -> Argon2<'static> {
+    Argon2::default()
+}
 
 #[derive(Default)]
 pub struct UsersMutation;
@@ -67,7 +71,7 @@ impl UsersService {
             }));
         };
         let salt = SaltString::generate(&mut OsRng);
-        let password_hash = Scrypt
+        let password_hash = get_hasher()
             .hash_password(password.as_bytes(), &salt)?
             .to_string();
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
@@ -100,7 +104,7 @@ impl UsersService {
         };
         let user = user.unwrap();
         let parsed_hash = PasswordHash::new(&user.password).unwrap();
-        if Scrypt
+        if get_hasher()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_err()
         {

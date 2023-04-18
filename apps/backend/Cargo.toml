@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.70"
 apalis = { version = "0.3.6", features = ["sqlite", "extensions"] }
+argon2 = "0.5.0"
 async-graphql = { version = "5.0.7", features = ["log", "uuid"] }
 async-graphql-axum = "5.0.7"
 axum = "0.6.12"
@@ -17,7 +18,6 @@ figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 mime_guess = "2.0.4"
 ron = "0.8.0"
 rust-embed = "6.6.1"
-scrypt = { version = "0.11.0", default-features = false, features = ["simple"] }
 sea-orm = { version = "0.11.1", features = ["sqlx-mysql", "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "debug-print"] }
 sea-orm-migration = "0.11.1"
 sea-query = "0.28.4"
