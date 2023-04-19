@@ -12,7 +12,7 @@ use crate::{
         prelude::{Book, Creator, MetadataImage},
     },
     graphql::IdObject,
-    migrator::{MetadataImageLot, MetadataLot, StringVec},
+    migrator::{MetadataImageLot, MetadataLot},
 };
 
 use super::openlibrary::OpenlibraryService;
@@ -113,7 +113,7 @@ impl BooksService {
         index: i32,
     ) -> Result<IdObject> {
         if let Some(b) = Book::find()
-            .filter(book::Column::OpenLibraryKeys.contains(identifier))
+            .filter(book::Column::OpenLibraryKey.eq(identifier))
             .one(&self.db)
             .await
             .unwrap()
@@ -173,7 +173,7 @@ impl BooksService {
             }
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata.id),
-                open_library_keys: ActiveValue::Set(StringVec(vec![book_details.identifier])),
+                open_library_key: ActiveValue::Set(book_details.identifier),
             };
             let book = book.insert(&self.db).await.unwrap();
             Ok(IdObject {

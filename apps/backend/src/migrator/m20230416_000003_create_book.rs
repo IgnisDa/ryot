@@ -8,7 +8,7 @@ pub struct Migration;
 pub enum Book {
     Table,
     MetadataId,
-    OpenLibraryKeys,
+    OpenLibraryKey,
 }
 
 impl MigrationName for Migration {
@@ -38,12 +38,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(
-                        ColumnDef::new(Book::OpenLibraryKeys)
-                            .json()
-                            .default("[]")
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
                     .to_owned(),
             )
             .await?;
