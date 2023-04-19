@@ -3,6 +3,7 @@ use sea_orm_migration::prelude::*;
 use super::Metadata;
 
 static PRIMARY_KEY_INDEX: &str = "pk-media-item_creator";
+static CREATOR_NAME_INDEX: &str = "creator__name__index";
 
 pub struct Migration;
 
@@ -79,7 +80,21 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Creator::Name).string().not_null())
+                    .col(
+                        ColumnDef::new(Creator::Name)
+                            .unique_key()
+                            .string()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(CREATOR_NAME_INDEX)
+                    .table(Creator::Table)
+                    .col(Creator::Name)
                     .to_owned(),
             )
             .await?;
@@ -89,6 +104,9 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(Creator::Table).to_owned())
+            .await?;
+        manager
+            .drop_index(Index::drop().name(CREATOR_NAME_INDEX).to_owned())
             .await?;
         Ok(())
     }
