@@ -8,8 +8,7 @@ export const BOOKS_SEARCH = graphql(`
 			books {
     		identifier
     		title
-    		authorNames
-    		image
+    		images
 				publishYear
 			}
   	}

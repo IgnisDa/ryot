@@ -64,7 +64,7 @@ const Page: NextPageWithLayout = () => {
 									direction={"column"}
 								>
 									<Image
-										src={b.image}
+										src={b.images.at(0)}
 										radius={"md"}
 										height={250}
 										withPlaceholder
