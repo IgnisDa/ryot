@@ -4514,6 +4514,7 @@ dependencies = [
  "sea-query",
  "serde",
  "serde_json",
+ "strum",
  "surf",
  "tokio 1.27.0",
  "tokio-cron-scheduler",

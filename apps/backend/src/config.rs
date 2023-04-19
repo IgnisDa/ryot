@@ -4,6 +4,7 @@ use figment::{
     Figment,
 };
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
@@ -18,10 +19,21 @@ impl Default for DatabaseConfig {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Serialize, Display)]
+pub enum OpenlibraryCoverImageSizes {
+    #[strum(serialize = "S")]
+    Small,
+    #[strum(serialize = "M")]
+    Medium,
+    #[strum(serialize = "L")]
+    Large,
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct OpenlibraryConfig {
     pub url: String,
     pub cover_image: String,
+    pub cover_image_size: OpenlibraryCoverImageSizes,
 }
 
 impl Default for OpenlibraryConfig {
@@ -29,6 +41,7 @@ impl Default for OpenlibraryConfig {
         Self {
             url: "https://openlibrary.org".to_owned(),
             cover_image: "https://covers.openlibrary.org/b".to_owned(),
+            cover_image_size: OpenlibraryCoverImageSizes::Medium,
         }
     }
 }

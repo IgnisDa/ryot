@@ -10,11 +10,12 @@ static LIMIT: i32 = 20;
 #[derive(Debug, Clone)]
 pub struct OpenlibraryService {
     image_url: String,
+    image_size: String,
     client: Client,
 }
 
 impl OpenlibraryService {
-    pub fn new(url: &str, image_url: &str) -> Self {
+    pub fn new(url: &str, image_url: &str, image_size: &str) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, "ignisda/trackona")
             .unwrap()
@@ -23,6 +24,7 @@ impl OpenlibraryService {
             .unwrap();
         Self {
             image_url: image_url.to_owned(),
+            image_size: image_size.to_owned(),
             client,
         }
     }
@@ -82,7 +84,12 @@ impl OpenlibraryService {
                 author_names: d.author_name.unwrap_or_default(),
                 image: d
                     .cover_i
-                    .map(|c| Some(format!("{}/id/{}-L.jpg?default=false", self.image_url, c)))
+                    .map(|c| {
+                        Some(format!(
+                            "{}/id/{}-{}.jpg?default=false",
+                            self.image_url, c, self.image_size
+                        ))
+                    })
                     .unwrap_or(None),
             })
             .collect::<Vec<_>>();

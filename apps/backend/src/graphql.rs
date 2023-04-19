@@ -41,6 +41,7 @@ pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema
     let openlibrary_service = OpenlibraryService::new(
         &config.books.openlibrary.url,
         &config.books.openlibrary.cover_image,
+        &config.books.openlibrary.cover_image_size.to_string(),
     );
     let book_service = BooksService::new(&openlibrary_service);
     let users_service = UsersService::new(&conn);
