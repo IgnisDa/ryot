@@ -40,7 +40,7 @@ const Page: NextPageWithLayout = () => {
 				<TextInput
 					placeholder="Search for a book"
 					icon={<IconSearch />}
-					rightSection={searchQuery.isLoading ? <Loader size="xs" /> : null}
+					rightSection={searchQuery.isFetching ? <Loader size="xs" /> : null}
 					defaultValue={search}
 					onChange={(e) => setSearch(e.currentTarget.value)}
 				/>
@@ -76,7 +76,7 @@ const Page: NextPageWithLayout = () => {
 										<Text c="dimmed">{b.publishYear}</Text>
 										<Text c="dimmed">Book</Text>
 									</Flex>
-									<Text w="100%" truncate fz="lg">
+									<Text w="100%" truncate fw={"bold"}>
 										{b.title}
 									</Text>
 								</Flex>
