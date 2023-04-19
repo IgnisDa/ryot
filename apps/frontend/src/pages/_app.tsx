@@ -40,28 +40,28 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 
 	return (
 		<>
-			<MantineProvider
-				withGlobalStyles
-				withNormalizeCSS
-				theme={{ colorScheme: "dark" }}
-			>
-				<Notifications />
-				<QueryClientProvider client={queryClient}>
-					<Head>
-						<title>Trackona</title>
-					</Head>
+			<Head>
+				<title>Trackona</title>
+			</Head>
+			<QueryClientProvider client={queryClient}>
+				<MantineProvider
+					withGlobalStyles
+					withNormalizeCSS
+					theme={{ colorScheme: "dark" }}
+				>
+					<Notifications />
 					<Flex
 						className={`${inter.className}`}
 						direction={"column"}
 						style={{ minHeight: "100vh" }}
 					>
 						<Flex style={{ flexGrow: 1 }}>
-							{getLayout(<Component {...pageProps} />)}{" "}
+							{getLayout(<Component {...pageProps} />)}
 						</Flex>
 						<Footer />
 					</Flex>
-				</QueryClientProvider>
-			</MantineProvider>
+				</MantineProvider>
+			</QueryClientProvider>
 		</>
 	);
 }

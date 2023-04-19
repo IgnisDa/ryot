@@ -19,6 +19,9 @@ import {
 	IconBrandAppleArcade,
 	IconHeadphones,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
+import { gqlClient } from "../services/api";
+import { LOGOUT_USER } from "@trackona/graphql/backend/mutations";
 
 const useStyles = createStyles((theme) => ({
 	link: {
@@ -62,12 +65,34 @@ const mockdata = [
 	{ icon: IconHeadphones, label: "Audiobooks" },
 ];
 
-export default function (page: ReactElement) {
+export default function ({ children }: { children: ReactElement }) {
+	const [{ auth }] = useCookies(["auth"]);
 	const links = mockdata.map((link, _index) => (
 		<NavbarLink {...link} key={link.label} />
 	));
 	const router = useRouter();
-	const [{ auth }] = useCookies(["auth"]);
+	const logoutUser = useMutation({
+		mutationFn: async () => {
+			const { logoutUser } = await gqlClient.request(LOGOUT_USER);
+			return logoutUser;
+		},
+		onSuccess: (data) => {
+			if (data) {
+				notifications.show({
+					title: "Success",
+					message: "You were logged out successfully",
+					color: "green",
+				});
+				router.push("/auth/login");
+			} else {
+				notifications.show({
+					title: "Error",
+					message: "There was a problem logging out",
+					color: "red",
+				});
+			}
+		},
+	});
 
 	useEffect(() => {
 		if (!auth) {
@@ -86,9 +111,13 @@ export default function (page: ReactElement) {
 		<Flex direction={"column"} w={"100%"}>
 			<Flex p="sm" align={"center"} justify={"center"}>
 				{links}
-				<NavbarLink icon={IconLogout} label="Logout" />
+				<NavbarLink
+					icon={IconLogout}
+					label="Logout"
+					onClick={logoutUser.mutate}
+				/>
 			</Flex>
-			<Box>{page}</Box>
+			<Box>{children}</Box>
 		</Flex>
 	);
 }

@@ -1,5 +1,6 @@
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { NextPageWithLayout } from "./_app";
+import type { ReactElement } from "react";
 
 const Page: NextPageWithLayout = () => {
 	return (
@@ -9,6 +10,8 @@ const Page: NextPageWithLayout = () => {
 	);
 };
 
-Page.getLayout = LoggedIn;
+Page.getLayout = (page: ReactElement) => {
+	return <LoggedIn>{page}</LoggedIn>;
+};
 
 export default Page;
