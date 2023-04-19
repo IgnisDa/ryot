@@ -22,6 +22,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { gqlClient } from "../services/api";
 import { LOGOUT_USER } from "@trackona/graphql/backend/mutations";
+import Link from "next/link";
 
 const useStyles = createStyles((theme) => ({
 	link: {
@@ -41,23 +42,32 @@ const useStyles = createStyles((theme) => ({
 interface NavbarLinkProps {
 	icon: React.FC<any>;
 	label: string;
-	active?: boolean;
 	onClick?(): void;
+	href?: string;
 }
 
-function NavbarLink({ icon: Icon, label, onClick }: NavbarLinkProps) {
+function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	const { classes, cx } = useStyles();
+	const icon = <Icon size="1.2rem" stroke={1.5} />;
+	const element = href ? (
+		<Link href={href} className={cx(classes.link)}>
+			{icon}
+		</Link>
+	) : (
+		<UnstyledButton onClick={onClick} className={cx(classes.link)}>
+			{icon}
+		</UnstyledButton>
+	);
+
 	return (
 		<Tooltip label={label} position="bottom" transitionProps={{ duration: 0 }}>
-			<UnstyledButton onClick={onClick} className={cx(classes.link)}>
-				<Icon size="1.2rem" stroke={1.5} />
-			</UnstyledButton>
+			{element}
 		</Tooltip>
 	);
 }
 
 const mockdata = [
-	{ icon: IconHome2, label: "Home" },
+	{ icon: IconHome2, label: "Home", href: "/" },
 	{ icon: IconBook, label: "Books" },
 	{ icon: IconDeviceDesktop, label: "TV" },
 	{ icon: IconDeviceTv, label: "Movies" },
@@ -68,7 +78,11 @@ const mockdata = [
 export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const links = mockdata.map((link, _index) => (
-		<NavbarLink {...link} key={link.label} />
+		<NavbarButton
+			{...link}
+			key={link.label}
+			href={link.href ? link.href : link.label.toLowerCase()}
+		/>
 	));
 	const router = useRouter();
 	const logoutUser = useMutation({
@@ -111,7 +125,7 @@ export default function ({ children }: { children: ReactElement }) {
 		<Flex direction={"column"} w={"100%"}>
 			<Flex p="sm" align={"center"} justify={"center"}>
 				{links}
-				<NavbarLink
+				<NavbarButton
 					icon={IconLogout}
 					label="Logout"
 					onClick={logoutUser.mutate}
