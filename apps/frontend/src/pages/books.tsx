@@ -26,8 +26,7 @@ const Page: NextPageWithLayout = () => {
 		["searchQuery", search, activePage],
 		async () => {
 			const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
-				query: search,
-				offset: (activePage - 1) * 20,
+				input: { query: search, offset: (activePage - 1) * 20 },
 			});
 			return booksSearch;
 		},
