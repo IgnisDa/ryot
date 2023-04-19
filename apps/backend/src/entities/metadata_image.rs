@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    #[sea_orm(unique, indexed)]
     pub url: String,
     pub lot: MetadataImageLot,
     pub metadata_id: i32,

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::m20230417_000004_create_user::User;
 
 static METADATA_TITLE_INDEX: &str = "metadata__title__index";
+static METADATA_IMAGE_URL_INDEX: &str = "metadata-image__url__index";
 
 pub struct Migration;
 
@@ -86,7 +87,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(MetadataImage::Url).string().not_null())
+                    .col(
+                        ColumnDef::new(MetadataImage::Url)
+                            .string()
+                            .unique_key()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(MetadataImage::Lot)
                             .enumeration(
@@ -108,6 +114,15 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(METADATA_IMAGE_URL_INDEX)
+                    .table(MetadataImage::Table)
+                    .col(MetadataImage::Url)
                     .to_owned(),
             )
             .await?;
@@ -203,6 +218,9 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
+            .await?;
+        manager
+            .drop_index(Index::drop().name(METADATA_IMAGE_URL_INDEX).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(UserToMetadata::Table).to_owned())
