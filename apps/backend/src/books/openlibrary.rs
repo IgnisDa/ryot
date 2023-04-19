@@ -80,6 +80,14 @@ impl OpenlibraryService {
         while let Some(Ok(result)) = set.join_next().await {
             authors.push(result);
         }
+        detail.identifier = detail
+            .identifier
+            .split('/')
+            .collect::<Vec<_>>()
+            .last()
+            .cloned()
+            .unwrap()
+            .to_owned();
         detail.description = data.description;
         detail.images = data
             .covers
