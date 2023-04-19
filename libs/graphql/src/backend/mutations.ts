@@ -27,3 +27,9 @@ export const LOGIN_USER = graphql(`
     }
   }
 `);
+
+export const LOGOUT_USER = graphql(`
+  mutation LogoutUser {
+    logoutUser
+  }
+`);
