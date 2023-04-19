@@ -2,12 +2,13 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
-use cookie::Cookie;
+use cookie::{time::OffsetDateTime, Cookie};
 use http::header::SET_COOKIE;
 use sea_orm::{
-    ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter,
 };
 use uuid::Uuid;
 
@@ -18,9 +19,27 @@ use crate::{
     },
     graphql::IdObject,
     migrator::{TokenLot, UserLot},
+    GqlCtx,
 };
 
-static TOKEN_NAME: &str = "auth";
+pub static COOKIE_NAME: &str = "auth";
+
+fn user_iden_from_ctx(ctx: &Context<'_>) -> Result<String> {
+    let ctx = ctx.data_unchecked::<GqlCtx>();
+    ctx.auth_token
+        .clone()
+        .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
+}
+
+fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> {
+    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(true);
+    if expires {
+        cookie = cookie.expires(OffsetDateTime::now_utc());
+    }
+    let cookie = cookie.finish();
+    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
+    Ok(())
+}
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
@@ -51,12 +70,19 @@ impl UsersMutation {
             .login_user(&input.username, &input.password)
             .await?;
         if let LoginResult::Ok(LoginResponse { api_key }) = api_key {
-            let cookie = Cookie::build(TOKEN_NAME, api_key.to_string())
-                .secure(true)
-                .finish();
-            gql_ctx.insert_http_header(SET_COOKIE, cookie.to_string());
+            create_cookie(gql_ctx, &api_key.to_string(), false)?;
         };
         Ok(api_key)
+    }
+
+    /// Logout a user from the server, deleting their login token
+    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let user_id = user_iden_from_ctx(gql_ctx)?;
+        create_cookie(gql_ctx, "", true)?;
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .logout_user(&user_id)
+            .await
     }
 }
 
@@ -138,6 +164,19 @@ impl UsersService {
         Token::insert(token).exec(&self.db).await.unwrap();
 
         Ok(LoginResult::Ok(LoginResponse { api_key }))
+    }
+
+    async fn logout_user(&self, user_id: &str) -> Result<bool> {
+        let token = Token::find()
+            .filter(token::Column::Value.eq(user_id))
+            .one(&self.db)
+            .await?;
+        if let Some(t) = token {
+            t.delete(&self.db).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
