@@ -70,9 +70,15 @@ const Page: NextPageWithLayout = () => {
 										height={250}
 										withPlaceholder
 										placeholder={<Text size={60}>?</Text>}
-										caption={b.title}
 										alt={`Image for ${b.title}`}
 									/>
+									<Flex justify={"space-between"} w="100%">
+										<Text c="dimmed">{b.publishYear}</Text>
+										<Text c="dimmed">Book</Text>
+									</Flex>
+									<Text w="100%" truncate fz="lg">
+										{b.title}
+									</Text>
 								</Flex>
 							))}
 						</SimpleGrid>
