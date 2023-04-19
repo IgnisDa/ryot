@@ -3,12 +3,14 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::migrator::StringVec;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "book")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
-    pub open_library_keys: String,
+    pub open_library_keys: StringVec,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
