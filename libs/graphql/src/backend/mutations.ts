@@ -33,3 +33,11 @@ export const LOGOUT_USER = graphql(`
     logoutUser
   }
 `);
+
+export const COMMIT_BOOK = graphql(`
+  mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {
+    commitBook(identifier: $identifier, input: $input, index: $index) {
+      id
+    }
+  }
+`);
