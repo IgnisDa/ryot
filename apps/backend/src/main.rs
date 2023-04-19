@@ -8,12 +8,13 @@ use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     body::{boxed, Full},
-    http::{header, Method, StatusCode, Uri},
+    http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, Router},
     Extension, Server,
 };
 use dotenvy::dotenv;
+use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
@@ -54,12 +55,16 @@ pub struct GqlCtx {
 async fn graphql_handler(
     schema: Extension<GraphqlSchema>,
     cookies: Cookies,
+    headers: HeaderMap,
     req: GraphQLRequest,
 ) -> GraphQLResponse {
     let mut req = req.0;
-    let ctx = GqlCtx {
-        auth_token: cookies.get(COOKIE_NAME).map(|c| c.value().to_owned()),
-    };
+    let mut ctx = GqlCtx { auth_token: None };
+    if let Some(c) = cookies.get(COOKIE_NAME) {
+        ctx.auth_token = Some(c.value().to_owned());
+    } else if let Some(h) = headers.get(AUTHORIZATION) {
+        ctx.auth_token = h.to_str().map(|e| e.replace("Bearer ", "")).ok();
+    }
     req = req.data(ctx);
     schema.execute(req).await.into()
 }
