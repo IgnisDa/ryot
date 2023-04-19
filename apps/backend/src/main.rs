@@ -24,6 +24,7 @@ use std::{
 };
 use tokio::{sync::mpsc::channel, try_join};
 use tokio_cron_scheduler::{Job, JobScheduler};
+use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -34,6 +35,7 @@ use crate::{
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
+    users::resolver::COOKIE_NAME,
 };
 
 mod background;
@@ -44,14 +46,22 @@ mod graphql;
 mod migrator;
 mod users;
 
-static INDEX_HTML: &str = "index.html";
+#[derive(Debug)]
+pub struct GqlCtx {
+    auth_token: Option<String>,
+}
 
-#[derive(RustEmbed)]
-#[folder = "../frontend/out/"]
-struct Assets;
-
-async fn graphql_handler(schema: Extension<GraphqlSchema>, req: GraphQLRequest) -> GraphQLResponse {
-    schema.execute(req.into_inner()).await.into()
+async fn graphql_handler(
+    schema: Extension<GraphqlSchema>,
+    cookies: Cookies,
+    req: GraphQLRequest,
+) -> GraphQLResponse {
+    let mut req = req.0;
+    let ctx = GqlCtx {
+        auth_token: cookies.get(COOKIE_NAME).map(|c| c.value().to_owned()),
+    };
+    req = req.data(ctx);
+    schema.execute(req).await.into()
 }
 
 async fn graphql_playground() -> impl IntoResponse {
@@ -125,6 +135,7 @@ async fn main() -> Result<()> {
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
+        .layer(CookieManagerLayer::new())
         .layer(cors)
         .fallback(static_handler);
 
@@ -156,6 +167,12 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+static INDEX_HTML: &str = "index.html";
+
+#[derive(RustEmbed)]
+#[folder = "../frontend/out/"]
+struct Assets;
 
 async fn static_handler(uri: Uri) -> impl IntoResponse {
     let mut path = uri.path().trim_start_matches('/').to_owned();
