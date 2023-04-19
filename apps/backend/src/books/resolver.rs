@@ -18,6 +18,7 @@ pub struct PartialBook {
     pub title: String,
     pub author_names: Vec<String>,
     pub image: Option<String>,
+    pub publish_year: Option<i32>,
 }
 
 #[derive(Default)]

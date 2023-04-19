@@ -48,6 +48,7 @@ impl OpenlibraryService {
                 "cover_i",
                 "language",
                 "edition_key",
+                "publish_year",
             ]
             .join(","),
             offset: offset.unwrap_or_default(),
@@ -60,6 +61,7 @@ impl OpenlibraryService {
             title: String,
             author_name: Option<Vec<String>>,
             cover_i: Option<i64>,
+            publish_year: Option<Vec<i32>>,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct OpenLibrarySearchResponse {
@@ -82,6 +84,7 @@ impl OpenlibraryService {
                 identifier: d.key,
                 title: d.title,
                 author_names: d.author_name.unwrap_or_default(),
+                publish_year: d.publish_year.map(|py| py.first().unwrap().clone()),
                 image: d
                     .cover_i
                     .map(|c| {

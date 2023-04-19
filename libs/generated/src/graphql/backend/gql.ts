@@ -16,7 +16,7 @@ const documents = {
     "\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n": types.RegisterUserDocument,
     "\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n": types.LoginUserDocument,
     "\n  mutation LogoutUser {\n    logoutUser\n  }\n": types.LogoutUserDocument,
-    "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\tauthorNames\n    \t\timage\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
+    "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\tauthorNames\n    \t\timage\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
     "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
 };
 
@@ -49,7 +49,7 @@ export function graphql(source: "\n  mutation LogoutUser {\n    logoutUser\n  }\
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\tauthorNames\n    \t\timage\n\t\t\t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\tauthorNames\n    \t\timage\n\t\t\t}\n  \t}\n\t}\n"];
+export function graphql(source: "\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\tauthorNames\n    \t\timage\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BooksSearch($query: String!, $offset: Int) {\n  \tbooksSearch(query: $query, offset: $offset) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\tauthorNames\n    \t\timage\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

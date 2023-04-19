@@ -10,6 +10,7 @@ export const BOOKS_SEARCH = graphql(`
     		title
     		authorNames
     		image
+				publishYear
 			}
   	}
 	}
