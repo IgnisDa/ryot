@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result, SimpleObject};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
 use super::openlibrary::OpenlibraryService;
@@ -42,13 +43,15 @@ impl BooksQuery {
 
 #[derive(Debug)]
 pub struct BooksService {
+    db: DatabaseConnection,
     openlibrary_service: Arc<OpenlibraryService>,
 }
 
 impl BooksService {
-    pub fn new(openlibrary_service: &OpenlibraryService) -> Self {
+    pub fn new(db: &DatabaseConnection, openlibrary_service: &OpenlibraryService) -> Self {
         Self {
             openlibrary_service: Arc::new(openlibrary_service.clone()),
+            db: db.clone(),
         }
     }
 }

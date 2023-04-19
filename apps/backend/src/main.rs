@@ -84,10 +84,10 @@ async fn main() -> Result<()> {
         ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap(),
     )?;
 
-    let conn = Database::connect(&config.database.url)
+    let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
-    Migrator::up(&conn, None).await.unwrap();
+    Migrator::up(&db, None).await.unwrap();
 
     let storage = {
         let st = SqliteStorage::connect(":memory:").await.unwrap();
@@ -121,7 +121,7 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let schema = get_schema(conn.clone(), &config);
+    let schema = get_schema(db.clone(), &config);
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -153,7 +153,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |_| {
                 WorkerBuilder::new(storage.clone())
                     .layer(ApalisExtension(config.clone()))
-                    .layer(ApalisExtension(conn.clone()))
+                    .layer(ApalisExtension(db.clone()))
                     .layer(ApalisTraceLayer::new())
                     .build_fn(refresh_media)
             })

@@ -37,20 +37,20 @@ pub struct MutationRoot(UsersMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-pub fn get_schema(conn: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
+pub fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
     let openlibrary_service = OpenlibraryService::new(
         &config.books.openlibrary.url,
         &config.books.openlibrary.cover_image,
         &config.books.openlibrary.cover_image_size.to_string(),
     );
-    let book_service = BooksService::new(&openlibrary_service);
-    let users_service = UsersService::new(&conn);
+    let book_service = BooksService::new(&db, &openlibrary_service);
+    let users_service = UsersService::new(&db);
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
         EmptySubscription,
     )
-    .data(conn)
+    .data(db)
     .data(book_service)
     .data(users_service)
     .finish()
