@@ -1,10 +1,19 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
-use sea_orm::DatabaseConnection;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::graphql::IdObject;
+use crate::{
+    entities::{
+        book, creator, metadata, metadata_image, metadata_to_creator,
+        prelude::{Book, Creator, MetadataImage},
+    },
+    graphql::IdObject,
+    migrator::{MetadataImageLot, MetadataLot, StringVec},
+};
 
 use super::openlibrary::OpenlibraryService;
 
@@ -17,12 +26,12 @@ pub struct BookSearchInput {
 #[derive(Serialize, Deserialize, Debug, SimpleObject)]
 pub struct BookSearch {
     pub total: i32,
-    pub books: Vec<Book>,
+    pub books: Vec<BookItem>,
     pub limit: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct Book {
+pub struct BookItem {
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
@@ -96,7 +105,6 @@ impl BooksService {
         Ok(books)
     }
 
-    // Get book details from all sources
     async fn commit_book(
         &self,
         identifier: &str,
@@ -104,12 +112,73 @@ impl BooksService {
         offset: Option<i32>,
         index: i32,
     ) -> Result<IdObject> {
-        let book = self
-            .openlibrary_service
-            .details(identifier, query, offset, index)
+        if let Some(b) = Book::find()
+            .filter(book::Column::OpenLibraryKeys.contains(identifier))
+            .one(&self.db)
             .await
-            .unwrap();
-        dbg!(&book);
-        Ok(IdObject { id: 12 })
+            .unwrap()
+        {
+            Ok(IdObject { id: b.metadata_id })
+        } else {
+            let book_details = self
+                .openlibrary_service
+                .details(identifier, query, offset, index)
+                .await
+                .unwrap();
+            let metadata = metadata::ActiveModel {
+                lot: ActiveValue::Set(MetadataLot::Book),
+                title: ActiveValue::Set(book_details.title),
+                description: ActiveValue::Set(book_details.description),
+                ..Default::default()
+            };
+            let metadata = metadata.insert(&self.db).await.unwrap();
+            for image in book_details.images.into_iter() {
+                if let Some(c) = MetadataImage::find()
+                    .filter(metadata_image::Column::Url.eq(&image))
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                {
+                    c
+                } else {
+                    let c = metadata_image::ActiveModel {
+                        url: ActiveValue::Set(image),
+                        lot: ActiveValue::Set(MetadataImageLot::Poster),
+                        metadata_id: ActiveValue::Set(metadata.id),
+                        ..Default::default()
+                    };
+                    c.insert(&self.db).await.unwrap()
+                };
+            }
+            for name in book_details.author_names.into_iter() {
+                let creator = if let Some(c) = Creator::find()
+                    .filter(creator::Column::Name.eq(&name))
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                {
+                    c
+                } else {
+                    let c = creator::ActiveModel {
+                        name: ActiveValue::Set(name),
+                        ..Default::default()
+                    };
+                    c.insert(&self.db).await.unwrap()
+                };
+                let metadata_creator = metadata_to_creator::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata.id),
+                    creator_id: ActiveValue::Set(creator.id),
+                };
+                metadata_creator.insert(&self.db).await.unwrap();
+            }
+            let book = book::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata.id),
+                open_library_keys: ActiveValue::Set(StringVec(vec![book_details.identifier])),
+            };
+            let book = book.insert(&self.db).await.unwrap();
+            Ok(IdObject {
+                id: book.metadata_id,
+            })
+        }
     }
 }

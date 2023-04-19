@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::books::resolver::{Book, BookSearch};
+use crate::books::resolver::{BookItem, BookSearch};
 
 static LIMIT: i32 = 20;
 
@@ -38,7 +38,7 @@ impl OpenlibraryService {
         query: &str,
         offset: Option<i32>,
         index: i32,
-    ) -> Result<Book> {
+    ) -> Result<BookItem> {
         let mut detail = self.search(query, offset).await?.books[index as usize].clone();
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
@@ -149,7 +149,7 @@ impl OpenlibraryService {
                 } else {
                     vec![]
                 };
-                Book {
+                BookItem {
                     identifier: d.key,
                     title: d.title,
                     description: None,
