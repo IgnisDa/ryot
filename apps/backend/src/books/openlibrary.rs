@@ -3,7 +3,9 @@ use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
-use super::resolver::BookSearch;
+use crate::books::resolver::{BookSearch, PartialBook};
+
+static LIMIT: i32 = 20;
 
 #[derive(Debug, Clone)]
 pub struct OpenlibraryService {
@@ -27,7 +29,7 @@ impl OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub async fn search(&self, query: &'_ str, offset: Option<i32>) -> Result<Vec<BookSearch>> {
+    pub async fn search(&self, query: &'_ str, offset: Option<i32>) -> Result<BookSearch> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -47,18 +49,19 @@ impl OpenlibraryService {
             ]
             .join(","),
             offset: offset.unwrap_or_default(),
-            limit: 10,
+            limit: LIMIT,
         };
 
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct OpenlibraryBook {
             key: String,
             title: String,
-            author_name: Vec<String>,
+            author_name: Option<Vec<String>>,
             cover_i: Option<i64>,
         }
-        #[derive(Serialize, Deserialize)]
-        struct SearchResponse {
+        #[derive(Serialize, Deserialize, Debug)]
+        struct OpenLibrarySearchResponse {
+            num_found: i32,
             docs: Vec<OpenlibraryBook>,
         }
         let mut rsp = self
@@ -68,22 +71,25 @@ impl OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: OpenLibrarySearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
             .docs
             .into_iter()
-            .map(|d| BookSearch {
+            .map(|d| PartialBook {
                 identifier: d.key,
                 title: d.title,
-                author_names: d.author_name,
+                author_names: d.author_name.unwrap_or_default(),
                 image: d
                     .cover_i
                     .map(|c| Some(format!("{}/id/{}-L.jpg?default=false", self.image_url, c)))
                     .unwrap_or(None),
             })
             .collect::<Vec<_>>();
-
-        Ok(resp)
+        Ok(BookSearch {
+            total: search.num_found,
+            books: resp,
+            limit: LIMIT,
+        })
     }
 }
