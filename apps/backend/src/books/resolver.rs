@@ -27,7 +27,7 @@ pub struct Book {
     pub title: String,
     pub description: Option<String>,
     pub author_names: Vec<String>,
-    pub image: Option<String>,
+    pub images: Vec<String>,
     pub publish_year: Option<i32>,
     pub num_pages: Option<i32>,
 }
@@ -104,11 +104,12 @@ impl BooksService {
         offset: Option<i32>,
         index: i32,
     ) -> Result<IdObject> {
-        let books = self
+        let book = self
             .openlibrary_service
             .details(identifier, query, offset, index)
             .await
             .unwrap();
+        dbg!(&book);
         Ok(IdObject { id: 12 })
     }
 }
