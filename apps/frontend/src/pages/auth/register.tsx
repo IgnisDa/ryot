@@ -1,13 +1,13 @@
 import { type UserInput } from "@trackona/generated/graphql/backend/graphql";
 import { REGISTER_USER } from "@trackona/graphql/backend/mutations";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Text, Button, TextInput, PasswordInput, Box } from "@mantine/core";
+import { zodResolver, useForm } from "@mantine/form";
+import { Button, TextInput, PasswordInput, Box, Anchor } from "@mantine/core";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { gqlClient } from "@/lib/services/api";
 import { notifications } from "@mantine/notifications";
 import { useRouter } from "next/router";
+import Link from "next/link";
 
 const formSchema = z
 	.object({
@@ -48,21 +48,19 @@ export default function Page() {
 		},
 	});
 
-	const {
-		register,
-		handleSubmit,
-		formState: { errors },
-	} = useForm<FormSchema>({ resolver: zodResolver(formSchema) });
-	const onSubmit: SubmitHandler<FormSchema> = ({ username, password }) => {
-		registerUser.mutate({ username, password });
-	};
+	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	return (
 		<Box
 			component="form"
 			my={"auto"}
 			mx={"auto"}
-			onSubmit={handleSubmit(onSubmit)}
+			onSubmit={form.onSubmit((values) => {
+				registerUser.mutate({
+					username: values.username,
+					password: values.password,
+				});
+			})}
 			sx={(t) => ({
 				width: "80%",
 				[t.fn.largerThan("sm")]: { width: "60%" },
@@ -71,23 +69,33 @@ export default function Page() {
 				[t.fn.largerThan("xl")]: { width: "30%" },
 			})}
 		>
-			<TextInput label="Username" {...register("username")} required />
+			<TextInput
+				label="Username"
+				{...form.getInputProps("username")}
+				required
+			/>
 			<PasswordInput
 				label="Password"
 				mt="md"
-				{...register("password")}
+				{...form.getInputProps("password")}
 				required
 			/>
 			<PasswordInput
 				label="Confirm password"
 				mt="md"
-				{...register("confirm")}
+				{...form.getInputProps("confirm")}
 				required
 			/>
-			{errors.confirm && <Text color="red">{errors.confirm.message}</Text>}
 			<Button mt="md" type="submit" loading={registerUser.isLoading} w="100%">
 				Register
 			</Button>
+			<Box mt="lg" style={{ textAlign: "right" }}>
+				Already a member? Login{" "}
+				<Link href="/auth/login" passHref legacyBehavior>
+					<Anchor>here</Anchor>
+				</Link>
+				.
+			</Box>
 		</Box>
 	);
 }

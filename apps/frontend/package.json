@@ -4,8 +4,8 @@
 	"dependencies": {
 		"@emotion/react": "11.10.6",
 		"@emotion/server": "11.10.0",
-		"@hookform/resolvers": "3.1.0",
 		"@mantine/core": "6.0.8",
+		"@mantine/form": "6.0.8",
 		"@mantine/hooks": "6.0.8",
 		"@mantine/next": "6.0.8",
 		"@mantine/notifications": "6.0.8",
@@ -20,7 +20,6 @@
 		"react": "18.2.0",
 		"react-cookie": "4.1.1",
 		"react-dom": "18.2.0",
-		"react-hook-form": "7.43.9",
 		"ts-pattern": "4.2.2",
 		"typescript": "5.0.4",
 		"zod": "3.21.4"

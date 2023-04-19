@@ -1456,15 +1456,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hookform/resolvers@npm:3.1.0":
-  version: 3.1.0
-  resolution: "@hookform/resolvers@npm:3.1.0"
-  peerDependencies:
-    react-hook-form: ^7.0.0
-  checksum: 8f6690e514e645dd2a38baf573e7a62a9555c95d6a27f84216be7b3ae4cdc1c09111d6f7a38250612e46aa9d562ccec63db9306ec179156381583b444bf552c2
-  languageName: node
-  linkType: hard
-
 "@jridgewell/gen-mapping@npm:^0.3.0, @jridgewell/gen-mapping@npm:^0.3.2":
   version: 0.3.3
   resolution: "@jridgewell/gen-mapping@npm:0.3.3"
@@ -1529,6 +1520,18 @@ __metadata:
     react: ">=16.8.0"
     react-dom: ">=16.8.0"
   checksum: 6321c695ee499d76be75c98f00a86d3b68556794086cbd3962e12ba06ac4c9f72c8c1e8648a59b033cfa881ac4c70042823c50cbdc150a8228b47e07cdc460cd
+  languageName: node
+  linkType: hard
+
+"@mantine/form@npm:6.0.8":
+  version: 6.0.8
+  resolution: "@mantine/form@npm:6.0.8"
+  dependencies:
+    fast-deep-equal: ^3.1.3
+    klona: ^2.0.5
+  peerDependencies:
+    react: ">=16.8.0"
+  checksum: aa724639a89c89f0a9ccfaca9c326811869e559238158beecf4e19b63080fffa3c00f62fbd19befcdae949b1eb4b12ef736e342f88976f5ba7d07109b5906d57
   languageName: node
   linkType: hard
 
@@ -2020,8 +2023,8 @@ __metadata:
   dependencies:
     "@emotion/react": 11.10.6
     "@emotion/server": 11.10.0
-    "@hookform/resolvers": 3.1.0
     "@mantine/core": 6.0.8
+    "@mantine/form": 6.0.8
     "@mantine/hooks": 6.0.8
     "@mantine/next": 6.0.8
     "@mantine/notifications": 6.0.8
@@ -2036,7 +2039,6 @@ __metadata:
     react: 18.2.0
     react-cookie: 4.1.1
     react-dom: 18.2.0
-    react-hook-form: 7.43.9
     ts-pattern: 4.2.2
     typescript: 5.0.4
     zod: 3.21.4
@@ -3140,6 +3142,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fast-deep-equal@npm:^3.1.3":
+  version: 3.1.3
+  resolution: "fast-deep-equal@npm:3.1.3"
+  checksum: e21a9d8d84f53493b6aa15efc9cfd53dd5b714a1f23f67fb5dc8f574af80df889b3bce25dc081887c6d25457cce704e636395333abad896ccdec03abaf1f3f9d
+  languageName: node
+  linkType: hard
+
 "fast-glob@npm:^3.2.9":
   version: 3.2.12
   resolution: "fast-glob@npm:3.2.12"
@@ -3952,6 +3961,13 @@ __metadata:
   version: 0.0.1
   resolution: "jsonify@npm:0.0.1"
   checksum: 027287e1c0294fce15f18c0ff990cfc2318e7f01fb76515f784d5cd0784abfec6fc5c2355c3a2f2cb0ad7f4aa2f5b74ebbfe4e80476c35b2d13cabdb572e1134
+  languageName: node
+  linkType: hard
+
+"klona@npm:^2.0.5":
+  version: 2.0.6
+  resolution: "klona@npm:2.0.6"
+  checksum: ac9ee3732e42b96feb67faae4d27cf49494e8a3bf3fa7115ce242fe04786788e0aff4741a07a45a2462e2079aa983d73d38519c85d65b70ef11447bbc3c58ce7
   languageName: node
   linkType: hard
 
@@ -4833,15 +4849,6 @@ __metadata:
   peerDependencies:
     react: ^18.2.0
   checksum: 7d323310bea3a91be2965f9468d552f201b1c27891e45ddc2d6b8f717680c95a75ae0bc1e3f5cf41472446a2589a75aed4483aee8169287909fcd59ad149e8cc
-  languageName: node
-  linkType: hard
-
-"react-hook-form@npm:7.43.9":
-  version: 7.43.9
-  resolution: "react-hook-form@npm:7.43.9"
-  peerDependencies:
-    react: ^16.8.0 || ^17 || ^18
-  checksum: 65b94de625f2b7921c4e856bf0abbe142bfe06c052217bd1bcc3a842e2cc37fa3a3e03758119dc038bbcf5edb49e02c29206528b80b201f9a4d601471ef78153
   languageName: node
   linkType: hard
 

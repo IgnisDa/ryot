@@ -3,15 +3,15 @@ import {
 	LoginErrorVariant,
 } from "@trackona/generated/graphql/backend/graphql";
 import { LOGIN_USER } from "@trackona/graphql/backend/mutations";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver, useForm } from "@mantine/form";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { gqlClient } from "@/lib/services/api";
 import { useRouter } from "next/router";
-import { Box, Button, PasswordInput, TextInput } from "@mantine/core";
+import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { match } from "ts-pattern";
 import { notifications } from "@mantine/notifications";
+import Link from "next/link";
 
 const formSchema = z.object({
 	username: z.string(),
@@ -49,19 +49,16 @@ export default function Page() {
 			}
 		},
 	});
-	const { register, handleSubmit } = useForm<FormSchema>({
-		resolver: zodResolver(formSchema),
-	});
-	const onSubmit: SubmitHandler<FormSchema> = ({ username, password }) => {
-		loginUser.mutate({ username, password });
-	};
+	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	return (
 		<Box
 			component="form"
 			my={"auto"}
 			mx={"auto"}
-			onSubmit={handleSubmit(onSubmit)}
+			onSubmit={form.onSubmit((values) => {
+				loginUser.mutate(values);
+			})}
 			sx={(t) => ({
 				width: "80%",
 				[t.fn.largerThan("sm")]: { width: "60%" },
@@ -70,16 +67,27 @@ export default function Page() {
 				[t.fn.largerThan("xl")]: { width: "30%" },
 			})}
 		>
-			<TextInput label="Username" {...register("username")} required />
+			<TextInput
+				label="Username"
+				{...form.getInputProps("username")}
+				required
+			/>
 			<PasswordInput
 				label="Password"
 				mt="md"
-				{...register("password")}
+				{...form.getInputProps("password")}
 				required
 			/>
 			<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
 				Login
 			</Button>
+			<Box mt="lg" style={{ textAlign: "right" }}>
+				Need an account? Register{" "}
+				<Link href="/auth/register" passHref legacyBehavior>
+					<Anchor>here</Anchor>
+				</Link>
+				.
+			</Box>
 		</Box>
 	);
 }
