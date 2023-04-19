@@ -131,7 +131,7 @@ export default function ({ children }: { children: ReactElement }) {
 					onClick={logoutUser.mutate}
 				/>
 			</Flex>
-			<Box>{children}</Box>
+			<Box my={"lg"}>{children}</Box>
 		</Flex>
 	);
 }
