@@ -1,8 +1,8 @@
 import { graphql } from "@trackona/generated/graphql/backend";
 
 export const BOOKS_SEARCH = graphql(`
-	query BooksSearch($query: String!, $offset: Int) {
-  	booksSearch(query: $query, offset: $offset) {
+	query BooksSearch($input: BookSearchInput!) {
+  	booksSearch(input: $input) {
 			total
 			limit
 			books {

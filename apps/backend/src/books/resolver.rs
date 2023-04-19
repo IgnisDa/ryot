@@ -1,25 +1,35 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Object, Result, SimpleObject};
+use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
+use crate::graphql::IdObject;
+
 use super::openlibrary::OpenlibraryService;
+
+#[derive(Serialize, Deserialize, Debug, InputObject)]
+pub struct BookSearchInput {
+    query: String,
+    offset: Option<i32>,
+}
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject)]
 pub struct BookSearch {
     pub total: i32,
-    pub books: Vec<PartialBook>,
+    pub books: Vec<Book>,
     pub limit: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
-pub struct PartialBook {
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct Book {
     pub identifier: String,
     pub title: String,
+    pub description: Option<String>,
     pub author_names: Vec<String>,
     pub image: Option<String>,
     pub publish_year: Option<i32>,
+    pub num_pages: Option<i32>,
 }
 
 #[derive(Default)]
@@ -31,12 +41,31 @@ impl BooksQuery {
     async fn books_search(
         &self,
         gql_ctx: &Context<'_>,
-        query: String,
-        offset: Option<i32>,
+        input: BookSearchInput,
     ) -> Result<BookSearch> {
         gql_ctx
             .data_unchecked::<BooksService>()
-            .books_search(&query, offset)
+            .books_search(&input.query, input.offset)
+            .await
+    }
+}
+
+#[derive(Default)]
+pub struct BooksMutation;
+
+#[Object]
+impl BooksMutation {
+    /// Fetch details about a book and create a media item in the database
+    async fn commit_book(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifier: String,
+        index: i32,
+        input: BookSearchInput,
+    ) -> Result<IdObject> {
+        gql_ctx
+            .data_unchecked::<BooksService>()
+            .commit_book(&identifier, &input.query, input.offset, index)
             .await
     }
 }
@@ -65,5 +94,21 @@ impl BooksService {
             .await
             .unwrap();
         Ok(books)
+    }
+
+    // Get book details from all sources
+    async fn commit_book(
+        &self,
+        identifier: &str,
+        query: &str,
+        offset: Option<i32>,
+        index: i32,
+    ) -> Result<IdObject> {
+        let books = self
+            .openlibrary_service
+            .details(identifier, query, offset, index)
+            .await
+            .unwrap();
+        Ok(IdObject { id: 12 })
     }
 }

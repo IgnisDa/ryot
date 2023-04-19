@@ -3,7 +3,7 @@ use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
-use crate::books::resolver::{BookSearch, PartialBook};
+use crate::books::resolver::{Book, BookSearch};
 
 static LIMIT: i32 = 20;
 
@@ -31,30 +31,38 @@ impl OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub async fn search(&self, query: &'_ str, offset: Option<i32>) -> Result<BookSearch> {
+    pub async fn details(
+        &self,
+        identifier: &str,
+        query: &str,
+        offset: Option<i32>,
+        index: i32,
+    ) -> Result<Book> {
+        let mut detail = self.search(query, offset).await?.books[index as usize].clone();
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct OpenlibraryBook {
+            description: Option<String>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("works/{}.json", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        detail.description = data.description;
+        Ok(detail)
+    }
+
+    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<BookSearch> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
             fields: String,
             offset: i32,
             limit: i32,
+            #[serde(rename = "type")]
+            lot: String,
         }
-        let q = Query {
-            q: query.to_owned(),
-            fields: [
-                "title",
-                "key",
-                "author_name",
-                "cover_i",
-                "language",
-                "edition_key",
-                "publish_year",
-            ]
-            .join(","),
-            offset: offset.unwrap_or_default(),
-            limit: LIMIT,
-        };
-
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct OpenlibraryBook {
             key: String,
@@ -62,16 +70,34 @@ impl OpenlibraryService {
             author_name: Option<Vec<String>>,
             cover_i: Option<i64>,
             publish_year: Option<Vec<i32>>,
+            first_publish_year: Option<i32>,
+            number_of_pages_median: Option<i32>,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct OpenLibrarySearchResponse {
             num_found: i32,
             docs: Vec<OpenlibraryBook>,
         }
+
         let mut rsp = self
             .client
             .get("search.json")
-            .query(&q)
+            .query(&Query {
+                q: query.to_owned(),
+                fields: [
+                    "key",
+                    "title",
+                    "author_name",
+                    "cover_i",
+                    "publish_year",
+                    "first_publish_year",
+                    "number_of_pages_median",
+                ]
+                .join(","),
+                offset: offset.unwrap_or_default(),
+                limit: LIMIT,
+                lot: "work".to_owned(),
+            })
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -80,11 +106,13 @@ impl OpenlibraryService {
         let resp = search
             .docs
             .into_iter()
-            .map(|d| PartialBook {
+            .map(|d| Book {
                 identifier: d.key,
                 title: d.title,
+                description: None,
                 author_names: d.author_name.unwrap_or_default(),
-                publish_year: d.publish_year.map(|py| py.first().unwrap().clone()),
+                publish_year: d.first_publish_year,
+                num_pages: d.number_of_pages_median,
                 image: d
                     .cover_i
                     .map(|c| {

@@ -7,7 +7,7 @@ use std::env;
 use crate::{
     books::{
         openlibrary::OpenlibraryService,
-        resolver::{BooksQuery, BooksService},
+        resolver::{BooksMutation, BooksQuery, BooksService},
     },
     config::AppConfig,
     users::resolver::{UsersMutation, UsersService},
@@ -33,7 +33,7 @@ impl CoreQuery {
 pub struct QueryRoot(CoreQuery, BooksQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(UsersMutation);
+pub struct MutationRoot(UsersMutation, BooksMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
