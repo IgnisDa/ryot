@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.70"
 apalis = { version = "0.3.6", features = ["sqlite", "extensions"] }
 argon2 = "0.5.0"
-async-graphql = { version = "5.0.7", features = ["log", "uuid"] }
+async-graphql = { version = "5.0.7", features = ["chrono", "log", "uuid"] }
 async-graphql-axum = "5.0.7"
 axum = { version = "0.6.12", features = ["macros"] }
 chrono = "0.4.24"

@@ -246,6 +246,7 @@ dependencies = [
  "async-trait",
  "base64 0.13.1",
  "bytes 1.4.0",
+ "chrono",
  "fast_chemail",
  "fnv",
  "futures-util",
