@@ -2,7 +2,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
 use cookie::{time::OffsetDateTime, Cookie};
 use http::header::SET_COOKIE;
@@ -19,17 +19,10 @@ use crate::{
     },
     graphql::IdObject,
     migrator::{TokenLot, UserLot},
-    GqlCtx,
+    utils::user_iden_from_ctx,
 };
 
 pub static COOKIE_NAME: &str = "auth";
-
-fn user_iden_from_ctx(ctx: &Context<'_>) -> Result<String> {
-    let ctx = ctx.data_unchecked::<GqlCtx>();
-    ctx.auth_token
-        .clone()
-        .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
-}
 
 fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(true);

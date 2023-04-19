@@ -46,6 +46,7 @@ mod entities;
 mod graphql;
 mod migrator;
 mod users;
+mod utils;
 
 #[derive(Debug)]
 pub struct GqlCtx {
