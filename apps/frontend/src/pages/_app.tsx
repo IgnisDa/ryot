@@ -20,10 +20,14 @@ type AppPropsWithLayout = AppProps & {
 };
 
 const Footer = () => {
-	const version = useQuery(["version"], async () => {
-		const { version } = await gqlClient.request(VERSION);
-		return version;
-	});
+	const version = useQuery(
+		["version"],
+		async () => {
+			const { version } = await gqlClient.request(VERSION);
+			return version;
+		},
+		{ staleTime: Infinity },
+	);
 
 	return (
 		<Container p={8}>

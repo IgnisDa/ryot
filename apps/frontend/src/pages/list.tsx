@@ -39,7 +39,7 @@ const Page: NextPageWithLayout = () => {
 			});
 			return booksSearch;
 		},
-		{ enabled: query !== "" },
+		{ enabled: query !== "", staleTime: Infinity },
 	);
 	const commitBook = useMutation(
 		async (variables: CommitBookMutationVariables) => {
