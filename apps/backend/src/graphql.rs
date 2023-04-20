@@ -10,6 +10,7 @@ use crate::{
         resolver::{BooksMutation, BooksQuery, BooksService},
     },
     config::AppConfig,
+    media::resolver::{MediaQuery, MediaService},
     users::resolver::{UsersMutation, UsersService},
 };
 
@@ -30,7 +31,7 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery, BooksQuery);
+pub struct QueryRoot(CoreQuery, BooksQuery, MediaQuery);
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(UsersMutation, BooksMutation);
@@ -44,6 +45,7 @@ pub fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
         &config.books.openlibrary.cover_image_size.to_string(),
     );
     let book_service = BooksService::new(&db, &openlibrary_service);
+    let media_service = MediaService::new(&db);
     let users_service = UsersService::new(&db);
     Schema::build(
         QueryRoot::default(),
@@ -52,6 +54,7 @@ pub fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
     )
     .data(db)
     .data(book_service)
+    .data(media_service)
     .data(users_service)
     .finish()
 }

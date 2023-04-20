@@ -1,3 +1,4 @@
+use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -29,7 +30,9 @@ enum MetadataImage {
 }
 
 // The different types of media that can be stored
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+)]
 #[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
 pub enum MetadataLot {
     #[sea_orm(string_value = "AB")]
