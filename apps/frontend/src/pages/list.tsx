@@ -1,9 +1,7 @@
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { NextPageWithLayout } from "./_app";
-import { useState, type ReactElement } from "react";
+import { useState, type ReactElement, useEffect } from "react";
 import {
-	Image,
-	Text,
 	Center,
 	Container,
 	Loader,
@@ -11,22 +9,28 @@ import {
 	SimpleGrid,
 	Stack,
 	TextInput,
-	Flex,
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { gqlClient } from "@/lib/services/api";
-import { BOOKS_SEARCH } from "@trackona/graphql/backend/queries";
 import { useDebouncedState } from "@mantine/hooks";
-import { COMMIT_BOOK } from "@trackona/graphql/backend/mutations";
-import type { CommitBookMutationVariables } from "@trackona/generated/graphql/backend/graphql";
 import { useRouter } from "next/router";
+import SearchMedia from "@/lib/components/SearchMedia";
+import type {
+	CommitBookMutationVariables,
+	MetadataLot,
+} from "@trackona/generated/graphql/backend/graphql";
+import { COMMIT_BOOK } from "@trackona/graphql/backend/mutations";
+import { BOOKS_SEARCH } from "@trackona/graphql/backend/queries";
+
+const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
+	const tab = router.query.tab as MetadataLot;
 	const [query, setQuery] = useDebouncedState("", 1000);
 	const [activePage, setPage] = useState(1);
-	const offset = (activePage - 1) * 20;
+	const offset = (activePage - 1) * LIMIT;
 	const searchQuery = useQuery(
 		["searchQuery", query, activePage],
 		async () => {
@@ -43,6 +47,9 @@ const Page: NextPageWithLayout = () => {
 			return commitBook;
 		},
 	);
+	useEffect(() => {
+		if (!tab) router.push("/");
+	}, []);
 
 	return (
 		<Container>
@@ -67,38 +74,20 @@ const Page: NextPageWithLayout = () => {
 								{ minWidth: "xl", cols: 6 },
 							]}
 						>
-							{searchQuery.data.books.map((b, idx) => (
-								<Flex
-									key={b.identifier}
-									align={"center"}
-									justify={"center"}
-									direction={"column"}
-								>
-									<Image
-										src={b.images.at(0)}
-										radius={"md"}
-										height={250}
-										withPlaceholder
-										placeholder={<Text size={60}>?</Text>}
-										style={{ cursor: "pointer" }}
-										alt={`Image for ${b.title}`}
-										onClick={async () => {
-											const { id } = await commitBook.mutateAsync({
-												identifier: b.identifier,
-												index: idx,
-												input: { query, offset },
-											});
-											router.push(`/media/${id}`);
-										}}
-									/>
-									<Flex justify={"space-between"} w="100%">
-										<Text c="dimmed">{b.publishYear}</Text>
-										<Text c="dimmed">Book</Text>
-									</Flex>
-									<Text w="100%" truncate fw={"bold"}>
-										{b.title}
-									</Text>
-								</Flex>
+							{searchQuery.data.items.map((b, idx) => (
+								<SearchMedia
+									idx={idx}
+									key={idx}
+									item={b}
+									onClick={async () => {
+										const { id } = await commitBook.mutateAsync({
+											identifier: b.identifier,
+											index: idx,
+											input: { query, offset },
+										});
+										router.push(`/media?item=${id}`);
+									}}
+								/>
 							))}
 						</SimpleGrid>
 						<Center>
@@ -106,9 +95,7 @@ const Page: NextPageWithLayout = () => {
 								size="sm"
 								value={activePage}
 								onChange={setPage}
-								total={Math.ceil(
-									searchQuery.data.total / searchQuery.data.limit,
-								)}
+								total={Math.ceil(searchQuery.data.total / LIMIT)}
 								boundaries={1}
 								siblings={0}
 							/>
