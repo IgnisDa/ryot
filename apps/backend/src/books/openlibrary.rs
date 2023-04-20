@@ -177,7 +177,6 @@ impl OpenlibraryService {
         Ok(BookSearch {
             total: search.num_found,
             items: resp,
-            limit: LIMIT,
         })
     }
 

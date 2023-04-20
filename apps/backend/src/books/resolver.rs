@@ -28,7 +28,6 @@ pub struct BookSearchInput {
 pub struct BookSearch {
     pub total: i32,
     pub items: Vec<MediaSearchItem<BookSpecifics>>,
-    pub limit: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
