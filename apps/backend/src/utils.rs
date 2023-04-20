@@ -2,7 +2,7 @@ use async_graphql::{Context, Error, Result};
 
 use crate::GqlCtx;
 
-pub fn user_iden_from_ctx(ctx: &Context<'_>) -> Result<String> {
+pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
     let ctx = ctx.data_unchecked::<GqlCtx>();
     ctx.auth_token
         .clone()

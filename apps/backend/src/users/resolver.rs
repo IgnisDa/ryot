@@ -19,7 +19,7 @@ use crate::{
     },
     graphql::IdObject,
     migrator::{TokenLot, UserLot},
-    utils::user_iden_from_ctx,
+    utils::user_auth_token_from_ctx,
 };
 
 pub static COOKIE_NAME: &str = "auth";
@@ -70,7 +70,7 @@ impl UsersMutation {
 
     /// Logout a user from the server, deleting their login token
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_iden_from_ctx(gql_ctx)?;
+        let user_id = user_auth_token_from_ctx(gql_ctx)?;
         create_cookie(gql_ctx, "", true)?;
         gql_ctx
             .data_unchecked::<UsersService>()
