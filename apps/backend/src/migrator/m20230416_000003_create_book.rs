@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Book::MetadataId)
                             .integer()
                             .primary_key()
+                            .unique_key()
                             .not_null(),
                     )
                     .foreign_key(
