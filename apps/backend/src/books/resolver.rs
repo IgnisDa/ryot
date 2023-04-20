@@ -112,13 +112,13 @@ impl BooksService {
         offset: Option<i32>,
         index: i32,
     ) -> Result<IdObject> {
-        if let Some(b) = Book::find()
+        let id = if let Some(b) = Book::find()
             .filter(book::Column::OpenLibraryKey.eq(identifier))
             .one(&self.db)
             .await
             .unwrap()
         {
-            Ok(IdObject { id: b.metadata_id })
+            b.metadata_id
         } else {
             let book_details = self
                 .openlibrary_service
@@ -177,9 +177,8 @@ impl BooksService {
                 open_library_key: ActiveValue::Set(book_details.identifier),
             };
             let book = book.insert(&self.db).await.unwrap();
-            Ok(IdObject {
-                id: book.metadata_id,
-            })
-        }
+            book.metadata_id
+        };
+        Ok(IdObject { id })
     }
 }
