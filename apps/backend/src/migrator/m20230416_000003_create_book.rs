@@ -9,6 +9,7 @@ pub enum Book {
     Table,
     MetadataId,
     OpenLibraryKey,
+    NumPages,
 }
 
 impl MigrationName for Migration {
@@ -40,6 +41,12 @@ impl MigrationTrait for Migration {
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
+                    .col(
+                        ColumnDef::new(Book::NumPages)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
                     .to_owned(),
             )
             .await?;
