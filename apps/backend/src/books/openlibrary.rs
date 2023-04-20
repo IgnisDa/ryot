@@ -32,6 +32,15 @@ impl OpenlibraryService {
 }
 
 impl OpenlibraryService {
+    fn get_key(key: &str) -> String {
+        key.split('/')
+            .collect::<Vec<_>>()
+            .last()
+            .cloned()
+            .unwrap()
+            .to_owned()
+    }
+
     pub async fn details(
         &self,
         identifier: &str,
@@ -80,14 +89,6 @@ impl OpenlibraryService {
         while let Some(Ok(result)) = set.join_next().await {
             authors.push(result);
         }
-        detail.identifier = detail
-            .identifier
-            .split('/')
-            .collect::<Vec<_>>()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned();
         detail.description = data.description;
         detail.images = data
             .covers
@@ -158,7 +159,7 @@ impl OpenlibraryService {
                     vec![]
                 };
                 BookItem {
-                    identifier: d.key,
+                    identifier: Self::get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
