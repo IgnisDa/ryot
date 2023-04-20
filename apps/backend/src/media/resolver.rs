@@ -1,13 +1,18 @@
+use std::collections::HashMap;
+
 use async_graphql::{Context, Error, Object, OutputType, Result, SimpleObject};
-use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{
+        book,
         metadata::Model as MetadataModel,
-        prelude::{Book, Creator, Metadata, MetadataImage},
+        prelude::{Book, Creator, Metadata, MetadataImage, Seen},
+        seen,
     },
     migrator::MetadataLot,
+    utils::user_id_from_ctx,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -43,6 +48,19 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .book_details(metadata_id)
+            .await
+    }
+
+    // Whether a book has been read by a user
+    async fn book_read(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifiers: Vec<String>,
+    ) -> Result<HashMap<String, bool>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .book_read(identifiers, user_id)
             .await
     }
 }
@@ -109,6 +127,38 @@ impl MediaService {
                 pages: book.num_pages,
             },
         };
+        Ok(resp)
+    }
+
+    async fn book_read(
+        &self,
+        identifiers: Vec<String>,
+        user_id: i32,
+    ) -> Result<HashMap<String, bool>> {
+        let books = Book::find()
+            .filter(book::Column::OpenLibraryKey.is_in(&identifiers))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let seen = Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(
+                seen::Column::MetadataId
+                    .is_in(books.iter().map(|b| b.metadata_id).collect::<Vec<_>>()),
+            )
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mut resp = HashMap::new();
+        for identifier in identifiers {
+            let is_in_database = books.iter().find(|b| b.open_library_key == identifier);
+            if let Some(m) = is_in_database {
+                let is_there = seen.iter().any(|b| b.metadata_id == m.metadata_id);
+                resp.insert(identifier, is_there);
+            } else {
+                resp.insert(identifier, false);
+            }
+        }
         Ok(resp)
     }
 }
