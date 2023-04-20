@@ -27,7 +27,7 @@ const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const tab = router.query.tab as MetadataLot;
+	const lot = router.query.lot as MetadataLot;
 	const [query, setQuery] = useDebouncedState("", 1000);
 	const [activePage, setPage] = useState(1);
 	const offset = (activePage - 1) * LIMIT;
@@ -48,7 +48,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	);
 	useEffect(() => {
-		if (!tab) router.push("/");
+		if (!lot) router.push("/");
 	}, []);
 
 	return (
@@ -85,7 +85,7 @@ const Page: NextPageWithLayout = () => {
 											index: idx,
 											input: { query, offset },
 										});
-										router.push(`/media?item=${id}`);
+										router.push(`/media?item=${id}&lot=${lot}`);
 									}}
 								/>
 							))}
