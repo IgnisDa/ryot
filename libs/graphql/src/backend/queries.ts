@@ -34,3 +34,9 @@ export const BOOK_DETAILS = graphql(`
   	}
 	}
 `);
+
+export const BOOK_READ = graphql(`
+	query BookRead($identifiers: [String!]!) {
+		bookRead(identifiers: $identifiers)
+	}
+`);
