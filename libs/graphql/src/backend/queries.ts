@@ -20,3 +20,18 @@ export const VERSION = graphql(`
 		version
 	}
 `);
+
+export const BOOK_DETAILS = graphql(`
+	query BookDetails($metadataId: Int!) {
+  	bookDetails(metadataId: $metadataId) {
+    	title
+    	description
+    	creators
+    	images
+    	publishYear
+    	specifics {
+      	pages
+    	}
+  	}
+	}
+`);

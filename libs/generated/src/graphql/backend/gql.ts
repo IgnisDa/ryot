@@ -19,6 +19,7 @@ const documents = {
     "\n  mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n    commitBook(identifier: $identifier, input: $input, index: $index) {\n      id\n    }\n  }\n": types.CommitBookDocument,
     "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\tlimit\n\t\t\tbooks {\n    \t\tidentifier\n    \t\ttitle\n    \t\timages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
     "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
+    "\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n": types.BookDetailsDocument,
 };
 
 /**
@@ -59,6 +60,10 @@ export function graphql(source: "\n\tquery BooksSearch($input: BookSearchInput!)
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery Version {\n\t\tversion\n\t}\n"): (typeof documents)["\n\tquery Version {\n\t\tversion\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
