@@ -41,12 +41,7 @@ impl MigrationTrait for Migration {
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
-                    .col(
-                        ColumnDef::new(Book::NumPages)
-                            .integer()
-                            .not_null()
-                            .default(0),
-                    )
+                    .col(ColumnDef::new(Book::NumPages).integer())
                     .to_owned(),
             )
             .await?;

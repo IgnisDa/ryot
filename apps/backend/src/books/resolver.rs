@@ -175,7 +175,7 @@ impl BooksService {
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata.id),
                 open_library_key: ActiveValue::Set(book_details.identifier),
-                num_pages: ActiveValue::Set(book_details.num_pages.unwrap_or_default()),
+                num_pages: ActiveValue::Set(book_details.num_pages),
             };
             let book = book.insert(&self.db).await.unwrap();
             book.metadata_id

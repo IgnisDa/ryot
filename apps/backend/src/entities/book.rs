@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub metadata_id: i32,
     pub open_library_key: String,
-    pub num_pages: i32,
+    pub num_pages: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
