@@ -4,8 +4,7 @@ export const BOOKS_SEARCH = graphql(`
 	query BooksSearch($input: BookSearchInput!) {
   	booksSearch(input: $input) {
 			total
-			limit
-			books {
+			items {
     		identifier
     		title
     		images

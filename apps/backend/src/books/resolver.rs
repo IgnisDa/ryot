@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
+use async_graphql::{Context, InputObject, Object, OutputType, Result, SimpleObject};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
@@ -12,6 +12,7 @@ use crate::{
         prelude::{Book, Creator, MetadataImage},
     },
     graphql::IdObject,
+    media::resolver::BookSpecifics,
     migrator::{MetadataImageLot, MetadataLot},
 };
 
@@ -26,19 +27,20 @@ pub struct BookSearchInput {
 #[derive(Serialize, Deserialize, Debug, SimpleObject)]
 pub struct BookSearch {
     pub total: i32,
-    pub books: Vec<BookItem>,
+    pub items: Vec<MediaSearchItem<BookSpecifics>>,
     pub limit: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct BookItem {
+#[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]
+pub struct MediaSearchItem<T: OutputType> {
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
     pub author_names: Vec<String>,
     pub images: Vec<String>,
     pub publish_year: Option<i32>,
-    pub num_pages: Option<i32>,
+    pub specifics: T,
 }
 
 #[derive(Default)]
@@ -175,7 +177,7 @@ impl BooksService {
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata.id),
                 open_library_key: ActiveValue::Set(book_details.identifier),
-                num_pages: ActiveValue::Set(book_details.num_pages),
+                num_pages: ActiveValue::Set(book_details.specifics.pages),
             };
             let book = book.insert(&self.db).await.unwrap();
             book.metadata_id

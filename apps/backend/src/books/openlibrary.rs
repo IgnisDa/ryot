@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::books::resolver::{BookItem, BookSearch};
+use crate::{
+    books::resolver::{BookSearch, MediaSearchItem},
+    media::resolver::BookSpecifics,
+};
 
 static LIMIT: i32 = 20;
 
@@ -47,8 +50,8 @@ impl OpenlibraryService {
         query: &str,
         offset: Option<i32>,
         index: i32,
-    ) -> Result<BookItem> {
-        let mut detail = self.search(query, offset).await?.books[index as usize].clone();
+    ) -> Result<MediaSearchItem<BookSpecifics>> {
+        let mut detail = self.search(query, offset).await?.items[index as usize].clone();
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -158,20 +161,22 @@ impl OpenlibraryService {
                 } else {
                     vec![]
                 };
-                BookItem {
+                MediaSearchItem {
                     identifier: Self::get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
                     publish_year: d.first_publish_year,
-                    num_pages: d.number_of_pages_median,
+                    specifics: BookSpecifics {
+                        pages: d.number_of_pages_median,
+                    },
                     images,
                 }
             })
             .collect::<Vec<_>>();
         Ok(BookSearch {
             total: search.num_found,
-            books: resp,
+            items: resp,
             limit: LIMIT,
         })
     }
