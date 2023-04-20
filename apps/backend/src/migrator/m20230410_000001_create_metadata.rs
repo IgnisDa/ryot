@@ -63,8 +63,8 @@ pub enum Metadata {
     LastUpdatedOn,
     Title,
     Description,
-    // // URLs to the poster images for this media item
-    // ImageUrls,
+    // The year this media item was released
+    PublishYear,
 }
 
 impl MigrationName for Migration {
@@ -200,6 +200,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Metadata::Title).string().not_null())
                     .col(ColumnDef::new(Metadata::Description).text())
+                    .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .to_owned(),
             )
             .await?;

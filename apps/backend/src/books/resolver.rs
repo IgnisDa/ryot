@@ -129,6 +129,7 @@ impl BooksService {
                 lot: ActiveValue::Set(MetadataLot::Book),
                 title: ActiveValue::Set(book_details.title),
                 description: ActiveValue::Set(book_details.description),
+                publish_year: ActiveValue::Set(book_details.publish_year),
                 ..Default::default()
             };
             let metadata = metadata.insert(&self.db).await.unwrap();

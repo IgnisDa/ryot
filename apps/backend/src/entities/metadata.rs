@@ -15,6 +15,7 @@ pub struct Model {
     pub last_updated_on: DateTime<Utc>,
     pub title: String,
     pub description: Option<String>,
+    pub publish_year: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
