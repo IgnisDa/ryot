@@ -70,8 +70,8 @@ impl UsersMutation {
 
     /// Logout a user from the server, deleting their login token
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_auth_token_from_ctx(gql_ctx)?;
         create_cookie(gql_ctx, "", true)?;
+        let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<UsersService>()
             .logout_user(&user_id)
