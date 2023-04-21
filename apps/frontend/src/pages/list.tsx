@@ -47,6 +47,7 @@ const Page: NextPageWithLayout = () => {
 			return commitBook;
 		},
 	);
+
 	useEffect(() => {
 		if (!lot) router.push("/");
 	}, []);
