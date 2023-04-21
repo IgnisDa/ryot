@@ -1,6 +1,7 @@
-import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { NextPageWithLayout } from "./_app";
-import { useState, type ReactElement } from "react";
+import SearchMedia from "@/lib/components/SearchMedia";
+import LoggedIn from "@/lib/layouts/LoggedIn";
+import { gqlClient } from "@/lib/services/api";
 import {
 	Center,
 	Container,
@@ -10,18 +11,13 @@ import {
 	Stack,
 	TextInput,
 } from "@mantine/core";
-import { IconSearch } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { gqlClient } from "@/lib/services/api";
 import { useDebouncedState } from "@mantine/hooks";
-import { useRouter } from "next/router";
-import SearchMedia from "@/lib/components/SearchMedia";
-import type {
-	CommitBookMutationVariables,
-	MetadataLot,
-} from "@trackona/generated/graphql/backend/graphql";
-import { COMMIT_BOOK } from "@trackona/graphql/backend/mutations";
+import { IconSearch } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import type { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import { BOOKS_SEARCH } from "@trackona/graphql/backend/queries";
+import { useRouter } from "next/router";
+import { type ReactElement, useState } from "react";
 
 const LIMIT = 20;
 
@@ -73,6 +69,7 @@ const Page: NextPageWithLayout = () => {
 									query={query}
 									offset={offset}
 									lot={lot}
+									refetch={searchQuery.refetch}
 								/>
 							))}
 						</SimpleGrid>
