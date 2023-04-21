@@ -184,10 +184,18 @@ impl MediaService {
         for identifier in identifiers {
             let is_in_database = books.iter().find(|b| b.open_library_key == identifier);
             if let Some(m) = is_in_database {
-                let is_there = if seen.iter().any(|b| b.metadata_id == m.metadata_id) {
-                    SeenStatus::ConsumedAtleastOnce
-                } else {
+                let filtered = seen
+                    .iter()
+                    .filter(|b| b.metadata_id == m.metadata_id)
+                    .collect::<Vec<_>>();
+                let is_there = if filtered.is_empty() {
                     SeenStatus::NotConsumed
+                } else {
+                    if filtered.iter().any(|f| f.progress == 100) {
+                        SeenStatus::ConsumedAtleastOnce
+                    } else {
+                        SeenStatus::CurrentlyUnderway
+                    }
                 };
                 resp.push(MediaSeen {
                     identifier,
@@ -214,7 +222,9 @@ impl MediaService {
             .unwrap();
         let seen_item = match input.action {
             ProgressUpdateAction::Update => {
-                assert!(prev_seen.len() == 1);
+                if prev_seen.len() != 1 {
+                    return Err(Error::new("There is no `seen` item underway".to_owned()));
+                }
                 let progress = input.progress.unwrap();
                 let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
                 last_seen.progress = ActiveValue::Set(progress);

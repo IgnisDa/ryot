@@ -174,6 +174,7 @@ export type RegisterResult = IdObject | RegisterError;
 
 export enum SeenStatus {
   ConsumedAtleastOnce = 'CONSUMED_ATLEAST_ONCE',
+  CurrentlyUnderway = 'CURRENTLY_UNDERWAY',
   NotConsumed = 'NOT_CONSUMED',
   NotInDatabase = 'NOT_IN_DATABASE',
   Undetermined = 'UNDETERMINED'

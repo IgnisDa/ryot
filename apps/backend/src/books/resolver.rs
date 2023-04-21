@@ -36,6 +36,7 @@ pub enum SeenStatus {
     Undetermined,
     NotInDatabase,
     NotConsumed,
+    CurrentlyUnderway,
     ConsumedAtleastOnce,
 }
 
