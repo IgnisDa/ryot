@@ -97,7 +97,6 @@ export default function ({ children }: { children: ReactElement }) {
 					message: "You were logged out successfully",
 					color: "green",
 				});
-				router.push("/auth/login");
 			} else {
 				notifications.show({
 					title: "Error",
@@ -105,6 +104,7 @@ export default function ({ children }: { children: ReactElement }) {
 					color: "red",
 				});
 			}
+			router.push("/auth/login");
 		},
 	});
 
