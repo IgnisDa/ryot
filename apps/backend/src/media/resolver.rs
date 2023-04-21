@@ -1,5 +1,9 @@
-use async_graphql::{Context, Error, Object, OutputType, Result, SimpleObject};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter};
+use async_graphql::{Context, Enum, Error, InputObject, Object, OutputType, Result, SimpleObject};
+use chrono::{DateTime, Utc};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    QueryFilter, QueryOrder,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,7 +14,9 @@ use crate::{
         prelude::{Book, Creator, Metadata, MetadataImage, Seen},
         seen,
     },
+    graphql::IdObject,
     migrator::MetadataLot,
+    utils::user_id_from_ctx,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -22,6 +28,21 @@ pub struct MediaSeen {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct BookSpecifics {
     pub pages: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
+pub enum ProgressUpdateAction {
+    Update,
+    JustStarted,
+    InThePast,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct ProgressUpdate {
+    pub metadata_id: i32,
+    pub progress: Option<i32>,
+    pub action: ProgressUpdateAction,
+    pub date: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -52,6 +73,25 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .book_details(metadata_id)
+            .await
+    }
+}
+
+#[derive(Default)]
+pub struct MediaMutation;
+
+#[Object]
+impl MediaMutation {
+    // Mark a user's progress on a specific media item
+    async fn progress_update(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: ProgressUpdate,
+    ) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .progress_update(input, user_id)
             .await
     }
 }
@@ -161,5 +201,52 @@ impl MediaService {
             }
         }
         Ok(resp)
+    }
+
+    pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
+        let prev_seen = Seen::find()
+            .filter(seen::Column::Progress.lt(100))
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::MetadataId.eq(input.metadata_id))
+            .order_by_desc(seen::Column::LastUpdateOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        let seen_item = match input.action {
+            ProgressUpdateAction::Update => {
+                assert!(prev_seen.len() == 1);
+                let progress = input.progress.unwrap();
+                let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                last_seen.progress = ActiveValue::Set(progress);
+                last_seen.last_update_on = ActiveValue::Set(Utc::now());
+                if progress == 100 {
+                    last_seen.finished_on = ActiveValue::Set(Some(Utc::now()));
+                }
+                last_seen.update(&self.db).await.unwrap()
+            }
+            ProgressUpdateAction::JustStarted | ProgressUpdateAction::InThePast => {
+                if !prev_seen.is_empty() {
+                    return Err(Error::new(
+                        "There is already a `seen` item in progress".to_owned(),
+                    ));
+                }
+                let (started_on, progress) = if input.action == ProgressUpdateAction::JustStarted {
+                    (Some(Utc::now()), 0)
+                } else {
+                    (None, 100)
+                };
+                let seen_ins = seen::ActiveModel {
+                    progress: ActiveValue::Set(progress),
+                    user_id: ActiveValue::Set(user_id),
+                    metadata_id: ActiveValue::Set(input.metadata_id),
+                    started_on: ActiveValue::Set(started_on),
+                    finished_on: ActiveValue::Set(None),
+                    last_update_on: ActiveValue::Set(Utc::now()),
+                    ..Default::default()
+                };
+                seen_ins.insert(&self.db).await.unwrap()
+            }
+        };
+        Ok(IdObject { id: seen_item.id })
     }
 }

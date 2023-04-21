@@ -10,7 +10,7 @@ use crate::{
         resolver::{BooksMutation, BooksQuery, BooksService},
     },
     config::AppConfig,
-    media::resolver::{MediaQuery, MediaService},
+    media::resolver::{MediaMutation, MediaQuery, MediaService},
     users::resolver::{UsersMutation, UsersService},
 };
 
@@ -34,7 +34,7 @@ impl CoreQuery {
 pub struct QueryRoot(CoreQuery, BooksQuery, MediaQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(UsersMutation, BooksMutation);
+pub struct MutationRoot(UsersMutation, BooksMutation, MediaMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
