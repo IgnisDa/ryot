@@ -1,6 +1,6 @@
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { NextPageWithLayout } from "./_app";
-import { useState, type ReactElement, useEffect } from "react";
+import { useState, type ReactElement } from "react";
 import {
 	Center,
 	Container,
@@ -47,10 +47,6 @@ const Page: NextPageWithLayout = () => {
 			return commitBook;
 		},
 	);
-
-	useEffect(() => {
-		if (!lot) router.push("/");
-	}, []);
 
 	return (
 		<Container>
