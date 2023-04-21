@@ -12,7 +12,7 @@ pub struct Model {
     pub progress: i32,
     pub started_on: Option<DateTime<Utc>>,
     pub finished_on: Option<DateTime<Utc>>,
-    pub last_update_on: DateTime<Utc>,
+    pub last_updated_on: DateTime<Utc>,
     pub user_id: i32,
     pub metadata_id: i32,
 }

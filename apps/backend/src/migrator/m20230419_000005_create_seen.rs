@@ -13,7 +13,7 @@ pub enum Seen {
     FinishedOn,
     UserId,
     MetadataId,
-    LastUpdateOn,
+    LastUpdatedOn,
 }
 
 impl MigrationName for Migration {
@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date_time())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
-                    .col(ColumnDef::new(Seen::LastUpdateOn).date_time().not_null())
+                    .col(ColumnDef::new(Seen::LastUpdatedOn).date_time().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

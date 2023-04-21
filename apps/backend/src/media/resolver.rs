@@ -216,7 +216,7 @@ impl MediaService {
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(input.metadata_id))
-            .order_by_desc(seen::Column::LastUpdateOn)
+            .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
@@ -228,7 +228,7 @@ impl MediaService {
                 let progress = input.progress.unwrap();
                 let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
                 last_seen.progress = ActiveValue::Set(progress);
-                last_seen.last_update_on = ActiveValue::Set(Utc::now());
+                last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                 if progress == 100 {
                     last_seen.finished_on = ActiveValue::Set(Some(Utc::now()));
                 }
@@ -251,7 +251,7 @@ impl MediaService {
                     metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(input.date),
-                    last_update_on: ActiveValue::Set(Utc::now()),
+                    last_updated_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
                 };
                 seen_ins.insert(&self.db).await.unwrap()
