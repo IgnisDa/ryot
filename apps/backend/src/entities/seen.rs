@@ -10,7 +10,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub progress: i32,
-    pub started_on: DateTime<Utc>,
+    pub started_on: Option<DateTime<Utc>>,
     pub finished_on: Option<DateTime<Utc>>,
     pub user_id: i32,
     pub metadata_id: i32,
