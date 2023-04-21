@@ -14,10 +14,8 @@
 		"@tanstack/react-query": "4.29.3",
 		"@trackona/generated": "workspace:*",
 		"@trackona/graphql": "workspace:*",
-		"@types/node": "18.15.11",
-		"@types/react": "18.0.33",
-		"@types/react-dom": "18.0.11",
 		"dayjs": "1.11.7",
+		"lodash": "4.17.21",
 		"next": "13.3.0",
 		"react": "18.2.0",
 		"react-cookie": "4.1.1",
@@ -25,5 +23,11 @@
 		"ts-pattern": "4.2.2",
 		"typescript": "5.0.4",
 		"zod": "3.21.4"
+	},
+	"devDependencies": {
+		"@types/lodash": "4.14.194",
+		"@types/node": "18.15.11",
+		"@types/react": "18.0.33",
+		"@types/react-dom": "18.0.11"
 	}
 }

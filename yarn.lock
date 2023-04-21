@@ -2047,10 +2047,12 @@ __metadata:
     "@tanstack/react-query": 4.29.3
     "@trackona/generated": "workspace:*"
     "@trackona/graphql": "workspace:*"
+    "@types/lodash": 4.14.194
     "@types/node": 18.15.11
     "@types/react": 18.0.33
     "@types/react-dom": 18.0.11
     dayjs: 1.11.7
+    lodash: 4.17.21
     next: 13.3.0
     react: 18.2.0
     react-cookie: 4.1.1
@@ -2119,6 +2121,13 @@ __metadata:
   version: 1.0.34
   resolution: "@types/json-stable-stringify@npm:1.0.34"
   checksum: 45767ecef0f6aae5680c3be6488d5c493f16046e34f182d7e6a2c69a667aab035799752c6f03017c883b134ad3f80e3f78d7e7da81a9c1f3d01676126baf5d0e
+  languageName: node
+  linkType: hard
+
+"@types/lodash@npm:4.14.194":
+  version: 4.14.194
+  resolution: "@types/lodash@npm:4.14.194"
+  checksum: 113f34831c461469d91feca2dde737f88487732898b4d25e9eb23b087bb193985f864d1e1e0f3b777edc5022e460443588b6000a3b2348c966f72d17eedc35ea
   languageName: node
   linkType: hard
 
@@ -4038,7 +4047,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:~4.17.0":
+"lodash@npm:4.17.21, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:~4.17.0":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: eb835a2e51d381e561e508ce932ea50a8e5a68f4ebdd771ea240d3048244a8d13658acbd502cd4829768c56f2e16bdd4340b9ea141297d472517b83868e677f7
