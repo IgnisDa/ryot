@@ -41,12 +41,6 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ enabled: query !== "", staleTime: Infinity },
 	);
-	const commitBook = useMutation(
-		async (variables: CommitBookMutationVariables) => {
-			const { commitBook } = await gqlClient.request(COMMIT_BOOK, variables);
-			return commitBook;
-		},
-	);
 
 	return (
 		<Container>
@@ -76,14 +70,9 @@ const Page: NextPageWithLayout = () => {
 									idx={idx}
 									key={idx}
 									item={b}
-									onClick={async () => {
-										const { id } = await commitBook.mutateAsync({
-											identifier: b.identifier,
-											index: idx,
-											input: { query, offset },
-										});
-										router.push(`/media?item=${id}&lot=${lot}`);
-									}}
+									query={query}
+									offset={offset}
+									lot={lot}
 								/>
 							))}
 						</SimpleGrid>
