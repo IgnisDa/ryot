@@ -1,13 +1,13 @@
+import { gqlClient } from "@/lib/services/api";
+import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
+import { useForm, zodResolver } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
+import { useMutation } from "@tanstack/react-query";
 import { type UserInput } from "@trackona/generated/graphql/backend/graphql";
 import { REGISTER_USER } from "@trackona/graphql/backend/mutations";
-import { zodResolver, useForm } from "@mantine/form";
-import { Button, TextInput, PasswordInput, Box, Anchor } from "@mantine/core";
-import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
-import { gqlClient } from "@/lib/services/api";
-import { notifications } from "@mantine/notifications";
-import { useRouter } from "next/router";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { z } from "zod";
 
 const formSchema = z
 	.object({

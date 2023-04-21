@@ -1,5 +1,5 @@
-import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { NextPageWithLayout } from "./_app";
+import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { ReactElement } from "react";
 
 const Page: NextPageWithLayout = () => {

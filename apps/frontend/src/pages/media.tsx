@@ -1,13 +1,13 @@
-import LoggedIn from "@/lib/layouts/LoggedIn";
 import type { NextPageWithLayout } from "./_app";
-import { type ReactElement } from "react";
-import { Container, Stack } from "@mantine/core";
-import { useRouter } from "next/router";
-import { match } from "ts-pattern";
-import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
-import { useQuery } from "@tanstack/react-query";
+import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { Container, Stack } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
+import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import { BOOK_DETAILS } from "@trackona/graphql/backend/queries";
+import { useRouter } from "next/router";
+import { type ReactElement } from "react";
+import { match } from "ts-pattern";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

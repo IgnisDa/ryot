@@ -1,28 +1,28 @@
-import { useCookies } from "react-cookie";
-import { useEffect, type ReactElement } from "react";
-import { useRouter } from "next/router";
-import { notifications } from "@mantine/notifications";
+import { gqlClient } from "../services/api";
 import {
+	Box,
+	Flex,
 	Tooltip,
 	UnstyledButton,
 	createStyles,
 	rem,
-	Flex,
-	Box,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
-	IconHome2,
-	IconLogout,
 	IconBook,
+	IconBrandAppleArcade,
 	IconDeviceDesktop,
 	IconDeviceTv,
-	IconBrandAppleArcade,
 	IconHeadphones,
+	IconHome2,
+	IconLogout,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { gqlClient } from "../services/api";
 import { LOGOUT_USER } from "@trackona/graphql/backend/mutations";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { type ReactElement, useEffect } from "react";
+import { useCookies } from "react-cookie";
 
 const useStyles = createStyles((theme) => ({
 	link: {
