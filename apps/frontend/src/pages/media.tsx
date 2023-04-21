@@ -10,9 +10,11 @@ import {
 	Image,
 	ScrollArea,
 	Stack,
+	Tabs,
 	Text,
 	Title,
 } from "@mantine/core";
+import { IconInfoCircle, IconUser } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { BOOK_DETAILS } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
@@ -80,14 +82,30 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack>
 					<Title underline>{details.data.title}</Title>
-					{details.data.description && (
-						<Box>
-							<Title order={3}>Overview</Title>
-							<ScrollArea h={300} pr={"sm"}>
-								<ReactMarkdown>{details.data.description}</ReactMarkdown>
-							</ScrollArea>
-						</Box>
-					)}
+					<Tabs defaultValue="overview" variant="outline">
+						<Tabs.List>
+							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
+								Overview
+							</Tabs.Tab>
+							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
+								Actions
+							</Tabs.Tab>
+							<Tabs.Panel value="overview" pt="xs">
+								{details.data.description && (
+									<Box>
+										<ScrollArea.Autosize mah={300}>
+											<ReactMarkdown>{details.data.description}</ReactMarkdown>
+										</ScrollArea.Autosize>
+									</Box>
+								)}
+							</Tabs.Panel>
+							<Tabs.Panel value="actions" pt="xs">
+								<Box>
+									<Text>Actions</Text>
+								</Box>
+							</Tabs.Panel>
+						</Tabs.List>
+					</Tabs>
 				</Stack>
 			</Flex>
 		</Container>
