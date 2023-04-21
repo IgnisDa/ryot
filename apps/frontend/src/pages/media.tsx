@@ -8,6 +8,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	ScrollArea,
 	Stack,
 	Text,
 	Title,
@@ -16,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BOOK_DETAILS } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import ReactMarkdown from "react-markdown";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -35,7 +37,7 @@ const Page: NextPageWithLayout = () => {
 	return details.data ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
-				<Group>
+				<Stack>
 					{details.data.images.length > 0 ? (
 						<Carousel
 							withIndicators
@@ -55,10 +57,37 @@ const Page: NextPageWithLayout = () => {
 							<Image withPlaceholder height={400} radius={"lg"} />
 						</Box>
 					)}
-				</Group>
+					<Box>
+						{details.data.creators.length > 0 && (
+							<Group>
+								<Text fw="bold">Authors:</Text>
+								<Text>{details.data.creators.join(", ")}</Text>
+							</Group>
+						)}
+						{details.data.publishYear && (
+							<Group>
+								<Text fw="bold">Published in:</Text>
+								<Text>{details.data.publishYear}</Text>
+							</Group>
+						)}
+						{details.data.specifics.pages && (
+							<Group>
+								<Text fw="bold">Number of pages:</Text>
+								<Text>{details.data.specifics.pages}</Text>
+							</Group>
+						)}
+					</Box>
+				</Stack>
 				<Stack>
-					<Title>{details.data.title}</Title>
-					{details.data.description && <Text>{details.data.description}</Text>}
+					<Title underline>{details.data.title}</Title>
+					{details.data.description && (
+						<Box>
+							<Title order={3}>Overview</Title>
+							<ScrollArea h={300} pr={"sm"}>
+								<ReactMarkdown>{details.data.description}</ReactMarkdown>
+							</ScrollArea>
+						</Box>
+					)}
 				</Stack>
 			</Flex>
 		</Container>
