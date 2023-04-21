@@ -63,7 +63,7 @@ impl OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
             description: Option<String>,
-            covers: Vec<i64>,
+            covers: Option<Vec<i64>>,
             authors: Vec<OpenlibraryAuthor>,
         }
         let mut rsp = self
@@ -95,6 +95,7 @@ impl OpenlibraryService {
         detail.description = data.description;
         detail.images = data
             .covers
+            .unwrap_or_default()
             .into_iter()
             .map(|c| self.get_cover_image_url(c))
             .collect();
