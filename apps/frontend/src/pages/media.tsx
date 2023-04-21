@@ -1,8 +1,17 @@
 import type { NextPageWithLayout } from "./_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
-import { Container, Stack } from "@mantine/core";
+import { Carousel } from "@mantine/carousel";
+import {
+	Box,
+	Container,
+	Flex,
+	Group,
+	Image,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { BOOK_DETAILS } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
@@ -11,9 +20,8 @@ import { type ReactElement } from "react";
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const itemId = router.query.item;
-	const lot = getLot(router.query.lot);
 	const details = useQuery({
-		queryKey: ["details"],
+		queryKey: ["details", itemId],
 		queryFn: async () => {
 			const itemIdCast = parseInt(itemId?.toString() || "");
 			const { bookDetails } = await gqlClient.request(BOOK_DETAILS, {
@@ -21,16 +29,40 @@ const Page: NextPageWithLayout = () => {
 			});
 			return bookDetails;
 		},
+		staleTime: Infinity,
 	});
 
-	return (
+	return details.data ? (
 		<Container>
-			<Stack>
-				{lot}
-				{JSON.stringify(details.data)}
-			</Stack>
+			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
+				<Group>
+					{details.data.images.length > 0 ? (
+						<Carousel
+							withIndicators
+							height={400}
+							w={300}
+							mx={"auto"}
+							data-num-images={details.data.images.length}
+						>
+							{details.data.images.map((i) => (
+								<Carousel.Slide key={i}>
+									<Image src={i} radius={"lg"} />
+								</Carousel.Slide>
+							))}
+						</Carousel>
+					) : (
+						<Box w={300}>
+							<Image withPlaceholder height={400} radius={"lg"} />
+						</Box>
+					)}
+				</Group>
+				<Stack>
+					<Title>{details.data.title}</Title>
+					{details.data.description && <Text>{details.data.description}</Text>}
+				</Stack>
+			</Flex>
 		</Container>
-	);
+	) : null;
 };
 
 Page.getLayout = (page: ReactElement) => {

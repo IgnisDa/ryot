@@ -1,4 +1,3 @@
-import { camelCase, startCase } from "lodash";
 import { gqlClient } from "@/lib/services/api";
 import { getInitials } from "@/lib/utilities";
 import {
@@ -27,6 +26,7 @@ import {
 	COMMIT_BOOK,
 	PROGRESS_UPDATE,
 } from "@trackona/graphql/backend/mutations";
+import { camelCase, startCase } from "lodash";
 import router from "next/router";
 import { useState } from "react";
 import { match } from "ts-pattern";
