@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, OutputType, Result, SimpleObject};
+use async_graphql::{Context, Enum, InputObject, Object, OutputType, Result, SimpleObject};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
@@ -12,8 +12,9 @@ use crate::{
         prelude::{Book, Creator, MetadataImage},
     },
     graphql::IdObject,
-    media::resolver::BookSpecifics,
+    media::resolver::{BookSpecifics, MediaService},
     migrator::{MetadataImageLot, MetadataLot},
+    utils::user_id_from_ctx,
 };
 
 use super::openlibrary::OpenlibraryService;
@@ -30,6 +31,13 @@ pub struct BookSearch {
     pub items: Vec<MediaSearchItem<BookSpecifics>>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Enum, Copy, PartialEq, Eq, Clone)]
+pub enum SeenStatus {
+    NotInDatabase,
+    NotConsumed,
+    ConsumedAtleastOnce,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 #[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]
 pub struct MediaSearchItem<T: OutputType> {
@@ -38,6 +46,7 @@ pub struct MediaSearchItem<T: OutputType> {
     pub description: Option<String>,
     pub author_names: Vec<String>,
     pub images: Vec<String>,
+    pub status: SeenStatus,
     pub publish_year: Option<i32>,
     pub specifics: T,
 }
@@ -53,9 +62,10 @@ impl BooksQuery {
         gql_ctx: &Context<'_>,
         input: BookSearchInput,
     ) -> Result<BookSearch> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<BooksService>()
-            .books_search(&input.query, input.offset)
+            .books_search(&input.query, input.offset, user_id)
             .await
     }
 }
@@ -84,12 +94,18 @@ impl BooksMutation {
 pub struct BooksService {
     db: DatabaseConnection,
     openlibrary_service: Arc<OpenlibraryService>,
+    media_service: Arc<MediaService>,
 }
 
 impl BooksService {
-    pub fn new(db: &DatabaseConnection, openlibrary_service: &OpenlibraryService) -> Self {
+    pub fn new(
+        db: &DatabaseConnection,
+        openlibrary_service: &OpenlibraryService,
+        media_service: &MediaService,
+    ) -> Self {
         Self {
             openlibrary_service: Arc::new(openlibrary_service.clone()),
+            media_service: Arc::new(media_service.clone()),
             db: db.clone(),
         }
     }
@@ -97,12 +113,31 @@ impl BooksService {
 
 impl BooksService {
     // Get book details from all sources
-    async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<BookSearch> {
-        let books = self
+    async fn books_search(
+        &self,
+        query: &str,
+        offset: Option<i32>,
+        user_id: i32,
+    ) -> Result<BookSearch> {
+        let mut books = self
             .openlibrary_service
             .search(query, offset)
             .await
             .unwrap();
+        let is_read = self
+            .media_service
+            .book_read(
+                books.items.iter().map(|b| b.identifier.clone()).collect(),
+                user_id,
+            )
+            .await?;
+        for rsp in books.items.iter_mut() {
+            let seen_status = is_read
+                .iter()
+                .find(|ir| ir.identifier == rsp.identifier)
+                .unwrap();
+            rsp.status = seen_status.seen;
+        }
         Ok(books)
     }
 

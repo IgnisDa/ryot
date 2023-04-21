@@ -7,6 +7,7 @@ export const BOOKS_SEARCH = graphql(`
 			items {
     		identifier
     		title
+				status
     		images
 				publishYear
 			}
@@ -32,14 +33,5 @@ export const BOOK_DETAILS = graphql(`
       	pages
     	}
   	}
-	}
-`);
-
-export const BOOK_READ = graphql(`
-	query BookRead($identifiers: [String!]!) {
-	  bookRead(identifiers: $identifiers) {
-	    identifier
-	    seen
-	  }
 	}
 `);

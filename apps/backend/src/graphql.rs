@@ -39,13 +39,13 @@ pub struct MutationRoot(UsersMutation, BooksMutation);
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
+    let media_service = MediaService::new(&db);
     let openlibrary_service = OpenlibraryService::new(
         &config.books.openlibrary.url,
         &config.books.openlibrary.cover_image,
         &config.books.openlibrary.cover_image_size.to_string(),
     );
-    let book_service = BooksService::new(&db, &openlibrary_service);
-    let media_service = MediaService::new(&db);
+    let book_service = BooksService::new(&db, &openlibrary_service, &media_service);
     let users_service = UsersService::new(&db);
     Schema::build(
         QueryRoot::default(),

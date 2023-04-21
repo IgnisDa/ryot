@@ -3,6 +3,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFil
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    books::resolver::SeenStatus,
     entities::{
         book,
         metadata::Model as MetadataModel,
@@ -10,13 +11,12 @@ use crate::{
         seen,
     },
     migrator::MetadataLot,
-    utils::user_id_from_ctx,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MediaSeen {
     pub identifier: String,
-    pub seen: bool,
+    pub seen: SeenStatus,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -54,22 +54,9 @@ impl MediaQuery {
             .book_details(metadata_id)
             .await
     }
-
-    // Whether a book has been read by a user
-    async fn book_read(
-        &self,
-        gql_ctx: &Context<'_>,
-        identifiers: Vec<String>,
-    ) -> Result<Vec<MediaSeen>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .book_read(identifiers, user_id)
-            .await
-    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
 }
@@ -134,7 +121,11 @@ impl MediaService {
         Ok(resp)
     }
 
-    async fn book_read(&self, identifiers: Vec<String>, user_id: i32) -> Result<Vec<MediaSeen>> {
+    pub async fn book_read(
+        &self,
+        identifiers: Vec<String>,
+        user_id: i32,
+    ) -> Result<Vec<MediaSeen>> {
         let books = Book::find()
             .filter(book::Column::OpenLibraryKey.is_in(&identifiers))
             .all(&self.db)
@@ -153,7 +144,11 @@ impl MediaService {
         for identifier in identifiers {
             let is_in_database = books.iter().find(|b| b.open_library_key == identifier);
             if let Some(m) = is_in_database {
-                let is_there = seen.iter().any(|b| b.metadata_id == m.metadata_id);
+                let is_there = if seen.iter().any(|b| b.metadata_id == m.metadata_id) {
+                    SeenStatus::ConsumedAtleastOnce
+                } else {
+                    SeenStatus::NotConsumed
+                };
                 resp.push(MediaSeen {
                     identifier,
                     seen: is_there,
@@ -161,7 +156,7 @@ impl MediaService {
             } else {
                 resp.push(MediaSeen {
                     identifier,
-                    seen: false,
+                    seen: SeenStatus::NotInDatabase,
                 });
             }
         }
