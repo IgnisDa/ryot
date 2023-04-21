@@ -2,6 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import SearchMedia from "@/lib/components/SearchMedia";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { getLot } from "@/lib/utilities";
 import {
 	Center,
 	Container,
@@ -14,7 +15,6 @@ import {
 import { useDebouncedState } from "@mantine/hooks";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import { BOOKS_SEARCH } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
@@ -23,7 +23,7 @@ const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const lot = router.query.lot as MetadataLot;
+	const lot = getLot(router.query.lot);
 	const [query, setQuery] = useDebouncedState("", 1000);
 	const [activePage, setPage] = useState(1);
 	const offset = (activePage - 1) * LIMIT;

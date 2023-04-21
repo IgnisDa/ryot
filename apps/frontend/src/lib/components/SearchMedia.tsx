@@ -1,3 +1,4 @@
+import { camelCase, startCase } from "lodash";
 import { gqlClient } from "@/lib/services/api";
 import { getInitials } from "@/lib/utilities";
 import {
@@ -121,7 +122,7 @@ export default function SearchMedia(props: {
 									});
 								}}
 							>
-								Custom date and time
+								Custom date
 							</Button>
 						</Group>
 						<Button variant="outline" color="red" onClick={close}>
@@ -179,7 +180,7 @@ export default function SearchMedia(props: {
 			/>
 			<Flex justify={"space-between"} w="100%">
 				<Text c="dimmed">{props.item.publishYear}</Text>
-				<Text c="dimmed">Book</Text>
+				<Text c="dimmed">{startCase(camelCase(props.lot))}</Text>
 			</Flex>
 			<Text w="100%" truncate fw={"bold"} mb="xs">
 				{props.item.title}
