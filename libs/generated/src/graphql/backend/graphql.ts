@@ -13,6 +13,12 @@ export type Scalars = {
   Int: number;
   Float: number;
   /**
+   * Implement the DateTime<Utc> scalar
+   *
+   * The input/output is a string in RFC3339 format.
+   */
+  DateTime: any;
+  /**
    * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
    * Strings within GraphQL. UUIDs are used to assign unique identifiers to
    * entities without requiring a central allocating authority.
@@ -95,6 +101,7 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Logout a user from the server, deleting their login token */
   logoutUser: Scalars['Boolean'];
+  progressUpdate: IdObject;
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -115,9 +122,27 @@ export type MutationRootLoginUserArgs = {
 };
 
 
+export type MutationRootProgressUpdateArgs = {
+  input: ProgressUpdate;
+};
+
+
 export type MutationRootRegisterUserArgs = {
   input: UserInput;
 };
+
+export type ProgressUpdate = {
+  action: ProgressUpdateAction;
+  date?: InputMaybe<Scalars['DateTime']>;
+  metadataId: Scalars['Int'];
+  progress?: InputMaybe<Scalars['Int']>;
+};
+
+export enum ProgressUpdateAction {
+  InThePast = 'IN_THE_PAST',
+  JustStarted = 'JUST_STARTED',
+  Update = 'UPDATE'
+}
 
 export type QueryRoot = {
   bookDetails: BookDetails;
@@ -150,7 +175,8 @@ export type RegisterResult = IdObject | RegisterError;
 export enum SeenStatus {
   ConsumedAtleastOnce = 'CONSUMED_ATLEAST_ONCE',
   NotConsumed = 'NOT_CONSUMED',
-  NotInDatabase = 'NOT_IN_DATABASE'
+  NotInDatabase = 'NOT_IN_DATABASE',
+  Undetermined = 'UNDETERMINED'
 }
 
 export type UserInput = {

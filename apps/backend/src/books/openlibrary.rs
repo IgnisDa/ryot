@@ -167,7 +167,7 @@ impl OpenlibraryService {
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
                     publish_year: d.first_publish_year,
-                    status: SeenStatus::NotInDatabase,
+                    status: SeenStatus::Undetermined,
                     specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
                     },

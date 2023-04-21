@@ -33,6 +33,7 @@ pub struct BookSearch {
 
 #[derive(Serialize, Deserialize, Debug, Enum, Copy, PartialEq, Eq, Clone)]
 pub enum SeenStatus {
+    Undetermined,
     NotInDatabase,
     NotConsumed,
     ConsumedAtleastOnce,

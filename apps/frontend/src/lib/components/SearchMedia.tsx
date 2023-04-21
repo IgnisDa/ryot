@@ -17,7 +17,7 @@ export default function SearchMedia(props: {
 				Mark as read
 			</Button>
 		))
-		.with(SeenStatus.ConsumedAtleastOnce, () => <></>)
+		.with(SeenStatus.Undetermined, SeenStatus.ConsumedAtleastOnce, () => <></>)
 		.exhaustive();
 
 	return (
