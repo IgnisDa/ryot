@@ -41,3 +41,11 @@ export const COMMIT_BOOK = graphql(`
     }
   }
 `);
+
+export const PROGRESS_UPDATE = graphql(`
+  mutation ProgressUpdate($input: ProgressUpdate!) {
+    progressUpdate(input: $input) {
+      id
+    }
+  }
+`);
