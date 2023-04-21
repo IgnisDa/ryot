@@ -63,7 +63,7 @@ impl OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         #[serde(untagged)]
         enum OpenlibraryDescription {
-            Text(Option<String>),
+            Text(String),
             Nested {
                 #[serde(rename = "type")]
                 key: String,
@@ -72,7 +72,7 @@ impl OpenlibraryService {
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
-            description: OpenlibraryDescription,
+            description: Option<OpenlibraryDescription>,
             covers: Option<Vec<i64>>,
             authors: Vec<OpenlibraryAuthor>,
         }
@@ -102,10 +102,10 @@ impl OpenlibraryService {
         while let Some(Ok(result)) = set.join_next().await {
             authors.push(result);
         }
-        detail.description = match data.description {
+        detail.description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
-            OpenlibraryDescription::Nested { value, .. } => Some(value),
-        };
+            OpenlibraryDescription::Nested { value, .. } => value,
+        });
         detail.images = data
             .covers
             .unwrap_or_default()
