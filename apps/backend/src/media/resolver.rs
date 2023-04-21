@@ -250,7 +250,7 @@ impl MediaService {
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
-                    finished_on: ActiveValue::Set(None),
+                    finished_on: ActiveValue::Set(input.date),
                     last_update_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
                 };
