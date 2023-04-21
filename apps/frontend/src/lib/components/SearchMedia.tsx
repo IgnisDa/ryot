@@ -1,35 +1,20 @@
 import { gqlClient } from "@/lib/services/api";
 import { getInitials } from "@/lib/utilities";
-import {
-	Box,
-	Button,
-	Flex,
-	Group,
-	Image,
-	Modal,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { Box, Button, Flex, Image, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation } from "@tanstack/react-query";
 import {
 	type BooksSearchQuery,
 	type CommitBookMutationVariables,
 	MetadataLot,
-	ProgressUpdateAction,
-	type ProgressUpdateMutationVariables,
 	SeenStatus,
 } from "@trackona/generated/graphql/backend/graphql";
-import {
-	COMMIT_BOOK,
-	PROGRESS_UPDATE,
-} from "@trackona/graphql/backend/mutations";
+import { COMMIT_BOOK } from "@trackona/graphql/backend/mutations";
 import { camelCase, startCase } from "lodash";
 import router from "next/router";
 import { useState } from "react";
 import { match } from "ts-pattern";
+import UpdateProgressModal from "./UpdateProgressModal";
 
 export default function SearchMedia(props: {
 	item: BooksSearchQuery["booksSearch"]["items"][number];
@@ -41,26 +26,12 @@ export default function SearchMedia(props: {
 }) {
 	const [opened, { open, close }] = useDisclosure(false);
 	const [metadataId, setMetadataId] = useState(0);
-	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const commitBook = useMutation(
 		async (variables: CommitBookMutationVariables) => {
 			const { commitBook } = await gqlClient.request(COMMIT_BOOK, variables);
 			return commitBook;
 		},
 	);
-	const progressUpdate = useMutation({
-		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
-			const { progressUpdate } = await gqlClient.request(
-				PROGRESS_UPDATE,
-				variables,
-			);
-			return progressUpdate;
-		},
-		onSuccess: () => {
-			props.refetch();
-			close();
-		},
-	});
 
 	const commitFunction = async () => {
 		const { id } = await commitBook.mutateAsync({
@@ -73,63 +44,13 @@ export default function SearchMedia(props: {
 	const seenElm = match(props.item.status)
 		.with(SeenStatus.NotConsumed, SeenStatus.NotInDatabase, () => (
 			<>
-				<Modal opened={opened} onClose={close} withCloseButton={false} centered>
-					<Stack>
-						<Title order={3}>When did you read "{props.item.title}"?</Title>
-						<Button
-							variant="outline"
-							onClick={async () => {
-								await progressUpdate.mutateAsync({
-									input: {
-										action: ProgressUpdateAction.JustStarted,
-										metadataId,
-									},
-								});
-							}}
-						>
-							Now
-						</Button>
-						<Button
-							variant="outline"
-							onClick={async () => {
-								await progressUpdate.mutateAsync({
-									input: {
-										action: ProgressUpdateAction.InThePast,
-										metadataId,
-									},
-								});
-							}}
-						>
-							I do not remember
-						</Button>
-						<Group grow>
-							<DateTimePicker
-								dropdownType="modal"
-								maxDate={new Date()}
-								onChange={setSelectedDate}
-								clearable
-							/>
-							<Button
-								variant="outline"
-								disabled={selectedDate === null}
-								onClick={async () => {
-									await progressUpdate.mutateAsync({
-										input: {
-											action: ProgressUpdateAction.InThePast,
-											metadataId,
-											date: selectedDate?.toISOString(),
-										},
-									});
-								}}
-							>
-								Custom date
-							</Button>
-						</Group>
-						<Button variant="outline" color="red" onClick={close}>
-							Cancel
-						</Button>
-					</Stack>
-				</Modal>
+				<UpdateProgressModal
+					item={props.item}
+					metadataId={metadataId}
+					onClose={close}
+					opened={opened}
+					refetch={props.refetch}
+				/>
 				<Button
 					variant="outline"
 					w="100%"
