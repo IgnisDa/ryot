@@ -4,6 +4,7 @@
 	"dependencies": {
 		"@emotion/react": "11.10.6",
 		"@emotion/server": "11.10.0",
+		"@mantine/carousel": "6.0.8",
 		"@mantine/core": "6.0.8",
 		"@mantine/dates": "6.0.8",
 		"@mantine/form": "6.0.8",
@@ -15,6 +16,7 @@
 		"@trackona/generated": "workspace:*",
 		"@trackona/graphql": "workspace:*",
 		"dayjs": "1.11.7",
+		"embla-carousel-react": "7.1.0",
 		"lodash": "4.17.21",
 		"next": "13.3.0",
 		"react": "18.2.0",
