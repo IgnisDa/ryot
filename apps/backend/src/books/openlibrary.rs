@@ -61,8 +61,18 @@ impl OpenlibraryService {
             author: OpenlibraryKey,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
+        #[serde(untagged)]
+        enum OpenlibraryDescription {
+            Text(Option<String>),
+            Nested {
+                #[serde(rename = "type")]
+                key: String,
+                value: String,
+            },
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
-            description: Option<String>,
+            description: OpenlibraryDescription,
             covers: Option<Vec<i64>>,
             authors: Vec<OpenlibraryAuthor>,
         }
@@ -92,7 +102,10 @@ impl OpenlibraryService {
         while let Some(Ok(result)) = set.join_next().await {
             authors.push(result);
         }
-        detail.description = data.description;
+        detail.description = match data.description {
+            OpenlibraryDescription::Text(s) => s,
+            OpenlibraryDescription::Nested { value, .. } => Some(value),
+        };
         detail.images = data
             .covers
             .unwrap_or_default()
