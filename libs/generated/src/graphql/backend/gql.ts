@@ -21,6 +21,7 @@ const documents = {
     "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n\t\t\t\tstatus\n    \t\timages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
     "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
     "\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n": types.BookDetailsDocument,
+    "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n": types.SeenHistoryDocument,
 };
 
 /**
@@ -69,6 +70,10 @@ export function graphql(source: "\n\tquery Version {\n\t\tversion\n\t}\n"): (typ
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n"): (typeof documents)["\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

@@ -35,3 +35,15 @@ export const BOOK_DETAILS = graphql(`
   	}
 	}
 `);
+
+export const SEEN_HISTORY = graphql(`
+	query SeenHistory($metadataId: Int!) {
+	  seenHistory(metadataId: $metadataId) {
+	    id
+	    progress
+	    startedOn
+	    finishedOn
+	    lastUpdatedOn
+	  }
+	}
+`);
