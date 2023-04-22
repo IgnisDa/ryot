@@ -46,12 +46,12 @@ const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
 		? DateTime.fromJSDate(seen.finishedOn)
 		: null;
 	const updatedOn = DateTime.fromJSDate(seen.lastUpdatedOn);
-	if (startedOn && finishedOn)
-		return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
-	else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
-	else if (seen.progress < 100)
-		return `Started on ${startedOn?.toLocaleString()} (${seen.progress}%)`;
-	return `You read it on ${updatedOn.toLocaleString()}`;
+	if (seen.progress === 100) {
+		if (startedOn && finishedOn)
+			return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
+		else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
+		return `You read it on ${updatedOn.toLocaleString()}`;
+	} else return `Started on ${startedOn?.toLocaleString()} (${seen.progress}%)`;
 };
 
 export function ProgressModal(props: {
@@ -60,6 +60,7 @@ export function ProgressModal(props: {
 	metadataId: number;
 	progress: number;
 	numPages?: number | null;
+	refetch: () => void;
 }) {
 	const [value, setValue] = useState(props.progress);
 	const progressUpdate = useMutation({
@@ -71,6 +72,7 @@ export function ProgressModal(props: {
 			return progressUpdate;
 		},
 		onSuccess: () => {
+			props.refetch();
 			props.onClose();
 		},
 	});
@@ -241,6 +243,7 @@ const Page: NextPageWithLayout = () => {
 										</Button>
 										<ProgressModal
 											progress={inProgressSeenItem.progress}
+											refetch={history.refetch}
 											numPages={details.data.specifics.pages}
 											metadataId={itemId}
 											onClose={close}
