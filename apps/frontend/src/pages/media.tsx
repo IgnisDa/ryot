@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
+import UpdateProgressModal from "@/lib/components/UpdateProgressModal";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Carousel } from "@mantine/carousel";
@@ -50,7 +51,7 @@ const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
 		if (startedOn && finishedOn)
 			return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
 		else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
-		return `You read it on ${updatedOn.toLocaleString()}`;
+		return `You read it on ${updatedOn.toLocaleString()} (not remembered)`;
 	} else return `Started on ${startedOn?.toLocaleString()} (${seen.progress}%)`;
 };
 
@@ -111,23 +112,25 @@ export function ProgressModal(props: {
 
 const Page: NextPageWithLayout = () => {
 	const [opened, { open, close }] = useDisclosure(false);
+	const [newModalOpened, { open: openNewModal, close: closeNewModal }] =
+		useDisclosure(false);
 	const router = useRouter();
-	const itemId = parseInt(router.query.item?.toString() || "0");
+	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const details = useQuery({
-		queryKey: ["details", itemId],
+		queryKey: ["details", metadataId],
 		queryFn: async () => {
 			const { bookDetails } = await gqlClient.request(BOOK_DETAILS, {
-				metadataId: itemId,
+				metadataId: metadataId,
 			});
 			return bookDetails;
 		},
 		staleTime: Infinity,
 	});
 	const history = useQuery({
-		queryKey: ["history", itemId],
+		queryKey: ["history", metadataId],
 		queryFn: async () => {
 			const { seenHistory } = await gqlClient.request(SEEN_HISTORY, {
-				metadataId: itemId,
+				metadataId: metadataId,
 			});
 			return seenHistory;
 		},
@@ -245,7 +248,7 @@ const Page: NextPageWithLayout = () => {
 											progress={inProgressSeenItem.progress}
 											refetch={history.refetch}
 											numPages={details.data.specifics.pages}
-											metadataId={itemId}
+											metadataId={metadataId}
 											onClose={close}
 											opened={opened}
 										/>
@@ -257,7 +260,7 @@ const Page: NextPageWithLayout = () => {
 											await progressUpdate.mutateAsync({
 												input: {
 													action: ProgressUpdateAction.JustStarted,
-													metadataId: itemId,
+													metadataId: metadataId,
 												},
 											});
 										}}
@@ -265,7 +268,18 @@ const Page: NextPageWithLayout = () => {
 										I am reading it
 									</Button>
 								)}
-								<Button variant="outline">Add to read history</Button>
+								<>
+									<Button variant="outline" onClick={openNewModal}>
+										Add to read history
+									</Button>
+									<UpdateProgressModal
+										title={details.data.title}
+										metadataId={metadataId}
+										onClose={closeNewModal}
+										opened={newModalOpened}
+										refetch={history.refetch}
+									/>
+								</>
 								<Button variant="outline">Update metadata</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
