@@ -8,35 +8,49 @@ import {
 	Flex,
 	Group,
 	Image,
+	List,
 	ScrollArea,
 	Stack,
 	Tabs,
 	Text,
 	Title,
 } from "@mantine/core";
-import { IconInfoCircle, IconUser } from "@tabler/icons-react";
+import {
+	IconInfoCircle,
+	IconRotateClockwise,
+	IconUser,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { BOOK_DETAILS } from "@trackona/graphql/backend/queries";
+import { BOOK_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import ReactMarkdown from "react-markdown";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const itemId = router.query.item;
+	const itemId = parseInt(router.query.item?.toString() || "0");
 	const details = useQuery({
 		queryKey: ["details", itemId],
 		queryFn: async () => {
-			const itemIdCast = parseInt(itemId?.toString() || "");
 			const { bookDetails } = await gqlClient.request(BOOK_DETAILS, {
-				metadataId: itemIdCast,
+				metadataId: itemId,
 			});
 			return bookDetails;
 		},
 		staleTime: Infinity,
 	});
+	const history = useQuery({
+		queryKey: ["history", itemId],
+		queryFn: async () => {
+			const { seenHistory } = await gqlClient.request(SEEN_HISTORY, {
+				metadataId: itemId,
+			});
+			return seenHistory;
+		},
+		staleTime: Infinity,
+	});
 
-	return details.data ? (
+	return details.data && history.data ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 				<Stack>
@@ -62,7 +76,7 @@ const Page: NextPageWithLayout = () => {
 					<Box>
 						{details.data.creators.length > 0 && (
 							<Group>
-								<Text fw="bold">Authors:</Text>
+								<Text fw="bold">Author(s):</Text>
 								<Text>{details.data.creators.join(", ")}</Text>
 							</Group>
 						)}
@@ -82,7 +96,10 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack>
 					<Title underline>{details.data.title}</Title>
-					<Tabs defaultValue="overview" variant="outline">
+					<Tabs
+						defaultValue={history.data.length > 0 ? "history" : "overview"}
+						variant="outline"
+					>
 						<Tabs.List>
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
 								Overview
@@ -90,21 +107,45 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
-							<Tabs.Panel value="overview" pt="xs">
-								{details.data.description && (
-									<Box>
-										<ScrollArea.Autosize mah={300}>
-											<ReactMarkdown>{details.data.description}</ReactMarkdown>
-										</ScrollArea.Autosize>
-									</Box>
-								)}
-							</Tabs.Panel>
-							<Tabs.Panel value="actions" pt="xs">
-								<Box>
-									<Text>Actions</Text>
-								</Box>
-							</Tabs.Panel>
+							<Tabs.Tab
+								value="history"
+								icon={<IconRotateClockwise size="1rem" />}
+							>
+								History
+							</Tabs.Tab>
 						</Tabs.List>
+						<Tabs.Panel value="overview" pt="xs">
+							{details.data.description && (
+								<Box>
+									<ScrollArea.Autosize mah={300}>
+										<ReactMarkdown>{details.data.description}</ReactMarkdown>
+									</ScrollArea.Autosize>
+								</Box>
+							)}
+						</Tabs.Panel>
+						<Tabs.Panel value="actions" pt="xs">
+							<Box>
+								<Text>Actions</Text>
+							</Box>
+						</Tabs.Panel>
+						<Tabs.Panel value="history" pt="xs">
+							<List>
+								{history.data?.map((h) => (
+									<List.Item key={h.id}>
+										{h.startedOn && (
+											<Text>
+												You started on {h.startedOn.toDateString()}{" "}
+												{h.finishedOn && (
+													<Text>
+														and finished on {h.finishedOn.toDateString()}
+													</Text>
+												)}
+											</Text>
+										)}
+									</List.Item>
+								))}
+							</List>
+						</Tabs.Panel>
 					</Tabs>
 				</Stack>
 			</Flex>

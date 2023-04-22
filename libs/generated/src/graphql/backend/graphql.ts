@@ -17,7 +17,7 @@ export type Scalars = {
    *
    * The input/output is a string in RFC3339 format.
    */
-  DateTime: any;
+  DateTime: Date;
   /**
    * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
    * Strings within GraphQL. UUIDs are used to assign unique identifiers to
@@ -260,7 +260,7 @@ export type SeenHistoryQueryVariables = Exact<{
 }>;
 
 
-export type SeenHistoryQuery = { seenHistory: Array<{ id: number, progress: number, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: any }> };
+export type SeenHistoryQuery = { seenHistory: Array<{ id: number, progress: number, startedOn?: Date | null, finishedOn?: Date | null, lastUpdatedOn: Date }> };
 
 
 export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RegisterUserMutation, RegisterUserMutationVariables>;

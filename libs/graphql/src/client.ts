@@ -1,4 +1,5 @@
 import { GraphQLClient } from "graphql-request";
+import serialize = require("./serialize");
 
 export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 	const headers: Record<string, string> = {};
@@ -6,6 +7,7 @@ export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 	return new GraphQLClient(`${baseUrl}/graphql`, {
 		headers,
 		credentials: "include",
+		jsonSerializer: serialize.gqlSerializer,
 	});
 };
 

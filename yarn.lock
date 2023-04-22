@@ -2097,6 +2097,7 @@ __metadata:
   dependencies:
     "@trackona/generated": "workspace:*"
     graphql-request: 6.0.0
+    graphql-scalars: 1.21.3
   languageName: unknown
   linkType: soft
 
@@ -3572,6 +3573,17 @@ __metadata:
   peerDependencies:
     graphql: 14 - 16
   checksum: e3acc6267c3d25d6dea7144823b3552c3533489269272e651e2a16c45575ccb357bb1dd3c78c1b6c379d4080377bc5694f589bd681d822c9647f6b1736239428
+  languageName: node
+  linkType: hard
+
+"graphql-scalars@npm:1.21.3":
+  version: 1.21.3
+  resolution: "graphql-scalars@npm:1.21.3"
+  dependencies:
+    tslib: ^2.5.0
+  peerDependencies:
+    graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
+  checksum: 480a68f7390fea39ca2fd1d6c7f30c82d54d9b3735c0bf7f95cf35e424a8e02e4973568d8d21e80ba5f5590cd4d381c79cfd44fbb58e687fef2abebc455219ab
   languageName: node
   linkType: hard
 

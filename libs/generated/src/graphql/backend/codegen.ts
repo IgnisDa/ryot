@@ -7,6 +7,7 @@ const config: CodegenConfig = {
 	config: {
 		scalars: {
 			UUID: "string",
+			DateTime: "Date",
 		},
 	},
 	documents: [join(definitionsLibraryPath, "backend/{queries,mutations}.ts")],
@@ -23,4 +24,3 @@ const config: CodegenConfig = {
 };
 
 export default config;
-
