@@ -13,6 +13,7 @@ use crate::{
         metadata::Model as MetadataModel,
         prelude::{Book, Creator, Metadata, MetadataImage, Seen},
         seen,
+        seen::Model as SeenObject,
     },
     graphql::IdObject,
     migrator::MetadataLot,
@@ -73,6 +74,19 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .book_details(metadata_id)
+            .await
+    }
+
+    // Get the user's seen history for a particular media item
+    async fn seen_history(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+    ) -> Result<Vec<SeenObject>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .seen_history(metadata_id, user_id)
             .await
     }
 }
@@ -159,6 +173,17 @@ impl MediaService {
             },
         };
         Ok(resp)
+    }
+
+    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<SeenObject>> {
+        let prev_seen = Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::MetadataId.eq(metadata_id))
+            .order_by_desc(seen::Column::LastUpdatedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        Ok(prev_seen)
     }
 
     pub async fn book_read(
