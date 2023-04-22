@@ -150,6 +150,7 @@ export type ProgressUpdate = {
 
 export enum ProgressUpdateAction {
   InThePast = 'IN_THE_PAST',
+  JustStarted = 'JUST_STARTED',
   Now = 'NOW',
   Update = 'UPDATE'
 }

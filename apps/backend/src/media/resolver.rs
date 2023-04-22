@@ -36,6 +36,7 @@ pub enum ProgressUpdateAction {
     Update,
     Now,
     InThePast,
+    JustStarted,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -259,7 +260,9 @@ impl MediaService {
                 }
                 last_seen.update(&self.db).await.unwrap()
             }
-            ProgressUpdateAction::Now | ProgressUpdateAction::InThePast => {
+            ProgressUpdateAction::Now
+            | ProgressUpdateAction::InThePast
+            | ProgressUpdateAction::JustStarted => {
                 if !prev_seen.is_empty() {
                     return Err(Error::new(
                         "There is already a `seen` item in progress".to_owned(),
@@ -270,11 +273,17 @@ impl MediaService {
                 } else {
                     input.date
                 };
+                let (progress, started_on) =
+                    if matches!(input.action, ProgressUpdateAction::JustStarted) {
+                        (0, Some(Utc::now()))
+                    } else {
+                        (100, None)
+                    };
                 let seen_ins = seen::ActiveModel {
-                    progress: ActiveValue::Set(100),
+                    progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
-                    started_on: ActiveValue::Set(None),
+                    started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
