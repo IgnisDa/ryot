@@ -1,7 +1,9 @@
 {
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
-		"module": "commonjs",
+		"module": "esnext",
+		"moduleResolution": "node",
+		"verbatimModuleSyntax": false,
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"strict": true,
