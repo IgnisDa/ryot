@@ -4,12 +4,14 @@ import { gqlClient } from "@/lib/services/api";
 import { Carousel } from "@mantine/carousel";
 import {
 	Box,
+	Button,
 	Container,
 	Flex,
 	Group,
 	Image,
 	List,
 	ScrollArea,
+	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -20,8 +22,13 @@ import {
 	IconRotateClockwise,
 	IconUser,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { type SeenHistoryQuery } from "@trackona/generated/graphql/backend/graphql";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+	ProgressUpdateAction,
+	type ProgressUpdateMutationVariables,
+	type SeenHistoryQuery,
+} from "@trackona/generated/graphql/backend/graphql";
+import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
 import { BOOK_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
 import { DateTime } from "luxon";
 import { useRouter } from "next/router";
@@ -63,6 +70,19 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 	});
+	const progressUpdate = useMutation({
+		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+			const { progressUpdate } = await gqlClient.request(
+				PROGRESS_UPDATE,
+				variables,
+			);
+			return progressUpdate;
+		},
+		onSuccess: () => {
+			history.refetch();
+		},
+	});
+
 	return details.data && history.data ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
@@ -110,7 +130,7 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Title underline>{details.data.title}</Title>
 					<Tabs
-						defaultValue={history.data.length > 0 ? "history" : "overview"}
+						defaultValue={history.data.length > 0 ? "actions" : "overview"}
 						variant="outline"
 					>
 						<Tabs.List>
@@ -128,27 +148,50 @@ const Page: NextPageWithLayout = () => {
 							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="overview" pt="xs">
-							{details.data.description && (
-								<Box>
+							<Box>
+								{details.data.description ? (
 									<ScrollArea.Autosize mah={300}>
 										<ReactMarkdown>{details.data.description}</ReactMarkdown>
 									</ScrollArea.Autosize>
-								</Box>
-							)}
-						</Tabs.Panel>
-						<Tabs.Panel value="actions" pt="xs">
-							<Box>
-								<Text>Actions</Text>
+								) : (
+									<Text fs="italic">No overview available</Text>
+								)}
 							</Box>
 						</Tabs.Panel>
+						<Tabs.Panel value="actions" pt="xs">
+							<SimpleGrid
+								cols={1}
+								spacing="lg"
+								mx={"lg"}
+								breakpoints={[{ minWidth: "md", cols: 2 }]}
+							>
+								<Button
+									variant="outline"
+									onClick={async () => {
+										await progressUpdate.mutateAsync({
+											input: {
+												action: ProgressUpdateAction.JustStarted,
+												metadataId: itemId,
+											},
+										});
+									}}
+								>
+									I am reading it
+								</Button>
+								<Button variant="outline">Add to read history</Button>
+								<Button variant="outline">Update metadata</Button>
+							</SimpleGrid>
+						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
-							<>
+							{history.data.length > 0 ? (
 								<List type="ordered">
-									{history.data?.map((h) => (
+									{history.data.map((h) => (
 										<List.Item key={h.id}>{seenStatus(h)}</List.Item>
 									))}
 								</List>
-							</>
+							) : (
+								<Text fs="italic">You have no history for this item</Text>
+							)}
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>
