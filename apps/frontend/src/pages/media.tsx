@@ -21,10 +21,24 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { type SeenHistoryQuery } from "@trackona/generated/graphql/backend/graphql";
 import { BOOK_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
+import { DateTime } from "luxon";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import ReactMarkdown from "react-markdown";
+
+const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
+	const startedOn = seen.startedOn ? DateTime.fromJSDate(seen.startedOn) : null;
+	const finishedOn = seen.finishedOn
+		? DateTime.fromJSDate(seen.finishedOn)
+		: null;
+	const updatedOn = DateTime.fromJSDate(seen.lastUpdatedOn);
+	if (startedOn && finishedOn)
+		return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
+	else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
+	return `You read it on ${updatedOn.toLocaleString()}`;
+};
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -49,7 +63,6 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 	});
-
 	return details.data && history.data ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
@@ -129,22 +142,13 @@ const Page: NextPageWithLayout = () => {
 							</Box>
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
-							<List>
-								{history.data?.map((h) => (
-									<List.Item key={h.id}>
-										{h.startedOn && (
-											<Text>
-												You started on {h.startedOn.toDateString()}{" "}
-												{h.finishedOn && (
-													<Text>
-														and finished on {h.finishedOn.toDateString()}
-													</Text>
-												)}
-											</Text>
-										)}
-									</List.Item>
-								))}
-							</List>
+							<>
+								<List type="ordered">
+									{history.data?.map((h) => (
+										<List.Item key={h.id}>{seenStatus(h)}</List.Item>
+									))}
+								</List>
+							</>
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>

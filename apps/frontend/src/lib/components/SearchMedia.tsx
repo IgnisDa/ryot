@@ -1,3 +1,4 @@
+import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
 import { getInitials } from "@/lib/utilities";
 import { Box, Button, Flex, Image, Text } from "@mantine/core";
@@ -14,7 +15,6 @@ import { camelCase, startCase } from "lodash";
 import router from "next/router";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import UpdateProgressModal from "./UpdateProgressModal";
 
 export default function SearchMedia(props: {
 	item: BooksSearchQuery["booksSearch"]["items"][number];
