@@ -3,6 +3,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Carousel } from "@mantine/carousel";
 import {
+	Alert,
 	Box,
 	Button,
 	Container,
@@ -21,6 +22,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	IconAlertCircle,
 	IconInfoCircle,
 	IconRotateClockwise,
 	IconUser,
@@ -191,6 +193,11 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack>
 					<Title underline>{details.data.title}</Title>
+					{inProgressSeenItem ? (
+						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
+							You are currently reading this book
+						</Alert>
+					) : null}
 					<Tabs
 						defaultValue={history.data.length > 0 ? "actions" : "overview"}
 						variant="outline"
