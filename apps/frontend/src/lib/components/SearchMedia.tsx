@@ -49,7 +49,7 @@ export default function SearchMedia(props: {
 			() => (
 				<>
 					<UpdateProgressModal
-						item={props.item}
+						title={props.item.title}
 						metadataId={metadataId}
 						onClose={close}
 						opened={opened}

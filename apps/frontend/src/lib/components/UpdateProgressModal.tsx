@@ -3,7 +3,6 @@ import { Button, Group, Modal, Stack, Title } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useMutation } from "@tanstack/react-query";
 import {
-	type BooksSearchQuery,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 } from "@trackona/generated/graphql/backend/graphql";
@@ -13,9 +12,9 @@ import { useState } from "react";
 export default function UpdateProgressModal(props: {
 	opened: boolean;
 	onClose: () => void;
-	item: BooksSearchQuery["booksSearch"]["items"][number];
 	metadataId: number;
 	refetch: () => void;
+	title: string;
 }) {
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const progressUpdate = useMutation({
@@ -40,7 +39,7 @@ export default function UpdateProgressModal(props: {
 			centered
 		>
 			<Stack>
-				<Title order={3}>When did you read "{props.item.title}"?</Title>
+				<Title order={3}>When did you read "{props.title}"?</Title>
 				<Button
 					variant="outline"
 					onClick={async () => {
