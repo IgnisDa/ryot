@@ -10,13 +10,16 @@ import {
 	Group,
 	Image,
 	List,
+	Modal,
 	ScrollArea,
 	SimpleGrid,
+	Slider,
 	Stack,
 	Tabs,
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	IconInfoCircle,
 	IconRotateClockwise,
@@ -32,7 +35,7 @@ import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
 import { BOOK_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
 import { DateTime } from "luxon";
 import { useRouter } from "next/router";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
@@ -44,10 +47,66 @@ const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
 	if (startedOn && finishedOn)
 		return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
 	else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
+	else if (seen.progress < 100)
+		return `Started on ${startedOn?.toLocaleString()} (${seen.progress}%)`;
 	return `You read it on ${updatedOn.toLocaleString()}`;
 };
 
+export function ProgressModal(props: {
+	opened: boolean;
+	onClose: () => void;
+	metadataId: number;
+	progress: number;
+	numPages?: number | null;
+}) {
+	const [value, setValue] = useState(props.progress);
+	const progressUpdate = useMutation({
+		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+			const { progressUpdate } = await gqlClient.request(
+				PROGRESS_UPDATE,
+				variables,
+			);
+			return progressUpdate;
+		},
+		onSuccess: () => {
+			props.onClose();
+		},
+	});
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				<Title order={3}>Set progress</Title>
+				<Slider showLabelOnHover={false} value={value} onChange={setValue} />
+				<Button
+					variant="outline"
+					onClick={async () => {
+						await progressUpdate.mutateAsync({
+							input: {
+								action: ProgressUpdateAction.Update,
+								progress: value,
+								metadataId: props.metadataId,
+							},
+						});
+					}}
+				>
+					Set
+				</Button>
+				<Button variant="outline" color="red" onClick={props.onClose}>
+					Cancel
+				</Button>
+			</Stack>
+		</Modal>
+	);
+}
+
 const Page: NextPageWithLayout = () => {
+	const [opened, { open, close }] = useDisclosure(false);
 	const router = useRouter();
 	const itemId = parseInt(router.query.item?.toString() || "0");
 	const details = useQuery({
@@ -82,6 +141,9 @@ const Page: NextPageWithLayout = () => {
 			history.refetch();
 		},
 	});
+
+	// it is the job of the backend to ensure that this has only one item
+	const inProgressSeenItem = history.data?.find((h) => h.progress < 100);
 
 	return details.data && history.data ? (
 		<Container>
@@ -165,19 +227,34 @@ const Page: NextPageWithLayout = () => {
 								mx={"lg"}
 								breakpoints={[{ minWidth: "md", cols: 2 }]}
 							>
-								<Button
-									variant="outline"
-									onClick={async () => {
-										await progressUpdate.mutateAsync({
-											input: {
-												action: ProgressUpdateAction.JustStarted,
-												metadataId: itemId,
-											},
-										});
-									}}
-								>
-									I am reading it
-								</Button>
+								{inProgressSeenItem ? (
+									<>
+										<Button variant="outline" onClick={open}>
+											Set progress
+										</Button>
+										<ProgressModal
+											progress={inProgressSeenItem.progress}
+											numPages={details.data.specifics.pages}
+											metadataId={itemId}
+											onClose={close}
+											opened={opened}
+										/>
+									</>
+								) : (
+									<Button
+										variant="outline"
+										onClick={async () => {
+											await progressUpdate.mutateAsync({
+												input: {
+													action: ProgressUpdateAction.JustStarted,
+													metadataId: itemId,
+												},
+											});
+										}}
+									>
+										I am reading it
+									</Button>
+								)}
 								<Button variant="outline">Add to read history</Button>
 								<Button variant="outline">Update metadata</Button>
 							</SimpleGrid>
