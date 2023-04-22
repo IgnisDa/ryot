@@ -46,7 +46,7 @@ export default function UpdateProgressModal(props: {
 					onClick={async () => {
 						await progressUpdate.mutateAsync({
 							input: {
-								action: ProgressUpdateAction.JustStarted,
+								action: ProgressUpdateAction.Now,
 								metadataId: props.metadataId,
 							},
 						});
@@ -82,7 +82,7 @@ export default function UpdateProgressModal(props: {
 								input: {
 									action: ProgressUpdateAction.InThePast,
 									metadataId: props.metadataId,
-									date: selectedDate?.toISOString(),
+									date: selectedDate,
 								},
 							});
 						}}

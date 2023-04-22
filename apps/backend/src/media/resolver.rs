@@ -34,7 +34,7 @@ pub struct BookSpecifics {
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
 pub enum ProgressUpdateAction {
     Update,
-    JustStarted,
+    Now,
     InThePast,
 }
 
@@ -259,23 +259,28 @@ impl MediaService {
                 }
                 last_seen.update(&self.db).await.unwrap()
             }
-            ProgressUpdateAction::JustStarted | ProgressUpdateAction::InThePast => {
+            ProgressUpdateAction::Now | ProgressUpdateAction::InThePast => {
                 if !prev_seen.is_empty() {
                     return Err(Error::new(
                         "There is already a `seen` item in progress".to_owned(),
                     ));
                 }
-                let (started_on, progress) = if input.action == ProgressUpdateAction::JustStarted {
-                    (Some(Utc::now()), 0)
+                let (started_on, progress) = if input.action == ProgressUpdateAction::Now {
+                    (Some(Utc::now()), 100)
                 } else {
                     (None, 100)
+                };
+                let finished_on = if input.action == ProgressUpdateAction::Now {
+                    Some(Utc::now())
+                } else {
+                    input.date
                 };
                 let seen_ins = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
-                    finished_on: ActiveValue::Set(input.date),
+                    finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
                 };
