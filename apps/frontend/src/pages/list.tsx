@@ -17,18 +17,19 @@ import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { BOOKS_SEARCH } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
+	const savedQuery = localStorage.getItem("query") || "";
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const [query, setQuery] = useDebouncedState("", 1000);
+	const [query, setQuery] = useDebouncedState(savedQuery, 1000);
 	const [activePage, setPage] = useState(1);
 	const offset = (activePage - 1) * LIMIT;
 	const searchQuery = useQuery(
-		["searchQuery", query, activePage],
+		["searchQuery", query, activePage, lot],
 		async () => {
 			const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
 				input: { query, offset },
@@ -37,6 +38,10 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ enabled: query !== "", staleTime: Infinity },
 	);
+
+	useEffect(() => {
+		localStorage.setItem("query", query);
+	}, [query]);
 
 	return (
 		<Container>
