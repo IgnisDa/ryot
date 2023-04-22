@@ -265,21 +265,16 @@ impl MediaService {
                         "There is already a `seen` item in progress".to_owned(),
                     ));
                 }
-                let (started_on, progress) = if input.action == ProgressUpdateAction::Now {
-                    (Some(Utc::now()), 100)
-                } else {
-                    (None, 100)
-                };
                 let finished_on = if input.action == ProgressUpdateAction::Now {
                     Some(Utc::now())
                 } else {
                     input.date
                 };
                 let seen_ins = seen::ActiveModel {
-                    progress: ActiveValue::Set(progress),
+                    progress: ActiveValue::Set(100),
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
-                    started_on: ActiveValue::Set(started_on),
+                    started_on: ActiveValue::Set(None),
                     finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
