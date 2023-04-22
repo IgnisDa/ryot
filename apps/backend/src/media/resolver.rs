@@ -203,6 +203,7 @@ impl MediaService {
                 seen::Column::MetadataId
                     .is_in(books.iter().map(|b| b.metadata_id).collect::<Vec<_>>()),
             )
+            .order_by_asc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
@@ -217,10 +218,10 @@ impl MediaService {
                 let is_there = if filtered.is_empty() {
                     SeenStatus::NotConsumed
                 } else {
-                    if filtered.iter().any(|f| f.progress == 100) {
-                        SeenStatus::ConsumedAtleastOnce
-                    } else {
+                    if filtered.last().unwrap().progress < 100 {
                         SeenStatus::CurrentlyUnderway
+                    } else {
+                        SeenStatus::ConsumedAtleastOnce
                     }
                 };
                 resp.push(MediaSeen {

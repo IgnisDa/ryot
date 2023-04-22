@@ -1,7 +1,7 @@
 import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
 import { getInitials } from "@/lib/utilities";
-import { Box, Button, Flex, Image, Text } from "@mantine/core";
+import { Button, Flex, Image, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -42,40 +42,36 @@ export default function SearchMedia(props: {
 		return id;
 	};
 	const seenElm = match(props.item.status)
-		.with(SeenStatus.NotConsumed, SeenStatus.NotInDatabase, () => (
-			<>
-				<UpdateProgressModal
-					item={props.item}
-					metadataId={metadataId}
-					onClose={close}
-					opened={opened}
-					refetch={props.refetch}
-				/>
-				<Button
-					variant="outline"
-					w="100%"
-					compact
-					loading={commitBook.isLoading}
-					onClick={async () => {
-						const id = await commitFunction();
-						setMetadataId(id);
-						open();
-					}}
-				>
-					Mark as read
-				</Button>
-			</>
-		))
-		.with(SeenStatus.Undetermined, SeenStatus.ConsumedAtleastOnce, () => (
-			<Box w={"100%"}>
-				<Text fs="italic">You have read this</Text>
-			</Box>
-		))
-		.with(SeenStatus.CurrentlyUnderway, () => (
-			<Box w={"100%"}>
-				<Text fs="italic">You are reading this</Text>
-			</Box>
-		))
+		.with(
+			SeenStatus.NotConsumed,
+			SeenStatus.NotInDatabase,
+			SeenStatus.ConsumedAtleastOnce,
+			() => (
+				<>
+					<UpdateProgressModal
+						item={props.item}
+						metadataId={metadataId}
+						onClose={close}
+						opened={opened}
+						refetch={props.refetch}
+					/>
+					<Button
+						variant="outline"
+						w="100%"
+						compact
+						loading={commitBook.isLoading}
+						onClick={async () => {
+							const id = await commitFunction();
+							setMetadataId(id);
+							open();
+						}}
+					>
+						Mark as read
+					</Button>
+				</>
+			),
+		)
+		.with(SeenStatus.Undetermined, SeenStatus.CurrentlyUnderway, () => <></>)
 		.exhaustive();
 
 	return (
