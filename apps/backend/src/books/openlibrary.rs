@@ -5,11 +5,9 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
 use crate::{
-    books::resolver::{MediaSearchItem, SeenStatus},
-    media::resolver::BookSpecifics,
+    books::resolver::SeenStatus,
+    media::resolver::{BookSpecifics, MediaSearchItem, SearchResults},
 };
-
-use super::resolver::SearchResults;
 
 static LIMIT: i32 = 20;
 

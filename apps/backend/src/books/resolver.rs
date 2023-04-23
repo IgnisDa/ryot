@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Enum, InputObject, Object, OutputType, Result, SimpleObject};
+use async_graphql::{Context, Enum, InputObject, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
@@ -12,7 +12,7 @@ use crate::{
         prelude::{Book, Creator, MetadataImage},
     },
     graphql::IdObject,
-    media::resolver::{BookSpecifics, MediaService},
+    media::resolver::{BookSpecifics, MediaService, SearchResults},
     migrator::{MetadataImageLot, MetadataLot},
     utils::user_id_from_ctx,
 };
@@ -25,16 +25,6 @@ pub struct BookSearchInput {
     offset: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "BookSearchResults", params(BookSpecifics)))]
-pub struct SearchResults<T: OutputType>
-where
-    MediaSearchItem<T>: OutputType,
-{
-    pub total: i32,
-    pub items: Vec<MediaSearchItem<T>>,
-}
-
 #[derive(Serialize, Deserialize, Debug, Enum, Copy, PartialEq, Eq, Clone)]
 pub enum SeenStatus {
     Undetermined,
@@ -42,19 +32,6 @@ pub enum SeenStatus {
     NotConsumed,
     CurrentlyUnderway,
     ConsumedAtleastOnce,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-#[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]
-pub struct MediaSearchItem<T: OutputType> {
-    pub identifier: String,
-    pub title: String,
-    pub description: Option<String>,
-    pub author_names: Vec<String>,
-    pub images: Vec<String>,
-    pub status: SeenStatus,
-    pub publish_year: Option<i32>,
-    pub specifics: T,
 }
 
 #[derive(Default)]

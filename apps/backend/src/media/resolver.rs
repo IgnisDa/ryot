@@ -7,7 +7,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    books::resolver::SeenStatus,
+    books::{resolver::SeenStatus, BookSpecifics},
     entities::{
         book,
         metadata::Model as MetadataModel,
@@ -21,14 +21,33 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSeen {
+#[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]
+pub struct MediaSearchItem<T: OutputType> {
     pub identifier: String,
-    pub seen: SeenStatus,
+    pub title: String,
+    pub description: Option<String>,
+    pub author_names: Vec<String>,
+    pub images: Vec<String>,
+    pub status: SeenStatus,
+    pub publish_year: Option<i32>,
+    pub specifics: T,
+}
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "BookSearchResults", params(BookSpecifics)))]
+pub struct SearchResults<T>
+where
+    MediaSearchItem<T>: OutputType,
+    T: OutputType,
+{
+    pub total: i32,
+    pub items: Vec<MediaSearchItem<T>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct BookSpecifics {
-    pub pages: Option<i32>,
+pub struct MediaSeen {
+    pub identifier: String,
+    pub seen: SeenStatus,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
