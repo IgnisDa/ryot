@@ -1,9 +1,9 @@
 import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
-import { getInitials } from "@/lib/utilities";
+import { getInitials, getLot } from "@/lib/utilities";
 import { Button, Flex, Image, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type BooksSearchQuery,
 	type CommitBookMutationVariables,
@@ -11,8 +11,9 @@ import {
 	SeenStatus,
 } from "@trackona/generated/graphql/backend/graphql";
 import { COMMIT_BOOK } from "@trackona/graphql/backend/mutations";
+import { MEDIA_CONSUMED } from "@trackona/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
-import router from "next/router";
+import { useRouter } from "next/router";
 import { useState } from "react";
 import { match } from "ts-pattern";
 
@@ -26,13 +27,25 @@ export default function SearchMedia(props: {
 }) {
 	const [opened, { open, close }] = useDisclosure(false);
 	const [metadataId, setMetadataId] = useState(0);
+	const router = useRouter();
+	const lot = getLot(router.query.lot);
+
+	const mediaConsumed = useQuery(
+		["mediaConsumed", lot],
+		async () => {
+			const { mediaConsumed } = await gqlClient.request(MEDIA_CONSUMED, {
+				input: { identifier: props.item.identifier, lot },
+			});
+			return mediaConsumed;
+		},
+		{ staleTime: Infinity },
+	);
 	const commitBook = useMutation(
 		async (variables: CommitBookMutationVariables) => {
 			const { commitBook } = await gqlClient.request(COMMIT_BOOK, variables);
 			return commitBook;
 		},
 	);
-
 	const commitFunction = async () => {
 		const { id } = await commitBook.mutateAsync({
 			identifier: props.item.identifier,
@@ -41,7 +54,7 @@ export default function SearchMedia(props: {
 		});
 		return id;
 	};
-	const seenElm = match(props.item.status)
+	const seenElm = match(mediaConsumed.data?.seen)
 		.with(
 			SeenStatus.NotConsumed,
 			SeenStatus.NotInDatabase,
@@ -71,7 +84,13 @@ export default function SearchMedia(props: {
 				</>
 			),
 		)
-		.with(SeenStatus.Undetermined, SeenStatus.CurrentlyUnderway, () => <></>)
+		.with(
+			SeenStatus.Undetermined,
+			SeenStatus.CurrentlyUnderway,
+			undefined,
+			() => <></>,
+		)
+
 		.exhaustive();
 
 	return (
