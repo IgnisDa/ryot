@@ -69,8 +69,8 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 const mockdata = [
 	{ icon: IconHome2, label: "Home", href: "/" },
 	{ icon: IconBook, label: "Books" },
-	{ icon: IconDeviceDesktop, label: "TV" },
 	{ icon: IconDeviceTv, label: "Movies" },
+	{ icon: IconDeviceDesktop, label: "TV" },
 	{ icon: IconBrandAppleArcade, label: "Games" },
 	{ icon: IconHeadphones, label: "Audiobooks" },
 ];

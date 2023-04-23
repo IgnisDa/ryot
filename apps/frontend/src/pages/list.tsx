@@ -24,7 +24,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
-	const savedQuery = localStorage.getItem("query") || "";
+	const savedQuery = localStorage?.getItem("query") || "";
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 	const [query, setQuery] = useDebouncedState(savedQuery, 1000);

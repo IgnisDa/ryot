@@ -184,7 +184,7 @@ const Page: NextPageWithLayout = () => {
 						{details.data.creators.length > 0 && (
 							<Group>
 								<Text fw="bold">Author(s):</Text>
-								<Text>{details.data.creators.join(", ")}</Text>
+								<Text truncate>{details.data.creators.join(", ")}</Text>
 							</Group>
 						)}
 						{details.data.publishYear && (
@@ -202,7 +202,7 @@ const Page: NextPageWithLayout = () => {
 						{details.data.movieSpecifics && (
 							<Group>
 								<Text fw="bold">Runtime:</Text>
-								<Text>{details.data.movieSpecifics.runtime} mins</Text>
+								<Text>{details.data.movieSpecifics.runtime} minutes</Text>
 							</Group>
 						)}
 					</Box>
