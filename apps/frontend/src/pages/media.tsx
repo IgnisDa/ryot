@@ -166,7 +166,6 @@ const Page: NextPageWithLayout = () => {
 							withIndicators
 							height={400}
 							w={300}
-							mx={"auto"}
 							data-num-images={details.data.images.length}
 						>
 							{details.data.images.map((i) => (

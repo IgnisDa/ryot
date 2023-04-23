@@ -61,7 +61,7 @@ const Page: NextPageWithLayout = () => {
 		<Container>
 			<Stack>
 				<TextInput
-					placeholder="Search for a book"
+					placeholder={`Search for a ${lot.toLowerCase()}`}
 					icon={<IconSearch />}
 					rightSection={searchQuery.isFetching ? <Loader size="xs" /> : null}
 					defaultValue={query}
