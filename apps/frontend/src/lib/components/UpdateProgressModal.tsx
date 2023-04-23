@@ -7,6 +7,7 @@ import {
 	type ProgressUpdateMutationVariables,
 } from "@trackona/generated/graphql/backend/graphql";
 import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
+import { DateTime } from "luxon";
 import { useState } from "react";
 
 export default function UpdateProgressModal(props: {
@@ -77,13 +78,14 @@ export default function UpdateProgressModal(props: {
 						variant="outline"
 						disabled={selectedDate === null}
 						onClick={async () => {
-							await progressUpdate.mutateAsync({
-								input: {
-									action: ProgressUpdateAction.InThePast,
-									metadataId: props.metadataId,
-									date: selectedDate,
-								},
-							});
+							if (selectedDate)
+								await progressUpdate.mutateAsync({
+									input: {
+										action: ProgressUpdateAction.InThePast,
+										metadataId: props.metadataId,
+										date: DateTime.fromJSDate(selectedDate).toISODate(),
+									},
+								});
 						}}
 					>
 						Custom date
