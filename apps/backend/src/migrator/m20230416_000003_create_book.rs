@@ -2,6 +2,8 @@ use sea_orm_migration::prelude::*;
 
 use super::Metadata;
 
+static BOOK_OPENLIBRARY_KEY_INDEX: &str = "book__openlibrary__index";
+
 pub struct Migration;
 
 #[derive(Iden)]
@@ -42,6 +44,15 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
                     .col(ColumnDef::new(Book::NumPages).integer())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(BOOK_OPENLIBRARY_KEY_INDEX)
+                    .table(Book::Table)
+                    .col(Book::OpenLibraryKey)
                     .to_owned(),
             )
             .await?;

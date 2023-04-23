@@ -2,6 +2,8 @@ use sea_orm_migration::prelude::*;
 
 use super::Metadata;
 
+static MOVIE_TMDB_ID_INDEX: &str = "movie__tmdbid__index";
+
 pub struct Migration;
 
 #[derive(Iden)]
@@ -41,8 +43,17 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Movie::TmdbId).integer().not_null())
+                    .col(ColumnDef::new(Movie::TmdbId).string().not_null())
                     .col(ColumnDef::new(Movie::Runtime).integer())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(MOVIE_TMDB_ID_INDEX)
+                    .table(Movie::Table)
+                    .col(Movie::TmdbId)
                     .to_owned(),
             )
             .await?;
