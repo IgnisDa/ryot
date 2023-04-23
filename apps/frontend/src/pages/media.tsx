@@ -2,6 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import UpdateProgressModal from "@/lib/components/UpdateProgressModal";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { getLot } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Alert,
@@ -43,10 +44,8 @@ import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
-	const startedOn = seen.startedOn ? DateTime.fromJSDate(seen.startedOn) : null;
-	const finishedOn = seen.finishedOn
-		? DateTime.fromJSDate(seen.finishedOn)
-		: null;
+	const startedOn = seen.startedOn ? DateTime.fromISO(seen.startedOn) : null;
+	const finishedOn = seen.finishedOn ? DateTime.fromISO(seen.finishedOn) : null;
 	const updatedOn = DateTime.fromJSDate(seen.lastUpdatedOn);
 	if (seen.progress === 100) {
 		if (startedOn && finishedOn)
@@ -116,6 +115,7 @@ const Page: NextPageWithLayout = () => {
 	const [newModalOpened, { open: openNewModal, close: closeNewModal }] =
 		useDisclosure(false);
 	const router = useRouter();
+	const lot = getLot(router.query.lot);
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -201,7 +201,9 @@ const Page: NextPageWithLayout = () => {
 					<Title underline>{details.data.title}</Title>
 					{inProgressSeenItem ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
-							You are currently reading this book
+							You are currently reading this {lot.toLowerCase()} (
+							{inProgressSeenItem.progress}
+							%)
 						</Alert>
 					) : null}
 					<Tabs
