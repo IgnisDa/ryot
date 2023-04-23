@@ -6,7 +6,6 @@ use surf::{
     http::headers::{AUTHORIZATION, USER_AGENT},
     Client, Config, Url,
 };
-use tokio::task::JoinSet;
 use urlencoding::encode;
 
 use crate::media::{
@@ -50,75 +49,51 @@ impl TmdbService {
 }
 
 impl TmdbService {
-    pub async fn details(
-        &self,
-        identifier: &str,
-        query: &str,
-        offset: Option<i32>,
-        index: i32,
-    ) -> Result<MediaSearchItem<MovieSpecifics>> {
-        let mut detail = self.search(query, offset).await?.items[index as usize].clone();
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbKey {
-            key: String,
-        }
+    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem<MovieSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbAuthor {
-            author: TmdbKey,
+            name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        #[serde(untagged)]
-        enum TmdbDescription {
-            Text(String),
-            Nested {
-                #[serde(rename = "type")]
-                key: String,
-                value: String,
-            },
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbBook {
-            description: Option<TmdbDescription>,
-            covers: Option<Vec<i64>>,
-            authors: Vec<TmdbAuthor>,
+        struct TmdbMovie {
+            id: i32,
+            title: String,
+            overview: String,
+            poster_path: Option<String>,
+            backdrop_path: Option<String>,
+            production_companies: Vec<TmdbAuthor>,
+            release_date: String,
+            runtime: i32,
         }
         let mut rsp = self
             .client
-            .get(format!("works/{}.json", identifier))
+            .get(format!("movie/{}", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut set = JoinSet::new();
-        #[derive(Debug, Serialize, Deserialize)]
-        struct TmdbAuthorPartial {
-            name: String,
-        }
-        for author in data.authors.into_iter() {
-            let client = self.client.clone();
-            set.spawn(async move {
-                let mut rsp = client
-                    .get(format!("{}.json", author.author.key))
-                    .await
-                    .unwrap();
-                let TmdbAuthorPartial { name } = rsp.body_json().await.unwrap();
-                name
-            });
-        }
-        let mut authors = vec![];
-        while let Some(Ok(result)) = set.join_next().await {
-            authors.push(result);
-        }
-        detail.description = data.description.map(|d| match d {
-            TmdbDescription::Text(s) => s,
-            TmdbDescription::Nested { value, .. } => value,
-        });
-        // detail.images = data
-        //     .covers
-        //     .unwrap_or_default()
-        //     .into_iter()
-        //     .map(|c| self.get_cover_image_url(c))
-        //     .collect();
-        detail.author_names = authors;
+        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut images = vec![];
+        if let Some(c) = data.poster_path {
+            images.push(self.get_cover_image_url(&c));
+        };
+        if let Some(c) = data.backdrop_path {
+            images.push(self.get_cover_image_url(&c));
+        };
+        let detail = MediaSearchItem {
+            identifier: data.id.to_string(),
+            title: data.title,
+            author_names: data
+                .production_companies
+                .into_iter()
+                .map(|p| p.name)
+                .collect(),
+            images,
+            status: SeenStatus::Undetermined,
+            publish_year: Self::convert_date_to_year(&data.release_date),
+            description: Some(data.overview),
+            specifics: MovieSpecifics {
+                runtime: Some(data.runtime),
+            },
+        };
         Ok(detail)
     }
 
@@ -163,9 +138,6 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let release_year = NaiveDate::parse_from_str(&d.release_date, "%Y-%m-%d")
-                    .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-                    .ok();
                 let images = if let Some(c) = d.poster_path {
                     vec![self.get_cover_image_url(&c)]
                 } else {
@@ -176,7 +148,7 @@ impl TmdbService {
                     title: d.title,
                     description: d.overview,
                     author_names: vec![],
-                    publish_year: release_year,
+                    publish_year: Self::convert_date_to_year(&d.release_date),
                     status: SeenStatus::Undetermined,
                     specifics: MovieSpecifics { runtime: None },
                     images,
@@ -191,5 +163,11 @@ impl TmdbService {
 
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
+    }
+
+    fn convert_date_to_year(d: &str) -> Option<i32> {
+        NaiveDate::parse_from_str(d, "%Y-%m-%d")
+            .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
+            .ok()
     }
 }
