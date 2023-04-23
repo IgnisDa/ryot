@@ -1,5 +1,5 @@
 use async_graphql::{Context, Enum, Error, InputObject, Object, OutputType, Result, SimpleObject};
-use chrono::{DateTime, Utc};
+use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
     QueryFilter, QueryOrder,
@@ -44,7 +44,7 @@ pub struct ProgressUpdate {
     pub metadata_id: i32,
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
-    pub date: Option<DateTime<Utc>>,
+    pub date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -257,7 +257,7 @@ impl MediaService {
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                 if progress == 100 {
-                    last_seen.finished_on = ActiveValue::Set(Some(Utc::now()));
+                    last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
                 }
                 last_seen.update(&self.db).await.unwrap()
             }
@@ -270,13 +270,13 @@ impl MediaService {
                     ));
                 }
                 let finished_on = if input.action == ProgressUpdateAction::Now {
-                    Some(Utc::now())
+                    Some(Utc::now().date_naive())
                 } else {
                     input.date
                 };
                 let (progress, started_on) =
                     if matches!(input.action, ProgressUpdateAction::JustStarted) {
-                        (0, Some(Utc::now()))
+                        (0, Some(Utc::now().date_naive()))
                     } else {
                         (100, None)
                     };
