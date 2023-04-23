@@ -14,6 +14,20 @@ export const BOOKS_SEARCH = graphql(`
 	}
 `);
 
+export const MOVIES_SEARCH = graphql(`
+	query MoviesSearch($input: MoviesSearchInput!) {
+	  moviesSearch(input: $input) {
+	    total
+	    items {
+	      identifier
+	      title
+	      images
+	      publishYear
+	    }
+	  }
+	}
+`);
+
 export const VERSION = graphql(`
 	query Version {
 		version
