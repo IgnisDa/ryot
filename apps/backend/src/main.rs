@@ -46,6 +46,7 @@ mod entities;
 mod graphql;
 mod media;
 mod migrator;
+mod movies;
 mod users;
 mod utils;
 
@@ -122,7 +123,7 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let schema = get_schema(db.clone(), &config);
+    let schema = get_schema(db.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])

@@ -17,6 +17,7 @@ use crate::{
     },
     graphql::IdObject,
     migrator::MetadataLot,
+    movies::MovieSpecifics,
     utils::user_id_from_ctx,
 };
 
@@ -24,6 +25,7 @@ use super::SeenStatus;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 #[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]
+#[graphql(concrete(name = "MovieSearchItem", params(MovieSpecifics)))]
 pub struct MediaSearchItem<T: OutputType> {
     pub identifier: String,
     pub title: String,
@@ -37,6 +39,7 @@ pub struct MediaSearchItem<T: OutputType> {
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "BookSearchResults", params(BookSpecifics)))]
+#[graphql(concrete(name = "MovieSearchResults", params(MovieSpecifics)))]
 pub struct SearchResults<T>
 where
     MediaSearchItem<T>: OutputType,

@@ -11,6 +11,7 @@ use crate::{
     },
     config::AppConfig,
     media::resolver::{MediaMutation, MediaQuery, MediaService},
+    movies::{resolver::MoviesService, tmdb::TmdbService},
     users::resolver::{UsersMutation, UsersService},
 };
 
@@ -38,14 +39,17 @@ pub struct MutationRoot(UsersMutation, BooksMutation, MediaMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-pub fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
+pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
     let media_service = MediaService::new(&db);
     let openlibrary_service = OpenlibraryService::new(
         &config.books.openlibrary.url,
         &config.books.openlibrary.cover_image,
         &config.books.openlibrary.cover_image_size.to_string(),
     );
-    let book_service = BooksService::new(&db, &openlibrary_service, &media_service);
+    let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
+    let tmdb_service =
+        TmdbService::new(&config.movies.tmdb.url, &config.movies.tmdb.access_token).await;
+    let movies_service = MoviesService::new(&db, &tmdb_service, &media_service);
     let users_service = UsersService::new(&db);
     Schema::build(
         QueryRoot::default(),
@@ -53,8 +57,9 @@ pub fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
         EmptySubscription,
     )
     .data(db)
-    .data(book_service)
+    .data(books_service)
     .data(media_service)
+    .data(movies_service)
     .data(users_service)
     .finish()
 }

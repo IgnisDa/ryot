@@ -7,6 +7,7 @@ mod m20230416_000002_create_creator;
 mod m20230416_000003_create_book;
 mod m20230417_000004_create_user;
 mod m20230419_000005_create_seen;
+mod m20230423_000006_create_movie;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;

@@ -48,12 +48,14 @@ impl Default for OpenlibraryConfig {
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TmdbConfig {
+    pub url: String,
     pub access_token: String,
 }
 
 impl Default for TmdbConfig {
     fn default() -> Self {
         Self {
+            url: "https://api.themoviedb.org/3/".to_owned(),
             access_token:"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned()
         }
     }
