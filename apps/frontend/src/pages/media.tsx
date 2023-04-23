@@ -23,7 +23,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	IconAlertCircle,
 	IconInfoCircle,
@@ -283,18 +282,6 @@ const Page: NextPageWithLayout = () => {
 										refetch={history.refetch}
 									/>
 								</>
-								<Button
-									variant="outline"
-									onClick={() => {
-										notifications.show({
-											title: "Unimplemented",
-											message: "This action has not been implemented yet",
-											color: "red",
-										});
-									}}
-								>
-									Update metadata
-								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
