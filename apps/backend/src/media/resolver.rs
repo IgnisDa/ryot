@@ -230,56 +230,6 @@ impl MediaService {
         Ok(prev_seen)
     }
 
-    pub async fn book_read(
-        &self,
-        identifiers: Vec<String>,
-        user_id: i32,
-    ) -> Result<Vec<MediaSeen>> {
-        let books = Book::find()
-            .filter(book::Column::OpenLibraryKey.is_in(&identifiers))
-            .all(&self.db)
-            .await
-            .unwrap();
-        let seen = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(
-                seen::Column::MetadataId
-                    .is_in(books.iter().map(|b| b.metadata_id).collect::<Vec<_>>()),
-            )
-            .order_by_asc(seen::Column::LastUpdatedOn)
-            .all(&self.db)
-            .await
-            .unwrap();
-        let mut resp = vec![];
-        for identifier in identifiers {
-            let is_in_database = books.iter().find(|b| b.open_library_key == identifier);
-            if let Some(m) = is_in_database {
-                let filtered = seen
-                    .iter()
-                    .filter(|b| b.metadata_id == m.metadata_id)
-                    .collect::<Vec<_>>();
-                let is_there = if filtered.is_empty() {
-                    SeenStatus::NotConsumed
-                } else {
-                    if filtered.last().unwrap().progress < 100 {
-                        SeenStatus::CurrentlyUnderway
-                    } else {
-                        SeenStatus::ConsumedAtleastOnce
-                    }
-                };
-                resp.push(MediaSeen {
-                    identifier,
-                    seen: is_there,
-                });
-            } else {
-                resp.push(MediaSeen {
-                    identifier,
-                    seen: SeenStatus::NotInDatabase,
-                });
-            }
-        }
-        Ok(resp)
-    }
 
     pub async fn media_consumed(
         &self,

@@ -14,7 +14,6 @@ use crate::{
     graphql::IdObject,
     media::resolver::{MediaService, SearchResults},
     migrator::{MetadataImageLot, MetadataLot},
-    utils::user_id_from_ctx,
 };
 
 use super::{openlibrary::OpenlibraryService, BookSpecifics};
