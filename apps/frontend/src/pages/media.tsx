@@ -43,6 +43,17 @@ import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
+const StatDisplay = (props: { name: string; value: string }) => {
+	return (
+		<Flex>
+			<Text fw="bold">{props.name}:</Text>
+			<Text truncate ml={"xs"}>
+				{props.value}
+			</Text>
+		</Flex>
+	);
+};
+
 const seenStatus = (
 	seen: SeenHistoryQuery["seenHistory"][number],
 	lot: MetadataLot,
@@ -160,7 +171,12 @@ const Page: NextPageWithLayout = () => {
 	return details.data && history.data ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
-				<Stack>
+				<Stack
+					sx={(t) => ({
+						width: "100%",
+						[t.fn.largerThan("md")]: { width: "35%" },
+					})}
+				>
 					{details.data.images.length > 0 ? (
 						<Carousel
 							withIndicators
@@ -181,28 +197,28 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.creators.length > 0 && (
-							<Group>
-								<Text fw="bold">Author(s):</Text>
-								<Text truncate>{details.data.creators.join(", ")}</Text>
-							</Group>
+							<StatDisplay
+								name="Author(s)"
+								value={details.data.creators.join(", ")}
+							/>
 						)}
 						{details.data.publishYear && (
-							<Group>
-								<Text fw="bold">Published in:</Text>
-								<Text>{details.data.publishYear}</Text>
-							</Group>
+							<StatDisplay
+								name="Published in"
+								value={details.data.publishYear.toString()}
+							/>
 						)}
 						{details.data.bookSpecifics && (
-							<Group>
-								<Text fw="bold">Number of pages:</Text>
-								<Text>{details.data.bookSpecifics.pages}</Text>
-							</Group>
+							<StatDisplay
+								name="Number of pages"
+								value={details.data.bookSpecifics.pages?.toString() || ""}
+							/>
 						)}
 						{details.data.movieSpecifics && (
-							<Group>
-								<Text fw="bold">Runtime:</Text>
-								<Text>{details.data.movieSpecifics.runtime} minutes</Text>
-							</Group>
+							<StatDisplay
+								name="Runtime"
+								value={details.data.movieSpecifics.runtime?.toString() || ""}
+							/>
 						)}
 					</Box>
 				</Stack>
