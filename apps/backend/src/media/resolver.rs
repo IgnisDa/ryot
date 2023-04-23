@@ -1,4 +1,4 @@
-use async_graphql::{Context, Enum, Error, InputObject, Object, OutputType, Result, SimpleObject};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
@@ -25,28 +25,21 @@ use crate::{
 use super::SeenStatus;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-#[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]
-#[graphql(concrete(name = "MovieSearchItem", params(MovieSpecifics)))]
-pub struct MediaSearchItem<T: OutputType> {
+pub struct MediaSearchItem {
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
     pub author_names: Vec<String>,
     pub images: Vec<String>,
     pub publish_year: Option<i32>,
-    pub specifics: T,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "BookSearchResults", params(BookSpecifics)))]
-#[graphql(concrete(name = "MovieSearchResults", params(MovieSpecifics)))]
-pub struct SearchResults<T>
-where
-    MediaSearchItem<T>: OutputType,
-    T: OutputType,
-{
+pub struct SearchResults {
     pub total: i32,
-    pub items: Vec<MediaSearchItem<T>>,
+    pub items: Vec<MediaSearchItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -72,8 +65,7 @@ pub struct ProgressUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-#[graphql(concrete(name = "BookDetails", params(BookSpecifics)))]
-pub struct MediaDetails<T: OutputType> {
+pub struct MediaDetails {
     pub id: i32,
     pub title: String,
     pub description: Option<String>,
@@ -82,7 +74,8 @@ pub struct MediaDetails<T: OutputType> {
     pub creators: Vec<String>,
     pub images: Vec<String>,
     pub publish_year: Option<i32>,
-    pub specifics: T,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -97,14 +90,18 @@ pub struct MediaQuery;
 #[Object]
 impl MediaQuery {
     // Get details about a book present in the database
-    async fn book_details(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<MediaDetails<BookSpecifics>> {
+    async fn book_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .book_details(metadata_id)
+            .await
+    }
+
+    // Get details about a movie present in the database
+    async fn movie_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .movie_details(metadata_id)
             .await
     }
 
@@ -197,7 +194,7 @@ impl MediaService {
         Ok((meta, creators, images))
     }
 
-    async fn book_details(&self, metadata_id: i32) -> Result<MediaDetails<BookSpecifics>> {
+    async fn book_details(&self, metadata_id: i32) -> Result<MediaDetails> {
         let (meta, creators, images) = self.generic_metadata(metadata_id).await?;
         let book = Book::find_by_id(metadata_id)
             .one(&self.db)
@@ -212,9 +209,33 @@ impl MediaService {
             lot: meta.lot,
             creators,
             images,
-            specifics: BookSpecifics {
+            book_specifics: Some(BookSpecifics {
                 pages: book.num_pages,
-            },
+            }),
+            movie_specifics: None,
+        };
+        Ok(resp)
+    }
+
+    async fn movie_details(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let (meta, creators, images) = self.generic_metadata(metadata_id).await?;
+        let movie = Movie::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let resp = MediaDetails {
+            id: meta.id,
+            title: meta.title,
+            description: meta.description,
+            publish_year: meta.publish_year,
+            lot: meta.lot,
+            creators,
+            images,
+            movie_specifics: Some(MovieSpecifics {
+                runtime: movie.runtime,
+            }),
+            book_specifics: None,
         };
         Ok(resp)
     }
@@ -229,7 +250,6 @@ impl MediaService {
             .unwrap();
         Ok(prev_seen)
     }
-
 
     pub async fn media_consumed(
         &self,

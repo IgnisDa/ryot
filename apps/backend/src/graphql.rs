@@ -52,7 +52,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
     let tmdb_service =
         TmdbService::new(&config.movies.tmdb.url, &config.movies.tmdb.access_token).await;
-    let movies_service = MoviesService::new(&db, &tmdb_service, &media_service);
+    let movies_service = MoviesService::new(&db, &tmdb_service);
     let users_service = UsersService::new(&db);
     Schema::build(
         QueryRoot::default(),

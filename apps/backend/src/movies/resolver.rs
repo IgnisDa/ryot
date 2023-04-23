@@ -16,7 +16,7 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot},
 };
 
-use super::{tmdb::TmdbService, MovieSpecifics};
+use super::tmdb::TmdbService;
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
 pub struct MoviesSearchInput {
@@ -34,7 +34,7 @@ impl MoviesQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MoviesSearchInput,
-    ) -> Result<SearchResults<MovieSpecifics>> {
+    ) -> Result<SearchResults> {
         gql_ctx
             .data_unchecked::<MoviesService>()
             .movies_search(&input.query, input.page)
@@ -60,18 +60,12 @@ impl MoviesMutation {
 pub struct MoviesService {
     db: DatabaseConnection,
     tmdb_service: Arc<TmdbService>,
-    media_service: Arc<MediaService>,
 }
 
 impl MoviesService {
-    pub fn new(
-        db: &DatabaseConnection,
-        tmdb_service: &TmdbService,
-        media_service: &MediaService,
-    ) -> Self {
+    pub fn new(db: &DatabaseConnection, tmdb_service: &TmdbService) -> Self {
         Self {
             tmdb_service: Arc::new(tmdb_service.clone()),
-            media_service: Arc::new(media_service.clone()),
             db: db.clone(),
         }
     }
@@ -79,11 +73,7 @@ impl MoviesService {
 
 impl MoviesService {
     // Get movie details from all sources
-    async fn movies_search(
-        &self,
-        query: &str,
-        page: Option<i32>,
-    ) -> Result<SearchResults<MovieSpecifics>> {
+    async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<SearchResults> {
         let movies = self.tmdb_service.search(query, page).await.unwrap();
         Ok(movies)
     }
@@ -148,7 +138,7 @@ impl MoviesService {
             let movie = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata.id),
                 tmdb_id: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.specifics.runtime),
+                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
             };
             let book = movie.insert(&self.db).await.unwrap();
             book.metadata_id

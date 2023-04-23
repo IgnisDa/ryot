@@ -16,7 +16,7 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot},
 };
 
-use super::{openlibrary::OpenlibraryService, BookSpecifics};
+use super::openlibrary::OpenlibraryService;
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
 pub struct BookSearchInput {
@@ -34,7 +34,7 @@ impl BooksQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: BookSearchInput,
-    ) -> Result<SearchResults<BookSpecifics>> {
+    ) -> Result<SearchResults> {
         gql_ctx
             .data_unchecked::<BooksService>()
             .books_search(&input.query, input.offset)
@@ -85,11 +85,7 @@ impl BooksService {
 
 impl BooksService {
     // Get book details from all sources
-    async fn books_search(
-        &self,
-        query: &str,
-        offset: Option<i32>,
-    ) -> Result<SearchResults<BookSpecifics>> {
+    async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<SearchResults> {
         let books = self
             .openlibrary_service
             .search(query, offset)
@@ -168,7 +164,7 @@ impl BooksService {
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata.id),
                 open_library_key: ActiveValue::Set(book_details.identifier),
-                num_pages: ActiveValue::Set(book_details.specifics.pages),
+                num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
             };
             let book = book.insert(&self.db).await.unwrap();
             book.metadata_id

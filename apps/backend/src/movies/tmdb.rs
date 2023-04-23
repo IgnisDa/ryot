@@ -46,7 +46,7 @@ impl TmdbService {
 }
 
 impl TmdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem<MovieSpecifics>> {
+    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbAuthor {
             name: String,
@@ -86,18 +86,15 @@ impl TmdbService {
             images,
             publish_year: Self::convert_date_to_year(&data.release_date),
             description: Some(data.overview),
-            specifics: MovieSpecifics {
+            movie_specifics: Some(MovieSpecifics {
                 runtime: Some(data.runtime),
-            },
+            }),
+            book_specifics: None,
         };
         Ok(detail)
     }
 
-    pub async fn search(
-        &self,
-        query: &str,
-        page: Option<i32>,
-    ) -> Result<SearchResults<MovieSpecifics>> {
+    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<SearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             query: String,
@@ -145,7 +142,8 @@ impl TmdbService {
                     description: d.overview,
                     author_names: vec![],
                     publish_year: Self::convert_date_to_year(&d.release_date),
-                    specifics: MovieSpecifics { runtime: None },
+                    movie_specifics: Some(MovieSpecifics { runtime: None }),
+                    book_specifics: None,
                     images,
                 }
             })

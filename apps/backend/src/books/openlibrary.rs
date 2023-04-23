@@ -49,7 +49,7 @@ impl OpenlibraryService {
         query: &str,
         offset: Option<i32>,
         index: i32,
-    ) -> Result<MediaSearchItem<BookSpecifics>> {
+    ) -> Result<MediaSearchItem> {
         let mut detail = self.search(query, offset).await?.items[index as usize].clone();
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
@@ -115,11 +115,7 @@ impl OpenlibraryService {
         Ok(detail)
     }
 
-    pub async fn search(
-        &self,
-        query: &str,
-        offset: Option<i32>,
-    ) -> Result<SearchResults<BookSpecifics>> {
+    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<SearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -184,9 +180,10 @@ impl OpenlibraryService {
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
                     publish_year: d.first_publish_year,
-                    specifics: BookSpecifics {
+                    book_specifics: Some(BookSpecifics {
                         pages: d.number_of_pages_median,
-                    },
+                    }),
+                    movie_specifics: None,
                     images,
                 }
             })
