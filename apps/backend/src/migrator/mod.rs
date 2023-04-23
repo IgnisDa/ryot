@@ -25,6 +25,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230416_000003_create_book::Migration),
             Box::new(m20230417_000004_create_user::Migration),
             Box::new(m20230419_000005_create_seen::Migration),
+            Box::new(m20230423_000006_create_movie::Migration),
         ]
     }
 }
