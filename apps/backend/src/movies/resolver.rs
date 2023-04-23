@@ -20,7 +20,7 @@ use crate::{
 use super::{tmdb::TmdbService, MovieSpecifics};
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct MovieSearchInput {
+pub struct MoviesSearchInput {
     query: String,
     page: Option<i32>,
 }
@@ -34,7 +34,7 @@ impl MoviesQuery {
     async fn movies_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: MovieSearchInput,
+        input: MoviesSearchInput,
     ) -> Result<SearchResults<MovieSpecifics>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -55,7 +55,7 @@ impl MoviesMutation {
         gql_ctx: &Context<'_>,
         identifier: String,
         index: i32,
-        input: MovieSearchInput,
+        input: MoviesSearchInput,
     ) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<MoviesService>()
@@ -93,22 +93,22 @@ impl MoviesService {
         page: Option<i32>,
         user_id: i32,
     ) -> Result<SearchResults<MovieSpecifics>> {
-        let mut books = self.tmpdb_service.search(query, page).await.unwrap();
+        let mut movies = self.tmpdb_service.search(query, page).await.unwrap();
         let is_read = self
             .media_service
             .book_read(
-                books.items.iter().map(|b| b.identifier.clone()).collect(),
+                movies.items.iter().map(|b| b.identifier.clone()).collect(),
                 user_id,
             )
             .await?;
-        for rsp in books.items.iter_mut() {
+        for rsp in movies.items.iter_mut() {
             let seen_status = is_read
                 .iter()
                 .find(|ir| ir.identifier == rsp.identifier)
                 .unwrap();
             rsp.status = seen_status.seen;
         }
-        Ok(books)
+        Ok(movies)
     }
 
     async fn commit_movie(

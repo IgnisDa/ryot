@@ -7,6 +7,7 @@ use surf::{
     Client, Config, Url,
 };
 use tokio::task::JoinSet;
+use urlencoding::encode;
 
 use crate::media::{
     resolver::{MediaSearchItem, SearchResults},
@@ -128,29 +129,30 @@ impl TmdbService {
     ) -> Result<SearchResults<MovieSpecifics>> {
         #[derive(Serialize, Deserialize)]
         struct Query {
-            limit: String,
+            query: String,
             page: i32,
+            language: String,
         }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbBook {
             id: i32,
-            poster_path: String,
-            overview: String,
+            poster_path: Option<String>,
+            overview: Option<String>,
             title: String,
-            release_date: NaiveDate,
+            release_date: String,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct TmdbSearchResponse {
             total_results: i32,
             results: Vec<TmdbBook>,
         }
-
         let mut rsp = self
             .client
             .get("search/movie")
             .query(&Query {
-                limit: query.to_owned(),
-                page: page.unwrap_or_default(),
+                query: encode(query).into_owned(),
+                page: page.unwrap_or(1),
+                language: "en-US".to_owned(),
             })
             .unwrap()
             .await
@@ -160,15 +162,25 @@ impl TmdbService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| MediaSearchItem {
-                identifier: d.id.to_string(),
-                title: d.title,
-                description: None,
-                author_names: vec![],
-                publish_year: d.release_date.format("%Y").to_string().parse().ok(),
-                status: SeenStatus::Undetermined,
-                specifics: MovieSpecifics { runtime: None },
-                images: vec![d.poster_path],
+            .map(|d| {
+                let release_year = NaiveDate::parse_from_str(&d.release_date, "%Y-%m-%d")
+                    .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
+                    .ok();
+                let images = if let Some(c) = d.poster_path {
+                    vec![self.get_cover_image_url(&c)]
+                } else {
+                    vec![]
+                };
+                MediaSearchItem {
+                    identifier: d.id.to_string(),
+                    title: d.title,
+                    description: d.overview,
+                    author_names: vec![],
+                    publish_year: release_year,
+                    status: SeenStatus::Undetermined,
+                    specifics: MovieSpecifics { runtime: None },
+                    images,
+                }
             })
             .collect::<Vec<_>>();
         Ok(SearchResults {
@@ -178,6 +190,6 @@ impl TmdbService {
     }
 
     fn get_cover_image_url(&self, c: &str) -> String {
-        format!("{}/{}", "original", self.image_url)
+        format!("{}{}{}", self.image_url, "original", c)
     }
 }

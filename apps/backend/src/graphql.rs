@@ -11,7 +11,10 @@ use crate::{
     },
     config::AppConfig,
     media::resolver::{MediaMutation, MediaQuery, MediaService},
-    movies::{resolver::MoviesService, tmdb::TmdbService},
+    movies::{
+        resolver::{MoviesMutation, MoviesQuery, MoviesService},
+        tmdb::TmdbService,
+    },
     users::resolver::{UsersMutation, UsersService},
 };
 
@@ -32,10 +35,10 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery, BooksQuery, MediaQuery);
+pub struct QueryRoot(CoreQuery, BooksQuery, MediaQuery, MoviesQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(UsersMutation, BooksMutation, MediaMutation);
+pub struct MutationRoot(UsersMutation, BooksMutation, MediaMutation, MoviesMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
