@@ -29,7 +29,7 @@ export const getLot = (lot: unknown) => {
 };
 
 export enum Verb {
-	Read,
+	Read = 0,
 }
 
 export const getVerb = (verb: Verb, lot: MetadataLot) => {

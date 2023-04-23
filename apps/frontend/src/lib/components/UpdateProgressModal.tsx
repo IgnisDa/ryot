@@ -1,4 +1,5 @@
 import { gqlClient } from "@/lib/services/api";
+import { Verb, getVerb } from "@/lib/utilities";
 import { Button, Group, Modal, Stack, Title } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useMutation } from "@tanstack/react-query";
@@ -10,7 +11,6 @@ import {
 import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
 import { DateTime } from "luxon";
 import { useState } from "react";
-import { Verb, getVerb } from "../utilities";
 
 export default function UpdateProgressModal(props: {
 	opened: boolean;
