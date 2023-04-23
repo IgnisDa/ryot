@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import { BOOKS_SEARCH, MOVIES_SEARCH } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState, useRef } from "react";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
@@ -29,12 +29,13 @@ const LIMIT = 20;
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const _query = (router.query.query || "").toString();
-	const [query, setQuery] = useDebouncedState(_query, 1000);
+	const query = (router.query.query || "").toString();
+	const [shadowQuery, setShadowQuery] = useDebouncedState(query, 1000);
+	const form = useRef<HTMLFormElement | null>(null);
 	const [activePage, setPage] = useState(1);
 	const offset = (activePage - 1) * LIMIT;
 	const searchQuery = useQuery(
-		["searchQuery", query, activePage, lot],
+		["searchQuery", activePage, lot, shadowQuery],
 		async () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
@@ -53,31 +54,26 @@ const Page: NextPageWithLayout = () => {
 					throw new Error("Unreachable!");
 				});
 		},
-		{ enabled: query !== "" && lot !== undefined, staleTime: Infinity },
+		{ enabled: lot !== undefined, staleTime: Infinity },
 	);
 
 	useEffect(() => {
-		setQuery(_query);
-	}, [router]);
+		form.current?.submit();
+	}, [shadowQuery]);
 
 	return lot ? (
 		<Container>
 			<Stack>
-				<Box component="form" w="100%" style={{ display: "flex" }}>
+				<Box component="form" w="100%" style={{ display: "flex" }} ref={form}>
 					<TextInput
 						name="query"
 						placeholder={`Search for a ${lot.toLowerCase()}`}
 						icon={<IconSearch />}
-						rightSection={searchQuery.isFetching ? <Loader size="xs" /> : null}
 						defaultValue={query}
 						style={{ flexGrow: 1 }}
-						onChange={(e) => setQuery(e.currentTarget.value)}
+						onChange={(e) => setShadowQuery(e.currentTarget.value)}
 					/>
 					<input hidden name="lot" value={router.query.lot} />
-					<Space w="sm" />
-					<Button type="submit" variant="light">
-						Submit
-					</Button>
 				</Box>
 				{searchQuery.data && searchQuery.data.total > 0 ? (
 					<>
