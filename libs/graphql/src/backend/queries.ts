@@ -41,6 +41,7 @@ export const MEDIA_DETAILS = graphql(`
 	    description
 	    type
 	    creators
+			type
 	    images
 	    publishYear
 	    movieSpecifics {

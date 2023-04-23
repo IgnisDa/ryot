@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import UpdateProgressModal from "@/lib/components/UpdateProgressModal";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getLot, getVerb } from "@/lib/utilities";
+import { Verb, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Alert,
@@ -120,7 +120,6 @@ const Page: NextPageWithLayout = () => {
 	const [newModalOpened, { open: openNewModal, close: closeNewModal }] =
 		useDisclosure(false);
 	const router = useRouter();
-	const lot = getLot(router.query.lot);
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -210,10 +209,10 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
 					<Title underline>{details.data.title}</Title>
-					{inProgressSeenItem && lot ? (
+					{inProgressSeenItem ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
-							You are currently {getVerb(Verb.Read, lot)}ing this{" "}
-							{lot.toLowerCase()} ({inProgressSeenItem.progress}
+							You are currently {getVerb(Verb.Read, details.data.type)}ing this{" "}
+							{details.data.type.toLowerCase()} ({inProgressSeenItem.progress}
 							%)
 						</Alert>
 					) : null}
@@ -278,16 +277,16 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									>
-										I am {getVerb(Verb.Read, lot!)} it
+										I am {getVerb(Verb.Read, details.data.type)}ing it
 									</Button>
 								)}
 								<>
 									<Button variant="outline" onClick={openNewModal}>
-										Add to {getVerb(Verb.Read, lot!)} history
+										Add to {getVerb(Verb.Read, details.data.type)} history
 									</Button>
 									<UpdateProgressModal
 										title={details.data.title}
-										lot={lot!}
+										lot={details.data.type}
 										metadataId={metadataId}
 										onClose={closeNewModal}
 										opened={newModalOpened}
@@ -300,7 +299,9 @@ const Page: NextPageWithLayout = () => {
 							{history.data.length > 0 ? (
 								<List type="ordered">
 									{history.data.map((h) => (
-										<List.Item key={h.id}>{seenStatus(h, lot!)}</List.Item>
+										<List.Item key={h.id}>
+											{seenStatus(h, details.data.type)}
+										</List.Item>
 									))}
 								</List>
 							) : (
