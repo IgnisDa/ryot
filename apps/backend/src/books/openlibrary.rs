@@ -5,9 +5,11 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
 use crate::{
-    books::resolver::{BookSearch, MediaSearchItem, SeenStatus},
+    books::resolver::{MediaSearchItem, SeenStatus},
     media::resolver::BookSpecifics,
 };
+
+use super::resolver::SearchResults;
 
 static LIMIT: i32 = 20;
 
@@ -116,7 +118,11 @@ impl OpenlibraryService {
         Ok(detail)
     }
 
-    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<BookSearch> {
+    pub async fn search(
+        &self,
+        query: &str,
+        offset: Option<i32>,
+    ) -> Result<SearchResults<BookSpecifics>> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -189,7 +195,7 @@ impl OpenlibraryService {
                 }
             })
             .collect::<Vec<_>>();
-        Ok(BookSearch {
+        Ok(SearchResults {
             total: search.num_found,
             items: resp,
         })

@@ -25,10 +25,14 @@ pub struct BookSearchInput {
     offset: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject)]
-pub struct BookSearch {
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "BookSearchResults", params(BookSpecifics)))]
+pub struct SearchResults<T: OutputType>
+where
+    MediaSearchItem<T>: OutputType,
+{
     pub total: i32,
-    pub items: Vec<MediaSearchItem<BookSpecifics>>,
+    pub items: Vec<MediaSearchItem<T>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Enum, Copy, PartialEq, Eq, Clone)]
@@ -63,7 +67,7 @@ impl BooksQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: BookSearchInput,
-    ) -> Result<BookSearch> {
+    ) -> Result<SearchResults<BookSpecifics>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<BooksService>()
@@ -120,7 +124,7 @@ impl BooksService {
         query: &str,
         offset: Option<i32>,
         user_id: i32,
-    ) -> Result<BookSearch> {
+    ) -> Result<SearchResults<BookSpecifics>> {
         let mut books = self
             .openlibrary_service
             .search(query, offset)

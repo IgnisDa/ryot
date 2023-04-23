@@ -52,11 +52,6 @@ export type BookDetails = {
   type: MetadataLot;
 };
 
-export type BookSearch = {
-  items: Array<BookSearchItem>;
-  total: Scalars['Int'];
-};
-
 export type BookSearchInput = {
   offset?: InputMaybe<Scalars['Int']>;
   query: Scalars['String'];
@@ -71,6 +66,11 @@ export type BookSearchItem = {
   specifics: BookSpecifics;
   status: SeenStatus;
   title: Scalars['String'];
+};
+
+export type BookSearchResults = {
+  items: Array<BookSearchItem>;
+  total: Scalars['Int'];
 };
 
 export type BookSpecifics = {
@@ -168,7 +168,7 @@ export enum ProgressUpdateAction {
 export type QueryRoot = {
   bookDetails: BookDetails;
   /** Search for a list of books by a particular search query and an offset. */
-  booksSearch: BookSearch;
+  booksSearch: BookSearchResults;
   seenHistory: Array<Model>;
   /** Get the version of the service running. */
   version: Scalars['String'];
