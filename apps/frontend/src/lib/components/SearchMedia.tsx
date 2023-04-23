@@ -1,7 +1,7 @@
 import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
 import { getInitials, getLot } from "@/lib/utilities";
-import { Button, Flex, Image, Text } from "@mantine/core";
+import { Button, Flex, Image, Loader, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -84,13 +84,8 @@ export default function SearchMedia(props: {
 				</>
 			),
 		)
-		.with(
-			SeenStatus.Undetermined,
-			SeenStatus.CurrentlyUnderway,
-			undefined,
-			() => <></>,
-		)
-
+		.with(SeenStatus.Undetermined, SeenStatus.CurrentlyUnderway, () => <></>)
+		.with(undefined, () => <Loader size="sm" />)
 		.exhaustive();
 
 	return (
