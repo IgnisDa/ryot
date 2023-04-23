@@ -22,6 +22,7 @@ const documents = {
     "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
     "\n\tquery BookDetails($metadataId: Int!) {\n  \tbookDetails(metadataId: $metadataId) {\n    \ttitle\n    \tdescription\n    \tcreators\n    \timages\n    \tpublishYear\n    \tspecifics {\n      \tpages\n    \t}\n  \t}\n\t}\n": types.BookDetailsDocument,
     "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n": types.SeenHistoryDocument,
+    "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n": types.MediaConsumedDocument,
 };
 
 /**
@@ -74,6 +75,10 @@ export function graphql(source: "\n\tquery BookDetails($metadataId: Int!) {\n  \
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n"): (typeof documents)["\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

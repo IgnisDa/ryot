@@ -96,6 +96,16 @@ export type LoginResponse = {
 
 export type LoginResult = LoginError | LoginResponse;
 
+export type MediaConsumedInput = {
+  identifier: Scalars['String'];
+  lot: MetadataLot;
+};
+
+export type MediaSeen = {
+  identifier: Scalars['String'];
+  seen: SeenStatus;
+};
+
 export enum MetadataLot {
   AudioBook = 'AUDIO_BOOK',
   Book = 'BOOK',
@@ -114,9 +124,36 @@ export type Model = {
   userId: Scalars['Int'];
 };
 
+export type MovieSearchItem = {
+  authorNames: Array<Scalars['String']>;
+  description?: Maybe<Scalars['String']>;
+  identifier: Scalars['String'];
+  images: Array<Scalars['String']>;
+  publishYear?: Maybe<Scalars['Int']>;
+  specifics: MovieSpecifics;
+  status: SeenStatus;
+  title: Scalars['String'];
+};
+
+export type MovieSearchResults = {
+  items: Array<MovieSearchItem>;
+  total: Scalars['Int'];
+};
+
+export type MovieSpecifics = {
+  runtime?: Maybe<Scalars['Int']>;
+};
+
+export type MoviesSearchInput = {
+  page?: InputMaybe<Scalars['Int']>;
+  query: Scalars['String'];
+};
+
 export type MutationRoot = {
   /** Fetch details about a book and create a media item in the database */
   commitBook: IdObject;
+  /** Fetch details about a movie and create a media item in the database */
+  commitMovie: IdObject;
   /** Login a user using their username and password and return an API key. */
   loginUser: LoginResult;
   /** Logout a user from the server, deleting their login token */
@@ -134,6 +171,11 @@ export type MutationRootCommitBookArgs = {
   identifier: Scalars['String'];
   index: Scalars['Int'];
   input: BookSearchInput;
+};
+
+
+export type MutationRootCommitMovieArgs = {
+  identifier: Scalars['String'];
 };
 
 
@@ -169,6 +211,9 @@ export type QueryRoot = {
   bookDetails: BookDetails;
   /** Search for a list of books by a particular search query and an offset. */
   booksSearch: BookSearchResults;
+  mediaConsumed: MediaSeen;
+  /** Search for a list of movies by a particular search query and an offset. */
+  moviesSearch: MovieSearchResults;
   seenHistory: Array<Model>;
   /** Get the version of the service running. */
   version: Scalars['String'];
@@ -182,6 +227,16 @@ export type QueryRootBookDetailsArgs = {
 
 export type QueryRootBooksSearchArgs = {
   input: BookSearchInput;
+};
+
+
+export type QueryRootMediaConsumedArgs = {
+  input: MediaConsumedInput;
+};
+
+
+export type QueryRootMoviesSearchArgs = {
+  input: MoviesSearchInput;
 };
 
 
@@ -273,6 +328,13 @@ export type SeenHistoryQueryVariables = Exact<{
 
 export type SeenHistoryQuery = { seenHistory: Array<{ id: number, progress: number, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date }> };
 
+export type MediaConsumedQueryVariables = Exact<{
+  input: MediaConsumedInput;
+}>;
+
+
+export type MediaConsumedQuery = { mediaConsumed: { seen: SeenStatus } };
+
 
 export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RegisterUserMutation, RegisterUserMutationVariables>;
 export const LoginUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}}]}}]}}]}}]} as unknown as DocumentNode<LoginUserMutation, LoginUserMutationVariables>;
@@ -283,3 +345,4 @@ export const BooksSearchDocument = {"kind":"Document","definitions":[{"kind":"Op
 export const VersionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Version"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"version"}}]}}]} as unknown as DocumentNode<VersionQuery, VersionQueryVariables>;
 export const BookDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"BookDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"bookDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"creators"}},{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}},{"kind":"Field","name":{"kind":"Name","value":"specifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}}]}}]}}]}}]} as unknown as DocumentNode<BookDetailsQuery, BookDetailsQueryVariables>;
 export const SeenHistoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SeenHistory"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seenHistory"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"progress"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdatedOn"}}]}}]}}]} as unknown as DocumentNode<SeenHistoryQuery, SeenHistoryQueryVariables>;
+export const MediaConsumedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaConsumed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MediaConsumedInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaConsumed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seen"}}]}}]}}]} as unknown as DocumentNode<MediaConsumedQuery, MediaConsumedQueryVariables>;

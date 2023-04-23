@@ -47,3 +47,11 @@ export const SEEN_HISTORY = graphql(`
 	  }
 	}
 `);
+
+export const MEDIA_CONSUMED = graphql(`
+	query MediaConsumed($input: MediaConsumedInput!) {
+	  mediaConsumed(input: $input) {
+	    seen
+	  }
+	}
+`);

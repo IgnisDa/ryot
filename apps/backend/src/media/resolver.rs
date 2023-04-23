@@ -11,7 +11,8 @@ use crate::{
     entities::{
         book,
         metadata::Model as MetadataModel,
-        prelude::{Book, Creator, Metadata, MetadataImage, Seen},
+        movie,
+        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen},
         seen,
         seen::Model as SeenObject,
     },
@@ -85,6 +86,12 @@ pub struct MediaDetails<T: OutputType> {
     pub specifics: T,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaConsumedInput {
+    pub identifier: String,
+    pub lot: MetadataLot,
+}
+
 #[derive(Default)]
 pub struct MediaQuery;
 
@@ -112,6 +119,19 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .seen_history(metadata_id, user_id)
+            .await
+    }
+
+    // Check whether a media item has been consumed before
+    async fn media_consumed(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MediaConsumedInput,
+    ) -> Result<MediaSeen> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .media_consumed(user_id, input)
             .await
     }
 }
@@ -259,6 +279,60 @@ impl MediaService {
                 });
             }
         }
+        Ok(resp)
+    }
+
+    pub async fn media_consumed(
+        &self,
+        user_id: i32,
+        input: MediaConsumedInput,
+    ) -> Result<MediaSeen> {
+        let media = match input.lot {
+            MetadataLot::Book => Book::find()
+                .filter(book::Column::OpenLibraryKey.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            MetadataLot::Movie => Movie::find()
+                .filter(movie::Column::TmdbId.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            _ => todo!(),
+        };
+        let resp = if let Some(m) = media {
+            let seen = Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(media))
+                .order_by_asc(seen::Column::LastUpdatedOn)
+                .all(&self.db)
+                .await
+                .unwrap();
+            let filtered = seen
+                .iter()
+                .filter(|b| b.metadata_id == m)
+                .collect::<Vec<_>>();
+            let is_there = if filtered.is_empty() {
+                SeenStatus::NotConsumed
+            } else {
+                if filtered.last().unwrap().progress < 100 {
+                    SeenStatus::CurrentlyUnderway
+                } else {
+                    SeenStatus::ConsumedAtleastOnce
+                }
+            };
+            MediaSeen {
+                identifier: input.identifier,
+                seen: is_there,
+            }
+        } else {
+            MediaSeen {
+                identifier: input.identifier,
+                seen: SeenStatus::NotInDatabase,
+            }
+        };
         Ok(resp)
     }
 
