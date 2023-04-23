@@ -4,11 +4,14 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
+	Box,
+	Button,
 	Center,
 	Container,
 	Loader,
 	Pagination,
 	SimpleGrid,
+	Space,
 	Stack,
 	TextInput,
 } from "@mantine/core";
@@ -24,10 +27,10 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
-	const savedQuery = localStorage?.getItem("query") || "";
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const [query, setQuery] = useDebouncedState(savedQuery, 1000);
+	const _query = (router.query.query || "").toString();
+	const [query, setQuery] = useDebouncedState(_query, 1000);
 	const [activePage, setPage] = useState(1);
 	const offset = (activePage - 1) * LIMIT;
 	const searchQuery = useQuery(
@@ -54,19 +57,28 @@ const Page: NextPageWithLayout = () => {
 	);
 
 	useEffect(() => {
-		localStorage.setItem("query", query);
-	}, [query]);
+		setQuery(_query);
+	}, [router]);
 
 	return lot ? (
 		<Container>
 			<Stack>
-				<TextInput
-					placeholder={`Search for a ${lot.toLowerCase()}`}
-					icon={<IconSearch />}
-					rightSection={searchQuery.isFetching ? <Loader size="xs" /> : null}
-					defaultValue={query}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-				/>
+				<Box component="form" w="100%" style={{ display: "flex" }}>
+					<TextInput
+						name="query"
+						placeholder={`Search for a ${lot.toLowerCase()}`}
+						icon={<IconSearch />}
+						rightSection={searchQuery.isFetching ? <Loader size="xs" /> : null}
+						defaultValue={query}
+						style={{ flexGrow: 1 }}
+						onChange={(e) => setQuery(e.currentTarget.value)}
+					/>
+					<input hidden name="lot" value={router.query.lot} />
+					<Space w="sm" />
+					<Button type="submit" variant="light">
+						Submit
+					</Button>
+				</Box>
 				{searchQuery.data && searchQuery.data.total > 0 ? (
 					<>
 						<SimpleGrid

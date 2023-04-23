@@ -10,7 +10,6 @@ import {
 	Button,
 	Container,
 	Flex,
-	Group,
 	Image,
 	List,
 	Modal,
@@ -217,7 +216,9 @@ const Page: NextPageWithLayout = () => {
 						{details.data.movieSpecifics && (
 							<StatDisplay
 								name="Runtime"
-								value={details.data.movieSpecifics.runtime?.toString() || ""}
+								value={
+									`${details.data.movieSpecifics.runtime?.toString()} minutes` || ""
+								}
 							/>
 						)}
 					</Box>
