@@ -27,3 +27,20 @@ export const getLot = (lot: unknown) => {
 		.with("audiobooks", () => MetadataLot.AudioBook)
 		.otherwise(() => undefined);
 };
+
+export enum Verb {
+	Read,
+}
+
+export const getVerb = (verb: Verb, lot: MetadataLot) => {
+	return match(verb)
+		.with(Verb.Read, () => {
+			return match(lot)
+				.with(MetadataLot.Book, () => "read")
+				.with(MetadataLot.Movie, () => "watch")
+				.otherwise(() => {
+					return "";
+				});
+		})
+		.otherwise(() => "");
+};

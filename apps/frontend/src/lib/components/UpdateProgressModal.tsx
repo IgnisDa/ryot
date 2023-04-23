@@ -3,12 +3,14 @@ import { Button, Group, Modal, Stack, Title } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useMutation } from "@tanstack/react-query";
 import {
+	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 } from "@trackona/generated/graphql/backend/graphql";
 import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
 import { DateTime } from "luxon";
 import { useState } from "react";
+import { Verb, getVerb } from "../utilities";
 
 export default function UpdateProgressModal(props: {
 	opened: boolean;
@@ -16,6 +18,7 @@ export default function UpdateProgressModal(props: {
 	metadataId: number;
 	refetch: () => void;
 	title: string;
+	lot: MetadataLot;
 }) {
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const progressUpdate = useMutation({
@@ -40,7 +43,9 @@ export default function UpdateProgressModal(props: {
 			centered
 		>
 			<Stack>
-				<Title order={3}>When did you read "{props.title}"?</Title>
+				<Title order={3}>
+					When did you {getVerb(Verb.Read, props.lot)} "{props.title}"?
+				</Title>
 				<Button
 					variant="outline"
 					onClick={async () => {

@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import UpdateProgressModal from "@/lib/components/UpdateProgressModal";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
+import { Verb, getLot, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Alert,
@@ -31,6 +31,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 	type SeenHistoryQuery,
@@ -42,7 +43,10 @@ import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
-const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
+const seenStatus = (
+	seen: SeenHistoryQuery["seenHistory"][number],
+	lot: MetadataLot,
+) => {
 	const startedOn = seen.startedOn ? DateTime.fromISO(seen.startedOn) : null;
 	const finishedOn = seen.finishedOn ? DateTime.fromISO(seen.finishedOn) : null;
 	const updatedOn = DateTime.fromJSDate(seen.lastUpdatedOn);
@@ -50,7 +54,10 @@ const seenStatus = (seen: SeenHistoryQuery["seenHistory"][number]) => {
 		if (startedOn && finishedOn)
 			return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
 		else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
-		return `You read it on ${updatedOn.toLocaleString()} (not remembered)`;
+		return `You ${getVerb(
+			Verb.Read,
+			lot,
+		)} it on ${updatedOn.toLocaleString()} (not remembered)`;
 	} else return `Started on ${startedOn?.toLocaleString()} (${seen.progress}%)`;
 };
 
@@ -59,7 +66,6 @@ export function ProgressModal(props: {
 	onClose: () => void;
 	metadataId: number;
 	progress: number;
-	numPages?: number | null;
 	refetch: () => void;
 }) {
 	const [value, setValue] = useState(props.progress);
@@ -152,7 +158,7 @@ const Page: NextPageWithLayout = () => {
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = history.data?.find((h) => h.progress < 100);
 
-	return details.data && history.data && lot ? (
+	return details.data && history.data ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 				<Stack>
@@ -204,10 +210,10 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
 					<Title underline>{details.data.title}</Title>
-					{inProgressSeenItem ? (
+					{inProgressSeenItem && lot ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
-							You are currently reading this {lot.toLowerCase()} (
-							{inProgressSeenItem.progress}
+							You are currently {getVerb(Verb.Read, lot)}ing this{" "}
+							{lot.toLowerCase()} ({inProgressSeenItem.progress}
 							%)
 						</Alert>
 					) : null}
@@ -255,7 +261,6 @@ const Page: NextPageWithLayout = () => {
 										<ProgressModal
 											progress={inProgressSeenItem.progress}
 											refetch={history.refetch}
-											numPages={details.data.specifics.pages}
 											metadataId={metadataId}
 											onClose={close}
 											opened={opened}
@@ -273,15 +278,16 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									>
-										I am reading it
+										I am {getVerb(Verb.Read, lot!)} it
 									</Button>
 								)}
 								<>
 									<Button variant="outline" onClick={openNewModal}>
-										Add to read history
+										Add to {getVerb(Verb.Read, lot!)} history
 									</Button>
 									<UpdateProgressModal
 										title={details.data.title}
+										lot={lot!}
 										metadataId={metadataId}
 										onClose={closeNewModal}
 										opened={newModalOpened}
@@ -294,7 +300,7 @@ const Page: NextPageWithLayout = () => {
 							{history.data.length > 0 ? (
 								<List type="ordered">
 									{history.data.map((h) => (
-										<List.Item key={h.id}>{seenStatus(h)}</List.Item>
+										<List.Item key={h.id}>{seenStatus(h, lot!)}</List.Item>
 									))}
 								</List>
 							) : (
