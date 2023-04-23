@@ -173,6 +173,7 @@ const Page: NextPageWithLayout = () => {
 				<Stack
 					sx={(t) => ({
 						width: "100%",
+						flex: "none",
 						[t.fn.largerThan("md")]: { width: "35%" },
 					})}
 				>
@@ -217,7 +218,8 @@ const Page: NextPageWithLayout = () => {
 							<StatDisplay
 								name="Runtime"
 								value={
-									`${details.data.movieSpecifics.runtime?.toString()} minutes` || ""
+									`${details.data.movieSpecifics.runtime?.toString()} minutes` ||
+									""
 								}
 							/>
 						)}
