@@ -5,14 +5,12 @@ import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
 	Box,
-	Button,
 	Center,
 	Container,
-	Loader,
 	Pagination,
 	SimpleGrid,
-	Space,
 	Stack,
+	Text,
 	TextInput,
 } from "@mantine/core";
 import { useDebouncedState } from "@mantine/hooks";
@@ -58,7 +56,7 @@ const Page: NextPageWithLayout = () => {
 	);
 
 	useEffect(() => {
-		form.current?.submit();
+		if (shadowQuery) form.current?.submit();
 	}, [shadowQuery]);
 
 	return lot ? (
@@ -111,7 +109,9 @@ const Page: NextPageWithLayout = () => {
 							/>
 						</Center>
 					</>
-				) : null}
+				) : (
+					<Text>No media found :(</Text>
+				)}
 			</Stack>
 		</Container>
 	) : null;
