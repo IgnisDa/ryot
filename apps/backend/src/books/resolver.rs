@@ -12,12 +12,12 @@ use crate::{
         prelude::{Book, Creator, MetadataImage},
     },
     graphql::IdObject,
-    media::resolver::{BookSpecifics, MediaService, SearchResults},
+    media::resolver::{MediaService, SearchResults},
     migrator::{MetadataImageLot, MetadataLot},
     utils::user_id_from_ctx,
 };
 
-use super::openlibrary::OpenlibraryService;
+use super::{openlibrary::OpenlibraryService, BookSpecifics};
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
 pub struct BookSearchInput {

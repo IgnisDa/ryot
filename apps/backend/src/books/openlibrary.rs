@@ -6,8 +6,10 @@ use tokio::task::JoinSet;
 
 use crate::{
     books::resolver::SeenStatus,
-    media::resolver::{BookSpecifics, MediaSearchItem, SearchResults},
+    media::resolver::{MediaSearchItem, SearchResults},
 };
+
+use super::BookSpecifics;
 
 static LIMIT: i32 = 20;
 
