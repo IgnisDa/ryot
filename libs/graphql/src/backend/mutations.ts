@@ -42,6 +42,14 @@ export const COMMIT_BOOK = graphql(`
   }
 `);
 
+export const COMMIT_MOVIE = graphql(`
+  mutation CommitMovie($identifier: String!) {
+    commitMovie(identifier: $identifier) {
+      id
+    }
+  }
+`);
+
 export const PROGRESS_UPDATE = graphql(`
   mutation ProgressUpdate($input: ProgressUpdate!) {
     progressUpdate(input: $input) {

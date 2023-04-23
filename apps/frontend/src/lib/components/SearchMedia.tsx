@@ -10,7 +10,7 @@ import {
 	MetadataLot,
 	SeenStatus,
 } from "@trackona/generated/graphql/backend/graphql";
-import { COMMIT_BOOK } from "@trackona/graphql/backend/mutations";
+import { COMMIT_BOOK, COMMIT_MOVIE } from "@trackona/graphql/backend/mutations";
 import { MEDIA_CONSUMED } from "@trackona/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
@@ -33,6 +33,7 @@ export default function SearchMedia(props: {
 	const mediaConsumed = useQuery(
 		["mediaConsumed", lot, props.item],
 		async () => {
+			if (!lot) throw Error();
 			const { mediaConsumed } = await gqlClient.request(MEDIA_CONSUMED, {
 				input: { identifier: props.item.identifier, lot },
 			});
@@ -42,8 +43,24 @@ export default function SearchMedia(props: {
 	);
 	const commitBook = useMutation(
 		async (variables: CommitBookMutationVariables) => {
-			const { commitBook } = await gqlClient.request(COMMIT_BOOK, variables);
-			return commitBook;
+			return await match(lot)
+				.with(MetadataLot.Book, async () => {
+					const { commitBook } = await gqlClient.request(
+						COMMIT_BOOK,
+						variables,
+					);
+					return commitBook;
+				})
+				.with(MetadataLot.Movie, async () => {
+					const { commitMovie } = await gqlClient.request(
+						COMMIT_MOVIE,
+						variables,
+					);
+					return commitMovie;
+				})
+				.otherwise(async () => {
+					throw Error;
+				});
 		},
 	);
 	const commitFunction = async () => {
@@ -106,7 +123,7 @@ export default function SearchMedia(props: {
 				onClick={async () => {
 					const id = await commitFunction();
 					setMetadataId(id);
-					router.push(`/media?item=${id}&lot=${props.lot}`);
+					router.push(`/media?item=${id}`);
 				}}
 			/>
 			<Flex justify={"space-between"} w="100%">

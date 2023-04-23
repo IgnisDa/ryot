@@ -34,18 +34,22 @@ export const VERSION = graphql(`
 	}
 `);
 
-export const BOOK_DETAILS = graphql(`
-	query BookDetails($metadataId: Int!) {
-  	bookDetails(metadataId: $metadataId) {
-    	title
-    	description
-    	creators
-    	images
-    	publishYear
-    	specifics {
-      	pages
-    	}
-  	}
+export const MEDIA_DETAILS = graphql(`
+	query MediaDetails($metadataId: Int!) {
+	  mediaDetails(metadataId: $metadataId) {
+	    title
+	    description
+	    type
+	    creators
+	    images
+	    publishYear
+	    movieSpecifics {
+	      runtime
+	    }
+	    bookSpecifics {
+	      pages
+	    }
+	  }
 	}
 `);
 

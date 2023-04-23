@@ -36,7 +36,7 @@ import {
 	type SeenHistoryQuery,
 } from "@trackona/generated/graphql/backend/graphql";
 import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
-import { BOOK_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
+import { MEDIA_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
 import { DateTime } from "luxon";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
@@ -119,10 +119,10 @@ const Page: NextPageWithLayout = () => {
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
-			const { bookDetails } = await gqlClient.request(BOOK_DETAILS, {
+			const { mediaDetails } = await gqlClient.request(MEDIA_DETAILS, {
 				metadataId: metadataId,
 			});
-			return bookDetails;
+			return mediaDetails;
 		},
 		staleTime: Infinity,
 	});
@@ -152,7 +152,7 @@ const Page: NextPageWithLayout = () => {
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = history.data?.find((h) => h.progress < 100);
 
-	return details.data && history.data ? (
+	return details.data && history.data && lot ? (
 		<Container>
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 				<Stack>
@@ -188,10 +188,16 @@ const Page: NextPageWithLayout = () => {
 								<Text>{details.data.publishYear}</Text>
 							</Group>
 						)}
-						{details.data.specifics.pages && (
+						{details.data.bookSpecifics && (
 							<Group>
 								<Text fw="bold">Number of pages:</Text>
-								<Text>{details.data.specifics.pages}</Text>
+								<Text>{details.data.bookSpecifics.pages}</Text>
+							</Group>
+						)}
+						{details.data.movieSpecifics && (
+							<Group>
+								<Text fw="bold">Runtime:</Text>
+								<Text>{details.data.movieSpecifics.runtime} mins</Text>
 							</Group>
 						)}
 					</Box>

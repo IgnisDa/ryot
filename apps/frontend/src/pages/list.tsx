@@ -15,9 +15,11 @@ import {
 import { useDebouncedState } from "@mantine/hooks";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { BOOKS_SEARCH } from "@trackona/graphql/backend/queries";
+import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
+import { BOOKS_SEARCH, MOVIES_SEARCH } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect, useState } from "react";
+import { match } from "ts-pattern";
 
 const LIMIT = 20;
 
@@ -31,19 +33,31 @@ const Page: NextPageWithLayout = () => {
 	const searchQuery = useQuery(
 		["searchQuery", query, activePage, lot],
 		async () => {
-			const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
-				input: { query, offset },
-			});
-			return booksSearch;
+			return await match(lot)
+				.with(MetadataLot.Book, async () => {
+					const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
+						input: { query, offset },
+					});
+					return booksSearch;
+				})
+				.with(MetadataLot.Movie, async () => {
+					const { moviesSearch } = await gqlClient.request(MOVIES_SEARCH, {
+						input: { query, page: activePage },
+					});
+					return moviesSearch;
+				})
+				.otherwise(async () => {
+					throw new Error("Unreachable!");
+				});
 		},
-		{ enabled: query !== "", staleTime: Infinity },
+		{ enabled: query !== "" && lot !== undefined, staleTime: Infinity },
 	);
 
 	useEffect(() => {
 		localStorage.setItem("query", query);
 	}, [query]);
 
-	return (
+	return lot ? (
 		<Container>
 			<Stack>
 				<TextInput
@@ -92,7 +106,7 @@ const Page: NextPageWithLayout = () => {
 				) : null}
 			</Stack>
 		</Container>
-	);
+	) : null;
 };
 
 Page.getLayout = (page: ReactElement) => {

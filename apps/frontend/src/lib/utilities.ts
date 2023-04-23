@@ -17,11 +17,13 @@ export const getInitials = (name: string) => {
  * Get the correct name of the lot from a string
  */
 export const getLot = (lot: unknown) => {
-	return match(lot)
+	if (!lot) return undefined;
+	const newLot = (lot as string).toLowerCase();
+	return match(newLot)
 		.with("books", () => MetadataLot.Book)
 		.with("movies", () => MetadataLot.Movie)
 		.with("games", () => MetadataLot.VideoGame)
 		.with("tv", () => MetadataLot.Show)
 		.with("audiobooks", () => MetadataLot.AudioBook)
-		.otherwise(() => MetadataLot.Book);
+		.otherwise(() => undefined);
 };

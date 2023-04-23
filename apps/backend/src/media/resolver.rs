@@ -89,19 +89,11 @@ pub struct MediaQuery;
 
 #[Object]
 impl MediaQuery {
-    // Get details about a book present in the database
-    async fn book_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
+    // Get details about a media present in the database
+    async fn media_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
-            .book_details(metadata_id)
-            .await
-    }
-
-    // Get details about a movie present in the database
-    async fn movie_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .movie_details(metadata_id)
+            .media_details(metadata_id)
             .await
     }
 
@@ -194,14 +186,9 @@ impl MediaService {
         Ok((meta, creators, images))
     }
 
-    async fn book_details(&self, metadata_id: i32) -> Result<MediaDetails> {
+    async fn media_details(&self, metadata_id: i32) -> Result<MediaDetails> {
         let (meta, creators, images) = self.generic_metadata(metadata_id).await?;
-        let book = Book::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let resp = MediaDetails {
+        let mut resp = MediaDetails {
             id: meta.id,
             title: meta.title,
             description: meta.description,
@@ -209,33 +196,31 @@ impl MediaService {
             lot: meta.lot,
             creators,
             images,
-            book_specifics: Some(BookSpecifics {
-                pages: book.num_pages,
-            }),
+            book_specifics: None,
             movie_specifics: None,
         };
-        Ok(resp)
-    }
-
-    async fn movie_details(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (meta, creators, images) = self.generic_metadata(metadata_id).await?;
-        let movie = Movie::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let resp = MediaDetails {
-            id: meta.id,
-            title: meta.title,
-            description: meta.description,
-            publish_year: meta.publish_year,
-            lot: meta.lot,
-            creators,
-            images,
-            movie_specifics: Some(MovieSpecifics {
-                runtime: movie.runtime,
-            }),
-            book_specifics: None,
+        match meta.lot {
+            MetadataLot::Book => {
+                let additional = Book::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.book_specifics = Some(BookSpecifics {
+                    pages: additional.num_pages,
+                });
+            }
+            MetadataLot::Movie => {
+                let additional = Movie::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.movie_specifics = Some(MovieSpecifics {
+                    runtime: additional.runtime,
+                });
+            }
+            _ => todo!(),
         };
         Ok(resp)
     }
