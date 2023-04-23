@@ -140,13 +140,7 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_index(Index::drop().name(TOKEN_VALUE_INDEX).to_owned())
-            .await?;
-        manager
             .drop_table(Table::drop().table(Token::Table).to_owned())
-            .await?;
-        manager
-            .drop_index(Index::drop().name(USER_NAME_INDEX).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(User::Table).to_owned())

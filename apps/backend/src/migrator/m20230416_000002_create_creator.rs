@@ -103,9 +103,6 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_index(Index::drop().name(CREATOR_NAME_INDEX).to_owned())
-            .await?;
-        manager
             .drop_table(Table::drop().table(Creator::Table).to_owned())
             .await?;
         Ok(())

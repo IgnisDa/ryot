@@ -221,16 +221,10 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_index(Index::drop().name(METADATA_IMAGE_URL_INDEX).to_owned())
-            .await?;
-        manager
             .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(UserToMetadata::Table).to_owned())
-            .await?;
-        manager
-            .drop_index(Index::drop().name(METADATA_TITLE_INDEX).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Metadata::Table).to_owned())
