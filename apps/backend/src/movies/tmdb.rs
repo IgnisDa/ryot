@@ -8,10 +8,7 @@ use surf::{
 };
 use urlencoding::encode;
 
-use crate::media::{
-    resolver::{MediaSearchItem, SearchResults},
-    SeenStatus,
-};
+use crate::media::resolver::{MediaSearchItem, SearchResults};
 
 use super::MovieSpecifics;
 
@@ -87,7 +84,6 @@ impl TmdbService {
                 .map(|p| p.name)
                 .collect(),
             images,
-            status: SeenStatus::Undetermined,
             publish_year: Self::convert_date_to_year(&data.release_date),
             description: Some(data.overview),
             specifics: MovieSpecifics {
@@ -149,7 +145,6 @@ impl TmdbService {
                     description: d.overview,
                     author_names: vec![],
                     publish_year: Self::convert_date_to_year(&d.release_date),
-                    status: SeenStatus::Undetermined,
                     specifics: MovieSpecifics { runtime: None },
                     images,
                 }

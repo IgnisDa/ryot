@@ -31,7 +31,7 @@ export default function SearchMedia(props: {
 	const lot = getLot(router.query.lot);
 
 	const mediaConsumed = useQuery(
-		["mediaConsumed", lot],
+		["mediaConsumed", lot, props.item],
 		async () => {
 			const { mediaConsumed } = await gqlClient.request(MEDIA_CONSUMED, {
 				input: { identifier: props.item.identifier, lot },

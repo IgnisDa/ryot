@@ -7,7 +7,6 @@ export const BOOKS_SEARCH = graphql(`
 			items {
     		identifier
     		title
-				status
     		images
 				publishYear
 			}

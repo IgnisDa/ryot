@@ -33,7 +33,6 @@ pub struct MediaSearchItem<T: OutputType> {
     pub description: Option<String>,
     pub author_names: Vec<String>,
     pub images: Vec<String>,
-    pub status: SeenStatus,
     pub publish_year: Option<i32>,
     pub specifics: T,
 }

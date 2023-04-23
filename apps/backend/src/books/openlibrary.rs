@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::media::{
-    resolver::{MediaSearchItem, SearchResults},
-    SeenStatus,
-};
+use crate::media::resolver::{MediaSearchItem, SearchResults};
 
 use super::BookSpecifics;
 
@@ -187,7 +184,6 @@ impl OpenlibraryService {
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
                     publish_year: d.first_publish_year,
-                    status: SeenStatus::Undetermined,
                     specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
                     },

@@ -14,7 +14,6 @@ use crate::{
     graphql::IdObject,
     media::resolver::{MediaService, SearchResults},
     migrator::{MetadataImageLot, MetadataLot},
-    utils::user_id_from_ctx,
 };
 
 use super::{tmdb::TmdbService, MovieSpecifics};
@@ -36,10 +35,9 @@ impl MoviesQuery {
         gql_ctx: &Context<'_>,
         input: MoviesSearchInput,
     ) -> Result<SearchResults<MovieSpecifics>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MoviesService>()
-            .movies_search(&input.query, input.page, user_id)
+            .movies_search(&input.query, input.page)
             .await
     }
 }
@@ -85,23 +83,8 @@ impl MoviesService {
         &self,
         query: &str,
         page: Option<i32>,
-        user_id: i32,
     ) -> Result<SearchResults<MovieSpecifics>> {
-        let mut movies = self.tmdb_service.search(query, page).await.unwrap();
-        let is_read = self
-            .media_service
-            .book_read(
-                movies.items.iter().map(|b| b.identifier.clone()).collect(),
-                user_id,
-            )
-            .await?;
-        for rsp in movies.items.iter_mut() {
-            let seen_status = is_read
-                .iter()
-                .find(|ir| ir.identifier == rsp.identifier)
-                .unwrap();
-            rsp.status = seen_status.seen;
-        }
+        let movies = self.tmdb_service.search(query, page).await.unwrap();
         Ok(movies)
     }
 

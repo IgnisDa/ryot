@@ -36,10 +36,9 @@ impl BooksQuery {
         gql_ctx: &Context<'_>,
         input: BookSearchInput,
     ) -> Result<SearchResults<BookSpecifics>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<BooksService>()
-            .books_search(&input.query, input.offset, user_id)
+            .books_search(&input.query, input.offset)
             .await
     }
 }
@@ -91,27 +90,12 @@ impl BooksService {
         &self,
         query: &str,
         offset: Option<i32>,
-        user_id: i32,
     ) -> Result<SearchResults<BookSpecifics>> {
-        let mut books = self
+        let books = self
             .openlibrary_service
             .search(query, offset)
             .await
             .unwrap();
-        let is_read = self
-            .media_service
-            .book_read(
-                books.items.iter().map(|b| b.identifier.clone()).collect(),
-                user_id,
-            )
-            .await?;
-        for rsp in books.items.iter_mut() {
-            let seen_status = is_read
-                .iter()
-                .find(|ir| ir.identifier == rsp.identifier)
-                .unwrap();
-            rsp.status = seen_status.seen;
-        }
         Ok(books)
     }
 
