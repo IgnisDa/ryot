@@ -6,7 +6,6 @@ use surf::{
     http::headers::{AUTHORIZATION, USER_AGENT},
     Client, Config, Url,
 };
-use urlencoding::encode;
 
 use crate::media::resolver::{MediaSearchItem, SearchResults};
 
@@ -118,7 +117,7 @@ impl TmdbService {
             .client
             .get("search/movie")
             .query(&Query {
-                query: encode(query).into_owned(),
+                query: query.to_owned(),
                 page: page.unwrap_or(1),
                 language: "en-US".to_owned(),
             })
