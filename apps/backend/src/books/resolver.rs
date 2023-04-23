@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Enum, InputObject, Object, Result};
+use async_graphql::{Context, InputObject, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
@@ -23,15 +23,6 @@ use super::{openlibrary::OpenlibraryService, BookSpecifics};
 pub struct BookSearchInput {
     query: String,
     offset: Option<i32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Enum, Copy, PartialEq, Eq, Clone)]
-pub enum SeenStatus {
-    Undetermined,
-    NotInDatabase,
-    NotConsumed,
-    CurrentlyUnderway,
-    ConsumedAtleastOnce,
 }
 
 #[derive(Default)]

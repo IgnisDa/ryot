@@ -7,7 +7,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    books::{resolver::SeenStatus, BookSpecifics},
+    books::BookSpecifics,
     entities::{
         book,
         metadata::Model as MetadataModel,
@@ -19,6 +19,8 @@ use crate::{
     migrator::MetadataLot,
     utils::user_id_from_ctx,
 };
+
+use super::SeenStatus;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 #[graphql(concrete(name = "BookSearchItem", params(BookSpecifics)))]

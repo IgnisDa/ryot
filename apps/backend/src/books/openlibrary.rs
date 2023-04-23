@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::{
-    books::resolver::SeenStatus,
-    media::resolver::{MediaSearchItem, SearchResults},
+use crate::media::{
+    resolver::{MediaSearchItem, SearchResults},
+    SeenStatus,
 };
 
 use super::BookSpecifics;
