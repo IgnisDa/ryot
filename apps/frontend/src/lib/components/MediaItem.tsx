@@ -17,7 +17,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { match } from "ts-pattern";
 
-export default function SearchMedia(props: {
+export default function (props: {
 	item: BooksSearchQuery["booksSearch"]["items"][number];
 	idx: number;
 	query: string;
@@ -79,6 +79,7 @@ export default function SearchMedia(props: {
 			() => (
 				<>
 					<UpdateProgressModal
+						lot={props.lot}
 						title={props.item.title}
 						metadataId={metadataId}
 						onClose={close}

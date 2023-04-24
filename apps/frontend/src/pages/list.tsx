@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
-import SearchMedia from "@/lib/components/SearchMedia";
+import MediaItem from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
@@ -87,7 +87,7 @@ const Page: NextPageWithLayout = () => {
 							]}
 						>
 							{searchQuery.data.items.map((b, idx) => (
-								<SearchMedia
+								<MediaItem
 									idx={idx}
 									key={idx}
 									item={b}
