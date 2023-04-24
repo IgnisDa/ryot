@@ -106,7 +106,7 @@ impl OpenlibraryService {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        detail.images = data
+        detail.poster_images = data
             .covers
             .unwrap_or_default()
             .into_iter()
@@ -152,7 +152,6 @@ impl OpenlibraryService {
                     "title",
                     "author_name",
                     "cover_i",
-                    "publish_year",
                     "first_publish_year",
                     "number_of_pages_median",
                 ]
@@ -170,7 +169,7 @@ impl OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| {
-                let images = if let Some(c) = d.cover_i {
+                let poster_images = if let Some(c) = d.cover_i {
                     vec![self.get_cover_image_url(c)]
                 } else {
                     vec![]
@@ -185,7 +184,8 @@ impl OpenlibraryService {
                         pages: d.number_of_pages_median,
                     }),
                     movie_specifics: None,
-                    images,
+                    poster_images,
+                    backdrop_images: vec![],
                 }
             })
             .collect::<Vec<_>>();

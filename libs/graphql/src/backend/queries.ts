@@ -7,7 +7,7 @@ export const BOOKS_SEARCH = graphql(`
 			items {
     		identifier
     		title
-    		images
+    		posterImages
 				publishYear
 			}
   	}
@@ -21,7 +21,7 @@ export const MOVIES_SEARCH = graphql(`
 	    items {
 	      identifier
 	      title
-	      images
+	      posterImages
 	      publishYear
 	    }
 	  }
@@ -42,7 +42,8 @@ export const MEDIA_DETAILS = graphql(`
 	    type
 	    creators
 			type
-	    images
+	    posterImages
+			backdropImages
 	    publishYear
 	    movieSpecifics {
 	      runtime
@@ -81,7 +82,8 @@ export const MEDIA_LIST = graphql(`
 	    items {
 	      identifier
 	      title
-	      images
+	      posterImages
+				backdropImages
 	      publishYear
 	    }
 	  }

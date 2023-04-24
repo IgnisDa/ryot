@@ -31,7 +31,8 @@ pub struct MediaSearchItem {
     pub title: String,
     pub description: Option<String>,
     pub author_names: Vec<String>,
-    pub images: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
@@ -73,7 +74,8 @@ pub struct MediaDetails {
     #[graphql(name = "type")]
     pub lot: MetadataLot,
     pub creators: Vec<String>,
-    pub images: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
@@ -178,7 +180,7 @@ impl MediaService {
     async fn generic_metadata(
         &self,
         metadata_id: i32,
-    ) -> Result<(MetadataModel, Vec<String>, Vec<String>)> {
+    ) -> Result<(MetadataModel, Vec<String>, Vec<String>, Vec<String>)> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -201,13 +203,23 @@ impl MediaService {
             .await
             .unwrap()
             .into_iter()
-            .map(|i| i.url)
+            .collect::<Vec<_>>();
+        let poster_images = images
+            .iter()
+            .filter(|f| f.lot == MetadataImageLot::Poster)
+            .map(|i| i.url.clone())
             .collect();
-        Ok((meta, creators, images))
+        let backdrop_images = images
+            .iter()
+            .filter(|f| f.lot == MetadataImageLot::Backdrop)
+            .map(|i| i.url.clone())
+            .collect();
+        Ok((meta, creators, poster_images, backdrop_images))
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (meta, creators, images) = self.generic_metadata(metadata_id).await?;
+        let (meta, creators, poster_images, backdrop_images) =
+            self.generic_metadata(metadata_id).await?;
         let mut resp = MediaDetails {
             id: meta.id,
             title: meta.title,
@@ -215,7 +227,8 @@ impl MediaService {
             publish_year: meta.publish_year,
             lot: meta.lot,
             creators,
-            images,
+            poster_images,
+            backdrop_images,
             book_specifics: None,
             movie_specifics: None,
         };
@@ -333,13 +346,23 @@ impl MediaService {
                 .await
                 .unwrap();
             let images = images.remove(0).1;
-            let images = images.into_iter().map(|i| i.url).collect();
+            let poster_images = images
+                .iter()
+                .filter(|f| f.lot == MetadataImageLot::Poster)
+                .map(|i| i.url.clone())
+                .collect();
+            let backdrop_images = images
+                .iter()
+                .filter(|f| f.lot == MetadataImageLot::Backdrop)
+                .map(|i| i.url.clone())
+                .collect();
             let _m = MediaSearchItem {
                 identifier: m.id.to_string(),
                 title: m.title,
                 description: m.description,
                 author_names: vec![],
-                images,
+                poster_images,
+                backdrop_images,
                 publish_year: m.publish_year,
                 book_specifics: None,
                 movie_specifics: None,
@@ -443,7 +466,7 @@ impl MediaService {
                 ..Default::default()
             };
             let metadata = metadata.insert(&self.db).await.unwrap();
-            for image in details.images.iter() {
+            for image in details.poster_images.iter() {
                 if let Some(c) = MetadataImage::find()
                     .filter(metadata_image::Column::Url.eq(image))
                     .one(&self.db)
@@ -455,6 +478,24 @@ impl MediaService {
                     let c = metadata_image::ActiveModel {
                         url: ActiveValue::Set(image.to_owned()),
                         lot: ActiveValue::Set(MetadataImageLot::Poster),
+                        metadata_id: ActiveValue::Set(metadata.id),
+                        ..Default::default()
+                    };
+                    c.insert(&self.db).await.unwrap()
+                };
+            }
+            for image in details.backdrop_images.iter() {
+                if let Some(c) = MetadataImage::find()
+                    .filter(metadata_image::Column::Url.eq(image))
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                {
+                    c
+                } else {
+                    let c = metadata_image::ActiveModel {
+                        url: ActiveValue::Set(image.to_owned()),
+                        lot: ActiveValue::Set(MetadataImageLot::Backdrop),
                         metadata_id: ActiveValue::Set(metadata.id),
                         ..Default::default()
                     };

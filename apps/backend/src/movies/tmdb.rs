@@ -67,12 +67,13 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut images = vec![];
+        let mut poster_images = vec![];
         if let Some(c) = data.poster_path {
-            images.push(self.get_cover_image_url(&c));
+            poster_images.push(self.get_cover_image_url(&c));
         };
+        let mut backdrop_images = vec![];
         if let Some(c) = data.backdrop_path {
-            images.push(self.get_cover_image_url(&c));
+            backdrop_images.push(self.get_cover_image_url(&c));
         };
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
@@ -82,7 +83,8 @@ impl TmdbService {
                 .into_iter()
                 .map(|p| p.name)
                 .collect(),
-            images,
+            poster_images,
+            backdrop_images,
             publish_year: Self::convert_date_to_year(&data.release_date),
             description: Some(data.overview),
             movie_specifics: Some(MovieSpecifics {
@@ -104,6 +106,7 @@ impl TmdbService {
         pub struct TmdbBook {
             id: i32,
             poster_path: Option<String>,
+            backdrop_path: Option<String>,
             overview: Option<String>,
             title: String,
             release_date: String,
@@ -130,7 +133,12 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let images = if let Some(c) = d.poster_path {
+                let poster_images = if let Some(c) = d.poster_path {
+                    vec![self.get_cover_image_url(&c)]
+                } else {
+                    vec![]
+                };
+                let backdrop_images = if let Some(c) = d.backdrop_path {
                     vec![self.get_cover_image_url(&c)]
                 } else {
                     vec![]
@@ -143,7 +151,8 @@ impl TmdbService {
                     publish_year: Self::convert_date_to_year(&d.release_date),
                     movie_specifics: Some(MovieSpecifics { runtime: None }),
                     book_specifics: None,
-                    images,
+                    poster_images,
+                    backdrop_images,
                 }
             })
             .collect::<Vec<_>>();

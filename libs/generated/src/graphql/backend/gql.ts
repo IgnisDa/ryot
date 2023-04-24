@@ -19,13 +19,13 @@ const documents = {
     "\n  mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n    commitBook(identifier: $identifier, input: $input, index: $index) {\n      id\n    }\n  }\n": types.CommitBookDocument,
     "\n  mutation CommitMovie($identifier: String!) {\n    commitMovie(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitMovieDocument,
     "\n  mutation ProgressUpdate($input: ProgressUpdate!) {\n    progressUpdate(input: $input) {\n      id\n    }\n  }\n": types.ProgressUpdateDocument,
-    "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\timages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
-    "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      images\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MoviesSearchDocument,
+    "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
+    "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MoviesSearchDocument,
     "\n\tquery Version {\n\t\tversion\n\t}\n": types.VersionDocument,
-    "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t\t\ttype\n\t    images\n\t    publishYear\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t  }\n\t}\n": types.MediaDetailsDocument,
+    "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t\t\ttype\n\t    posterImages\n\t\t\tbackdropImages\n\t    publishYear\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t  }\n\t}\n": types.MediaDetailsDocument,
     "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n": types.SeenHistoryDocument,
     "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n": types.MediaConsumedDocument,
-    "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      images\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MediaListDocument,
+    "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MediaListDocument,
 };
 
 /**
@@ -69,11 +69,11 @@ export function graphql(source: "\n  mutation ProgressUpdate($input: ProgressUpd
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\timages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\timages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"];
+export function graphql(source: "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      images\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      images\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -81,7 +81,7 @@ export function graphql(source: "\n\tquery Version {\n\t\tversion\n\t}\n"): (typ
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t\t\ttype\n\t    images\n\t    publishYear\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t\t\ttype\n\t    images\n\t    publishYear\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t\t\ttype\n\t    posterImages\n\t\t\tbackdropImages\n\t    publishYear\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t\t\ttype\n\t    posterImages\n\t\t\tbackdropImages\n\t    publishYear\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t  }\n\t}\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -93,7 +93,7 @@ export function graphql(source: "\n\tquery MediaConsumed($input: MediaConsumedIn
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      images\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      images\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
