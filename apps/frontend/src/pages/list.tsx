@@ -1,5 +1,7 @@
 import type { NextPageWithLayout } from "./_app";
-import MediaItem from "@/lib/components/MediaItem";
+import MediaItem, {
+	MediaItemWithoutUpdateModal,
+} from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
@@ -17,12 +19,34 @@ import { useDebouncedState } from "@mantine/hooks";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
-import { BOOKS_SEARCH, MOVIES_SEARCH } from "@trackona/graphql/backend/queries";
+import {
+	BOOKS_SEARCH,
+	MEDIA_LIST,
+	MOVIES_SEARCH,
+} from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useState, useRef } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
+
+const Grid = (props: { children: JSX.Element }) => {
+	return (
+		<SimpleGrid
+			cols={2}
+			spacing="lg"
+			mx={"lg"}
+			breakpoints={[
+				{ minWidth: "sm", cols: 3 },
+				{ minWidth: "md", cols: 4 },
+				{ minWidth: "lg", cols: 5 },
+				{ minWidth: "xl", cols: 6 },
+			]}
+		>
+			{props.children}
+		</SimpleGrid>
+	);
+};
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -33,6 +57,17 @@ const Page: NextPageWithLayout = () => {
 	const form = useRef<HTMLFormElement | null>(null);
 	const [activePage, setPage] = useState(currentPage);
 	const offset = (activePage - 1) * LIMIT;
+	const listMedia = useQuery(
+		["listMedia", activePage, lot],
+		async () => {
+			if (!lot) throw Error();
+			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
+				input: { lot, page: activePage },
+			});
+			return mediaList;
+		},
+		{ enabled: lot !== undefined && query === "", staleTime: Infinity },
+	);
 	const searchQuery = useQuery(
 		["searchQuery", activePage, lot, shadowQuery],
 		async () => {
@@ -75,44 +110,50 @@ const Page: NextPageWithLayout = () => {
 					<input hidden name="lot" value={router.query.lot} />
 					<input hidden name="page" value={activePage} />
 				</Box>
-				{searchQuery.data && searchQuery.data.total > 0 ? (
+				<Grid>
 					<>
-						<SimpleGrid
-							cols={2}
-							spacing="lg"
-							mx={"lg"}
-							breakpoints={[
-								{ minWidth: "sm", cols: 3 },
-								{ minWidth: "md", cols: 4 },
-								{ minWidth: "lg", cols: 5 },
-								{ minWidth: "xl", cols: 6 },
-							]}
-						>
-							{searchQuery.data.items.map((b, idx) => (
-								<MediaItem
-									idx={idx}
-									key={idx}
-									item={b}
-									query={query}
-									offset={offset}
-									lot={lot}
-									refetch={searchQuery.refetch}
-								/>
-							))}
-						</SimpleGrid>
-						<Center>
-							<Pagination
-								size="sm"
-								value={activePage}
-								onChange={setPage}
-								total={Math.ceil(searchQuery.data.total / LIMIT)}
-								boundaries={1}
-								siblings={0}
-							/>
-						</Center>
+						{listMedia.data && listMedia.data.total > 0
+							? listMedia.data.items.map((lm, idx) => (
+									<MediaItemWithoutUpdateModal
+										key={idx}
+										item={lm}
+										lot={lot}
+										imageOnClick={async () => parseInt(lm.identifier)}
+									/>
+							  ))
+							: null}
+						{searchQuery.data && searchQuery.data.total > 0 ? (
+							<>
+								{searchQuery.data.items.map((b, idx) => (
+									<MediaItem
+										idx={idx}
+										key={idx}
+										item={b}
+										query={query}
+										offset={offset}
+										lot={lot}
+										refetch={searchQuery.refetch}
+									/>
+								))}
+							</>
+						) : (
+							<Text>No media found :(</Text>
+						)}
 					</>
-				) : (
-					<Text>No media found :(</Text>
+				</Grid>
+				{(searchQuery.data || listMedia.data) && (
+					<Center>
+						<Pagination
+							size="sm"
+							value={activePage}
+							onChange={setPage}
+							total={Math.ceil(
+								(searchQuery.data?.total || listMedia.data?.total || 0) / LIMIT,
+							)}
+							boundaries={1}
+							siblings={0}
+						/>
+					</Center>
 				)}
 			</Stack>
 		</Container>

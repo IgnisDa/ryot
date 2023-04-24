@@ -208,14 +208,13 @@ const Page: NextPageWithLayout = () => {
 								value={details.data.publishYear.toString()}
 							/>
 						) : null}
-						{details.data.bookSpecifics && details.data.bookSpecifics.pages ? (
+						{details.data.bookSpecifics?.pages ? (
 							<StatDisplay
 								name="Number of pages"
 								value={details.data.bookSpecifics.pages?.toString() || ""}
 							/>
 						) : null}
-						{details.data.movieSpecifics &&
-						details.data.movieSpecifics.runtime ? (
+						{details.data.movieSpecifics?.runtime ? (
 							<StatDisplay
 								name="Runtime"
 								value={
