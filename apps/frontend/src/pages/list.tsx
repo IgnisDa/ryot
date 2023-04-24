@@ -6,7 +6,6 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
-	Box,
 	Center,
 	Container,
 	Pagination,
@@ -15,7 +14,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useDebouncedState } from "@mantine/hooks";
+import { useLocalStorage } from "@mantine/hooks";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
@@ -25,7 +24,7 @@ import {
 	MOVIES_SEARCH,
 } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
@@ -50,11 +49,9 @@ const Grid = (props: { children: JSX.Element }) => {
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
+	const [query, setQuery] = useLocalStorage({ key: "test" });
 	const lot = getLot(router.query.lot);
-	const query = (router.query.query || "").toString();
 	const currentPage = parseInt(router.query.page?.toString() || "1");
-	const [shadowQuery, setShadowQuery] = useDebouncedState(query, 1000);
-	const form = useRef<HTMLFormElement | null>(null);
 	const [activePage, setPage] = useState(currentPage);
 	const offset = (activePage - 1) * LIMIT;
 	const listMedia = useQuery(
@@ -69,7 +66,7 @@ const Page: NextPageWithLayout = () => {
 		{ enabled: lot !== undefined && query === "", staleTime: Infinity },
 	);
 	const searchQuery = useQuery(
-		["searchQuery", activePage, lot, shadowQuery],
+		["searchQuery", activePage, lot, query],
 		async () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
@@ -91,25 +88,17 @@ const Page: NextPageWithLayout = () => {
 		{ enabled: lot !== undefined, staleTime: Infinity },
 	);
 
-	useEffect(() => {
-		if (shadowQuery) form.current?.submit();
-	}, [shadowQuery]);
-
 	return activePage && lot ? (
 		<Container>
 			<Stack>
-				<Box component="form" w="100%" style={{ display: "flex" }} ref={form}>
-					<TextInput
-						name="query"
-						placeholder={`Search for a ${lot.toLowerCase()}`}
-						icon={<IconSearch />}
-						defaultValue={query}
-						style={{ flexGrow: 1 }}
-						onChange={(e) => setShadowQuery(e.currentTarget.value)}
-					/>
-					<input hidden name="lot" value={router.query.lot} />
-					<input hidden name="page" value={activePage} />
-				</Box>
+				<TextInput
+					name="query"
+					placeholder={`Search for a ${lot.toLowerCase()}`}
+					icon={<IconSearch />}
+					defaultValue={query}
+					style={{ flexGrow: 1 }}
+					onChange={(e) => setQuery(e.currentTarget.value)}
+				/>
 				<Grid>
 					<>
 						{listMedia.data && listMedia.data.total > 0
