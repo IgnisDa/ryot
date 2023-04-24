@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection};
 use serde::{Deserialize, Serialize};
 
 use crate::{

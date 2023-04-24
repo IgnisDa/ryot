@@ -73,3 +73,17 @@ export const MEDIA_CONSUMED = graphql(`
 	  }
 	}
 `);
+
+export const MEDIA_LIST = graphql(`
+	query MediaList($input: MediaListInput!) {
+	  mediaList(input: $input) {
+	    total
+	    items {
+	      identifier
+	      title
+	      images
+	      publishYear
+	    }
+	  }
+	}
+`);

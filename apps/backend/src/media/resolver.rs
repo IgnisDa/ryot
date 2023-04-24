@@ -84,6 +84,12 @@ pub struct MediaConsumedInput {
     pub lot: MetadataLot,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaListInput {
+    pub page: i32,
+    pub lot: MetadataLot,
+}
+
 #[derive(Default)]
 pub struct MediaQuery;
 
@@ -120,6 +126,19 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .media_consumed(user_id, input)
+            .await
+    }
+
+    // Get all the media items for a specific media type
+    async fn media_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MediaListInput,
+    ) -> Result<MediaSearchResults> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .media_list(user_id, input)
             .await
     }
 }
@@ -286,6 +305,17 @@ impl MediaService {
             }
         };
         Ok(resp)
+    }
+
+    pub async fn media_list(
+        &self,
+        user_id: i32,
+        input: MediaListInput,
+    ) -> Result<MediaSearchResults> {
+        Ok(MediaSearchResults {
+            total: 0,
+            items: vec![],
+        })
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
