@@ -196,25 +196,26 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 					)}
 					<Box>
-						{details.data.creators.length > 0 && (
+						{details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
 							/>
-						)}
-						{details.data.publishYear && (
+						) : null}
+						{details.data.publishYear ? (
 							<StatDisplay
 								name="Published in"
 								value={details.data.publishYear.toString()}
 							/>
-						)}
-						{details.data.bookSpecifics && (
+						) : null}
+						{details.data.bookSpecifics && details.data.bookSpecifics.pages ? (
 							<StatDisplay
 								name="Number of pages"
 								value={details.data.bookSpecifics.pages?.toString() || ""}
 							/>
-						)}
-						{details.data.movieSpecifics && (
+						) : null}
+						{details.data.movieSpecifics &&
+						details.data.movieSpecifics.runtime ? (
 							<StatDisplay
 								name="Runtime"
 								value={
@@ -222,7 +223,7 @@ const Page: NextPageWithLayout = () => {
 									""
 								}
 							/>
-						)}
+						) : null}
 					</Box>
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
