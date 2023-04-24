@@ -35,7 +35,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			direction={"column"}
 		>
 			<Image
-				src={props.item.images.at(0)}
+				src={props.item.posterImages.at(0)}
 				radius={"md"}
 				height={250}
 				withPlaceholder

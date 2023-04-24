@@ -177,14 +177,14 @@ const Page: NextPageWithLayout = () => {
 						[t.fn.largerThan("md")]: { width: "35%" },
 					})}
 				>
-					{details.data.images.length > 0 ? (
-						<Carousel
-							withIndicators
-							height={400}
-							w={300}
-							data-num-images={details.data.images.length}
-						>
-							{details.data.images.map((i) => (
+					{details.data.posterImages.length +
+						details.data.backdropImages.length >
+					0 ? (
+						<Carousel withIndicators height={400} w={300}>
+							{[
+								...details.data.posterImages,
+								...details.data.backdropImages,
+							].map((i) => (
 								<Carousel.Slide key={i}>
 									<Image src={i} radius={"lg"} />
 								</Carousel.Slide>
