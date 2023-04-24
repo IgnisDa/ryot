@@ -11,3 +11,5 @@ pub enum SeenStatus {
     CurrentlyUnderway,
     ConsumedAtleastOnce,
 }
+
+pub static LIMIT: i32 = 20;

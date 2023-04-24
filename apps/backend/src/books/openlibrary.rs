@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::media::resolver::{MediaSearchItem, MediaSearchResults};
+use crate::media::{
+    resolver::{MediaSearchItem, MediaSearchResults},
+    LIMIT,
+};
 
 use super::BookSpecifics;
-
-static LIMIT: i32 = 20;
 
 #[derive(Debug, Clone)]
 pub struct OpenlibraryService {

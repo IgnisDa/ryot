@@ -2,7 +2,7 @@ use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObj
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
-    QueryFilter, QueryOrder,
+    PaginatorTrait, QueryFilter, QueryOrder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ use crate::{
     utils::user_id_from_ctx,
 };
 
-use super::SeenStatus;
+use super::{SeenStatus, LIMIT};
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MediaSearchItem {
@@ -313,9 +313,42 @@ impl MediaService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<MediaSearchResults> {
+        let meta = UserToMetadata::find()
+            .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
+        let condition = Metadata::find()
+            .filter(metadata::Column::Lot.eq(input.lot))
+            .filter(metadata::Column::Id.is_in(distinct_meta_ids));
+        let counts = condition.clone().count(&self.db).await.unwrap();
+        let paginator = condition.paginate(&self.db, LIMIT as u64);
+        let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
+        let mut items = vec![];
+        for m in metas {
+            let mut images = Metadata::find_by_id(m.id)
+                .find_with_related(MetadataImage)
+                .all(&self.db)
+                .await
+                .unwrap();
+            let images = images.remove(0).1;
+            let images = images.into_iter().map(|i| i.url).collect();
+            let _m = MediaSearchItem {
+                identifier: m.id.to_string(),
+                title: m.title,
+                description: m.description,
+                author_names: vec![],
+                images,
+                publish_year: m.publish_year,
+                book_specifics: None,
+                movie_specifics: None,
+            };
+            items.push(_m);
+        }
         Ok(MediaSearchResults {
-            total: 0,
-            items: vec![],
+            total: counts as i32,
+            items,
         })
     }
 
