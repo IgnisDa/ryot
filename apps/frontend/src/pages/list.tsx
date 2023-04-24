@@ -6,6 +6,8 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
+	ActionIcon,
+	Box,
 	Center,
 	Container,
 	Pagination,
@@ -16,7 +18,7 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { IconListCheck, IconSearch } from "@tabler/icons-react";
+import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import {
@@ -73,7 +75,7 @@ const Page: NextPageWithLayout = () => {
 			return mediaList;
 		},
 		onSuccess: () => {
-			setMinePage("1");
+			if (!activeMinePage) setMinePage("1");
 		},
 		enabled: lot !== undefined,
 		staleTime: Infinity,
@@ -99,7 +101,7 @@ const Page: NextPageWithLayout = () => {
 				});
 		},
 		onSuccess: () => {
-			setSearchPage("1");
+			if (!activeSearchPage) setSearchPage("1");
 		},
 		enabled: query !== "" && lot !== undefined,
 		staleTime: Infinity,
@@ -115,6 +117,21 @@ const Page: NextPageWithLayout = () => {
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
 						<Text size={"lg"}>My {lot.toLowerCase()}s</Text>
 					</Tabs.Tab>
+					<Box style={{ flexGrow: 1 }}>
+						<ActionIcon
+							size="lg"
+							variant="transparent"
+							ml="auto"
+							mt="xs"
+							loading={searchQuery.isFetching || listMedia.isFetching}
+							onClick={() => {
+								searchQuery.refetch();
+								listMedia.refetch();
+							}}
+						>
+							<IconRefresh size="1.625rem" />
+						</ActionIcon>
+					</Box>
 				</Tabs.List>
 
 				<Tabs.Panel value="search" pt="xs">
