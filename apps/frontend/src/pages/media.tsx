@@ -293,6 +293,20 @@ const Page: NextPageWithLayout = () => {
 											onClose={close}
 											opened={opened}
 										/>
+										<Button
+											variant="outline"
+											onClick={async () => {
+												await progressUpdate.mutateAsync({
+													input: {
+														action: ProgressUpdateAction.Update,
+														progress: 100,
+														metadataId: metadataId,
+													},
+												});
+											}}
+										>
+											I finished {getVerb(Verb.Read, details.data.type)}ing it
+										</Button>
 									</>
 								) : (
 									<Button
@@ -306,7 +320,7 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									>
-										I am {getVerb(Verb.Read, details.data.type)}ing it
+										I'm {getVerb(Verb.Read, details.data.type)}ing it
 									</Button>
 								)}
 								<>
