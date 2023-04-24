@@ -101,18 +101,18 @@ impl BooksService {
             .details(identifier, query, offset, index)
             .await
             .unwrap();
-        let metadata_id = self
+        let (metadata_id, did_exist) = self
             .media_service
             .commit_media(identifier, MetadataLot::Book, &book_details)
             .await?;
-        let book = book::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            open_library_key: ActiveValue::Set(book_details.identifier),
-            num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
-        };
-        let book = book.insert(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: book.metadata_id,
-        })
+        if !did_exist {
+            let book = book::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata_id),
+                open_library_key: ActiveValue::Set(book_details.identifier),
+                num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
+            };
+            book.insert(&self.db).await.unwrap();
+        }
+        Ok(IdObject { id: metadata_id })
     }
 }

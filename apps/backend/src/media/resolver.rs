@@ -416,7 +416,7 @@ impl MediaService {
         identifier: &str,
         lot: MetadataLot,
         details: &MediaSearchItem,
-    ) -> Result<i32> {
+    ) -> Result<(i32, bool)> {
         let meta = match lot {
             MetadataLot::Book => Book::find()
                 .filter(book::Column::OpenLibraryKey.eq(identifier))
@@ -433,7 +433,7 @@ impl MediaService {
             _ => todo!(),
         };
         let resp = if let Some(m) = meta {
-            m
+            (m, true)
         } else {
             let metadata = metadata::ActiveModel {
                 lot: ActiveValue::Set(lot.to_owned()),
@@ -482,7 +482,7 @@ impl MediaService {
                 };
                 metadata_creator.insert(&self.db).await.unwrap();
             }
-            metadata.id
+            (metadata.id, false)
         };
         Ok(resp)
     }

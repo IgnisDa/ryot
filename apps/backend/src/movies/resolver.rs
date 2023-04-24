@@ -82,18 +82,18 @@ impl MoviesService {
 
     async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
         let movie_details = self.tmdb_service.details(identifier).await.unwrap();
-        let metadata_id = self
+        let (metadata_id, did_exist) = self
             .media_service
             .commit_media(identifier, MetadataLot::Movie, &movie_details)
             .await?;
-        let movie = movie::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            tmdb_id: ActiveValue::Set(movie_details.identifier),
-            runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
-        };
-        let movie = movie.insert(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: movie.metadata_id,
-        })
+        if !did_exist {
+            let movie = movie::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata_id),
+                tmdb_id: ActiveValue::Set(movie_details.identifier),
+                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
+            };
+            movie.insert(&self.db).await.unwrap();
+        }
+        Ok(IdObject { id: metadata_id })
     }
 }
