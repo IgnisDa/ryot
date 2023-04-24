@@ -1,19 +1,14 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{
-        book, creator, metadata, metadata_image, metadata_to_creator,
-        prelude::{Book, Creator, MetadataImage},
-    },
+    entities::book,
     graphql::IdObject,
     media::resolver::{MediaService, SearchResults},
-    migrator::{MetadataImageLot, MetadataLot},
+    migrator::MetadataLot,
 };
 
 use super::openlibrary::OpenlibraryService;
@@ -77,8 +72,8 @@ impl BooksService {
     ) -> Self {
         Self {
             openlibrary_service: Arc::new(openlibrary_service.clone()),
-            media_service: Arc::new(media_service.clone()),
             db: db.clone(),
+            media_service: Arc::new(media_service.clone()),
         }
     }
 }
@@ -101,74 +96,23 @@ impl BooksService {
         offset: Option<i32>,
         index: i32,
     ) -> Result<IdObject> {
-        let id = if let Some(b) = Book::find()
-            .filter(book::Column::OpenLibraryKey.eq(identifier))
-            .one(&self.db)
+        let book_details = self
+            .openlibrary_service
+            .details(identifier, query, offset, index)
             .await
-            .unwrap()
-        {
-            b.metadata_id
-        } else {
-            let book_details = self
-                .openlibrary_service
-                .details(identifier, query, offset, index)
-                .await
-                .unwrap();
-            let metadata = metadata::ActiveModel {
-                lot: ActiveValue::Set(MetadataLot::Book),
-                title: ActiveValue::Set(book_details.title),
-                description: ActiveValue::Set(book_details.description),
-                publish_year: ActiveValue::Set(book_details.publish_year),
-                ..Default::default()
-            };
-            let metadata = metadata.insert(&self.db).await.unwrap();
-            for image in book_details.images.into_iter() {
-                if let Some(c) = MetadataImage::find()
-                    .filter(metadata_image::Column::Url.eq(&image))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = metadata_image::ActiveModel {
-                        url: ActiveValue::Set(image),
-                        lot: ActiveValue::Set(MetadataImageLot::Poster),
-                        metadata_id: ActiveValue::Set(metadata.id),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-            }
-            for name in book_details.author_names.into_iter() {
-                let creator = if let Some(c) = Creator::find()
-                    .filter(creator::Column::Name.eq(&name))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = creator::ActiveModel {
-                        name: ActiveValue::Set(name),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-                let metadata_creator = metadata_to_creator::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata.id),
-                    creator_id: ActiveValue::Set(creator.id),
-                };
-                metadata_creator.insert(&self.db).await.unwrap();
-            }
-            let book = book::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata.id),
-                open_library_key: ActiveValue::Set(book_details.identifier),
-                num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
-            };
-            let book = book.insert(&self.db).await.unwrap();
-            book.metadata_id
+            .unwrap();
+        let metadata_id = self
+            .media_service
+            .commit_media(identifier, MetadataLot::Book, &book_details)
+            .await?;
+        let book = book::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            open_library_key: ActiveValue::Set(book_details.identifier),
+            num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
         };
-        Ok(IdObject { id })
+        let book = book.insert(&self.db).await.unwrap();
+        Ok(IdObject {
+            id: book.metadata_id,
+        })
     }
 }

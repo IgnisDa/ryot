@@ -2,18 +2,17 @@ use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{
-        creator, metadata, metadata_image, metadata_to_creator, movie,
-        prelude::{Creator, MetadataImage, Movie},
+        movie,
     },
     graphql::IdObject,
     media::resolver::{MediaService, SearchResults},
-    migrator::{MetadataImageLot, MetadataLot},
+    migrator::{MetadataLot},
 };
 
 use super::tmdb::TmdbService;
@@ -60,13 +59,20 @@ impl MoviesMutation {
 pub struct MoviesService {
     db: DatabaseConnection,
     tmdb_service: Arc<TmdbService>,
+    media_service: Arc<MediaService>,
 }
 
 impl MoviesService {
-    pub fn new(db: &DatabaseConnection, tmdb_service: &TmdbService) -> Self {
+    pub fn new(
+        db: &DatabaseConnection,
+        tmdb_service: &TmdbService,
+
+        media_service: &MediaService,
+    ) -> Self {
         Self {
             tmdb_service: Arc::new(tmdb_service.clone()),
             db: db.clone(),
+            media_service: Arc::new(media_service.clone()),
         }
     }
 }
@@ -79,70 +85,19 @@ impl MoviesService {
     }
 
     async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
-        let id = if let Some(b) = Movie::find()
-            .filter(movie::Column::TmdbId.eq(identifier))
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            b.metadata_id
-        } else {
-            let movie_details = self.tmdb_service.details(identifier).await.unwrap();
-            let metadata = metadata::ActiveModel {
-                lot: ActiveValue::Set(MetadataLot::Movie),
-                title: ActiveValue::Set(movie_details.title),
-                description: ActiveValue::Set(movie_details.description),
-                publish_year: ActiveValue::Set(movie_details.publish_year),
-                ..Default::default()
-            };
-            let metadata = metadata.insert(&self.db).await.unwrap();
-            for image in movie_details.images.into_iter() {
-                if let Some(c) = MetadataImage::find()
-                    .filter(metadata_image::Column::Url.eq(&image))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = metadata_image::ActiveModel {
-                        url: ActiveValue::Set(image),
-                        lot: ActiveValue::Set(MetadataImageLot::Poster),
-                        metadata_id: ActiveValue::Set(metadata.id),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-            }
-            for name in movie_details.author_names.into_iter() {
-                let creator = if let Some(c) = Creator::find()
-                    .filter(creator::Column::Name.eq(&name))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = creator::ActiveModel {
-                        name: ActiveValue::Set(name),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-                let metadata_creator = metadata_to_creator::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata.id),
-                    creator_id: ActiveValue::Set(creator.id),
-                };
-                metadata_creator.insert(&self.db).await.unwrap();
-            }
-            let movie = movie::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata.id),
-                tmdb_id: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
-            };
-            let book = movie.insert(&self.db).await.unwrap();
-            book.metadata_id
+        let movie_details = self.tmdb_service.details(identifier).await.unwrap();
+        let metadata_id = self
+            .media_service
+            .commit_media(identifier, MetadataLot::Movie, &movie_details)
+            .await?;
+        let movie = movie::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            tmdb_id: ActiveValue::Set(movie_details.identifier),
+            runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
         };
-        Ok(IdObject { id })
+        let movie = movie.insert(&self.db).await.unwrap();
+        Ok(IdObject {
+            id: movie.metadata_id,
+        })
     }
 }

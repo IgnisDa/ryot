@@ -72,13 +72,10 @@ pub struct MovieConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Default)]
 pub struct SchedulerConfig {}
 
-impl Default for SchedulerConfig {
-    fn default() -> Self {
-        Self {}
-    }
-}
+
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct WebConfig {

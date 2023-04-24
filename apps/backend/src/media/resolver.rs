@@ -9,15 +9,15 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     entities::{
-        book,
-        metadata::Model as MetadataModel,
-        movie,
+        book, creator,
+        metadata::{self, Model as MetadataModel},
+        metadata_image, metadata_to_creator, movie,
         prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen},
         seen,
         seen::Model as SeenObject,
     },
     graphql::IdObject,
-    migrator::MetadataLot,
+    migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     utils::user_id_from_ctx,
 };
@@ -270,12 +270,10 @@ impl MediaService {
                 .collect::<Vec<_>>();
             let is_there = if filtered.is_empty() {
                 SeenStatus::NotConsumed
+            } else if filtered.last().unwrap().progress < 100 {
+                SeenStatus::CurrentlyUnderway
             } else {
-                if filtered.last().unwrap().progress < 100 {
-                    SeenStatus::CurrentlyUnderway
-                } else {
-                    SeenStatus::ConsumedAtleastOnce
-                }
+                SeenStatus::ConsumedAtleastOnce
             };
             MediaSeen {
                 identifier: input.identifier,
@@ -340,5 +338,81 @@ impl MediaService {
             }
         };
         Ok(IdObject { id: seen_item.id })
+    }
+
+    pub async fn commit_media(
+        &self,
+        identifier: &str,
+        lot: MetadataLot,
+        details: &MediaSearchItem,
+    ) -> Result<i32> {
+        let meta = match lot {
+            MetadataLot::Book => Book::find()
+                .filter(book::Column::OpenLibraryKey.eq(identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            MetadataLot::Movie => Movie::find()
+                .filter(movie::Column::TmdbId.eq(identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            _ => todo!(),
+        };
+        let resp = if let Some(m) = meta {
+            m
+        } else {
+            let metadata = metadata::ActiveModel {
+                lot: ActiveValue::Set(lot.to_owned()),
+                title: ActiveValue::Set(details.title.to_owned()),
+                description: ActiveValue::Set(details.description.to_owned()),
+                publish_year: ActiveValue::Set(details.publish_year),
+                ..Default::default()
+            };
+            let metadata = metadata.insert(&self.db).await.unwrap();
+            for image in details.images.iter() {
+                if let Some(c) = MetadataImage::find()
+                    .filter(metadata_image::Column::Url.eq(image))
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                {
+                    c
+                } else {
+                    let c = metadata_image::ActiveModel {
+                        url: ActiveValue::Set(image.to_owned()),
+                        lot: ActiveValue::Set(MetadataImageLot::Poster),
+                        metadata_id: ActiveValue::Set(metadata.id),
+                        ..Default::default()
+                    };
+                    c.insert(&self.db).await.unwrap()
+                };
+            }
+            for name in details.author_names.iter() {
+                let creator = if let Some(c) = Creator::find()
+                    .filter(creator::Column::Name.eq(name))
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                {
+                    c
+                } else {
+                    let c = creator::ActiveModel {
+                        name: ActiveValue::Set(name.to_owned()),
+                        ..Default::default()
+                    };
+                    c.insert(&self.db).await.unwrap()
+                };
+                let metadata_creator = metadata_to_creator::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata.id),
+                    creator_id: ActiveValue::Set(creator.id),
+                };
+                metadata_creator.insert(&self.db).await.unwrap();
+            }
+            metadata.id
+        };
+        Ok(resp)
     }
 }
