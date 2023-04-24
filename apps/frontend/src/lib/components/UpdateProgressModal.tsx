@@ -1,7 +1,7 @@
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
 import { Button, Group, Modal, Stack, Title } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { DatePickerInput } from "@mantine/dates";
 import { useMutation } from "@tanstack/react-query";
 import {
 	MetadataLot,
@@ -73,7 +73,7 @@ export default function UpdateProgressModal(props: {
 					I do not remember
 				</Button>
 				<Group grow>
-					<DateTimePicker
+					<DatePickerInput
 						dropdownType="modal"
 						maxDate={new Date()}
 						onChange={setSelectedDate}
