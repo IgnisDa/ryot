@@ -49,30 +49,38 @@ const Grid = (props: { children: JSX.Element[] }) => {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [query, setQuery] = useLocalStorage({ key: "savedQuery" });
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
+	const [query, setQuery] = useLocalStorage({
+		key: "savedQuery",
+		getInitialValueInEffect: false,
+	});
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
+		getInitialValueInEffect: false,
 	});
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const offset = (parseInt(activeSearchPage) - 1) * LIMIT;
-	const listMedia = useQuery(
-		["listMedia", activeSearchPage, lot],
-		async () => {
+	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
+	const listMedia = useQuery({
+		queryKey: ["listMedia", activeSearchPage, lot],
+		queryFn: async () => {
 			if (!lot) throw Error();
 			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
 				input: { lot, page: parseInt(activeMinePage) || 1 },
 			});
 			return mediaList;
 		},
-		{ enabled: lot !== undefined, staleTime: Infinity },
-	);
-	const searchQuery = useQuery(
-		["searchQuery", activeSearchPage, lot, query],
-		async () => {
+		onSuccess: () => {
+			setMinePage("1");
+		},
+		enabled: lot !== undefined,
+		staleTime: Infinity,
+	});
+	const searchQuery = useQuery({
+		queryKey: ["searchQuery", activeSearchPage, lot, query],
+		queryFn: async () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
@@ -90,8 +98,12 @@ const Page: NextPageWithLayout = () => {
 					throw new Error("Unreachable!");
 				});
 		},
-		{ enabled: query !== "" && lot !== undefined, staleTime: Infinity },
-	);
+		onSuccess: () => {
+			setSearchPage("1");
+		},
+		enabled: query !== "" && lot !== undefined,
+		staleTime: Infinity,
+	});
 
 	return lot ? (
 		<Container>
