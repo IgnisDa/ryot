@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::book,
     graphql::IdObject,
-    media::resolver::{MediaService, SearchResults},
+    media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
 };
 
@@ -29,7 +29,7 @@ impl BooksQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: BookSearchInput,
-    ) -> Result<SearchResults> {
+    ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<BooksService>()
             .books_search(&input.query, input.offset)
@@ -80,7 +80,7 @@ impl BooksService {
 
 impl BooksService {
     // Get book details from all sources
-    async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<SearchResults> {
+    async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
         let books = self
             .openlibrary_service
             .search(query, offset)

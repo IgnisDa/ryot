@@ -7,7 +7,7 @@ use surf::{
     Client, Config, Url,
 };
 
-use crate::media::resolver::{MediaSearchItem, SearchResults};
+use crate::media::resolver::{MediaSearchItem, MediaSearchResults};
 
 use super::MovieSpecifics;
 
@@ -93,7 +93,7 @@ impl TmdbService {
         Ok(detail)
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<SearchResults> {
+    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             query: String,
@@ -147,7 +147,7 @@ impl TmdbService {
                 }
             })
             .collect::<Vec<_>>();
-        Ok(SearchResults {
+        Ok(MediaSearchResults {
             total: search.total_results,
             items: resp,
         })

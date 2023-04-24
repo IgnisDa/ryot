@@ -1,18 +1,14 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{
-        movie,
-    },
+    entities::movie,
     graphql::IdObject,
-    media::resolver::{MediaService, SearchResults},
-    migrator::{MetadataLot},
+    media::resolver::{MediaSearchResults, MediaService},
+    migrator::MetadataLot,
 };
 
 use super::tmdb::TmdbService;
@@ -33,7 +29,7 @@ impl MoviesQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MoviesSearchInput,
-    ) -> Result<SearchResults> {
+    ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<MoviesService>()
             .movies_search(&input.query, input.page)
@@ -79,7 +75,7 @@ impl MoviesService {
 
 impl MoviesService {
     // Get movie details from all sources
-    async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<SearchResults> {
+    async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let movies = self.tmdb_service.search(query, page).await.unwrap();
         Ok(movies)
     }

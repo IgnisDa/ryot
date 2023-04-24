@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::media::resolver::{MediaSearchItem, SearchResults};
+use crate::media::resolver::{MediaSearchItem, MediaSearchResults};
 
 use super::BookSpecifics;
 
@@ -115,7 +115,7 @@ impl OpenlibraryService {
         Ok(detail)
     }
 
-    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<SearchResults> {
+    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -188,7 +188,7 @@ impl OpenlibraryService {
                 }
             })
             .collect::<Vec<_>>();
-        Ok(SearchResults {
+        Ok(MediaSearchResults {
             total: search.num_found,
             items: resp,
         })

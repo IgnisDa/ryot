@@ -37,7 +37,7 @@ pub struct MediaSearchItem {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct SearchResults {
+pub struct MediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItem>,
 }
