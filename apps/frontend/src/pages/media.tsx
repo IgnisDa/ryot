@@ -5,6 +5,7 @@ import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
+	ActionIcon,
 	Alert,
 	Box,
 	Button,
@@ -26,16 +27,21 @@ import {
 	IconAlertCircle,
 	IconInfoCircle,
 	IconRotateClockwise,
+	IconTrash,
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+	type DeleteSeenItemMutationVariables,
 	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 	type SeenHistoryQuery,
 } from "@trackona/generated/graphql/backend/graphql";
-import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
+import {
+	DELETE_SEEN_ITEM,
+	PROGRESS_UPDATE,
+} from "@trackona/graphql/backend/mutations";
 import { MEDIA_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
 import { DateTime } from "luxon";
 import { useRouter } from "next/router";
@@ -158,6 +164,18 @@ const Page: NextPageWithLayout = () => {
 				variables,
 			);
 			return progressUpdate;
+		},
+		onSuccess: () => {
+			history.refetch();
+		},
+	});
+	const deleteSeenItem = useMutation({
+		mutationFn: async (variables: DeleteSeenItemMutationVariables) => {
+			const { deleteSeenItem } = await gqlClient.request(
+				DELETE_SEEN_ITEM,
+				variables,
+			);
+			return deleteSeenItem;
 		},
 		onSuccess: () => {
 			history.refetch();
@@ -340,10 +358,22 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
 							{history.data.length > 0 ? (
-								<List type="ordered">
+								<List type="ordered" spacing={"xs"}>
 									{history.data.map((h) => (
 										<List.Item key={h.id}>
-											{seenStatus(h, details.data.type)}
+											<Flex align="center">
+												<Text>{seenStatus(h, details.data.type)}</Text>
+												<ActionIcon
+													ml="md"
+													color="red"
+													variant="outline"
+													onClick={() => {
+														deleteSeenItem.mutate({ seenId: h.id });
+													}}
+												>
+													<IconTrash size="1.2rem" />
+												</ActionIcon>
+											</Flex>
 										</List.Item>
 									))}
 								</List>
