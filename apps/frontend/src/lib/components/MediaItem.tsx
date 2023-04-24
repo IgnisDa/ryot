@@ -17,8 +17,45 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { match } from "ts-pattern";
 
+type Item = BooksSearchQuery["booksSearch"]["items"][number];
+
+export const MediaItemWithoutUpdateModal = (props: {
+	item: Item;
+	lot: MetadataLot;
+	imageOnClick: () => Promise<void>;
+	children?: JSX.Element;
+}) => {
+	return (
+		<Flex
+			key={props.item.identifier}
+			align={"center"}
+			justify={"center"}
+			direction={"column"}
+		>
+			<Image
+				src={props.item.images.at(0)}
+				radius={"md"}
+				height={250}
+				withPlaceholder
+				placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
+				style={{ cursor: "pointer" }}
+				alt={`Image for ${props.item.title}`}
+				onClick={props.imageOnClick}
+			/>
+			<Flex justify={"space-between"} w="100%">
+				<Text c="dimmed">{props.item.publishYear}</Text>
+				<Text c="dimmed">{startCase(camelCase(props.lot))}</Text>
+			</Flex>
+			<Text w="100%" truncate fw={"bold"} mb="xs">
+				{props.item.title}
+			</Text>
+			{props.children}
+		</Flex>
+	);
+};
+
 export default function (props: {
-	item: BooksSearchQuery["booksSearch"]["items"][number];
+	item: Item;
 	idx: number;
 	query: string;
 	offset: number;
@@ -107,34 +144,16 @@ export default function (props: {
 		.exhaustive();
 
 	return (
-		<Flex
-			key={props.item.identifier}
-			align={"center"}
-			justify={"center"}
-			direction={"column"}
+		<MediaItemWithoutUpdateModal
+			item={props.item}
+			lot={props.lot}
+			imageOnClick={async () => {
+				const id = await commitFunction();
+				setMetadataId(id);
+				router.push(`/media?item=${id}`);
+			}}
 		>
-			<Image
-				src={props.item.images.at(0)}
-				radius={"md"}
-				height={250}
-				withPlaceholder
-				placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
-				style={{ cursor: "pointer" }}
-				alt={`Image for ${props.item.title}`}
-				onClick={async () => {
-					const id = await commitFunction();
-					setMetadataId(id);
-					router.push(`/media?item=${id}`);
-				}}
-			/>
-			<Flex justify={"space-between"} w="100%">
-				<Text c="dimmed">{props.item.publishYear}</Text>
-				<Text c="dimmed">{startCase(camelCase(props.lot))}</Text>
-			</Flex>
-			<Text w="100%" truncate fw={"bold"} mb="xs">
-				{props.item.title}
-			</Text>
 			{seenElm}
-		</Flex>
+		</MediaItemWithoutUpdateModal>
 	);
 }
