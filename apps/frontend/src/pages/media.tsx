@@ -180,7 +180,18 @@ const Page: NextPageWithLayout = () => {
 					{details.data.posterImages.length +
 						details.data.backdropImages.length >
 					0 ? (
-						<Carousel withIndicators height={400} w={300}>
+						<Carousel
+							withIndicators={
+								[...details.data.posterImages, ...details.data.backdropImages]
+									.length > 1
+							}
+							withControls={
+								[...details.data.posterImages, ...details.data.backdropImages]
+									.length > 1
+							}
+							height={400}
+							w={300}
+						>
 							{[
 								...details.data.posterImages,
 								...details.data.backdropImages,
