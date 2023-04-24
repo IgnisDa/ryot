@@ -64,7 +64,7 @@ const Page: NextPageWithLayout = () => {
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
 	const listMedia = useQuery({
-		queryKey: ["listMedia", activeSearchPage, lot],
+		queryKey: ["listMedia", activeMinePage, lot],
 		queryFn: async () => {
 			if (!lot) throw Error();
 			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
