@@ -11,11 +11,12 @@ import {
 	Pagination,
 	SimpleGrid,
 	Stack,
+	Tabs,
 	Text,
 	TextInput,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { IconSearch } from "@tabler/icons-react";
+import { IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import {
@@ -29,7 +30,7 @@ import { match } from "ts-pattern";
 
 const LIMIT = 20;
 
-const Grid = (props: { children: JSX.Element }) => {
+const Grid = (props: { children: JSX.Element[] }) => {
 	return (
 		<SimpleGrid
 			cols={2}
@@ -48,28 +49,29 @@ const Grid = (props: { children: JSX.Element }) => {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [query, setQuery] = useLocalStorage({
-		key: "savedQuery",
+	const [query, setQuery] = useLocalStorage({ key: "savedQuery" });
+	const [activeSearchPage, setSearchPage] = useLocalStorage({
+		key: "savedSearchPage",
 	});
-	const [activePage, setPage] = useLocalStorage({
-		key: "savedPage",
+	const [activeMinePage, setMinePage] = useLocalStorage({
+		key: "savedMinePage",
 	});
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const offset = (parseInt(activePage) - 1) * LIMIT;
+	const offset = (parseInt(activeSearchPage) - 1) * LIMIT;
 	const listMedia = useQuery(
-		["listMedia", activePage, lot],
+		["listMedia", activeSearchPage, lot],
 		async () => {
 			if (!lot) throw Error();
 			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
-				input: { lot, page: parseInt(activePage) },
+				input: { lot, page: parseInt(activeMinePage) || 1 },
 			});
 			return mediaList;
 		},
-		{ enabled: lot !== undefined && query === "", staleTime: Infinity },
+		{ enabled: lot !== undefined, staleTime: Infinity },
 	);
 	const searchQuery = useQuery(
-		["searchQuery", activePage, lot, query],
+		["searchQuery", activeSearchPage, lot, query],
 		async () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
@@ -80,7 +82,7 @@ const Page: NextPageWithLayout = () => {
 				})
 				.with(MetadataLot.Movie, async () => {
 					const { moviesSearch } = await gqlClient.request(MOVIES_SEARCH, {
-						input: { query, page: parseInt(activePage) },
+						input: { query, page: parseInt(activeSearchPage) || 1 },
 					});
 					return moviesSearch;
 				})
@@ -93,29 +95,28 @@ const Page: NextPageWithLayout = () => {
 
 	return lot ? (
 		<Container>
-			<Stack>
-				<TextInput
-					name="query"
-					placeholder={`Search for a ${lot.toLowerCase()}`}
-					icon={<IconSearch />}
-					defaultValue={query}
-					style={{ flexGrow: 1 }}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-				/>
-				<Grid>
-					<>
-						{listMedia.data && listMedia.data.total > 0
-							? listMedia.data.items.map((lm, idx) => (
-									<MediaItemWithoutUpdateModal
-										key={idx}
-										item={lm}
-										lot={lot}
-										imageOnClick={async () => parseInt(lm.identifier)}
-									/>
-							  ))
-							: null}
+			<Tabs variant="outline" defaultValue="mine">
+				<Tabs.List>
+					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
+						<Text size={"lg"}>Search</Text>
+					</Tabs.Tab>
+					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
+						<Text size={"lg"}>My {lot.toLowerCase()}s</Text>
+					</Tabs.Tab>
+				</Tabs.List>
+
+				<Tabs.Panel value="search" pt="xs">
+					<Stack>
+						<TextInput
+							name="query"
+							placeholder={`Search for a ${lot.toLowerCase()}`}
+							icon={<IconSearch />}
+							defaultValue={query}
+							style={{ flexGrow: 1 }}
+							onChange={(e) => setQuery(e.currentTarget.value)}
+						/>
 						{searchQuery.data && searchQuery.data.total > 0 ? (
-							<>
+							<Grid>
 								{searchQuery.data.items.map((b, idx) => (
 									<MediaItem
 										idx={idx}
@@ -127,27 +128,55 @@ const Page: NextPageWithLayout = () => {
 										refetch={searchQuery.refetch}
 									/>
 								))}
-							</>
+							</Grid>
 						) : (
 							<Text>No media found :(</Text>
 						)}
-					</>
-				</Grid>
-				{(searchQuery.data || listMedia.data) && (
-					<Center>
-						<Pagination
-							size="sm"
-							value={parseInt(activePage)}
-							onChange={(v) => setPage(v.toString())}
-							total={Math.ceil(
-								(searchQuery.data?.total || listMedia.data?.total || 0) / LIMIT,
-							)}
-							boundaries={1}
-							siblings={0}
-						/>
-					</Center>
-				)}
-			</Stack>
+						{searchQuery.data && (
+							<Center>
+								<Pagination
+									size="sm"
+									value={parseInt(activeSearchPage)}
+									onChange={(v) => setSearchPage(v.toString())}
+									total={Math.ceil(searchQuery.data.total / LIMIT)}
+									boundaries={1}
+									siblings={0}
+								/>
+							</Center>
+						)}
+					</Stack>
+				</Tabs.Panel>
+				<Tabs.Panel value="mine" pt="xs">
+					<Stack>
+						{listMedia.data && listMedia.data.total > 0 ? (
+							<Grid>
+								{listMedia.data.items.map((lm, idx) => (
+									<MediaItemWithoutUpdateModal
+										key={idx}
+										item={lm}
+										lot={lot}
+										imageOnClick={async () => parseInt(lm.identifier)}
+									/>
+								))}
+							</Grid>
+						) : (
+							<Text>You do not have any saved yet</Text>
+						)}
+						{listMedia.data && (
+							<Center>
+								<Pagination
+									size="sm"
+									value={parseInt(activeMinePage)}
+									onChange={(v) => setMinePage(v.toString())}
+									total={Math.ceil(listMedia.data.total / LIMIT)}
+									boundaries={1}
+									siblings={0}
+								/>
+							</Center>
+						)}
+					</Stack>
+				</Tabs.Panel>
+			</Tabs>
 		</Container>
 	) : null;
 };
