@@ -12,9 +12,10 @@ use crate::{
         book, creator,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
-        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen},
+        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, UserToMetadata},
         seen,
         seen::Model as SeenObject,
+        user_to_metadata,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -319,6 +320,13 @@ impl MediaService {
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
+        let user_to_meta = user_to_metadata::ActiveModel {
+            user_id: ActiveValue::Set(user_id.clone()),
+            metadata_id: ActiveValue::Set(input.metadata_id),
+            ..Default::default()
+        };
+        // we do not care if it succeeded or failed, since we need just one instance
+        user_to_meta.insert(&self.db).await.ok();
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
