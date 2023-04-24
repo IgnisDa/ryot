@@ -28,9 +28,10 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 	const query = (router.query.query || "").toString();
+	const currentPage = parseInt(router.query.page?.toString() || "1");
 	const [shadowQuery, setShadowQuery] = useDebouncedState(query, 1000);
 	const form = useRef<HTMLFormElement | null>(null);
-	const [activePage, setPage] = useState(1);
+	const [activePage, setPage] = useState(currentPage);
 	const offset = (activePage - 1) * LIMIT;
 	const searchQuery = useQuery(
 		["searchQuery", activePage, lot, shadowQuery],
@@ -59,7 +60,7 @@ const Page: NextPageWithLayout = () => {
 		if (shadowQuery) form.current?.submit();
 	}, [shadowQuery]);
 
-	return lot ? (
+	return activePage && lot ? (
 		<Container>
 			<Stack>
 				<Box component="form" w="100%" style={{ display: "flex" }} ref={form}>
@@ -72,6 +73,7 @@ const Page: NextPageWithLayout = () => {
 						onChange={(e) => setShadowQuery(e.currentTarget.value)}
 					/>
 					<input hidden name="lot" value={router.query.lot} />
+					<input hidden name="page" value={activePage} />
 				</Box>
 				{searchQuery.data && searchQuery.data.total > 0 ? (
 					<>
