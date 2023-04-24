@@ -109,7 +109,7 @@ const Page: NextPageWithLayout = () => {
 
 	return lot ? (
 		<Container>
-			<Tabs variant="outline" defaultValue="mine">
+			<Tabs variant="outline" defaultValue="search">
 				<Tabs.List>
 					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
 						<Text size={"lg"}>Search</Text>
