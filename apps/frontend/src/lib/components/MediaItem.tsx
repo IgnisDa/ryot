@@ -22,9 +22,11 @@ type Item = BooksSearchQuery["booksSearch"]["items"][number];
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
 	lot: MetadataLot;
-	imageOnClick: () => Promise<void>;
+	imageOnClick: () => Promise<number>;
 	children?: JSX.Element;
 }) => {
+	const router = useRouter();
+
 	return (
 		<Flex
 			key={props.item.identifier}
@@ -40,7 +42,10 @@ export const MediaItemWithoutUpdateModal = (props: {
 				placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
 				style={{ cursor: "pointer" }}
 				alt={`Image for ${props.item.title}`}
-				onClick={props.imageOnClick}
+				onClick={async () => {
+					const id = await props.imageOnClick();
+					router.push(`/media?item=${id}`);
+				}}
 			/>
 			<Flex justify={"space-between"} w="100%">
 				<Text c="dimmed">{props.item.publishYear}</Text>
@@ -147,11 +152,7 @@ export default function (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			imageOnClick={async () => {
-				const id = await commitFunction();
-				setMetadataId(id);
-				router.push(`/media?item=${id}`);
-			}}
+			imageOnClick={async () => await commitFunction()}
 		>
 			{seenElm}
 		</MediaItemWithoutUpdateModal>
