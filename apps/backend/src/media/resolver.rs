@@ -316,11 +316,6 @@ impl MediaService {
             ProgressUpdateAction::Now
             | ProgressUpdateAction::InThePast
             | ProgressUpdateAction::JustStarted => {
-                if !prev_seen.is_empty() {
-                    return Err(Error::new(
-                        "There is already a `seen` item in progress".to_owned(),
-                    ));
-                }
                 let finished_on = if input.action == ProgressUpdateAction::Now {
                     Some(Utc::now().date_naive())
                 } else {
