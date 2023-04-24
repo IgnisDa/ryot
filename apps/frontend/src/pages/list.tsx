@@ -24,7 +24,7 @@ import {
 	MOVIES_SEARCH,
 } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
@@ -48,18 +48,21 @@ const Grid = (props: { children: JSX.Element }) => {
 };
 
 const Page: NextPageWithLayout = () => {
+	const [query, setQuery] = useLocalStorage({
+		key: "savedQuery",
+	});
+	const [activePage, setPage] = useLocalStorage({
+		key: "savedPage",
+	});
 	const router = useRouter();
-	const [query, setQuery] = useLocalStorage({ key: "test" });
 	const lot = getLot(router.query.lot);
-	const currentPage = parseInt(router.query.page?.toString() || "1");
-	const [activePage, setPage] = useState(currentPage);
-	const offset = (activePage - 1) * LIMIT;
+	const offset = (parseInt(activePage) - 1) * LIMIT;
 	const listMedia = useQuery(
 		["listMedia", activePage, lot],
 		async () => {
 			if (!lot) throw Error();
 			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
-				input: { lot, page: activePage },
+				input: { lot, page: parseInt(activePage) },
 			});
 			return mediaList;
 		},
@@ -77,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 				})
 				.with(MetadataLot.Movie, async () => {
 					const { moviesSearch } = await gqlClient.request(MOVIES_SEARCH, {
-						input: { query, page: activePage },
+						input: { query, page: parseInt(activePage) },
 					});
 					return moviesSearch;
 				})
@@ -85,10 +88,10 @@ const Page: NextPageWithLayout = () => {
 					throw new Error("Unreachable!");
 				});
 		},
-		{ enabled: lot !== undefined, staleTime: Infinity },
+		{ enabled: query !== "" && lot !== undefined, staleTime: Infinity },
 	);
 
-	return activePage && lot ? (
+	return lot ? (
 		<Container>
 			<Stack>
 				<TextInput
@@ -134,8 +137,8 @@ const Page: NextPageWithLayout = () => {
 					<Center>
 						<Pagination
 							size="sm"
-							value={activePage}
-							onChange={setPage}
+							value={parseInt(activePage)}
+							onChange={(v) => setPage(v.toString())}
 							total={Math.ceil(
 								(searchQuery.data?.total || listMedia.data?.total || 0) / LIMIT,
 							)}
