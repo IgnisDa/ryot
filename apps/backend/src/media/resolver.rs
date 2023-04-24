@@ -95,7 +95,7 @@ pub struct MediaQuery;
 
 #[Object]
 impl MediaQuery {
-    // Get details about a media present in the database
+    /// Get details about a media present in the database
     async fn media_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
@@ -103,7 +103,7 @@ impl MediaQuery {
             .await
     }
 
-    // Get the user's seen history for a particular media item
+    /// Get the user's seen history for a particular media item
     async fn seen_history(
         &self,
         gql_ctx: &Context<'_>,
@@ -116,7 +116,7 @@ impl MediaQuery {
             .await
     }
 
-    // Check whether a media item has been consumed before
+    /// Check whether a media item has been consumed before
     async fn media_consumed(
         &self,
         gql_ctx: &Context<'_>,
@@ -129,7 +129,7 @@ impl MediaQuery {
             .await
     }
 
-    // Get all the media items for a specific media type
+    /// Get all the media items for a specific media type
     async fn media_list(
         &self,
         gql_ctx: &Context<'_>,
@@ -148,7 +148,7 @@ pub struct MediaMutation;
 
 #[Object]
 impl MediaMutation {
-    // Mark a user's progress on a specific media item
+    /// Mark a user's progress on a specific media item
     async fn progress_update(
         &self,
         gql_ctx: &Context<'_>,

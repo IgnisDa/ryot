@@ -148,6 +148,7 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Logout a user from the server, deleting their login token */
   logoutUser: Scalars['Boolean'];
+  /** Mark a user's progress on a specific media item */
   progressUpdate: IdObject;
   /**
    * Create a new user for the service. Also set their `lot` as admin if
@@ -200,11 +201,15 @@ export enum ProgressUpdateAction {
 export type QueryRoot = {
   /** Search for a list of books by a particular search query and an offset. */
   booksSearch: MediaSearchResults;
+  /** Check whether a media item has been consumed before */
   mediaConsumed: MediaSeen;
+  /** Get details about a media present in the database */
   mediaDetails: MediaDetails;
+  /** Get all the media items for a specific media type */
   mediaList: MediaSearchResults;
   /** Search for a list of movies by a particular search query and an offset. */
   moviesSearch: MediaSearchResults;
+  /** Get the user's seen history for a particular media item */
   seenHistory: Array<Model>;
   /** Get the version of the service running. */
   version: Scalars['String'];
