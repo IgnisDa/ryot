@@ -163,6 +163,15 @@ impl MediaMutation {
             .progress_update(input, user_id)
             .await
     }
+
+    /// Delete a seen item from a user's history
+    async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .delete_seen_item(seen_id, user_id)
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -432,6 +441,22 @@ impl MediaService {
             }
         };
         Ok(IdObject { id: seen_item.id })
+    }
+
+    pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
+        let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
+        if let Some(si) = seen_item {
+            let id = si.id.clone();
+            if si.user_id != user_id {
+                return Err(Error::new(
+                    "This seen item does not belong to this user".to_owned(),
+                ));
+            }
+            si.delete(&self.db).await.ok();
+            Ok(IdObject { id })
+        } else {
+            Err(Error::new("This seen item does not exist".to_owned()))
+        }
     }
 
     pub async fn commit_media(

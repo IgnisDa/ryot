@@ -57,3 +57,11 @@ export const PROGRESS_UPDATE = graphql(`
     }
   }
 `);
+
+export const DELETE_SEEN_ITEM = graphql(`
+  mutation DeleteSeenItem($seenId: Int!) {
+    deleteSeenItem(seenId: $seenId) {
+      id
+    }
+  }
+`);
