@@ -1,12 +1,11 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
-use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::get_tmdb_config,
+    utils::{convert_date_to_year, get_tmdb_config},
 };
 
 use super::ShowSpecifics;
@@ -31,22 +30,27 @@ impl TmdbService {
             name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbSeasonPartial {
+            id: i32,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
             id: i32,
-            title: String,
+            name: String,
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
             production_companies: Vec<TmdbAuthor>,
             first_air_date: String,
-            runtime: i32,
+            seasons: Vec<TmdbSeasonPartial>,
         }
         let mut rsp = self
             .client
-            .get(format!("movie/{}", identifier))
+            .get(format!("tv/{}", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        dbg!(&data);
         let mut poster_images = vec![];
         if let Some(c) = data.poster_path {
             poster_images.push(self.get_cover_image_url(&c));
@@ -57,7 +61,7 @@ impl TmdbService {
         };
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
-            title: data.title,
+            title: data.name,
             author_names: data
                 .production_companies
                 .into_iter()
@@ -65,11 +69,9 @@ impl TmdbService {
                 .collect(),
             poster_images,
             backdrop_images,
-            publish_year: Self::convert_date_to_year(&data.first_air_date),
+            publish_year: convert_date_to_year(&data.first_air_date),
             description: Some(data.overview),
-            show_specifics: Some(ShowSpecifics {
-                runtime: Some(data.runtime),
-            }),
+            show_specifics: Some(ShowSpecifics { runtime: None }),
             movie_specifics: None,
             book_specifics: None,
         };
@@ -129,7 +131,7 @@ impl TmdbService {
                     title: d.name,
                     description: d.overview,
                     author_names: vec![],
-                    publish_year: Self::convert_date_to_year(&d.first_air_date),
+                    publish_year: convert_date_to_year(&d.first_air_date),
                     show_specifics: Some(ShowSpecifics { runtime: None }),
                     movie_specifics: None,
                     book_specifics: None,
@@ -146,11 +148,5 @@ impl TmdbService {
 
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
-    }
-
-    fn convert_date_to_year(d: &str) -> Option<i32> {
-        NaiveDate::parse_from_str(d, "%Y-%m-%d")
-            .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-            .ok()
     }
 }
