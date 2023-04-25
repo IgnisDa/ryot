@@ -1,8 +1,8 @@
 import { gqlClient, queryClient } from "@/lib/services/api";
-import { Container, Flex, MantineProvider, Text } from "@mantine/core";
+import { Box, Container, Flex, MantineProvider, Text } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { VERSION } from "@trackona/graphql/backend/queries";
+import { CORE_DETAILS } from "@trackona/graphql/backend/queries";
 import type { NextPage } from "next";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
@@ -20,21 +20,33 @@ type AppPropsWithLayout = AppProps & {
 };
 
 const Footer = () => {
-	const version = useQuery(
-		["version"],
+	const coreDetails = useQuery(
+		["coreDetails"],
 		async () => {
-			const { version } = await gqlClient.request(VERSION);
-			return version;
+			const { coreDetails } = await gqlClient.request(CORE_DETAILS);
+			return coreDetails;
 		},
 		{ staleTime: Infinity },
 	);
 
 	return (
-		<Container p={8}>
-			You are running version{" "}
-			<Text color="red" weight={"bold"} style={{ display: "inline" }}>
-				{version.data}
-			</Text>
+		<Container p={"md"} style={{ textAlign: "center" }}>
+			{coreDetails.data ? (
+				<>
+					<Box>
+						You are running version{" "}
+						<Text color="red" weight={"bold"} style={{ display: "inline" }}>
+							{coreDetails.data?.version}
+						</Text>
+					</Box>
+					<Box>
+						Made with love by{" "}
+						<Text color="green" weight={"bold"} style={{ display: "inline" }}>
+							{coreDetails.data?.authorName}
+						</Text>
+					</Box>
+				</>
+			) : null}
 		</Container>
 	);
 };
