@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 use surf::Client;
+use tokio::task::JoinSet;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
@@ -30,11 +31,11 @@ impl TmdbService {
             name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbSeasonPartial {
-            id: i32,
+        struct TmdbSeasonNumber {
+            season_number: i32,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbMovie {
+        struct TmdbShow {
             id: i32,
             name: String,
             overview: String,
@@ -42,15 +43,15 @@ impl TmdbService {
             backdrop_path: Option<String>,
             production_companies: Vec<TmdbAuthor>,
             first_air_date: String,
-            seasons: Vec<TmdbSeasonPartial>,
+            seasons: Vec<TmdbSeasonNumber>,
         }
         let mut rsp = self
             .client
-            .get(format!("tv/{}", identifier))
+            .get(format!("tv/{}", &identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        dbg!(&data);
+        let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
         let mut poster_images = vec![];
         if let Some(c) = data.poster_path {
             poster_images.push(self.get_cover_image_url(&c));
@@ -59,6 +60,38 @@ impl TmdbService {
         if let Some(c) = data.backdrop_path {
             backdrop_images.push(self.get_cover_image_url(&c));
         };
+
+        let mut set = JoinSet::new();
+        for season in data.seasons.into_iter() {
+            let client = self.client.clone();
+            let iden = identifier.to_owned();
+            set.spawn(async move {
+                #[derive(Debug, Serialize, Deserialize, Clone)]
+                struct TmdbEpisodeNumber {
+                    episode_number: i32,
+                }
+                #[derive(Debug, Serialize, Deserialize, Clone)]
+                struct TmdbSeason {
+                    name: String,
+                    poster_path: Option<String>,
+                    backdrop_path: Option<String>,
+                    air_date: String,
+                    episodes: Vec<TmdbEpisodeNumber>,
+                }
+                let mut rsp = client
+                    .get(format!("tv/{}/season/{}", iden, season.season_number))
+                    .await
+                    .unwrap();
+                let season: TmdbSeason = rsp.body_json().await.unwrap();
+                season
+            });
+        }
+        let mut seasons = vec![];
+        while let Some(Ok(result)) = set.join_next().await {
+            seasons.push(result);
+        }
+        dbg!(&seasons);
+
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.name,
