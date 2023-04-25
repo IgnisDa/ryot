@@ -2,11 +2,14 @@
 
 pub use super::book::Entity as Book;
 pub use super::creator::Entity as Creator;
+pub use super::episode::Entity as Episode;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_image::Entity as MetadataImage;
 pub use super::metadata_to_creator::Entity as MetadataToCreator;
 pub use super::movie::Entity as Movie;
+pub use super::season::Entity as Season;
 pub use super::seen::Entity as Seen;
+pub use super::show::Entity as Show;
 pub use super::token::Entity as Token;
 pub use super::user::Entity as User;
 pub use super::user_to_metadata::Entity as UserToMetadata;
