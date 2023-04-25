@@ -5,14 +5,12 @@ import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
-	ActionIcon,
 	Alert,
 	Box,
 	Button,
 	Container,
 	Flex,
 	Image,
-	List,
 	Modal,
 	ScrollArea,
 	SimpleGrid,
@@ -23,20 +21,19 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	IconAlertCircle,
 	IconInfoCircle,
 	IconRotateClockwise,
-	IconTrash,
 	IconUser,
+	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type DeleteSeenItemMutationVariables,
-	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
-	type SeenHistoryQuery,
 } from "@trackona/generated/graphql/backend/graphql";
 import {
 	DELETE_SEEN_ITEM,
@@ -57,24 +54,6 @@ const StatDisplay = (props: { name: string; value: string }) => {
 			</Text>
 		</Flex>
 	);
-};
-
-const seenStatus = (
-	seen: SeenHistoryQuery["seenHistory"][number],
-	lot: MetadataLot,
-) => {
-	const startedOn = seen.startedOn ? DateTime.fromISO(seen.startedOn) : null;
-	const finishedOn = seen.finishedOn ? DateTime.fromISO(seen.finishedOn) : null;
-	const updatedOn = DateTime.fromJSDate(seen.lastUpdatedOn);
-	if (seen.progress === 100) {
-		if (startedOn && finishedOn)
-			return `Started on ${startedOn.toLocaleString()} and finished on ${finishedOn.toLocaleString()}`;
-		else if (finishedOn) return `Finished on ${finishedOn.toLocaleString()}`;
-		return `You ${getVerb(
-			Verb.Read,
-			lot,
-		)} it on ${updatedOn.toLocaleString()} (not remembered)`;
-	} else return `Started on ${startedOn?.toLocaleString()} (${seen.progress}%)`;
 };
 
 export function ProgressModal(props: {
@@ -179,6 +158,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: () => {
 			history.refetch();
+			notifications.show({ message: "Deleted successfully" });
 		},
 	});
 
@@ -358,25 +338,67 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
 							{history.data.length > 0 ? (
-								<List type="ordered" spacing={"xs"}>
-									{history.data.map((h) => (
-										<List.Item key={h.id}>
-											<Flex align="center">
-												<Text>{seenStatus(h, details.data.type)}</Text>
-												<ActionIcon
-													ml="md"
-													color="red"
-													variant="outline"
-													onClick={() => {
-														deleteSeenItem.mutate({ seenId: h.id });
-													}}
-												>
-													<IconTrash size="1.2rem" />
-												</ActionIcon>
+								<ScrollArea.Autosize mah={300}>
+									<Stack>
+										<Text>{history.data.length} elements in history</Text>
+										{history.data.map((h) => (
+											<Flex key={h.id} direction={"column"} ml="md">
+												<Flex gap="xl">
+													{h.progress < 100 ? (
+														<Text fw="bold">Progress {h.progress}%</Text>
+													) : (
+														<Text fw="bold">Completed</Text>
+													)}
+												</Flex>
+												<Flex ml="sm" direction={"column"} gap={4}>
+													<Flex gap="xl">
+														<Flex gap={"xs"}>
+															<Text size="sm">Started:</Text>
+															<Text size="sm" fw="bold">
+																{h.startedOn
+																	? DateTime.fromISO(
+																			h.startedOn,
+																	  ).toLocaleString()
+																	: "N/A"}
+															</Text>
+														</Flex>
+														<Flex gap={"xs"}>
+															<Text size="sm">Ended:</Text>
+															<Text size="sm" fw="bold">
+																{h.finishedOn
+																	? DateTime.fromISO(
+																			h.finishedOn,
+																	  ).toLocaleString()
+																	: "N/A"}
+															</Text>
+														</Flex>
+													</Flex>
+													<Flex gap={"md"}>
+														<Flex gap={"xs"}>
+															<Text size="sm">Updated:</Text>
+															<Text size="sm" fw="bold">
+																{DateTime.fromJSDate(
+																	h.lastUpdatedOn,
+																).toLocaleString()}
+															</Text>
+														</Flex>
+														<Button
+															variant="outline"
+															color="red"
+															leftIcon={<IconX size="1.2rem" />}
+															compact
+															onClick={() => {
+																deleteSeenItem.mutate({ seenId: h.id });
+															}}
+														>
+															Delete
+														</Button>
+													</Flex>
+												</Flex>
 											</Flex>
-										</List.Item>
-									))}
-								</List>
+										))}
+									</Stack>
+								</ScrollArea.Autosize>
 							) : (
 								<Text fs="italic">You have no history for this item</Text>
 							)}
