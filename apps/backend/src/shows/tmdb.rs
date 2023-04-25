@@ -2,11 +2,10 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 use surf::Client;
-use tokio::task::JoinSet;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, get_tmdb_config},
+    utils::{convert_date_to_year, get_data_parallely_from_sources, get_tmdb_config},
 };
 
 use super::ShowSpecifics;
@@ -61,35 +60,23 @@ impl TmdbService {
             backdrop_images.push(self.get_cover_image_url(&c));
         };
 
-        let mut set = JoinSet::new();
-        for season in data.seasons.into_iter() {
-            let client = self.client.clone();
-            let iden = identifier.to_owned();
-            set.spawn(async move {
-                #[derive(Debug, Serialize, Deserialize, Clone)]
-                struct TmdbEpisodeNumber {
-                    episode_number: i32,
-                }
-                #[derive(Debug, Serialize, Deserialize, Clone)]
-                struct TmdbSeason {
-                    name: String,
-                    poster_path: Option<String>,
-                    backdrop_path: Option<String>,
-                    air_date: String,
-                    episodes: Vec<TmdbEpisodeNumber>,
-                }
-                let mut rsp = client
-                    .get(format!("tv/{}/season/{}", iden, season.season_number))
-                    .await
-                    .unwrap();
-                let season: TmdbSeason = rsp.body_json().await.unwrap();
-                season
-            });
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbEpisodeNumber {
+            episode_number: i32,
         }
-        let mut seasons = vec![];
-        while let Some(Ok(result)) = set.join_next().await {
-            seasons.push(result);
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbSeason {
+            name: String,
+            poster_path: Option<String>,
+            backdrop_path: Option<String>,
+            air_date: String,
+            episodes: Vec<TmdbEpisodeNumber>,
         }
+        let seasons: Vec<TmdbSeason> =
+            get_data_parallely_from_sources(&data.seasons, &self.client, |s| {
+                format!("tv/{}/season/{}", identifier.to_owned(), s.season_number)
+            })
+            .await;
         dbg!(&seasons);
 
         let detail = MediaSearchItem {

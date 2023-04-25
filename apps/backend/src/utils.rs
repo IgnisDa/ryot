@@ -79,22 +79,22 @@ pub async fn get_data_parallely_from_sources<'a, T, F, R>(
 ) -> Vec<R>
 where
     F: Fn(&T) -> String,
-    T: Send + Sync + de::DeserializeOwned + 'a + 'static,
-    R: Send + Sync + de::DeserializeOwned + 'a + 'static,
+    T: Send + Sync + de::DeserializeOwned + 'static,
+    R: Send + Sync + de::DeserializeOwned + 'static,
 {
     let mut set = JoinSet::new();
-    for season in iteree.into_iter() {
+    for elm in iteree.into_iter() {
         let client = client.clone();
-        let url = get_url(season);
+        let url = get_url(elm);
         set.spawn(async move {
             let mut rsp = client.get(url).await.unwrap();
-            let season: R = rsp.body_json().await.unwrap();
-            season
+            let single_element: R = rsp.body_json().await.unwrap();
+            single_element
         });
     }
-    let mut seasons = vec![];
+    let mut data = vec![];
     while let Some(Ok(result)) = set.join_next().await {
-        seasons.push(result);
+        data.push(result);
     }
-    seasons
+    data
 }
