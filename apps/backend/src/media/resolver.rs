@@ -20,6 +20,7 @@ use crate::{
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
+    shows::ShowSpecifics,
     utils::user_id_from_ctx,
 };
 
@@ -36,6 +37,7 @@ pub struct MediaSearchItem {
     pub publish_year: Option<i32>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -375,6 +377,7 @@ impl MediaService {
                 publish_year: m.publish_year,
                 book_specifics: None,
                 movie_specifics: None,
+                show_specifics: None,
             };
             items.push(_m);
         }

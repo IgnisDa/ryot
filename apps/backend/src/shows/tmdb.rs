@@ -9,7 +9,7 @@ use surf::{
 
 use crate::media::resolver::{MediaSearchItem, MediaSearchResults};
 
-use super::MovieSpecifics;
+use super::ShowSpecifics;
 
 #[derive(Debug, Clone)]
 pub struct TmdbService {
@@ -47,7 +47,7 @@ impl TmdbService {
 impl TmdbService {
     pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbCreator {
+        struct TmdbAuthor {
             name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -57,8 +57,8 @@ impl TmdbService {
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbCreator>,
-            release_date: String,
+            production_companies: Vec<TmdbAuthor>,
+            first_air_date: String,
             runtime: i32,
         }
         let mut rsp = self
@@ -85,13 +85,13 @@ impl TmdbService {
                 .collect(),
             poster_images,
             backdrop_images,
-            publish_year: Self::convert_date_to_year(&data.release_date),
+            publish_year: Self::convert_date_to_year(&data.first_air_date),
             description: Some(data.overview),
-            movie_specifics: Some(MovieSpecifics {
+            show_specifics: Some(ShowSpecifics {
                 runtime: Some(data.runtime),
             }),
+            movie_specifics: None,
             book_specifics: None,
-            show_specifics: None,
         };
         Ok(detail)
     }
@@ -104,22 +104,22 @@ impl TmdbService {
             language: String,
         }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct TmdbMovie {
+        pub struct TmdbShow {
             id: i32,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
             overview: Option<String>,
-            title: String,
-            release_date: String,
+            name: String,
+            first_air_date: String,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct TmdbSearchResponse {
             total_results: i32,
-            results: Vec<TmdbMovie>,
+            results: Vec<TmdbShow>,
         }
         let mut rsp = self
             .client
-            .get("search/movie")
+            .get("search/tv")
             .query(&Query {
                 query: query.to_owned(),
                 page: page.unwrap_or(1),
@@ -146,13 +146,13 @@ impl TmdbService {
                 };
                 MediaSearchItem {
                     identifier: d.id.to_string(),
-                    title: d.title,
+                    title: d.name,
                     description: d.overview,
                     author_names: vec![],
-                    publish_year: Self::convert_date_to_year(&d.release_date),
-                    movie_specifics: Some(MovieSpecifics { runtime: None }),
+                    publish_year: Self::convert_date_to_year(&d.first_air_date),
+                    show_specifics: Some(ShowSpecifics { runtime: None }),
+                    movie_specifics: None,
                     book_specifics: None,
-                    show_specifics: None,
                     poster_images,
                     backdrop_images,
                 }

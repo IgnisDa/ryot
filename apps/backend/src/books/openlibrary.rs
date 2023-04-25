@@ -183,6 +183,7 @@ impl OpenlibraryService {
                     book_specifics: Some(BookSpecifics {
                         pages: d.number_of_pages_median,
                     }),
+                    show_specifics: None,
                     movie_specifics: None,
                     poster_images,
                     backdrop_images: vec![],
