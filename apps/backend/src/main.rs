@@ -1,47 +1,186 @@
-use crate::{config::get_figment_config, migrator::Migrator};
+use anyhow::Result;
+use apalis::{
+    layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
+    prelude::{Monitor, Storage, WorkerBuilder, WorkerFactoryFn},
+    sqlite::SqliteStorage,
+};
+use async_graphql::http::GraphiQLSource;
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     body::{boxed, Full},
-    http::{header, StatusCode, Uri},
-    response::{IntoResponse, Response},
-    routing::Router,
+    http::{header, HeaderMap, Method, StatusCode, Uri},
+    response::{Html, IntoResponse, Response},
+    routing::{get, Router},
+    Extension, Server,
 };
-use config::AppConfig;
 use dotenvy::dotenv;
+use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
-use std::{error::Error, net::SocketAddr};
+use std::{
+    fs,
+    io::{Error as IoError, ErrorKind as IoErrorKind},
+    net::SocketAddr,
+};
+use tokio::{sync::mpsc::channel, try_join};
+use tokio_cron_scheduler::{Job, JobScheduler};
+use tower_cookies::{CookieManagerLayer, Cookies};
+use tower_http::{
+    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
+    trace::TraceLayer as TowerTraceLayer,
+};
 
+use crate::{
+    background::{refresh_media, RefreshMedia},
+    config::get_app_config,
+    graphql::{get_schema, GraphqlSchema},
+    migrator::Migrator,
+    users::resolver::COOKIE_NAME,
+};
+
+mod background;
+mod books;
 mod config;
+mod entities;
+mod graphql;
+mod media;
 mod migrator;
+mod movies;
+mod users;
+mod utils;
+
+#[derive(Debug)]
+pub struct GqlCtx {
+    auth_token: Option<String>,
+}
+
+async fn graphql_handler(
+    schema: Extension<GraphqlSchema>,
+    cookies: Cookies,
+    headers: HeaderMap,
+    req: GraphQLRequest,
+) -> GraphQLResponse {
+    let mut req = req.0;
+    let mut ctx = GqlCtx { auth_token: None };
+    if let Some(c) = cookies.get(COOKIE_NAME) {
+        ctx.auth_token = Some(c.value().to_owned());
+    } else if let Some(h) = headers.get(AUTHORIZATION) {
+        ctx.auth_token = h.to_str().map(|e| e.replace("Bearer ", "")).ok();
+    }
+    req = req.data(ctx);
+    schema.execute(req).await.into()
+}
+
+async fn graphql_playground() -> impl IntoResponse {
+    Html(GraphiQLSource::build().endpoint("/graphql").finish())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+    dotenv().ok();
+    let config = get_app_config()?;
+    fs::write(
+        "computed-config.ron",
+        ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap(),
+    )?;
+
+    let db = Database::connect(&config.database.url)
+        .await
+        .expect("Database connection failed");
+    Migrator::up(&db, None).await.unwrap();
+
+    let storage = {
+        let st = SqliteStorage::connect(":memory:").await.unwrap();
+        st.setup().await.unwrap();
+        st
+    };
+
+    let (tx, mut rx) = channel::<u8>(1);
+    let mut new_storage = storage.clone();
+    tokio::spawn(async move {
+        loop {
+            if (rx.recv().await).is_some() {
+                new_storage.push(RefreshMedia {}).await.unwrap();
+            }
+        }
+    });
+
+    let sched = JobScheduler::new().await.unwrap();
+    sched.shutdown_on_ctrl_c();
+
+    sched
+        .add(
+            Job::new_async("1/10 * * * * *", move |_uuid, _l| {
+                let tx = tx.clone();
+                Box::pin(async move {
+                    tx.send(1).await.unwrap();
+                })
+            })
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let schema = get_schema(db.clone(), &config).await;
+
+    let cors = TowerCorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
+        .allow_origin(
+            config
+                .web
+                .cors_origins
+                .iter()
+                .map(|f| f.parse().unwrap())
+                .collect::<Vec<_>>(),
+        )
+        .allow_credentials(true);
+
+    let app = Router::new()
+        .route("/graphql", get(graphql_playground).post(graphql_handler))
+        .layer(Extension(schema))
+        .layer(TowerTraceLayer::new_for_http())
+        .layer(TowerCatchPanicLayer::new())
+        .layer(CookieManagerLayer::new())
+        .layer(cors)
+        .fallback(static_handler);
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
+    tracing::info!("Listening on {}", addr);
+
+    let monitor = async {
+        let monitor = Monitor::new()
+            .register_with_count(1, move |_| {
+                WorkerBuilder::new(storage.clone())
+                    .layer(ApalisExtension(config.clone()))
+                    .layer(ApalisExtension(db.clone()))
+                    .layer(ApalisTraceLayer::new())
+                    .build_fn(refresh_media)
+            })
+            .run()
+            .await;
+        Ok(monitor)
+    };
+    let http = async {
+        Server::bind(&addr)
+            .serve(app.into_make_service())
+            .await
+            .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
+    };
+    let scheduler = async { Ok(sched.start().await) };
+
+    let _res = try_join!(monitor, http, scheduler).expect("Could not start services");
+
+    Ok(())
+}
 
 static INDEX_HTML: &str = "index.html";
 
 #[derive(RustEmbed)]
 #[folder = "../frontend/out/"]
 struct Assets;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt::init();
-    dotenv().ok();
-    let config: AppConfig = get_figment_config().extract()?;
-
-    let conn = Database::connect(&config.db.url)
-        .await
-        .expect("Database connection failed");
-    Migrator::up(&conn, None).await.unwrap();
-
-    let app = Router::new().fallback(static_handler);
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
-    tracing::info!("Listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
-    Ok(())
-}
 
 async fn static_handler(uri: Uri) -> impl IntoResponse {
     let mut path = uri.path().trim_start_matches('/').to_owned();
@@ -50,7 +189,7 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
         return index_html().await;
     }
 
-    if !path.contains(".") {
+    if !path.contains('.') {
         path.push_str(".html");
     }
 
@@ -86,15 +225,4 @@ async fn not_found() -> Response {
         .status(StatusCode::NOT_FOUND)
         .body(boxed(Full::from("404")))
         .unwrap()
-}
-
-async fn get_asset(path: &'_ str) -> Option<Response> {
-    Assets::get(path).map(|content| {
-        let body = boxed(Full::from(content.data));
-        let mime = mime_guess::from_path(path).first_or_octet_stream();
-        Response::builder()
-            .header(header::CONTENT_TYPE, mime.as_ref())
-            .body(body)
-            .unwrap()
-    })
 }

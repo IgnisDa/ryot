@@ -1,0 +1,8 @@
+{
+	"name": "@trackona/graphql",
+	"dependencies": {
+		"@trackona/generated": "workspace:*",
+		"graphql-request": "6.0.0",
+		"graphql-scalars": "1.21.3"
+	}
+}

@@ -1,7 +1,17 @@
-export default function Page() {
+import type { NextPageWithLayout } from "./_app";
+import LoggedIn from "@/lib/layouts/LoggedIn";
+import type { ReactElement } from "react";
+
+const Page: NextPageWithLayout = () => {
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-between p-24">
-			<div className="text-4xl m-auto">Hello world from Index page!</div>
-		</main>
+		<div>
+			<div>Hello world from Index page!</div>
+		</div>
 	);
-}
+};
+
+Page.getLayout = (page: ReactElement) => {
+	return <LoggedIn>{page}</LoggedIn>;
+};
+
+export default Page;

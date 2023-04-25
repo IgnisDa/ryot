@@ -5,3 +5,4 @@ RUN curl -L https://github.com/rome/tools/releases/download/cli%2Fv12.0.0/rome-l
 RUN chmod +x /usr/bin/rome
 
 USER $USERNAME
+RUN cargo binstall sea-orm-cli --locked --secure --no-confirm
