@@ -16,8 +16,16 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::metadata_image::Entity")]
+    MetadataImage,
     #[sea_orm(has_many = "super::season::Entity")]
     Season,
+}
+
+impl Related<super::metadata_image::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataImage.def()
+    }
 }
 
 impl Related<super::season::Entity> for Entity {

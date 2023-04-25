@@ -21,6 +21,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::episode::Entity")]
     Episode,
+    #[sea_orm(has_many = "super::metadata_image::Entity")]
+    MetadataImage,
     #[sea_orm(
         belongs_to = "super::show::Entity",
         from = "Column::ShowId",
@@ -34,6 +36,12 @@ pub enum Relation {
 impl Related<super::episode::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Episode.def()
+    }
+}
+
+impl Related<super::metadata_image::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataImage.def()
     }
 }
 

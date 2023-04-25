@@ -12,7 +12,9 @@ pub struct Model {
     #[sea_orm(unique, indexed)]
     pub url: String,
     pub lot: MetadataImageLot,
-    pub metadata_id: i32,
+    pub metadata_id: Option<i32>,
+    pub season_id: Option<i32>,
+    pub show_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -25,11 +27,39 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Metadata,
+    #[sea_orm(
+        belongs_to = "super::season::Entity",
+        from = "Column::SeasonId",
+        to = "super::season::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Season,
+    #[sea_orm(
+        belongs_to = "super::show::Entity",
+        from = "Column::ShowId",
+        to = "super::show::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Show,
 }
 
 impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Metadata.def()
+    }
+}
+
+impl Related<super::season::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Season.def()
+    }
+}
+
+impl Related<super::show::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Show.def()
     }
 }
 
