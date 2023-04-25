@@ -76,7 +76,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
         MovieTmdbService::new(&config.movies.tmdb.url, &config.movies.tmdb.access_token).await;
     let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
     let tmdb_shows_service =
-        ShowTmdbService::new(&config.movies.tmdb.url, &config.movies.tmdb.access_token).await;
+        ShowTmdbService::new(&config.shows.tmdb.url, &config.shows.tmdb.access_token).await;
     let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
     let users_service = UsersService::new(&db);
     Schema::build(
