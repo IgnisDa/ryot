@@ -3,7 +3,10 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::m20230417_000004_create_user::User;
+use super::{
+    m20230417_000004_create_user::User,
+    m20230425_000007_create_show::{Season, Show},
+};
 
 static METADATA_TITLE_INDEX: &str = "metadata__title__index";
 static METADATA_IMAGE_URL_INDEX: &str = "metadata-image__url__index";
@@ -27,6 +30,8 @@ enum MetadataImage {
     Lot,
     Url,
     MetadataId,
+    SeasonId,
+    ShowId,
 }
 
 // The different types of media that can be stored
@@ -104,16 +109,30 @@ impl MigrationTrait for Migration {
                             )
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataImage::MetadataId)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataImage::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("metadata_to_image_foreign_key")
                             .from(MetadataImage::Table, MetadataImage::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(MetadataImage::SeasonId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("season_to_image_foreign_key")
+                            .from(MetadataImage::Table, MetadataImage::SeasonId)
+                            .to(Season::Table, Season::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(MetadataImage::ShowId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("show_to_image_foreign_key")
+                            .from(MetadataImage::Table, MetadataImage::ShowId)
+                            .to(Show::Table, Show::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
