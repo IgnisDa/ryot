@@ -2,12 +2,12 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
-use surf::{
-    http::headers::{AUTHORIZATION, USER_AGENT},
-    Client, Config, Url,
-};
+use surf::Client;
 
-use crate::media::resolver::{MediaSearchItem, MediaSearchResults};
+use crate::{
+    media::resolver::{MediaSearchItem, MediaSearchResults},
+    utils::get_tmdb_config,
+};
 
 use super::MovieSpecifics;
 
@@ -19,28 +19,8 @@ pub struct TmdbService {
 
 impl TmdbService {
     pub async fn new(url: &str, access_token: &str) -> Self {
-        let client: Client = Config::new()
-            .add_header(USER_AGENT, "ignisda/trackona")
-            .unwrap()
-            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let mut rsp = client.get("configuration").await.unwrap();
-        let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-        Self {
-            client,
-            image_url: data.images.secure_base_url,
-        }
+        let (client, image_url) = get_tmdb_config(url, access_token).await;
+        Self { client, image_url }
     }
 }
 
