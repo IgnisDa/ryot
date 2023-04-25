@@ -1,5 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createGqlClient } from "@trackona/graphql/client";
 
+const baseUrl =
+	process.env.NEXT_PUBLIC_BASE_URL ||
+	(typeof window !== "undefined" ? window.location.origin : "");
+
 export const queryClient = new QueryClient();
-export const gqlClient = createGqlClient("http://localhost:8000");
+export const gqlClient = createGqlClient(baseUrl);
