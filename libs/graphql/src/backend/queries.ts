@@ -42,9 +42,12 @@ export const SHOWS_SEARCH = graphql(`
 	}
 `);
 
-export const VERSION = graphql(`
-	query Version {
-		version
+export const CORE_DETAILS = graphql(`
+	query CoreDetails {
+	  coreDetails {
+	    version
+	    authorName
+	  }
 	}
 `);
 
