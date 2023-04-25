@@ -21,22 +21,18 @@ pub enum Episode {
 #[derive(Iden)]
 pub enum Season {
     Table,
-    Id,
-    Name,
-    EpisodeCount,
-    FirstAirDate,
-    TmdbId,
-    Number,
     ShowId,
+    MetadataId,
+    TmdbId,
+    EpisodeCount,
+    Number,
 }
 
 #[derive(Iden)]
 pub enum Show {
     Table,
-    Id,
-    Name,
     TmdbId,
-    FirstAirDate,
+    MetadataId,
 }
 
 impl MigrationName for Migration {
@@ -52,16 +48,22 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Show::Table)
+                    .col(ColumnDef::new(Show::TmdbId).string().not_null())
                     .col(
-                        ColumnDef::new(Show::Id)
+                        ColumnDef::new(Show::MetadataId)
                             .integer()
                             .primary_key()
-                            .auto_increment()
+                            .unique_key()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Show::Name).string().not_null())
-                    .col(ColumnDef::new(Show::FirstAirDate).date_time())
-                    .col(ColumnDef::new(Show::TmdbId).string().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("season_to_metadata_foreign_key")
+                            .from(Show::Table, Show::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -78,24 +80,30 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Season::Table)
-                    .col(
-                        ColumnDef::new(Season::Id)
-                            .integer()
-                            .primary_key()
-                            .auto_increment()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(Season::Name).string().not_null())
                     .col(ColumnDef::new(Season::EpisodeCount).integer())
-                    .col(ColumnDef::new(Season::FirstAirDate).date_time())
                     .col(ColumnDef::new(Season::TmdbId).string().not_null())
                     .col(ColumnDef::new(Season::Number).integer().not_null())
                     .col(ColumnDef::new(Season::ShowId).integer().not_null())
+                    .col(
+                        ColumnDef::new(Season::MetadataId)
+                            .integer()
+                            .primary_key()
+                            .unique_key()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("season_to_metadata_foreign_key")
+                            .from(Season::Table, Season::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("season_to_show_foreign_key")
                             .from(Season::Table, Season::ShowId)
-                            .to(Show::Table, Show::Id)
+                            .to(Show::Table, Show::MetadataId)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -137,7 +145,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("episode_to_season_foreign_key")
                             .from(Episode::Table, Episode::SeasonId)
-                            .to(Season::Table, Season::Id)
+                            .to(Season::Table, Season::MetadataId)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

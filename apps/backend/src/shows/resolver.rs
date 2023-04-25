@@ -82,6 +82,7 @@ impl ShowsService {
 
     async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
         let movie_details = self.tmdb_service.details(identifier).await.unwrap();
+        return Ok(IdObject { id: 12 });
         let (metadata_id, did_exist) = self
             .media_service
             .commit_media(identifier, MetadataLot::Movie, &movie_details)
