@@ -19,7 +19,7 @@ use rust_embed::RustEmbed;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 use std::{
-    fs,
+    env, fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
 };
@@ -147,7 +147,11 @@ async fn main() -> Result<()> {
         .layer(cors)
         .fallback(static_handler);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| "8000".to_owned())
+        .parse()
+        .unwrap();
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
     let monitor = async {
