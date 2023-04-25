@@ -28,8 +28,12 @@ pub enum Relation {
     MetadataImage,
     #[sea_orm(has_one = "super::movie::Entity")]
     Movie,
+    #[sea_orm(has_one = "super::season::Entity")]
+    Season,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
+    #[sea_orm(has_one = "super::show::Entity")]
+    Show,
 }
 
 impl Related<super::book::Entity> for Entity {
@@ -56,9 +60,21 @@ impl Related<super::movie::Entity> for Entity {
     }
 }
 
+impl Related<super::season::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Season.def()
+    }
+}
+
 impl Related<super::seen::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Seen.def()
+    }
+}
+
+impl Related<super::show::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Show.def()
     }
 }
 

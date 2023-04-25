@@ -506,7 +506,7 @@ impl MediaService {
                     let c = metadata_image::ActiveModel {
                         url: ActiveValue::Set(image.to_owned()),
                         lot: ActiveValue::Set(MetadataImageLot::Poster),
-                        metadata_id: ActiveValue::Set(Some(metadata.id)),
+                        metadata_id: ActiveValue::Set(metadata.id),
                         ..Default::default()
                     };
                     c.insert(&self.db).await.unwrap()
@@ -524,7 +524,7 @@ impl MediaService {
                     let c = metadata_image::ActiveModel {
                         url: ActiveValue::Set(image.to_owned()),
                         lot: ActiveValue::Set(MetadataImageLot::Backdrop),
-                        metadata_id: ActiveValue::Set(Some(metadata.id)),
+                        metadata_id: ActiveValue::Set(metadata.id),
                         ..Default::default()
                     };
                     c.insert(&self.db).await.unwrap()
