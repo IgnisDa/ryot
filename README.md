@@ -3,6 +3,13 @@
 Trackona is a self hosted platform for tracking movies, TV shows, video games,
 books and audiobooks.
 
+## Project Status
+
+This project is still very much a WIP. Until it hits `1.0.0`, consider the project
+to have breaking changes without any warning, for example backwards incompatible
+schema changes. You can see the latest release
+[here](https://github.com/IgnisDa/trackona/releases).
+
 ## Development
 
 Trackona is an Axum server running in the backend. The frontend is a pre-rendered
