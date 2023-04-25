@@ -16,11 +16,23 @@ RUN moon run frontend:build
 
 FROM alpine as tini-builder
 ENV TINI_VERSION v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static /tini
 RUN chmod +x /tini
 
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
-RUN apt-get update && apt-get -y install curl
+ENV USER=app-runner
+ENV UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    "${USER}"
+RUN apt-get update && apt-get install -y musl-tools musl-dev
+RUN rustup target add x86_64-unknown-linux-musl
+RUN update-ca-certificates
 WORKDIR app
 
 FROM chef AS planner
@@ -32,10 +44,12 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
-RUN cargo build --release --bin trackona_backend
+RUN cargo build --release --bin trackona_backend --target x86_64-unknown-linux-musl
 
-FROM gcr.io/distroless/cc:latest
-ENV TINI_SUBREAPER="1"
-COPY --from=tini-builder /tini /tini
-COPY --from=app-builder /app/target/release/trackona_backend /app
+FROM scratch
+COPY --from=chef /etc/passwd /etc/passwd
+COPY --from=chef /etc/group /etc/group
+COPY --from=tini-builder --chown=app-runner:app-runner /tini /tini
+COPY --from=app-builder --chown=app-runner:app-runner /app/target/x86_64-unknown-linux-musl/release/trackona_backend /app
+USER app-runner:app-runner
 ENTRYPOINT ["/tini", "--", "/app"]
