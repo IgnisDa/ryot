@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
-use tokio::task::JoinSet;
 
 use crate::{
     graphql::AUTHOR,
@@ -10,6 +9,7 @@ use crate::{
         resolver::{MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
+    utils::get_data_parallely_from_sources,
 };
 
 use super::BookSpecifics;
@@ -85,26 +85,17 @@ impl OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut set = JoinSet::new();
         #[derive(Debug, Serialize, Deserialize)]
         struct OpenlibraryAuthorPartial {
             name: String,
         }
-        for author in data.authors.into_iter() {
-            let client = self.client.clone();
-            set.spawn(async move {
-                let mut rsp = client
-                    .get(format!("{}.json", author.author.key))
-                    .await
-                    .unwrap();
-                let OpenlibraryAuthorPartial { name } = rsp.body_json().await.unwrap();
-                name
-            });
-        }
-        let mut authors = vec![];
-        while let Some(Ok(result)) = set.join_next().await {
-            authors.push(result);
-        }
+        let authors = get_data_parallely_from_sources(&data.authors, &self.client, |a| {
+            format!("{}.json", a.author.key)
+        })
+        .await
+        .into_iter()
+        .map(|a: OpenlibraryAuthorPartial| a.name)
+        .collect();
         detail.description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,

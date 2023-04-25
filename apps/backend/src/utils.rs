@@ -3,11 +3,12 @@ use chrono::NaiveDate;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use surf::{
     http::headers::{AUTHORIZATION, USER_AGENT},
     Client, Config, Url,
 };
+use tokio::task::JoinSet;
 
 use crate::{
     entities::{prelude::Token, token},
@@ -69,4 +70,31 @@ pub fn convert_date_to_year(d: &str) -> Option<i32> {
     NaiveDate::parse_from_str(d, "%Y-%m-%d")
         .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
         .ok()
+}
+
+pub async fn get_data_parallely_from_sources<'a, T, F, R>(
+    iteree: &'a Vec<T>,
+    client: &'a Client,
+    get_url: F,
+) -> Vec<R>
+where
+    F: Fn(&T) -> String,
+    T: Send + Sync + de::DeserializeOwned + 'a + 'static,
+    R: Send + Sync + de::DeserializeOwned + 'a + 'static,
+{
+    let mut set = JoinSet::new();
+    for season in iteree.into_iter() {
+        let client = client.clone();
+        let url = get_url(season);
+        set.spawn(async move {
+            let mut rsp = client.get(url).await.unwrap();
+            let season: R = rsp.body_json().await.unwrap();
+            season
+        });
+    }
+    let mut seasons = vec![];
+    while let Some(Ok(result)) = set.join_next().await {
+        seasons.push(result);
+    }
+    seasons
 }
