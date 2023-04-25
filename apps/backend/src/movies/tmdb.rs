@@ -1,12 +1,11 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
-use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::get_tmdb_config,
+    utils::{convert_date_to_year, get_tmdb_config},
 };
 
 use super::MovieSpecifics;
@@ -65,7 +64,7 @@ impl TmdbService {
                 .collect(),
             poster_images,
             backdrop_images,
-            publish_year: Self::convert_date_to_year(&data.release_date),
+            publish_year: convert_date_to_year(&data.release_date),
             description: Some(data.overview),
             movie_specifics: Some(MovieSpecifics {
                 runtime: Some(data.runtime),
@@ -129,7 +128,7 @@ impl TmdbService {
                     title: d.title,
                     description: d.overview,
                     author_names: vec![],
-                    publish_year: Self::convert_date_to_year(&d.release_date),
+                    publish_year: convert_date_to_year(&d.release_date),
                     movie_specifics: Some(MovieSpecifics { runtime: None }),
                     book_specifics: None,
                     show_specifics: None,
@@ -146,11 +145,5 @@ impl TmdbService {
 
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
-    }
-
-    fn convert_date_to_year(d: &str) -> Option<i32> {
-        NaiveDate::parse_from_str(d, "%Y-%m-%d")
-            .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-            .ok()
     }
 }

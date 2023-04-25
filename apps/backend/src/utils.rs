@@ -1,4 +1,5 @@
 use async_graphql::{Context, Error, Result};
+use chrono::NaiveDate;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
 };
@@ -62,4 +63,10 @@ pub async fn get_tmdb_config(url: &str, access_token: &str) -> (Client, String) 
     let mut rsp = client.get("configuration").await.unwrap();
     let data: TmdbConfiguration = rsp.body_json().await.unwrap();
     (client, data.images.secure_base_url)
+}
+
+pub fn convert_date_to_year(d: &str) -> Option<i32> {
+    NaiveDate::parse_from_str(d, "%Y-%m-%d")
+        .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
+        .ok()
 }
