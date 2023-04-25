@@ -22,6 +22,15 @@ use crate::{
     users::resolver::{UsersMutation, UsersService},
 };
 
+pub static VERSION: &str = env!("CARGO_PKG_VERSION");
+pub static AUTHOR: &str = "ignisda";
+
+#[derive(SimpleObject)]
+pub struct CoreDetails {
+    version: String,
+    author_name: String,
+}
+
 #[derive(Debug, SimpleObject)]
 pub struct IdObject {
     pub id: i32,
@@ -32,9 +41,12 @@ struct CoreQuery;
 
 #[Object]
 impl CoreQuery {
-    /// Get the version of the service running.
-    async fn version(&self, _gql_ctx: &Context<'_>) -> Result<String> {
-        Ok(env!("CARGO_PKG_VERSION").to_owned())
+    /// Get some primary information about the service
+    async fn core_details(&self, _gql_ctx: &Context<'_>) -> CoreDetails {
+        CoreDetails {
+            version: VERSION.to_owned(),
+            author_name: AUTHOR.to_owned(),
+        }
     }
 }
 

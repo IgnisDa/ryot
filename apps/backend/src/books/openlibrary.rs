@@ -4,9 +4,12 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use tokio::task::JoinSet;
 
-use crate::media::{
-    resolver::{MediaSearchItem, MediaSearchResults},
-    LIMIT,
+use crate::{
+    graphql::AUTHOR,
+    media::{
+        resolver::{MediaSearchItem, MediaSearchResults},
+        LIMIT,
+    },
 };
 
 use super::BookSpecifics;
@@ -21,7 +24,7 @@ pub struct OpenlibraryService {
 impl OpenlibraryService {
     pub fn new(url: &str, image_url: &str, image_size: &str) -> Self {
         let client = Config::new()
-            .add_header(USER_AGENT, "ignisda/trackona")
+            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()
