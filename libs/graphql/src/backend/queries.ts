@@ -28,6 +28,20 @@ export const MOVIES_SEARCH = graphql(`
 	}
 `);
 
+export const SHOWS_SEARCH = graphql(`
+	query ShowsSearch($input: ShowSearchInput!) {
+	  showSearch(input: $input) {
+	    total
+	    items {
+	      identifier
+	      title
+	      posterImages
+	      publishYear
+	    }
+	  }
+	}
+`);
+
 export const VERSION = graphql(`
 	query Version {
 		version

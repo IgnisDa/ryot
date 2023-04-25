@@ -42,7 +42,7 @@ pub struct ShowsMutation;
 
 #[Object]
 impl ShowsMutation {
-    /// Fetch details about a movie and create a media item in the database
+    /// Fetch details about a show and create a media item in the database
     async fn commit_show(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<ShowsService>()
@@ -74,7 +74,7 @@ impl ShowsService {
 }
 
 impl ShowsService {
-    // Get movie details from all sources
+    // Get show details from all sources
     async fn show_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let movies = self.tmdb_service.search(query, page).await.unwrap();
         Ok(movies)

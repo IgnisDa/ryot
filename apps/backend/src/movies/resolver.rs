@@ -24,7 +24,7 @@ pub struct MoviesQuery;
 
 #[Object]
 impl MoviesQuery {
-    /// Search for a list of movies by a particular search query and an offset.
+    /// Search for a list of movies by a particular search query and a given page.
     async fn movies_search(
         &self,
         gql_ctx: &Context<'_>,
