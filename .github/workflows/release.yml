@@ -32,16 +32,17 @@ jobs:
       - name: Get docker image name
         id: image_name
         run: |
-          image_name="${{ env.REGISTRY }}/${{ github.actor }}/trackona:${{ github.ref }}"
+          image_name="${{ env.REGISTRY }}/${{ github.actor }}/trackona"
+          image_names="$image_name:${{ github.ref_name }},$image_name:latest"
           # lowercase the name
-          image_name=$(echo "$image_name" | tr '[:upper:]' '[:lower:]')
-          echo "image_name=$image_name" >> $GITHUB_OUTPUT
+          image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
+          echo "image_names=$image_names" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          tags: ${{ steps.image_name.outputs.image_name }}
+          tags: ${{ steps.image_name.outputs.image_names }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
