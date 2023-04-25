@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get docker image name
+        id: image_name
+        run: |
+          image_name="${{ env.REGISTRY }}/${{ github.actor }}/trackona:${{ github.ref }}"
+          # lowercase the name
+          image_name=$(echo "$image_name" | tr '[:upper:]' '[:lower:]')
+          echo "image_name=$image_name" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image_name.outputs.image_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
