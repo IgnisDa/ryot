@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::movie,
+    entities::{movie, prelude::Show, show},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
@@ -81,20 +83,28 @@ impl ShowsService {
     }
 
     async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
-        let movie_details = self.tmdb_service.details(identifier).await.unwrap();
-        return Ok(IdObject { id: 12 });
-        let (metadata_id, did_exist) = self
-            .media_service
-            .commit_media(identifier, MetadataLot::Movie, &movie_details)
-            .await?;
-        if !did_exist {
+        let meta = Show::find()
+            .filter(show::Column::TmdbId.eq(identifier))
+            .one(&self.db)
+            .await
+            .unwrap();
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.metadata_id })
+        } else {
+            let show_details = self.tmdb_service.show_details(identifier).await.unwrap();
+            dbg!(&show_details);
+            return Ok(IdObject { id: 12 });
+            let metadata_id = self
+                .media_service
+                .commit_media(MetadataLot::Show, &show_details)
+                .await?;
             let movie = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                tmdb_id: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
+                tmdb_id: ActiveValue::Set(show_details.identifier),
+                runtime: ActiveValue::Set(show_details.movie_specifics.unwrap().runtime),
             };
             movie.insert(&self.db).await.unwrap();
+            Ok(IdObject { id: metadata_id })
         }
-        Ok(IdObject { id: metadata_id })
     }
 }

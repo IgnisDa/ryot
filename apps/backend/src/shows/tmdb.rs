@@ -5,6 +5,7 @@ use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
+    shows::{ShowEpisode, ShowSeason},
     utils::{convert_date_to_year, get_data_parallely_from_sources, get_tmdb_config},
 };
 
@@ -24,7 +25,7 @@ impl TmdbService {
 }
 
 impl TmdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
+    pub async fn show_details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbAuthor {
             name: String,
@@ -37,7 +38,7 @@ impl TmdbService {
         struct TmdbShow {
             id: i32,
             name: String,
-            overview: String,
+            overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
             production_companies: Vec<TmdbAuthor>,
@@ -50,7 +51,6 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-
         let mut poster_images = vec![];
         if let Some(c) = data.poster_path {
             poster_images.push(self.get_cover_image_url(&c));
@@ -59,43 +59,61 @@ impl TmdbService {
         if let Some(c) = data.backdrop_path {
             backdrop_images.push(self.get_cover_image_url(&c));
         };
-
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbEpisodeNumber {
+        struct TmdbEpisode {
+            id: i32,
+            name: String,
             episode_number: i32,
+            overview: Option<String>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
             name: String,
+            overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
             air_date: String,
-            episodes: Vec<TmdbEpisodeNumber>,
+            season_number: i32,
+            episodes: Vec<TmdbEpisode>,
         }
         let seasons: Vec<TmdbSeason> =
             get_data_parallely_from_sources(&data.seasons, &self.client, |s| {
                 format!("tv/{}/season/{}", identifier.to_owned(), s.season_number)
             })
             .await;
-        dbg!(&seasons);
-
-        let detail = MediaSearchItem {
+        Ok(MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.name,
-            author_names: data
-                .production_companies
-                .into_iter()
-                .map(|p| p.name)
-                .collect(),
-            poster_images,
-            backdrop_images,
+            description: data.overview,
+            author_names: vec![],
             publish_year: convert_date_to_year(&data.first_air_date),
-            description: Some(data.overview),
-            show_specifics: Some(ShowSpecifics { runtime: None }),
+            show_specifics: Some(ShowSpecifics {
+                runtime: None,
+                seasons: seasons
+                    .into_iter()
+                    .map(|s| ShowSeason {
+                        name: s.name,
+                        overview: s.overview,
+                        poster_path: s.poster_path,
+                        backdrop_path: s.backdrop_path,
+                        season_number: s.season_number,
+                        episodes: s
+                            .episodes
+                            .into_iter()
+                            .map(|e| ShowEpisode {
+                                name: e.name,
+                                overview: e.overview,
+                                episode_number: e.episode_number,
+                            })
+                            .collect(),
+                    })
+                    .collect(),
+            }),
             movie_specifics: None,
             book_specifics: None,
-        };
-        Ok(detail)
+            poster_images,
+            backdrop_images,
+        })
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -152,7 +170,10 @@ impl TmdbService {
                     description: d.overview,
                     author_names: vec![],
                     publish_year: convert_date_to_year(&d.first_air_date),
-                    show_specifics: Some(ShowSpecifics { runtime: None }),
+                    show_specifics: Some(ShowSpecifics {
+                        runtime: None,
+                        seasons: vec![],
+                    }),
                     movie_specifics: None,
                     book_specifics: None,
                     poster_images,
