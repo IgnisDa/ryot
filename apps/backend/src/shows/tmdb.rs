@@ -68,6 +68,7 @@ impl TmdbService {
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
+            id: i32,
             name: String,
             overview: Option<String>,
             poster_path: Option<String>,
@@ -92,6 +93,7 @@ impl TmdbService {
                 seasons: seasons
                     .into_iter()
                     .map(|s| ShowSeason {
+                        id: s.id,
                         name: s.name,
                         publish_year: convert_date_to_year(&s.air_date),
                         overview: s.overview,
@@ -102,6 +104,7 @@ impl TmdbService {
                             .episodes
                             .into_iter()
                             .map(|e| ShowEpisode {
+                                id: e.id,
                                 name: e.name,
                                 publish_year: convert_date_to_year(&e.air_date),
                                 overview: e.overview,

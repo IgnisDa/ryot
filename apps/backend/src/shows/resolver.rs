@@ -7,10 +7,11 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{movie, prelude::Show, show},
+    entities::{episode, prelude::Show, season, show},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
+    utils::convert_option_path_to_vec,
 };
 
 use super::tmdb::TmdbService;
@@ -92,19 +93,68 @@ impl ShowsService {
             Ok(IdObject { id: m.metadata_id })
         } else {
             let show_details = self.tmdb_service.show_details(identifier).await.unwrap();
-            dbg!(&show_details);
-            return Ok(IdObject { id: 12 });
-            let metadata_id = self
+            let show_metadata_id = self
                 .media_service
-                .commit_media(MetadataLot::Show, &show_details)
+                .commit_media(
+                    MetadataLot::Show,
+                    show_details.title,
+                    show_details.description,
+                    show_details.publish_year,
+                    show_details.poster_images,
+                    show_details.backdrop_images,
+                    show_details.author_names,
+                )
                 .await?;
-            let movie = movie::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
+            let show = show::ActiveModel {
+                metadata_id: ActiveValue::Set(show_metadata_id),
                 tmdb_id: ActiveValue::Set(show_details.identifier),
-                runtime: ActiveValue::Set(show_details.movie_specifics.unwrap().runtime),
             };
-            movie.insert(&self.db).await.unwrap();
-            Ok(IdObject { id: metadata_id })
+            let show = show.insert(&self.db).await.unwrap();
+            for season in show_details.show_specifics.unwrap().seasons {
+                let season_metadata_id = self
+                    .media_service
+                    .commit_media(
+                        MetadataLot::Season,
+                        season.name,
+                        season.overview,
+                        season.publish_year,
+                        convert_option_path_to_vec(season.poster_path),
+                        convert_option_path_to_vec(season.backdrop_path),
+                        vec![], // TODO: use crew name
+                    )
+                    .await?;
+                let db_season = season::ActiveModel {
+                    metadata_id: ActiveValue::Set(season_metadata_id),
+                    tmdb_id: ActiveValue::Set(season.id.to_string()),
+                    episode_count: ActiveValue::Set(season.episodes.len() as i32),
+                    number: ActiveValue::Set(season.season_number),
+                    show_id: ActiveValue::Set(show.metadata_id),
+                };
+                let db_season = db_season.insert(&self.db).await.unwrap();
+                for episode in season.episodes {
+                    let episode_metadata_id = self
+                        .media_service
+                        .commit_media(
+                            MetadataLot::Episode,
+                            episode.name,
+                            episode.overview,
+                            episode.publish_year,
+                            vec![],
+                            vec![],
+                            vec![], // TODO: use crew name
+                        )
+                        .await?;
+                    let db_episode = episode::ActiveModel {
+                        metadata_id: ActiveValue::Set(episode_metadata_id),
+                        tmdb_id: ActiveValue::Set(episode.id.to_string()),
+                        season_id: ActiveValue::Set(db_season.metadata_id),
+                    };
+                    db_episode.insert(&self.db).await.unwrap();
+                }
+            }
+            Ok(IdObject {
+                id: show_metadata_id,
+            })
         }
     }
 }
