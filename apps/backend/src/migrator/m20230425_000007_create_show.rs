@@ -13,8 +13,6 @@ pub enum Episode {
     Table,
     MetadataId,
     TmdbId,
-    // the total time of the episode in minutes
-    Runtime,
     SeasonId,
 }
 
@@ -139,7 +137,6 @@ impl MigrationTrait for Migration {
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Episode::TmdbId).string().not_null())
-                    .col(ColumnDef::new(Episode::Runtime).integer())
                     .col(ColumnDef::new(Episode::SeasonId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
