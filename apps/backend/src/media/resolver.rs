@@ -389,7 +389,7 @@ impl MediaService {
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
         let user_to_meta = user_to_metadata::ActiveModel {
-            user_id: ActiveValue::Set(user_id.clone()),
+            user_id: ActiveValue::Set(user_id),
             metadata_id: ActiveValue::Set(input.metadata_id),
             ..Default::default()
         };
@@ -449,7 +449,7 @@ impl MediaService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            let id = si.id.clone();
+            let id = si.id;
             if si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),

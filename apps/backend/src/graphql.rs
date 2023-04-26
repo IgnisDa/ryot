@@ -1,6 +1,4 @@
-use async_graphql::{
-    Context, EmptySubscription, MergedObject, Object, Result, Schema, SimpleObject,
-};
+use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject};
 use sea_orm::DatabaseConnection;
 use std::env;
 

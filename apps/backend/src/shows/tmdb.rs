@@ -94,7 +94,7 @@ impl TmdbService {
                     .map(|s| {
                         let poster_path = s.poster_path.map(|p| self.get_cover_image_url(&p));
                         let backdrop_path = s.backdrop_path.map(|p| self.get_cover_image_url(&p));
-                        let season = ShowSeason {
+                        ShowSeason {
                             id: s.id,
                             name: s.name,
                             publish_year: convert_date_to_year(&s.air_date),
@@ -113,8 +113,7 @@ impl TmdbService {
                                     episode_number: e.episode_number,
                                 })
                                 .collect(),
-                        };
-                        season
+                        }
                     })
                     .collect(),
             }),

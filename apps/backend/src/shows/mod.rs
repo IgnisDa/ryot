@@ -1,5 +1,5 @@
 use async_graphql::SimpleObject;
-use chrono::NaiveDate;
+
 use serde::{Deserialize, Serialize};
 
 pub mod resolver;
