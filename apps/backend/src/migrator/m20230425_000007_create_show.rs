@@ -80,7 +80,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Season::Table)
-                    .col(ColumnDef::new(Season::EpisodeCount).integer())
+                    .col(ColumnDef::new(Season::EpisodeCount).integer().not_null())
                     .col(ColumnDef::new(Season::TmdbId).string().not_null())
                     .col(ColumnDef::new(Season::Number).integer().not_null())
                     .col(ColumnDef::new(Season::ShowId).integer().not_null())

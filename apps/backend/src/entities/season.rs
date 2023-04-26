@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "season")]
 pub struct Model {
-    pub episode_count: Option<i32>,
+    pub episode_count: i32,
     pub tmdb_id: String,
     pub number: i32,
     pub show_id: i32,
