@@ -462,16 +462,25 @@ impl MediaService {
         }
     }
 
-    pub async fn commit_media(&self, lot: MetadataLot, details: &MediaSearchItem) -> Result<i32> {
+    pub async fn commit_media(
+        &self,
+        lot: MetadataLot,
+        title: String,
+        description: Option<String>,
+        publish_year: Option<i32>,
+        poster_images: Vec<String>,
+        backdrop_images: Vec<String>,
+        creator_names: Vec<String>,
+    ) -> Result<i32> {
         let metadata = metadata::ActiveModel {
-            lot: ActiveValue::Set(lot.to_owned()),
-            title: ActiveValue::Set(details.title.to_owned()),
-            description: ActiveValue::Set(details.description.to_owned()),
-            publish_year: ActiveValue::Set(details.publish_year),
+            lot: ActiveValue::Set(lot),
+            title: ActiveValue::Set(title),
+            description: ActiveValue::Set(description),
+            publish_year: ActiveValue::Set(publish_year),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for image in details.poster_images.iter() {
+        for image in poster_images.iter() {
             if let Some(c) = MetadataImage::find()
                 .filter(metadata_image::Column::Url.eq(image))
                 .one(&self.db)
@@ -489,7 +498,7 @@ impl MediaService {
                 c.insert(&self.db).await.unwrap()
             };
         }
-        for image in details.backdrop_images.iter() {
+        for image in backdrop_images.iter() {
             if let Some(c) = MetadataImage::find()
                 .filter(metadata_image::Column::Url.eq(image))
                 .one(&self.db)
@@ -507,7 +516,7 @@ impl MediaService {
                 c.insert(&self.db).await.unwrap()
             };
         }
-        for name in details.author_names.iter() {
+        for name in creator_names.iter() {
             let creator = if let Some(c) = Creator::find()
                 .filter(creator::Column::Name.eq(name))
                 .one(&self.db)

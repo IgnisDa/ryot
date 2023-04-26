@@ -113,7 +113,15 @@ impl BooksService {
                 .unwrap();
             let metadata_id = self
                 .media_service
-                .commit_media(MetadataLot::Book, &book_details)
+                .commit_media(
+                    MetadataLot::Book,
+                    book_details.title,
+                    book_details.description,
+                    book_details.publish_year,
+                    book_details.poster_images,
+                    book_details.backdrop_images,
+                    book_details.author_names,
+                )
                 .await?;
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),

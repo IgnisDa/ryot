@@ -94,7 +94,15 @@ impl MoviesService {
             let movie_details = self.tmdb_service.details(identifier).await.unwrap();
             let metadata_id = self
                 .media_service
-                .commit_media(MetadataLot::Movie, &movie_details)
+                .commit_media(
+                    MetadataLot::Movie,
+                    movie_details.title,
+                    movie_details.description,
+                    movie_details.publish_year,
+                    movie_details.poster_images,
+                    movie_details.backdrop_images,
+                    movie_details.author_names,
+                )
                 .await?;
             let movie = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
