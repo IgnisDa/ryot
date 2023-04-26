@@ -6,7 +6,10 @@ use surf::Client;
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
     shows::{ShowEpisode, ShowSeason},
-    utils::{convert_date_to_year, get_data_parallely_from_sources, get_tmdb_config},
+    utils::{
+        convert_date_to_year, convert_option_path_to_vec, get_data_parallely_from_sources,
+        get_tmdb_config,
+    },
 };
 
 use super::ShowSpecifics;
@@ -51,20 +54,17 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut poster_images = vec![];
-        if let Some(c) = data.poster_path {
-            poster_images.push(self.get_cover_image_url(&c));
-        };
-        let mut backdrop_images = vec![];
-        if let Some(c) = data.backdrop_path {
-            backdrop_images.push(self.get_cover_image_url(&c));
-        };
+        let poster_images =
+            convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
+        let backdrop_images =
+            convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
             id: i32,
             name: String,
             episode_number: i32,
             overview: Option<String>,
+            air_date: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -93,6 +93,7 @@ impl TmdbService {
                     .into_iter()
                     .map(|s| ShowSeason {
                         name: s.name,
+                        publish_year: convert_date_to_year(&s.air_date),
                         overview: s.overview,
                         poster_path: s.poster_path,
                         backdrop_path: s.backdrop_path,
@@ -102,6 +103,7 @@ impl TmdbService {
                             .into_iter()
                             .map(|e| ShowEpisode {
                                 name: e.name,
+                                publish_year: convert_date_to_year(&e.air_date),
                                 overview: e.overview,
                                 episode_number: e.episode_number,
                             })

@@ -66,10 +66,12 @@ pub async fn get_tmdb_config(url: &str, access_token: &str) -> (Client, String) 
     (client, data.images.secure_base_url)
 }
 
+pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()
+}
+
 pub fn convert_date_to_year(d: &str) -> Option<i32> {
-    NaiveDate::parse_from_str(d, "%Y-%m-%d")
-        .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-        .ok()
+    convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
 }
 
 pub async fn get_data_parallely_from_sources<'a, T, F, R>(
@@ -97,4 +99,12 @@ where
         data.push(result);
     }
     data
+}
+
+pub fn convert_option_path_to_vec(p: Option<String>) -> Vec<String> {
+    let mut resp = vec![];
+    if let Some(c) = p {
+        resp.push(c);
+    }
+    resp
 }

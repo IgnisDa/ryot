@@ -5,7 +5,7 @@ use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, get_tmdb_config},
+    utils::{convert_date_to_year, convert_option_path_to_vec, get_tmdb_config},
 };
 
 use super::MovieSpecifics;
@@ -46,14 +46,10 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut poster_images = vec![];
-        if let Some(c) = data.poster_path {
-            poster_images.push(self.get_cover_image_url(&c));
-        };
-        let mut backdrop_images = vec![];
-        if let Some(c) = data.backdrop_path {
-            backdrop_images.push(self.get_cover_image_url(&c));
-        };
+        let poster_images =
+            convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
+        let backdrop_images =
+            convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.title,
@@ -113,16 +109,11 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let poster_images = if let Some(c) = d.poster_path {
-                    vec![self.get_cover_image_url(&c)]
-                } else {
-                    vec![]
-                };
-                let backdrop_images = if let Some(c) = d.backdrop_path {
-                    vec![self.get_cover_image_url(&c)]
-                } else {
-                    vec![]
-                };
+                let backdrop_images = convert_option_path_to_vec(
+                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
+                );
+                let poster_images =
+                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     title: d.title,
