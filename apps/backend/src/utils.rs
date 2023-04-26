@@ -3,16 +3,12 @@ use chrono::NaiveDate;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
 };
-use serde::{de, Deserialize, Serialize};
-use surf::{
-    http::headers::{AUTHORIZATION, USER_AGENT},
-    Client, Config, Url,
-};
+use serde::de;
+use surf::Client;
 use tokio::task::JoinSet;
 
 use crate::{
     entities::{prelude::Token, token},
-    graphql::AUTHOR,
     GqlCtx,
 };
 
@@ -42,28 +38,6 @@ pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
         Some(t) => Ok(t.user_id),
         None => Err(Error::new("The auth token was incorrect")),
     }
-}
-
-pub async fn get_tmdb_config(url: &str, access_token: &str) -> (Client, String) {
-    let client: Client = Config::new()
-        .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
-        .unwrap()
-        .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-        .unwrap()
-        .set_base_url(Url::parse(url).unwrap())
-        .try_into()
-        .unwrap();
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    struct TmdbImageConfiguration {
-        secure_base_url: String,
-    }
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    struct TmdbConfiguration {
-        images: TmdbImageConfiguration,
-    }
-    let mut rsp = client.get("configuration").await.unwrap();
-    let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-    (client, data.images.secure_base_url)
 }
 
 pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
@@ -107,4 +81,37 @@ pub fn convert_option_path_to_vec(p: Option<String>) -> Vec<String> {
         resp.push(c);
     }
     resp
+}
+
+pub mod tmdb {
+
+    use serde::{Deserialize, Serialize};
+    use surf::{
+        http::headers::{AUTHORIZATION, USER_AGENT},
+        Client, Config, Url,
+    };
+
+    use crate::graphql::AUTHOR;
+
+    pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
+        let client: Client = Config::new()
+            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
+            .unwrap()
+            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
+            .unwrap()
+            .set_base_url(Url::parse(url).unwrap())
+            .try_into()
+            .unwrap();
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbImageConfiguration {
+            secure_base_url: String,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbConfiguration {
+            images: TmdbImageConfiguration,
+        }
+        let mut rsp = client.get("configuration").await.unwrap();
+        let data: TmdbConfiguration = rsp.body_json().await.unwrap();
+        (client, data.images.secure_base_url)
+    }
 }

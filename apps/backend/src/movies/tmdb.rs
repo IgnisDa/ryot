@@ -5,7 +5,7 @@ use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, convert_option_path_to_vec, get_tmdb_config},
+    utils::{convert_date_to_year, convert_option_path_to_vec, tmdb},
 };
 
 use super::MovieSpecifics;
@@ -18,7 +18,7 @@ pub struct TmdbService {
 
 impl TmdbService {
     pub async fn new(url: &str, access_token: &str) -> Self {
-        let (client, image_url) = get_tmdb_config(url, access_token).await;
+        let (client, image_url) = tmdb::get_client_config(url, access_token).await;
         Self { client, image_url }
     }
 }

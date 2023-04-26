@@ -7,8 +7,7 @@ use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
     shows::{ShowEpisode, ShowSeason},
     utils::{
-        convert_date_to_year, convert_option_path_to_vec, get_data_parallely_from_sources,
-        get_tmdb_config,
+        convert_date_to_year, convert_option_path_to_vec, get_data_parallely_from_sources, tmdb,
     },
 };
 
@@ -22,7 +21,7 @@ pub struct TmdbService {
 
 impl TmdbService {
     pub async fn new(url: &str, access_token: &str) -> Self {
-        let (client, image_url) = get_tmdb_config(url, access_token).await;
+        let (client, image_url) = tmdb::get_client_config(url, access_token).await;
         Self { client, image_url }
     }
 }
