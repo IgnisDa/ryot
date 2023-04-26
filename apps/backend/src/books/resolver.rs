@@ -98,11 +98,6 @@ impl BooksService {
         offset: Option<i32>,
         index: i32,
     ) -> Result<IdObject> {
-        let book_details = self
-            .openlibrary_service
-            .details(identifier, query, offset, index)
-            .await
-            .unwrap();
         let meta = Book::find()
             .filter(book::Column::OpenLibraryKey.eq(identifier))
             .one(&self.db)
@@ -111,6 +106,11 @@ impl BooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
+            let book_details = self
+                .openlibrary_service
+                .details(identifier, query, offset, index)
+                .await
+                .unwrap();
             let metadata_id = self
                 .media_service
                 .commit_media(MetadataLot::Book, &book_details)

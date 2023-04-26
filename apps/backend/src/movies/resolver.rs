@@ -83,7 +83,6 @@ impl MoviesService {
     }
 
     async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
-        let movie_details = self.tmdb_service.details(identifier).await.unwrap();
         let meta = Movie::find()
             .filter(movie::Column::TmdbId.eq(identifier))
             .one(&self.db)
@@ -92,6 +91,7 @@ impl MoviesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
+            let movie_details = self.tmdb_service.details(identifier).await.unwrap();
             let metadata_id = self
                 .media_service
                 .commit_media(MetadataLot::Movie, &movie_details)
