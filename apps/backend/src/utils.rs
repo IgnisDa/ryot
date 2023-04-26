@@ -84,7 +84,6 @@ pub fn convert_option_path_to_vec(p: Option<String>) -> Vec<String> {
 }
 
 pub mod tmdb {
-
     use serde::{Deserialize, Serialize};
     use surf::{
         http::headers::{AUTHORIZATION, USER_AGENT},

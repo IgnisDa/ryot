@@ -91,25 +91,30 @@ impl TmdbService {
                 runtime: None,
                 seasons: seasons
                     .into_iter()
-                    .map(|s| ShowSeason {
-                        id: s.id,
-                        name: s.name,
-                        publish_year: convert_date_to_year(&s.air_date),
-                        overview: s.overview,
-                        poster_path: s.poster_path,
-                        backdrop_path: s.backdrop_path,
-                        season_number: s.season_number,
-                        episodes: s
-                            .episodes
-                            .into_iter()
-                            .map(|e| ShowEpisode {
-                                id: e.id,
-                                name: e.name,
-                                publish_year: convert_date_to_year(&e.air_date),
-                                overview: e.overview,
-                                episode_number: e.episode_number,
-                            })
-                            .collect(),
+                    .map(|s| {
+                        let poster_path = s.poster_path.map(|p| self.get_cover_image_url(&p));
+                        let backdrop_path = s.backdrop_path.map(|p| self.get_cover_image_url(&p));
+                        let season = ShowSeason {
+                            id: s.id,
+                            name: s.name,
+                            publish_year: convert_date_to_year(&s.air_date),
+                            overview: s.overview,
+                            poster_path,
+                            backdrop_path,
+                            season_number: s.season_number,
+                            episodes: s
+                                .episodes
+                                .into_iter()
+                                .map(|e| ShowEpisode {
+                                    id: e.id,
+                                    name: e.name,
+                                    publish_year: convert_date_to_year(&e.air_date),
+                                    overview: e.overview,
+                                    episode_number: e.episode_number,
+                                })
+                                .collect(),
+                        };
+                        season
                     })
                     .collect(),
             }),
@@ -158,16 +163,11 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let poster_images = if let Some(c) = d.poster_path {
-                    vec![self.get_cover_image_url(&c)]
-                } else {
-                    vec![]
-                };
-                let backdrop_images = if let Some(c) = d.backdrop_path {
-                    vec![self.get_cover_image_url(&c)]
-                } else {
-                    vec![]
-                };
+                let backdrop_images = convert_option_path_to_vec(
+                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
+                );
+                let poster_images =
+                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     title: d.name,
