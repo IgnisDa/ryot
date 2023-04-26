@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::movie,
+    entities::{movie, prelude::Movie},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
@@ -82,18 +84,25 @@ impl MoviesService {
 
     async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
         let movie_details = self.tmdb_service.details(identifier).await.unwrap();
-        let (metadata_id, did_exist) = self
-            .media_service
-            .commit_media(identifier, MetadataLot::Movie, &movie_details)
-            .await?;
-        if !did_exist {
+        let meta = Movie::find()
+            .filter(movie::Column::TmdbId.eq(identifier))
+            .one(&self.db)
+            .await
+            .unwrap();
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.metadata_id })
+        } else {
+            let metadata_id = self
+                .media_service
+                .commit_media(MetadataLot::Movie, &movie_details)
+                .await?;
             let movie = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
                 tmdb_id: ActiveValue::Set(movie_details.identifier),
                 runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
             };
             movie.insert(&self.db).await.unwrap();
+            Ok(IdObject { id: metadata_id })
         }
-        Ok(IdObject { id: metadata_id })
     }
 }

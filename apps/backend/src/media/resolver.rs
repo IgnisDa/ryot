@@ -462,97 +462,72 @@ impl MediaService {
         }
     }
 
-    pub async fn commit_media(
-        &self,
-        identifier: &str,
-        lot: MetadataLot,
-        details: &MediaSearchItem,
-    ) -> Result<(i32, bool)> {
-        let meta = match lot {
-            MetadataLot::Book => Book::find()
-                .filter(book::Column::OpenLibraryKey.eq(identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Movie => Movie::find()
-                .filter(movie::Column::TmdbId.eq(identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            _ => todo!(),
+    pub async fn commit_media(&self, lot: MetadataLot, details: &MediaSearchItem) -> Result<i32> {
+        let metadata = metadata::ActiveModel {
+            lot: ActiveValue::Set(lot.to_owned()),
+            title: ActiveValue::Set(details.title.to_owned()),
+            description: ActiveValue::Set(details.description.to_owned()),
+            publish_year: ActiveValue::Set(details.publish_year),
+            ..Default::default()
         };
-        let resp = if let Some(m) = meta {
-            (m, true)
-        } else {
-            let metadata = metadata::ActiveModel {
-                lot: ActiveValue::Set(lot.to_owned()),
-                title: ActiveValue::Set(details.title.to_owned()),
-                description: ActiveValue::Set(details.description.to_owned()),
-                publish_year: ActiveValue::Set(details.publish_year),
-                ..Default::default()
-            };
-            let metadata = metadata.insert(&self.db).await.unwrap();
-            for image in details.poster_images.iter() {
-                if let Some(c) = MetadataImage::find()
-                    .filter(metadata_image::Column::Url.eq(image))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = metadata_image::ActiveModel {
-                        url: ActiveValue::Set(image.to_owned()),
-                        lot: ActiveValue::Set(MetadataImageLot::Poster),
-                        metadata_id: ActiveValue::Set(metadata.id),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-            }
-            for image in details.backdrop_images.iter() {
-                if let Some(c) = MetadataImage::find()
-                    .filter(metadata_image::Column::Url.eq(image))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = metadata_image::ActiveModel {
-                        url: ActiveValue::Set(image.to_owned()),
-                        lot: ActiveValue::Set(MetadataImageLot::Backdrop),
-                        metadata_id: ActiveValue::Set(metadata.id),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-            }
-            for name in details.author_names.iter() {
-                let creator = if let Some(c) = Creator::find()
-                    .filter(creator::Column::Name.eq(name))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = creator::ActiveModel {
-                        name: ActiveValue::Set(name.to_owned()),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-                let metadata_creator = metadata_to_creator::ActiveModel {
+        let metadata = metadata.insert(&self.db).await.unwrap();
+        for image in details.poster_images.iter() {
+            if let Some(c) = MetadataImage::find()
+                .filter(metadata_image::Column::Url.eq(image))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = metadata_image::ActiveModel {
+                    url: ActiveValue::Set(image.to_owned()),
+                    lot: ActiveValue::Set(MetadataImageLot::Poster),
                     metadata_id: ActiveValue::Set(metadata.id),
-                    creator_id: ActiveValue::Set(creator.id),
+                    ..Default::default()
                 };
-                metadata_creator.insert(&self.db).await.unwrap();
-            }
-            (metadata.id, false)
-        };
-        Ok(resp)
+                c.insert(&self.db).await.unwrap()
+            };
+        }
+        for image in details.backdrop_images.iter() {
+            if let Some(c) = MetadataImage::find()
+                .filter(metadata_image::Column::Url.eq(image))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = metadata_image::ActiveModel {
+                    url: ActiveValue::Set(image.to_owned()),
+                    lot: ActiveValue::Set(MetadataImageLot::Backdrop),
+                    metadata_id: ActiveValue::Set(metadata.id),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
+            };
+        }
+        for name in details.author_names.iter() {
+            let creator = if let Some(c) = Creator::find()
+                .filter(creator::Column::Name.eq(name))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = creator::ActiveModel {
+                    name: ActiveValue::Set(name.to_owned()),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
+            };
+            let metadata_creator = metadata_to_creator::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata.id),
+                creator_id: ActiveValue::Set(creator.id),
+            };
+            metadata_creator.insert(&self.db).await.unwrap();
+        }
+        Ok(metadata.id)
     }
 }

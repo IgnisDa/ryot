@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::book,
+    entities::{book, prelude::Book},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
@@ -101,18 +103,25 @@ impl BooksService {
             .details(identifier, query, offset, index)
             .await
             .unwrap();
-        let (metadata_id, did_exist) = self
-            .media_service
-            .commit_media(identifier, MetadataLot::Book, &book_details)
-            .await?;
-        if !did_exist {
+        let meta = Book::find()
+            .filter(book::Column::OpenLibraryKey.eq(identifier))
+            .one(&self.db)
+            .await
+            .unwrap();
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.metadata_id })
+        } else {
+            let metadata_id = self
+                .media_service
+                .commit_media(MetadataLot::Book, &book_details)
+                .await?;
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
                 open_library_key: ActiveValue::Set(book_details.identifier),
                 num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
             };
             book.insert(&self.db).await.unwrap();
+            Ok(IdObject { id: metadata_id })
         }
-        Ok(IdObject { id: metadata_id })
     }
 }
