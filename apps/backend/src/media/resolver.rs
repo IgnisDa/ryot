@@ -23,7 +23,7 @@ use crate::{
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
-    shows::{ShowSeason, ShowSpecifics},
+    shows::{ShowEpisode, ShowSeason, ShowSpecifics},
     utils::user_id_from_ctx,
 };
 
@@ -288,7 +288,7 @@ impl MediaService {
                     .await
                     .unwrap();
                 for season in db_seasons {
-                    // let mut episodes = vec![];
+                    let mut episodes = vec![];
                     let s = season
                         .find_related(Metadata)
                         .one(&self.db)
@@ -297,11 +297,25 @@ impl MediaService {
                         .unwrap();
                     let db_episodes = season
                         .find_related(Episode)
-                        // .order_by_asc(episode::Column::Number)
+                        .order_by_asc(episode::Column::Number)
                         .all(&self.db)
                         .await
                         .unwrap();
-                    for episode in db_episodes {}
+                    for episode in db_episodes {
+                        let s = episode
+                            .find_related(Metadata)
+                            .one(&self.db)
+                            .await
+                            .unwrap()
+                            .unwrap();
+                        episodes.push(ShowEpisode {
+                            id: s.id,
+                            episode_number: episode.number,
+                            name: s.title,
+                            overview: s.description,
+                            publish_year: s.publish_year,
+                        })
+                    }
                     let (poster_images, backdrop_images) = self.metadata_images(&s).await.unwrap();
                     seasons.push(ShowSeason {
                         id: s.id,
@@ -309,12 +323,11 @@ impl MediaService {
                         name: s.title,
                         overview: s.description,
                         publish_year: s.publish_year,
-                        episodes: vec![],
+                        episodes,
                         poster_images,
                         backdrop_images,
                     })
                 }
-                dbg!(&seasons);
                 resp.show_specifics = Some(ShowSpecifics { seasons });
             }
             _ => todo!(),

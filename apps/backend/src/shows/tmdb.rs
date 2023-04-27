@@ -6,9 +6,7 @@ use surf::Client;
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
     shows::{ShowEpisode, ShowSeason},
-    utils::{
-        convert_date_to_year, convert_option_path_to_vec, get_data_parallely_from_sources, tmdb,
-    },
+    utils::{convert_date_to_year, convert_option_path_to_vec, tmdb},
 };
 
 use super::ShowSpecifics;
@@ -63,7 +61,7 @@ impl TmdbService {
             name: String,
             episode_number: i32,
             overview: Option<String>,
-            air_date: String,
+            air_date: Option<String>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -76,11 +74,20 @@ impl TmdbService {
             season_number: i32,
             episodes: Vec<TmdbEpisode>,
         }
-        let seasons: Vec<TmdbSeason> =
-            get_data_parallely_from_sources(&data.seasons, &self.client, |s| {
-                format!("tv/{}/season/{}", identifier.to_owned(), s.season_number)
-            })
-            .await;
+        let mut seasons = vec![];
+        for s in data.seasons.iter() {
+            let mut rsp = self
+                .client
+                .get(format!(
+                    "tv/{}/season/{}",
+                    identifier.to_owned(),
+                    s.season_number
+                ))
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            seasons.push(data);
+        }
         Ok(MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.name,
@@ -111,7 +118,9 @@ impl TmdbService {
                                 .map(|e| ShowEpisode {
                                     id: e.id,
                                     name: e.name,
-                                    publish_year: convert_date_to_year(&e.air_date),
+                                    publish_year: convert_date_to_year(
+                                        &e.air_date.unwrap_or_default(),
+                                    ),
                                     overview: e.overview,
                                     episode_number: e.episode_number,
                                 })
