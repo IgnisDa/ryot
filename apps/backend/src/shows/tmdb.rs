@@ -88,19 +88,22 @@ impl TmdbService {
             author_names: vec![],
             publish_year: convert_date_to_year(&data.first_air_date),
             show_specifics: Some(ShowSpecifics {
-                runtime: None,
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
-                        let poster_path = s.poster_path.map(|p| self.get_cover_image_url(&p));
-                        let backdrop_path = s.backdrop_path.map(|p| self.get_cover_image_url(&p));
+                        let poster_images = convert_option_path_to_vec(
+                            s.poster_path.map(|p| self.get_cover_image_url(&p)),
+                        );
+                        let backdrop_images = convert_option_path_to_vec(
+                            s.backdrop_path.map(|p| self.get_cover_image_url(&p)),
+                        );
                         ShowSeason {
                             id: s.id,
                             name: s.name,
                             publish_year: convert_date_to_year(&s.air_date),
                             overview: s.overview,
-                            poster_path,
-                            backdrop_path,
+                            poster_images,
+                            backdrop_images,
                             season_number: s.season_number,
                             episodes: s
                                 .episodes
@@ -173,10 +176,7 @@ impl TmdbService {
                     description: d.overview,
                     author_names: vec![],
                     publish_year: convert_date_to_year(&d.first_air_date),
-                    show_specifics: Some(ShowSpecifics {
-                        runtime: None,
-                        seasons: vec![],
-                    }),
+                    show_specifics: Some(ShowSpecifics { seasons: vec![] }),
                     movie_specifics: None,
                     book_specifics: None,
                     poster_images,

@@ -11,7 +11,6 @@ use crate::{
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
-    utils::convert_option_path_to_vec,
 };
 
 use super::tmdb::TmdbService;
@@ -118,8 +117,8 @@ impl ShowsService {
                         season.name,
                         season.overview,
                         season.publish_year,
-                        convert_option_path_to_vec(season.poster_path),
-                        convert_option_path_to_vec(season.backdrop_path),
+                        season.poster_images,
+                        season.backdrop_images,
                         vec![], // TODO: use crew name
                     )
                     .await?;

@@ -7,7 +7,6 @@ pub mod tmdb;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ShowSpecifics {
-    pub runtime: Option<i32>,
     pub seasons: Vec<ShowSeason>,
 }
 
@@ -19,8 +18,8 @@ pub struct ShowSeason {
     pub publish_year: Option<i32>,
     pub episodes: Vec<ShowEpisode>,
     pub overview: Option<String>,
-    pub poster_path: Option<String>,
-    pub backdrop_path: Option<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

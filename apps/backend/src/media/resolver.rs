@@ -9,18 +9,21 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     entities::{
-        book, creator,
+        book, creator, episode,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
-        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, UserToMetadata},
-        seen,
+        prelude::{
+            Book, Creator, Episode, Metadata, MetadataImage, Movie, Season, Seen, Show,
+            UserToMetadata,
+        },
+        season, seen,
         seen::Model as SeenObject,
         user_to_metadata,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
-    shows::ShowSpecifics,
+    shows::{ShowSeason, ShowSpecifics},
     utils::user_id_from_ctx,
 };
 
@@ -81,6 +84,7 @@ pub struct MediaDetails {
     pub publish_year: Option<i32>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -188,6 +192,27 @@ impl MediaService {
 }
 
 impl MediaService {
+    async fn metadata_images(&self, meta: &MetadataModel) -> Result<(Vec<String>, Vec<String>)> {
+        let images = meta
+            .find_related(MetadataImage)
+            .all(&self.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let poster_images = images
+            .iter()
+            .filter(|f| f.lot == MetadataImageLot::Poster)
+            .map(|i| i.url.clone())
+            .collect();
+        let backdrop_images = images
+            .iter()
+            .filter(|f| f.lot == MetadataImageLot::Backdrop)
+            .map(|i| i.url.clone())
+            .collect();
+        Ok((poster_images, backdrop_images))
+    }
+
     async fn generic_metadata(
         &self,
         metadata_id: i32,
@@ -208,23 +233,7 @@ impl MediaService {
             .into_iter()
             .map(|c| c.name)
             .collect();
-        let images = meta
-            .find_related(MetadataImage)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
-        let poster_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Poster)
-            .map(|i| i.url.clone())
-            .collect();
-        let backdrop_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Backdrop)
-            .map(|i| i.url.clone())
-            .collect();
+        let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         Ok((meta, creators, poster_images, backdrop_images))
     }
 
@@ -242,6 +251,7 @@ impl MediaService {
             backdrop_images,
             book_specifics: None,
             movie_specifics: None,
+            show_specifics: None,
         };
         match meta.lot {
             MetadataLot::Book => {
@@ -263,6 +273,49 @@ impl MediaService {
                 resp.movie_specifics = Some(MovieSpecifics {
                     runtime: additional.runtime,
                 });
+            }
+            MetadataLot::Show => {
+                let additional = Show::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let mut seasons = vec![];
+                let db_seasons = additional
+                    .find_related(Season)
+                    .order_by_asc(season::Column::Number)
+                    .all(&self.db)
+                    .await
+                    .unwrap();
+                for season in db_seasons {
+                    // let mut episodes = vec![];
+                    let s = season
+                        .find_related(Metadata)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    let db_episodes = season
+                        .find_related(Episode)
+                        // .order_by_asc(episode::Column::Number)
+                        .all(&self.db)
+                        .await
+                        .unwrap();
+                    for episode in db_episodes {}
+                    let (poster_images, backdrop_images) = self.metadata_images(&s).await.unwrap();
+                    seasons.push(ShowSeason {
+                        id: s.id,
+                        season_number: season.number,
+                        name: s.title,
+                        overview: s.description,
+                        publish_year: s.publish_year,
+                        episodes: vec![],
+                        poster_images,
+                        backdrop_images,
+                    })
+                }
+                dbg!(&seasons);
+                resp.show_specifics = Some(ShowSpecifics { seasons });
             }
             _ => todo!(),
         };
