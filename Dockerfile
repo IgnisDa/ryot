@@ -32,6 +32,7 @@ COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
 RUN cargo build --release --bin trackona_backend --target x86_64-unknown-linux-musl
 
 FROM scratch
+WORKDIR /data
 ENV RUST_LOG="trackona_backend=info"
 COPY --from=app-builder /app/target/x86_64-unknown-linux-musl/release/trackona_backend /app
 ENTRYPOINT ["/app"]

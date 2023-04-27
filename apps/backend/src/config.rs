@@ -19,7 +19,7 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: "sqlite:./app.db?mode=rwc".to_owned(),
+            url: "sqlite:/data/trackona.db?mode=rwc".to_owned(),
         }
     }
 }
