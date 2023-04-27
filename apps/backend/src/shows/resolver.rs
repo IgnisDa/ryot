@@ -147,7 +147,7 @@ impl ShowsService {
                         metadata_id: ActiveValue::Set(episode_metadata_id),
                         tmdb_id: ActiveValue::Set(episode.id.to_string()),
                         season_id: ActiveValue::Set(db_season.metadata_id),
-                        number: ActiveValue::Set(episode.id),
+                        number: ActiveValue::Set(episode.episode_number),
                     };
                     db_episode.insert(&self.db).await.unwrap();
                 }
