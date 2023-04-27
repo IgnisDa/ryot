@@ -10,6 +10,7 @@ pub struct Model {
     pub metadata_id: i32,
     pub tmdb_id: String,
     pub season_id: i32,
+    pub number: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

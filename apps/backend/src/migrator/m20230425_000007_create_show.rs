@@ -14,6 +14,7 @@ pub enum Episode {
     MetadataId,
     TmdbId,
     SeasonId,
+    Number,
 }
 
 #[derive(Iden)]
@@ -138,6 +139,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Episode::TmdbId).string().not_null())
                     .col(ColumnDef::new(Episode::SeasonId).integer().not_null())
+                    .col(ColumnDef::new(Episode::Number).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("episode_to_season_foreign_key")
