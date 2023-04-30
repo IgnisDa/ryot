@@ -62,6 +62,7 @@ export const MEDIA_DETAILS = graphql(`
 	    posterImages
 	    backdropImages
 	    publishYear
+	    publishDate
 	    movieSpecifics {
 	      runtime
 	    }
