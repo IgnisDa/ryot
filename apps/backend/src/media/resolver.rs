@@ -16,9 +16,7 @@ use crate::{
             Book, Creator, Episode, Metadata, MetadataImage, Movie, Season, Seen, Show,
             UserToMetadata,
         },
-        season, seen,
-        seen::Model as SeenObject,
-        user_to_metadata,
+        season, seen, show, user_to_metadata,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -119,7 +117,7 @@ impl MediaQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
-    ) -> Result<Vec<SeenObject>> {
+    ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
@@ -338,7 +336,7 @@ impl MediaService {
         Ok(resp)
     }
 
-    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<SeenObject>> {
+    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
         let prev_seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
@@ -363,6 +361,12 @@ impl MediaService {
                 .map(|b| b.metadata_id),
             MetadataLot::Movie => Movie::find()
                 .filter(movie::Column::TmdbId.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            MetadataLot::Show => Show::find()
+                .filter(show::Column::TmdbId.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
