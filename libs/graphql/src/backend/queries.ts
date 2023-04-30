@@ -58,15 +58,31 @@ export const MEDIA_DETAILS = graphql(`
 	    description
 	    type
 	    creators
-			type
+	    type
 	    posterImages
-			backdropImages
+	    backdropImages
 	    publishYear
 	    movieSpecifics {
 	      runtime
 	    }
 	    bookSpecifics {
 	      pages
+	    }
+	    showSpecifics {
+	      seasons {
+	        seasonNumber
+	        name
+	        overview
+	        backdropImages
+	        posterImages
+	        episodes {
+	          name
+	          episodeNumber
+	          publishDate
+	          name
+	          overview
+	        }
+	      }
 	    }
 	  }
 	}
