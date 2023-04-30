@@ -32,6 +32,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type DeleteSeenItemMutationVariables,
+	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 } from "@trackona/generated/graphql/backend/graphql";
@@ -281,7 +282,6 @@ const Page: NextPageWithLayout = () => {
 							<SimpleGrid
 								cols={1}
 								spacing="lg"
-								mx={"lg"}
 								breakpoints={[{ minWidth: "md", cols: 2 }]}
 							>
 								{inProgressSeenItem ? (
@@ -311,7 +311,7 @@ const Page: NextPageWithLayout = () => {
 											I finished {getVerb(Verb.Read, details.data.type)}ing it
 										</Button>
 									</>
-								) : (
+								) : details.data.type === MetadataLot.Show ? null : (
 									<Button
 										variant="outline"
 										onClick={async () => {
@@ -337,6 +337,7 @@ const Page: NextPageWithLayout = () => {
 										onClose={closeNewModal}
 										opened={newModalOpened}
 										refetch={history.refetch}
+										showSpecifics={details.data.showSpecifics}
 									/>
 								</>
 							</SimpleGrid>
