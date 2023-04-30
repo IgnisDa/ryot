@@ -42,7 +42,7 @@ impl TmdbService {
             poster_path: Option<String>,
             backdrop_path: Option<String>,
             production_companies: Vec<TmdbAuthor>,
-            first_air_date: String,
+            first_air_date: Option<String>,
             seasons: Vec<TmdbSeasonNumber>,
         }
         let mut rsp = self
@@ -70,7 +70,7 @@ impl TmdbService {
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            air_date: String,
+            air_date: Option<String>,
             season_number: i32,
             episodes: Vec<TmdbEpisode>,
         }
@@ -93,8 +93,8 @@ impl TmdbService {
             title: data.name,
             description: data.overview,
             author_names: vec![],
-            publish_date: convert_string_to_date(&data.first_air_date),
-            publish_year: convert_date_to_year(&data.first_air_date),
+            publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
+            publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             show_specifics: Some(ShowSpecifics {
                 seasons: seasons
                     .into_iter()
@@ -108,7 +108,7 @@ impl TmdbService {
                         ShowSeason {
                             id: s.id,
                             name: s.name,
-                            publish_date: convert_string_to_date(&s.air_date),
+                            publish_date: convert_string_to_date(&s.air_date.unwrap_or_default()),
                             overview: s.overview,
                             poster_images,
                             backdrop_images,
