@@ -50,6 +50,14 @@ export const COMMIT_MOVIE = graphql(`
   }
 `);
 
+export const COMMIT_SHOW = graphql(`
+  mutation CommitShow($identifier: String!) {
+    commitShow(identifier: $identifier) {
+      id
+    }
+  }
+`);
+
 export const PROGRESS_UPDATE = graphql(`
   mutation ProgressUpdate($input: ProgressUpdate!) {
     progressUpdate(input: $input) {
