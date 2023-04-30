@@ -211,7 +211,12 @@ const Page: NextPageWithLayout = () => {
 								value={details.data.creators.join(", ")}
 							/>
 						) : null}
-						{details.data.publishYear ? (
+						{details.data.publishDate ? (
+							<StatDisplay
+								name="Published on"
+								value={details.data.publishDate.toString()}
+							/>
+						) : details.data.publishYear ? (
 							<StatDisplay
 								name="Published in"
 								value={details.data.publishYear.toString()}
