@@ -99,6 +99,7 @@ impl MoviesService {
                     movie_details.title,
                     movie_details.description,
                     movie_details.publish_year,
+                    movie_details.publish_date,
                     movie_details.poster_images,
                     movie_details.backdrop_images,
                     movie_details.author_names,

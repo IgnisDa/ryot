@@ -38,6 +38,7 @@ pub struct MediaSearchItem {
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
@@ -313,7 +314,7 @@ impl MediaService {
                             episode_number: episode.number,
                             name: s.title,
                             overview: s.description,
-                            publish_year: s.publish_year,
+                            publish_date: s.publish_date,
                         })
                     }
                     let (poster_images, backdrop_images) = self.metadata_images(&s).await.unwrap();
@@ -322,7 +323,7 @@ impl MediaService {
                         season_number: season.number,
                         name: s.title,
                         overview: s.description,
-                        publish_year: s.publish_year,
+                        publish_date: s.publish_date,
                         episodes,
                         poster_images,
                         backdrop_images,
@@ -441,6 +442,7 @@ impl MediaService {
                 poster_images,
                 backdrop_images,
                 publish_year: m.publish_year,
+                publish_date: m.publish_date,
                 book_specifics: None,
                 movie_specifics: None,
                 show_specifics: None,
@@ -534,6 +536,7 @@ impl MediaService {
         title: String,
         description: Option<String>,
         publish_year: Option<i32>,
+        publish_date: Option<NaiveDate>,
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
         creator_names: Vec<String>,
@@ -543,6 +546,7 @@ impl MediaService {
             title: ActiveValue::Set(title),
             description: ActiveValue::Set(description),
             publish_year: ActiveValue::Set(publish_year),
+            publish_date: ActiveValue::Set(publish_date),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();

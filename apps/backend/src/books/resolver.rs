@@ -118,6 +118,7 @@ impl BooksService {
                     book_details.title,
                     book_details.description,
                     book_details.publish_year,
+                    None,
                     book_details.poster_images,
                     book_details.backdrop_images,
                     book_details.author_names,

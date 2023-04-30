@@ -5,7 +5,7 @@ use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, convert_option_path_to_vec, tmdb},
+    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
 };
 
 use super::MovieSpecifics;
@@ -61,6 +61,7 @@ impl TmdbService {
             poster_images,
             backdrop_images,
             publish_year: convert_date_to_year(&data.release_date),
+            publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
             movie_specifics: Some(MovieSpecifics {
                 runtime: Some(data.runtime),
@@ -120,6 +121,7 @@ impl TmdbService {
                     description: d.overview,
                     author_names: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
+                    publish_date: convert_string_to_date(&d.release_date),
                     movie_specifics: Some(MovieSpecifics { runtime: None }),
                     book_specifics: None,
                     show_specifics: None,

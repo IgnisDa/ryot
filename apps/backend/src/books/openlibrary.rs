@@ -174,6 +174,7 @@ impl OpenlibraryService {
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
                     publish_year: d.first_publish_year,
+                    publish_date: None,
                     book_specifics: Some(BookSpecifics {
                         pages: d.number_of_pages_median,
                     }),

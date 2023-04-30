@@ -6,7 +6,7 @@ use surf::Client;
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
     shows::{ShowEpisode, ShowSeason},
-    utils::{convert_date_to_year, convert_option_path_to_vec, tmdb},
+    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
 };
 
 use super::ShowSpecifics;
@@ -93,6 +93,7 @@ impl TmdbService {
             title: data.name,
             description: data.overview,
             author_names: vec![],
+            publish_date: convert_string_to_date(&data.first_air_date),
             publish_year: convert_date_to_year(&data.first_air_date),
             show_specifics: Some(ShowSpecifics {
                 seasons: seasons
@@ -107,7 +108,7 @@ impl TmdbService {
                         ShowSeason {
                             id: s.id,
                             name: s.name,
-                            publish_year: convert_date_to_year(&s.air_date),
+                            publish_date: convert_string_to_date(&s.air_date),
                             overview: s.overview,
                             poster_images,
                             backdrop_images,
@@ -118,7 +119,7 @@ impl TmdbService {
                                 .map(|e| ShowEpisode {
                                     id: e.id,
                                     name: e.name,
-                                    publish_year: convert_date_to_year(
+                                    publish_date: convert_string_to_date(
                                         &e.air_date.unwrap_or_default(),
                                     ),
                                     overview: e.overview,
@@ -185,6 +186,7 @@ impl TmdbService {
                     description: d.overview,
                     author_names: vec![],
                     publish_year: convert_date_to_year(&d.first_air_date),
+                    publish_date: convert_string_to_date(&d.first_air_date),
                     show_specifics: Some(ShowSpecifics { seasons: vec![] }),
                     movie_specifics: None,
                     book_specifics: None,

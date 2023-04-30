@@ -99,6 +99,7 @@ impl ShowsService {
                     show_details.title,
                     show_details.description,
                     show_details.publish_year,
+                    show_details.publish_date,
                     show_details.poster_images,
                     show_details.backdrop_images,
                     show_details.author_names,
@@ -116,7 +117,8 @@ impl ShowsService {
                         MetadataLot::Season,
                         season.name,
                         season.overview,
-                        season.publish_year,
+                        None,
+                        season.publish_date,
                         season.poster_images,
                         season.backdrop_images,
                         vec![], // TODO: use crew name
@@ -137,7 +139,8 @@ impl ShowsService {
                             MetadataLot::Episode,
                             episode.name,
                             episode.overview,
-                            episode.publish_year,
+                            None,
+                            episode.publish_date,
                             vec![],
                             vec![],
                             vec![], // TODO: use crew name
