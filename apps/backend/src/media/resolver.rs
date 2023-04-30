@@ -117,11 +117,12 @@ impl MediaQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
+        #[graphql(default = false)] is_show: bool,
     ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .seen_history(metadata_id, user_id)
+            .seen_history(metadata_id, user_id, is_show)
             .await
     }
 
@@ -336,14 +337,45 @@ impl MediaService {
         Ok(resp)
     }
 
-    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
-        let prev_seen = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::MetadataId.eq(metadata_id))
-            .order_by_desc(seen::Column::LastUpdatedOn)
-            .all(&self.db)
-            .await
-            .unwrap();
+    async fn seen_history(
+        &self,
+        metadata_id: i32,
+        user_id: i32,
+        is_show: bool,
+    ) -> Result<Vec<seen::Model>> {
+        let prev_seen = if is_show {
+            let seasons = Season::find()
+                .filter(season::Column::ShowId.eq(metadata_id))
+                .all(&self.db)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|s| s.metadata_id)
+                .collect::<Vec<_>>();
+            let episodes = Episode::find()
+                .filter(episode::Column::SeasonId.is_in(seasons))
+                .all(&self.db)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|s| s.metadata_id)
+                .collect::<Vec<_>>();
+            Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.is_in(episodes))
+                .order_by_desc(seen::Column::LastUpdatedOn)
+                .all(&self.db)
+                .await
+                .unwrap()
+        } else {
+            Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(metadata_id))
+                .order_by_desc(seen::Column::LastUpdatedOn)
+                .all(&self.db)
+                .await
+                .unwrap()
+        };
         Ok(prev_seen)
     }
 

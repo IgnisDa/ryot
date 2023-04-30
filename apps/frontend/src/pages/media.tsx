@@ -128,10 +128,11 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	const history = useQuery({
-		queryKey: ["history", metadataId],
+		queryKey: ["history", metadataId, details.data?.type],
 		queryFn: async () => {
 			const { seenHistory } = await gqlClient.request(SEEN_HISTORY, {
 				metadataId: metadataId,
+				isShow: details.data?.type === MetadataLot.Show,
 			});
 			return seenHistory;
 		},
