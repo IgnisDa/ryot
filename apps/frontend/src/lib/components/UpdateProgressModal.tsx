@@ -25,10 +25,10 @@ export function ChooseEpisode(props: {
 	onClose: () => void;
 	lot: MetadataLot;
 	showSpecifics: ShowSpecifics;
+	selectedSeason: string | null;
 	setSelectedEpisode: Dispatch<SetStateAction<string | null>>;
+	setSelectedSeason: Dispatch<SetStateAction<string | null>>;
 }) {
-	const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
-
 	return (
 		<Modal
 			opened={props.opened}
@@ -44,19 +44,19 @@ export function ChooseEpisode(props: {
 							label="Season"
 							data={props.showSpecifics.seasons.map((s) => ({
 								label: s.name.toString(),
-								value: s.name.toString(),
+								value: s.seasonNumber.toString(),
 							}))}
-							onChange={setSelectedSeason}
+							onChange={props.setSelectedSeason}
 							withinPortal
 						/>
-						{selectedSeason ? (
+						{props.selectedSeason ? (
 							<Select
 								label="Episode"
 								data={props.showSpecifics.seasons
-									.find((s) => s.name === selectedSeason)!
+									.find((s) => s.seasonNumber === Number(props.selectedSeason))!
 									.episodes.map((e) => ({
 										label: e.name.toString(),
-										value: e.id.toString(),
+										value: e.episodeNumber.toString(),
 									}))}
 								onChange={props.setSelectedEpisode}
 								withinPortal
@@ -95,6 +95,7 @@ export default function UpdateProgressModal(props: {
 			: UpdateStep.SetProgress,
 	);
 	const [selectedEpisode, setSelectedEpisode] = useState<string | null>(null);
+	const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
@@ -111,14 +112,18 @@ export default function UpdateProgressModal(props: {
 			props.onClose();
 		},
 	});
-	const metadataId = selectedEpisode
-		? parseInt(selectedEpisode)
-		: props.metadataId;
+	const mutationInput = {
+		metadataId: props.metadataId,
+		episodeNumber: Number(selectedEpisode),
+		seasonNumber: Number(selectedSeason),
+	};
 
 	return step === UpdateStep.ChooseEpisode ? (
 		<ChooseEpisode
 			opened={props.opened}
 			setSelectedEpisode={setSelectedEpisode}
+			selectedSeason={selectedSeason}
+			setSelectedSeason={setSelectedSeason}
 			showSpecifics={props.showSpecifics}
 			lot={props.lot}
 			onClose={() => {
@@ -140,10 +145,7 @@ export default function UpdateProgressModal(props: {
 					variant="outline"
 					onClick={async () => {
 						await progressUpdate.mutateAsync({
-							input: {
-								action: ProgressUpdateAction.Now,
-								metadataId,
-							},
+							input: { action: ProgressUpdateAction.Now, ...mutationInput },
 						});
 					}}
 				>
@@ -155,7 +157,7 @@ export default function UpdateProgressModal(props: {
 						await progressUpdate.mutateAsync({
 							input: {
 								action: ProgressUpdateAction.InThePast,
-								metadataId,
+								...mutationInput,
 							},
 						});
 					}}
@@ -177,8 +179,8 @@ export default function UpdateProgressModal(props: {
 								await progressUpdate.mutateAsync({
 									input: {
 										action: ProgressUpdateAction.InThePast,
-										metadataId,
 										date: DateTime.fromJSDate(selectedDate).toISODate(),
+										...mutationInput,
 									},
 								});
 						}}

@@ -212,8 +212,10 @@ export type MutationRootRegisterUserArgs = {
 export type ProgressUpdate = {
   action: ProgressUpdateAction;
   date?: InputMaybe<Scalars['NaiveDate']>;
+  episodeNumber?: InputMaybe<Scalars['Int']>;
   metadataId: Scalars['Int'];
   progress?: InputMaybe<Scalars['Int']>;
+  seasonNumber?: InputMaybe<Scalars['Int']>;
 };
 
 export enum ProgressUpdateAction {
@@ -269,7 +271,6 @@ export type QueryRootMoviesSearchArgs = {
 
 
 export type QueryRootSeenHistoryArgs = {
-  isShow?: Scalars['Boolean'];
   metadataId: Scalars['Int'];
 };
 
