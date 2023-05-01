@@ -10,7 +10,7 @@ use crate::{
     entities::{movie, prelude::Movie},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
-    migrator::MetadataLot,
+    migrator::{MetadataLot, MovieSource},
 };
 
 use super::tmdb::TmdbService;
@@ -109,6 +109,7 @@ impl MoviesService {
                 metadata_id: ActiveValue::Set(metadata_id),
                 tmdb_id: ActiveValue::Set(movie_details.identifier),
                 runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
+                source: ActiveValue::Set(MovieSource::Tmdb),
             };
             movie.insert(&self.db).await.unwrap();
             Ok(IdObject { id: metadata_id })

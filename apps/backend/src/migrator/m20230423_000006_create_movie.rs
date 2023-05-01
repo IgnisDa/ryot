@@ -1,10 +1,19 @@
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
 static MOVIE_TMDB_ID_INDEX: &str = "movie__tmdbid__index";
 
 pub struct Migration;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+pub enum MovieSource {
+    #[sea_orm(string_value = "T")]
+    Tmdb,
+}
 
 #[derive(Iden)]
 pub enum Movie {
@@ -13,6 +22,7 @@ pub enum Movie {
     TmdbId,
     // the total time of the movie in minutes
     Runtime,
+    Source,
 }
 
 impl MigrationName for Migration {
@@ -45,6 +55,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Movie::TmdbId).string().not_null())
                     .col(ColumnDef::new(Movie::Runtime).integer())
+                    .col(
+                        ColumnDef::new(Movie::Source)
+                            .enumeration(MovieSourceEnum.into_iden(), MovieSourceEnum.into_iter())
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;

@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::migrator::MovieSource;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "movie")]
 pub struct Model {
@@ -10,6 +12,7 @@ pub struct Model {
     pub metadata_id: i32,
     pub tmdb_id: String,
     pub runtime: Option<i32>,
+    pub source: MovieSource,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

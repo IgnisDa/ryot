@@ -14,6 +14,7 @@ pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataL
 pub use m20230416_000002_create_creator::Creator;
 pub use m20230416_000003_create_book::{Book, BookSource};
 pub use m20230417_000004_create_user::{TokenLot, UserLot};
+pub use m20230423_000006_create_movie::MovieSource;
 
 pub struct Migrator;
 
