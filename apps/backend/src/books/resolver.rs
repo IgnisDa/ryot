@@ -10,7 +10,7 @@ use crate::{
     entities::{book, prelude::Book},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
-    migrator::MetadataLot,
+    migrator::{BookSource, MetadataLot},
 };
 
 use super::openlibrary::OpenlibraryService;
@@ -128,6 +128,7 @@ impl BooksService {
                 metadata_id: ActiveValue::Set(metadata_id),
                 open_library_key: ActiveValue::Set(book_details.identifier),
                 num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
+                source: ActiveValue::Set(BookSource::OpenLibrary),
             };
             book.insert(&self.db).await.unwrap();
             Ok(IdObject { id: metadata_id })

@@ -3,13 +3,16 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::migrator::BookSource;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "book")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false, unique)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     pub open_library_key: String,
     pub num_pages: Option<i32>,
+    pub source: BookSource,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
