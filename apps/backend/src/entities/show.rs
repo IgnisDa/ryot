@@ -24,19 +24,11 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Metadata,
-    #[sea_orm(has_many = "super::season::Entity")]
-    Season,
 }
 
 impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Metadata.def()
-    }
-}
-
-impl Related<super::season::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Season.def()
     }
 }
 

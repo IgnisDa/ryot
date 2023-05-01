@@ -23,14 +23,10 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_one = "super::book::Entity")]
     Book,
-    #[sea_orm(has_one = "super::episode::Entity")]
-    Episode,
     #[sea_orm(has_many = "super::metadata_image::Entity")]
     MetadataImage,
     #[sea_orm(has_one = "super::movie::Entity")]
     Movie,
-    #[sea_orm(has_one = "super::season::Entity")]
-    Season,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
     #[sea_orm(has_one = "super::show::Entity")]
@@ -43,12 +39,6 @@ impl Related<super::book::Entity> for Entity {
     }
 }
 
-impl Related<super::episode::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Episode.def()
-    }
-}
-
 impl Related<super::metadata_image::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataImage.def()
@@ -58,12 +48,6 @@ impl Related<super::metadata_image::Entity> for Entity {
 impl Related<super::movie::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Movie.def()
-    }
-}
-
-impl Related<super::season::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Season.def()
     }
 }
 
