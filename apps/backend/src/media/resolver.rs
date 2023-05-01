@@ -13,7 +13,7 @@ use crate::{
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
         prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata},
-        seen::{self, SeenExtraInformation},
+        seen::{self, SeenExtraInformation, SeenSeasonExtraInformation},
         show, user_to_metadata,
     },
     graphql::IdObject,
@@ -289,13 +289,22 @@ impl MediaService {
     }
 
     async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
-        let prev_seen = Seen::find()
+        let mut prev_seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
+        prev_seen.iter_mut().for_each(|s| {
+            if let Some(i) = s.extra_information.as_ref() {
+                match i {
+                    SeenExtraInformation::Show(sea) => {
+                        s.show_information = Some(sea.clone());
+                    }
+                };
+            }
+        });
         Ok(prev_seen)
     }
 
@@ -472,11 +481,12 @@ impl MediaService {
                     ..Default::default()
                 };
                 if meta.lot == MetadataLot::Show {
-                    seen_ins.extra_information =
-                        ActiveValue::Set(Some(SeenExtraInformation::Show {
+                    seen_ins.extra_information = ActiveValue::Set(Some(
+                        SeenExtraInformation::Show(SeenSeasonExtraInformation {
                             season: input.season_number.unwrap(),
                             episode: input.episode_number.unwrap(),
-                        }));
+                        }),
+                    ));
                 }
                 seen_ins.insert(&self.db).await.unwrap()
             }

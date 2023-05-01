@@ -26,7 +26,7 @@ const documents = {
     "\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.ShowsSearchDocument,
     "\n\tquery CoreDetails {\n\t  coreDetails {\n\t    version\n\t    authorName\n\t  }\n\t}\n": types.CoreDetailsDocument,
     "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t    type\n\t    posterImages\n\t    backdropImages\n\t    publishYear\n\t    publishDate\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t    showSpecifics {\n\t      seasons {\n\t        seasonNumber\n\t        name\n\t        overview\n\t        backdropImages\n\t        posterImages\n\t        episodes {\n\t\t\t\t\t\tid\n\t          name\n\t          episodeNumber\n\t          publishDate\n\t          name\n\t          overview\n\t        }\n\t      }\n\t    }\n\t  }\n\t}\n": types.MediaDetailsDocument,
-    "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n": types.SeenHistoryDocument,
+    "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n": types.SeenHistoryDocument,
     "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n": types.MediaConsumedDocument,
     "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MediaListDocument,
 };
@@ -100,7 +100,7 @@ export function graphql(source: "\n\tquery MediaDetails($metadataId: Int!) {\n\t
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n"): (typeof documents)["\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t  }\n\t}\n"];
+export function graphql(source: "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n"): (typeof documents)["\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -98,6 +98,10 @@ export const SEEN_HISTORY = graphql(`
 	    startedOn
 	    finishedOn
 	    lastUpdatedOn
+			showInformation {
+				episode
+				season
+			}
 	  }
 	}
 `);
