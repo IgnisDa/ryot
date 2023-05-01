@@ -5,11 +5,14 @@ import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
+	Accordion,
 	Alert,
+	Avatar,
 	Box,
 	Button,
 	Container,
 	Flex,
+	Group,
 	Image,
 	Modal,
 	ScrollArea,
@@ -25,6 +28,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	IconAlertCircle,
 	IconInfoCircle,
+	IconPlayerPlay,
 	IconRotateClockwise,
 	IconUser,
 	IconX,
@@ -108,6 +112,26 @@ export function ProgressModal(props: {
 				</Button>
 			</Stack>
 		</Modal>
+	);
+}
+
+interface AccordionLabelProps {
+	name: string;
+	posterImages: string[];
+	overview?: string | null;
+}
+
+function AccordionLabel({ name, posterImages, overview }: AccordionLabelProps) {
+	return (
+		<Group noWrap>
+			<Avatar src={posterImages[0]} radius="xl" size="lg" />
+			<Box>
+				<Text>{name}</Text>
+				<Text size="sm" color="dimmed" weight={400}>
+					{overview}
+				</Text>
+			</Box>
+		</Group>
 	);
 }
 
@@ -267,6 +291,11 @@ const Page: NextPageWithLayout = () => {
 							>
 								History
 							</Tabs.Tab>
+							{details.data.showSpecifics ? (
+								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
+									Seasons
+								</Tabs.Tab>
+							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview" pt="xs">
 							<Box>
@@ -416,6 +445,27 @@ const Page: NextPageWithLayout = () => {
 								<Text fs="italic">You have no history for this item</Text>
 							)}
 						</Tabs.Panel>
+						{details.data.showSpecifics ? (
+							<Tabs.Panel value="seasons" pt="xs">
+								<ScrollArea.Autosize mah={300}>
+									<Accordion chevronPosition="right" variant="contained">
+										{details.data.showSpecifics.seasons.map((s) => (
+											<Accordion.Item
+												value={s.seasonNumber.toString()}
+												key={s.seasonNumber}
+											>
+												<Accordion.Control>
+													<AccordionLabel {...s} />
+												</Accordion.Control>
+												<Accordion.Panel>
+													<Text size="sm">{s.overview}</Text>
+												</Accordion.Panel>
+											</Accordion.Item>
+										))}
+									</Accordion>
+								</ScrollArea.Autosize>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</Stack>
 			</Flex>
