@@ -32,6 +32,7 @@ pub enum Show {
     Table,
     TmdbId,
     MetadataId,
+    Details,
 }
 
 impl MigrationName for Migration {
@@ -54,6 +55,12 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .unique_key()
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Show::Details)
+                            .not_null()
+                            .json()
+                            .default("{}"),
                     )
                     .foreign_key(
                         ForeignKey::create()
