@@ -66,7 +66,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let media_service = MediaService::new(&db);
     let openlibrary_service = OpenlibraryService::new(
         &config.books.openlibrary.url,
-        &config.books.openlibrary.cover_image,
+        &config.books.openlibrary.cover_image_url,
         &config.books.openlibrary.cover_image_size.to_string(),
     );
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);

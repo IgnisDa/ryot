@@ -37,7 +37,7 @@ pub enum OpenlibraryCoverImageSizes {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct OpenlibraryConfig {
     pub url: String,
-    pub cover_image: String,
+    pub cover_image_url: String,
     pub cover_image_size: OpenlibraryCoverImageSizes,
 }
 
@@ -45,7 +45,7 @@ impl Default for OpenlibraryConfig {
     fn default() -> Self {
         Self {
             url: "https://openlibrary.org".to_owned(),
-            cover_image: "https://covers.openlibrary.org/b".to_owned(),
+            cover_image_url: "https://covers.openlibrary.org/b".to_owned(),
             cover_image_size: OpenlibraryCoverImageSizes::Medium,
         }
     }
@@ -84,8 +84,6 @@ pub struct ShowConfig {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 #[derive(Default)]
 pub struct SchedulerConfig {}
-
-
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct WebConfig {
