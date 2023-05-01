@@ -15,6 +15,7 @@ import {
 	Group,
 	Image,
 	Modal,
+	Paper,
 	ScrollArea,
 	SimpleGrid,
 	Slider,
@@ -121,19 +122,25 @@ interface AccordionLabelProps {
 	overview?: string | null;
 }
 
-function AccordionLabel({ name, posterImages, overview }: AccordionLabelProps) {
+export const AccordionLabel = ({
+	name,
+	posterImages,
+	overview,
+}: AccordionLabelProps) => {
 	return (
 		<Group noWrap>
 			<Avatar src={posterImages[0]} radius="xl" size="lg" />
 			<Box>
 				<Text>{name}</Text>
-				<Text size="sm" color="dimmed" weight={400}>
-					{overview}
-				</Text>
+				{overview ? (
+					<Text size="sm" color="dimmed">
+						{overview}
+					</Text>
+				) : null}
 			</Box>
 		</Group>
 	);
-}
+};
 
 const Page: NextPageWithLayout = () => {
 	const [opened, { open, close }] = useDisclosure(false);
@@ -201,18 +208,10 @@ const Page: NextPageWithLayout = () => {
 						[t.fn.largerThan("md")]: { width: "35%" },
 					})}
 				>
-					{details.data.posterImages.length +
-						details.data.backdropImages.length >
-					0 ? (
+					{details.data.posterImages.length > 0 ? (
 						<Carousel
-							withIndicators={
-								[...details.data.posterImages, ...details.data.backdropImages]
-									.length > 1
-							}
-							withControls={
-								[...details.data.posterImages, ...details.data.backdropImages]
-									.length > 1
-							}
+							withIndicators={details.data.posterImages.length > 1}
+							withControls={details.data.posterImages.length > 1}
 							height={400}
 							w={300}
 						>
@@ -458,7 +457,15 @@ const Page: NextPageWithLayout = () => {
 													<AccordionLabel {...s} />
 												</Accordion.Control>
 												<Accordion.Panel>
-													<Text size="sm">{s.overview}</Text>
+													{s.episodes.map((e) => (
+														<Box mb={"xs"} ml={"md"}>
+															<AccordionLabel
+																{...e}
+																key={e.episodeNumber}
+																name={`${e.episodeNumber}. ${e.name}`}
+															/>
+														</Box>
+													))}
 												</Accordion.Panel>
 											</Accordion.Item>
 										))}
