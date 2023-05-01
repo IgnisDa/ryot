@@ -27,8 +27,14 @@ tracking.
 
 5. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 
-6. Set the `VIDEO_GAMES_TWITCH_CLIENT_ID` and `VIDEO_GAMES_TWITCH_CLIENT_SECRET`
-	environment variables in the system in which the Trackona server is running.
+6. Set the correct configuration variables in the environment in which the
+	Trackona server is running.
+
+## Important notes
+
+- The Twitch Access Token is only active for **60 days**. Please create a new
+	client secret using the above steps when your token has expired. More
+	information [here](https://api-docs.igdb.com/#4-my-accesstoken-stopped-working-why).
 	
 ## Conclusion
 
