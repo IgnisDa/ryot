@@ -79,6 +79,7 @@ export const MEDIA_DETAILS = graphql(`
 	        episodes {
 						id
 	          name
+						posterImages
 	          episodeNumber
 	          publishDate
 	          name
