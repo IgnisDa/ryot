@@ -81,21 +81,23 @@ pub struct ShowConfig {
     pub tmdb: TmdbConfig,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
-#[derive(Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct SchedulerConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
 }
 
-impl Default for WebConfig {
-    fn default() -> Self {
-        Self {
-            cors_origins: vec!["http://localhost:3000".to_owned()],
-        }
-    }
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct TwitchConfig {
+    pub client_id: String,
+    pub client_secret: String
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct GameConfig {
+    pub twitch: TwitchConfig,
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
@@ -108,6 +110,8 @@ pub struct AppConfig {
     pub movies: MovieConfig,
     #[serde(default)]
     pub shows: ShowConfig,
+    #[serde(default)]
+    pub games: GameConfig,
     #[serde(default)]
     pub scheduler: SchedulerConfig,
     #[serde(default)]
