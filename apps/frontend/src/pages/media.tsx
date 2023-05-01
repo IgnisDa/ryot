@@ -356,6 +356,12 @@ const Page: NextPageWithLayout = () => {
 													) : (
 														<Text fw="bold">Completed</Text>
 													)}
+													{h.showInformation ? (
+														<Text color="dimmed">
+															S{h.showInformation.season}-E
+															{h.showInformation.episode}
+														</Text>
+													) : null}
 												</Flex>
 												<Flex ml="sm" direction={"column"} gap={4}>
 													<Flex gap="xl">
