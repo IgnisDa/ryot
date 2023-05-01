@@ -14,6 +14,8 @@ pub enum Seen {
     UserId,
     MetadataId,
     LastUpdatedOn,
+    // for the time being this stores the `season` and `episode` numbers
+    ExtraInformation,
 }
 
 impl MigrationName for Migration {
@@ -47,6 +49,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
                     .col(ColumnDef::new(Seen::LastUpdatedOn).date_time().not_null())
+                    .col(ColumnDef::new(Seen::ExtraInformation).json())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

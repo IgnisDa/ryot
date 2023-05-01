@@ -28,9 +28,26 @@ export const MOVIES_SEARCH = graphql(`
 	}
 `);
 
-export const VERSION = graphql(`
-	query Version {
-		version
+export const SHOWS_SEARCH = graphql(`
+	query ShowsSearch($input: ShowSearchInput!) {
+	  showSearch(input: $input) {
+	    total
+	    items {
+	      identifier
+	      title
+	      posterImages
+	      publishYear
+	    }
+	  }
+	}
+`);
+
+export const CORE_DETAILS = graphql(`
+	query CoreDetails {
+	  coreDetails {
+	    version
+	    authorName
+	  }
 	}
 `);
 
@@ -41,15 +58,34 @@ export const MEDIA_DETAILS = graphql(`
 	    description
 	    type
 	    creators
-			type
+	    type
 	    posterImages
-			backdropImages
+	    backdropImages
 	    publishYear
+	    publishDate
 	    movieSpecifics {
 	      runtime
 	    }
 	    bookSpecifics {
 	      pages
+	    }
+	    showSpecifics {
+	      seasons {
+	        seasonNumber
+	        name
+	        overview
+	        backdropImages
+	        posterImages
+	        episodes {
+						id
+	          name
+						posterImages
+	          episodeNumber
+	          publishDate
+	          name
+	          overview
+	        }
+	      }
 	    }
 	  }
 	}
@@ -63,6 +99,10 @@ export const SEEN_HISTORY = graphql(`
 	    startedOn
 	    finishedOn
 	    lastUpdatedOn
+			showInformation {
+				episode
+				season
+			}
 	  }
 	}
 `);

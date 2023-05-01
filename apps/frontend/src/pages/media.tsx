@@ -5,13 +5,17 @@ import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
+	Accordion,
 	Alert,
+	Avatar,
 	Box,
 	Button,
 	Container,
 	Flex,
+	Group,
 	Image,
 	Modal,
+	Paper,
 	ScrollArea,
 	SimpleGrid,
 	Slider,
@@ -25,6 +29,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	IconAlertCircle,
 	IconInfoCircle,
+	IconPlayerPlay,
 	IconRotateClockwise,
 	IconUser,
 	IconX,
@@ -32,6 +37,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type DeleteSeenItemMutationVariables,
+	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 } from "@trackona/generated/graphql/backend/graphql";
@@ -110,6 +116,32 @@ export function ProgressModal(props: {
 	);
 }
 
+interface AccordionLabelProps {
+	name: string;
+	posterImages: string[];
+	overview?: string | null;
+}
+
+export const AccordionLabel = ({
+	name,
+	posterImages,
+	overview,
+}: AccordionLabelProps) => {
+	return (
+		<Group noWrap>
+			<Avatar src={posterImages[0]} radius="xl" size="lg" />
+			<Box>
+				<Text>{name}</Text>
+				{overview ? (
+					<Text size="sm" color="dimmed">
+						{overview}
+					</Text>
+				) : null}
+			</Box>
+		</Group>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const [opened, { open, close }] = useDisclosure(false);
 	const [newModalOpened, { open: openNewModal, close: closeNewModal }] =
@@ -127,10 +159,11 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	const history = useQuery({
-		queryKey: ["history", metadataId],
+		queryKey: ["history", metadataId, details.data?.type],
 		queryFn: async () => {
 			const { seenHistory } = await gqlClient.request(SEEN_HISTORY, {
 				metadataId: metadataId,
+				isShow: details.data?.type === MetadataLot.Show,
 			});
 			return seenHistory;
 		},
@@ -175,18 +208,10 @@ const Page: NextPageWithLayout = () => {
 						[t.fn.largerThan("md")]: { width: "35%" },
 					})}
 				>
-					{details.data.posterImages.length +
-						details.data.backdropImages.length >
-					0 ? (
+					{details.data.posterImages.length > 0 ? (
 						<Carousel
-							withIndicators={
-								[...details.data.posterImages, ...details.data.backdropImages]
-									.length > 1
-							}
-							withControls={
-								[...details.data.posterImages, ...details.data.backdropImages]
-									.length > 1
-							}
+							withIndicators={details.data.posterImages.length > 1}
+							withControls={details.data.posterImages.length > 1}
 							height={400}
 							w={300}
 						>
@@ -211,7 +236,12 @@ const Page: NextPageWithLayout = () => {
 								value={details.data.creators.join(", ")}
 							/>
 						) : null}
-						{details.data.publishYear ? (
+						{details.data.publishDate ? (
+							<StatDisplay
+								name="Published on"
+								value={details.data.publishDate.toString()}
+							/>
+						) : details.data.publishYear ? (
 							<StatDisplay
 								name="Published in"
 								value={details.data.publishYear.toString()}
@@ -260,6 +290,11 @@ const Page: NextPageWithLayout = () => {
 							>
 								History
 							</Tabs.Tab>
+							{details.data.showSpecifics ? (
+								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
+									Seasons
+								</Tabs.Tab>
+							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview" pt="xs">
 							<Box>
@@ -276,7 +311,6 @@ const Page: NextPageWithLayout = () => {
 							<SimpleGrid
 								cols={1}
 								spacing="lg"
-								mx={"lg"}
 								breakpoints={[{ minWidth: "md", cols: 2 }]}
 							>
 								{inProgressSeenItem ? (
@@ -306,7 +340,7 @@ const Page: NextPageWithLayout = () => {
 											I finished {getVerb(Verb.Read, details.data.type)}ing it
 										</Button>
 									</>
-								) : (
+								) : details.data.type === MetadataLot.Show ? null : (
 									<Button
 										variant="outline"
 										onClick={async () => {
@@ -332,6 +366,7 @@ const Page: NextPageWithLayout = () => {
 										onClose={closeNewModal}
 										opened={newModalOpened}
 										refetch={history.refetch}
+										showSpecifics={details.data.showSpecifics}
 									/>
 								</>
 							</SimpleGrid>
@@ -349,6 +384,12 @@ const Page: NextPageWithLayout = () => {
 													) : (
 														<Text fw="bold">Completed</Text>
 													)}
+													{h.showInformation ? (
+														<Text color="dimmed">
+															S{h.showInformation.season}-E
+															{h.showInformation.episode}
+														</Text>
+													) : null}
 												</Flex>
 												<Flex ml="sm" direction={"column"} gap={4}>
 													<Flex gap="xl">
@@ -403,6 +444,35 @@ const Page: NextPageWithLayout = () => {
 								<Text fs="italic">You have no history for this item</Text>
 							)}
 						</Tabs.Panel>
+						{details.data.showSpecifics ? (
+							<Tabs.Panel value="seasons" pt="xs">
+								<ScrollArea.Autosize mah={300}>
+									<Accordion chevronPosition="right" variant="contained">
+										{details.data.showSpecifics.seasons.map((s) => (
+											<Accordion.Item
+												value={s.seasonNumber.toString()}
+												key={s.seasonNumber}
+											>
+												<Accordion.Control>
+													<AccordionLabel {...s} />
+												</Accordion.Control>
+												<Accordion.Panel>
+													{s.episodes.map((e) => (
+														<Box mb={"xs"} ml={"md"}>
+															<AccordionLabel
+																{...e}
+																key={e.episodeNumber}
+																name={`${e.episodeNumber}. ${e.name}`}
+															/>
+														</Box>
+													))}
+												</Accordion.Panel>
+											</Accordion.Item>
+										))}
+									</Accordion>
+								</ScrollArea.Autosize>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</Stack>
 			</Flex>

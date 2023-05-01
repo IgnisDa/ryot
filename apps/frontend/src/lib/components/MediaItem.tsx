@@ -1,6 +1,6 @@
 import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
-import { getInitials, getLot } from "@/lib/utilities";
+import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
 import { Button, Flex, Image, Loader, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -10,7 +10,11 @@ import {
 	MetadataLot,
 	SeenStatus,
 } from "@trackona/generated/graphql/backend/graphql";
-import { COMMIT_BOOK, COMMIT_MOVIE } from "@trackona/graphql/backend/mutations";
+import {
+	COMMIT_BOOK,
+	COMMIT_MOVIE,
+	COMMIT_SHOW,
+} from "@trackona/graphql/backend/mutations";
 import { MEDIA_CONSUMED } from "@trackona/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
@@ -83,7 +87,7 @@ export default function (props: {
 		},
 		{ staleTime: Infinity },
 	);
-	const commitBook = useMutation(
+	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
@@ -100,13 +104,20 @@ export default function (props: {
 					);
 					return commitMovie;
 				})
+				.with(MetadataLot.Show, async () => {
+					const { commitShow } = await gqlClient.request(
+						COMMIT_SHOW,
+						variables,
+					);
+					return commitShow;
+				})
 				.otherwise(async () => {
 					throw Error;
 				});
 		},
 	);
 	const commitFunction = async () => {
-		const { id } = await commitBook.mutateAsync({
+		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
 			index: props.idx,
 			input: { query: props.query, offset: props.offset },
@@ -132,14 +143,14 @@ export default function (props: {
 						variant="outline"
 						w="100%"
 						compact
-						loading={commitBook.isLoading}
+						loading={commitMedia.isLoading}
 						onClick={async () => {
 							const id = await commitFunction();
 							setMetadataId(id);
 							open();
 						}}
 					>
-						Mark as read
+						Mark as {getVerb(Verb.Read, props.lot)}
 					</Button>
 				</>
 			),
@@ -154,7 +165,24 @@ export default function (props: {
 			lot={props.lot}
 			imageOnClick={async () => await commitFunction()}
 		>
-			{seenElm}
+			{props.lot !== MetadataLot.Show ? (
+				seenElm
+			) : (
+				<>
+					<Button
+						variant="outline"
+						w="100%"
+						compact
+						loading={commitMedia.isLoading}
+						onClick={async () => {
+							const id = await commitFunction();
+							router.push(`/media?item=${id}`);
+						}}
+					>
+						Show details
+					</Button>
+				</>
+			)}
 		</MediaItemWithoutUpdateModal>
 	);
 }

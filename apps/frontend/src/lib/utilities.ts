@@ -37,7 +37,7 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 		.with(Verb.Read, () => {
 			return match(lot)
 				.with(MetadataLot.Book, () => "read")
-				.with(MetadataLot.Movie, () => "watch")
+				.with(MetadataLot.Movie, MetadataLot.Show, () => "watch")
 				.otherwise(() => {
 					return "";
 				});

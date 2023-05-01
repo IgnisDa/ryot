@@ -9,6 +9,7 @@ pub mod metadata_image;
 pub mod metadata_to_creator;
 pub mod movie;
 pub mod seen;
+pub mod show;
 pub mod token;
 pub mod user;
 pub mod user_to_metadata;

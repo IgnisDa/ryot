@@ -1,13 +1,12 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
-use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
-use surf::{
-    http::headers::{AUTHORIZATION, USER_AGENT},
-    Client, Config, Url,
-};
+use surf::Client;
 
-use crate::media::resolver::{MediaSearchItem, MediaSearchResults};
+use crate::{
+    media::resolver::{MediaSearchItem, MediaSearchResults},
+    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
+};
 
 use super::MovieSpecifics;
 
@@ -19,35 +18,15 @@ pub struct TmdbService {
 
 impl TmdbService {
     pub async fn new(url: &str, access_token: &str) -> Self {
-        let client: Client = Config::new()
-            .add_header(USER_AGENT, "ignisda/trackona")
-            .unwrap()
-            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let mut rsp = client.get("configuration").await.unwrap();
-        let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-        Self {
-            client,
-            image_url: data.images.secure_base_url,
-        }
+        let (client, image_url) = tmdb::get_client_config(url, access_token).await;
+        Self { client, image_url }
     }
 }
 
 impl TmdbService {
     pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbAuthor {
+        struct TmdbCreator {
             name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -57,7 +36,7 @@ impl TmdbService {
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbAuthor>,
+            production_companies: Vec<TmdbCreator>,
             release_date: String,
             runtime: i32,
         }
@@ -67,14 +46,10 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut poster_images = vec![];
-        if let Some(c) = data.poster_path {
-            poster_images.push(self.get_cover_image_url(&c));
-        };
-        let mut backdrop_images = vec![];
-        if let Some(c) = data.backdrop_path {
-            backdrop_images.push(self.get_cover_image_url(&c));
-        };
+        let poster_images =
+            convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
+        let backdrop_images =
+            convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.title,
@@ -85,12 +60,14 @@ impl TmdbService {
                 .collect(),
             poster_images,
             backdrop_images,
-            publish_year: Self::convert_date_to_year(&data.release_date),
+            publish_year: convert_date_to_year(&data.release_date),
+            publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
             movie_specifics: Some(MovieSpecifics {
                 runtime: Some(data.runtime),
             }),
             book_specifics: None,
+            show_specifics: None,
         };
         Ok(detail)
     }
@@ -103,7 +80,7 @@ impl TmdbService {
             language: String,
         }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct TmdbBook {
+        pub struct TmdbMovie {
             id: i32,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
@@ -114,7 +91,7 @@ impl TmdbService {
         #[derive(Serialize, Deserialize, Debug)]
         struct TmdbSearchResponse {
             total_results: i32,
-            results: Vec<TmdbBook>,
+            results: Vec<TmdbMovie>,
         }
         let mut rsp = self
             .client
@@ -133,24 +110,21 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let poster_images = if let Some(c) = d.poster_path {
-                    vec![self.get_cover_image_url(&c)]
-                } else {
-                    vec![]
-                };
-                let backdrop_images = if let Some(c) = d.backdrop_path {
-                    vec![self.get_cover_image_url(&c)]
-                } else {
-                    vec![]
-                };
+                let backdrop_images = convert_option_path_to_vec(
+                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
+                );
+                let poster_images =
+                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     title: d.title,
                     description: d.overview,
                     author_names: vec![],
-                    publish_year: Self::convert_date_to_year(&d.release_date),
+                    publish_year: convert_date_to_year(&d.release_date),
+                    publish_date: convert_string_to_date(&d.release_date),
                     movie_specifics: Some(MovieSpecifics { runtime: None }),
                     book_specifics: None,
+                    show_specifics: None,
                     poster_images,
                     backdrop_images,
                 }
@@ -164,11 +138,5 @@ impl TmdbService {
 
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
-    }
-
-    fn convert_date_to_year(d: &str) -> Option<i32> {
-        NaiveDate::parse_from_str(d, "%Y-%m-%d")
-            .map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-            .ok()
     }
 }

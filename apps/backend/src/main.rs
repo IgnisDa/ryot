@@ -47,6 +47,7 @@ mod graphql;
 mod media;
 mod migrator;
 mod movies;
+mod shows;
 mod users;
 mod utils;
 

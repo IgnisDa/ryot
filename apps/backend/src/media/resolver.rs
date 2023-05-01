@@ -12,14 +12,14 @@ use crate::{
         book, creator,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
-        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, UserToMetadata},
-        seen,
-        seen::Model as SeenObject,
-        user_to_metadata,
+        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata},
+        seen::{self, SeenExtraInformation, SeenSeasonExtraInformation},
+        show, user_to_metadata,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
+    shows::ShowSpecifics,
     utils::user_id_from_ctx,
 };
 
@@ -34,8 +34,10 @@ pub struct MediaSearchItem {
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -64,6 +66,8 @@ pub struct ProgressUpdate {
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
+    pub season_number: Option<i32>,
+    pub episode_number: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -77,8 +81,10 @@ pub struct MediaDetails {
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -111,7 +117,7 @@ impl MediaQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
-    ) -> Result<Vec<SeenObject>> {
+    ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
@@ -186,6 +192,27 @@ impl MediaService {
 }
 
 impl MediaService {
+    async fn metadata_images(&self, meta: &MetadataModel) -> Result<(Vec<String>, Vec<String>)> {
+        let images = meta
+            .find_related(MetadataImage)
+            .all(&self.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let poster_images = images
+            .iter()
+            .filter(|f| f.lot == MetadataImageLot::Poster)
+            .map(|i| i.url.clone())
+            .collect();
+        let backdrop_images = images
+            .iter()
+            .filter(|f| f.lot == MetadataImageLot::Backdrop)
+            .map(|i| i.url.clone())
+            .collect();
+        Ok((poster_images, backdrop_images))
+    }
+
     async fn generic_metadata(
         &self,
         metadata_id: i32,
@@ -206,23 +233,7 @@ impl MediaService {
             .into_iter()
             .map(|c| c.name)
             .collect();
-        let images = meta
-            .find_related(MetadataImage)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
-        let poster_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Poster)
-            .map(|i| i.url.clone())
-            .collect();
-        let backdrop_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Backdrop)
-            .map(|i| i.url.clone())
-            .collect();
+        let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         Ok((meta, creators, poster_images, backdrop_images))
     }
 
@@ -234,12 +245,14 @@ impl MediaService {
             title: meta.title,
             description: meta.description,
             publish_year: meta.publish_year,
+            publish_date: meta.publish_date,
             lot: meta.lot,
             creators,
             poster_images,
             backdrop_images,
             book_specifics: None,
             movie_specifics: None,
+            show_specifics: None,
         };
         match meta.lot {
             MetadataLot::Book => {
@@ -262,19 +275,36 @@ impl MediaService {
                     runtime: additional.runtime,
                 });
             }
+            MetadataLot::Show => {
+                let additional = Show::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.show_specifics = Some(additional.details);
+            }
             _ => todo!(),
         };
         Ok(resp)
     }
 
-    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<SeenObject>> {
-        let prev_seen = Seen::find()
+    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
+        let mut prev_seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
+        prev_seen.iter_mut().for_each(|s| {
+            if let Some(i) = s.extra_information.as_ref() {
+                match i {
+                    SeenExtraInformation::Show(sea) => {
+                        s.show_information = Some(sea.clone());
+                    }
+                };
+            }
+        });
         Ok(prev_seen)
     }
 
@@ -292,6 +322,12 @@ impl MediaService {
                 .map(|b| b.metadata_id),
             MetadataLot::Movie => Movie::find()
                 .filter(movie::Column::TmdbId.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            MetadataLot::Show => Show::find()
+                .filter(show::Column::TmdbId.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
@@ -373,8 +409,10 @@ impl MediaService {
                 poster_images,
                 backdrop_images,
                 publish_year: m.publish_year,
+                publish_date: m.publish_date,
                 book_specifics: None,
                 movie_specifics: None,
+                show_specifics: None,
             };
             items.push(_m);
         }
@@ -386,7 +424,7 @@ impl MediaService {
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
         let user_to_meta = user_to_metadata::ActiveModel {
-            user_id: ActiveValue::Set(user_id.clone()),
+            user_id: ActiveValue::Set(user_id),
             metadata_id: ActiveValue::Set(input.metadata_id),
             ..Default::default()
         };
@@ -417,6 +455,11 @@ impl MediaService {
             ProgressUpdateAction::Now
             | ProgressUpdateAction::InThePast
             | ProgressUpdateAction::JustStarted => {
+                let meta = Metadata::find_by_id(input.metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
                 let finished_on = if input.action == ProgressUpdateAction::Now {
                     Some(Utc::now().date_naive())
                 } else {
@@ -428,7 +471,7 @@ impl MediaService {
                     } else {
                         (100, None)
                     };
-                let seen_ins = seen::ActiveModel {
+                let mut seen_ins = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
@@ -437,6 +480,14 @@ impl MediaService {
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
                 };
+                if meta.lot == MetadataLot::Show {
+                    seen_ins.extra_information = ActiveValue::Set(Some(
+                        SeenExtraInformation::Show(SeenSeasonExtraInformation {
+                            season: input.season_number.unwrap(),
+                            episode: input.episode_number.unwrap(),
+                        }),
+                    ));
+                }
                 seen_ins.insert(&self.db).await.unwrap()
             }
         };
@@ -446,7 +497,7 @@ impl MediaService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            let id = si.id.clone();
+            let id = si.id;
             if si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),
@@ -461,95 +512,81 @@ impl MediaService {
 
     pub async fn commit_media(
         &self,
-        identifier: &str,
         lot: MetadataLot,
-        details: &MediaSearchItem,
-    ) -> Result<(i32, bool)> {
-        let meta = match lot {
-            MetadataLot::Book => Book::find()
-                .filter(book::Column::OpenLibraryKey.eq(identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Movie => Movie::find()
-                .filter(movie::Column::TmdbId.eq(identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            _ => todo!(),
+        title: String,
+        description: Option<String>,
+        publish_year: Option<i32>,
+        publish_date: Option<NaiveDate>,
+        poster_images: Vec<String>,
+        backdrop_images: Vec<String>,
+        creator_names: Vec<String>,
+    ) -> Result<i32> {
+        let metadata = metadata::ActiveModel {
+            lot: ActiveValue::Set(lot),
+            title: ActiveValue::Set(title),
+            description: ActiveValue::Set(description),
+            publish_year: ActiveValue::Set(publish_year),
+            publish_date: ActiveValue::Set(publish_date),
+            ..Default::default()
         };
-        let resp = if let Some(m) = meta {
-            (m, true)
-        } else {
-            let metadata = metadata::ActiveModel {
-                lot: ActiveValue::Set(lot.to_owned()),
-                title: ActiveValue::Set(details.title.to_owned()),
-                description: ActiveValue::Set(details.description.to_owned()),
-                publish_year: ActiveValue::Set(details.publish_year),
-                ..Default::default()
-            };
-            let metadata = metadata.insert(&self.db).await.unwrap();
-            for image in details.poster_images.iter() {
-                if let Some(c) = MetadataImage::find()
-                    .filter(metadata_image::Column::Url.eq(image))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = metadata_image::ActiveModel {
-                        url: ActiveValue::Set(image.to_owned()),
-                        lot: ActiveValue::Set(MetadataImageLot::Poster),
-                        metadata_id: ActiveValue::Set(metadata.id),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-            }
-            for image in details.backdrop_images.iter() {
-                if let Some(c) = MetadataImage::find()
-                    .filter(metadata_image::Column::Url.eq(image))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = metadata_image::ActiveModel {
-                        url: ActiveValue::Set(image.to_owned()),
-                        lot: ActiveValue::Set(MetadataImageLot::Backdrop),
-                        metadata_id: ActiveValue::Set(metadata.id),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-            }
-            for name in details.author_names.iter() {
-                let creator = if let Some(c) = Creator::find()
-                    .filter(creator::Column::Name.eq(name))
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                {
-                    c
-                } else {
-                    let c = creator::ActiveModel {
-                        name: ActiveValue::Set(name.to_owned()),
-                        ..Default::default()
-                    };
-                    c.insert(&self.db).await.unwrap()
-                };
-                let metadata_creator = metadata_to_creator::ActiveModel {
+        let metadata = metadata.insert(&self.db).await.unwrap();
+        for image in poster_images.iter() {
+            if let Some(c) = MetadataImage::find()
+                .filter(metadata_image::Column::Url.eq(image))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = metadata_image::ActiveModel {
+                    url: ActiveValue::Set(image.to_owned()),
+                    lot: ActiveValue::Set(MetadataImageLot::Poster),
                     metadata_id: ActiveValue::Set(metadata.id),
-                    creator_id: ActiveValue::Set(creator.id),
+                    ..Default::default()
                 };
-                metadata_creator.insert(&self.db).await.unwrap();
-            }
-            (metadata.id, false)
-        };
-        Ok(resp)
+                c.insert(&self.db).await.unwrap()
+            };
+        }
+        for image in backdrop_images.iter() {
+            if let Some(c) = MetadataImage::find()
+                .filter(metadata_image::Column::Url.eq(image))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = metadata_image::ActiveModel {
+                    url: ActiveValue::Set(image.to_owned()),
+                    lot: ActiveValue::Set(MetadataImageLot::Backdrop),
+                    metadata_id: ActiveValue::Set(metadata.id),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
+            };
+        }
+        for name in creator_names.iter() {
+            let creator = if let Some(c) = Creator::find()
+                .filter(creator::Column::Name.eq(name))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = creator::ActiveModel {
+                    name: ActiveValue::Set(name.to_owned()),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
+            };
+            let metadata_creator = metadata_to_creator::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata.id),
+                creator_id: ActiveValue::Set(creator.id),
+            };
+            metadata_creator.insert(&self.db).await.unwrap();
+        }
+        Ok(metadata.id)
     }
 }

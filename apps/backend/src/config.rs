@@ -6,6 +6,11 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
+static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
+
+static TMDB_ACCESS_KEY: &str = 
+"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4";
+
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
     pub url: String,
@@ -14,7 +19,7 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: "sqlite:./app.db?mode=rwc".to_owned(),
+            url: "sqlite:/data/trackona.db?mode=rwc".to_owned(),
         }
     }
 }
@@ -55,8 +60,8 @@ pub struct TmdbConfig {
 impl Default for TmdbConfig {
     fn default() -> Self {
         Self {
-            url: "https://api.themoviedb.org/3/".to_owned(),
-            access_token:"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned()
+            url: TMDB_BASE_URL.to_owned(),
+            access_token: TMDB_ACCESS_KEY.to_owned()
         }
     }
 }
@@ -68,6 +73,11 @@ pub struct BookConfig {
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct MovieConfig {
+    pub tmdb: TmdbConfig,
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct ShowConfig {
     pub tmdb: TmdbConfig,
 }
 
@@ -98,6 +108,8 @@ pub struct AppConfig {
     pub books: BookConfig,
     #[serde(default)]
     pub movies: MovieConfig,
+    #[serde(default)]
+    pub shows: ShowConfig,
     #[serde(default)]
     pub scheduler: SchedulerConfig,
     #[serde(default)]

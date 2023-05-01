@@ -10,6 +10,18 @@ to have breaking changes without any warning, for example backwards incompatible
 schema changes. You can see the latest release
 [here](https://github.com/IgnisDa/trackona/releases).
 
+## How to use?
+
+To get a demo server running, use the docker image:
+
+```bash
+$ docker run --detach \
+  --publish 8000:8000 \
+  --volume ./trackona-data:/data \
+  --name trackona \
+  ghcr.io/ignisda/trackona:latest
+```
+
 ## Development
 
 Trackona is an Axum server running in the backend. The frontend is a pre-rendered

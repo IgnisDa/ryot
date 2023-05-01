@@ -1,16 +1,84 @@
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
-import { Button, Group, Modal, Stack, Title } from "@mantine/core";
+import { Button, Group, Modal, Select, Stack, Title } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useMutation } from "@tanstack/react-query";
 import {
 	MetadataLot,
 	ProgressUpdateAction,
+	type MediaDetailsQuery,
 	type ProgressUpdateMutationVariables,
 } from "@trackona/generated/graphql/backend/graphql";
 import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
 import { DateTime } from "luxon";
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
+
+type ShowSpecifics = MediaDetailsQuery["mediaDetails"]["showSpecifics"];
+
+export enum UpdateStep {
+	ChooseEpisode,
+	SetProgress,
+}
+
+export function ChooseEpisode(props: {
+	opened: boolean;
+	onClose: () => void;
+	lot: MetadataLot;
+	showSpecifics: ShowSpecifics;
+	selectedSeason: string | null;
+	setSelectedEpisode: Dispatch<SetStateAction<string | null>>;
+	setSelectedSeason: Dispatch<SetStateAction<string | null>>;
+}) {
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				{props.showSpecifics ? (
+					<>
+						<Title order={3}>Select episode</Title>
+						<Select
+							label="Season"
+							data={props.showSpecifics.seasons.map((s) => ({
+								label: s.name.toString(),
+								value: s.seasonNumber.toString(),
+							}))}
+							onChange={props.setSelectedSeason}
+							withinPortal
+						/>
+						{props.selectedSeason ? (
+							<Select
+								label="Episode"
+								data={props.showSpecifics.seasons
+									.find((s) => s.seasonNumber === Number(props.selectedSeason))!
+									.episodes.map((e) => ({
+										label: e.name.toString(),
+										value: e.episodeNumber.toString(),
+									}))}
+								onChange={props.setSelectedEpisode}
+								withinPortal
+							/>
+						) : null}
+						<Button
+							variant="outline"
+							onClick={() => {
+								props.onClose();
+							}}
+						>
+							Select
+						</Button>
+						<Button variant="outline" color="red" onClick={props.onClose}>
+							Cancel
+						</Button>
+					</>
+				) : null}
+			</Stack>
+		</Modal>
+	);
+}
 
 export default function UpdateProgressModal(props: {
 	opened: boolean;
@@ -19,7 +87,15 @@ export default function UpdateProgressModal(props: {
 	refetch: () => void;
 	title: string;
 	lot: MetadataLot;
+	showSpecifics?: ShowSpecifics;
 }) {
+	const [step, setSelectedStep] = useState(
+		props.lot === MetadataLot.Show
+			? UpdateStep.ChooseEpisode
+			: UpdateStep.SetProgress,
+	);
+	const [selectedEpisode, setSelectedEpisode] = useState<string | null>(null);
+	const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
@@ -30,12 +106,31 @@ export default function UpdateProgressModal(props: {
 			return progressUpdate;
 		},
 		onSuccess: () => {
+			if (props.lot === MetadataLot.Show)
+				setSelectedStep(UpdateStep.ChooseEpisode);
 			props.refetch();
 			props.onClose();
 		},
 	});
+	const mutationInput = {
+		metadataId: props.metadataId,
+		episodeNumber: Number(selectedEpisode),
+		seasonNumber: Number(selectedSeason),
+	};
 
-	return (
+	return step === UpdateStep.ChooseEpisode ? (
+		<ChooseEpisode
+			opened={props.opened}
+			setSelectedEpisode={setSelectedEpisode}
+			selectedSeason={selectedSeason}
+			setSelectedSeason={setSelectedSeason}
+			showSpecifics={props.showSpecifics}
+			lot={props.lot}
+			onClose={() => {
+				setSelectedStep(UpdateStep.SetProgress);
+			}}
+		/>
+	) : (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
@@ -50,10 +145,7 @@ export default function UpdateProgressModal(props: {
 					variant="outline"
 					onClick={async () => {
 						await progressUpdate.mutateAsync({
-							input: {
-								action: ProgressUpdateAction.Now,
-								metadataId: props.metadataId,
-							},
+							input: { action: ProgressUpdateAction.Now, ...mutationInput },
 						});
 					}}
 				>
@@ -65,7 +157,7 @@ export default function UpdateProgressModal(props: {
 						await progressUpdate.mutateAsync({
 							input: {
 								action: ProgressUpdateAction.InThePast,
-								metadataId: props.metadataId,
+								...mutationInput,
 							},
 						});
 					}}
@@ -87,8 +179,8 @@ export default function UpdateProgressModal(props: {
 								await progressUpdate.mutateAsync({
 									input: {
 										action: ProgressUpdateAction.InThePast,
-										metadataId: props.metadataId,
 										date: DateTime.fromJSDate(selectedDate).toISODate(),
+										...mutationInput,
 									},
 								});
 						}}

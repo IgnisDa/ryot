@@ -2,11 +2,14 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
-use tokio::task::JoinSet;
 
-use crate::media::{
-    resolver::{MediaSearchItem, MediaSearchResults},
-    LIMIT,
+use crate::{
+    graphql::AUTHOR,
+    media::{
+        resolver::{MediaSearchItem, MediaSearchResults},
+        LIMIT,
+    },
+    utils::get_data_parallely_from_sources,
 };
 
 use super::BookSpecifics;
@@ -21,7 +24,7 @@ pub struct OpenlibraryService {
 impl OpenlibraryService {
     pub fn new(url: &str, image_url: &str, image_size: &str) -> Self {
         let client = Config::new()
-            .add_header(USER_AGENT, "ignisda/trackona")
+            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()
@@ -82,26 +85,17 @@ impl OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut set = JoinSet::new();
         #[derive(Debug, Serialize, Deserialize)]
         struct OpenlibraryAuthorPartial {
             name: String,
         }
-        for author in data.authors.into_iter() {
-            let client = self.client.clone();
-            set.spawn(async move {
-                let mut rsp = client
-                    .get(format!("{}.json", author.author.key))
-                    .await
-                    .unwrap();
-                let OpenlibraryAuthorPartial { name } = rsp.body_json().await.unwrap();
-                name
-            });
-        }
-        let mut authors = vec![];
-        while let Some(Ok(result)) = set.join_next().await {
-            authors.push(result);
-        }
+        let authors = get_data_parallely_from_sources(&data.authors, &self.client, |a| {
+            format!("{}.json", a.author.key)
+        })
+        .await
+        .into_iter()
+        .map(|a: OpenlibraryAuthorPartial| a.name)
+        .collect();
         detail.description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
@@ -180,9 +174,11 @@ impl OpenlibraryService {
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
                     publish_year: d.first_publish_year,
+                    publish_date: None,
                     book_specifics: Some(BookSpecifics {
                         pages: d.number_of_pages_median,
                     }),
+                    show_specifics: None,
                     movie_specifics: None,
                     poster_images,
                     backdrop_images: vec![],
