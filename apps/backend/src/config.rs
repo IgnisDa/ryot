@@ -89,15 +89,41 @@ pub struct WebConfig {
     pub cors_origins: Vec<String>,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TwitchConfig {
     pub client_id: String,
-    pub client_secret: String
+    pub client_secret: String,
+    // Endpoint used to get access tokens which will be used by IGDB
+    pub access_token_url: String
+}
+
+impl Default for TwitchConfig {
+    fn default() -> Self {
+        Self {
+            client_id: "".to_owned(),
+            client_secret: "".to_owned(),
+            access_token_url: "https://id.twitch.tv/oauth2/token".to_owned()
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct IgdbConfig {
+    pub base_url: String,
+}
+
+impl Default for IgdbConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "https://api.igdb.com/v4/".to_owned()
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct GameConfig {
     pub twitch: TwitchConfig,
+    pub igdb: IgdbConfig
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
@@ -111,14 +137,13 @@ pub struct AppConfig {
     #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]
-    pub games: GameConfig,
+    pub video_games: GameConfig,
     #[serde(default)]
     pub scheduler: SchedulerConfig,
     #[serde(default)]
     pub web: WebConfig,
 }
 
-/// Get the figment configuration that is used across the apps.
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = "trackona";
