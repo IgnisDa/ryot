@@ -7,7 +7,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{episode, prelude::Show, season, show},
+    entities::{prelude::Show, show},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
     migrator::MetadataLot,
@@ -113,51 +113,6 @@ impl ShowsService {
                 }),
             };
             let show = show.insert(&self.db).await.unwrap();
-            for season in show_details.show_specifics.unwrap().seasons {
-                let season_metadata_id = self
-                    .media_service
-                    .commit_media(
-                        MetadataLot::Season,
-                        season.name,
-                        season.overview,
-                        None,
-                        season.publish_date,
-                        season.poster_images,
-                        season.backdrop_images,
-                        vec![], // TODO: use crew name
-                    )
-                    .await?;
-                let db_season = season::ActiveModel {
-                    metadata_id: ActiveValue::Set(season_metadata_id),
-                    tmdb_id: ActiveValue::Set(season.id.to_string()),
-                    episode_count: ActiveValue::Set(season.episodes.len() as i32),
-                    number: ActiveValue::Set(season.season_number),
-                    show_id: ActiveValue::Set(show.metadata_id),
-                };
-                let db_season = db_season.insert(&self.db).await.unwrap();
-                for episode in season.episodes {
-                    let episode_metadata_id = self
-                        .media_service
-                        .commit_media(
-                            MetadataLot::Episode,
-                            episode.name,
-                            episode.overview,
-                            None,
-                            episode.publish_date,
-                            vec![],
-                            vec![],
-                            vec![], // TODO: use crew name
-                        )
-                        .await?;
-                    let db_episode = episode::ActiveModel {
-                        metadata_id: ActiveValue::Set(episode_metadata_id),
-                        tmdb_id: ActiveValue::Set(episode.id.to_string()),
-                        season_id: ActiveValue::Set(db_season.metadata_id),
-                        number: ActiveValue::Set(episode.episode_number),
-                    };
-                    db_episode.insert(&self.db).await.unwrap();
-                }
-            }
             Ok(IdObject {
                 id: show_metadata_id,
             })

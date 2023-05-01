@@ -9,19 +9,16 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     entities::{
-        book, creator, episode,
+        book, creator,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
-        prelude::{
-            Book, Creator, Episode, Metadata, MetadataImage, Movie, Season, Seen, Show,
-            UserToMetadata,
-        },
-        season, seen, show, user_to_metadata,
+        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata},
+        seen, show, user_to_metadata,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
-    shows::{ShowEpisode, ShowSeason, ShowSpecifics},
+    shows::ShowSpecifics,
     utils::user_id_from_ctx,
 };
 
@@ -282,56 +279,7 @@ impl MediaService {
                     .await
                     .unwrap()
                     .unwrap();
-                let mut seasons = vec![];
-                let db_seasons = additional
-                    .find_related(Season)
-                    .order_by_asc(season::Column::Number)
-                    .all(&self.db)
-                    .await
-                    .unwrap();
-                for season in db_seasons {
-                    let mut episodes = vec![];
-                    let s = season
-                        .find_related(Metadata)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap();
-                    let db_episodes = season
-                        .find_related(Episode)
-                        .order_by_asc(episode::Column::Number)
-                        .all(&self.db)
-                        .await
-                        .unwrap();
-                    for episode in db_episodes {
-                        let s = episode
-                            .find_related(Metadata)
-                            .one(&self.db)
-                            .await
-                            .unwrap()
-                            .unwrap();
-                        episodes.push(ShowEpisode {
-                            id: s.id,
-                            episode_number: episode.number,
-                            name: s.title,
-                            overview: s.description,
-                            publish_date: s.publish_date,
-                            poster_images: vec![],
-                        })
-                    }
-                    let (poster_images, backdrop_images) = self.metadata_images(&s).await.unwrap();
-                    seasons.push(ShowSeason {
-                        id: s.id,
-                        season_number: season.number,
-                        name: s.title,
-                        overview: s.description,
-                        publish_date: s.publish_date,
-                        episodes,
-                        poster_images,
-                        backdrop_images,
-                    })
-                }
-                resp.show_specifics = Some(ShowSpecifics { seasons });
+                resp.show_specifics = Some(additional.details);
             }
             _ => todo!(),
         };
@@ -344,39 +292,13 @@ impl MediaService {
         user_id: i32,
         is_show: bool,
     ) -> Result<Vec<seen::Model>> {
-        let prev_seen = if is_show {
-            let seasons = Season::find()
-                .filter(season::Column::ShowId.eq(metadata_id))
-                .all(&self.db)
-                .await
-                .unwrap()
-                .into_iter()
-                .map(|s| s.metadata_id)
-                .collect::<Vec<_>>();
-            let episodes = Episode::find()
-                .filter(episode::Column::SeasonId.is_in(seasons))
-                .all(&self.db)
-                .await
-                .unwrap()
-                .into_iter()
-                .map(|s| s.metadata_id)
-                .collect::<Vec<_>>();
-            Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.is_in(episodes))
-                .order_by_desc(seen::Column::LastUpdatedOn)
-                .all(&self.db)
-                .await
-                .unwrap()
-        } else {
-            Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(metadata_id))
-                .order_by_desc(seen::Column::LastUpdatedOn)
-                .all(&self.db)
-                .await
-                .unwrap()
-        };
+        let prev_seen = Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::MetadataId.eq(metadata_id))
+            .order_by_desc(seen::Column::LastUpdatedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
         Ok(prev_seen)
     }
 
