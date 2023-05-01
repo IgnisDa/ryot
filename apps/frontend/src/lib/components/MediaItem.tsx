@@ -1,6 +1,6 @@
 import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
-import { getInitials, getLot } from "@/lib/utilities";
+import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
 import { Button, Flex, Image, Loader, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -150,7 +150,7 @@ export default function (props: {
 							open();
 						}}
 					>
-						Mark as read
+						Mark as {getVerb(Verb.Read, props.lot)}
 					</Button>
 				</>
 			),
@@ -165,7 +165,24 @@ export default function (props: {
 			lot={props.lot}
 			imageOnClick={async () => await commitFunction()}
 		>
-			{seenElm}
+			{props.lot !== MetadataLot.Show ? (
+				seenElm
+			) : (
+				<>
+					<Button
+						variant="outline"
+						w="100%"
+						compact
+						loading={commitMedia.isLoading}
+						onClick={async () => {
+							const id = await commitFunction();
+							router.push(`/media?item=${id}`);
+						}}
+					>
+						Show details
+					</Button>
+				</>
+			)}
 		</MediaItemWithoutUpdateModal>
 	);
 }
