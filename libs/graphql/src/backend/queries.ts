@@ -91,8 +91,8 @@ export const MEDIA_DETAILS = graphql(`
 `);
 
 export const SEEN_HISTORY = graphql(`
-	query SeenHistory($metadataId: Int!, $isShow: Boolean) {
-	  seenHistory(metadataId: $metadataId, isShow: $isShow) {
+	query SeenHistory($metadataId: Int!) {
+	  seenHistory(metadataId: $metadataId) {
 	    id
 	    progress
 	    startedOn
