@@ -4513,6 +4513,7 @@ dependencies = [
  "figment",
  "http",
  "mime_guess",
+ "regex",
  "ron",
  "rust-embed",
  "sea-orm",
