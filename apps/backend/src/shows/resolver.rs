@@ -13,7 +13,7 @@ use crate::{
     migrator::MetadataLot,
 };
 
-use super::tmdb::TmdbService;
+use super::{tmdb::TmdbService, ShowSpecifics};
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
 pub struct ShowSearchInput {
@@ -108,6 +108,9 @@ impl ShowsService {
             let show = show::ActiveModel {
                 metadata_id: ActiveValue::Set(show_metadata_id),
                 tmdb_id: ActiveValue::Set(show_details.identifier),
+                details: ActiveValue::Set(ShowSpecifics {
+                    seasons: show_details.show_specifics.clone().unwrap().seasons,
+                }),
             };
             let show = show.insert(&self.db).await.unwrap();
             for season in show_details.show_specifics.unwrap().seasons {

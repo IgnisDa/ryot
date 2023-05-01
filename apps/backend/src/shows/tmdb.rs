@@ -60,6 +60,7 @@ impl TmdbService {
             id: i32,
             name: String,
             episode_number: i32,
+            still_path: Option<String>,
             overview: Option<String>,
             air_date: Option<String>,
         }
@@ -116,14 +117,21 @@ impl TmdbService {
                             episodes: s
                                 .episodes
                                 .into_iter()
-                                .map(|e| ShowEpisode {
-                                    id: e.id,
-                                    name: e.name,
-                                    publish_date: convert_string_to_date(
-                                        &e.air_date.unwrap_or_default(),
-                                    ),
-                                    overview: e.overview,
-                                    episode_number: e.episode_number,
+                                .map(|e| {
+                                    let poster_images = convert_option_path_to_vec(
+                                        e.still_path.map(|p| self.get_cover_image_url(&p)),
+                                    );
+                                    let ep = ShowEpisode {
+                                        id: e.id,
+                                        name: e.name,
+                                        publish_date: convert_string_to_date(
+                                            &e.air_date.unwrap_or_default(),
+                                        ),
+                                        overview: e.overview,
+                                        episode_number: e.episode_number,
+                                        poster_images,
+                                    };
+                                    ep
                                 })
                                 .collect(),
                         }

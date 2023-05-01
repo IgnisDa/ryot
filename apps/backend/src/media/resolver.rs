@@ -316,6 +316,7 @@ impl MediaService {
                             name: s.title,
                             overview: s.description,
                             publish_date: s.publish_date,
+                            poster_images: vec![],
                         })
                     }
                     let (poster_images, backdrop_images) = self.metadata_images(&s).await.unwrap();
