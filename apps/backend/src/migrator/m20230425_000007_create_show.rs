@@ -1,4 +1,6 @@
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
@@ -6,12 +8,20 @@ static SHOW_TMDB_ID_INDEX: &str = "show__tmdbid__index";
 
 pub struct Migration;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+pub enum ShowSource {
+    #[sea_orm(string_value = "T")]
+    Tmdb,
+}
+
 #[derive(Iden)]
 pub enum Show {
     Table,
     TmdbId,
     MetadataId,
     Details,
+    Source,
 }
 
 impl MigrationName for Migration {
@@ -40,6 +50,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .json()
                             .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(Show::Source)
+                            .enumeration(ShowSourceEnum.into_iden(), ShowSourceEnum.into_iter())
+                            .not_null(),
                     )
                     .foreign_key(
                         ForeignKey::create()

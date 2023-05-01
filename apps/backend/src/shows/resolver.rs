@@ -10,7 +10,7 @@ use crate::{
     entities::{prelude::Show, show},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
-    migrator::MetadataLot,
+    migrator::{MetadataLot, ShowSource},
 };
 
 use super::{tmdb::TmdbService, ShowSpecifics};
@@ -111,10 +111,11 @@ impl ShowsService {
                 details: ActiveValue::Set(ShowSpecifics {
                     seasons: show_details.show_specifics.clone().unwrap().seasons,
                 }),
+                source: ActiveValue::Set(ShowSource::Tmdb),
             };
             let show = show.insert(&self.db).await.unwrap();
             Ok(IdObject {
-                id: show_metadata_id,
+                id: show.metadata_id,
             })
         }
     }

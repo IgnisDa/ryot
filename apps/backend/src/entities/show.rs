@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::shows::ShowSpecifics;
+use crate::{migrator::ShowSource, shows::ShowSpecifics};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "show")]
@@ -12,6 +12,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     pub details: ShowSpecifics,
+    pub source: ShowSource,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
