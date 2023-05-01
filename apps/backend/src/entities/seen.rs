@@ -5,6 +5,11 @@ use chrono::{DateTime, NaiveDate, Utc};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
+pub enum SeenExtraInformation {
+    Show { season: i32, episode: i32 },
+}
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "seen")]
 pub struct Model {
@@ -16,6 +21,8 @@ pub struct Model {
     pub last_updated_on: DateTime<Utc>,
     pub user_id: i32,
     pub metadata_id: i32,
+    #[graphql(skip)]
+    pub extra_information: Option<SeenExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

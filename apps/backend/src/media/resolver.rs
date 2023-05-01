@@ -13,7 +13,8 @@ use crate::{
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
         prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata},
-        seen, show, user_to_metadata,
+        seen::{self, SeenExtraInformation},
+        show, user_to_metadata,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -65,6 +66,8 @@ pub struct ProgressUpdate {
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
+    pub season_number: Option<i32>,
+    pub episode_number: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -114,12 +117,11 @@ impl MediaQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
-        #[graphql(default = false)] is_show: bool,
     ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .seen_history(metadata_id, user_id, is_show)
+            .seen_history(metadata_id, user_id)
             .await
     }
 
@@ -286,12 +288,7 @@ impl MediaService {
         Ok(resp)
     }
 
-    async fn seen_history(
-        &self,
-        metadata_id: i32,
-        user_id: i32,
-        is_show: bool,
-    ) -> Result<Vec<seen::Model>> {
+    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
         let prev_seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
@@ -449,6 +446,11 @@ impl MediaService {
             ProgressUpdateAction::Now
             | ProgressUpdateAction::InThePast
             | ProgressUpdateAction::JustStarted => {
+                let meta = Metadata::find_by_id(input.metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
                 let finished_on = if input.action == ProgressUpdateAction::Now {
                     Some(Utc::now().date_naive())
                 } else {
@@ -460,7 +462,7 @@ impl MediaService {
                     } else {
                         (100, None)
                     };
-                let seen_ins = seen::ActiveModel {
+                let mut seen_ins = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
@@ -469,6 +471,13 @@ impl MediaService {
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     ..Default::default()
                 };
+                if meta.lot == MetadataLot::Show {
+                    seen_ins.extra_information =
+                        ActiveValue::Set(Some(SeenExtraInformation::Show {
+                            season: input.season_number.unwrap(),
+                            episode: input.episode_number.unwrap(),
+                        }));
+                }
                 seen_ins.insert(&self.db).await.unwrap()
             }
         };
