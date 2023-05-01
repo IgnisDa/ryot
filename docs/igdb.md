@@ -19,7 +19,7 @@ tracking.
 
 	![Twitch application](../docs/assets/twitch-application.png)
 
-	Note that you must use a unique name. Any name will suffice.	Click on
+	Note that you must use a unique name. Any name will suffice. Click on
 	"Create" when you are done.
 
 4. You will be guided back to your application dashboard. Click on "Manage" for
