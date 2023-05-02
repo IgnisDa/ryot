@@ -15,7 +15,6 @@ import {
 	Group,
 	Image,
 	Modal,
-	Paper,
 	ScrollArea,
 	SimpleGrid,
 	Slider,
@@ -234,6 +233,12 @@ const Page: NextPageWithLayout = () => {
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
+							/>
+						) : null}
+						{details.data.genres.length > 0 ? (
+							<StatDisplay
+								name="Genre(s)"
+								value={details.data.genres.join(", ")}
 							/>
 						) : null}
 						{details.data.publishDate ? (
