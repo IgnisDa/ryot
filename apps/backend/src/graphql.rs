@@ -18,6 +18,10 @@ use crate::{
         tmdb::TmdbService as ShowTmdbService,
     },
     users::resolver::{UsersMutation, UsersService},
+    video_games::{
+        igdb::IgdbService,
+        resolver::{VideoGamesMutation, VideoGamesQuery, VideoGamesService},
+    },
 };
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -49,7 +53,14 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery, BooksQuery, MediaQuery, MoviesQuery, ShowsQuery);
+pub struct QueryRoot(
+    CoreQuery,
+    BooksQuery,
+    MediaQuery,
+    MoviesQuery,
+    ShowsQuery,
+    VideoGamesQuery,
+);
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
@@ -58,6 +69,7 @@ pub struct MutationRoot(
     MediaMutation,
     MoviesMutation,
     ShowsMutation,
+    VideoGamesMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -76,6 +88,8 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let tmdb_shows_service =
         ShowTmdbService::new(&config.shows.tmdb.url, &config.shows.tmdb.access_token).await;
     let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
+    let igdb_service = IgdbService::new(&config.video_games).await;
+    let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
     Schema::build(
         QueryRoot::default(),
@@ -88,5 +102,6 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     .data(movies_service)
     .data(shows_service)
     .data(users_service)
+    .data(video_games_service)
     .finish()
 }

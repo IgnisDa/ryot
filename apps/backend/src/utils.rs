@@ -1,11 +1,18 @@
 use async_graphql::{Context, Error, Result};
 use chrono::NaiveDate;
+use regex::Regex;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
 };
 use serde::de;
-use surf::Client;
+use serde::{Deserialize, Serialize};
+use surf::{
+    http::headers::{AUTHORIZATION, USER_AGENT},
+    Client, Config, Url,
+};
 use tokio::task::JoinSet;
+
+use crate::graphql::AUTHOR;
 
 use crate::{
     entities::{prelude::Token, token},
@@ -84,13 +91,7 @@ where
 }
 
 pub mod tmdb {
-    use serde::{Deserialize, Serialize};
-    use surf::{
-        http::headers::{AUTHORIZATION, USER_AGENT},
-        Client, Config, Url,
-    };
-
-    use crate::graphql::AUTHOR;
+    use super::*;
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let client: Client = Config::new()
@@ -115,9 +116,55 @@ pub mod tmdb {
     }
 }
 
+pub mod igdb {
+    use super::*;
+
+    pub async fn get_client_config(
+        twitch_base_url: &str,
+        twitch_client_id: &str,
+        twitch_client_secret: &str,
+        igdb_base_url: &str,
+    ) -> Client {
+        #[derive(Deserialize, Serialize)]
+        struct Query {
+            client_id: String,
+            client_secret: String,
+            grant_type: String,
+        }
+        let mut access_res = surf::post(twitch_base_url)
+            .query(&Query {
+                client_id: twitch_client_id.to_owned(),
+                client_secret: twitch_client_secret.to_owned(),
+                grant_type: "client_credentials".to_owned(),
+            })
+            .unwrap()
+            .await
+            .unwrap();
+        #[derive(Deserialize, Serialize)]
+        struct AccessResponse {
+            access_token: String,
+            token_type: String,
+        }
+        let access: AccessResponse = access_res.body_json().await.unwrap();
+        let client: Client = Config::new()
+            .add_header("Client-ID", twitch_client_id)
+            .unwrap()
+            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
+            .unwrap()
+            .add_header(
+                AUTHORIZATION,
+                format!("{} {}", access.token_type, access.access_token),
+            )
+            .unwrap()
+            .set_base_url(Url::parse(igdb_base_url).unwrap())
+            .try_into()
+            .unwrap();
+        client
+    }
+}
+
 pub mod media_tracker {
-    use chrono::NaiveDate;
-    use regex::Regex;
+    use super::*;
 
     #[derive(Debug)]
     pub struct ReviewInformation {
@@ -126,7 +173,7 @@ pub mod media_tracker {
         pub text: String,
     }
 
-    /// The below code was written using ChatGPT
+    // DEV: The below code was written using ChatGPT
     pub fn extract_review_info(input: &str) -> Vec<ReviewInformation> {
         let review_regex = Regex::new(r"(?m)^(\d{2}/\d{2}/\d{4}):(\s*\[SPOILER\])?\n\n((?:[^\n]+(?:\n|$)){1,}.*(?:\n|$)?)(?:(?:\n\n---\n\n)|(?:\n---\n)|(?:\n\n---\n))?").unwrap();
         let mut result = vec![];

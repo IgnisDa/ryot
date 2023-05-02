@@ -121,7 +121,7 @@ impl Default for IgdbConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct GameConfig {
+pub struct VideoGameConfig {
     pub twitch: TwitchConfig,
     pub igdb: IgdbConfig
 }
@@ -137,7 +137,7 @@ pub struct AppConfig {
     #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]
-    pub video_games: GameConfig,
+    pub video_games: VideoGameConfig,
     #[serde(default)]
     pub scheduler: SchedulerConfig,
     #[serde(default)]

@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 
 use crate::{
+    config::VideoGameConfig,
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
+    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, igdb},
 };
 
 use super::VideoGameSpecifics;
@@ -17,9 +18,18 @@ pub struct IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(url: &str, access_token: &str) -> Self {
-        let (client, image_url) = tmdb::get_client_config(url, access_token).await;
-        Self { client, image_url }
+    pub async fn new(video_game_config: &VideoGameConfig) -> Self {
+        let client = igdb::get_client_config(
+            &video_game_config.twitch.access_token_url,
+            &video_game_config.twitch.client_id,
+            &video_game_config.twitch.client_secret,
+            &video_game_config.igdb.base_url,
+        )
+        .await;
+        Self {
+            client,
+            image_url: "".to_owned(),
+        }
     }
 }
 

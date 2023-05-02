@@ -13,76 +13,84 @@ use crate::{
     migrator::{MetadataLot, MovieSource},
 };
 
-use super::tmdb::TmdbService;
+use super::igdb::IgdbService;
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct MoviesSearchInput {
+pub struct VideoGamesSearchInput {
     query: String,
     page: Option<i32>,
 }
 
 #[derive(Default)]
-pub struct MoviesQuery;
+pub struct VideoGamesQuery;
 
 #[Object]
-impl MoviesQuery {
-    /// Search for a list of movies by a particular search query and a given page.
-    async fn movies_search(
+impl VideoGamesQuery {
+    /// Search for a list of games by a particular search query and a given page.
+    async fn video_games_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: MoviesSearchInput,
+        input: VideoGamesSearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
-            .data_unchecked::<MoviesService>()
-            .movies_search(&input.query, input.page)
+            .data_unchecked::<VideoGamesService>()
+            .video_game_search(&input.query, input.page)
             .await
     }
 }
 
 #[derive(Default)]
-pub struct MoviesMutation;
+pub struct VideoGamesMutation;
 
 #[Object]
-impl MoviesMutation {
-    /// Fetch details about a movie and create a media item in the database
-    async fn commit_movie(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
+impl VideoGamesMutation {
+    /// Fetch details about a game and create a media item in the database
+    async fn commit_video_game(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifier: String,
+    ) -> Result<IdObject> {
         gql_ctx
-            .data_unchecked::<MoviesService>()
-            .commit_movie(&identifier)
+            .data_unchecked::<VideoGamesService>()
+            .commit_video_game(&identifier)
             .await
     }
 }
 
 #[derive(Debug)]
-pub struct MoviesService {
+pub struct VideoGamesService {
     db: DatabaseConnection,
-    tmdb_service: Arc<TmdbService>,
+    igdb_service: Arc<IgdbService>,
     media_service: Arc<MediaService>,
 }
 
-impl MoviesService {
+impl VideoGamesService {
     pub fn new(
         db: &DatabaseConnection,
-        tmdb_service: &TmdbService,
+        igdb_service: &IgdbService,
 
         media_service: &MediaService,
     ) -> Self {
         Self {
-            tmdb_service: Arc::new(tmdb_service.clone()),
+            igdb_service: Arc::new(igdb_service.clone()),
             db: db.clone(),
             media_service: Arc::new(media_service.clone()),
         }
     }
 }
 
-impl MoviesService {
+impl VideoGamesService {
     // Get movie details from all sources
-    async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let movies = self.tmdb_service.search(query, page).await.unwrap();
+    async fn video_game_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults> {
+        let movies = self.igdb_service.search(query, page).await.unwrap();
         Ok(movies)
     }
 
-    async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
+    async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
         let meta = Movie::find()
             .filter(movie::Column::TmdbId.eq(identifier))
             .one(&self.db)
@@ -91,27 +99,27 @@ impl MoviesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let movie_details = self.tmdb_service.details(identifier).await.unwrap();
+            let game_details = self.igdb_service.details(identifier).await.unwrap();
             let metadata_id = self
                 .media_service
                 .commit_media(
-                    MetadataLot::Movie,
-                    movie_details.title,
-                    movie_details.description,
-                    movie_details.publish_year,
-                    movie_details.publish_date,
-                    movie_details.poster_images,
-                    movie_details.backdrop_images,
-                    movie_details.author_names,
+                    MetadataLot::VideoGame,
+                    game_details.title,
+                    game_details.description,
+                    game_details.publish_year,
+                    game_details.publish_date,
+                    game_details.poster_images,
+                    game_details.backdrop_images,
+                    game_details.author_names,
                 )
                 .await?;
-            let movie = movie::ActiveModel {
+            let game = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                tmdb_id: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
+                tmdb_id: ActiveValue::Set(game_details.identifier),
+                runtime: ActiveValue::Set(game_details.movie_specifics.unwrap().runtime),
                 source: ActiveValue::Set(MovieSource::Tmdb),
             };
-            movie.insert(&self.db).await.unwrap();
+            game.insert(&self.db).await.unwrap();
             Ok(IdObject { id: metadata_id })
         }
     }
