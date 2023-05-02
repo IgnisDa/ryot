@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
-static SHOW_TMDB_ID_INDEX: &str = "show__tmdbid__index";
-
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -70,7 +68,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(SHOW_TMDB_ID_INDEX)
+                    .name("show__tmdbid__index")
                     .table(Show::Table)
                     .col(Show::TmdbId)
                     .to_owned(),

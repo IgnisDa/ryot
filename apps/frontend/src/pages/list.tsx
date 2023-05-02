@@ -26,6 +26,7 @@ import {
 	MEDIA_LIST,
 	MOVIES_SEARCH,
 	SHOWS_SEARCH,
+	VIDEO_GAMES_SEARCH,
 } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
@@ -102,6 +103,15 @@ const Page: NextPageWithLayout = () => {
 						input: { query, page: parseInt(activeSearchPage) || 1 },
 					});
 					return showSearch;
+				})
+				.with(MetadataLot.VideoGame, async () => {
+					const { videoGamesSearch } = await gqlClient.request(
+						VIDEO_GAMES_SEARCH,
+						{
+							input: { query, page: parseInt(activeSearchPage) || 1 },
+						},
+					);
+					return videoGamesSearch;
 				})
 				.otherwise(async () => {
 					throw new Error("Unreachable!");

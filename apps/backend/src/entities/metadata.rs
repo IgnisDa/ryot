@@ -31,6 +31,8 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_one = "super::show::Entity")]
     Show,
+    #[sea_orm(has_one = "super::video_game::Entity")]
+    VideoGame,
 }
 
 impl Related<super::book::Entity> for Entity {
@@ -63,6 +65,12 @@ impl Related<super::show::Entity> for Entity {
     }
 }
 
+impl Related<super::video_game::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::VideoGame.def()
+    }
+}
+
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         super::user_to_metadata::Relation::User.def()
@@ -78,6 +86,15 @@ impl Related<super::creator::Entity> for Entity {
     }
     fn via() -> Option<RelationDef> {
         Some(super::metadata_to_creator::Relation::Metadata.def().rev())
+    }
+}
+
+impl Related<super::genre::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::metadata_to_genre::Relation::Genre.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::metadata_to_genre::Relation::Metadata.def().rev())
     }
 }
 

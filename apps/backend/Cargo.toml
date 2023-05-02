@@ -1,6 +1,6 @@
 [package]
 name = "trackona_backend"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,6 +18,7 @@ dotenvy = "0.15.7"
 figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 http = "0.2.9"
 mime_guess = "2.0.4"
+regex = "1.8.1"
 ron = "0.8.0"
 rust-embed = "6.6.1"
 sea-orm = { version = "0.11.1", features = ["sqlx-mysql", "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid", "debug-print"] }
@@ -25,6 +26,7 @@ sea-orm-migration = "0.11.1"
 sea-query = "0.28.4"
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = "1.0.96"
+serde_with = { version = "3.0.0", features = ["chrono_0_4"] }
 strum = { version = "0.24.1", features = ["derive"] }
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
 tokio = { version = "1.27.0", features = ["full"] }

@@ -25,7 +25,7 @@ impl Default for DatabaseConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Display)]
-pub enum OpenlibraryCoverImageSizes {
+pub enum OpenlibraryCoverImageSize {
     #[strum(serialize = "S")]
     Small,
     #[strum(serialize = "M")]
@@ -37,16 +37,16 @@ pub enum OpenlibraryCoverImageSizes {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct OpenlibraryConfig {
     pub url: String,
-    pub cover_image: String,
-    pub cover_image_size: OpenlibraryCoverImageSizes,
+    pub cover_image_url: String,
+    pub cover_image_size: OpenlibraryCoverImageSize,
 }
 
 impl Default for OpenlibraryConfig {
     fn default() -> Self {
         Self {
             url: "https://openlibrary.org".to_owned(),
-            cover_image: "https://covers.openlibrary.org/b".to_owned(),
-            cover_image_size: OpenlibraryCoverImageSizes::Medium,
+            cover_image_url: "https://covers.openlibrary.org/b".to_owned(),
+            cover_image_size: OpenlibraryCoverImageSize::Medium,
         }
     }
 }
@@ -81,23 +81,59 @@ pub struct ShowConfig {
     pub tmdb: TmdbConfig,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
-#[derive(Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct SchedulerConfig {}
 
-
-
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
 }
 
-impl Default for WebConfig {
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct TwitchConfig {
+    pub client_id: String,
+    pub client_secret: String,
+    // Endpoint used to get access tokens which will be used by IGDB
+    pub access_token_url: String
+}
+
+impl Default for TwitchConfig {
     fn default() -> Self {
         Self {
-            cors_origins: vec!["http://localhost:3000".to_owned()],
+            client_id: "".to_owned(),
+            client_secret: "".to_owned(),
+            access_token_url: "https://id.twitch.tv/oauth2/token".to_owned()
         }
     }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Display)]
+pub enum IgdbImageSize {
+    #[strum(serialize = "t_original")]
+    Original,
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct IgdbConfig {
+    pub base_url: String,
+    pub images_base_url: String,
+    pub image_size: IgdbImageSize
+}
+
+impl Default for IgdbConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "https://api.igdb.com/v4/".to_owned(),
+            images_base_url: "https://images.igdb.com/igdb/image/upload/".to_owned(),
+            image_size: IgdbImageSize::Original
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct VideoGameConfig {
+    pub twitch: TwitchConfig,
+    pub igdb: IgdbConfig
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
@@ -111,12 +147,13 @@ pub struct AppConfig {
     #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]
+    pub video_games: VideoGameConfig,
+    #[serde(default)]
     pub scheduler: SchedulerConfig,
     #[serde(default)]
     pub web: WebConfig,
 }
 
-/// Get the figment configuration that is used across the apps.
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = "trackona";

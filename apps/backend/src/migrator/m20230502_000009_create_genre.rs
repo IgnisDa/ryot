@@ -5,14 +5,14 @@ use super::Metadata;
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum MetadataToCreator {
+pub enum MetadataToGenre {
     Table,
     MetadataId,
-    CreatorId,
+    GenreId,
 }
 
 #[derive(Iden)]
-pub enum Creator {
+pub enum Genre {
     Table,
     Id,
     Name,
@@ -20,7 +20,7 @@ pub enum Creator {
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230416_000002_create_creator"
+        "m20230502_000009_create_genre"
     }
 }
 
@@ -30,36 +30,36 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MetadataToCreator::Table)
+                    .table(MetadataToGenre::Table)
                     .col(
-                        ColumnDef::new(MetadataToCreator::MetadataId)
+                        ColumnDef::new(MetadataToGenre::MetadataId)
                             .integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MetadataToCreator::CreatorId)
+                        ColumnDef::new(MetadataToGenre::GenreId)
                             .integer()
                             .not_null(),
                     )
                     .primary_key(
                         Index::create()
-                            .name("pk-metadata_creator")
-                            .col(MetadataToCreator::MetadataId)
-                            .col(MetadataToCreator::CreatorId),
+                            .name("pk-metadata_genre")
+                            .col(MetadataToGenre::MetadataId)
+                            .col(MetadataToGenre::GenreId),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-metadata-creator_id")
-                            .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
+                            .name("fk-metadata-genre_id")
+                            .from(MetadataToGenre::Table, MetadataToGenre::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-metadata-creator_id")
-                            .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
-                            .to(Creator::Table, Creator::Id)
+                            .name("fk-metadata-genre_id")
+                            .from(MetadataToGenre::Table, MetadataToGenre::GenreId)
+                            .to(Genre::Table, Genre::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -69,29 +69,24 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Creator::Table)
+                    .table(Genre::Table)
                     .col(
-                        ColumnDef::new(Creator::Id)
+                        ColumnDef::new(Genre::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Creator::Name)
-                            .unique_key()
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Genre::Name).string().unique_key().not_null())
                     .to_owned(),
             )
             .await?;
         manager
             .create_index(
                 Index::create()
-                    .name("creator__name__index")
-                    .table(Creator::Table)
-                    .col(Creator::Name)
+                    .name("genre_name_index")
+                    .table(Genre::Table)
+                    .col(Genre::Name)
                     .to_owned(),
             )
             .await?;
@@ -100,10 +95,10 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Creator::Table).to_owned())
+            .drop_table(Table::drop().table(Genre::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(MetadataToCreator::Table).to_owned())
+            .drop_table(Table::drop().table(MetadataToGenre::Table).to_owned())
             .await?;
         Ok(())
     }

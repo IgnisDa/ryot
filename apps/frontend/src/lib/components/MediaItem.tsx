@@ -14,6 +14,7 @@ import {
 	COMMIT_BOOK,
 	COMMIT_MOVIE,
 	COMMIT_SHOW,
+	COMMIT_VIDEO_GAME,
 } from "@trackona/graphql/backend/mutations";
 import { MEDIA_CONSUMED } from "@trackona/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
@@ -110,6 +111,13 @@ export default function (props: {
 						variables,
 					);
 					return commitShow;
+				})
+				.with(MetadataLot.VideoGame, async () => {
+					const { commitVideoGame } = await gqlClient.request(
+						COMMIT_VIDEO_GAME,
+						variables,
+					);
+					return commitVideoGame;
 				})
 				.otherwise(async () => {
 					throw Error;

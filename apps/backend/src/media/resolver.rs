@@ -9,18 +9,22 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     entities::{
-        book, creator,
+        book, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, movie,
-        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata},
+        metadata_image, metadata_to_creator, metadata_to_genre, movie,
+        prelude::{
+            Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata,
+            VideoGame,
+        },
         seen::{self, SeenExtraInformation, SeenSeasonExtraInformation},
-        show, user_to_metadata,
+        show, user_to_metadata, video_game,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     shows::ShowSpecifics,
     utils::user_id_from_ctx,
+    video_games::VideoGameSpecifics,
 };
 
 use super::{SeenStatus, LIMIT};
@@ -31,6 +35,7 @@ pub struct MediaSearchItem {
     pub title: String,
     pub description: Option<String>,
     pub author_names: Vec<String>,
+    pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -38,6 +43,7 @@ pub struct MediaSearchItem {
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -78,6 +84,7 @@ pub struct MediaDetails {
     #[graphql(name = "type")]
     pub lot: MetadataLot,
     pub creators: Vec<String>,
+    pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -85,6 +92,7 @@ pub struct MediaDetails {
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -216,7 +224,13 @@ impl MediaService {
     async fn generic_metadata(
         &self,
         metadata_id: i32,
-    ) -> Result<(MetadataModel, Vec<String>, Vec<String>, Vec<String>)> {
+    ) -> Result<(
+        MetadataModel,
+        Vec<String>,
+        Vec<String>,
+        Vec<String>,
+        Vec<String>,
+    )> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -225,6 +239,8 @@ impl MediaService {
             Some(m) => m,
             None => return Err(Error::new("The record does not exit".to_owned())),
         };
+        let db_genres = meta.find_related(Genre).all(&self.db).await.unwrap();
+        let genres = db_genres.into_iter().map(|g| g.name).collect();
         let creators = meta
             .find_related(Creator)
             .all(&self.db)
@@ -234,11 +250,11 @@ impl MediaService {
             .map(|c| c.name)
             .collect();
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
-        Ok((meta, creators, poster_images, backdrop_images))
+        Ok((meta, creators, poster_images, backdrop_images, genres))
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (meta, creators, poster_images, backdrop_images) =
+        let (meta, creators, poster_images, backdrop_images, genres) =
             self.generic_metadata(metadata_id).await?;
         let mut resp = MediaDetails {
             id: meta.id,
@@ -248,11 +264,13 @@ impl MediaService {
             publish_date: meta.publish_date,
             lot: meta.lot,
             creators,
+            genres,
             poster_images,
             backdrop_images,
             book_specifics: None,
             movie_specifics: None,
             show_specifics: None,
+            video_game_specifics: None,
         };
         match meta.lot {
             MetadataLot::Book => {
@@ -282,6 +300,9 @@ impl MediaService {
                     .unwrap()
                     .unwrap();
                 resp.show_specifics = Some(additional.details);
+            }
+            MetadataLot::VideoGame => {
+                // No additional metadata is stored in the database
             }
             _ => todo!(),
         };
@@ -328,6 +349,12 @@ impl MediaService {
                 .map(|b| b.metadata_id),
             MetadataLot::Show => Show::find()
                 .filter(show::Column::TmdbId.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            MetadataLot::VideoGame => VideoGame::find()
+                .filter(video_game::Column::IgdbId.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
@@ -405,7 +432,6 @@ impl MediaService {
                 identifier: m.id.to_string(),
                 title: m.title,
                 description: m.description,
-                author_names: vec![],
                 poster_images,
                 backdrop_images,
                 publish_year: m.publish_year,
@@ -413,6 +439,9 @@ impl MediaService {
                 book_specifics: None,
                 movie_specifics: None,
                 show_specifics: None,
+                video_game_specifics: None,
+                genres: vec![],
+                author_names: vec![],
             };
             items.push(_m);
         }
@@ -520,6 +549,7 @@ impl MediaService {
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
         creator_names: Vec<String>,
+        genres: Vec<String>,
     ) -> Result<i32> {
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
@@ -586,6 +616,27 @@ impl MediaService {
                 creator_id: ActiveValue::Set(creator.id),
             };
             metadata_creator.insert(&self.db).await.unwrap();
+        }
+        for genre in genres {
+            let db_genre = if let Some(c) = Genre::find()
+                .filter(genre::Column::Name.eq(&genre))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = genre::ActiveModel {
+                    name: ActiveValue::Set(genre),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
+            };
+            let intermediate = metadata_to_genre::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata.id),
+                genre_id: ActiveValue::Set(db_genre.id),
+            };
+            intermediate.insert(&self.db).await.ok();
         }
         Ok(metadata.id)
     }

@@ -8,23 +8,22 @@ pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
-pub enum BookSource {
-    #[sea_orm(string_value = "O")]
-    OpenLibrary,
+pub enum VideoGameSource {
+    #[sea_orm(string_value = "I")]
+    Igdb,
 }
 
 #[derive(Iden)]
-pub enum Book {
+pub enum VideoGame {
     Table,
     MetadataId,
-    OpenLibraryKey,
-    NumPages,
+    IgdbId,
     Source,
 }
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230416_000003_create_book"
+        "m20230502_000008_create_video_game"
     }
 }
 
@@ -34,9 +33,9 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Book::Table)
+                    .table(VideoGame::Table)
                     .col(
-                        ColumnDef::new(Book::MetadataId)
+                        ColumnDef::new(VideoGame::MetadataId)
                             .integer()
                             .primary_key()
                             .unique_key()
@@ -44,17 +43,19 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("book_to_metadata_foreign_key")
-                            .from(Book::Table, Book::MetadataId)
+                            .name("video_game_to_metadata_foreign_key")
+                            .from(VideoGame::Table, VideoGame::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
-                    .col(ColumnDef::new(Book::NumPages).integer())
+                    .col(ColumnDef::new(VideoGame::IgdbId).string().not_null())
                     .col(
-                        ColumnDef::new(Book::Source)
-                            .enumeration(BookSourceEnum.into_iden(), BookSourceEnum.into_iter())
+                        ColumnDef::new(VideoGame::Source)
+                            .enumeration(
+                                VideoGameSourceEnum.into_iden(),
+                                VideoGameSourceEnum.into_iter(),
+                            )
                             .not_null(),
                     )
                     .to_owned(),
@@ -63,9 +64,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("book__openlibrary__index")
-                    .table(Book::Table)
-                    .col(Book::OpenLibraryKey)
+                    .name("video_game__imdb__index")
+                    .table(VideoGame::Table)
+                    .col(VideoGame::IgdbId)
                     .to_owned(),
             )
             .await?;
@@ -74,7 +75,7 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Book::Table).to_owned())
+            .drop_table(Table::drop().table(VideoGame::Table).to_owned())
             .await?;
         Ok(())
     }

@@ -58,6 +58,14 @@ export const COMMIT_SHOW = graphql(`
   }
 `);
 
+export const COMMIT_VIDEO_GAME = graphql(`
+  mutation CommitVideoGame($identifier: String!) {
+    commitVideoGame(identifier: $identifier) {
+      id
+    }
+  }
+`);
+
 export const PROGRESS_UPDATE = graphql(`
   mutation ProgressUpdate($input: ProgressUpdate!) {
     progressUpdate(input: $input) {

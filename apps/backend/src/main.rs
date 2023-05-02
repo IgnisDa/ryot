@@ -50,6 +50,7 @@ mod movies;
 mod shows;
 mod users;
 mod utils;
+mod video_games;
 
 #[derive(Debug)]
 pub struct GqlCtx {

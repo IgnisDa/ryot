@@ -5,7 +5,10 @@ use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
+    utils::{
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
+        media_tracker::TmdbNamedObject, tmdb,
+    },
 };
 
 use super::MovieSpecifics;
@@ -26,19 +29,16 @@ impl TmdbService {
 impl TmdbService {
     pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbCreator {
-            name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
             id: i32,
             title: String,
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbCreator>,
+            production_companies: Vec<TmdbNamedObject>,
             release_date: String,
             runtime: i32,
+            genres: Vec<TmdbNamedObject>,
         }
         let mut rsp = self
             .client
@@ -53,6 +53,7 @@ impl TmdbService {
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.title,
+            genres: data.genres.into_iter().map(|g| g.name).collect(),
             author_names: data
                 .production_companies
                 .into_iter()
@@ -66,6 +67,7 @@ impl TmdbService {
             movie_specifics: Some(MovieSpecifics {
                 runtime: Some(data.runtime),
             }),
+            video_game_specifics: None,
             book_specifics: None,
             show_specifics: None,
         };
@@ -119,12 +121,15 @@ impl TmdbService {
                     identifier: d.id.to_string(),
                     title: d.title,
                     description: d.overview,
+                    // TODO: Populate with correct data
                     author_names: vec![],
+                    genres: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
                     publish_date: convert_string_to_date(&d.release_date),
                     movie_specifics: Some(MovieSpecifics { runtime: None }),
                     book_specifics: None,
                     show_specifics: None,
+                    video_game_specifics: None,
                     poster_images,
                     backdrop_images,
                 }
