@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
-use async_graphql::SimpleObject;
+use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::{formats::Flexible, TimestampSeconds};
 use surf::Client;
 
 use crate::{
@@ -10,6 +12,22 @@ use crate::{
 };
 
 use super::VideoGameSpecifics;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct IgdbImage {
+    url: String,
+}
+#[serde_as]
+#[derive(Serialize, Deserialize, Debug)]
+struct IgdbSearchResponse {
+    id: i32,
+    name: String,
+    summary: Option<String>,
+    cover: Option<IgdbImage>,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    first_release_date: Option<DateTime<Utc>>,
+    artworks: Option<Vec<IgdbImage>>,
+}
 
 #[derive(Debug, Clone)]
 pub struct IgdbService {
@@ -84,55 +102,51 @@ impl IgdbService {
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        #[derive(Serialize, Deserialize)]
-        struct Query {
-            query: String,
-            page: i32,
-            language: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct IgdbMovie {
-            id: i32,
-            poster_path: Option<String>,
-            backdrop_path: Option<String>,
-            overview: Option<String>,
-            title: String,
-            release_date: String,
-        }
-        #[derive(Serialize, Deserialize, Debug)]
-        struct IgdbSearchResponse {
-            total_results: i32,
-            results: Vec<IgdbMovie>,
-        }
+        let req_body = format!(
+            r#"
+fields 
+    id,
+    name,
+    summary,
+    cover.*, 
+    first_release_date,
+    artworks.*
+;
+search "{query}"; 
+where version_parent = null; 
+limit 20;
+offset: {offset};
+            "#,
+            offset = page.unwrap_or_default()
+        );
         let mut rsp = self
             .client
-            .get("search/movie")
-            .query(&Query {
-                query: query.to_owned(),
-                page: page.unwrap_or(1),
-                language: "en-US".to_owned(),
-            })
-            .unwrap()
+            .post("games")
+            .body_string(req_body)
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: IgdbSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let total = search.len() as i32;
+        dbg!(&search);
 
         let resp = search
-            .results
             .into_iter()
             .map(|d| {
-                let backdrop_images = convert_option_path_to_vec(
-                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                );
-                let poster_images =
-                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                let backdrop_images = d
+                    .artworks
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|a| a.url)
+                    .collect();
+                let poster_images = convert_option_path_to_vec(d.cover.map(|p| p.url));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
-                    title: d.title,
-                    description: d.overview,
+                    title: d.name,
+                    description: d.summary,
                     author_names: vec![],
-                    publish_year: convert_date_to_year(&d.release_date),
-                    publish_date: convert_string_to_date(&d.release_date),
+                    publish_date: d.first_release_date.map(|d| d.date_naive()),
+                    publish_year: d.first_release_date.map(|d| d.year()),
                     video_game_specifics: Some(VideoGameSpecifics { runtime: None }),
                     movie_specifics: None,
                     book_specifics: None,
@@ -142,10 +156,7 @@ impl IgdbService {
                 }
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults {
-            total: search.total_results,
-            items: resp,
-        })
+        Ok(MediaSearchResults { total, items: resp })
     }
 
     fn get_cover_image_url(&self, c: &str) -> String {
