@@ -84,6 +84,7 @@ pub struct MediaDetails {
     #[graphql(name = "type")]
     pub lot: MetadataLot,
     pub creators: Vec<String>,
+    pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -223,7 +224,13 @@ impl MediaService {
     async fn generic_metadata(
         &self,
         metadata_id: i32,
-    ) -> Result<(MetadataModel, Vec<String>, Vec<String>, Vec<String>)> {
+    ) -> Result<(
+        MetadataModel,
+        Vec<String>,
+        Vec<String>,
+        Vec<String>,
+        Vec<String>,
+    )> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -232,6 +239,8 @@ impl MediaService {
             Some(m) => m,
             None => return Err(Error::new("The record does not exit".to_owned())),
         };
+        let db_genres = meta.find_related(Genre).all(&self.db).await.unwrap();
+        let genres = db_genres.into_iter().map(|g| g.name).collect();
         let creators = meta
             .find_related(Creator)
             .all(&self.db)
@@ -241,11 +250,11 @@ impl MediaService {
             .map(|c| c.name)
             .collect();
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
-        Ok((meta, creators, poster_images, backdrop_images))
+        Ok((meta, creators, poster_images, backdrop_images, genres))
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (meta, creators, poster_images, backdrop_images) =
+        let (meta, creators, poster_images, backdrop_images, genres) =
             self.generic_metadata(metadata_id).await?;
         let mut resp = MediaDetails {
             id: meta.id,
@@ -255,6 +264,7 @@ impl MediaService {
             publish_date: meta.publish_date,
             lot: meta.lot,
             creators,
+            genres,
             poster_images,
             backdrop_images,
             book_specifics: None,
