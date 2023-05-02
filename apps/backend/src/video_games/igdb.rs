@@ -128,7 +128,6 @@ offset: {offset};
 
         let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let total = search.len() as i32;
-        dbg!(&search);
 
         let resp = search
             .into_iter()
