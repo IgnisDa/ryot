@@ -109,7 +109,7 @@ limit {LIMIT};
 offset: {offset};
             "#,
             field = FIELDS,
-            offset = page.unwrap_or_default() * LIMIT
+            offset = (page.unwrap_or_default() - 1) * LIMIT
         );
         let mut rsp = self
             .client
@@ -119,7 +119,9 @@ offset: {offset};
             .map_err(|e| anyhow!(e))?;
 
         let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let total = search.len() as i32;
+        // let total = search.len() as i32;
+        // FIXME: I have not yet found a way to get the total number of responses, so we will hardcode this
+        let total = 100;
 
         let resp = search
             .into_iter()
