@@ -15,7 +15,6 @@ pub enum MetadataToGenre {
 pub enum Genre {
     Table,
     Id,
-    MetadataId,
     Name,
 }
 
@@ -78,22 +77,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Genre::MetadataId)
-                            .integer()
-                            .primary_key()
-                            .unique_key()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("video_game_to_metadata_foreign_key")
-                            .from(Genre::Table, Genre::MetadataId)
-                            .to(Metadata::Table, Metadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .col(ColumnDef::new(Genre::Name).string().not_null())
+                    .col(ColumnDef::new(Genre::Name).string().unique_key().not_null())
                     .to_owned(),
             )
             .await?;
