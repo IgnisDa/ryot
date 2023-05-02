@@ -123,18 +123,16 @@ offset: {offset};
 }
 
 fn igdb_response_to_search_response(item: IgdbSearchResponse) -> MediaSearchItem {
-    let backdrop_images = item
-        .artworks
-        .unwrap_or_default()
-        .into_iter()
-        .map(|a| a.url)
-        .collect();
-    let poster_images = convert_option_path_to_vec(item.cover.map(|p| p.url));
+    let mut poster_images = convert_option_path_to_vec(item.cover.map(|p| p.url));
+    let additional_images = item.artworks.unwrap_or_default().into_iter().map(|a| a.url);
+    poster_images.extend(additional_images);
     MediaSearchItem {
         identifier: item.id.to_string(),
         title: item.name,
         description: item.summary,
         author_names: vec![],
+        poster_images,
+        backdrop_images: vec![],
         publish_date: item.first_release_date.map(|d| d.date_naive()),
         publish_year: item.first_release_date.map(|d| d.year()),
         genres: item
@@ -149,7 +147,5 @@ fn igdb_response_to_search_response(item: IgdbSearchResponse) -> MediaSearchItem
         movie_specifics: None,
         book_specifics: None,
         show_specifics: None,
-        poster_images,
-        backdrop_images,
     }
 }
