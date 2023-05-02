@@ -4,9 +4,11 @@ pub mod prelude;
 
 pub mod book;
 pub mod creator;
+pub mod genre;
 pub mod metadata;
 pub mod metadata_image;
 pub mod metadata_to_creator;
+pub mod metadata_to_genre;
 pub mod movie;
 pub mod seen;
 pub mod show;

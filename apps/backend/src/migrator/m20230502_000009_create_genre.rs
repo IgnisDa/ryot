@@ -72,6 +72,13 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Genre::Table)
                     .col(
+                        ColumnDef::new(Genre::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
                         ColumnDef::new(Genre::MetadataId)
                             .integer()
                             .primary_key()
