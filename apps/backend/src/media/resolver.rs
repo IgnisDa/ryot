@@ -12,9 +12,11 @@ use crate::{
         book, creator,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, movie,
-        prelude::{Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata},
+        prelude::{
+            Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata, VideoGame,
+        },
         seen::{self, SeenExtraInformation, SeenSeasonExtraInformation},
-        show, user_to_metadata,
+        show, user_to_metadata, video_game,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -330,6 +332,12 @@ impl MediaService {
                 .map(|b| b.metadata_id),
             MetadataLot::Show => Show::find()
                 .filter(show::Column::TmdbId.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
+            MetadataLot::VideoGame => VideoGame::find()
+                .filter(video_game::Column::IgdbId.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()

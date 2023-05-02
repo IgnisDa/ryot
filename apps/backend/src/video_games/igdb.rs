@@ -5,6 +5,7 @@ use serde_with::serde_as;
 use serde_with::{formats::Flexible, TimestampSeconds};
 use surf::Client;
 
+use crate::media::LIMIT;
 use crate::{
     config::VideoGameConfig,
     media::resolver::{MediaSearchItem, MediaSearchResults},
@@ -14,9 +15,15 @@ use crate::{
 use super::VideoGameSpecifics;
 
 #[derive(Serialize, Deserialize, Debug)]
+struct IgdbGenre {
+    name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct IgdbImage {
     url: String,
 }
+
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbSearchResponse {
@@ -27,6 +34,7 @@ struct IgdbSearchResponse {
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTime<Utc>>,
     artworks: Option<Vec<IgdbImage>>,
+    genres: Option<Vec<IgdbGenre>>,
 }
 
 #[derive(Debug, Clone)]
@@ -92,9 +100,7 @@ impl IgdbService {
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
             movie_specifics: None,
-            video_game_specifics: Some(VideoGameSpecifics {
-                runtime: Some(data.runtime),
-            }),
+            video_game_specifics: Some(VideoGameSpecifics { genres: vec![] }),
             book_specifics: None,
             show_specifics: None,
         };
@@ -110,14 +116,14 @@ fields
     summary,
     cover.*, 
     first_release_date,
-    artworks.*
-;
+    artworks.*,
+    genres.*;
 search "{query}"; 
 where version_parent = null; 
-limit 20;
+limit {LIMIT};
 offset: {offset};
             "#,
-            offset = page.unwrap_or_default()
+            offset = page.unwrap_or_default() * LIMIT
         );
         let mut rsp = self
             .client
@@ -146,7 +152,14 @@ offset: {offset};
                     author_names: vec![],
                     publish_date: d.first_release_date.map(|d| d.date_naive()),
                     publish_year: d.first_release_date.map(|d| d.year()),
-                    video_game_specifics: Some(VideoGameSpecifics { runtime: None }),
+                    video_game_specifics: Some(VideoGameSpecifics {
+                        genres: d
+                            .genres
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|g| g.name)
+                            .collect(),
+                    }),
                     movie_specifics: None,
                     book_specifics: None,
                     show_specifics: None,
