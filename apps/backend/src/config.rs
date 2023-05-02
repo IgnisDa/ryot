@@ -25,7 +25,7 @@ impl Default for DatabaseConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Display)]
-pub enum OpenlibraryCoverImageSizes {
+pub enum OpenlibraryCoverImageSize {
     #[strum(serialize = "S")]
     Small,
     #[strum(serialize = "M")]
@@ -38,7 +38,7 @@ pub enum OpenlibraryCoverImageSizes {
 pub struct OpenlibraryConfig {
     pub url: String,
     pub cover_image_url: String,
-    pub cover_image_size: OpenlibraryCoverImageSizes,
+    pub cover_image_size: OpenlibraryCoverImageSize,
 }
 
 impl Default for OpenlibraryConfig {
@@ -46,7 +46,7 @@ impl Default for OpenlibraryConfig {
         Self {
             url: "https://openlibrary.org".to_owned(),
             cover_image_url: "https://covers.openlibrary.org/b".to_owned(),
-            cover_image_size: OpenlibraryCoverImageSizes::Medium,
+            cover_image_size: OpenlibraryCoverImageSize::Medium,
         }
     }
 }
@@ -107,15 +107,25 @@ impl Default for TwitchConfig {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Serialize, Display)]
+pub enum IgdbImageSize {
+    #[strum(serialize = "t_original")]
+    Original,
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct IgdbConfig {
     pub base_url: String,
+    pub images_base_url: String,
+    pub image_size: IgdbImageSize
 }
 
 impl Default for IgdbConfig {
     fn default() -> Self {
         Self {
-            base_url: "https://api.igdb.com/v4/".to_owned()
+            base_url: "https://api.igdb.com/v4/".to_owned(),
+            images_base_url: "https://images.igdb.com/igdb/image/upload/".to_owned(),
+            image_size: IgdbImageSize::Original
         }
     }
 }

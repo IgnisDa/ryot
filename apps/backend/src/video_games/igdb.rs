@@ -36,6 +36,7 @@ struct IgdbGenre {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbImage {
+    image_id: String,
     url: String,
 }
 
@@ -56,18 +57,24 @@ struct IgdbSearchResponse {
 #[derive(Debug, Clone)]
 pub struct IgdbService {
     client: Client,
+    image_url: String,
+    image_size: String,
 }
 
 impl IgdbService {
-    pub async fn new(video_game_config: &VideoGameConfig) -> Self {
+    pub async fn new(config: &VideoGameConfig) -> Self {
         let client = igdb::get_client_config(
-            &video_game_config.twitch.access_token_url,
-            &video_game_config.twitch.client_id,
-            &video_game_config.twitch.client_secret,
-            &video_game_config.igdb.base_url,
+            &config.twitch.access_token_url,
+            &config.twitch.client_id,
+            &config.twitch.client_secret,
+            &config.igdb.base_url,
         )
         .await;
-        Self { client }
+        Self {
+            client,
+            image_url: config.igdb.images_base_url.to_owned(),
+            image_size: config.igdb.image_size.to_string(),
+        }
     }
 }
 
@@ -90,7 +97,7 @@ where id = {id};
 
         let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
-        Ok(igdb_response_to_search_response(detail))
+        Ok(self.igdb_response_to_search_response(detail))
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -116,36 +123,45 @@ offset: {offset};
 
         let resp = search
             .into_iter()
-            .map(igdb_response_to_search_response)
+            .map(|r| self.igdb_response_to_search_response(r))
             .collect::<Vec<_>>();
         Ok(MediaSearchResults { total, items: resp })
     }
-}
 
-fn igdb_response_to_search_response(item: IgdbSearchResponse) -> MediaSearchItem {
-    let mut poster_images = convert_option_path_to_vec(item.cover.map(|p| p.url));
-    let additional_images = item.artworks.unwrap_or_default().into_iter().map(|a| a.url);
-    poster_images.extend(additional_images);
-    MediaSearchItem {
-        identifier: item.id.to_string(),
-        title: item.name,
-        description: item.summary,
-        author_names: vec![],
-        poster_images,
-        backdrop_images: vec![],
-        publish_date: item.first_release_date.map(|d| d.date_naive()),
-        publish_year: item.first_release_date.map(|d| d.year()),
-        genres: item
-            .genres
+    fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaSearchItem {
+        let mut poster_images =
+            convert_option_path_to_vec(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
+        let additional_images = item
+            .artworks
             .unwrap_or_default()
             .into_iter()
-            .map(|g| g.name)
-            .collect(),
-        video_game_specifics: Some(VideoGameSpecifics {
-            rating: item.rating,
-        }),
-        movie_specifics: None,
-        book_specifics: None,
-        show_specifics: None,
+            .map(|a| self.get_cover_image_url(a.image_id));
+        poster_images.extend(additional_images);
+        MediaSearchItem {
+            identifier: item.id.to_string(),
+            title: item.name,
+            description: item.summary,
+            author_names: vec![],
+            poster_images,
+            backdrop_images: vec![],
+            publish_date: item.first_release_date.map(|d| d.date_naive()),
+            publish_year: item.first_release_date.map(|d| d.year()),
+            genres: item
+                .genres
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| g.name)
+                .collect(),
+            video_game_specifics: Some(VideoGameSpecifics {
+                rating: item.rating,
+            }),
+            movie_specifics: None,
+            book_specifics: None,
+            show_specifics: None,
+        }
+    }
+
+    fn get_cover_image_url(&self, hash: String) -> String {
+        format!("{}{}/{}.jpg", self.image_url, self.image_size, hash)
     }
 }
