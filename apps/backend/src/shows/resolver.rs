@@ -103,7 +103,7 @@ impl ShowsService {
                     show_details.poster_images,
                     show_details.backdrop_images,
                     show_details.author_names,
-                    vec![],
+                    show_details.genres,
                 )
                 .await?;
             let show = show::ActiveModel {

@@ -103,7 +103,7 @@ impl MoviesService {
                     movie_details.poster_images,
                     movie_details.backdrop_images,
                     movie_details.author_names,
-                    vec![],
+                    movie_details.genres,
                 )
                 .await?;
             let movie = movie::ActiveModel {

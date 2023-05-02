@@ -5,7 +5,10 @@ use surf::Client;
 
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
-    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
+    utils::{
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
+        media_tracker::TmdbNamedObject, tmdb,
+    },
 };
 
 use super::MovieSpecifics;
@@ -26,19 +29,16 @@ impl TmdbService {
 impl TmdbService {
     pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbCreator {
-            name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
             id: i32,
             title: String,
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbCreator>,
+            production_companies: Vec<TmdbNamedObject>,
             release_date: String,
             runtime: i32,
+            genres: Vec<TmdbNamedObject>,
         }
         let mut rsp = self
             .client
@@ -53,8 +53,7 @@ impl TmdbService {
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.title,
-            // TODO: Populate with correct data
-            genres: vec![],
+            genres: data.genres.into_iter().map(|g| g.name).collect(),
             author_names: data
                 .production_companies
                 .into_iter()

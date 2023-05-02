@@ -166,6 +166,11 @@ pub mod igdb {
 pub mod media_tracker {
     use super::*;
 
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbNamedObject {
+        pub name: String,
+    }
+
     #[derive(Debug)]
     pub struct ReviewInformation {
         pub date: NaiveDate,

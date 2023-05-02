@@ -6,7 +6,10 @@ use surf::Client;
 use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
     shows::{ShowEpisode, ShowSeason},
-    utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
+    utils::{
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
+        media_tracker::TmdbNamedObject, tmdb,
+    },
 };
 
 use super::ShowSpecifics;
@@ -27,10 +30,6 @@ impl TmdbService {
 impl TmdbService {
     pub async fn show_details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbAuthor {
-            name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
             season_number: i32,
         }
@@ -41,9 +40,10 @@ impl TmdbService {
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbAuthor>,
+            production_companies: Vec<TmdbNamedObject>,
             first_air_date: Option<String>,
             seasons: Vec<TmdbSeasonNumber>,
+            genres: Vec<TmdbNamedObject>,
         }
         let mut rsp = self
             .client
@@ -95,7 +95,7 @@ impl TmdbService {
             description: data.overview,
             // TODO: Populate with correct data
             author_names: vec![],
-            genres: vec![],
+            genres: data.genres.into_iter().map(|g| g.name).collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             show_specifics: Some(ShowSpecifics {
@@ -195,9 +195,6 @@ impl TmdbService {
                     identifier: d.id.to_string(),
                     title: d.name,
                     description: d.overview,
-                    // TODO: Populate with correct data
-                    author_names: vec![],
-                    genres: vec![],
                     publish_year: convert_date_to_year(&d.first_air_date),
                     publish_date: convert_string_to_date(&d.first_air_date),
                     show_specifics: Some(ShowSpecifics { seasons: vec![] }),
@@ -206,6 +203,8 @@ impl TmdbService {
                     video_game_specifics: None,
                     poster_images,
                     backdrop_images,
+                    author_names: vec![],
+                    genres: vec![],
                 }
             })
             .collect::<Vec<_>>();

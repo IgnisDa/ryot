@@ -422,7 +422,6 @@ impl MediaService {
                 identifier: m.id.to_string(),
                 title: m.title,
                 description: m.description,
-                author_names: vec![],
                 poster_images,
                 backdrop_images,
                 publish_year: m.publish_year,
@@ -431,8 +430,8 @@ impl MediaService {
                 movie_specifics: None,
                 show_specifics: None,
                 video_game_specifics: None,
-                // TODO: Populate with correct data
                 genres: vec![],
+                author_names: vec![],
             };
             items.push(_m);
         }
