@@ -6,5 +6,5 @@ pub mod resolver;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct VideoGameSpecifics {
-    pub genres: Vec<String>,
+    pub rating: Option<f32>,
 }
