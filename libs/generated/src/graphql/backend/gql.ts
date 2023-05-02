@@ -24,6 +24,7 @@ const documents = {
     "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
     "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MoviesSearchDocument,
     "\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.ShowsSearchDocument,
+    "\n\tquery VideoGamesSearch($input: VideoGamesSearchInput!) {\n\t  videoGamesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.VideoGamesSearchDocument,
     "\n\tquery CoreDetails {\n\t  coreDetails {\n\t    version\n\t    authorName\n\t  }\n\t}\n": types.CoreDetailsDocument,
     "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t    type\n\t    posterImages\n\t    backdropImages\n\t    publishYear\n\t    publishDate\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t    showSpecifics {\n\t      seasons {\n\t        seasonNumber\n\t        name\n\t        overview\n\t        backdropImages\n\t        posterImages\n\t        episodes {\n\t\t\t\t\t\tid\n\t          name\n\t\t\t\t\t\tposterImages\n\t          episodeNumber\n\t          publishDate\n\t          name\n\t          overview\n\t        }\n\t      }\n\t    }\n\t  }\n\t}\n": types.MediaDetailsDocument,
     "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n": types.SeenHistoryDocument,
@@ -89,6 +90,10 @@ export function graphql(source: "\n\tquery MoviesSearch($input: MoviesSearchInpu
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery VideoGamesSearch($input: VideoGamesSearchInput!) {\n\t  videoGamesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery VideoGamesSearch($input: VideoGamesSearchInput!) {\n\t  videoGamesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

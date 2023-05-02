@@ -42,6 +42,20 @@ export const SHOWS_SEARCH = graphql(`
 	}
 `);
 
+export const VIDEO_GAMES_SEARCH = graphql(`
+	query VideoGamesSearch($input: VideoGamesSearchInput!) {
+	  videoGamesSearch(input: $input) {
+	    total
+	    items {
+	      identifier
+	      title
+	      posterImages
+	      publishYear
+	    }
+	  }
+	}
+`);
+
 export const CORE_DETAILS = graphql(`
 	query CoreDetails {
 	  coreDetails {
