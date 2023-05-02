@@ -13,3 +13,4 @@ pub mod show;
 pub mod token;
 pub mod user;
 pub mod user_to_metadata;
+pub mod video_game;

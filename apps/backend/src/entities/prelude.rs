@@ -11,3 +11,4 @@ pub use super::show::Entity as Show;
 pub use super::token::Entity as Token;
 pub use super::user::Entity as User;
 pub use super::user_to_metadata::Entity as UserToMetadata;
+pub use super::video_game::Entity as VideoGame;
