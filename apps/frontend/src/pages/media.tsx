@@ -274,8 +274,7 @@ const Page: NextPageWithLayout = () => {
 					{inProgressSeenItem ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, details.data.type)}ing this{" "}
-							{details.data.type.toLowerCase()} ({inProgressSeenItem.progress}
-							%)
+							({inProgressSeenItem.progress}%)
 						</Alert>
 					) : null}
 					<Tabs

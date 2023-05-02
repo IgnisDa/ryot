@@ -28,6 +28,7 @@ import {
 	SHOWS_SEARCH,
 	VIDEO_GAMES_SEARCH,
 } from "@trackona/graphql/backend/queries";
+import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { match } from "ts-pattern";
@@ -132,7 +133,9 @@ const Page: NextPageWithLayout = () => {
 						<Text size={"lg"}>Search</Text>
 					</Tabs.Tab>
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
-						<Text size={"lg"}>My {lot.toLowerCase()}s</Text>
+						<Text size={"lg"}>
+							My {startCase(camelCase(lot.toLowerCase()))}s
+						</Text>
 					</Tabs.Tab>
 					<Box style={{ flexGrow: 1 }}>
 						<ActionIcon
