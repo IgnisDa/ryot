@@ -31,7 +31,7 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_one = "super::show::Entity")]
     Show,
-    #[sea_orm(has_many = "super::video_game::Entity")]
+    #[sea_orm(has_one = "super::video_game::Entity")]
     VideoGame,
 }
 
