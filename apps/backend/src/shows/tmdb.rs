@@ -140,6 +140,7 @@ impl TmdbService {
             }),
             movie_specifics: None,
             book_specifics: None,
+            video_game_specifics: None,
             poster_images,
             backdrop_images,
         })
@@ -198,6 +199,7 @@ impl TmdbService {
                     show_specifics: Some(ShowSpecifics { seasons: vec![] }),
                     movie_specifics: None,
                     book_specifics: None,
+                    video_game_specifics: None,
                     poster_images,
                     backdrop_images,
                 }

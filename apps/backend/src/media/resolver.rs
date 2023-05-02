@@ -21,6 +21,7 @@ use crate::{
     movies::MovieSpecifics,
     shows::ShowSpecifics,
     utils::user_id_from_ctx,
+    video_games::VideoGameSpecifics,
 };
 
 use super::{SeenStatus, LIMIT};
@@ -38,6 +39,7 @@ pub struct MediaSearchItem {
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -413,6 +415,7 @@ impl MediaService {
                 book_specifics: None,
                 movie_specifics: None,
                 show_specifics: None,
+                video_game_specifics: None,
             };
             items.push(_m);
         }

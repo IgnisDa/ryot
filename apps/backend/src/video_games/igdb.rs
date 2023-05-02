@@ -8,35 +8,35 @@ use crate::{
     utils::{convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb},
 };
 
-use super::MovieSpecifics;
+use super::VideoGameSpecifics;
 
 #[derive(Debug, Clone)]
-pub struct TmdbService {
+pub struct IgdbService {
     client: Client,
     image_url: String,
 }
 
-impl TmdbService {
+impl IgdbService {
     pub async fn new(url: &str, access_token: &str) -> Self {
         let (client, image_url) = tmdb::get_client_config(url, access_token).await;
         Self { client, image_url }
     }
 }
 
-impl TmdbService {
+impl IgdbService {
     pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbCreator {
+        struct IgdbCreator {
             name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbMovie {
+        struct IgdbMovie {
             id: i32,
             title: String,
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbCreator>,
+            production_companies: Vec<IgdbCreator>,
             release_date: String,
             runtime: i32,
         }
@@ -45,7 +45,7 @@ impl TmdbService {
             .get(format!("movie/{}", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: IgdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let poster_images =
             convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
@@ -63,10 +63,10 @@ impl TmdbService {
             publish_year: convert_date_to_year(&data.release_date),
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
-            movie_specifics: Some(MovieSpecifics {
+            movie_specifics: None,
+            video_game_specifics: Some(VideoGameSpecifics {
                 runtime: Some(data.runtime),
             }),
-            video_game_specifics: None,
             book_specifics: None,
             show_specifics: None,
         };
@@ -81,7 +81,7 @@ impl TmdbService {
             language: String,
         }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct TmdbMovie {
+        pub struct IgdbMovie {
             id: i32,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
@@ -90,9 +90,9 @@ impl TmdbService {
             release_date: String,
         }
         #[derive(Serialize, Deserialize, Debug)]
-        struct TmdbSearchResponse {
+        struct IgdbSearchResponse {
             total_results: i32,
-            results: Vec<TmdbMovie>,
+            results: Vec<IgdbMovie>,
         }
         let mut rsp = self
             .client
@@ -105,7 +105,7 @@ impl TmdbService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: IgdbSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
             .results
@@ -123,10 +123,10 @@ impl TmdbService {
                     author_names: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
                     publish_date: convert_string_to_date(&d.release_date),
-                    movie_specifics: Some(MovieSpecifics { runtime: None }),
+                    video_game_specifics: Some(VideoGameSpecifics { runtime: None }),
+                    movie_specifics: None,
                     book_specifics: None,
                     show_specifics: None,
-                    video_game_specifics: None,
                     poster_images,
                     backdrop_images,
                 }
