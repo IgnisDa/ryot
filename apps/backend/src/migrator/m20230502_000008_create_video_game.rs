@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
-static VIDEO_GAME_IMDB_ID_INDEX: &str = "video_hame__imdb__index";
+static VIDEO_GAME_IMDB_ID_INDEX: &str = "video_game__imdb__index";
 
 pub struct Migration;
 
