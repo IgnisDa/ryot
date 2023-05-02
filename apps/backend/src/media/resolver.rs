@@ -91,6 +91,7 @@ pub struct MediaDetails {
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -259,6 +260,7 @@ impl MediaService {
             book_specifics: None,
             movie_specifics: None,
             show_specifics: None,
+            video_game_specifics: None,
         };
         match meta.lot {
             MetadataLot::Book => {
@@ -288,6 +290,9 @@ impl MediaService {
                     .unwrap()
                     .unwrap();
                 resp.show_specifics = Some(additional.details);
+            }
+            MetadataLot::VideoGame => {
+                // No additional metadata is stored in the database
             }
             _ => todo!(),
         };

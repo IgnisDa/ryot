@@ -7,10 +7,10 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{movie, prelude::Movie},
+    entities::{prelude::VideoGame, video_game},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
-    migrator::{MetadataLot, MovieSource},
+    migrator::{MetadataLot, VideoGameSource},
 };
 
 use super::igdb::IgdbService;
@@ -91,8 +91,8 @@ impl VideoGamesService {
     }
 
     async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Movie::find()
-            .filter(movie::Column::TmdbId.eq(identifier))
+        let meta = VideoGame::find()
+            .filter(video_game::Column::IgdbId.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
@@ -111,14 +111,13 @@ impl VideoGamesService {
                     game_details.poster_images,
                     game_details.backdrop_images,
                     game_details.author_names,
-                    vec![],
+                    game_details.genres,
                 )
                 .await?;
-            let game = movie::ActiveModel {
+            let game = video_game::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                tmdb_id: ActiveValue::Set(game_details.identifier),
-                runtime: ActiveValue::Set(game_details.movie_specifics.unwrap().runtime),
-                source: ActiveValue::Set(MovieSource::Tmdb),
+                igdb_id: ActiveValue::Set(game_details.identifier),
+                source: ActiveValue::Set(VideoGameSource::Igdb),
             };
             game.insert(&self.db).await.unwrap();
             Ok(IdObject { id: metadata_id })
