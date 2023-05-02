@@ -5,9 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use super::m20230417_000004_create_user::User;
 
-static METADATA_TITLE_INDEX: &str = "metadata__title__index";
-static METADATA_IMAGE_URL_INDEX: &str = "metadata-image__url__index";
-
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -121,7 +118,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(METADATA_IMAGE_URL_INDEX)
+                    .name("metadata-image__url__index")
                     .table(MetadataImage::Table)
                     .col(MetadataImage::Url)
                     .to_owned(),
@@ -209,7 +206,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(METADATA_TITLE_INDEX)
+                    .name("metadata__title__index")
                     .table(Metadata::Table)
                     .col(Metadata::Title)
                     .to_owned(),

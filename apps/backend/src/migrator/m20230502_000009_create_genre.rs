@@ -2,8 +2,6 @@ use sea_orm_migration::prelude::*;
 
 use super::Metadata;
 
-static GENRE_NAME_INDEX: &str = "genre_name_index";
-
 pub struct Migration;
 
 #[derive(Iden)]
@@ -52,7 +50,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-media-item_media-item-genre_id")
+                            .name("fk-metadata-genre_id")
                             .from(MetadataToGenre::Table, MetadataToGenre::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -60,7 +58,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-creator-item_media-item-genre_id")
+                            .name("fk-metadata-genre_id")
                             .from(MetadataToGenre::Table, MetadataToGenre::GenreId)
                             .to(Genre::Table, Genre::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -95,7 +93,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(GENRE_NAME_INDEX)
+                    .name("genre_name_index")
                     .table(Genre::Table)
                     .col(Genre::Name)
                     .to_owned(),
@@ -106,10 +104,10 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(MetadataToGenre::Table).to_owned())
+            .drop_table(Table::drop().table(Genre::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(Genre::Table).to_owned())
+            .drop_table(Table::drop().table(MetadataToGenre::Table).to_owned())
             .await?;
         Ok(())
     }

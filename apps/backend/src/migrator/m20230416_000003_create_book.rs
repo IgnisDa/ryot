@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
-static BOOK_OPENLIBRARY_KEY_INDEX: &str = "book__openlibrary__index";
-
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -65,7 +63,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(BOOK_OPENLIBRARY_KEY_INDEX)
+                    .name("book__openlibrary__index")
                     .table(Book::Table)
                     .col(Book::OpenLibraryKey)
                     .to_owned(),

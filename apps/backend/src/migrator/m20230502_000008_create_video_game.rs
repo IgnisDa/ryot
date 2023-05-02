@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
-static VIDEO_GAME_IMDB_ID_INDEX: &str = "video_game__imdb__index";
-
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -66,7 +64,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(VIDEO_GAME_IMDB_ID_INDEX)
+                    .name("video_game__imdb__index")
                     .table(VideoGame::Table)
                     .col(VideoGame::IgdbId)
                     .to_owned(),

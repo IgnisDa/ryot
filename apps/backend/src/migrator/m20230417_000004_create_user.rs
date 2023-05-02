@@ -2,9 +2,6 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-static USER_NAME_INDEX: &str = "user__name__index";
-static TOKEN_VALUE_INDEX: &str = "token__value__index";
-
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -98,7 +95,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(TOKEN_VALUE_INDEX)
+                    .name("token__value__index")
                     .table(Token::Table)
                     .col(Token::Value)
                     .to_owned(),
@@ -129,7 +126,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(USER_NAME_INDEX)
+                    .name("user__name__index")
                     .table(User::Table)
                     .col(User::Name)
                     .to_owned(),

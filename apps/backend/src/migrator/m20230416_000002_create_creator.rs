@@ -2,9 +2,6 @@ use sea_orm_migration::prelude::*;
 
 use super::Metadata;
 
-static PRIMARY_KEY_INDEX: &str = "pk-media-item_creator";
-static CREATOR_NAME_INDEX: &str = "creator__name__index";
-
 pub struct Migration;
 
 #[derive(Iden)]
@@ -46,13 +43,13 @@ impl MigrationTrait for Migration {
                     )
                     .primary_key(
                         Index::create()
-                            .name(PRIMARY_KEY_INDEX)
+                            .name("pk-metadata_creator")
                             .col(MetadataToCreator::MetadataId)
                             .col(MetadataToCreator::CreatorId),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-media-item_media-item-creator_id")
+                            .name("fk-metadata-creator_id")
                             .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -60,7 +57,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-creator-item_media-item-creator_id")
+                            .name("fk-metadata-creator_id")
                             .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
                             .to(Creator::Table, Creator::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -92,7 +89,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(CREATOR_NAME_INDEX)
+                    .name("creator__name__index")
                     .table(Creator::Table)
                     .col(Creator::Name)
                     .to_owned(),
@@ -104,6 +101,9 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(Creator::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(MetadataToCreator::Table).to_owned())
             .await?;
         Ok(())
     }

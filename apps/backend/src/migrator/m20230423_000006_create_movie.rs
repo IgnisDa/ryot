@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use super::Metadata;
 
-static MOVIE_TMDB_ID_INDEX: &str = "movie__tmdbid__index";
-
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -66,7 +64,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(MOVIE_TMDB_ID_INDEX)
+                    .name("movie__tmdbid__index")
                     .table(Movie::Table)
                     .col(Movie::TmdbId)
                     .to_owned(),
