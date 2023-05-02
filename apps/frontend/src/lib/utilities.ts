@@ -38,6 +38,7 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 			return match(lot)
 				.with(MetadataLot.Book, () => "read")
 				.with(MetadataLot.Movie, MetadataLot.Show, () => "watch")
+				.with(MetadataLot.VideoGame, () => "play")
 				.otherwise(() => {
 					return "";
 				});
