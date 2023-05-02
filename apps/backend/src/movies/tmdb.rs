@@ -53,6 +53,8 @@ impl TmdbService {
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.title,
+            // TODO: Populate with correct data
+            genres: vec![],
             author_names: data
                 .production_companies
                 .into_iter()
@@ -120,7 +122,9 @@ impl TmdbService {
                     identifier: d.id.to_string(),
                     title: d.title,
                     description: d.overview,
+                    // TODO: Populate with correct data
                     author_names: vec![],
+                    genres: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
                     publish_date: convert_string_to_date(&d.release_date),
                     movie_specifics: Some(MovieSpecifics { runtime: None }),

@@ -93,7 +93,9 @@ impl TmdbService {
             identifier: data.id.to_string(),
             title: data.name,
             description: data.overview,
+            // TODO: Populate with correct data
             author_names: vec![],
+            genres: vec![],
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             show_specifics: Some(ShowSpecifics {
@@ -193,7 +195,9 @@ impl TmdbService {
                     identifier: d.id.to_string(),
                     title: d.name,
                     description: d.overview,
+                    // TODO: Populate with correct data
                     author_names: vec![],
+                    genres: vec![],
                     publish_year: convert_date_to_year(&d.first_air_date),
                     publish_date: convert_string_to_date(&d.first_air_date),
                     show_specifics: Some(ShowSpecifics { seasons: vec![] }),

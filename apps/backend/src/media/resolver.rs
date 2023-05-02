@@ -9,11 +9,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     entities::{
-        book, creator,
+        book, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, movie,
+        metadata_image, metadata_to_creator, metadata_to_genre, movie,
         prelude::{
-            Book, Creator, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata, VideoGame,
+            Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata,
+            VideoGame,
         },
         seen::{self, SeenExtraInformation, SeenSeasonExtraInformation},
         show, user_to_metadata, video_game,
@@ -34,6 +35,7 @@ pub struct MediaSearchItem {
     pub title: String,
     pub description: Option<String>,
     pub author_names: Vec<String>,
+    pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -424,6 +426,8 @@ impl MediaService {
                 movie_specifics: None,
                 show_specifics: None,
                 video_game_specifics: None,
+                // TODO: Populate with correct data
+                genres: vec![],
             };
             items.push(_m);
         }
@@ -531,6 +535,7 @@ impl MediaService {
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
         creator_names: Vec<String>,
+        genres: Vec<String>,
     ) -> Result<i32> {
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
@@ -597,6 +602,27 @@ impl MediaService {
                 creator_id: ActiveValue::Set(creator.id),
             };
             metadata_creator.insert(&self.db).await.unwrap();
+        }
+        for genre in genres {
+            let db_genre = if let Some(c) = Genre::find()
+                .filter(genre::Column::Name.eq(&genre))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = genre::ActiveModel {
+                    name: ActiveValue::Set(genre),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
+            };
+            let intermediate = metadata_to_genre::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata.id),
+                genre_id: ActiveValue::Set(db_genre.id),
+            };
+            intermediate.insert(&self.db).await.ok();
         }
         Ok(metadata.id)
     }

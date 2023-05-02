@@ -111,6 +111,7 @@ impl VideoGamesService {
                     game_details.poster_images,
                     game_details.backdrop_images,
                     game_details.author_names,
+                    vec![],
                 )
                 .await?;
             let game = movie::ActiveModel {

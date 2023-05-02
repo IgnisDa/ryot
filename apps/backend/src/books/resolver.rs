@@ -122,6 +122,7 @@ impl BooksService {
                     book_details.poster_images,
                     book_details.backdrop_images,
                     book_details.author_names,
+                    vec![],
                 )
                 .await?;
             let book = book::ActiveModel {
