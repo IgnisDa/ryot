@@ -1,5 +1,12 @@
 import { gqlClient, queryClient } from "@/lib/services/api";
-import { Box, Container, Flex, MantineProvider, Text } from "@mantine/core";
+import {
+	Anchor,
+	Box,
+	Container,
+	Flex,
+	MantineProvider,
+	Text,
+} from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { CORE_DETAILS } from "@trackona/graphql/backend/queries";
@@ -41,9 +48,11 @@ const Footer = () => {
 					</Box>
 					<Box>
 						Made with love by{" "}
-						<Text color="green" weight={"bold"} style={{ display: "inline" }}>
-							{coreDetails.data?.authorName}
-						</Text>
+						<Anchor href="https://diptesh.me" target="_blank">
+							<Text weight={"bold"} style={{ display: "inline" }}>
+								{coreDetails.data?.authorName}
+							</Text>
+						</Anchor>
 					</Box>
 				</>
 			) : null}
