@@ -1,5 +1,4 @@
-import type { NextPageWithLayout } from "./_app";
-import UpdateProgressModal from "@/lib/components/UpdateProgressModal";
+import type { NextPageWithLayout } from "../_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
@@ -142,9 +141,10 @@ export const AccordionLabel = ({
 };
 
 const Page: NextPageWithLayout = () => {
-	const [opened, { open, close }] = useDisclosure(false);
-	const [newModalOpened, { open: openNewModal, close: closeNewModal }] =
-		useDisclosure(false);
+	const [
+		progressModalOpened,
+		{ open: progressModalOpen, close: progressModalClose },
+	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const details = useQuery({
@@ -166,7 +166,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return seenHistory;
 		},
-		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
@@ -319,15 +318,15 @@ const Page: NextPageWithLayout = () => {
 							>
 								{inProgressSeenItem ? (
 									<>
-										<Button variant="outline" onClick={open}>
+										<Button variant="outline" onClick={progressModalOpen}>
 											Set progress
 										</Button>
 										<ProgressModal
 											progress={inProgressSeenItem.progress}
 											refetch={history.refetch}
 											metadataId={metadataId}
-											onClose={close}
-											opened={opened}
+											onClose={progressModalClose}
+											opened={progressModalOpened}
 										/>
 										<Button
 											variant="outline"
@@ -360,18 +359,14 @@ const Page: NextPageWithLayout = () => {
 									</Button>
 								)}
 								<>
-									<Button variant="outline" onClick={openNewModal}>
+									<Button
+										variant="outline"
+										onClick={() => {
+											router.push(`/media/update-progress?item=${metadataId}`);
+										}}
+									>
 										Add to {getVerb(Verb.Read, details.data.type)} history
 									</Button>
-									<UpdateProgressModal
-										title={details.data.title}
-										lot={details.data.type}
-										metadataId={metadataId}
-										onClose={closeNewModal}
-										opened={newModalOpened}
-										refetch={history.refetch}
-										showSpecifics={details.data.showSpecifics}
-									/>
 								</>
 							</SimpleGrid>
 						</Tabs.Panel>
@@ -458,17 +453,52 @@ const Page: NextPageWithLayout = () => {
 												key={s.seasonNumber}
 											>
 												<Accordion.Control>
-													<AccordionLabel {...s} />
+													<Flex
+														align={"center"}
+														justify={"space-between"}
+														gap={"xs"}
+													>
+														<AccordionLabel
+															{...s}
+															name={`${s.seasonNumber}. ${s.name}`}
+														/>
+														<Button
+															variant="outline"
+															onClick={() => {
+																router.push(
+																	`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&onlySeason=1`,
+																);
+															}}
+														>
+															Mark as seen
+														</Button>
+													</Flex>
 												</Accordion.Control>
 												<Accordion.Panel>
 													{s.episodes.map((e) => (
-														<Box mb={"xs"} ml={"md"}>
+														<Flex
+															mb={"xs"}
+															ml={"md"}
+															justify={"space-between"}
+															align={"center"}
+															gap={"xs"}
+														>
 															<AccordionLabel
 																{...e}
 																key={e.episodeNumber}
 																name={`${e.episodeNumber}. ${e.name}`}
 															/>
-														</Box>
+															<Button
+																variant="outline"
+																onClick={() => {
+																	router.push(
+																		`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&selectedEpisode=${e.episodeNumber}`,
+																	);
+																}}
+															>
+																Mark as seen
+															</Button>
+														</Flex>
 													))}
 												</Accordion.Panel>
 											</Accordion.Item>

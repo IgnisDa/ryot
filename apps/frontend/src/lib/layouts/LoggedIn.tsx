@@ -17,12 +17,15 @@ import {
 	IconHome2,
 	IconLogout,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import { LOGOUT_USER } from "@trackona/graphql/backend/mutations";
+import { CORE_ENABLED_FEATURES } from "@trackona/graphql/backend/queries";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
+import { match } from "ts-pattern";
 
 const useStyles = createStyles((theme) => ({
 	link: {
@@ -66,25 +69,48 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-const mockdata = [
-	{ icon: IconHome2, label: "Home", href: "/" },
-	{ icon: IconBook, label: "Books" },
-	{ icon: IconDeviceTv, label: "Movies" },
-	{ icon: IconDeviceDesktop, label: "TV" },
-	{ icon: IconBrandAppleArcade, label: "Games" },
-	{ icon: IconHeadphones, label: "Audiobooks" },
-];
+const navbarData = [{ icon: IconHome2, label: "Home", href: "/" }];
+
+const getIcon = (lot: MetadataLot) => {
+	return match(lot)
+		.with(MetadataLot.Book, () => IconBook)
+		.with(MetadataLot.Movie, () => IconDeviceTv)
+		.with(MetadataLot.Show, () => IconDeviceDesktop)
+		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
+		.with(MetadataLot.AudioBook, () => IconHeadphones)
+		.exhaustive();
+};
 
 export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
-	const links = mockdata.map((link, _index) => (
+	const router = useRouter();
+	const enabledFeatures = useQuery(
+		["enabledFeatures"],
+		async () => {
+			const { coreEnabledFeatures } = await gqlClient.request(
+				CORE_ENABLED_FEATURES,
+			);
+			return coreEnabledFeatures;
+		},
+		{ staleTime: Infinity },
+	);
+
+	const links = [
+		...navbarData,
+		...(enabledFeatures.data
+			?.filter((f) => f.enabled)
+			.map((f) => ({
+				label: f.name.toString(),
+				icon: getIcon(f.name),
+				href: undefined,
+			})) || []),
+	].map((link, _index) => (
 		<NavbarButton
 			{...link}
 			key={link.label}
-			href={link.href ? link.href : `list?lot=${link.label.toLowerCase()}`}
+			href={link.href ? link.href : `/list?lot=${link.label.toLowerCase()}`}
 		/>
 	));
-	const router = useRouter();
 	const logoutUser = useMutation({
 		mutationFn: async () => {
 			const { logoutUser } = await gqlClient.request(LOGOUT_USER);
@@ -121,7 +147,7 @@ export default function ({ children }: { children: ReactElement }) {
 		}
 	}, []);
 
-	return (
+	return enabledFeatures ? (
 		<Flex direction={"column"} w={"100%"}>
 			<Flex p="sm" align={"center"} justify={"center"}>
 				{links}
@@ -133,5 +159,5 @@ export default function ({ children }: { children: ReactElement }) {
 			</Flex>
 			<Box my={"lg"}>{children}</Box>
 		</Flex>
-	);
+	) : null;
 }

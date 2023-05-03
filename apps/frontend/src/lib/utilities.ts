@@ -20,11 +20,11 @@ export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
-		.with("books", () => MetadataLot.Book)
-		.with("movies", () => MetadataLot.Movie)
-		.with("games", () => MetadataLot.VideoGame)
-		.with("tv", () => MetadataLot.Show)
-		.with("audiobooks", () => MetadataLot.AudioBook)
+		.with("books", "book", () => MetadataLot.Book)
+		.with("movies", "movie", () => MetadataLot.Movie)
+		.with("tv", "show", () => MetadataLot.Show)
+		.with("games", "video_game", () => MetadataLot.VideoGame)
+		.with("audiobooks", "audio_book", () => MetadataLot.AudioBook)
 		.otherwise(() => undefined);
 };
 
