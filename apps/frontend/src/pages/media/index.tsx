@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "./_app";
+import type { NextPageWithLayout } from "../_app";
 import UpdateProgressModal from "@/lib/components/UpdateProgressModal";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -459,10 +459,12 @@ const Page: NextPageWithLayout = () => {
 											>
 												<Accordion.Control>
 													<AccordionLabel {...s} />
+													{/* Allow marking season as seen */}
 												</Accordion.Control>
 												<Accordion.Panel>
 													{s.episodes.map((e) => (
 														<Box mb={"xs"} ml={"md"}>
+															{/* Allow marking episode as seen */}
 															<AccordionLabel
 																{...e}
 																key={e.episodeNumber}
