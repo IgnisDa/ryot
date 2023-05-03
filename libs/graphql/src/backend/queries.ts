@@ -144,3 +144,12 @@ export const MEDIA_LIST = graphql(`
 	  }
 	}
 `);
+
+export const CORE_ENABLED_FEATURES = graphql(`
+	query CoreEnabledFeatures {
+	  coreEnabledFeatures {
+	    name
+	    enabled
+	  }
+	}
+`);
