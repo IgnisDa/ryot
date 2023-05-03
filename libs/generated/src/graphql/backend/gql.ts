@@ -33,6 +33,7 @@ const documents = {
     "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MediaListDocument,
     "\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n": types.CoreEnabledFeaturesDocument,
     "\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t  }\n\t}\n": types.UserDetailsDocument,
+    "\n\tquery UserSummary {\n\t  userSummary {\n\t    books {\n\t      pages\n\t      read\n\t    }\n\t    movies {\n\t      runtime\n\t      watched\n\t    }\n\t    videoGames {\n\t      played\n\t    }\n\t    shows {\n\t      runtime\n\t      watched\n\t    }\n\t  }\n\t}\n": types.UserSummaryDocument,
 };
 
 /**
@@ -129,6 +130,10 @@ export function graphql(source: "\n\tquery CoreEnabledFeatures {\n\t  coreEnable
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t  }\n\t}\n"): (typeof documents)["\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t  }\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery UserSummary {\n\t  userSummary {\n\t    books {\n\t      pages\n\t      read\n\t    }\n\t    movies {\n\t      runtime\n\t      watched\n\t    }\n\t    videoGames {\n\t      played\n\t    }\n\t    shows {\n\t      runtime\n\t      watched\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery UserSummary {\n\t  userSummary {\n\t    books {\n\t      pages\n\t      read\n\t    }\n\t    movies {\n\t      runtime\n\t      watched\n\t    }\n\t    videoGames {\n\t      played\n\t    }\n\t    shows {\n\t      runtime\n\t      watched\n\t    }\n\t  }\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
