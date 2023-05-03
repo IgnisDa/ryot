@@ -140,12 +140,15 @@ pub mod igdb {
             .unwrap()
             .await
             .unwrap();
-        #[derive(Deserialize, Serialize)]
+        #[derive(Deserialize, Serialize, Default)]
         struct AccessResponse {
             access_token: String,
             token_type: String,
         }
-        let access: AccessResponse = access_res.body_json().await.unwrap();
+        let access = access_res
+            .body_json::<AccessResponse>()
+            .await
+            .unwrap_or_default();
         let client: Client = Config::new()
             .add_header("Client-ID", twitch_client_id)
             .unwrap()
