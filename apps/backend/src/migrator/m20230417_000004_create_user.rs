@@ -1,3 +1,4 @@
+use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -33,7 +34,9 @@ enum Token {
     Value,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+)]
 #[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
 pub enum UserLot {
     #[sea_orm(string_value = "A")]

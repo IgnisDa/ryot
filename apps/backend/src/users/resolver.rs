@@ -16,6 +16,7 @@ use crate::{
     entities::{
         prelude::{Token, User},
         token, user,
+        user::Model as UserModel,
     },
     graphql::IdObject,
     migrator::{TokenLot, UserLot},
@@ -36,6 +37,21 @@ fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> 
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
+}
+
+#[derive(Default)]
+pub struct UsersQuery;
+
+#[Object]
+impl UsersQuery {
+    /// Get details about the currently logged in user
+    pub async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
+        let token = user_auth_token_from_ctx(gql_ctx)?;
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .user_details(&token)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -91,6 +107,21 @@ impl UsersService {
 }
 
 impl UsersService {
+    async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
+        let token = Token::find()
+            .filter(token::Column::Value.eq(token))
+            .one(&self.db)
+            .await?;
+        if let Some(t) = token {
+            let user = t.find_related(User).one(&self.db).await.unwrap().unwrap();
+            Ok(UserDetailsResult::Ok(user))
+        } else {
+            Ok(UserDetailsResult::Error(UserDetailsError {
+                error: UserDetailsErrorVariant::AuthTokenInvalid,
+            }))
+        }
+    }
+
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
         if User::find()
             .filter(user::Column::Name.eq(username))
@@ -159,9 +190,9 @@ impl UsersService {
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
-    async fn logout_user(&self, user_id: &str) -> Result<bool> {
+    async fn logout_user(&self, token: &str) -> Result<bool> {
         let token = Token::find()
-            .filter(token::Column::Value.eq(user_id))
+            .filter(token::Column::Value.eq(token))
             .one(&self.db)
             .await?;
         if let Some(t) = token {
@@ -171,6 +202,22 @@ impl UsersService {
             Ok(false)
         }
     }
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum UserDetailsErrorVariant {
+    AuthTokenInvalid,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserDetailsError {
+    error: UserDetailsErrorVariant,
+}
+
+#[derive(Union)]
+pub enum UserDetailsResult {
+    Ok(UserModel),
+    Error(UserDetailsError),
 }
 
 #[derive(Debug, InputObject)]

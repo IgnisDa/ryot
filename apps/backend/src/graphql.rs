@@ -18,7 +18,7 @@ use crate::{
         resolver::{ShowsMutation, ShowsQuery, ShowsService},
         tmdb::TmdbService as ShowTmdbService,
     },
-    users::resolver::{UsersMutation, UsersService},
+    users::resolver::{UsersMutation, UsersQuery, UsersService},
     video_games::{
         igdb::IgdbService,
         resolver::{VideoGamesMutation, VideoGamesQuery, VideoGamesService},
@@ -86,6 +86,7 @@ pub struct QueryRoot(
     MoviesQuery,
     ShowsQuery,
     VideoGamesQuery,
+    UsersQuery,
 );
 
 #[derive(MergedObject, Default)]
