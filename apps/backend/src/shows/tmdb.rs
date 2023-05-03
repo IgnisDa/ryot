@@ -63,6 +63,7 @@ impl TmdbService {
             still_path: Option<String>,
             overview: Option<String>,
             air_date: Option<String>,
+            runtime: Option<i32>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -126,6 +127,7 @@ impl TmdbService {
                                     let ep = ShowEpisode {
                                         id: e.id,
                                         name: e.name,
+                                        runtime: e.runtime,
                                         publish_date: convert_string_to_date(
                                             &e.air_date.unwrap_or_default(),
                                         ),

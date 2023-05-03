@@ -38,4 +38,5 @@ pub struct ShowEpisode {
     pub name: String,
     pub overview: Option<String>,
     pub poster_images: Vec<String>,
+    pub runtime: Option<i32>,
 }
