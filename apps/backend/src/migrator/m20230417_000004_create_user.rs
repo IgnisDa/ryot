@@ -115,11 +115,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Token::CreatedOn)
-                            .date_time()
+                            .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Token::LastUsed).date_time())
+                    .col(ColumnDef::new(Token::LastUsed).timestamp_with_time_zone())
                     .to_owned(),
             )
             .await?;
@@ -150,7 +150,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
-                            .date_time()
+                            .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

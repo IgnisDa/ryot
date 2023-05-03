@@ -48,7 +48,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
-                    .col(ColumnDef::new(Seen::LastUpdatedOn).date_time().not_null())
+                    .col(
+                        ColumnDef::new(Seen::LastUpdatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Seen::ExtraInformation).json())
                     .foreign_key(
                         ForeignKey::create()

@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Datelike, Utc};
+use chrono::Datelike;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::{formats::Flexible, TimestampSeconds};
@@ -48,7 +49,7 @@ struct IgdbSearchResponse {
     summary: Option<String>,
     cover: Option<IgdbImage>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
-    first_release_date: Option<DateTime<Utc>>,
+    first_release_date: Option<DateTimeUtc>,
     rating: Option<f32>,
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<IgdbGenre>>,

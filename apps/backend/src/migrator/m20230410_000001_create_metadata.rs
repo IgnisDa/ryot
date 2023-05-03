@@ -82,14 +82,14 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Metadata::CreatedOn)
-                            .date_time()
+                            .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Metadata::Lot).string_len(2).not_null())
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
-                            .date_time()
+                            .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
