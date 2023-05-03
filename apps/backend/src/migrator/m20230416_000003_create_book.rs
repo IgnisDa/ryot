@@ -52,11 +52,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
                     .col(ColumnDef::new(Book::NumPages).integer())
-                    .col(
-                        ColumnDef::new(Book::Source)
-                            .enumeration(BookSourceEnum.into_iden(), BookSourceEnum.into_iter())
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Book::Source).string_len(1).not_null())
                     .to_owned(),
             )
             .await?;

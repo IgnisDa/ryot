@@ -86,14 +86,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(
-                        ColumnDef::new(Metadata::Lot)
-                            .enumeration(
-                                MetadataImageLotEnum.into_iden(),
-                                MetadataImageLotEnum.into_iter(),
-                            )
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Metadata::Lot).string_len(1).not_null())
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
                             .date_time()
@@ -133,14 +126,7 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataImage::Lot)
-                            .enumeration(
-                                MetadataImageLotEnum.into_iden(),
-                                MetadataImageLotEnum.into_iter(),
-                            )
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataImage::Lot).string_len(1).not_null())
                     .col(ColumnDef::new(MetadataImage::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()

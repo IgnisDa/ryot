@@ -50,14 +50,7 @@ impl MigrationTrait for Migration {
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(VideoGame::IgdbId).string().not_null())
-                    .col(
-                        ColumnDef::new(VideoGame::Source)
-                            .enumeration(
-                                VideoGameSourceEnum.into_iden(),
-                                VideoGameSourceEnum.into_iter(),
-                            )
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(VideoGame::Source).string_len(1).not_null())
                     .to_owned(),
             )
             .await?;

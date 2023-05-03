@@ -44,11 +44,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Show::Details).not_null().json())
-                    .col(
-                        ColumnDef::new(Show::Source)
-                            .enumeration(ShowSourceEnum.into_iden(), ShowSourceEnum.into_iter())
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Show::Source).string_len(1).not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("season_to_metadata_foreign_key")

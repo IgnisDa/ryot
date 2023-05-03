@@ -53,11 +53,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Movie::TmdbId).string().not_null())
                     .col(ColumnDef::new(Movie::Runtime).integer())
-                    .col(
-                        ColumnDef::new(Movie::Source)
-                            .enumeration(MovieSourceEnum.into_iden(), MovieSourceEnum.into_iter())
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Movie::Source).string_len(1).not_null())
                     .to_owned(),
             )
             .await?;

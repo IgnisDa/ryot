@@ -73,11 +73,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(User::Name).unique_key().string().not_null())
                     .col(ColumnDef::new(User::Password).string().not_null())
-                    .col(
-                        ColumnDef::new(User::Lot)
-                            .enumeration(UserLotEnum.into_iden(), UserLotEnum.into_iter())
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(User::Lot).string_len(1).not_null())
                     .to_owned(),
             )
             .await?;
@@ -107,11 +103,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(
-                        ColumnDef::new(Token::Lot)
-                            .enumeration(TokenLotEnum.into_iden(), TokenLotEnum.into_iter())
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Token::Lot).string_len(1).not_null())
                     .col(ColumnDef::new(Token::UserId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
