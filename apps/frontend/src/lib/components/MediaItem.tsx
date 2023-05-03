@@ -1,8 +1,6 @@
-import UpdateProgressModal from "./UpdateProgressModal";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
 import { Button, Flex, Image, Loader, Text } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type BooksSearchQuery,
@@ -19,7 +17,6 @@ import {
 import { MEDIA_CONSUMED } from "@trackona/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
-import { useState } from "react";
 import { match } from "ts-pattern";
 
 type Item = BooksSearchQuery["booksSearch"]["items"][number];
@@ -72,8 +69,6 @@ export default function (props: {
 	lot: MetadataLot;
 	refetch: () => void;
 }) {
-	const [opened, { open, close }] = useDisclosure(false);
-	const [metadataId, setMetadataId] = useState(0);
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
@@ -139,14 +134,6 @@ export default function (props: {
 			SeenStatus.ConsumedAtleastOnce,
 			() => (
 				<>
-					<UpdateProgressModal
-						lot={props.lot}
-						title={props.item.title}
-						metadataId={metadataId}
-						onClose={close}
-						opened={opened}
-						refetch={props.refetch}
-					/>
 					<Button
 						variant="outline"
 						w="100%"
@@ -154,8 +141,7 @@ export default function (props: {
 						loading={commitMedia.isLoading}
 						onClick={async () => {
 							const id = await commitFunction();
-							setMetadataId(id);
-							open();
+							router.push(`/media/update-progress?item=${id}`);
 						}}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
