@@ -71,7 +71,7 @@ const Page: NextPageWithLayout = () => {
 								value: s.seasonNumber.toString(),
 							}))}
 							onChange={setSelectedSeason}
-							withinPortal
+							defaultValue={selectedSeason}
 						/>
 						{selectedSeason ? (
 							<Select
@@ -83,6 +83,7 @@ const Page: NextPageWithLayout = () => {
 										value: e.episodeNumber.toString(),
 									}))}
 								onChange={setSelectedEpisode}
+								defaultValue={selectedEpisode}
 							/>
 						) : null}
 					</>

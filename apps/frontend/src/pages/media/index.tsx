@@ -166,7 +166,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return seenHistory;
 		},
-		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
@@ -454,19 +453,37 @@ const Page: NextPageWithLayout = () => {
 												key={s.seasonNumber}
 											>
 												<Accordion.Control>
-													<AccordionLabel {...s} />
+													<AccordionLabel
+														{...s}
+														name={`${s.seasonNumber}. ${s.name}`}
+													/>
 													{/* Allow marking season as seen */}
 												</Accordion.Control>
 												<Accordion.Panel>
 													{s.episodes.map((e) => (
-														<Box mb={"xs"} ml={"md"}>
+														<Flex
+															mb={"xs"}
+															ml={"md"}
+															align={"center"}
+															gap={"xs"}
+														>
 															{/* Allow marking episode as seen */}
 															<AccordionLabel
 																{...e}
 																key={e.episodeNumber}
 																name={`${e.episodeNumber}. ${e.name}`}
 															/>
-														</Box>
+															<Button
+																variant="outline"
+																onClick={() => {
+																	router.push(
+																		`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&selectedEpisode=${e.episodeNumber}`,
+																	);
+																}}
+															>
+																Mark as seen
+															</Button>
+														</Flex>
 													))}
 												</Accordion.Panel>
 											</Accordion.Item>
