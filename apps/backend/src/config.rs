@@ -6,6 +6,13 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
+/// Determine whether a feature is enabled
+pub trait IsFeatureEnabled {
+    fn is_enabled(&self) -> bool {
+        true
+    }
+}
+
 static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
 
 static TMDB_ACCESS_KEY: &str = 
@@ -71,15 +78,33 @@ pub struct BookConfig {
     pub openlibrary: OpenlibraryConfig,
 }
 
+impl IsFeatureEnabled for BookConfig {}
+
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct AudioBookConfig {
+    pub audible_base_url: String
+}
+
+impl IsFeatureEnabled for AudioBookConfig {
+    fn is_enabled(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct MovieConfig {
     pub tmdb: TmdbConfig,
 }
 
+impl IsFeatureEnabled for MovieConfig {}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct ShowConfig {
     pub tmdb: TmdbConfig,
 }
+
+impl IsFeatureEnabled for ShowConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct SchedulerConfig {}
@@ -136,10 +161,22 @@ pub struct VideoGameConfig {
     pub igdb: IgdbConfig
 }
 
+impl IsFeatureEnabled for  VideoGameConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.twitch.client_id.is_empty() && !self.twitch.client_secret.is_empty() {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub database: DatabaseConfig,
+    #[serde(default)]
+    pub audio_books: AudioBookConfig,
     #[serde(default)]
     pub books: BookConfig,
     #[serde(default)]
