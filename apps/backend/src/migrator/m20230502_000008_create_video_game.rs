@@ -7,7 +7,7 @@ use super::Metadata;
 pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum VideoGameSource {
     #[sea_orm(string_value = "I")]
     Igdb,

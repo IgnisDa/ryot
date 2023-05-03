@@ -15,7 +15,7 @@ enum UserToMetadata {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum TokenLot {
     #[sea_orm(string_value = "A")]
     ApiAccess,
@@ -37,7 +37,7 @@ enum Token {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum UserLot {
     #[sea_orm(string_value = "A")]
     Admin,
