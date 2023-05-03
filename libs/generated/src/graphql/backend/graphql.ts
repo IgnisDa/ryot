@@ -312,12 +312,12 @@ export type Seen = {
   lastUpdatedOn: Scalars['DateTime'];
   metadataId: Scalars['Int'];
   progress: Scalars['Int'];
-  showInformation?: Maybe<SeenExtraInformation>;
+  showInformation?: Maybe<SeenSeasonExtraInformation>;
   startedOn?: Maybe<Scalars['NaiveDate']>;
   userId: Scalars['Int'];
 };
 
-export type SeenExtraInformation = {
+export type SeenSeasonExtraInformation = {
   episode: Scalars['Int'];
   season: Scalars['Int'];
 };

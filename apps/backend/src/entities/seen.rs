@@ -6,7 +6,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
-#[graphql(name = "SeenExtraInformation")]
 pub struct SeenSeasonExtraInformation {
     pub season: i32,
     pub episode: i32,
