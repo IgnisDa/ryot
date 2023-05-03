@@ -5,7 +5,17 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { MEDIA_DETAILS } from "@trackona/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { useState, type ReactElement } from "react";
-import { Button, Container, Group, Select, Stack, Title } from "@mantine/core";
+import {
+	Alert,
+	Button,
+	Container,
+	Flex,
+	Group,
+	Loader,
+	Select,
+	Stack,
+	Title,
+} from "@mantine/core";
 import {
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
@@ -14,10 +24,12 @@ import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
 import { Verb, getVerb } from "@/lib/utilities";
 import { DatePickerInput } from "@mantine/dates";
 import { DateTime } from "luxon";
+import { IconAlertCircle } from "@tabler/icons-react";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const onlySeason = !!router.query.onlySeason;
 
 	const [selectedSeason, setSelectedSeason] = useState<string | null>(
 		router.query.selectedSeason?.toString() || null,
@@ -38,7 +50,19 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
-		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+		mutationFn: async (
+			variables: ProgressUpdateMutationVariables & { onlySeason: boolean },
+		) => {
+			if (onlySeason) {
+				for (const episode of details.data?.showSpecifics?.seasons.find(
+					(s) => s.seasonNumber.toString() === selectedSeason,
+				)!.episodes || []) {
+					await gqlClient.request(PROGRESS_UPDATE, {
+						input: { episodeNumber: episode.episodeNumber, ...variables.input },
+					});
+				}
+				return;
+			}
 			const { progressUpdate } = await gqlClient.request(
 				PROGRESS_UPDATE,
 				variables,
@@ -60,10 +84,20 @@ const Page: NextPageWithLayout = () => {
 	return details.data && title ? (
 		<Container size={"xs"}>
 			<Stack>
-				<Title>{title}</Title>
+				<Flex gap={"sm"}>
+					<Title>{title}</Title>
+					{progressUpdate.isLoading ? <Loader /> : null}
+				</Flex>
 				{details.data.showSpecifics ? (
 					<>
-						<Title order={6}>Select season and episode</Title>
+						{onlySeason ? (
+							<Alert color='yellow' icon={<IconAlertCircle size="1rem" />}>
+								This will mark all episodes for Season {selectedSeason} as seen
+							</Alert>
+						) : null}
+						<Title order={6}>
+							Select season{onlySeason ? "" : " and episode"}
+						</Title>
 						<Select
 							label="Season"
 							data={details.data.showSpecifics.seasons.map((s) => ({
@@ -73,7 +107,7 @@ const Page: NextPageWithLayout = () => {
 							onChange={setSelectedSeason}
 							defaultValue={selectedSeason}
 						/>
-						{selectedSeason ? (
+						{!onlySeason && selectedSeason ? (
 							<Select
 								label="Episode"
 								data={details.data.showSpecifics.seasons
@@ -96,6 +130,7 @@ const Page: NextPageWithLayout = () => {
 					onClick={async () => {
 						await progressUpdate.mutateAsync({
 							input: { action: ProgressUpdateAction.Now, ...mutationInput },
+							onlySeason,
 						});
 					}}
 				>
@@ -109,6 +144,7 @@ const Page: NextPageWithLayout = () => {
 								action: ProgressUpdateAction.InThePast,
 								...mutationInput,
 							},
+							onlySeason,
 						});
 					}}
 				>
@@ -132,6 +168,7 @@ const Page: NextPageWithLayout = () => {
 										date: DateTime.fromJSDate(selectedDate).toISODate(),
 										...mutationInput,
 									},
+									onlySeason,
 								});
 						}}
 					>

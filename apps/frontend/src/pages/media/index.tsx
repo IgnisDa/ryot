@@ -453,21 +453,36 @@ const Page: NextPageWithLayout = () => {
 												key={s.seasonNumber}
 											>
 												<Accordion.Control>
-													<AccordionLabel
-														{...s}
-														name={`${s.seasonNumber}. ${s.name}`}
-													/>
-													{/* Allow marking season as seen */}
+													<Flex
+														align={"center"}
+														justify={"space-between"}
+														gap={"xs"}
+													>
+														<AccordionLabel
+															{...s}
+															name={`${s.seasonNumber}. ${s.name}`}
+														/>
+														<Button
+															variant="outline"
+															onClick={() => {
+																router.push(
+																	`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&onlySeason=1`,
+																);
+															}}
+														>
+															Mark as seen
+														</Button>
+													</Flex>
 												</Accordion.Control>
 												<Accordion.Panel>
 													{s.episodes.map((e) => (
 														<Flex
 															mb={"xs"}
 															ml={"md"}
+															justify={"space-between"}
 															align={"center"}
 															gap={"xs"}
 														>
-															{/* Allow marking episode as seen */}
 															<AccordionLabel
 																{...e}
 																key={e.episodeNumber}
