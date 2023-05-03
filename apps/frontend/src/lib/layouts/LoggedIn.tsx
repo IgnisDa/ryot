@@ -20,7 +20,10 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import { LOGOUT_USER } from "@trackona/graphql/backend/mutations";
-import { CORE_ENABLED_FEATURES } from "@trackona/graphql/backend/queries";
+import {
+	CORE_ENABLED_FEATURES,
+	USER_DETAILS,
+} from "@trackona/graphql/backend/queries";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -84,6 +87,25 @@ const getIcon = (lot: MetadataLot) => {
 export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
+	useQuery({
+		queryKey: ["userDetails"],
+		queryFn: async () => {
+			const { userDetails } = await gqlClient.request(USER_DETAILS);
+			return userDetails;
+		},
+		onSuccess: async (data) => {
+			if (data.__typename === "UserDetailsError") {
+				await logoutUser.mutateAsync();
+				notifications.show({
+					color: "red",
+					title: "Authentication error",
+					message: "Your auth token is invalid. Please login again.",
+				});
+				router.push("/auth/login");
+			}
+		},
+		staleTime: Infinity,
+	});
 	const enabledFeatures = useQuery(
 		["enabledFeatures"],
 		async () => {
