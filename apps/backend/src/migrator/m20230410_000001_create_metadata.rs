@@ -28,7 +28,7 @@ enum MetadataImage {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+#[sea_orm(rs_type = "String", db_type = "String(Some(2))")]
 pub enum MetadataLot {
     #[sea_orm(string_value = "AB")]
     AudioBook,
@@ -86,7 +86,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Metadata::Lot).string_len(1).not_null())
+                    .col(ColumnDef::new(Metadata::Lot).string_len(2).not_null())
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
                             .date_time()
