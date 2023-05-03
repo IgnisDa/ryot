@@ -14,13 +14,16 @@ use uuid::Uuid;
 
 use crate::{
     entities::{
-        prelude::{Token, User},
-        token, user,
+        book, movie,
+        prelude::{Book, Metadata, Movie, Seen, Show, Token, User, VideoGame},
+        seen::{self, SeenExtraInformation},
+        show, token, user,
         user::Model as UserModel,
+        video_game,
     },
     graphql::IdObject,
-    migrator::{TokenLot, UserLot},
-    utils::user_auth_token_from_ctx,
+    migrator::{MetadataLot, TokenLot, UserLot},
+    utils::{user_auth_token_from_ctx, user_id_from_ctx},
 };
 
 pub static COOKIE_NAME: &str = "auth";
@@ -39,6 +42,37 @@ fn get_hasher() -> Argon2<'static> {
     Argon2::default()
 }
 
+#[derive(SimpleObject)]
+pub struct VideoGamesSummary {
+    played: u64,
+}
+
+#[derive(SimpleObject)]
+pub struct BooksSummary {
+    pages: i32,
+    read: u64,
+}
+
+#[derive(SimpleObject)]
+pub struct MoviesSummary {
+    runtime: i32,
+    watched: u64,
+}
+
+#[derive(SimpleObject)]
+pub struct ShowsSummary {
+    runtime: i32,
+    watched: u64,
+}
+
+#[derive(SimpleObject)]
+pub struct UserSummary {
+    books: BooksSummary,
+    movies: MoviesSummary,
+    shows: ShowsSummary,
+    video_games: VideoGamesSummary,
+}
+
 #[derive(Default)]
 pub struct UsersQuery;
 
@@ -50,6 +84,15 @@ impl UsersQuery {
         gql_ctx
             .data_unchecked::<UsersService>()
             .user_details(&token)
+            .await
+    }
+
+    /// Get a summary of all the media items that have beem consumed by this user
+    pub async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .user_summary(&user_id)
             .await
     }
 }
@@ -120,6 +163,111 @@ impl UsersService {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
             }))
         }
+    }
+
+    async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
+        let seen_items = Seen::find()
+            .filter(seen::Column::UserId.eq(user_id.to_owned()))
+            .filter(seen::Column::Progress.eq(100))
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mut books_total = vec![];
+        let mut movies_total = vec![];
+        let mut shows_total = vec![];
+        for (seen, metadata) in seen_items.iter() {
+            let meta = metadata.to_owned().unwrap();
+            match meta.lot {
+                MetadataLot::Book => {
+                    let item = meta
+                        .find_related(Book)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if let Some(pg) = item.num_pages {
+                        books_total.push(pg);
+                    }
+                }
+                MetadataLot::Movie => {
+                    let item = meta
+                        .find_related(Movie)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if let Some(r) = item.runtime {
+                        movies_total.push(r);
+                    }
+                }
+                MetadataLot::Show => {
+                    let item = meta
+                        .find_related(Show)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    for season in item.details.seasons {
+                        for episode in season.episodes {
+                            match seen.extra_information.to_owned().unwrap() {
+                                SeenExtraInformation::Show(s) => {
+                                    if s.season == season.season_number
+                                        && s.episode == episode.episode_number
+                                    {
+                                        if let Some(r) = episode.runtime {
+                                            shows_total.push(r);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => continue,
+            }
+        }
+        let metadata_ids = seen_items
+            .iter()
+            .map(|s| s.0.metadata_id)
+            .collect::<Vec<_>>();
+        let books_count = Book::find()
+            .filter(book::Column::MetadataId.is_in(metadata_ids.clone()))
+            .count(&self.db)
+            .await
+            .unwrap();
+        let movies_count = Movie::find()
+            .filter(movie::Column::MetadataId.is_in(metadata_ids.clone()))
+            .count(&self.db)
+            .await
+            .unwrap();
+        let shows_count = Show::find()
+            .filter(show::Column::MetadataId.is_in(metadata_ids.clone()))
+            .count(&self.db)
+            .await
+            .unwrap();
+        let video_games_count = VideoGame::find()
+            .filter(video_game::Column::MetadataId.is_in(metadata_ids.clone()))
+            .count(&self.db)
+            .await
+            .unwrap();
+        Ok(UserSummary {
+            books: BooksSummary {
+                pages: books_total.iter().sum(),
+                read: books_count,
+            },
+            movies: MoviesSummary {
+                runtime: movies_total.iter().sum(),
+                watched: movies_count,
+            },
+            shows: ShowsSummary {
+                runtime: shows_total.iter().sum(),
+                watched: shows_count,
+            },
+            video_games: VideoGamesSummary {
+                played: video_games_count,
+            },
+        })
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
