@@ -140,17 +140,6 @@ export enum MetadataLot {
   VideoGame = 'VIDEO_GAME'
 }
 
-export type Model = {
-  finishedOn?: Maybe<Scalars['NaiveDate']>;
-  id: Scalars['Int'];
-  lastUpdatedOn: Scalars['DateTime'];
-  metadataId: Scalars['Int'];
-  progress: Scalars['Int'];
-  showInformation?: Maybe<SeenSeasonExtraInformation>;
-  startedOn?: Maybe<Scalars['NaiveDate']>;
-  userId: Scalars['Int'];
-};
-
 export type MovieSpecifics = {
   runtime?: Maybe<Scalars['Int']>;
 };
@@ -258,9 +247,11 @@ export type QueryRoot = {
   /** Search for a list of movies by a particular search query and a given page. */
   moviesSearch: MediaSearchResults;
   /** Get the user's seen history for a particular media item */
-  seenHistory: Array<Model>;
+  seenHistory: Array<Seen>;
   /** Search for a list of show by a particular search query and a given page. */
   showSearch: MediaSearchResults;
+  /** Get details about the currently logged in user */
+  userDetails: UserDetailsResult;
   /** Search for a list of games by a particular search query and a given page. */
   videoGamesSearch: MediaSearchResults;
 };
@@ -315,7 +306,18 @@ export enum RegisterErrorVariant {
 
 export type RegisterResult = IdObject | RegisterError;
 
-export type SeenSeasonExtraInformation = {
+export type Seen = {
+  finishedOn?: Maybe<Scalars['NaiveDate']>;
+  id: Scalars['Int'];
+  lastUpdatedOn: Scalars['DateTime'];
+  metadataId: Scalars['Int'];
+  progress: Scalars['Int'];
+  showInformation?: Maybe<SeenExtraInformation>;
+  startedOn?: Maybe<Scalars['NaiveDate']>;
+  userId: Scalars['Int'];
+};
+
+export type SeenExtraInformation = {
   episode: Scalars['Int'];
   season: Scalars['Int'];
 };
@@ -357,10 +359,31 @@ export type ShowSpecifics = {
   seasons: Array<ShowSeason>;
 };
 
+export type User = {
+  id: Scalars['Int'];
+  lot: UserLot;
+  name: Scalars['String'];
+};
+
+export type UserDetailsError = {
+  error: UserDetailsErrorVariant;
+};
+
+export enum UserDetailsErrorVariant {
+  AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
+}
+
+export type UserDetailsResult = User | UserDetailsError;
+
 export type UserInput = {
   password: Scalars['String'];
   username: Scalars['String'];
 };
+
+export enum UserLot {
+  Admin = 'ADMIN',
+  Normal = 'NORMAL'
+}
 
 export type VideoGameSpecifics = {
   rating?: Maybe<Scalars['Float']>;
@@ -500,6 +523,11 @@ export type CoreEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>
 
 export type CoreEnabledFeaturesQuery = { coreEnabledFeatures: Array<{ name: MetadataLot, enabled: boolean }> };
 
+export type UserDetailsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type UserDetailsQuery = { userDetails: { __typename: 'User' } | { __typename: 'UserDetailsError' } };
+
 
 export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RegisterUserMutation, RegisterUserMutationVariables>;
 export const LoginUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}}]}}]}}]}}]} as unknown as DocumentNode<LoginUserMutation, LoginUserMutationVariables>;
@@ -520,3 +548,4 @@ export const SeenHistoryDocument = {"kind":"Document","definitions":[{"kind":"Op
 export const MediaConsumedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaConsumed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MediaConsumedInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaConsumed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seen"}}]}}]}}]} as unknown as DocumentNode<MediaConsumedQuery, MediaConsumedQueryVariables>;
 export const MediaListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MediaListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"backdropImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<MediaListQuery, MediaListQueryVariables>;
 export const CoreEnabledFeaturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}}]}}]}}]} as unknown as DocumentNode<CoreEnabledFeaturesQuery, CoreEnabledFeaturesQueryVariables>;
+export const UserDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}}]}}]}}]} as unknown as DocumentNode<UserDetailsQuery, UserDetailsQueryVariables>;

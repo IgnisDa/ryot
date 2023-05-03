@@ -32,6 +32,7 @@ const documents = {
     "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n": types.MediaConsumedDocument,
     "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MediaListDocument,
     "\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n": types.CoreEnabledFeaturesDocument,
+    "\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t  }\n\t}\n": types.UserDetailsDocument,
 };
 
 /**
@@ -124,6 +125,10 @@ export function graphql(source: "\n\tquery MediaList($input: MediaListInput!) {\
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n"): (typeof documents)["\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t  }\n\t}\n"): (typeof documents)["\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t  }\n\t}\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

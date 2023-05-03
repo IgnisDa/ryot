@@ -153,3 +153,11 @@ export const CORE_ENABLED_FEATURES = graphql(`
 	  }
 	}
 `);
+
+export const USER_DETAILS = graphql(`
+	query UserDetails {
+	  userDetails {
+	    __typename
+	  }
+	}
+`);
