@@ -81,7 +81,6 @@ const Page: NextPageWithLayout = () => {
 			if (!activeMinePage) setMinePage("1");
 		},
 		enabled: lot !== undefined,
-		staleTime: Infinity,
 	});
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, query],
