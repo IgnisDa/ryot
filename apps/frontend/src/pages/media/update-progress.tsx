@@ -9,9 +9,8 @@ import {
 	Alert,
 	Button,
 	Container,
-	Flex,
 	Group,
-	Loader,
+	LoadingOverlay,
 	Select,
 	Stack,
 	Title,
@@ -83,11 +82,13 @@ const Page: NextPageWithLayout = () => {
 
 	return details.data && title ? (
 		<Container size={"xs"}>
-			<Stack>
-				<Flex gap={"sm"}>
-					<Title>{title}</Title>
-					{progressUpdate.isLoading ? <Loader /> : null}
-				</Flex>
+			<Stack pos={"relative"} p='sm'>
+				<LoadingOverlay
+					visible={progressUpdate.isLoading}
+					overlayBlur={2}
+					radius={"md"}
+				/>
+				<Title>{title}</Title>
 				{details.data.showSpecifics ? (
 					<>
 						{onlySeason ? (
