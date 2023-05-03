@@ -81,7 +81,7 @@ export default function ({ children }: { children: ReactElement }) {
 		<NavbarButton
 			{...link}
 			key={link.label}
-			href={link.href ? link.href : `list?lot=${link.label.toLowerCase()}`}
+			href={link.href ? link.href : `/list?lot=${link.label.toLowerCase()}`}
 		/>
 	));
 	const router = useRouter();
