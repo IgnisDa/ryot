@@ -57,7 +57,7 @@ const Page: NextPageWithLayout = () => {
 					(s) => s.seasonNumber.toString() === selectedSeason,
 				)!.episodes || []) {
 					await gqlClient.request(PROGRESS_UPDATE, {
-						input: { episodeNumber: episode.episodeNumber, ...variables.input },
+						input: { ...variables.input, episodeNumber: episode.episodeNumber },
 					});
 				}
 				return;
