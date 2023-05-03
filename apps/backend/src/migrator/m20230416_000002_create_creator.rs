@@ -30,45 +30,6 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MetadataToCreator::Table)
-                    .col(
-                        ColumnDef::new(MetadataToCreator::MetadataId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataToCreator::CreatorId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .primary_key(
-                        Index::create()
-                            .name("pk-metadata_creator")
-                            .col(MetadataToCreator::MetadataId)
-                            .col(MetadataToCreator::CreatorId),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-metadata-creator_id")
-                            .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
-                            .to(Metadata::Table, Metadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-metadata-creator_id")
-                            .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
-                            .to(Creator::Table, Creator::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_table(
-                Table::create()
                     .table(Creator::Table)
                     .col(
                         ColumnDef::new(Creator::Id)
@@ -95,15 +56,54 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(MetadataToCreator::Table)
+                    .col(
+                        ColumnDef::new(MetadataToCreator::MetadataId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToCreator::CreatorId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .name("pk-metadata_creator")
+                            .col(MetadataToCreator::MetadataId)
+                            .col(MetadataToCreator::CreatorId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-metadata_id-creator_id")
+                            .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-creator_id-metadata_id")
+                            .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
+                            .to(Creator::Table, Creator::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Creator::Table).to_owned())
+            .drop_table(Table::drop().table(MetadataToCreator::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(MetadataToCreator::Table).to_owned())
+            .drop_table(Table::drop().table(Creator::Table).to_owned())
             .await?;
         Ok(())
     }

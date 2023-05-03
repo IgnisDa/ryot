@@ -43,12 +43,7 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(Show::Details)
-                            .not_null()
-                            .json()
-                            .default("{}"),
-                    )
+                    .col(ColumnDef::new(Show::Details).not_null().json())
                     .col(
                         ColumnDef::new(Show::Source)
                             .enumeration(ShowSourceEnum.into_iden(), ShowSourceEnum.into_iter())

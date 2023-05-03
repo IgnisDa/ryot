@@ -2,7 +2,16 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use super::Metadata;
+
 pub struct Migration;
+
+#[derive(Iden)]
+enum UserToMetadata {
+    Table,
+    UserId,
+    MetadataId,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
@@ -51,6 +60,36 @@ impl MigrationName for Migration {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(User::Table)
+                    .col(
+                        ColumnDef::new(User::Id)
+                            .primary_key()
+                            .auto_increment()
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(User::Name).unique_key().string().not_null())
+                    .col(ColumnDef::new(User::Password).string().not_null())
+                    .col(
+                        ColumnDef::new(User::Lot)
+                            .enumeration(UserLotEnum.into_iden(), UserLotEnum.into_iter())
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("user__name__index")
+                    .table(User::Table)
+                    .col(User::Name)
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -104,31 +143,41 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(User::Table)
+                    .table(UserToMetadata::Table)
+                    .col(ColumnDef::new(UserToMetadata::UserId).integer().not_null())
                     .col(
-                        ColumnDef::new(User::Id)
-                            .primary_key()
-                            .auto_increment()
+                        ColumnDef::new(UserToMetadata::MetadataId)
                             .integer()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(User::Name).unique_key().string().not_null())
-                    .col(ColumnDef::new(User::Password).string().not_null())
-                    .col(
-                        ColumnDef::new(User::Lot)
-                            .enumeration(UserLotEnum.into_iden(), UserLotEnum.into_iter())
-                            .default(UserLot::Admin)
-                            .not_null(),
+                    .primary_key(
+                        Index::create()
+                            .name("pk-user_metadata")
+                            .col(UserToMetadata::UserId)
+                            .col(UserToMetadata::MetadataId),
                     )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("user__name__index")
-                    .table(User::Table)
-                    .col(User::Name)
+                    .col(
+                        ColumnDef::new(Metadata::LastUpdatedOn)
+                            .date_time()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user_metadata-user_id")
+                            .from(UserToMetadata::Table, UserToMetadata::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user_metadata-metadata_id")
+                            .from(UserToMetadata::Table, UserToMetadata::UserId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -136,6 +185,9 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(UserToMetadata::Table).to_owned())
+            .await?;
         manager
             .drop_table(Table::drop().table(Token::Table).to_owned())
             .await?;
