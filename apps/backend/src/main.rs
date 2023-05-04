@@ -39,6 +39,7 @@ use crate::{
     users::resolver::COOKIE_NAME,
 };
 
+mod audio_books;
 mod background;
 mod books;
 mod config;
