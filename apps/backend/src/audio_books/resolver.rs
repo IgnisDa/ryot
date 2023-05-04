@@ -85,8 +85,8 @@ impl AudioBooksService {
         query: &str,
         page: Option<i32>,
     ) -> Result<MediaSearchResults> {
-        let movies = self.audible_service.search(query, page).await.unwrap();
-        Ok(movies)
+        let audio_books = self.audible_service.search(query, page).await.unwrap();
+        Ok(audio_books)
     }
 
     async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {

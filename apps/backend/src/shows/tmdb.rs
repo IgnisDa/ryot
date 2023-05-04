@@ -8,8 +8,7 @@ use crate::{
     media::resolver::{MediaSearchItem, MediaSearchResults},
     shows::{ShowEpisode, ShowSeason},
     utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
-        media_tracker::TmdbNamedObject, tmdb,
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
     },
 };
 
@@ -41,10 +40,10 @@ impl TmdbService {
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbNamedObject>,
+            production_companies: Vec<NamedObject>,
             first_air_date: Option<String>,
             seasons: Vec<TmdbSeasonNumber>,
-            genres: Vec<TmdbNamedObject>,
+            genres: Vec<NamedObject>,
         }
         let mut rsp = self
             .client

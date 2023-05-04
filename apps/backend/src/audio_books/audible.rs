@@ -6,10 +6,12 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     config::AudibleConfig,
     graphql::AUTHOR,
-    media::resolver::{MediaSearchItem, MediaSearchResults},
+    media::{
+        resolver::{MediaSearchItem, MediaSearchResults},
+        LIMIT,
+    },
     utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
-        media_tracker::TmdbNamedObject,
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
     },
 };
 
@@ -41,10 +43,10 @@ impl AudibleService {
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbNamedObject>,
+            production_companies: Vec<NamedObject>,
             release_date: String,
             runtime: i32,
-            genres: Vec<TmdbNamedObject>,
+            genres: Vec<NamedObject>,
         }
         let mut rsp = self
             .client
@@ -82,48 +84,48 @@ impl AudibleService {
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
-            query: String,
+            title: String,
+            num_results: i32,
             page: i32,
-            language: String,
+            products_sort_by: String,
         }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct TmdbMovie {
-            id: i32,
-            poster_path: Option<String>,
-            backdrop_path: Option<String>,
-            overview: Option<String>,
+        pub struct AudibleItem {
+            #[serde(rename = "audibleId")]
+            audible_id: String,
+            authors: Vec<NamedObject>,
             title: String,
+            poster_images: Option<String>,
+            merchandising_summary: Option<String>,
             release_date: String,
         }
         #[derive(Serialize, Deserialize, Debug)]
-        struct TmdbSearchResponse {
+        struct AudibleSearchResponse {
             total_results: i32,
-            results: Vec<TmdbMovie>,
+            products: Vec<AudibleItem>,
         }
         let mut rsp = self
             .client
-            .get("search/movie")
+            .get("")
             .query(&Query {
-                query: query.to_owned(),
+                title: query.to_owned(),
+                num_results: LIMIT,
                 page: page.unwrap_or(1),
-                language: "en-US".to_owned(),
+                products_sort_by: "Relevance".to_owned(),
             })
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-
+        let search: AudibleSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
-            .results
+            .products
             .into_iter()
             .map(|d| {
-                let backdrop_images = convert_option_path_to_vec(d.backdrop_path);
-                let poster_images = convert_option_path_to_vec(d.poster_path);
+                let poster_images = convert_option_path_to_vec(d.poster_images);
                 MediaSearchItem {
-                    identifier: d.id.to_string(),
+                    identifier: d.audible_id,
                     title: d.title,
-                    description: d.overview,
-                    // TODO: Populate with correct data
+                    description: d.merchandising_summary,
                     author_names: vec![],
                     genres: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
@@ -134,10 +136,11 @@ impl AudibleService {
                     video_game_specifics: None,
                     audio_books_specifics: None,
                     poster_images,
-                    backdrop_images,
+                    backdrop_images: vec![],
                 }
             })
             .collect::<Vec<_>>();
+        dbg!(&resp);
         Ok(MediaSearchResults {
             total: search.total_results,
             items: resp,

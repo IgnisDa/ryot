@@ -7,8 +7,7 @@ use crate::{
     config::TmdbConfig,
     media::resolver::{MediaSearchItem, MediaSearchResults},
     utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
-        media_tracker::TmdbNamedObject, tmdb,
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
     },
 };
 
@@ -36,10 +35,10 @@ impl TmdbService {
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbNamedObject>,
+            production_companies: Vec<NamedObject>,
             release_date: String,
             runtime: i32,
-            genres: Vec<TmdbNamedObject>,
+            genres: Vec<NamedObject>,
         }
         let mut rsp = self
             .client
