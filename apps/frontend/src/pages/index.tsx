@@ -1,8 +1,21 @@
 import type { NextPageWithLayout } from "./_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import {
+	Alert,
+	Box,
+	Button,
+	Container,
+	Loader,
+	SimpleGrid,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import { IconAlertCircle } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import type { RegerateUserSummaryMutationVariables } from "@trackona/generated/graphql/backend/graphql";
+import { REGENERATE_USER_SUMMARY } from "@trackona/graphql/backend/mutations";
 import { USER_SUMMARY } from "@trackona/graphql/backend/queries";
 import type { ReactElement } from "react";
 
@@ -25,55 +38,89 @@ const Page: NextPageWithLayout = () => {
 			const { userSummary } = await gqlClient.request(USER_SUMMARY);
 			return userSummary;
 		},
-		{ staleTime: Infinity },
+		{ staleTime: Infinity, retry: false },
 	);
+	const regenerateUserSummary = useMutation({
+		mutationFn: async (variables: RegerateUserSummaryMutationVariables) => {
+			const { regenerateUserSummary } = await gqlClient.request(
+				REGENERATE_USER_SUMMARY,
+				variables,
+			);
+			return regenerateUserSummary;
+		},
+		onSuccess: () => {
+			userSummary.refetch();
+		},
+	});
 
-	return userSummary.data ? (
+	return (
 		<Container>
 			<Stack>
-				<SimpleGrid
-					cols={1}
-					spacing="lg"
-					mx={"lg"}
-					breakpoints={[{ minWidth: "sm", cols: 2 }]}
-				>
-					<Box>
-						<StatTitle text="Books" />
-						<Text>
-							You read <StatNumber text={userSummary.data.books.read} /> book(s)
-							totalling <StatNumber text={userSummary.data.books.pages} />{" "}
-							page(s).
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Movies" />
-						<Text>
-							You watched <StatNumber text={userSummary.data.movies.watched} />{" "}
-							movie(s) totalling{" "}
-							<StatNumber text={userSummary.data.movies.runtime} /> minute(s).
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Shows" />
-						<Text>
-							You watched{" "}
-							<StatNumber text={userSummary.data.shows.watchedShows} /> show(s)
-							and <StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
-							episode(s) totalling{" "}
-							<StatNumber text={userSummary.data.shows.runtime} /> minute(s).
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Video Games" />
-						<Text>
-							You played{" "}
-							<StatNumber text={userSummary.data.videoGames.played} /> game(s).
-						</Text>
-					</Box>
-				</SimpleGrid>
+				<Title>Your summary</Title>
+				{userSummary.isLoading ? <Loader /> : null}
+				{userSummary.isError ? (
+					<Alert color='yellow' icon={<IconAlertCircle size="1rem" />}>
+						You have not generated any summaries yet. Click below to generate
+						one.
+					</Alert>
+				) : null}
+				{userSummary.data ? (
+					<SimpleGrid
+						cols={1}
+						spacing="lg"
+						breakpoints={[{ minWidth: "sm", cols: 2 }]}
+					>
+						<Box>
+							<StatTitle text="Books" />
+							<Text>
+								You read <StatNumber text={userSummary.data.books.read} />{" "}
+								book(s) totalling{" "}
+								<StatNumber text={userSummary.data.books.pages} /> page(s).
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Movies" />
+							<Text>
+								You watched{" "}
+								<StatNumber text={userSummary.data.movies.watched} /> movie(s)
+								totalling <StatNumber text={userSummary.data.movies.runtime} />{" "}
+								minute(s).
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Shows" />
+							<Text>
+								You watched{" "}
+								<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
+								show(s) and{" "}
+								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
+								episode(s) totalling{" "}
+								<StatNumber text={userSummary.data.shows.runtime} /> minute(s).
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Video Games" />
+							<Text>
+								You played{" "}
+								<StatNumber text={userSummary.data.videoGames.played} />{" "}
+								game(s).
+							</Text>
+						</Box>
+					</SimpleGrid>
+				) : null}
+				<Box>
+					<Button
+						style={{ flexGrow: 0 }}
+						variant="light"
+						onClick={() => regenerateUserSummary.mutate({})}
+						loading={regenerateUserSummary.isLoading}
+					>
+						Recalculate
+					</Button>
+				</Box>
 			</Stack>
 		</Container>
-	) : null;
+	);
 };
 
 Page.getLayout = (page: ReactElement) => {
