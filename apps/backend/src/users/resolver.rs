@@ -45,7 +45,7 @@ fn get_hasher() -> Argon2<'static> {
 #[derive(SimpleObject)]
 pub struct AudioBooksSummary {
     runtime: i32,
-    watched: i32,
+    played: i32,
 }
 
 #[derive(SimpleObject)]
@@ -208,8 +208,8 @@ impl UsersService {
                     played: ls.video_games_played,
                 },
                 audio_books: AudioBooksSummary {
-                    runtime: 10,
-                    watched: 10,
+                    runtime: ls.audio_books_runtime,
+                    played: ls.audio_books_played,
                 },
             }),
             None => Err(Error::new("You do not have any summaries".to_owned())),

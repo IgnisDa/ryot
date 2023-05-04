@@ -181,6 +181,10 @@ export const USER_SUMMARY = graphql(`
 	      watchedEpisodes
 				watchedShows
 	    }
+	    audioBooks {
+	      runtime
+	      played
+	    }
 	  }
 	}
 `);
