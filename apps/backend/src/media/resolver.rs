@@ -336,7 +336,7 @@ impl MediaService {
     ) -> Result<MediaSeen> {
         let media = match input.lot {
             MetadataLot::Book => Book::find()
-                .filter(book::Column::OpenLibraryKey.eq(&input.identifier))
+                .filter(book::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
