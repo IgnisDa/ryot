@@ -9,12 +9,16 @@ import {
 	SeenStatus,
 } from "@trackona/generated/graphql/backend/graphql";
 import {
+	COMMIT_AUDIO_BOOK,
 	COMMIT_BOOK,
 	COMMIT_MOVIE,
 	COMMIT_SHOW,
 	COMMIT_VIDEO_GAME,
 } from "@trackona/graphql/backend/mutations";
-import { MEDIA_CONSUMED } from "@trackona/graphql/backend/queries";
+import {
+	AUDIO_BOOKS_SEARCH,
+	MEDIA_CONSUMED,
+} from "@trackona/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
@@ -113,11 +117,17 @@ export default function (props: {
 					);
 					return commitVideoGame;
 				})
-				.otherwise(async () => {
-					throw Error("can not commit media");
-				});
+				.with(MetadataLot.AudioBook, async () => {
+					const { commitAudioBook } = await gqlClient.request(
+						COMMIT_AUDIO_BOOK,
+						variables,
+					);
+					return commitAudioBook;
+				})
+				.run();
 		},
 	);
+
 	const commitFunction = async () => {
 		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
