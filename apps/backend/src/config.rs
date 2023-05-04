@@ -80,17 +80,25 @@ pub struct BookConfig {
 
 impl IsFeatureEnabled for BookConfig {}
 
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct AudibleConfig {
+    pub url: String,
+}
+
+impl Default for AudibleConfig {
+    fn default() -> Self {
+        Self {
+            url: "https://api.audible.com/1.0/catalog/products/".to_owned()
+        }
+    }
+}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AudioBookConfig {
-    pub audible_base_url: String
+    pub audible: AudibleConfig
 }
 
-impl IsFeatureEnabled for AudioBookConfig {
-    fn is_enabled(&self) -> bool {
-        false
-    }
-}
+impl IsFeatureEnabled for AudioBookConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct MovieConfig {
