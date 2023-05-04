@@ -17,7 +17,7 @@ pub enum MovieSource {
 pub enum Movie {
     Table,
     MetadataId,
-    TmdbId,
+    Identifier,
     // the total time of the movie in minutes
     Runtime,
     Source,
@@ -51,7 +51,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Movie::TmdbId).string().not_null())
+                    .col(ColumnDef::new(Movie::Identifier).string().not_null())
                     .col(ColumnDef::new(Movie::Runtime).integer())
                     .col(ColumnDef::new(Movie::Source).string_len(1).not_null())
                     .to_owned(),
@@ -62,7 +62,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("movie__tmdbid__index")
                     .table(Movie::Table)
-                    .col(Movie::TmdbId)
+                    .col(Movie::Identifier)
                     .to_owned(),
             )
             .await?;

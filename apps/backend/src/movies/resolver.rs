@@ -84,7 +84,7 @@ impl MoviesService {
 
     async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
         let meta = Movie::find()
-            .filter(movie::Column::TmdbId.eq(identifier))
+            .filter(movie::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
@@ -108,7 +108,7 @@ impl MoviesService {
                 .await?;
             let movie = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                tmdb_id: ActiveValue::Set(movie_details.identifier),
+                identifier: ActiveValue::Set(movie_details.identifier),
                 runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
                 source: ActiveValue::Set(MovieSource::Tmdb),
             };
