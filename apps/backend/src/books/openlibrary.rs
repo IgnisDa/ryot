@@ -182,6 +182,7 @@ impl OpenlibraryService {
                     show_specifics: None,
                     movie_specifics: None,
                     video_game_specifics: None,
+                    audio_books_specifics: None,
                     poster_images,
                     backdrop_images: vec![],
                 }

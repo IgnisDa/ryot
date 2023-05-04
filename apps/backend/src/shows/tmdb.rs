@@ -145,6 +145,7 @@ impl TmdbService {
             movie_specifics: None,
             book_specifics: None,
             video_game_specifics: None,
+            audio_books_specifics: None,
             poster_images,
             backdrop_images,
         })
@@ -203,6 +204,7 @@ impl TmdbService {
                     movie_specifics: None,
                     book_specifics: None,
                     video_game_specifics: None,
+                    audio_books_specifics: None,
                     poster_images,
                     backdrop_images,
                     author_names: vec![],

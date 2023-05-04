@@ -68,6 +68,7 @@ impl TmdbService {
                 runtime: Some(data.runtime),
             }),
             video_game_specifics: None,
+            audio_books_specifics: None,
             book_specifics: None,
             show_specifics: None,
         };
@@ -130,6 +131,7 @@ impl TmdbService {
                     book_specifics: None,
                     show_specifics: None,
                     video_game_specifics: None,
+                    audio_books_specifics: None,
                     poster_images,
                     backdrop_images,
                 }

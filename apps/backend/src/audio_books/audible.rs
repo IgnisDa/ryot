@@ -64,6 +64,9 @@ impl AudibleService {
             publish_year: convert_date_to_year(&data.release_date),
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
+            audio_books_specifics: Some(AudioBookSpecifics {
+                runtime: Some(data.runtime),
+            }),
             movie_specifics: None,
             video_game_specifics: None,
             book_specifics: None,
@@ -128,6 +131,7 @@ impl AudibleService {
                     book_specifics: None,
                     show_specifics: None,
                     video_game_specifics: None,
+                    audio_books_specifics: None,
                     poster_images,
                     backdrop_images,
                 }
