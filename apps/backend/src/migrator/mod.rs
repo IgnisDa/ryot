@@ -21,6 +21,7 @@ pub use m20230417_000004_create_user::{TokenLot, UserLot};
 pub use m20230423_000006_create_movie::MovieSource;
 pub use m20230425_000007_create_show::ShowSource;
 pub use m20230502_000008_create_video_game::VideoGameSource;
+pub use m20230504_000011_create_audio_book::AudioBookSource;
 
 pub struct Migrator;
 

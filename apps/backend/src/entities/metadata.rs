@@ -21,6 +21,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_one = "super::audio_book::Entity")]
+    AudioBook,
     #[sea_orm(has_one = "super::book::Entity")]
     Book,
     #[sea_orm(has_many = "super::metadata_image::Entity")]
@@ -33,6 +35,12 @@ pub enum Relation {
     Show,
     #[sea_orm(has_one = "super::video_game::Entity")]
     VideoGame,
+}
+
+impl Related<super::audio_book::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AudioBook.def()
+    }
 }
 
 impl Related<super::book::Entity> for Entity {
@@ -71,21 +79,21 @@ impl Related<super::video_game::Entity> for Entity {
     }
 }
 
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_to_metadata::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_metadata::Relation::Metadata.def().rev())
-    }
-}
-
 impl Related<super::creator::Entity> for Entity {
     fn to() -> RelationDef {
         super::metadata_to_creator::Relation::Creator.def()
     }
     fn via() -> Option<RelationDef> {
         Some(super::metadata_to_creator::Relation::Metadata.def().rev())
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_to_metadata::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_to_metadata::Relation::Metadata.def().rev())
     }
 }
 

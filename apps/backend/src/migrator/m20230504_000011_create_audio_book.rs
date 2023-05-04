@@ -44,7 +44,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("movie_to_metadata_foreign_key")
+                            .name("audio_book_to_metadata_foreign_key")
                             .from(AudioBook::Table, AudioBook::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -59,7 +59,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("movie__tmdbid__index")
+                    .name("audio_book__audibleid__index")
                     .table(AudioBook::Table)
                     .col(AudioBook::AudibleId)
                     .to_owned(),

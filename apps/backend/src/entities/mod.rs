@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod audio_book;
 pub mod book;
 pub mod creator;
 pub mod genre;
