@@ -2,22 +2,22 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
 use cookie::{time::OffsetDateTime, Cookie};
 use http::header::SET_COOKIE;
 use sea_orm::{
     ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter,
+    QueryFilter, QueryOrder,
 };
 use uuid::Uuid;
 
 use crate::{
     entities::{
         book, movie,
-        prelude::{Book, Metadata, Movie, Seen, Show, Token, User, VideoGame},
+        prelude::{Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
         seen::{self, SeenExtraInformation},
-        show, token, user,
+        show, summary, token, user,
         user::Model as UserModel,
         video_game,
     },
@@ -44,26 +44,26 @@ fn get_hasher() -> Argon2<'static> {
 
 #[derive(SimpleObject)]
 pub struct VideoGamesSummary {
-    played: u64,
+    played: i32,
 }
 
 #[derive(SimpleObject)]
 pub struct BooksSummary {
     pages: i32,
-    read: u64,
+    read: i32,
 }
 
 #[derive(SimpleObject)]
 pub struct MoviesSummary {
     runtime: i32,
-    watched: u64,
+    watched: i32,
 }
 
 #[derive(SimpleObject)]
 pub struct ShowsSummary {
     runtime: i32,
-    watched_shows: u64,
-    watched_episodes: u64,
+    watched_shows: i32,
+    watched_episodes: i32,
 }
 
 #[derive(SimpleObject)]
@@ -137,6 +137,15 @@ impl UsersMutation {
             .logout_user(&user_id)
             .await
     }
+
+    /// Generate a summary for the currently logged in user
+    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .regenerate_user_summary(&user_id)
+            .await
+    }
 }
 
 #[derive(Debug)]
@@ -167,6 +176,36 @@ impl UsersService {
     }
 
     async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
+        let latest_summary = Summary::find()
+            .filter(summary::Column::UserId.eq(user_id.to_owned()))
+            .order_by_desc(summary::Column::CreatedOn)
+            .one(&self.db)
+            .await
+            .unwrap();
+        match latest_summary {
+            Some(ls) => Ok(UserSummary {
+                books: BooksSummary {
+                    pages: ls.books_pages,
+                    read: ls.books_read,
+                },
+                movies: MoviesSummary {
+                    runtime: ls.movies_runtime,
+                    watched: ls.movies_watched,
+                },
+                shows: ShowsSummary {
+                    runtime: ls.shows_runtime,
+                    watched_shows: ls.shows_watched,
+                    watched_episodes: ls.episodes_watched,
+                },
+                video_games: VideoGamesSummary {
+                    played: ls.video_games_played,
+                },
+            }),
+            None => Err(Error::new("You do not have any summaries".to_owned())),
+        }
+    }
+
+    async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::Progress.eq(100))
@@ -254,23 +293,22 @@ impl UsersService {
             .count(&self.db)
             .await
             .unwrap();
-        Ok(UserSummary {
-            books: BooksSummary {
-                pages: books_total.iter().sum(),
-                read: books_count,
-            },
-            movies: MoviesSummary {
-                runtime: movies_total.iter().sum(),
-                watched: movies_count,
-            },
-            shows: ShowsSummary {
-                runtime: shows_total.iter().sum(),
-                watched_shows: shows_count,
-                watched_episodes: episodes_total.len() as u64,
-            },
-            video_games: VideoGamesSummary {
-                played: video_games_count,
-            },
+        let summary_obj = summary::ActiveModel {
+            id: ActiveValue::NotSet,
+            created_on: ActiveValue::NotSet,
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            books_pages: ActiveValue::Set(books_total.iter().sum()),
+            books_read: ActiveValue::Set(books_count.try_into().unwrap()),
+            movies_runtime: ActiveValue::Set(movies_total.iter().sum()),
+            movies_watched: ActiveValue::Set(movies_count as i32),
+            shows_runtime: ActiveValue::Set(shows_total.iter().sum()),
+            shows_watched: ActiveValue::Set(shows_count.try_into().unwrap()),
+            episodes_watched: ActiveValue::Set(episodes_total.len().try_into().unwrap()),
+            video_games_played: ActiveValue::Set(video_games_count.try_into().unwrap()),
+        };
+        let obj = Summary::insert(summary_obj).exec(&self.db).await.unwrap();
+        Ok(IdObject {
+            id: obj.last_insert_id,
         })
     }
 
