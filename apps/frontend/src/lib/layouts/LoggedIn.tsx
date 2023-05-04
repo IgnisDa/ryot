@@ -24,6 +24,7 @@ import {
 	CORE_ENABLED_FEATURES,
 	USER_DETAILS,
 } from "@trackona/graphql/backend/queries";
+import { camelCase, startCase } from "lodash";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -122,7 +123,7 @@ export default function ({ children }: { children: ReactElement }) {
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
-				label: f.name.toString(),
+				label: startCase(camelCase(f.name.toString())),
 				icon: getIcon(f.name),
 				href: undefined,
 			})) || []),
