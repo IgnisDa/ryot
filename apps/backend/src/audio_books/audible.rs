@@ -150,7 +150,6 @@ impl AudibleService {
                 }
             })
             .collect::<Vec<_>>();
-        dbg!(&resp);
         Ok(MediaSearchResults {
             total: search.total_results,
             items: resp,
