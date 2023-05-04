@@ -66,6 +66,14 @@ export const COMMIT_VIDEO_GAME = graphql(`
   }
 `);
 
+export const COMMIT_AUDIO_BOOK = graphql(`
+  mutation CommitAudioBook($identifier: String!) {
+    commitAudioBook(identifier: $identifier) {
+      id
+    }
+  }
+`);
+
 export const PROGRESS_UPDATE = graphql(`
   mutation ProgressUpdate($input: ProgressUpdate!) {
     progressUpdate(input: $input) {

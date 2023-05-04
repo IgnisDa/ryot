@@ -20,6 +20,7 @@ const documents = {
     "\n  mutation CommitMovie($identifier: String!) {\n    commitMovie(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitMovieDocument,
     "\n  mutation CommitShow($identifier: String!) {\n    commitShow(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitShowDocument,
     "\n  mutation CommitVideoGame($identifier: String!) {\n    commitVideoGame(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitVideoGameDocument,
+    "\n  mutation CommitAudioBook($identifier: String!) {\n    commitAudioBook(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitAudioBookDocument,
     "\n  mutation ProgressUpdate($input: ProgressUpdate!) {\n    progressUpdate(input: $input) {\n      id\n    }\n  }\n": types.ProgressUpdateDocument,
     "\n  mutation DeleteSeenItem($seenId: Int!) {\n    deleteSeenItem(seenId: $seenId) {\n      id\n    }\n  }\n": types.DeleteSeenItemDocument,
     "\n  mutation RegerateUserSummary {\n    regenerateUserSummary {\n      id\n    }\n  }\n": types.RegerateUserSummaryDocument,
@@ -80,6 +81,10 @@ export function graphql(source: "\n  mutation CommitShow($identifier: String!) {
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation CommitVideoGame($identifier: String!) {\n    commitVideoGame(identifier: $identifier) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitVideoGame($identifier: String!) {\n    commitVideoGame(identifier: $identifier) {\n      id\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CommitAudioBook($identifier: String!) {\n    commitAudioBook(identifier: $identifier) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitAudioBook($identifier: String!) {\n    commitAudioBook(identifier: $identifier) {\n      id\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
