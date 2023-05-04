@@ -17,6 +17,31 @@ use crate::{
 
 use super::AudioBookSpecifics;
 
+#[derive(Serialize, Deserialize)]
+struct PrimaryQuery {
+    response_groups: String,
+    image_sizes: String,
+}
+
+impl Default for PrimaryQuery {
+    fn default() -> Self {
+        Self {
+            response_groups: ["contributors", "media", "product_attrs"].join(","),
+            image_sizes: ["2400"].join(","),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct SearchQuery {
+    title: String,
+    num_results: i32,
+    page: i32,
+    products_sort_by: String,
+    #[serde(flatten)]
+    primary: PrimaryQuery,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
 pub struct AudiblePoster {
     #[serde(rename = "2400")]
@@ -30,6 +55,7 @@ pub struct AudibleItem {
     product_images: AudiblePoster,
     merchandising_summary: Option<String>,
     release_date: Option<String>,
+    runtime_length_min: Option<i32>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,61 +77,23 @@ impl AudibleService {
 
 impl AudibleService {
     pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbMovie {
-            id: i32,
-            title: String,
-            overview: String,
-            poster_path: Option<String>,
-            backdrop_path: Option<String>,
-            production_companies: Vec<NamedObject>,
-            release_date: String,
-            runtime: i32,
-            genres: Vec<NamedObject>,
+        #[derive(Serialize, Deserialize, Debug)]
+        struct AudibleItemResponse {
+            product: AudibleItem,
         }
         let mut rsp = self
             .client
-            .get(format!("movie/{}", identifier))
+            .get(format!("{}", identifier))
+            .query(&PrimaryQuery::default())
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let poster_images = convert_option_path_to_vec(data.poster_path);
-        let backdrop_images = convert_option_path_to_vec(data.backdrop_path);
-        let detail = MediaSearchItem {
-            identifier: data.id.to_string(),
-            title: data.title,
-            genres: data.genres.into_iter().map(|g| g.name).collect(),
-            author_names: data
-                .production_companies
-                .into_iter()
-                .map(|p| p.name)
-                .collect(),
-            poster_images,
-            backdrop_images,
-            publish_year: convert_date_to_year(&data.release_date),
-            publish_date: convert_string_to_date(&data.release_date),
-            description: Some(data.overview),
-            audio_books_specifics: Some(AudioBookSpecifics {
-                runtime: Some(data.runtime),
-            }),
-            movie_specifics: None,
-            video_game_specifics: None,
-            book_specifics: None,
-            show_specifics: None,
-        };
+        let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let detail = self.audible_response_to_search_response(data.product);
         Ok(detail)
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        #[derive(Serialize, Deserialize)]
-        struct Query {
-            title: String,
-            num_results: i32,
-            page: i32,
-            response_groups: String,
-            image_sizes: String,
-            products_sort_by: String,
-        }
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
             total_results: i32,
@@ -114,13 +102,12 @@ impl AudibleService {
         let mut rsp = self
             .client
             .get("")
-            .query(&Query {
+            .query(&SearchQuery {
                 title: query.to_owned(),
                 num_results: LIMIT,
                 page: page.unwrap_or(1),
-                response_groups: ["contributors", "media", "product_attrs"].join(","),
-                image_sizes: ["2400"].join(","),
                 products_sort_by: "Relevance".to_owned(),
+                primary: PrimaryQuery::default(),
             })
             .unwrap()
             .await
@@ -129,30 +116,34 @@ impl AudibleService {
         let resp = search
             .products
             .into_iter()
-            .map(|d| {
-                let poster_images = convert_option_path_to_vec(d.product_images.image);
-                let release_date = d.release_date.unwrap_or_default();
-                MediaSearchItem {
-                    identifier: d.asin,
-                    title: d.title,
-                    description: d.merchandising_summary,
-                    author_names: d.authors.into_iter().map(|a| a.name).collect(),
-                    genres: vec![],
-                    publish_year: convert_date_to_year(&release_date),
-                    publish_date: convert_string_to_date(&release_date),
-                    movie_specifics: None,
-                    book_specifics: None,
-                    show_specifics: None,
-                    video_game_specifics: None,
-                    audio_books_specifics: None,
-                    poster_images,
-                    backdrop_images: vec![],
-                }
-            })
+            .map(|d| self.audible_response_to_search_response(d))
             .collect::<Vec<_>>();
         Ok(MediaSearchResults {
             total: search.total_results,
             items: resp,
         })
+    }
+
+    fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaSearchItem {
+        let poster_images = convert_option_path_to_vec(item.product_images.image);
+        let release_date = item.release_date.unwrap_or_default();
+        MediaSearchItem {
+            identifier: item.asin,
+            title: item.title,
+            description: item.merchandising_summary,
+            author_names: item.authors.into_iter().map(|a| a.name).collect(),
+            genres: vec![],
+            publish_year: convert_date_to_year(&release_date),
+            publish_date: convert_string_to_date(&release_date),
+            movie_specifics: None,
+            book_specifics: None,
+            show_specifics: None,
+            video_game_specifics: None,
+            audio_books_specifics: Some(AudioBookSpecifics {
+                runtime: item.runtime_length_min,
+            }),
+            poster_images,
+            backdrop_images: vec![],
+        }
     }
 }

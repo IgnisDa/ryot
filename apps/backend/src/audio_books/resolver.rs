@@ -7,10 +7,10 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{movie, prelude::Movie},
+    entities::{audio_book, prelude::AudioBook},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService},
-    migrator::{MetadataLot, MovieSource},
+    migrator::{AudioBookSource, MetadataLot},
 };
 
 use super::audible::AudibleService;
@@ -90,34 +90,36 @@ impl AudioBooksService {
     }
 
     async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Movie::find()
-            .filter(movie::Column::Identifier.eq(identifier))
+        let meta = AudioBook::find()
+            .filter(audio_book::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let movie_details = self.audible_service.details(identifier).await.unwrap();
+            let audio_books_details = self.audible_service.details(identifier).await.unwrap();
             let metadata_id = self
                 .media_service
                 .commit_media(
-                    MetadataLot::Movie,
-                    movie_details.title,
-                    movie_details.description,
-                    movie_details.publish_year,
-                    movie_details.publish_date,
-                    movie_details.poster_images,
-                    movie_details.backdrop_images,
-                    movie_details.author_names,
-                    movie_details.genres,
+                    MetadataLot::AudioBook,
+                    audio_books_details.title,
+                    audio_books_details.description,
+                    audio_books_details.publish_year,
+                    audio_books_details.publish_date,
+                    audio_books_details.poster_images,
+                    audio_books_details.backdrop_images,
+                    audio_books_details.author_names,
+                    audio_books_details.genres,
                 )
                 .await?;
-            let movie = movie::ActiveModel {
+            let movie = audio_book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                identifier: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
-                source: ActiveValue::Set(MovieSource::Tmdb),
+                identifier: ActiveValue::Set(audio_books_details.identifier),
+                runtime: ActiveValue::Set(
+                    audio_books_details.audio_books_specifics.unwrap().runtime,
+                ),
+                source: ActiveValue::Set(AudioBookSource::Audible),
             };
             movie.insert(&self.db).await.unwrap();
             Ok(IdObject { id: metadata_id })
