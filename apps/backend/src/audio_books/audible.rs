@@ -17,6 +17,21 @@ use crate::{
 
 use super::AudioBookSpecifics;
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+pub struct AudiblePoster {
+    #[serde(rename = "2400")]
+    image: Option<String>,
+}
+#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+pub struct AudibleItem {
+    asin: String,
+    title: String,
+    authors: Vec<NamedObject>,
+    product_images: AudiblePoster,
+    merchandising_summary: Option<String>,
+    release_date: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct AudibleService {
     client: Client,
@@ -87,17 +102,9 @@ impl AudibleService {
             title: String,
             num_results: i32,
             page: i32,
+            response_groups: String,
+            image_sizes: String,
             products_sort_by: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct AudibleItem {
-            #[serde(rename = "audibleId")]
-            audible_id: String,
-            authors: Vec<NamedObject>,
-            title: String,
-            poster_images: Option<String>,
-            merchandising_summary: Option<String>,
-            release_date: String,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
@@ -111,6 +118,8 @@ impl AudibleService {
                 title: query.to_owned(),
                 num_results: LIMIT,
                 page: page.unwrap_or(1),
+                response_groups: ["contributors", "media", "product_attrs"].join(","),
+                image_sizes: ["2400"].join(","),
                 products_sort_by: "Relevance".to_owned(),
             })
             .unwrap()
@@ -121,15 +130,16 @@ impl AudibleService {
             .products
             .into_iter()
             .map(|d| {
-                let poster_images = convert_option_path_to_vec(d.poster_images);
+                let poster_images = convert_option_path_to_vec(d.product_images.image);
+                let release_date = d.release_date.unwrap_or_default();
                 MediaSearchItem {
-                    identifier: d.audible_id,
+                    identifier: d.asin,
                     title: d.title,
                     description: d.merchandising_summary,
-                    author_names: vec![],
+                    author_names: d.authors.into_iter().map(|a| a.name).collect(),
                     genres: vec![],
-                    publish_year: convert_date_to_year(&d.release_date),
-                    publish_date: convert_string_to_date(&d.release_date),
+                    publish_year: convert_date_to_year(&release_date),
+                    publish_date: convert_string_to_date(&release_date),
                     movie_specifics: None,
                     book_specifics: None,
                     show_specifics: None,
