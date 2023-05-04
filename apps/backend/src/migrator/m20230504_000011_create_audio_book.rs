@@ -17,7 +17,7 @@ pub enum AudioBookSource {
 pub enum AudioBook {
     Table,
     MetadataId,
-    AudibleId,
+    Identifier,
     Runtime,
     Source,
 }
@@ -50,7 +50,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(AudioBook::AudibleId).string().not_null())
+                    .col(ColumnDef::new(AudioBook::Identifier).string().not_null())
                     .col(ColumnDef::new(AudioBook::Runtime).integer())
                     .col(ColumnDef::new(AudioBook::Source).string_len(1).not_null())
                     .to_owned(),
@@ -61,7 +61,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("audio_book__audibleid__index")
                     .table(AudioBook::Table)
-                    .col(AudioBook::AudibleId)
+                    .col(AudioBook::Identifier)
                     .to_owned(),
             )
             .await?;
