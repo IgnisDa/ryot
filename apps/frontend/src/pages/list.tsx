@@ -22,6 +22,7 @@ import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
 import {
+	AUDIO_BOOKS_SEARCH,
 	BOOKS_SEARCH,
 	MEDIA_LIST,
 	MOVIES_SEARCH,
@@ -71,9 +72,8 @@ const Page: NextPageWithLayout = () => {
 	const listMedia = useQuery({
 		queryKey: ["listMedia", activeMinePage, lot],
 		queryFn: async () => {
-			if (!lot) throw Error();
 			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
-				input: { lot, page: parseInt(activeMinePage) || 1 },
+				input: { lot: lot!, page: parseInt(activeMinePage) || 1 },
 			});
 			return mediaList;
 		},
@@ -113,9 +113,16 @@ const Page: NextPageWithLayout = () => {
 					);
 					return videoGamesSearch;
 				})
-				.otherwise(async () => {
-					throw new Error("Unreachable!");
-				});
+				.with(MetadataLot.AudioBook, async () => {
+					const { audioBooksSearch } = await gqlClient.request(
+						AUDIO_BOOKS_SEARCH,
+						{
+							input: { query, page: parseInt(activeSearchPage) || 1 },
+						},
+					);
+					return audioBooksSearch;
+				})
+				.run();
 		},
 		onSuccess: () => {
 			if (!activeSearchPage) setSearchPage("1");

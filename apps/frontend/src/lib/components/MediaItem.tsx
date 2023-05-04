@@ -75,9 +75,8 @@ export default function (props: {
 	const mediaConsumed = useQuery(
 		["mediaConsumed", lot, props.item],
 		async () => {
-			if (!lot) throw Error();
 			const { mediaConsumed } = await gqlClient.request(MEDIA_CONSUMED, {
-				input: { identifier: props.item.identifier, lot },
+				input: { identifier: props.item.identifier, lot: lot! },
 			});
 			return mediaConsumed;
 		},
@@ -115,7 +114,7 @@ export default function (props: {
 					return commitVideoGame;
 				})
 				.otherwise(async () => {
-					throw Error;
+					throw Error("can not commit media");
 				});
 		},
 	);
