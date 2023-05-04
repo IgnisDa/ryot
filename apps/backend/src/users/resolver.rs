@@ -62,7 +62,8 @@ pub struct MoviesSummary {
 #[derive(SimpleObject)]
 pub struct ShowsSummary {
     runtime: i32,
-    watched: u64,
+    watched_shows: u64,
+    watched_episodes: u64,
 }
 
 #[derive(SimpleObject)]
@@ -176,6 +177,7 @@ impl UsersService {
         let mut books_total = vec![];
         let mut movies_total = vec![];
         let mut shows_total = vec![];
+        let mut episodes_total = vec![];
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
@@ -218,6 +220,7 @@ impl UsersService {
                                         if let Some(r) = episode.runtime {
                                             shows_total.push(r);
                                         }
+                                        episodes_total.push(episode);
                                     }
                                 }
                             }
@@ -262,7 +265,8 @@ impl UsersService {
             },
             shows: ShowsSummary {
                 runtime: shows_total.iter().sum(),
-                watched: shows_count,
+                watched_shows: shows_count,
+                watched_episodes: episodes_total.len() as u64,
             },
             video_games: VideoGamesSummary {
                 played: video_games_count,

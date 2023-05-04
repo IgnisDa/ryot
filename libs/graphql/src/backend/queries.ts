@@ -178,7 +178,8 @@ export const USER_SUMMARY = graphql(`
 	    }
 	    shows {
 	      runtime
-	      watched
+	      watchedEpisodes
+				watchedShows
 	    }
 	  }
 	}
