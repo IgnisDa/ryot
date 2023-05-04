@@ -6,17 +6,17 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
+static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
+
+static TMDB_ACCESS_KEY: &str = 
+"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4";
+
 /// Determine whether a feature is enabled
 pub trait IsFeatureEnabled {
     fn is_enabled(&self) -> bool {
         true
     }
 }
-
-static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
-
-static TMDB_ACCESS_KEY: &str = 
-"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4";
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
