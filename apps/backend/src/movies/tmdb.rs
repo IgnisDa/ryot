@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 
 use crate::{
+    config::TmdbConfig,
     media::resolver::{MediaSearchItem, MediaSearchResults},
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
@@ -20,8 +21,8 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    pub async fn new(url: &str, access_token: &str) -> Self {
-        let (client, image_url) = tmdb::get_client_config(url, access_token).await;
+    pub async fn new(config: &TmdbConfig) -> Self {
+        let (client, image_url) = tmdb::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
     }
 }
