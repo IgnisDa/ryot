@@ -10,6 +10,7 @@ pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::movie::Entity as Movie;
 pub use super::seen::Entity as Seen;
 pub use super::show::Entity as Show;
+pub use super::summary::Entity as Summary;
 pub use super::token::Entity as Token;
 pub use super::user::Entity as User;
 pub use super::user_to_metadata::Entity as UserToMetadata;

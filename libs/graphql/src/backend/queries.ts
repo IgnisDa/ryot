@@ -161,3 +161,26 @@ export const USER_DETAILS = graphql(`
 	  }
 	}
 `);
+
+export const USER_SUMMARY = graphql(`
+	query UserSummary {
+	  userSummary {
+	    books {
+	      pages
+	      read
+	    }
+	    movies {
+	      runtime
+	      watched
+	    }
+	    videoGames {
+	      played
+	    }
+	    shows {
+	      runtime
+	      watchedEpisodes
+				watchedShows
+	    }
+	  }
+	}
+`);

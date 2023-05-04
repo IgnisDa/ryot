@@ -11,6 +11,7 @@ mod m20230423_000006_create_movie;
 mod m20230425_000007_create_show;
 mod m20230502_000008_create_video_game;
 mod m20230502_000009_create_genre;
+mod m20230504_000010_create_summary;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230425_000007_create_show::Migration),
             Box::new(m20230502_000008_create_video_game::Migration),
             Box::new(m20230502_000009_create_genre::Migration),
+            Box::new(m20230504_000010_create_summary::Migration),
         ]
     }
 }

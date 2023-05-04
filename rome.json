@@ -3,7 +3,7 @@
 	"files": {
 		"ignore": [
 			"dist", "coverage", "build", "tmp", "node_modules", "libs/generated/**",
-			"apps/frontend/out/**", "apps/frontend/.next/**"
+			"out/**", ".next/**"
 		]
 	},
 	"linter": {

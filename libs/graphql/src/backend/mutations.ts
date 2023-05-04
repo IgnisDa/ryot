@@ -81,3 +81,11 @@ export const DELETE_SEEN_ITEM = graphql(`
     }
   }
 `);
+
+export const REGENERATE_USER_SUMMARY = graphql(`
+  mutation RegerateUserSummary {
+    regenerateUserSummary {
+      id
+    }
+  }
+`);
