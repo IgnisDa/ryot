@@ -17,7 +17,7 @@ pub enum VideoGameSource {
 pub enum VideoGame {
     Table,
     MetadataId,
-    IgdbId,
+    Identifier,
     Source,
 }
 
@@ -49,7 +49,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(VideoGame::IgdbId).string().not_null())
+                    .col(ColumnDef::new(VideoGame::Identifier).string().not_null())
                     .col(ColumnDef::new(VideoGame::Source).string_len(1).not_null())
                     .to_owned(),
             )
@@ -59,7 +59,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("video_game__imdb__index")
                     .table(VideoGame::Table)
-                    .col(VideoGame::IgdbId)
+                    .col(VideoGame::Identifier)
                     .to_owned(),
             )
             .await?;

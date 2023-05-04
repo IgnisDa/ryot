@@ -354,7 +354,7 @@ impl MediaService {
                 .unwrap()
                 .map(|b| b.metadata_id),
             MetadataLot::VideoGame => VideoGame::find()
-                .filter(video_game::Column::IgdbId.eq(&input.identifier))
+                .filter(video_game::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
