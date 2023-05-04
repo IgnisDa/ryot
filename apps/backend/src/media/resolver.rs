@@ -348,7 +348,7 @@ impl MediaService {
                 .unwrap()
                 .map(|b| b.metadata_id),
             MetadataLot::Show => Show::find()
-                .filter(show::Column::TmdbId.eq(&input.identifier))
+                .filter(show::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()

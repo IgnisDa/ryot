@@ -8,7 +8,7 @@ use crate::{migrator::ShowSource, shows::ShowSpecifics};
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "show")]
 pub struct Model {
-    pub tmdb_id: String,
+    pub identifier: String,
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     pub details: ShowSpecifics,
