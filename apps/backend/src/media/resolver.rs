@@ -10,7 +10,7 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        book, creator, genre,
+        audio_book, book, creator, genre,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, metadata_to_genre, movie,
         prelude::{
@@ -348,6 +348,12 @@ impl MediaService {
         input: MediaConsumedInput,
     ) -> Result<MediaSeen> {
         let media = match input.lot {
+            MetadataLot::AudioBook => AudioBook::find()
+                .filter(audio_book::Column::Identifier.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
             MetadataLot::Book => Book::find()
                 .filter(book::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
@@ -372,7 +378,6 @@ impl MediaService {
                 .await
                 .unwrap()
                 .map(|b| b.metadata_id),
-            _ => todo!(),
         };
         let resp = if let Some(m) = media {
             let seen = Seen::find()
