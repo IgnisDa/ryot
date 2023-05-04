@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
-use surf::Client;
+use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::AudibleConfig,
+    graphql::AUTHOR,
     media::resolver::{MediaSearchItem, MediaSearchResults},
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
@@ -17,12 +18,17 @@ use super::AudioBookSpecifics;
 #[derive(Debug, Clone)]
 pub struct AudibleService {
     client: Client,
-    image_url: String,
 }
 
 impl AudibleService {
     pub fn new(config: &AudibleConfig) -> Self {
-        todo!();
+        let client = Config::new()
+            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
+            .unwrap()
+            .set_base_url(Url::parse(&config.url).unwrap())
+            .try_into()
+            .unwrap();
+        Self { client }
     }
 }
 
@@ -46,10 +52,8 @@ impl AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let poster_images =
-            convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
-        let backdrop_images =
-            convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+        let poster_images = convert_option_path_to_vec(data.poster_path);
+        let backdrop_images = convert_option_path_to_vec(data.backdrop_path);
         let detail = MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.title,
@@ -113,11 +117,8 @@ impl AudibleService {
             .results
             .into_iter()
             .map(|d| {
-                let backdrop_images = convert_option_path_to_vec(
-                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                );
-                let poster_images =
-                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                let backdrop_images = convert_option_path_to_vec(d.backdrop_path);
+                let poster_images = convert_option_path_to_vec(d.poster_path);
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     title: d.title,
@@ -141,9 +142,5 @@ impl AudibleService {
             total: search.total_results,
             items: resp,
         })
-    }
-
-    fn get_cover_image_url(&self, c: &str) -> String {
-        format!("{}{}{}", self.image_url, "original", c)
     }
 }
