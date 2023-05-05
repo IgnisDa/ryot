@@ -3,16 +3,16 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{migrator::ShowSource, shows::ShowSpecifics};
+use crate::migrator::AudioBookSource;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "show")]
+#[sea_orm(table_name = "audio_book")]
 pub struct Model {
-    pub identifier: String,
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
-    pub details: ShowSpecifics,
-    pub source: ShowSource,
+    pub identifier: String,
+    pub runtime: Option<i32>,
+    pub source: AudioBookSource,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

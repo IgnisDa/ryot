@@ -161,6 +161,7 @@ offset: {offset};
             movie_specifics: None,
             book_specifics: None,
             show_specifics: None,
+            audio_books_specifics: None,
         }
     }
 

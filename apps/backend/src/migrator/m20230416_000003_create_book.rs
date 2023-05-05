@@ -17,7 +17,7 @@ pub enum BookSource {
 pub enum Book {
     Table,
     MetadataId,
-    OpenLibraryKey,
+    Identifier,
     NumPages,
     Source,
 }
@@ -50,7 +50,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Book::OpenLibraryKey).string().not_null())
+                    .col(ColumnDef::new(Book::Identifier).string().not_null())
                     .col(ColumnDef::new(Book::NumPages).integer())
                     .col(ColumnDef::new(Book::Source).string_len(1).not_null())
                     .to_owned(),
@@ -61,7 +61,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("book__openlibrary__index")
                     .table(Book::Table)
-                    .col(Book::OpenLibraryKey)
+                    .col(Book::Identifier)
                     .to_owned(),
             )
             .await?;

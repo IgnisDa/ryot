@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 
 use crate::{
+    config::TmdbConfig,
     media::resolver::{MediaSearchItem, MediaSearchResults},
     utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date,
-        media_tracker::TmdbNamedObject, tmdb,
+        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
     },
 };
 
@@ -20,8 +20,8 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    pub async fn new(url: &str, access_token: &str) -> Self {
-        let (client, image_url) = tmdb::get_client_config(url, access_token).await;
+    pub async fn new(config: &TmdbConfig) -> Self {
+        let (client, image_url) = tmdb::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
     }
 }
@@ -35,10 +35,10 @@ impl TmdbService {
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<TmdbNamedObject>,
+            production_companies: Vec<NamedObject>,
             release_date: String,
             runtime: i32,
-            genres: Vec<TmdbNamedObject>,
+            genres: Vec<NamedObject>,
         }
         let mut rsp = self
             .client
@@ -68,6 +68,7 @@ impl TmdbService {
                 runtime: Some(data.runtime),
             }),
             video_game_specifics: None,
+            audio_books_specifics: None,
             book_specifics: None,
             show_specifics: None,
         };
@@ -130,6 +131,7 @@ impl TmdbService {
                     book_specifics: None,
                     show_specifics: None,
                     video_game_specifics: None,
+                    audio_books_specifics: None,
                     poster_images,
                     backdrop_images,
                 }

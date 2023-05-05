@@ -7,14 +7,15 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        book, creator, genre,
+        audio_book, book, creator, genre,
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, metadata_to_genre, movie,
         prelude::{
-            Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show, UserToMetadata,
-            VideoGame,
+            AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
+            UserToMetadata, VideoGame,
         },
         seen::{self, SeenExtraInformation, SeenSeasonExtraInformation},
         show, user_to_metadata, video_game,
@@ -44,6 +45,7 @@ pub struct MediaSearchItem {
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub audio_books_specifics: Option<AudioBookSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -93,6 +95,7 @@ pub struct MediaDetails {
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub audio_books_specifics: Option<AudioBookSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -271,6 +274,7 @@ impl MediaService {
             movie_specifics: None,
             show_specifics: None,
             video_game_specifics: None,
+            audio_books_specifics: None,
         };
         match meta.lot {
             MetadataLot::Book => {
@@ -304,7 +308,16 @@ impl MediaService {
             MetadataLot::VideoGame => {
                 // No additional metadata is stored in the database
             }
-            _ => todo!(),
+            MetadataLot::AudioBook => {
+                let additional = AudioBook::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.audio_books_specifics = Some(AudioBookSpecifics {
+                    runtime: additional.runtime,
+                });
+            }
         };
         Ok(resp)
     }
@@ -335,31 +348,36 @@ impl MediaService {
         input: MediaConsumedInput,
     ) -> Result<MediaSeen> {
         let media = match input.lot {
+            MetadataLot::AudioBook => AudioBook::find()
+                .filter(audio_book::Column::Identifier.eq(&input.identifier))
+                .one(&self.db)
+                .await
+                .unwrap()
+                .map(|b| b.metadata_id),
             MetadataLot::Book => Book::find()
-                .filter(book::Column::OpenLibraryKey.eq(&input.identifier))
+                .filter(book::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
                 .map(|b| b.metadata_id),
             MetadataLot::Movie => Movie::find()
-                .filter(movie::Column::TmdbId.eq(&input.identifier))
+                .filter(movie::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
                 .map(|b| b.metadata_id),
             MetadataLot::Show => Show::find()
-                .filter(show::Column::TmdbId.eq(&input.identifier))
+                .filter(show::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
                 .map(|b| b.metadata_id),
             MetadataLot::VideoGame => VideoGame::find()
-                .filter(video_game::Column::IgdbId.eq(&input.identifier))
+                .filter(video_game::Column::Identifier.eq(&input.identifier))
                 .one(&self.db)
                 .await
                 .unwrap()
                 .map(|b| b.metadata_id),
-            _ => todo!(),
         };
         let resp = if let Some(m) = media {
             let seen = Seen::find()
@@ -440,6 +458,7 @@ impl MediaService {
                 movie_specifics: None,
                 show_specifics: None,
                 video_game_specifics: None,
+                audio_books_specifics: None,
                 genres: vec![],
                 author_names: vec![],
             };

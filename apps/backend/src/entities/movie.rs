@@ -10,7 +10,7 @@ use crate::migrator::MovieSource;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
-    pub tmdb_id: String,
+    pub identifier: String,
     pub runtime: Option<i32>,
     pub source: MovieSource,
 }

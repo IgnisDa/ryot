@@ -1,4 +1,4 @@
-use async_graphql::{Context, Error, Result};
+use async_graphql::{Context, Error, Result, SimpleObject};
 use chrono::NaiveDate;
 use regex::Regex;
 use sea_orm::{
@@ -18,6 +18,11 @@ use crate::{
     entities::{prelude::Token, token},
     GqlCtx,
 };
+
+#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct NamedObject {
+    pub name: String,
+}
 
 pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
     let ctx = ctx.data_unchecked::<GqlCtx>();
@@ -168,11 +173,6 @@ pub mod igdb {
 
 pub mod media_tracker {
     use super::*;
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbNamedObject {
-        pub name: String,
-    }
 
     #[derive(Debug)]
     pub struct ReviewInformation {

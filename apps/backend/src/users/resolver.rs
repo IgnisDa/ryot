@@ -14,8 +14,8 @@ use uuid::Uuid;
 
 use crate::{
     entities::{
-        book, movie,
-        prelude::{Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
+        audio_book, book, movie,
+        prelude::{AudioBook, Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
         seen::{self, SeenExtraInformation},
         show, summary, token, user,
         user::Model as UserModel,
@@ -40,6 +40,12 @@ fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> 
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
+}
+
+#[derive(SimpleObject)]
+pub struct AudioBooksSummary {
+    runtime: i32,
+    played: i32,
 }
 
 #[derive(SimpleObject)]
@@ -72,6 +78,7 @@ pub struct UserSummary {
     movies: MoviesSummary,
     shows: ShowsSummary,
     video_games: VideoGamesSummary,
+    audio_books: AudioBooksSummary,
 }
 
 #[derive(Default)]
@@ -200,6 +207,10 @@ impl UsersService {
                 video_games: VideoGamesSummary {
                     played: ls.video_games_played,
                 },
+                audio_books: AudioBooksSummary {
+                    runtime: ls.audio_books_runtime,
+                    played: ls.audio_books_played,
+                },
             }),
             None => Err(Error::new("You do not have any summaries".to_owned())),
         }
@@ -215,6 +226,7 @@ impl UsersService {
             .unwrap();
         let mut books_total = vec![];
         let mut movies_total = vec![];
+        let mut audio_books_total = vec![];
         let mut shows_total = vec![];
         let mut episodes_total = vec![];
         for (seen, metadata) in seen_items.iter() {
@@ -266,7 +278,21 @@ impl UsersService {
                         }
                     }
                 }
-                _ => continue,
+                MetadataLot::AudioBook => {
+                    let item = meta
+                        .find_related(AudioBook)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if let Some(r) = item.runtime {
+                        audio_books_total.push(r);
+                    }
+                }
+                MetadataLot::VideoGame => {
+                    // nothing to calculate
+                    continue;
+                }
             }
         }
         let metadata_ids = seen_items
@@ -293,6 +319,11 @@ impl UsersService {
             .count(&self.db)
             .await
             .unwrap();
+        let audio_books_count = AudioBook::find()
+            .filter(audio_book::Column::MetadataId.is_in(metadata_ids.clone()))
+            .count(&self.db)
+            .await
+            .unwrap();
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
             created_on: ActiveValue::NotSet,
@@ -305,6 +336,8 @@ impl UsersService {
             shows_watched: ActiveValue::Set(shows_count.try_into().unwrap()),
             episodes_watched: ActiveValue::Set(episodes_total.len().try_into().unwrap()),
             video_games_played: ActiveValue::Set(video_games_count.try_into().unwrap()),
+            audio_books_runtime: ActiveValue::Set(audio_books_total.iter().sum()),
+            audio_books_played: ActiveValue::Set(audio_books_count.try_into().unwrap()),
         };
         let obj = Summary::insert(summary_obj).exec(&self.db).await.unwrap();
         Ok(IdObject {

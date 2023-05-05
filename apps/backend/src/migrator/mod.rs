@@ -12,6 +12,7 @@ mod m20230425_000007_create_show;
 mod m20230502_000008_create_video_game;
 mod m20230502_000009_create_genre;
 mod m20230504_000010_create_summary;
+mod m20230504_000011_create_audio_book;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -20,6 +21,7 @@ pub use m20230417_000004_create_user::{TokenLot, UserLot};
 pub use m20230423_000006_create_movie::MovieSource;
 pub use m20230425_000007_create_show::ShowSource;
 pub use m20230502_000008_create_video_game::VideoGameSource;
+pub use m20230504_000011_create_audio_book::AudioBookSource;
 
 pub struct Migrator;
 
@@ -37,6 +39,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230502_000008_create_video_game::Migration),
             Box::new(m20230502_000009_create_genre::Migration),
             Box::new(m20230504_000010_create_summary::Migration),
+            Box::new(m20230504_000011_create_audio_book::Migration),
         ]
     }
 }

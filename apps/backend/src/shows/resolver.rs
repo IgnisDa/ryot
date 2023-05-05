@@ -84,7 +84,7 @@ impl ShowsService {
 
     async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
         let meta = Show::find()
-            .filter(show::Column::TmdbId.eq(identifier))
+            .filter(show::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
@@ -108,7 +108,7 @@ impl ShowsService {
                 .await?;
             let show = show::ActiveModel {
                 metadata_id: ActiveValue::Set(show_metadata_id),
-                tmdb_id: ActiveValue::Set(show_details.identifier),
+                identifier: ActiveValue::Set(show_details.identifier),
                 details: ActiveValue::Set(ShowSpecifics {
                     seasons: show_details.show_specifics.clone().unwrap().seasons,
                 }),

@@ -92,7 +92,7 @@ impl VideoGamesService {
 
     async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
         let meta = VideoGame::find()
-            .filter(video_game::Column::IgdbId.eq(identifier))
+            .filter(video_game::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
@@ -116,7 +116,7 @@ impl VideoGamesService {
                 .await?;
             let game = video_game::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                igdb_id: ActiveValue::Set(game_details.identifier),
+                identifier: ActiveValue::Set(game_details.identifier),
                 source: ActiveValue::Set(VideoGameSource::Igdb),
             };
             game.insert(&self.db).await.unwrap();

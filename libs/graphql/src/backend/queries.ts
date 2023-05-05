@@ -56,6 +56,20 @@ export const VIDEO_GAMES_SEARCH = graphql(`
 	}
 `);
 
+export const AUDIO_BOOKS_SEARCH = graphql(`
+	query AudioBooksSearch($input: AudioBookSearchInput!) {
+	  audioBooksSearch(input: $input) {
+	    total
+	    items {
+	      identifier
+	      title
+	      posterImages
+	      publishYear
+	    }
+	  }
+	}
+`);
+
 export const CORE_DETAILS = graphql(`
 	query CoreDetails {
 	  coreDetails {
@@ -180,6 +194,10 @@ export const USER_SUMMARY = graphql(`
 	      runtime
 	      watchedEpisodes
 				watchedShows
+	    }
+	    audioBooks {
+	      runtime
+	      played
 	    }
 	  }
 	}

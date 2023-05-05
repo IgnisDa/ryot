@@ -3,6 +3,10 @@ use sea_orm::DatabaseConnection;
 use std::env;
 
 use crate::{
+    audio_books::{
+        audible::AudibleService,
+        resolver::{AudioBooksMutation, AudioBooksQuery, AudioBooksService},
+    },
     books::{
         openlibrary::OpenlibraryService,
         resolver::{BooksMutation, BooksQuery, BooksService},
@@ -87,6 +91,7 @@ pub struct QueryRoot(
     ShowsQuery,
     VideoGamesQuery,
     UsersQuery,
+    AudioBooksQuery,
 );
 
 #[derive(MergedObject, Default)]
@@ -97,24 +102,21 @@ pub struct MutationRoot(
     MoviesMutation,
     ShowsMutation,
     VideoGamesMutation,
+    AudioBooksMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
     let media_service = MediaService::new(&db);
-    let openlibrary_service = OpenlibraryService::new(
-        &config.books.openlibrary.url,
-        &config.books.openlibrary.cover_image_url,
-        &config.books.openlibrary.cover_image_size.to_string(),
-    );
+    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
-    let tmdb_movies_service =
-        MovieTmdbService::new(&config.movies.tmdb.url, &config.movies.tmdb.access_token).await;
+    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
     let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
-    let tmdb_shows_service =
-        ShowTmdbService::new(&config.shows.tmdb.url, &config.shows.tmdb.access_token).await;
+    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
     let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
+    let audible_service = AudibleService::new(&config.audio_books.audible);
+    let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
@@ -131,5 +133,6 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     .data(shows_service)
     .data(users_service)
     .data(video_games_service)
+    .data(audio_books_service)
     .finish()
 }

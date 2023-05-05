@@ -99,7 +99,7 @@ impl BooksService {
         index: i32,
     ) -> Result<IdObject> {
         let meta = Book::find()
-            .filter(book::Column::OpenLibraryKey.eq(identifier))
+            .filter(book::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
@@ -127,7 +127,7 @@ impl BooksService {
                 .await?;
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
-                open_library_key: ActiveValue::Set(book_details.identifier),
+                identifier: ActiveValue::Set(book_details.identifier),
                 num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
                 source: ActiveValue::Set(BookSource::OpenLibrary),
             };

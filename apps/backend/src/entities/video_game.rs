@@ -10,7 +10,7 @@ use crate::migrator::VideoGameSource;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
-    pub igdb_id: String,
+    pub identifier: String,
     pub source: VideoGameSource,
 }
 

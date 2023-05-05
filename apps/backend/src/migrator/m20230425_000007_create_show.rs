@@ -16,7 +16,7 @@ pub enum ShowSource {
 #[derive(Iden)]
 pub enum Show {
     Table,
-    TmdbId,
+    Identifier,
     MetadataId,
     Details,
     Source,
@@ -35,7 +35,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Show::Table)
-                    .col(ColumnDef::new(Show::TmdbId).string().not_null())
+                    .col(ColumnDef::new(Show::Identifier).string().not_null())
                     .col(
                         ColumnDef::new(Show::MetadataId)
                             .integer()
@@ -61,7 +61,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("show__tmdbid__index")
                     .table(Show::Table)
-                    .col(Show::TmdbId)
+                    .col(Show::Identifier)
                     .to_owned(),
             )
             .await?;

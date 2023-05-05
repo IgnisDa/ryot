@@ -18,6 +18,8 @@ pub struct Model {
     pub shows_watched: i32,
     pub episodes_watched: i32,
     pub video_games_played: i32,
+    pub audio_books_runtime: i32,
+    pub audio_books_played: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

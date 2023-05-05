@@ -23,8 +23,8 @@ export const getLot = (lot: unknown) => {
 		.with("books", "book", () => MetadataLot.Book)
 		.with("movies", "movie", () => MetadataLot.Movie)
 		.with("tv", "show", () => MetadataLot.Show)
-		.with("games", "video_game", () => MetadataLot.VideoGame)
-		.with("audiobooks", "audio_book", () => MetadataLot.AudioBook)
+		.with("games", "video_game", "video game", () => MetadataLot.VideoGame)
+		.with("audio book", "audiobooks", "audio_book", () => MetadataLot.AudioBook)
 		.otherwise(() => undefined);
 };
 
@@ -38,7 +38,7 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 			return match(lot)
 				.with(MetadataLot.Book, () => "read")
 				.with(MetadataLot.Movie, MetadataLot.Show, () => "watch")
-				.with(MetadataLot.VideoGame, () => "play")
+				.with(MetadataLot.AudioBook, MetadataLot.VideoGame, () => "play")
 				.otherwise(() => {
 					return "";
 				});

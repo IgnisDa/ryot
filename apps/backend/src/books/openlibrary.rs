@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
+    config::OpenlibraryConfig,
     graphql::AUTHOR,
     media::{
         resolver::{MediaSearchItem, MediaSearchResults},
@@ -22,16 +23,16 @@ pub struct OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub fn new(url: &str, image_url: &str, image_size: &str) -> Self {
+    pub fn new(config: &OpenlibraryConfig) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
             .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
+            .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
             .unwrap();
         Self {
-            image_url: image_url.to_owned(),
-            image_size: image_size.to_owned(),
+            image_url: config.cover_image_url.to_owned(),
+            image_size: config.cover_image_size.to_string(),
             client,
         }
     }
@@ -182,6 +183,7 @@ impl OpenlibraryService {
                     show_specifics: None,
                     movie_specifics: None,
                     video_game_specifics: None,
+                    audio_books_specifics: None,
                     poster_images,
                     backdrop_images: vec![],
                 }

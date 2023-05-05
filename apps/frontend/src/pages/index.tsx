@@ -106,6 +106,16 @@ const Page: NextPageWithLayout = () => {
 								game(s).
 							</Text>
 						</Box>
+						<Box>
+							<StatTitle text="Audio Books" />
+							<Text>
+								You listened to{" "}
+								<StatNumber text={userSummary.data.audioBooks.played} />{" "}
+								audiobook(s) totalling{" "}
+								<StatNumber text={userSummary.data.audioBooks.runtime} />{" "}
+								minute(s).
+							</Text>
+						</Box>
 					</SimpleGrid>
 				) : null}
 				<Box>
