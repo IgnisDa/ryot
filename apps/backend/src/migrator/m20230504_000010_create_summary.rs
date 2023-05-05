@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_000004_create_user::User;
+use super::{get_integer_col, m20230417_000004_create_user::User};
 
 pub struct Migration;
 
@@ -26,12 +26,6 @@ impl MigrationName for Migration {
     fn name(&self) -> &str {
         "m20230504_000010_create_summary"
     }
-}
-
-fn get_integer_col(def: Summary) -> ColumnDef {
-    let mut binding = ColumnDef::new(def);
-    let col = binding.integer().not_null().default(0);
-    col.take()
 }
 
 #[async_trait::async_trait]
