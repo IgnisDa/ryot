@@ -71,6 +71,7 @@ export default function Page() {
 				label="Username"
 				{...form.getInputProps("username")}
 				required
+				autoFocus
 			/>
 			<PasswordInput
 				label="Password"
