@@ -20,7 +20,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
+import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
 import {
 	AUDIO_BOOKS_SEARCH,
 	BOOKS_SEARCH,
@@ -28,7 +28,7 @@ import {
 	MOVIES_SEARCH,
 	SHOWS_SEARCH,
 	VIDEO_GAMES_SEARCH,
-} from "@trackona/graphql/backend/queries";
+} from "@ryot/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";

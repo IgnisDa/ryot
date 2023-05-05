@@ -1,6 +1,6 @@
-# trackona
+# ryot
 
-Trackona is a self hosted platform for tracking movies, TV shows, video games,
+Ryot is a self hosted platform for tracking movies, TV shows, video games,
 books and audiobooks.
 
 ## Project Status
@@ -8,7 +8,7 @@ books and audiobooks.
 This project is still very much a WIP. Until it hits `1.0.0`, consider the project
 to have breaking changes without any warning, for example backwards incompatible
 schema changes. You can see the latest release
-[here](https://github.com/IgnisDa/trackona/releases).
+[here](https://github.com/IgnisDa/ryot/releases).
 
 ## How to use?
 
@@ -17,14 +17,14 @@ To get a demo server running, use the docker image:
 ```bash
 $ docker run --detach \
   --publish 8000:8000 \
-  --volume ./trackona-data:/data \
-  --name trackona \
-  ghcr.io/ignisda/trackona:latest
+  --volume ./ryot-data:/data \
+  --name ryot \
+  ghcr.io/ignisda/ryot:latest
 ```
 
 ## Development
 
-Trackona is an Axum server running in the backend. The frontend is a pre-rendered
+Ryot is an Axum server running in the backend. The frontend is a pre-rendered
 Nextjs app served statically by the backend server.
 
 To get the servers running, install [mprocs](https://github.com/pvolok/mprocs),

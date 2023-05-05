@@ -66,7 +66,7 @@ pub struct AudibleService {
 impl AudibleService {
     pub fn new(config: &AudibleConfig) -> Self {
         let client = Config::new()
-            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
             .unwrap()
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()

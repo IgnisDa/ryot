@@ -38,12 +38,12 @@ import {
 	MetadataLot,
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
-} from "@trackona/generated/graphql/backend/graphql";
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	DELETE_SEEN_ITEM,
 	PROGRESS_UPDATE,
-} from "@trackona/graphql/backend/mutations";
-import { MEDIA_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
+} from "@ryot/graphql/backend/mutations";
+import { MEDIA_DETAILS, SEEN_HISTORY } from "@ryot/graphql/backend/queries";
 import { DateTime } from "luxon";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";

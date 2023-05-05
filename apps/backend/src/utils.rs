@@ -100,7 +100,7 @@ pub mod tmdb {
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
             .unwrap()
             .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
             .unwrap()
@@ -157,7 +157,7 @@ pub mod igdb {
         let client: Client = Config::new()
             .add_header("Client-ID", twitch_client_id)
             .unwrap()
-            .add_header(USER_AGENT, format!("{}/trackona", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
             .unwrap()
             .add_header(
                 AUTHORIZATION,

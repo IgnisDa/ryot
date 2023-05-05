@@ -18,12 +18,12 @@ import {
 	IconLogout,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
-import { LOGOUT_USER } from "@trackona/graphql/backend/mutations";
+import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import { LOGOUT_USER } from "@ryot/graphql/backend/mutations";
 import {
 	CORE_ENABLED_FEATURES,
 	USER_DETAILS,
-} from "@trackona/graphql/backend/queries";
+} from "@ryot/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import Link from "next/link";
 import { useRouter } from "next/router";

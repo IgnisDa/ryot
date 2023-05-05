@@ -7,18 +7,18 @@ import {
 	type CommitBookMutationVariables,
 	MetadataLot,
 	SeenStatus,
-} from "@trackona/generated/graphql/backend/graphql";
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	COMMIT_AUDIO_BOOK,
 	COMMIT_BOOK,
 	COMMIT_MOVIE,
 	COMMIT_SHOW,
 	COMMIT_VIDEO_GAME,
-} from "@trackona/graphql/backend/mutations";
+} from "@ryot/graphql/backend/mutations";
 import {
 	AUDIO_BOOKS_SEARCH,
 	MEDIA_CONSUMED,
-} from "@trackona/graphql/backend/queries";
+} from "@ryot/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";

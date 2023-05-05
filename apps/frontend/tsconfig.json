@@ -18,8 +18,8 @@
 		"incremental": true,
 		"paths": {
 			"@/*": ["./src/*"],
-			"@trackona/generated/*": ["../../libs/generated/src/*"],
-			"@trackona/graphql/*": ["../../libs/graphql/src/*"]
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"]
 		},
 		"outDir": "../../.moon/cache/types/apps/frontend"
 	},

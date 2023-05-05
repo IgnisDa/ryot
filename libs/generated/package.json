@@ -1,5 +1,5 @@
 {
-	"name": "@trackona/generated",
+	"name": "@ryot/generated",
 	"dependencies": {
 		"@graphql-typed-document-node/core": "3.2.0",
 		"graphql": "16.6.0"

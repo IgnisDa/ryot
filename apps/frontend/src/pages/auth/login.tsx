@@ -6,8 +6,8 @@ import { useMutation } from "@tanstack/react-query";
 import {
 	LoginErrorVariant,
 	type UserInput,
-} from "@trackona/generated/graphql/backend/graphql";
-import { LOGIN_USER } from "@trackona/graphql/backend/mutations";
+} from "@ryot/generated/graphql/backend/graphql";
+import { LOGIN_USER } from "@ryot/graphql/backend/mutations";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";

@@ -1,4 +1,4 @@
-import { graphql } from "@trackona/generated/graphql/backend";
+import { graphql } from "@ryot/generated/graphql/backend";
 
 export const BOOKS_SEARCH = graphql(`
 	query BooksSearch($input: BookSearchInput!) {

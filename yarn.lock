@@ -2045,9 +2045,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trackona/frontend@workspace:apps/frontend":
+"@ryot/frontend@workspace:apps/frontend":
   version: 0.0.0-use.local
-  resolution: "@trackona/frontend@workspace:apps/frontend"
+  resolution: "@ryot/frontend@workspace:apps/frontend"
   dependencies:
     "@emotion/react": 11.10.6
     "@emotion/server": 11.10.0
@@ -2060,8 +2060,8 @@ __metadata:
     "@mantine/notifications": 6.0.8
     "@tabler/icons-react": 2.16.0
     "@tanstack/react-query": 4.29.3
-    "@trackona/generated": "workspace:*"
-    "@trackona/graphql": "workspace:*"
+    "@ryot/generated": "workspace:*"
+    "@ryot/graphql": "workspace:*"
     "@types/lodash": 4.14.194
     "@types/luxon": 3.3.0
     "@types/node": 18.15.11
@@ -2082,9 +2082,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@trackona/generated@workspace:*, @trackona/generated@workspace:libs/generated":
+"@ryot/generated@workspace:*, @ryot/generated@workspace:libs/generated":
   version: 0.0.0-use.local
-  resolution: "@trackona/generated@workspace:libs/generated"
+  resolution: "@ryot/generated@workspace:libs/generated"
   dependencies:
     "@graphql-codegen/cli": 3.3.0
     "@graphql-codegen/client-preset": 3.0.0
@@ -2093,19 +2093,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@trackona/graphql@workspace:*, @trackona/graphql@workspace:libs/graphql":
+"@ryot/graphql@workspace:*, @ryot/graphql@workspace:libs/graphql":
   version: 0.0.0-use.local
-  resolution: "@trackona/graphql@workspace:libs/graphql"
+  resolution: "@ryot/graphql@workspace:libs/graphql"
   dependencies:
-    "@trackona/generated": "workspace:*"
+    "@ryot/generated": "workspace:*"
     graphql-request: 6.0.0
     graphql-scalars: 1.21.3
   languageName: unknown
   linkType: soft
 
-"@trackona/root@workspace:.":
+"@ryot/root@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@trackona/root@workspace:."
+  resolution: "@ryot/root@workspace:."
   dependencies:
     rome: 12.0.0
     tsconfig-moon: 1.3.0

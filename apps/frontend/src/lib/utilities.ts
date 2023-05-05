@@ -1,4 +1,4 @@
-import { MetadataLot } from "@trackona/generated/graphql/backend/graphql";
+import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
 /**

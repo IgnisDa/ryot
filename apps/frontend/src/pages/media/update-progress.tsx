@@ -2,7 +2,7 @@ import { gqlClient } from "@/lib/services/api";
 import type { NextPageWithLayout } from "../_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { MEDIA_DETAILS } from "@trackona/graphql/backend/queries";
+import { MEDIA_DETAILS } from "@ryot/graphql/backend/queries";
 import { useRouter } from "next/router";
 import { useState, type ReactElement } from "react";
 import {
@@ -18,8 +18,8 @@ import {
 import {
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
-} from "@trackona/generated/graphql/backend/graphql";
-import { PROGRESS_UPDATE } from "@trackona/graphql/backend/mutations";
+} from "@ryot/generated/graphql/backend/graphql";
+import { PROGRESS_UPDATE } from "@ryot/graphql/backend/mutations";
 import { Verb, getVerb } from "@/lib/utilities";
 import { DatePickerInput } from "@mantine/dates";
 import { DateTime } from "luxon";

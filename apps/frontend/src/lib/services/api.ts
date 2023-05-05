@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { createGqlClient } from "@trackona/graphql/client";
+import { createGqlClient } from "@ryot/graphql/client";
 
 const baseUrl =
 	process.env.NEXT_PUBLIC_BASE_URL ||
