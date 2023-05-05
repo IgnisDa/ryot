@@ -210,7 +210,6 @@ const Page: NextPageWithLayout = () => {
 						<Carousel
 							withIndicators={details.data.posterImages.length > 1}
 							withControls={details.data.posterImages.length > 1}
-							height={400}
 							w={300}
 						>
 							{[
