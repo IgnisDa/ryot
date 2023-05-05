@@ -228,7 +228,8 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 					)}
 					<Box>
-						{details.data.creators.length > 0 ? (
+						{details.data.type !== MetadataLot.Show &&
+						details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
