@@ -14,7 +14,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub posted_on: DateTimeUtc,
-    pub rating: i32,
+    pub rating: Option<i32>,
     pub text: Option<String>,
     pub visibility: Visibility,
     pub user_id: i32,
