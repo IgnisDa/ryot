@@ -11,6 +11,7 @@ pub mod metadata_image;
 pub mod metadata_to_creator;
 pub mod metadata_to_genre;
 pub mod movie;
+pub mod review;
 pub mod seen;
 pub mod show;
 pub mod summary;
