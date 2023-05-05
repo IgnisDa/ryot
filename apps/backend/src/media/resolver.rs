@@ -587,7 +587,7 @@ impl MediaService {
                 .await
                 .unwrap()
             {
-                c
+                drop(c);
             } else {
                 let c = metadata_image::ActiveModel {
                     url: ActiveValue::Set(image.to_owned()),
@@ -595,7 +595,7 @@ impl MediaService {
                     metadata_id: ActiveValue::Set(metadata.id),
                     ..Default::default()
                 };
-                c.insert(&self.db).await.unwrap()
+                c.insert(&self.db).await.ok();
             };
         }
         for image in backdrop_images.iter() {
@@ -605,7 +605,7 @@ impl MediaService {
                 .await
                 .unwrap()
             {
-                c
+                drop(c);
             } else {
                 let c = metadata_image::ActiveModel {
                     url: ActiveValue::Set(image.to_owned()),
@@ -613,7 +613,7 @@ impl MediaService {
                     metadata_id: ActiveValue::Set(metadata.id),
                     ..Default::default()
                 };
-                c.insert(&self.db).await.unwrap()
+                c.insert(&self.db).await.ok();
             };
         }
         for name in creator_names.iter() {
@@ -635,7 +635,7 @@ impl MediaService {
                 metadata_id: ActiveValue::Set(metadata.id),
                 creator_id: ActiveValue::Set(creator.id),
             };
-            metadata_creator.insert(&self.db).await.unwrap();
+            metadata_creator.insert(&self.db).await.ok();
         }
         for genre in genres {
             let db_genre = if let Some(c) = Genre::find()
