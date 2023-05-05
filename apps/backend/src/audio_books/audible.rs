@@ -105,7 +105,7 @@ impl AudibleService {
             .query(&SearchQuery {
                 title: query.to_owned(),
                 num_results: LIMIT,
-                page: page.unwrap_or(1),
+                page: page.unwrap_or(1) - 1,
                 products_sort_by: "Relevance".to_owned(),
                 primary: PrimaryQuery::default(),
             })
