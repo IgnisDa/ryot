@@ -16,9 +16,9 @@ use crate::{
     entities::{
         audio_book, book, movie,
         prelude::{AudioBook, Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
-        seen::{self, SeenExtraInformation},
-        show, summary, token, user,
+        seen, show, summary, token, user,
         user::Model as UserModel,
+        utils::SeenExtraInformation,
         video_game,
     },
     graphql::IdObject,

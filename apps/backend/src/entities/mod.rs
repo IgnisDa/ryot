@@ -18,3 +18,20 @@ pub mod token;
 pub mod user;
 pub mod user_to_metadata;
 pub mod video_game;
+
+pub mod utils {
+    use async_graphql::SimpleObject;
+    use sea_orm::FromJsonQueryResult;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    pub struct SeenSeasonExtraInformation {
+        pub season: i32,
+        pub episode: i32,
+    }
+
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
+    pub enum SeenExtraInformation {
+        Show(SeenSeasonExtraInformation),
+    }
+}
