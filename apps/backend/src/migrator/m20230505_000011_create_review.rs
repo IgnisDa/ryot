@@ -1,20 +1,32 @@
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{get_integer_col, m20230417_000004_create_user::User, Metadata};
 
 pub struct Migration;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+pub enum Visibility {
+    #[sea_orm(string_value = "PU")]
+    Public,
+    #[sea_orm(string_value = "PR")]
+    Private,
+}
+
 #[derive(Iden)]
 pub enum Review {
     Table,
     Id,
-    UserId,
-    MetadataId,
     PostedOn,
     Rating,
     Text,
     // for the time being this stores the `season` and `episode` numbers
     ExtraInformation,
+    Visibility,
+    UserId,
+    MetadataId,
 }
 
 impl MigrationName for Migration {
@@ -46,6 +58,12 @@ impl MigrationTrait for Migration {
                     .col(&mut get_integer_col(Review::Rating))
                     .col(ColumnDef::new(Review::Text).string())
                     .col(ColumnDef::new(Review::ExtraInformation).json())
+                    .col(
+                        ColumnDef::new(Review::Visibility)
+                            .string_len(2)
+                            .not_null()
+                            .default(Visibility::Private),
+                    )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
                     .col(ColumnDef::new(Review::MetadataId).integer().not_null())
                     .foreign_key(
