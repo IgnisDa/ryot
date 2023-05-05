@@ -289,7 +289,10 @@ impl UsersService {
                         audio_books_total.push(r);
                     }
                 }
-                _ => continue,
+                MetadataLot::VideoGame => {
+                    // nothing to calculate
+                    continue;
+                }
             }
         }
         let metadata_ids = seen_items
