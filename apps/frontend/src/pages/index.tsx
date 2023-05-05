@@ -12,11 +12,11 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import type { RegerateUserSummaryMutationVariables } from "@ryot/generated/graphql/backend/graphql";
+import { REGENERATE_USER_SUMMARY } from "@ryot/graphql/backend/mutations";
+import { USER_SUMMARY } from "@ryot/graphql/backend/queries";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { RegerateUserSummaryMutationVariables } from "@trackona/generated/graphql/backend/graphql";
-import { REGENERATE_USER_SUMMARY } from "@trackona/graphql/backend/mutations";
-import { USER_SUMMARY } from "@trackona/graphql/backend/queries";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,

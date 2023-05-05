@@ -25,6 +25,17 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	type DeleteSeenItemMutationVariables,
+	MetadataLot,
+	ProgressUpdateAction,
+	type ProgressUpdateMutationVariables,
+} from "@ryot/generated/graphql/backend/graphql";
+import {
+	DELETE_SEEN_ITEM,
+	PROGRESS_UPDATE,
+} from "@ryot/graphql/backend/mutations";
+import { MEDIA_DETAILS, SEEN_HISTORY } from "@ryot/graphql/backend/queries";
+import {
 	IconAlertCircle,
 	IconInfoCircle,
 	IconPlayerPlay,
@@ -33,17 +44,6 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-	type DeleteSeenItemMutationVariables,
-	MetadataLot,
-	ProgressUpdateAction,
-	type ProgressUpdateMutationVariables,
-} from "@trackona/generated/graphql/backend/graphql";
-import {
-	DELETE_SEEN_ITEM,
-	PROGRESS_UPDATE,
-} from "@trackona/graphql/backend/mutations";
-import { MEDIA_DETAILS, SEEN_HISTORY } from "@trackona/graphql/backend/queries";
 import { DateTime } from "luxon";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";

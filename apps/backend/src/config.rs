@@ -8,7 +8,7 @@ use strum::Display;
 
 static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
 
-static TMDB_ACCESS_KEY: &str = 
+static TMDB_ACCESS_KEY: &str =
 "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4";
 
 /// Determine whether a feature is enabled
@@ -26,7 +26,7 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: "sqlite:/data/trackona.db?mode=rwc".to_owned(),
+            url: "sqlite:/data/ryot.db?mode=rwc".to_owned(),
         }
     }
 }
@@ -201,7 +201,7 @@ pub struct AppConfig {
 
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
-    let app = "trackona";
+    let app = "ryot";
     Figment::new()
         .merge(Serialized::defaults(AppConfig::default()))
         .merge(Env::raw().split("_"))

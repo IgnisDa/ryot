@@ -29,12 +29,12 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
-RUN cargo build --release --bin trackona_backend --target x86_64-unknown-linux-musl
+RUN cargo build --release --bin ryot_backend --target x86_64-unknown-linux-musl
 
 FROM scratch
 # This is actually a hack to ensure that the `/data` directory exists in the image
 # since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
-ENV RUST_LOG="trackona_backend=info"
-COPY --from=app-builder /app/target/x86_64-unknown-linux-musl/release/trackona_backend /app
+ENV RUST_LOG="ryot_backend=info"
+COPY --from=app-builder /app/target/x86_64-unknown-linux-musl/release/ryot_backend /app
 ENTRYPOINT ["/app"]

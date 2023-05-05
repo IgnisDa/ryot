@@ -3,7 +3,7 @@ const nextConfig = {
 	eslint: { ignoreDuringBuilds: true },
 	output: "export",
 	reactStrictMode: true,
-	transpilePackages: ["@trackona/generated", "@trackona/graphql"],
+	transpilePackages: ["@ryot/generated", "@ryot/graphql"],
 	typescript: { ignoreBuildErrors: true },
 };
 

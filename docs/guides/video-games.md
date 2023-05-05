@@ -1,6 +1,6 @@
 # Integration with IGDB
 
-Trackona supports tracking video games via [IGDB](https://www.igdb.com/). However,
+Ryot supports tracking video games via [IGDB](https://www.igdb.com/). However,
 the API is heavily rate limited, so it is not possible to hardcode the API keys
 in the application (unlike other keys which are [hardcoded](../apps/backend/src/config.rs)).
 
@@ -28,7 +28,7 @@ tracking.
 5. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 
 6. Set the correct configuration variables in the environment in which the
-	Trackona server is running.
+	Ryot server is running.
 
 ## Important notes
 

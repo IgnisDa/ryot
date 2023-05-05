@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ..:/workspaces/trackona:cached
+      - ..:/workspaces/ryot:cached
     command: sleep infinity
     ports:
       - '8000:8000'

@@ -1,7 +1,7 @@
 {
-	"name": "@trackona/graphql",
+	"name": "@ryot/graphql",
 	"dependencies": {
-		"@trackona/generated": "workspace:*",
+		"@ryot/generated": "workspace:*",
 		"graphql-request": "6.0.0",
 		"graphql-scalars": "1.21.3"
 	}

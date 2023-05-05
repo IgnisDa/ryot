@@ -1,5 +1,5 @@
 {
-	"name": "@trackona/frontend",
+	"name": "@ryot/frontend",
 	"private": true,
 	"dependencies": {
 		"@emotion/react": "11.10.6",
@@ -11,10 +11,10 @@
 		"@mantine/hooks": "6.0.8",
 		"@mantine/next": "6.0.8",
 		"@mantine/notifications": "6.0.8",
+		"@ryot/generated": "workspace:*",
+		"@ryot/graphql": "workspace:*",
 		"@tabler/icons-react": "2.16.0",
 		"@tanstack/react-query": "4.29.3",
-		"@trackona/generated": "workspace:*",
-		"@trackona/graphql": "workspace:*",
 		"dayjs": "1.11.7",
 		"embla-carousel-react": "7.1.0",
 		"humanize-duration-ts": "2.1.1",

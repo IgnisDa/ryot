@@ -1,5 +1,5 @@
 {
-	"name": "@trackona/root",
+	"name": "@ryot/root",
 	"packageManager": "yarn@3.5.0",
 	"workspaces": [
 		"apps/*",
