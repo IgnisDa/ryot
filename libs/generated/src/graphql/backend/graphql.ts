@@ -192,6 +192,8 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Logout a user from the server, deleting their login token */
   logoutUser: Scalars['Boolean'];
+  /** Create or update a review */
+  postReview: IdObject;
   /** Mark a user's progress on a specific media item */
   progressUpdate: IdObject;
   /** Generate a summary for the currently logged in user */
@@ -241,6 +243,11 @@ export type MutationRootLoginUserArgs = {
 };
 
 
+export type MutationRootPostReviewArgs = {
+  input: PostReviewInput;
+};
+
+
 export type MutationRootProgressUpdateArgs = {
   input: ProgressUpdate;
 };
@@ -248,6 +255,17 @@ export type MutationRootProgressUpdateArgs = {
 
 export type MutationRootRegisterUserArgs = {
   input: UserInput;
+};
+
+export type PostReviewInput = {
+  episodeNumber?: InputMaybe<Scalars['Int']>;
+  metadataId: Scalars['Int'];
+  rating?: InputMaybe<Scalars['Int']>;
+  /** ID of the review if this is an update to an existing review */
+  reviewId?: InputMaybe<Scalars['Int']>;
+  seasonNumber?: InputMaybe<Scalars['Int']>;
+  text?: InputMaybe<Scalars['String']>;
+  visibility: Visibility;
 };
 
 export type ProgressUpdate = {
@@ -279,6 +297,8 @@ export type QueryRoot = {
   mediaConsumed: MediaSeen;
   /** Get details about a media present in the database */
   mediaDetails: MediaDetails;
+  /** Get all the reviews for a media item. Returns private ones if admin as well. */
+  mediaItemReviews: Array<ReviewItem>;
   /** Get all the media items for a specific media type */
   mediaList: MediaSearchResults;
   /** Search for a list of movies by a particular search query and a given page. */
@@ -349,6 +369,16 @@ export enum RegisterErrorVariant {
 }
 
 export type RegisterResult = IdObject | RegisterError;
+
+export type ReviewItem = {
+  episodeNumber?: Maybe<Scalars['Int']>;
+  id: Scalars['Int'];
+  postedBy: Scalars['String'];
+  rating?: Maybe<Scalars['Int']>;
+  seasonNumber?: Maybe<Scalars['Int']>;
+  text?: Maybe<Scalars['String']>;
+  visibility: Visibility;
+};
 
 export type Seen = {
   finishedOn?: Maybe<Scalars['NaiveDate']>;
@@ -457,6 +487,11 @@ export type VideoGamesSummary = {
   played: Scalars['Int'];
 };
 
+export enum Visibility {
+  Private = 'PRIVATE',
+  Public = 'PUBLIC'
+}
+
 export type RegisterUserMutationVariables = Exact<{
   input: UserInput;
 }>;
@@ -531,6 +566,13 @@ export type RegerateUserSummaryMutationVariables = Exact<{ [key: string]: never;
 
 
 export type RegerateUserSummaryMutation = { regenerateUserSummary: { id: number } };
+
+export type PostReviewMutationVariables = Exact<{
+  input: PostReviewInput;
+}>;
+
+
+export type PostReviewMutation = { postReview: { id: number } };
 
 export type BooksSearchQueryVariables = Exact<{
   input: BookSearchInput;
@@ -627,6 +669,7 @@ export const CommitAudioBookDocument = {"kind":"Document","definitions":[{"kind"
 export const ProgressUpdateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ProgressUpdate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ProgressUpdate"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"progressUpdate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<ProgressUpdateMutation, ProgressUpdateMutationVariables>;
 export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
 export const RegerateUserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegerateUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"regenerateUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RegerateUserSummaryMutation, RegerateUserSummaryMutationVariables>;
+export const PostReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PostReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PostReviewInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"postReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<PostReviewMutation, PostReviewMutationVariables>;
 export const BooksSearchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"BooksSearch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BookSearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"booksSearch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<BooksSearchQuery, BooksSearchQueryVariables>;
 export const MoviesSearchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MoviesSearch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MoviesSearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"moviesSearch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<MoviesSearchQuery, MoviesSearchQueryVariables>;
 export const ShowsSearchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ShowsSearch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ShowSearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"showSearch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<ShowsSearchQuery, ShowsSearchQueryVariables>;

@@ -97,3 +97,11 @@ export const REGENERATE_USER_SUMMARY = graphql(`
     }
   }
 `);
+
+export const POST_REVIEW = graphql(`
+  mutation PostReview($input: PostReviewInput!) {
+    postReview(input: $input) {
+      id
+    }
+  }
+`);
