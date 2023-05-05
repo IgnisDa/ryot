@@ -1984,6 +1984,74 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ryot/frontend@workspace:apps/frontend":
+  version: 0.0.0-use.local
+  resolution: "@ryot/frontend@workspace:apps/frontend"
+  dependencies:
+    "@emotion/react": 11.10.6
+    "@emotion/server": 11.10.0
+    "@mantine/carousel": 6.0.8
+    "@mantine/core": 6.0.8
+    "@mantine/dates": 6.0.8
+    "@mantine/form": 6.0.8
+    "@mantine/hooks": 6.0.8
+    "@mantine/next": 6.0.8
+    "@mantine/notifications": 6.0.8
+    "@ryot/generated": "workspace:*"
+    "@ryot/graphql": "workspace:*"
+    "@tabler/icons-react": 2.16.0
+    "@tanstack/react-query": 4.29.3
+    "@types/lodash": 4.14.194
+    "@types/luxon": 3.3.0
+    "@types/node": 18.15.11
+    "@types/react": 18.0.33
+    "@types/react-dom": 18.0.11
+    dayjs: 1.11.7
+    embla-carousel-react: 7.1.0
+    lodash: 4.17.21
+    luxon: 3.3.0
+    next: 13.3.0
+    react: 18.2.0
+    react-cookie: 4.1.1
+    react-dom: 18.2.0
+    react-markdown: 8.0.7
+    ts-pattern: 4.2.2
+    typescript: 5.0.4
+    zod: 3.21.4
+  languageName: unknown
+  linkType: soft
+
+"@ryot/generated@workspace:*, @ryot/generated@workspace:libs/generated":
+  version: 0.0.0-use.local
+  resolution: "@ryot/generated@workspace:libs/generated"
+  dependencies:
+    "@graphql-codegen/cli": 3.3.0
+    "@graphql-codegen/client-preset": 3.0.0
+    "@graphql-typed-document-node/core": 3.2.0
+    graphql: 16.6.0
+  languageName: unknown
+  linkType: soft
+
+"@ryot/graphql@workspace:*, @ryot/graphql@workspace:libs/graphql":
+  version: 0.0.0-use.local
+  resolution: "@ryot/graphql@workspace:libs/graphql"
+  dependencies:
+    "@ryot/generated": "workspace:*"
+    graphql-request: 6.0.0
+    graphql-scalars: 1.21.3
+  languageName: unknown
+  linkType: soft
+
+"@ryot/root@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@ryot/root@workspace:."
+  dependencies:
+    rome: 12.0.0
+    tsconfig-moon: 1.3.0
+    typescript: 5.0.2
+  languageName: unknown
+  linkType: soft
+
 "@swc/helpers@npm:0.4.14":
   version: 0.4.14
   resolution: "@swc/helpers@npm:0.4.14"
@@ -2044,74 +2112,6 @@ __metadata:
   checksum: ad87447820dd3f24825d2d947ebc03072b20a42bfc96cbafec16bff8bbda6c1a81fcb0be56d5b21968560c5359a0af4038a68ba150c3e1694fe4c109a063bed8
   languageName: node
   linkType: hard
-
-"@ryot/frontend@workspace:apps/frontend":
-  version: 0.0.0-use.local
-  resolution: "@ryot/frontend@workspace:apps/frontend"
-  dependencies:
-    "@emotion/react": 11.10.6
-    "@emotion/server": 11.10.0
-    "@mantine/carousel": 6.0.8
-    "@mantine/core": 6.0.8
-    "@mantine/dates": 6.0.8
-    "@mantine/form": 6.0.8
-    "@mantine/hooks": 6.0.8
-    "@mantine/next": 6.0.8
-    "@mantine/notifications": 6.0.8
-    "@tabler/icons-react": 2.16.0
-    "@tanstack/react-query": 4.29.3
-    "@ryot/generated": "workspace:*"
-    "@ryot/graphql": "workspace:*"
-    "@types/lodash": 4.14.194
-    "@types/luxon": 3.3.0
-    "@types/node": 18.15.11
-    "@types/react": 18.0.33
-    "@types/react-dom": 18.0.11
-    dayjs: 1.11.7
-    embla-carousel-react: 7.1.0
-    lodash: 4.17.21
-    luxon: 3.3.0
-    next: 13.3.0
-    react: 18.2.0
-    react-cookie: 4.1.1
-    react-dom: 18.2.0
-    react-markdown: 8.0.7
-    ts-pattern: 4.2.2
-    typescript: 5.0.4
-    zod: 3.21.4
-  languageName: unknown
-  linkType: soft
-
-"@ryot/generated@workspace:*, @ryot/generated@workspace:libs/generated":
-  version: 0.0.0-use.local
-  resolution: "@ryot/generated@workspace:libs/generated"
-  dependencies:
-    "@graphql-codegen/cli": 3.3.0
-    "@graphql-codegen/client-preset": 3.0.0
-    "@graphql-typed-document-node/core": 3.2.0
-    graphql: 16.6.0
-  languageName: unknown
-  linkType: soft
-
-"@ryot/graphql@workspace:*, @ryot/graphql@workspace:libs/graphql":
-  version: 0.0.0-use.local
-  resolution: "@ryot/graphql@workspace:libs/graphql"
-  dependencies:
-    "@ryot/generated": "workspace:*"
-    graphql-request: 6.0.0
-    graphql-scalars: 1.21.3
-  languageName: unknown
-  linkType: soft
-
-"@ryot/root@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "@ryot/root@workspace:."
-  dependencies:
-    rome: 12.0.0
-    tsconfig-moon: 1.3.0
-    typescript: 5.0.2
-  languageName: unknown
-  linkType: soft
 
 "@types/cookie@npm:^0.3.3":
   version: 0.3.3
