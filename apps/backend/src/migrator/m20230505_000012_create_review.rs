@@ -31,7 +31,7 @@ pub enum Review {
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230505_000011_create_review"
+        "m20230505_000012_create_review"
     }
 }
 
