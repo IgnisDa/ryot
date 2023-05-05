@@ -2069,6 +2069,7 @@ __metadata:
     "@types/react-dom": 18.0.11
     dayjs: 1.11.7
     embla-carousel-react: 7.1.0
+    humanize-duration-ts: 2.1.1
     lodash: 4.17.21
     luxon: 3.3.0
     next: 13.3.0
@@ -3755,6 +3756,13 @@ __metadata:
     agent-base: 6
     debug: 4
   checksum: 571fccdf38184f05943e12d37d6ce38197becdd69e58d03f43637f7fa1269cf303a7d228aa27e5b27bbd3af8f09fd938e1c91dcfefff2df7ba77c20ed8dfc765
+  languageName: node
+  linkType: hard
+
+"humanize-duration-ts@npm:2.1.1":
+  version: 2.1.1
+  resolution: "humanize-duration-ts@npm:2.1.1"
+  checksum: 4c5f0a5d65055c58792d6ed0a07da11d48f8535c472c791e8144192ce7a3d7d455e3ccd61c2a3a5ed8c1a78a6452d9819c72afaee212aef37077ad7310b7e197
   languageName: node
   linkType: hard
 
