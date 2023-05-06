@@ -1,8 +1,12 @@
-use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection};
+use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
+use sea_orm::{
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
+    EntityTrait, QueryFilter,
+};
 
 use crate::{
     entities::{
+        prelude::{Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
@@ -10,6 +14,18 @@ use crate::{
     migrator::Visibility,
     utils::user_id_from_ctx,
 };
+
+#[derive(Debug, SimpleObject)]
+struct ReviewItem {
+    id: i32,
+    posted_on: DateTimeUtc,
+    rating: Option<i32>,
+    text: Option<String>,
+    visibility: Visibility,
+    season_number: Option<i32>,
+    episode_number: Option<i32>,
+    posted_by: String,
+}
 
 #[derive(Debug, InputObject)]
 struct PostReviewInput {
@@ -29,11 +45,15 @@ pub struct ReviewsQuery;
 #[Object]
 impl ReviewsQuery {
     /// Get all the reviews for a media item. Returns private ones if admin as well.
-    async fn media_item_reviews(&self, gql_ctx: &Context<'_>) -> Result<Vec<review::Model>> {
+    async fn media_item_reviews(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+    ) -> Result<Vec<ReviewItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<ReviewsService>()
-            .media_item_reviews(&user_id)
+            .media_item_reviews(&user_id, &metadata_id)
             .await
     }
 }
@@ -65,8 +85,38 @@ impl ReviewsService {
 }
 
 impl ReviewsService {
-    async fn media_item_reviews(&self, user_id: &i32) -> Result<Vec<review::Model>> {
-        todo!();
+    async fn media_item_reviews(
+        &self,
+        user_id: &i32,
+        metadata_id: &i32,
+    ) -> Result<Vec<ReviewItem>> {
+        let all_reviews = Review::find()
+            .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
+            .find_also_related(User)
+            .all(&self.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|(r, u)| {
+                let (se, ep) = match r.extra_information {
+                    Some(s) => match s {
+                        SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode)),
+                    },
+                    None => (None, None),
+                };
+                ReviewItem {
+                    id: r.id,
+                    posted_on: r.posted_on,
+                    rating: r.rating,
+                    text: r.text,
+                    visibility: r.visibility,
+                    season_number: se,
+                    episode_number: ep,
+                    posted_by: u.unwrap().name,
+                }
+            })
+            .collect();
+        Ok(all_reviews)
     }
 
     async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {

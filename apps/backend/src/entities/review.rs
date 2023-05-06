@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::migrator::Visibility;
 
-use super::utils::{SeenExtraInformation, SeenSeasonExtraInformation};
+use super::utils::SeenExtraInformation;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "review")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -19,10 +19,7 @@ pub struct Model {
     pub visibility: Visibility,
     pub user_id: i32,
     pub metadata_id: i32,
-    #[graphql(skip)]
     pub extra_information: Option<SeenExtraInformation>,
-    #[sea_orm(ignore)]
-    pub show_information: Option<SeenSeasonExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
