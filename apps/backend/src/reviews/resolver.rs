@@ -50,16 +50,15 @@ pub struct ReviewsQuery;
 
 #[Object]
 impl ReviewsQuery {
-    /// Get all the reviews for a media item. Returns private ones if admin as well.
+    /// Get all the public reviews for a media item.
     async fn media_item_reviews(
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<Vec<ReviewItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<ReviewsService>()
-            .media_item_reviews(&user_id, &metadata_id)
+            .media_item_reviews(&metadata_id)
             .await
     }
 }
@@ -91,13 +90,10 @@ impl ReviewsService {
 }
 
 impl ReviewsService {
-    async fn media_item_reviews(
-        &self,
-        user_id: &i32,
-        metadata_id: &i32,
-    ) -> Result<Vec<ReviewItem>> {
+    async fn media_item_reviews(&self, metadata_id: &i32) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
+            .filter(review::Column::Visibility.eq(Visibility::Public))
             .find_also_related(User)
             .all(&self.db)
             .await

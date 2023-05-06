@@ -297,7 +297,7 @@ export type QueryRoot = {
   mediaConsumed: MediaSeen;
   /** Get details about a media present in the database */
   mediaDetails: MediaDetails;
-  /** Get all the reviews for a media item. Returns private ones if admin as well. */
+  /** Get all the public reviews for a media item. */
   mediaItemReviews: Array<ReviewItem>;
   /** Get all the media items for a specific media type */
   mediaList: MediaSearchResults;
