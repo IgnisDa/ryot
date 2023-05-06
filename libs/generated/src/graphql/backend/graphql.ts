@@ -266,7 +266,7 @@ export type PostReviewInput = {
   reviewId?: InputMaybe<Scalars['Int']>;
   seasonNumber?: InputMaybe<Scalars['Int']>;
   text?: InputMaybe<Scalars['String']>;
-  visibility: Visibility;
+  visibility?: InputMaybe<Visibility>;
 };
 
 export type ProgressUpdate = {

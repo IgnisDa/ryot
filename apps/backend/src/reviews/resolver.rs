@@ -38,7 +38,7 @@ struct ReviewItem {
 struct PostReviewInput {
     rating: Option<Decimal>,
     text: Option<String>,
-    visibility: Visibility,
+    visibility: Option<Visibility>,
     metadata_id: i32,
     /// ID of the review if this is an update to an existing review
     review_id: Option<i32>,
@@ -135,12 +135,14 @@ impl ReviewsService {
             id: review_id,
             rating: ActiveValue::Set(input.rating),
             text: ActiveValue::Set(input.text),
-            visibility: ActiveValue::Set(input.visibility),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
             extra_information: ActiveValue::NotSet,
             ..Default::default()
         };
+        if let Some(v) = input.visibility {
+            review_obj.visibility = ActiveValue::Set(v);
+        }
         if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
             review_obj.extra_information = ActiveValue::Set(Some(SeenExtraInformation::Show(
                 SeenSeasonExtraInformation {
