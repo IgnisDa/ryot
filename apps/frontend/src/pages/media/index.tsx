@@ -543,8 +543,8 @@ const Page: NextPageWithLayout = () => {
 						) : null}
 						<Tabs.Panel value="reviews" pt="xs">
 							{reviews.data && reviews.data.length > 0 ? (
-								<Stack>
-									<ScrollArea.Autosize mah={300}>
+								<ScrollArea.Autosize mah={300}>
+									<Stack>
 										{reviews.data.map((r) => (
 											<Box key={r.id}>
 												<Flex align={"center"} gap={"sm"}>
@@ -577,8 +577,8 @@ const Page: NextPageWithLayout = () => {
 												</Box>
 											</Box>
 										))}
-									</ScrollArea.Autosize>
-								</Stack>
+									</Stack>
+								</ScrollArea.Autosize>
 							) : (
 								<Text fs="italic">No reviews posted</Text>
 							)}
