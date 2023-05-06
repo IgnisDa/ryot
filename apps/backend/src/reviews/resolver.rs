@@ -1,4 +1,5 @@
 use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
+use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, QueryFilter,
@@ -25,7 +26,7 @@ struct ReviewPostedBy {
 struct ReviewItem {
     id: i32,
     posted_on: DateTimeUtc,
-    rating: Option<i32>,
+    rating: Option<Decimal>,
     text: Option<String>,
     visibility: Visibility,
     season_number: Option<i32>,
@@ -35,7 +36,7 @@ struct ReviewItem {
 
 #[derive(Debug, InputObject)]
 struct PostReviewInput {
-    rating: Option<i32>,
+    rating: Option<Decimal>,
     text: Option<String>,
     visibility: Visibility,
     metadata_id: i32,
