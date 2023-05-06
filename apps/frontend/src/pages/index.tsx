@@ -67,7 +67,7 @@ const Page: NextPageWithLayout = () => {
 			<Stack>
 				{userSummary.isLoading ? <Loader /> : null}
 				{userSummary.isError ? (
-					<Alert color='yellow' icon={<IconAlertCircle size="1rem" />}>
+					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
 						You have not generated any summaries yet. Click below to generate
 						one.
 					</Alert>

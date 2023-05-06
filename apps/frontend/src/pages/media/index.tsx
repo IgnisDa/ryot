@@ -5,7 +5,6 @@ import { Verb, getInitials, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Accordion,
-	ActionIcon,
 	Alert,
 	Anchor,
 	Avatar,
@@ -45,7 +44,6 @@ import {
 } from "@ryot/graphql/backend/queries";
 import {
 	IconAlertCircle,
-	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPlayerPlay,
@@ -399,7 +397,7 @@ const Page: NextPageWithLayout = () => {
 									legacyBehavior
 								>
 									<Anchor>
-										<Button variant="outline" w='100%'>
+										<Button variant="outline" w="100%">
 											Post a review
 										</Button>
 									</Anchor>
@@ -559,10 +557,12 @@ const Page: NextPageWithLayout = () => {
 															{DateTime.fromJSDate(r.postedOn).toLocaleString()}
 														</Text>
 													</Box>
-													{/* TODO: Render this element on when it is the currently logged in user */}
+													{/* 
+													TODO: Render this element on when it is the currently logged in user
 													<ActionIcon>
 														<IconEdit size="1rem" />
 													</ActionIcon>
+												*/}
 												</Flex>
 												<Box ml={"sm"} mt={"xs"}>
 													{r.rating ? (
