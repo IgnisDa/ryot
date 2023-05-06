@@ -16,6 +16,12 @@ use crate::{
 };
 
 #[derive(Debug, SimpleObject)]
+struct ReviewPostedBy {
+    id: i32,
+    name: String,
+}
+
+#[derive(Debug, SimpleObject)]
 struct ReviewItem {
     id: i32,
     posted_on: DateTimeUtc,
@@ -24,7 +30,7 @@ struct ReviewItem {
     visibility: Visibility,
     season_number: Option<i32>,
     episode_number: Option<i32>,
-    posted_by: String,
+    posted_by: ReviewPostedBy,
 }
 
 #[derive(Debug, InputObject)]
@@ -104,6 +110,7 @@ impl ReviewsService {
                     },
                     None => (None, None),
                 };
+                let user = u.unwrap();
                 ReviewItem {
                     id: r.id,
                     posted_on: r.posted_on,
@@ -112,7 +119,10 @@ impl ReviewsService {
                     visibility: r.visibility,
                     season_number: se,
                     episode_number: ep,
-                    posted_by: u.unwrap().name,
+                    posted_by: ReviewPostedBy {
+                        id: user.id,
+                        name: user.name,
+                    },
                 }
             })
             .collect();
