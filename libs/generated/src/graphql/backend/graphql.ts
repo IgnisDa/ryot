@@ -18,6 +18,7 @@ export type Scalars = {
    * The input/output is a string in RFC3339 format.
    */
   DateTime: Date;
+  Decimal: any;
   /**
    * ISO 8601 calendar date without timezone.
    * Format: %Y-%m-%d
@@ -260,7 +261,7 @@ export type MutationRootRegisterUserArgs = {
 export type PostReviewInput = {
   episodeNumber?: InputMaybe<Scalars['Int']>;
   metadataId: Scalars['Int'];
-  rating?: InputMaybe<Scalars['Int']>;
+  rating?: InputMaybe<Scalars['Decimal']>;
   /** ID of the review if this is an update to an existing review */
   reviewId?: InputMaybe<Scalars['Int']>;
   seasonNumber?: InputMaybe<Scalars['Int']>;
@@ -380,7 +381,7 @@ export type ReviewItem = {
   id: Scalars['Int'];
   postedBy: ReviewPostedBy;
   postedOn: Scalars['DateTime'];
-  rating?: Maybe<Scalars['Int']>;
+  rating?: Maybe<Scalars['Decimal']>;
   seasonNumber?: Maybe<Scalars['Int']>;
   text?: Maybe<Scalars['String']>;
   visibility: Visibility;
@@ -673,7 +674,7 @@ export type MediaItemReviewsQueryVariables = Exact<{
 }>;
 
 
-export type MediaItemReviewsQuery = { mediaItemReviews: Array<{ id: number, rating?: number | null, text?: string | null, visibility: Visibility, seasonNumber?: number | null, episodeNumber?: number | null, postedOn: Date, postedBy: { id: number, name: string } }> };
+export type MediaItemReviewsQuery = { mediaItemReviews: Array<{ id: number, rating?: any | null, text?: string | null, visibility: Visibility, seasonNumber?: number | null, episodeNumber?: number | null, postedOn: Date, postedBy: { id: number, name: string } }> };
 
 
 export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RegisterUserMutation, RegisterUserMutationVariables>;
