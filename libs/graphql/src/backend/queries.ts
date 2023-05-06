@@ -212,6 +212,7 @@ export const MEDIA_ITEM_REVIEWS = graphql(`
 	    visibility
 	    seasonNumber
 	    episodeNumber
+	    postedOn
 	    postedBy {
 	      id
 	      name
