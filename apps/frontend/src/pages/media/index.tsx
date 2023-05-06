@@ -1,11 +1,13 @@
 import type { NextPageWithLayout } from "../_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getVerb } from "@/lib/utilities";
+import { Verb, getInitials, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Accordion,
+	ActionIcon,
 	Alert,
+	Anchor,
 	Avatar,
 	Box,
 	Button,
@@ -14,9 +16,11 @@ import {
 	Group,
 	Image,
 	Modal,
+	Rating,
 	ScrollArea,
 	SimpleGrid,
 	Slider,
+	Space,
 	Stack,
 	Tabs,
 	Text,
@@ -34,10 +38,17 @@ import {
 	DELETE_SEEN_ITEM,
 	PROGRESS_UPDATE,
 } from "@ryot/graphql/backend/mutations";
-import { MEDIA_DETAILS, SEEN_HISTORY } from "@ryot/graphql/backend/queries";
+import {
+	MEDIA_DETAILS,
+	MEDIA_ITEM_REVIEWS,
+	SEEN_HISTORY,
+} from "@ryot/graphql/backend/queries";
 import {
 	IconAlertCircle,
+	IconEdit,
+	IconEditCircle,
 	IconInfoCircle,
+	IconMessageCircle2,
 	IconPlayerPlay,
 	IconRotateClockwise,
 	IconUser,
@@ -45,6 +56,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -147,6 +159,16 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const reviews = useQuery({
+		queryKey: ["reviews", metadataId],
+		queryFn: async () => {
+			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
+				metadataId: metadataId,
+			});
+			return mediaItemReviews;
+		},
+		staleTime: Infinity,
+	});
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
@@ -298,6 +320,12 @@ const Page: NextPageWithLayout = () => {
 									Seasons
 								</Tabs.Tab>
 							) : null}
+							<Tabs.Tab
+								value="reviews"
+								icon={<IconMessageCircle2 size="1rem" />}
+							>
+								Reviews
+							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="overview" pt="xs">
 							<Box>
@@ -358,16 +386,25 @@ const Page: NextPageWithLayout = () => {
 										I'm {getVerb(Verb.Read, details.data.type)}ing it
 									</Button>
 								)}
-								<>
-									<Button
-										variant="outline"
-										onClick={() => {
-											router.push(`/media/update-progress?item=${metadataId}`);
-										}}
-									>
-										Add to {getVerb(Verb.Read, details.data.type)} history
-									</Button>
-								</>
+								<Button
+									variant="outline"
+									onClick={() => {
+										router.push(`/media/update-progress?item=${metadataId}`);
+									}}
+								>
+									Add to {getVerb(Verb.Read, details.data.type)} history
+								</Button>
+								<Link
+									href={`/media/post-review?item=${metadataId}`}
+									passHref
+									legacyBehavior
+								>
+									<Anchor>
+										<Button variant="outline" w='100%'>
+											Post a review
+										</Button>
+									</Anchor>
+								</Link>
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
@@ -507,6 +544,40 @@ const Page: NextPageWithLayout = () => {
 								</ScrollArea.Autosize>
 							</Tabs.Panel>
 						) : null}
+						<Tabs.Panel value="reviews" pt="xs">
+							{reviews.data && reviews.data.length > 0 ? (
+								<Stack>
+									{reviews.data.map((r) => (
+										<Box key={r.id}>
+											<Flex align={"center"} gap={"sm"}>
+												<Avatar color="cyan" radius="xl">
+													{getInitials(r.postedBy.name)}{" "}
+												</Avatar>
+												<Box>
+													<Text>{r.postedBy.name}</Text>
+													<Text>
+														{DateTime.fromJSDate(r.postedOn).toLocaleString()}
+													</Text>
+												</Box>
+												{/* TODO: Render this element on when it is the currently logged in user */}
+												<ActionIcon>
+													<IconEdit size="1rem" />
+												</ActionIcon>
+											</Flex>
+											<Box ml={"sm"} mt={"xs"}>
+												{r.rating ? (
+													<Rating value={r.rating} fractions={2} readOnly />
+												) : null}
+												<Space h="xs" />
+												{r.text ? <Text>{r.text}</Text> : null}
+											</Box>
+										</Box>
+									))}
+								</Stack>
+							) : (
+								<Text fs="italic">No reviews posted</Text>
+							)}
+						</Tabs.Panel>
 					</Tabs>
 				</Stack>
 			</Flex>
