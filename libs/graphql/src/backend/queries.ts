@@ -202,3 +202,20 @@ export const USER_SUMMARY = graphql(`
 	  }
 	}
 `);
+
+export const MEDIA_ITEM_REVIEWS = graphql(`
+	query MediaItemReviews($metadataId: Int!) {
+	  mediaItemReviews(metadataId: $metadataId) {
+	    id
+	    rating
+	    text
+	    visibility
+	    seasonNumber
+	    episodeNumber
+	    postedBy {
+	      id
+	      name
+	    }
+	  }
+	}
+`);
