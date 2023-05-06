@@ -46,7 +46,6 @@ import {
 import {
 	IconAlertCircle,
 	IconEdit,
-	IconEditCircle,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPlayerPlay,
@@ -547,32 +546,38 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="reviews" pt="xs">
 							{reviews.data && reviews.data.length > 0 ? (
 								<Stack>
-									{reviews.data.map((r) => (
-										<Box key={r.id}>
-											<Flex align={"center"} gap={"sm"}>
-												<Avatar color="cyan" radius="xl">
-													{getInitials(r.postedBy.name)}{" "}
-												</Avatar>
-												<Box>
-													<Text>{r.postedBy.name}</Text>
-													<Text>
-														{DateTime.fromJSDate(r.postedOn).toLocaleString()}
-													</Text>
+									<ScrollArea.Autosize mah={300}>
+										{reviews.data.map((r) => (
+											<Box key={r.id}>
+												<Flex align={"center"} gap={"sm"}>
+													<Avatar color="cyan" radius="xl">
+														{getInitials(r.postedBy.name)}{" "}
+													</Avatar>
+													<Box>
+														<Text>{r.postedBy.name}</Text>
+														<Text>
+															{DateTime.fromJSDate(r.postedOn).toLocaleString()}
+														</Text>
+													</Box>
+													{/* TODO: Render this element on when it is the currently logged in user */}
+													<ActionIcon>
+														<IconEdit size="1rem" />
+													</ActionIcon>
+												</Flex>
+												<Box ml={"sm"} mt={"xs"}>
+													{r.rating ? (
+														<Rating
+															value={Number(r.rating)}
+															fractions={2}
+															readOnly
+														/>
+													) : null}
+													<Space h="xs" />
+													{r.text ? <Text>{r.text}</Text> : null}
 												</Box>
-												{/* TODO: Render this element on when it is the currently logged in user */}
-												<ActionIcon>
-													<IconEdit size="1rem" />
-												</ActionIcon>
-											</Flex>
-											<Box ml={"sm"} mt={"xs"}>
-												{r.rating ? (
-													<Rating value={r.rating} fractions={2} readOnly />
-												) : null}
-												<Space h="xs" />
-												{r.text ? <Text>{r.text}</Text> : null}
 											</Box>
-										</Box>
-									))}
+										))}
+									</ScrollArea.Autosize>
 								</Stack>
 							) : (
 								<Text fs="italic">No reviews posted</Text>
