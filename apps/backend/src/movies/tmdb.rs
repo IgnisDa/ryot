@@ -5,7 +5,8 @@ use surf::Client;
 
 use crate::{
     config::TmdbConfig,
-    media::resolver::{MediaSearchItem, MediaSearchResults},
+    media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+    migrator::MetadataLot,
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
     },
@@ -27,7 +28,7 @@ impl TmdbService {
 }
 
 impl TmdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
+    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<MovieSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
             id: i32,
@@ -59,25 +60,21 @@ impl TmdbService {
             convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
             convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
-        let detail = MediaSearchItem {
+        Ok(MediaDetails {
             identifier: data.id.to_string(),
+            lot: MetadataLot::Movie,
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
-            author_names: credits.cast.into_iter().map(|c| c.name).collect(),
+            creators: credits.cast.into_iter().map(|c| c.name).collect(),
             poster_images,
             backdrop_images,
             publish_year: convert_date_to_year(&data.release_date),
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
-            movie_specifics: Some(MovieSpecifics {
+            specifics: MovieSpecifics {
                 runtime: Some(data.runtime),
-            }),
-            video_game_specifics: None,
-            audio_books_specifics: None,
-            book_specifics: None,
-            show_specifics: None,
-        };
-        Ok(detail)
+            },
+        })
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -118,26 +115,14 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let backdrop_images = convert_option_path_to_vec(
-                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                );
                 let poster_images =
                     convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
+                    lot: MetadataLot::Movie,
                     title: d.title,
-                    description: d.overview,
-                    author_names: vec![],
-                    genres: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
-                    publish_date: convert_string_to_date(&d.release_date),
-                    movie_specifics: Some(MovieSpecifics { runtime: None }),
-                    book_specifics: None,
-                    show_specifics: None,
-                    video_game_specifics: None,
-                    audio_books_specifics: None,
                     poster_images,
-                    backdrop_images,
                 }
             })
             .collect::<Vec<_>>();

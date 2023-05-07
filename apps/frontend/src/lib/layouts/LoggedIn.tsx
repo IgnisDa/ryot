@@ -8,12 +8,12 @@ import {
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
-import { LOGOUT_USER } from "@ryot/graphql/backend/mutations";
 import {
-	CORE_ENABLED_FEATURES,
-	USER_DETAILS,
-} from "@ryot/graphql/backend/queries";
+	CoreEnabledFeaturesDocument,
+	LogoutUserDocument,
+	MetadataLot,
+	UserDetailsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
 	IconBrandAppleArcade,
@@ -21,6 +21,7 @@ import {
 	IconDeviceTv,
 	IconHeadphones,
 	IconHome2,
+	IconListDetails,
 	IconLogout,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ const useStyles = createStyles((theme) => ({
 }));
 
 interface NavbarLinkProps {
+	// rome-ignore lint/suspicious/noExplicitAny: I do not know what to use here instead
 	icon: React.FC<any>;
 	label: string;
 	onClick?(): void;
@@ -73,7 +75,6 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-const navbarData = [{ icon: IconHome2, label: "Home", href: "/" }];
 
 const getIcon = (lot: MetadataLot) => {
 	return match(lot)
@@ -85,13 +86,13 @@ const getIcon = (lot: MetadataLot) => {
 		.exhaustive();
 };
 
-export default function ({ children }: { children: ReactElement }) {
+export default function({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
 	useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
-			const { userDetails } = await gqlClient.request(USER_DETAILS);
+			const { userDetails } = await gqlClient.request(UserDetailsDocument);
 			return userDetails;
 		},
 		onSuccess: async (data) => {
@@ -111,7 +112,7 @@ export default function ({ children }: { children: ReactElement }) {
 		["enabledFeatures"],
 		async () => {
 			const { coreEnabledFeatures } = await gqlClient.request(
-				CORE_ENABLED_FEATURES,
+				CoreEnabledFeaturesDocument,
 			);
 			return coreEnabledFeatures;
 		},
@@ -119,7 +120,7 @@ export default function ({ children }: { children: ReactElement }) {
 	);
 
 	const links = [
-		...navbarData,
+		{ icon: IconHome2, label: "Home", href: "/" },
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -127,6 +128,7 @@ export default function ({ children }: { children: ReactElement }) {
 				icon: getIcon(f.name),
 				href: undefined,
 			})) || []),
+		{ icon: IconListDetails, label: "Collections", href: "/collections" },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
@@ -136,7 +138,7 @@ export default function ({ children }: { children: ReactElement }) {
 	));
 	const logoutUser = useMutation({
 		mutationFn: async () => {
-			const { logoutUser } = await gqlClient.request(LOGOUT_USER);
+			const { logoutUser } = await gqlClient.request(LogoutUserDocument);
 			return logoutUser;
 		},
 		onSuccess: (data) => {

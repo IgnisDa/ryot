@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
+import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
@@ -11,48 +12,30 @@ import {
 	Center,
 	Container,
 	Pagination,
-	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
 import {
-	AUDIO_BOOKS_SEARCH,
-	BOOKS_SEARCH,
-	MEDIA_LIST,
-	MOVIES_SEARCH,
-	SHOWS_SEARCH,
-	VIDEO_GAMES_SEARCH,
-} from "@ryot/graphql/backend/queries";
+	AudioBooksSearchDocument,
+	BooksSearchDocument,
+	MediaListDocument,
+	MetadataLot,
+	MoviesSearchDocument,
+	ShowsSearchDocument,
+	VideoGamesSearchDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
-
-const Grid = (props: { children: JSX.Element[] }) => {
-	return (
-		<SimpleGrid
-			cols={2}
-			spacing="lg"
-			mx={"lg"}
-			breakpoints={[
-				{ minWidth: "sm", cols: 3 },
-				{ minWidth: "md", cols: 4 },
-				{ minWidth: "lg", cols: 5 },
-				{ minWidth: "xl", cols: 6 },
-			]}
-		>
-			{props.children}
-		</SimpleGrid>
-	);
-};
 
 const Page: NextPageWithLayout = () => {
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
@@ -72,8 +55,9 @@ const Page: NextPageWithLayout = () => {
 	const listMedia = useQuery({
 		queryKey: ["listMedia", activeMinePage, lot],
 		queryFn: async () => {
-			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
-				input: { lot: lot!, page: parseInt(activeMinePage) || 1 },
+			invariant(lot, "Lot is not defined");
+			const { mediaList } = await gqlClient.request(MediaListDocument, {
+				input: { lot, page: parseInt(activeMinePage) || 1 },
 			});
 			return mediaList;
 		},
@@ -87,26 +71,29 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
-					const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
+					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
 						input: { query, offset },
 					});
 					return booksSearch;
 				})
 				.with(MetadataLot.Movie, async () => {
-					const { moviesSearch } = await gqlClient.request(MOVIES_SEARCH, {
-						input: { query, page: parseInt(activeSearchPage) || 1 },
-					});
+					const { moviesSearch } = await gqlClient.request(
+						MoviesSearchDocument,
+						{
+							input: { query, page: parseInt(activeSearchPage) || 1 },
+						},
+					);
 					return moviesSearch;
 				})
 				.with(MetadataLot.Show, async () => {
-					const { showSearch } = await gqlClient.request(SHOWS_SEARCH, {
+					const { showSearch } = await gqlClient.request(ShowsSearchDocument, {
 						input: { query, page: parseInt(activeSearchPage) || 1 },
 					});
 					return showSearch;
 				})
 				.with(MetadataLot.VideoGame, async () => {
 					const { videoGamesSearch } = await gqlClient.request(
-						VIDEO_GAMES_SEARCH,
+						VideoGamesSearchDocument,
 						{
 							input: { query, page: parseInt(activeSearchPage) || 1 },
 						},
@@ -115,7 +102,7 @@ const Page: NextPageWithLayout = () => {
 				})
 				.with(MetadataLot.AudioBook, async () => {
 					const { audioBooksSearch } = await gqlClient.request(
-						AUDIO_BOOKS_SEARCH,
+						AudioBooksSearchDocument,
 						{
 							input: { query, page: parseInt(activeSearchPage) || 1 },
 						},
@@ -175,7 +162,7 @@ const Page: NextPageWithLayout = () => {
 								{searchQuery.data.items.map((b, idx) => (
 									<MediaItem
 										idx={idx}
-										key={idx}
+										key={b.identifier}
 										item={b}
 										query={query}
 										offset={offset}
@@ -205,9 +192,9 @@ const Page: NextPageWithLayout = () => {
 					<Stack>
 						{listMedia.data && listMedia.data.total > 0 ? (
 							<Grid>
-								{listMedia.data.items.map((lm, idx) => (
+								{listMedia.data.items.map((lm) => (
 									<MediaItemWithoutUpdateModal
-										key={idx}
+										key={lm.identifier}
 										item={lm}
 										lot={lot}
 										imageOnClick={async () => parseInt(lm.identifier)}

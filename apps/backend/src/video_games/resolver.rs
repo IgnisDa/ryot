@@ -110,7 +110,7 @@ impl VideoGamesService {
                     game_details.publish_date,
                     game_details.poster_images,
                     game_details.backdrop_images,
-                    game_details.author_names,
+                    game_details.creators,
                     game_details.genres,
                 )
                 .await?;

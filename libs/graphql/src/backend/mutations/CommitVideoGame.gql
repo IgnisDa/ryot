@@ -1,0 +1,5 @@
+mutation CommitVideoGame($identifier: String!) {
+  commitVideoGame(identifier: $identifier) {
+    id
+  }
+}

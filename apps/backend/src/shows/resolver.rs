@@ -91,7 +91,7 @@ impl ShowsService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let show_details = self.tmdb_service.show_details(identifier).await.unwrap();
+            let show_details = self.tmdb_service.details(identifier).await.unwrap();
             let show_metadata_id = self
                 .media_service
                 .commit_media(
@@ -102,7 +102,7 @@ impl ShowsService {
                     show_details.publish_date,
                     show_details.poster_images,
                     show_details.backdrop_images,
-                    show_details.author_names,
+                    show_details.creators,
                     show_details.genres,
                 )
                 .await?;
@@ -110,7 +110,7 @@ impl ShowsService {
                 metadata_id: ActiveValue::Set(show_metadata_id),
                 identifier: ActiveValue::Set(show_details.identifier),
                 details: ActiveValue::Set(ShowSpecifics {
-                    seasons: show_details.show_specifics.clone().unwrap().seasons,
+                    seasons: show_details.specifics.seasons,
                 }),
                 source: ActiveValue::Set(ShowSource::Tmdb),
             };

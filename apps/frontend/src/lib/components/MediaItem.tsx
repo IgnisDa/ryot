@@ -1,24 +1,17 @@
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
-import { Button, Flex, Image, Loader, Text } from "@mantine/core";
+import { Button, Flex, Image, Text } from "@mantine/core";
 import {
 	type BooksSearchQuery,
+	CommitAudioBookDocument,
+	CommitBookDocument,
 	type CommitBookMutationVariables,
+	CommitMovieDocument,
+	CommitShowDocument,
+	CommitVideoGameDocument,
 	MetadataLot,
-	SeenStatus,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	COMMIT_AUDIO_BOOK,
-	COMMIT_BOOK,
-	COMMIT_MOVIE,
-	COMMIT_SHOW,
-	COMMIT_VIDEO_GAME,
-} from "@ryot/graphql/backend/mutations";
-import {
-	AUDIO_BOOKS_SEARCH,
-	MEDIA_CONSUMED,
-} from "@ryot/graphql/backend/queries";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
@@ -76,49 +69,40 @@ export default function (props: {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
-	const mediaConsumed = useQuery(
-		["mediaConsumed", lot, props.item],
-		async () => {
-			const { mediaConsumed } = await gqlClient.request(MEDIA_CONSUMED, {
-				input: { identifier: props.item.identifier, lot: lot! },
-			});
-			return mediaConsumed;
-		},
-	);
 	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { commitBook } = await gqlClient.request(
-						COMMIT_BOOK,
+						CommitBookDocument,
 						variables,
 					);
 					return commitBook;
 				})
 				.with(MetadataLot.Movie, async () => {
 					const { commitMovie } = await gqlClient.request(
-						COMMIT_MOVIE,
+						CommitMovieDocument,
 						variables,
 					);
 					return commitMovie;
 				})
 				.with(MetadataLot.Show, async () => {
 					const { commitShow } = await gqlClient.request(
-						COMMIT_SHOW,
+						CommitShowDocument,
 						variables,
 					);
 					return commitShow;
 				})
 				.with(MetadataLot.VideoGame, async () => {
 					const { commitVideoGame } = await gqlClient.request(
-						COMMIT_VIDEO_GAME,
+						CommitVideoGameDocument,
 						variables,
 					);
 					return commitVideoGame;
 				})
 				.with(MetadataLot.AudioBook, async () => {
 					const { commitAudioBook } = await gqlClient.request(
-						COMMIT_AUDIO_BOOK,
+						CommitAudioBookDocument,
 						variables,
 					);
 					return commitAudioBook;
@@ -135,31 +119,6 @@ export default function (props: {
 		});
 		return id;
 	};
-	const seenElm = match(mediaConsumed.data?.seen)
-		.with(
-			SeenStatus.NotConsumed,
-			SeenStatus.NotInDatabase,
-			SeenStatus.ConsumedAtleastOnce,
-			() => (
-				<>
-					<Button
-						variant="outline"
-						w="100%"
-						compact
-						loading={commitMedia.isLoading}
-						onClick={async () => {
-							const id = await commitFunction();
-							router.push(`/media/update-progress?item=${id}`);
-						}}
-					>
-						Mark as {getVerb(Verb.Read, props.lot)}
-					</Button>
-				</>
-			),
-		)
-		.with(SeenStatus.Undetermined, SeenStatus.CurrentlyUnderway, () => <></>)
-		.with(undefined, () => <Loader size="sm" />)
-		.exhaustive();
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -168,7 +127,18 @@ export default function (props: {
 			imageOnClick={async () => await commitFunction()}
 		>
 			{props.lot !== MetadataLot.Show ? (
-				seenElm
+				<Button
+					variant="outline"
+					w="100%"
+					compact
+					loading={commitMedia.isLoading}
+					onClick={async () => {
+						const id = await commitFunction();
+						router.push(`/media/update-progress?item=${id}`);
+					}}
+				>
+					Mark as {getVerb(Verb.Read, props.lot)}
+				</Button>
 			) : (
 				<>
 					<Button

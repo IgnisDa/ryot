@@ -1,0 +1,9 @@
+query MediaInProgress {
+  mediaInProgress {
+    identifier
+    title
+    posterImages
+    publishYear
+    lot
+  }
+}

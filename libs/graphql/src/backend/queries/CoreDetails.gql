@@ -1,0 +1,6 @@
+query CoreDetails {
+  coreDetails {
+    version
+    authorName
+  }
+}

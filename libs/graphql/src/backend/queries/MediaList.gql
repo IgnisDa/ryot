@@ -1,0 +1,11 @@
+query MediaList($input: MediaListInput!) {
+  mediaList(input: $input) {
+    total
+    items {
+      identifier
+      title
+      posterImages
+      publishYear
+    }
+  }
+}

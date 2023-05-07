@@ -1,0 +1,8 @@
+query UserDetails {
+  userDetails {
+    __typename
+    ... on User {
+      id
+    }
+  }
+}

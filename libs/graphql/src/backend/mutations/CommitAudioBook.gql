@@ -1,0 +1,5 @@
+mutation CommitAudioBook($identifier: String!) {
+  commitAudioBook(identifier: $identifier) {
+    id
+  }
+}

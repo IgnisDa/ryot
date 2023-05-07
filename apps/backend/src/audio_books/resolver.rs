@@ -109,16 +109,14 @@ impl AudioBooksService {
                     audio_books_details.publish_date,
                     audio_books_details.poster_images,
                     audio_books_details.backdrop_images,
-                    audio_books_details.author_names,
+                    audio_books_details.creators,
                     audio_books_details.genres,
                 )
                 .await?;
             let movie = audio_book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
                 identifier: ActiveValue::Set(audio_books_details.identifier),
-                runtime: ActiveValue::Set(
-                    audio_books_details.audio_books_specifics.unwrap().runtime,
-                ),
+                runtime: ActiveValue::Set(audio_books_details.specifics.runtime),
                 source: ActiveValue::Set(AudioBookSource::Audible),
             };
             movie.insert(&self.db).await.unwrap();

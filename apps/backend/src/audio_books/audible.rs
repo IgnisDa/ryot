@@ -7,9 +7,10 @@ use crate::{
     config::AudibleConfig,
     graphql::AUTHOR,
     media::{
-        resolver::{MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
+    migrator::MetadataLot,
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
     },
@@ -76,21 +77,21 @@ impl AudibleService {
 }
 
 impl AudibleService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
+    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleItemResponse {
             product: AudibleItem,
         }
         let mut rsp = self
             .client
-            .get(format!("{}", identifier))
+            .get(identifier)
             .query(&PrimaryQuery::default())
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let detail = self.audible_response_to_search_response(data.product);
-        Ok(detail)
+        let d = self.audible_response_to_search_response(data.product);
+        Ok(d)
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -116,7 +117,16 @@ impl AudibleService {
         let resp = search
             .products
             .into_iter()
-            .map(|d| self.audible_response_to_search_response(d))
+            .map(|d| {
+                let a = self.audible_response_to_search_response(d);
+                MediaSearchItem {
+                    identifier: a.identifier,
+                    lot: MetadataLot::AudioBook,
+                    title: a.title,
+                    poster_images: a.poster_images,
+                    publish_year: a.publish_year,
+                }
+            })
             .collect::<Vec<_>>();
         Ok(MediaSearchResults {
             total: search.total_results,
@@ -124,24 +134,24 @@ impl AudibleService {
         })
     }
 
-    fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaSearchItem {
+    fn audible_response_to_search_response(
+        &self,
+        item: AudibleItem,
+    ) -> MediaDetails<AudioBookSpecifics> {
         let poster_images = convert_option_path_to_vec(item.product_images.image);
         let release_date = item.release_date.unwrap_or_default();
-        MediaSearchItem {
+        MediaDetails {
             identifier: item.asin,
+            lot: MetadataLot::AudioBook,
             title: item.title,
             description: item.merchandising_summary,
-            author_names: item.authors.into_iter().map(|a| a.name).collect(),
+            creators: item.authors.into_iter().map(|a| a.name).collect(),
             genres: vec![],
             publish_year: convert_date_to_year(&release_date),
             publish_date: convert_string_to_date(&release_date),
-            movie_specifics: None,
-            book_specifics: None,
-            show_specifics: None,
-            video_game_specifics: None,
-            audio_books_specifics: Some(AudioBookSpecifics {
+            specifics: AudioBookSpecifics {
                 runtime: item.runtime_length_min,
-            }),
+            },
             poster_images,
             backdrop_images: vec![],
         }

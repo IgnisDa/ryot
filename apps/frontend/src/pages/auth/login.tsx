@@ -4,9 +4,9 @@ import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	LoginErrorVariant,
+	LoginUserDocument,
 	type UserInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { LOGIN_USER } from "@ryot/graphql/backend/mutations";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -23,7 +23,9 @@ export default function Page() {
 	const router = useRouter();
 	const loginUser = useMutation({
 		mutationFn: async (input: UserInput) => {
-			const { loginUser } = await gqlClient.request(LOGIN_USER, { input });
+			const { loginUser } = await gqlClient.request(LoginUserDocument, {
+				input,
+			});
 			return loginUser;
 		},
 		onSuccess: (data) => {

@@ -1,0 +1,5 @@
+mutation ProgressUpdate($input: ProgressUpdate!) {
+  progressUpdate(input: $input) {
+    id
+  }
+}

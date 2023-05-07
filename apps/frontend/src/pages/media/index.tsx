@@ -10,15 +10,18 @@ import {
 	Alert,
 	Anchor,
 	Avatar,
+	Badge,
 	Box,
 	Button,
 	Container,
 	Flex,
 	Group,
 	Image,
+	MANTINE_COLORS,
 	Modal,
 	Rating,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Slider,
 	Space,
@@ -30,20 +33,21 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
+	MediaDetailsDocument,
+	MediaItemReviewsDocument,
 	MetadataLot,
 	ProgressUpdateAction,
+	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
+	SeenHistoryDocument,
+	type CreateCollectionMutationVariables,
+	CreateCollectionDocument,
+	CollectionsDocument,
+	type ToggleMediaInCollectionMutationVariables,
+	ToggleMediaInCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	DELETE_SEEN_ITEM,
-	PROGRESS_UPDATE,
-} from "@ryot/graphql/backend/mutations";
-import {
-	MEDIA_DETAILS,
-	MEDIA_ITEM_REVIEWS,
-	SEEN_HISTORY,
-} from "@ryot/graphql/backend/queries";
 import {
 	IconAlertCircle,
 	IconEdit,
@@ -83,7 +87,7 @@ export function ProgressModal(props: {
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
 			const { progressUpdate } = await gqlClient.request(
-				PROGRESS_UPDATE,
+				ProgressUpdateDocument,
 				variables,
 			);
 			return progressUpdate;
@@ -126,6 +130,92 @@ export function ProgressModal(props: {
 	);
 }
 
+export function SelectCollectionModal(props: {
+	opened: boolean;
+	onClose: () => void;
+	metadataId: number;
+}) {
+	const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(CollectionsDocument, {
+			});
+			return collections
+		},
+	});
+	const createCollection = useMutation({
+		mutationFn: async (variables: CreateCollectionMutationVariables) => {
+			const { createCollection } = await gqlClient.request(
+				CreateCollectionDocument,
+				variables,
+			);
+			return createCollection
+		},
+		onSuccess: () => {
+			collections.refetch()
+		},
+	});
+	const toggleMediaInCollection = useMutation({
+		mutationFn: async (variables: ToggleMediaInCollectionMutationVariables) => {
+			const { toggleMediaInCollection } = await gqlClient.request(
+				ToggleMediaInCollectionDocument,
+				variables,
+			);
+			return toggleMediaInCollection
+		},
+		onSuccess: () => {
+			props.onClose()
+		},
+	});
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			{collections.data ? (
+				<Stack>
+					<Title order={3}>Select collection</Title>
+					<Select
+						withinPortal
+						data={collections.data.map(c => ({ value: c.collectionDetails.id.toString(), label: c.collectionDetails.name }))}
+						onChange={setSelectedCollection}
+						searchable
+						nothingFound="Nothing found"
+						creatable
+						getCreateLabel={(query) => `+ Create ${query}`}
+						onCreate={(query) => {
+							createCollection.mutate({ input: { name: query } })
+							return { value: "1", label: query } // technically this should return the id of the new collection but it works fine
+						}}
+					/>
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={() => {
+							toggleMediaInCollection.mutate({
+								input: {
+									collectionId: Number(selectedCollection),
+									mediaId: props.metadataId
+								}
+							})
+						}}
+					>
+						Set
+					</Button>
+					<Button variant="outline" color="red" onClick={props.onClose}>
+						Cancel
+					</Button>
+				</Stack>
+			) : null}
+		</Modal>
+	);
+}
+
 interface AccordionLabelProps {
 	name: string;
 	posterImages: string[];
@@ -157,6 +247,10 @@ const Page: NextPageWithLayout = () => {
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
 	] = useDisclosure(false);
+	const [
+		collectionModalOpened,
+		{ open: collectionModalOpen, close: collectionModalClose },
+	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const user = useUser();
@@ -164,17 +258,16 @@ const Page: NextPageWithLayout = () => {
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MEDIA_DETAILS, {
+			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
 				metadataId: metadataId,
 			});
 			return mediaDetails;
 		},
-		staleTime: Infinity,
 	});
 	const history = useQuery({
 		queryKey: ["history", metadataId, details.data?.type],
 		queryFn: async () => {
-			const { seenHistory } = await gqlClient.request(SEEN_HISTORY, {
+			const { seenHistory } = await gqlClient.request(SeenHistoryDocument, {
 				metadataId: metadataId,
 				isShow: details.data?.type === MetadataLot.Show,
 			});
@@ -184,9 +277,12 @@ const Page: NextPageWithLayout = () => {
 	const reviews = useQuery({
 		queryKey: ["reviews", metadataId],
 		queryFn: async () => {
-			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
-				metadataId: metadataId,
-			});
+			const { mediaItemReviews } = await gqlClient.request(
+				MediaItemReviewsDocument,
+				{
+					metadataId: metadataId,
+				},
+			);
 			return mediaItemReviews;
 		},
 		staleTime: Infinity,
@@ -194,7 +290,7 @@ const Page: NextPageWithLayout = () => {
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
 			const { progressUpdate } = await gqlClient.request(
-				PROGRESS_UPDATE,
+				ProgressUpdateDocument,
 				variables,
 			);
 			return progressUpdate;
@@ -206,14 +302,17 @@ const Page: NextPageWithLayout = () => {
 	const deleteSeenItem = useMutation({
 		mutationFn: async (variables: DeleteSeenItemMutationVariables) => {
 			const { deleteSeenItem } = await gqlClient.request(
-				DELETE_SEEN_ITEM,
+				DeleteSeenItemDocument,
 				variables,
 			);
 			return deleteSeenItem;
 		},
 		onSuccess: () => {
 			history.refetch();
-			notifications.show({ message: "Deleted successfully" });
+			notifications.show({
+				title: "Deleted",
+				message: "Record deleted from your history successfully"
+			});
 		},
 	});
 
@@ -252,7 +351,7 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
-						details.data.creators.length > 0 ? (
+							details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
@@ -294,6 +393,24 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
 					<Title underline>{details.data.title}</Title>
+					{details.data.collections.length > 0 ? (
+						<Group>
+							{details.data.collections.map((c, idx) => (
+								<Badge key={c} color={MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]} onClick={() => {
+									const yes = confirm(`Do you want to remove it from collection: "${c}"?`)
+									if (yes) {
+										notifications.show({
+											color: "red",
+											title: "Unimplemented",
+											message: "This feature has not been implemented yet"
+										})
+									}
+								}}>
+									<Text truncate>{c}</Text>
+								</Badge>
+							))}
+						</Group>
+					) : null}
 					{inProgressSeenItem ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, details.data.type)}ing this{" "}
@@ -407,6 +524,19 @@ const Page: NextPageWithLayout = () => {
 										</Button>
 									</Anchor>
 								</Link>
+								<>
+									<Button
+										variant="outline"
+										onClick={collectionModalOpen}
+									>
+										Add to collection
+									</Button>
+									<SelectCollectionModal
+										onClose={collectionModalClose}
+										opened={collectionModalOpened}
+										metadataId={metadataId}
+									/>
+								</>
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
@@ -436,8 +566,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.startedOn
 																	? DateTime.fromISO(
-																			h.startedOn,
-																	  ).toLocaleString()
+																		h.startedOn,
+																	).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -446,8 +576,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.finishedOn
 																	? DateTime.fromISO(
-																			h.finishedOn,
-																	  ).toLocaleString()
+																		h.finishedOn,
+																	).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>

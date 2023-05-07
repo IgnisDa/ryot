@@ -1,4 +1,6 @@
 import type { NextPageWithLayout } from "./_app";
+import Grid from "@/lib/components/Grid";
+import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -12,9 +14,12 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { RegerateUserSummaryMutationVariables } from "@ryot/generated/graphql/backend/graphql";
-import { REGENERATE_USER_SUMMARY } from "@ryot/graphql/backend/mutations";
-import { USER_SUMMARY } from "@ryot/graphql/backend/queries";
+import {
+	MediaInProgressDocument,
+	RegerateUserSummaryDocument,
+	type RegerateUserSummaryMutationVariables,
+	UserSummaryDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -27,7 +32,7 @@ const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
 
 const StatTitle = (props: { text: string }) => {
-	return <Title order={3}>{props.text}</Title>;
+	return <Title order={5}>{props.text}</Title>;
 };
 
 const StatNumber = (props: { text: number; isDuration?: boolean }) => {
@@ -41,10 +46,16 @@ const StatNumber = (props: { text: number; isDuration?: boolean }) => {
 };
 
 const Page: NextPageWithLayout = () => {
+	const mediaInProgress = useQuery(["mediaInProgress"], async () => {
+		const { mediaInProgress } = await gqlClient.request(
+			MediaInProgressDocument,
+		);
+		return mediaInProgress;
+	});
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
-			const { userSummary } = await gqlClient.request(USER_SUMMARY);
+			const { userSummary } = await gqlClient.request(UserSummaryDocument);
 			return userSummary;
 		},
 		{ retry: false },
@@ -52,7 +63,7 @@ const Page: NextPageWithLayout = () => {
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (variables: RegerateUserSummaryMutationVariables) => {
 			const { regenerateUserSummary } = await gqlClient.request(
-				REGENERATE_USER_SUMMARY,
+				RegerateUserSummaryDocument,
 				variables,
 			);
 			return regenerateUserSummary;
@@ -65,6 +76,21 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<Container>
 			<Stack>
+				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
+					<>
+						<Title>In Progress</Title>
+						<Grid>
+							{mediaInProgress.data.map((lm) => (
+								<MediaItemWithoutUpdateModal
+									key={lm.identifier}
+									item={lm}
+									lot={lm.lot}
+									imageOnClick={async () => parseInt(lm.identifier)}
+								/>
+							))}
+						</Grid>
+					</>
+				) : null}
 				{userSummary.isLoading ? <Loader /> : null}
 				{userSummary.isError ? (
 					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
@@ -73,62 +99,68 @@ const Page: NextPageWithLayout = () => {
 					</Alert>
 				) : null}
 				{userSummary.data ? (
-					<SimpleGrid
-						cols={1}
-						spacing="lg"
-						breakpoints={[{ minWidth: "sm", cols: 2 }]}
-					>
-						<Box>
-							<StatTitle text="Books" />
-							<Text>
-								You read <StatNumber text={userSummary.data.books.read} />{" "}
-								book(s) totalling{" "}
-								<StatNumber text={userSummary.data.books.pages} /> page(s).
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Movies" />
-							<Text>
-								You watched{" "}
-								<StatNumber text={userSummary.data.movies.watched} /> movie(s)
-								totalling{" "}
-								<StatNumber text={userSummary.data.movies.runtime} isDuration />
-								.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Shows" />
-							<Text>
-								You watched{" "}
-								<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
-								show(s) and{" "}
-								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
-								episode(s) totalling{" "}
-								<StatNumber text={userSummary.data.shows.runtime} isDuration />.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Video Games" />
-							<Text>
-								You played{" "}
-								<StatNumber text={userSummary.data.videoGames.played} />{" "}
-								game(s).
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Audio Books" />
-							<Text>
-								You listened to{" "}
-								<StatNumber text={userSummary.data.audioBooks.played} />{" "}
-								audiobook(s) totalling{" "}
-								<StatNumber
-									text={userSummary.data.audioBooks.runtime}
-									isDuration
-								/>
-								.
-							</Text>
-						</Box>
-					</SimpleGrid>
+					<>
+						<Title>Summary</Title>
+						<SimpleGrid
+							cols={2}
+							spacing="lg"
+							breakpoints={[
+								{ minWidth: "sm", cols: 3 },
+								{ minWidth: "lg", cols: 4 },
+							]}
+						>
+							<Box>
+								<StatTitle text="Books" />
+								<Text>
+									You read <StatNumber text={userSummary.data.books.read} />{" "}
+									book(s) totalling{" "}
+									<StatNumber text={userSummary.data.books.pages} /> page(s).
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Movies" />
+								<Text>
+									You watched{" "}
+									<StatNumber text={userSummary.data.movies.watched} /> movie(s)
+									totalling{" "}
+									<StatNumber text={userSummary.data.movies.runtime} isDuration />
+									.
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Shows" />
+								<Text>
+									You watched{" "}
+									<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
+									show(s) and{" "}
+									<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
+									episode(s) totalling{" "}
+									<StatNumber text={userSummary.data.shows.runtime} isDuration />.
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Video Games" />
+								<Text>
+									You played{" "}
+									<StatNumber text={userSummary.data.videoGames.played} />{" "}
+									game(s).
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Audio Books" />
+								<Text>
+									You listened to{" "}
+									<StatNumber text={userSummary.data.audioBooks.played} />{" "}
+									audiobook(s) totalling{" "}
+									<StatNumber
+										text={userSummary.data.audioBooks.runtime}
+										isDuration
+									/>
+									.
+								</Text>
+							</Box>
+						</SimpleGrid>
+					</>
 				) : null}
 				<Box>
 					<Button

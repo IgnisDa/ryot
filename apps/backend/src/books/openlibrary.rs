@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
@@ -7,13 +8,34 @@ use crate::{
     config::OpenlibraryConfig,
     graphql::AUTHOR,
     media::{
-        resolver::{MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
-    utils::get_data_parallely_from_sources,
+    migrator::MetadataLot,
+    utils::{convert_option_path_to_vec, get_data_parallely_from_sources},
 };
 
 use super::BookSpecifics;
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+pub struct BookSearchResults {
+    pub total: i32,
+    pub items: Vec<BookSearchItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct BookSearchItem {
+    pub identifier: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub author_names: Vec<String>,
+    pub genres: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
+    pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
+    pub book_specifics: BookSpecifics,
+}
 
 #[derive(Debug, Clone)]
 pub struct OpenlibraryService {
@@ -54,8 +76,8 @@ impl OpenlibraryService {
         query: &str,
         offset: Option<i32>,
         index: i32,
-    ) -> Result<MediaSearchItem> {
-        let mut detail = self.search(query, offset).await?.items[index as usize].clone();
+    ) -> Result<MediaDetails<BookSpecifics>> {
+        let mut d = self.search_internal(query, offset).await?.items[index as usize].clone();
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -97,21 +119,51 @@ impl OpenlibraryService {
         .into_iter()
         .map(|a: OpenlibraryAuthorPartial| a.name)
         .collect();
-        detail.description = data.description.map(|d| match d {
+        d.description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        detail.poster_images = data
+        d.poster_images = data
             .covers
             .unwrap_or_default()
             .into_iter()
             .map(|c| self.get_cover_image_url(c))
             .collect();
-        detail.author_names = authors;
-        Ok(detail)
+        d.author_names = authors;
+        Ok(MediaDetails {
+            identifier: d.identifier,
+            title: d.title,
+            description: d.description,
+            lot: MetadataLot::Book,
+            creators: d.author_names,
+            genres: d.genres,
+            poster_images: d.poster_images,
+            backdrop_images: d.backdrop_images,
+            publish_year: d.publish_year,
+            publish_date: d.publish_date,
+            specifics: d.book_specifics,
+        })
     }
 
     pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
+        let data = self.search_internal(query, offset).await?;
+        Ok(MediaSearchResults {
+            total: data.total,
+            items: data
+                .items
+                .into_iter()
+                .map(|b| MediaSearchItem {
+                    identifier: b.identifier,
+                    lot: MetadataLot::Book,
+                    title: b.title,
+                    poster_images: b.poster_images,
+                    publish_year: b.publish_year,
+                })
+                .collect(),
+        })
+    }
+
+    async fn search_internal(&self, query: &str, offset: Option<i32>) -> Result<BookSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -164,12 +216,8 @@ impl OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| {
-                let poster_images = if let Some(c) = d.cover_i {
-                    vec![self.get_cover_image_url(c)]
-                } else {
-                    vec![]
-                };
-                MediaSearchItem {
+                let poster_images = convert_option_path_to_vec(d.cover_i.map(|f| f.to_string()));
+                BookSearchItem {
                     identifier: Self::get_key(&d.key),
                     title: d.title,
                     description: None,
@@ -177,19 +225,15 @@ impl OpenlibraryService {
                     genres: vec![],
                     publish_year: d.first_publish_year,
                     publish_date: None,
-                    book_specifics: Some(BookSpecifics {
+                    book_specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
-                    }),
-                    show_specifics: None,
-                    movie_specifics: None,
-                    video_game_specifics: None,
-                    audio_books_specifics: None,
+                    },
                     poster_images,
                     backdrop_images: vec![],
                 }
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults {
+        Ok(BookSearchResults {
             total: search.num_found,
             items: resp,
         })

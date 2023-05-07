@@ -1,0 +1,24 @@
+query UserSummary {
+  userSummary {
+    books {
+      pages
+      read
+    }
+    movies {
+      runtime
+      watched
+    }
+    videoGames {
+      played
+    }
+    shows {
+      runtime
+      watchedEpisodes
+			watchedShows
+    }
+    audioBooks {
+      runtime
+      played
+    }
+  }
+}

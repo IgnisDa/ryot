@@ -1,0 +1,5 @@
+mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {
+  commitBook(identifier: $identifier, input: $input, index: $index) {
+    id
+  }
+}

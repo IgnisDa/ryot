@@ -14,11 +14,11 @@ use crate::{
     config::{AppConfig, IsFeatureEnabled},
     media::resolver::{MediaMutation, MediaQuery, MediaService},
     migrator::MetadataLot,
+    misc::resolver::{MiscMutation, MiscQuery, MiscService},
     movies::{
         resolver::{MoviesMutation, MoviesQuery, MoviesService},
         tmdb::TmdbService as MovieTmdbService,
     },
-    reviews::resolver::{ReviewsMutation, ReviewsQuery, ReviewsService},
     shows::{
         resolver::{ShowsMutation, ShowsQuery, ShowsService},
         tmdb::TmdbService as ShowTmdbService,
@@ -93,7 +93,7 @@ pub struct QueryRoot(
     VideoGamesQuery,
     UsersQuery,
     AudioBooksQuery,
-    ReviewsQuery,
+    MiscQuery,
 );
 
 #[derive(MergedObject, Default)]
@@ -105,7 +105,7 @@ pub struct MutationRoot(
     ShowsMutation,
     VideoGamesMutation,
     AudioBooksMutation,
-    ReviewsMutation,
+    MiscMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -123,7 +123,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
-    let reviews_service = ReviewsService::new(&db);
+    let reviews_service = MiscService::new(&db, &media_service);
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),

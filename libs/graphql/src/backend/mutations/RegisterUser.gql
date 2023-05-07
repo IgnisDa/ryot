@@ -1,0 +1,11 @@
+mutation RegisterUser($input: UserInput!) {
+  registerUser(input: $input){
+    __typename
+    ... on RegisterError {
+      error
+    }
+    ... on IdObject {
+      id
+    }
+  }
+}

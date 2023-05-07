@@ -121,14 +121,14 @@ impl BooksService {
                     None,
                     book_details.poster_images,
                     book_details.backdrop_images,
-                    book_details.author_names,
+                    book_details.creators,
                     vec![],
                 )
                 .await?;
             let book = book::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
                 identifier: ActiveValue::Set(book_details.identifier),
-                num_pages: ActiveValue::Set(book_details.book_specifics.unwrap().pages),
+                num_pages: ActiveValue::Set(book_details.specifics.pages),
                 source: ActiveValue::Set(BookSource::OpenLibrary),
             };
             book.insert(&self.db).await.unwrap();

@@ -10,7 +10,7 @@ const config: CodegenConfig = {
 			DateTime: "Date",
 		},
 	},
-	documents: [join(definitionsLibraryPath, "backend/{queries,mutations}.ts")],
+	documents: [join(definitionsLibraryPath, "backend/{queries,mutations}/*.gql")],
 	generates: {
 		"./src/graphql/backend/": {
 			config: { skipTypename: true },

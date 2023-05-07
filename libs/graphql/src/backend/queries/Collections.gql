@@ -1,0 +1,16 @@
+query Collections {
+  collections {
+    collectionDetails {
+      id
+      createdOn
+      name
+    }
+    mediaDetails {
+      identifier
+      lot
+      title
+      posterImages
+      publishYear
+    }
+  }
+}

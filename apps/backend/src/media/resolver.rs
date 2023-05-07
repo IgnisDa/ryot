@@ -10,16 +10,15 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        audio_book, book, creator, genre,
+        creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, metadata_to_genre, movie,
+        metadata_image, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
-            UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage, Movie, Seen,
+            Show, UserToMetadata,
         },
-        seen, show, user_to_metadata,
+        seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
-        video_game,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -29,36 +28,31 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{SeenStatus, LIMIT};
+use super::LIMIT;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaGenericData {
+    pub model: MetadataModel,
+    pub creators: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
+    pub genres: Vec<String>,
+    pub collections: Vec<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MediaSearchItem {
     pub identifier: String,
+    pub lot: MetadataLot,
     pub title: String,
-    pub description: Option<String>,
-    pub author_names: Vec<String>,
-    pub genres: Vec<String>,
     pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_books_specifics: Option<AudioBookSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct MediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSeen {
-    pub identifier: String,
-    pub seen: SeenStatus,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
@@ -79,8 +73,23 @@ pub struct ProgressUpdate {
     pub episode_number: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaDetails<T> {
+    pub identifier: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub lot: MetadataLot,
+    pub creators: Vec<String>,
+    pub genres: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
+    pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
+    pub specifics: T,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaDetails {
+pub struct DatabaseMediaDetails {
     pub id: i32,
     pub title: String,
     pub description: Option<String>,
@@ -88,6 +97,7 @@ pub struct MediaDetails {
     pub lot: MetadataLot,
     pub creators: Vec<String>,
     pub genres: Vec<String>,
+    pub collections: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -117,7 +127,11 @@ pub struct MediaQuery;
 #[Object]
 impl MediaQuery {
     /// Get details about a media present in the database
-    async fn media_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
+    async fn media_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+    ) -> Result<DatabaseMediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .media_details(metadata_id)
@@ -137,16 +151,12 @@ impl MediaQuery {
             .await
     }
 
-    /// Check whether a media item has been consumed before
-    async fn media_consumed(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: MediaConsumedInput,
-    ) -> Result<MediaSeen> {
+    /// Get all the media items which are in progress for the currently logged in user
+    async fn media_in_progress(&self, gql_ctx: &Context<'_>) -> Result<Vec<MediaSearchItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .media_consumed(user_id, input)
+            .media_in_progress(user_id)
             .await
     }
 
@@ -225,16 +235,7 @@ impl MediaService {
         Ok((poster_images, backdrop_images))
     }
 
-    async fn generic_metadata(
-        &self,
-        metadata_id: i32,
-    ) -> Result<(
-        MetadataModel,
-        Vec<String>,
-        Vec<String>,
-        Vec<String>,
-        Vec<String>,
-    )> {
+    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaGenericData> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -243,8 +244,22 @@ impl MediaService {
             Some(m) => m,
             None => return Err(Error::new("The record does not exit".to_owned())),
         };
-        let db_genres = meta.find_related(Genre).all(&self.db).await.unwrap();
-        let genres = db_genres.into_iter().map(|g| g.name).collect();
+        let collections = meta
+            .find_related(Collection)
+            .all(&self.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        let genres = meta
+            .find_related(Genre)
+            .all(&self.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|g| g.name)
+            .collect();
         let creators = meta
             .find_related(Creator)
             .all(&self.db)
@@ -254,22 +269,36 @@ impl MediaService {
             .map(|c| c.name)
             .collect();
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
-        Ok((meta, creators, poster_images, backdrop_images, genres))
+        Ok(MediaGenericData {
+            model: meta,
+            creators,
+            poster_images,
+            backdrop_images,
+            genres,
+            collections,
+        })
     }
 
-    async fn media_details(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (meta, creators, poster_images, backdrop_images, genres) =
-            self.generic_metadata(metadata_id).await?;
-        let mut resp = MediaDetails {
-            id: meta.id,
-            title: meta.title,
-            description: meta.description,
-            publish_year: meta.publish_year,
-            publish_date: meta.publish_date,
-            lot: meta.lot,
+    async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
+        let MediaGenericData {
+            model,
+            creators,
+            poster_images,
+            backdrop_images,
+            genres,
+            collections,
+        } = self.generic_metadata(metadata_id).await?;
+        let mut resp = DatabaseMediaDetails {
+            id: model.id,
+            title: model.title,
+            description: model.description,
+            publish_year: model.publish_year,
+            publish_date: model.publish_date,
+            lot: model.lot,
             creators,
             genres,
             poster_images,
+            collections,
             backdrop_images,
             book_specifics: None,
             movie_specifics: None,
@@ -277,7 +306,7 @@ impl MediaService {
             video_game_specifics: None,
             audio_books_specifics: None,
         };
-        match meta.lot {
+        match model.lot {
             MetadataLot::Book => {
                 let additional = Book::find_by_id(metadata_id)
                     .one(&self.db)
@@ -343,73 +372,35 @@ impl MediaService {
         Ok(prev_seen)
     }
 
-    pub async fn media_consumed(
-        &self,
-        user_id: i32,
-        input: MediaConsumedInput,
-    ) -> Result<MediaSeen> {
-        let media = match input.lot {
-            MetadataLot::AudioBook => AudioBook::find()
-                .filter(audio_book::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Book => Book::find()
-                .filter(book::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Movie => Movie::find()
-                .filter(movie::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Show => Show::find()
-                .filter(show::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::VideoGame => VideoGame::find()
-                .filter(video_game::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-        };
-        let resp = if let Some(m) = media {
-            let seen = Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(media))
-                .order_by_asc(seen::Column::LastUpdatedOn)
-                .all(&self.db)
-                .await
-                .unwrap();
-            let filtered = seen
-                .iter()
-                .filter(|b| b.metadata_id == m)
-                .collect::<Vec<_>>();
-            let is_there = if filtered.is_empty() {
-                SeenStatus::NotConsumed
-            } else if filtered.last().unwrap().progress < 100 {
-                SeenStatus::CurrentlyUnderway
-            } else {
-                SeenStatus::ConsumedAtleastOnce
-            };
-            MediaSeen {
-                identifier: input.identifier,
-                seen: is_there,
-            }
-        } else {
-            MediaSeen {
-                identifier: input.identifier,
-                seen: SeenStatus::NotInDatabase,
-            }
-        };
-        Ok(resp)
+    pub async fn media_in_progress(&self, user_id: i32) -> Result<Vec<MediaSearchItem>> {
+        let mut seens = Seen::find()
+            .filter(seen::Column::Progress.lt(100))
+            .filter(seen::Column::UserId.eq(user_id))
+            .order_by_desc(seen::Column::LastUpdatedOn)
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|(_, m)| {
+                let a = m.unwrap();
+                (
+                    a.clone(),
+                    MediaSearchItem {
+                        identifier: a.id.to_string(),
+                        title: a.title,
+                        lot: a.lot,
+                        poster_images: vec![], // we will assign this later
+                        publish_year: a.publish_year,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        for (model, media_item) in seens.iter_mut() {
+            let (poster_images, _) = self.metadata_images(model).await?;
+            media_item.poster_images = poster_images;
+        }
+        Ok(seens.into_iter().map(|s| s.1).collect())
     }
 
     pub async fn media_list(
@@ -442,26 +433,12 @@ impl MediaService {
                 .filter(|f| f.lot == MetadataImageLot::Poster)
                 .map(|i| i.url.clone())
                 .collect();
-            let backdrop_images = images
-                .iter()
-                .filter(|f| f.lot == MetadataImageLot::Backdrop)
-                .map(|i| i.url.clone())
-                .collect();
             let _m = MediaSearchItem {
                 identifier: m.id.to_string(),
+                lot: m.lot,
                 title: m.title,
-                description: m.description,
                 poster_images,
-                backdrop_images,
                 publish_year: m.publish_year,
-                publish_date: m.publish_date,
-                book_specifics: None,
-                movie_specifics: None,
-                show_specifics: None,
-                video_game_specifics: None,
-                audio_books_specifics: None,
-                genres: vec![],
-                author_names: vec![],
             };
             items.push(_m);
         }

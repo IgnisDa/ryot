@@ -102,14 +102,14 @@ impl MoviesService {
                     movie_details.publish_date,
                     movie_details.poster_images,
                     movie_details.backdrop_images,
-                    movie_details.author_names,
+                    movie_details.creators,
                     movie_details.genres,
                 )
                 .await?;
             let movie = movie::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
                 identifier: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.movie_specifics.unwrap().runtime),
+                runtime: ActiveValue::Set(movie_details.specifics.runtime),
                 source: ActiveValue::Set(MovieSource::Tmdb),
             };
             movie.insert(&self.db).await.unwrap();

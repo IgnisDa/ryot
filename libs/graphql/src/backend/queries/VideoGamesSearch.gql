@@ -1,0 +1,11 @@
+query VideoGamesSearch($input: VideoGamesSearchInput!) {
+  videoGamesSearch(input: $input) {
+    total
+    items {
+      identifier
+      title
+      posterImages
+      publishYear
+    }
+  }
+}

@@ -1,0 +1,11 @@
+query ShowsSearch($input: ShowSearchInput!) {
+  showSearch(input: $input) {
+    total
+    items {
+      identifier
+      title
+      posterImages
+      publishYear
+    }
+  }
+}
