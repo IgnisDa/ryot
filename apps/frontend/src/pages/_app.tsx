@@ -8,8 +8,8 @@ import {
 	Text,
 } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { CORE_DETAILS } from "@ryot/graphql/backend/queries";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { NextPage } from "next";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";

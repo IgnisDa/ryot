@@ -35,17 +35,26 @@ impl TmdbService {
             overview: String,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<NamedObject>,
             release_date: String,
             runtime: i32,
             genres: Vec<NamedObject>,
         }
         let mut rsp = self
             .client
-            .get(format!("movie/{}", identifier))
+            .get(format!("movie/{}", &identifier))
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbCreditsResponse {
+            cast: Vec<NamedObject>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("movie/{}/credits", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let poster_images =
             convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
@@ -54,11 +63,7 @@ impl TmdbService {
             identifier: data.id.to_string(),
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
-            author_names: data
-                .production_companies
-                .into_iter()
-                .map(|p| p.name)
-                .collect(),
+            author_names: credits.cast.into_iter().map(|c| c.name).collect(),
             poster_images,
             backdrop_images,
             publish_year: convert_date_to_year(&data.release_date),
@@ -122,7 +127,6 @@ impl TmdbService {
                     identifier: d.id.to_string(),
                     title: d.title,
                     description: d.overview,
-                    // TODO: Populate with correct data
                     author_names: vec![],
                     genres: vec![],
                     publish_year: convert_date_to_year(&d.release_date),

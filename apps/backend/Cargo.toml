@@ -9,11 +9,12 @@ edition = "2021"
 anyhow = "1.0.70"
 apalis = { version = "0.3.6", features = ["sqlite", "extensions"] }
 argon2 = "0.5.0"
-async-graphql = { version = "5.0.7", features = ["chrono", "log", "uuid"] }
+async-graphql = { version = "5.0.7", features = ["chrono", "decimal", "log", "uuid"] }
 async-graphql-axum = "5.0.7"
 axum = { version = "0.6.12", features = ["macros"] }
 chrono = "0.4.24"
 cookie = "0.17.0"
+decimal = "2.1.0"
 dotenvy = "0.15.7"
 figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 http = "0.2.9"
@@ -21,6 +22,7 @@ mime_guess = "2.0.4"
 regex = "1.8.1"
 ron = "0.8.0"
 rust-embed = "6.6.1"
+rust_decimal = "1.29.1"
 sea-orm = { version = "0.11.1", features = [
     "sqlx-mysql",
     "sqlx-postgres",
@@ -29,6 +31,7 @@ sea-orm = { version = "0.11.1", features = [
     "macros",
     "with-chrono",
     "with-uuid",
+    "with-rust_decimal",
     "debug-print",
 ] }
 sea-orm-migration = "0.11.1"

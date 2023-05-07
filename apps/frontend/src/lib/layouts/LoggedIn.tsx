@@ -8,6 +8,12 @@ import {
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import { LOGOUT_USER } from "@ryot/graphql/backend/mutations";
+import {
+	CORE_ENABLED_FEATURES,
+	USER_DETAILS,
+} from "@ryot/graphql/backend/queries";
 import {
 	IconBook,
 	IconBrandAppleArcade,
@@ -18,12 +24,6 @@ import {
 	IconLogout,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
-import { LOGOUT_USER } from "@ryot/graphql/backend/mutations";
-import {
-	CORE_ENABLED_FEATURES,
-	USER_DETAILS,
-} from "@ryot/graphql/backend/queries";
 import { camelCase, startCase } from "lodash";
 import Link from "next/link";
 import { useRouter } from "next/router";

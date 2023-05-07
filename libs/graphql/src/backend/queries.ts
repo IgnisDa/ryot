@@ -172,6 +172,9 @@ export const USER_DETAILS = graphql(`
 	query UserDetails {
 	  userDetails {
 	    __typename
+	    ... on User {
+	      id
+	    }
 	  }
 	}
 `);
@@ -198,6 +201,24 @@ export const USER_SUMMARY = graphql(`
 	    audioBooks {
 	      runtime
 	      played
+	    }
+	  }
+	}
+`);
+
+export const MEDIA_ITEM_REVIEWS = graphql(`
+	query MediaItemReviews($metadataId: Int!) {
+	  mediaItemReviews(metadataId: $metadataId) {
+	    id
+	    rating
+	    text
+	    visibility
+	    seasonNumber
+	    episodeNumber
+	    postedOn
+	    postedBy {
+	      id
+	      name
 	    }
 	  }
 	}

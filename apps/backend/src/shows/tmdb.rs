@@ -64,6 +64,7 @@ impl TmdbService {
             overview: Option<String>,
             air_date: Option<String>,
             runtime: Option<i32>,
+            guest_stars: Vec<NamedObject>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -90,12 +91,25 @@ impl TmdbService {
             let data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
             seasons.push(data);
         }
+        let author_names = seasons
+            .iter()
+            .flat_map(|s| {
+                s.episodes
+                    .iter()
+                    .flat_map(|e| {
+                        e.guest_stars
+                            .iter()
+                            .map(|g| g.name.clone())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
         Ok(MediaSearchItem {
             identifier: data.id.to_string(),
             title: data.name,
             description: data.overview,
-            // TODO: Populate with correct data
-            author_names: vec![],
+            author_names,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),

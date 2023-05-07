@@ -12,21 +12,30 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import type { RegerateUserSummaryMutationVariables } from "@ryot/generated/graphql/backend/graphql";
 import { REGENERATE_USER_SUMMARY } from "@ryot/graphql/backend/mutations";
 import { USER_SUMMARY } from "@ryot/graphql/backend/queries";
+import { IconAlertCircle } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import type { ReactElement } from "react";
+
+const service = new HumanizeDurationLanguage();
+const humaizer = new HumanizeDuration(service);
 
 const StatTitle = (props: { text: string }) => {
 	return <Title order={3}>{props.text}</Title>;
 };
 
-const StatNumber = (props: { text: number }) => {
+const StatNumber = (props: { text: number; isDuration?: boolean }) => {
 	return (
 		<Text fw="bold" style={{ display: "inline" }}>
-			{props.text}
+			{props.isDuration
+				? humaizer.humanize(props.text * 1000 * 60)
+				: props.text}
 		</Text>
 	);
 };
@@ -38,7 +47,7 @@ const Page: NextPageWithLayout = () => {
 			const { userSummary } = await gqlClient.request(USER_SUMMARY);
 			return userSummary;
 		},
-		{ staleTime: Infinity, retry: false },
+		{ retry: false },
 	);
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (variables: RegerateUserSummaryMutationVariables) => {
@@ -56,10 +65,9 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<Container>
 			<Stack>
-				<Title>Your summary</Title>
 				{userSummary.isLoading ? <Loader /> : null}
 				{userSummary.isError ? (
-					<Alert color='yellow' icon={<IconAlertCircle size="1rem" />}>
+					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
 						You have not generated any summaries yet. Click below to generate
 						one.
 					</Alert>
@@ -83,8 +91,9 @@ const Page: NextPageWithLayout = () => {
 							<Text>
 								You watched{" "}
 								<StatNumber text={userSummary.data.movies.watched} /> movie(s)
-								totalling <StatNumber text={userSummary.data.movies.runtime} />{" "}
-								minute(s).
+								totalling{" "}
+								<StatNumber text={userSummary.data.movies.runtime} isDuration />
+								.
 							</Text>
 						</Box>
 						<Box>
@@ -95,7 +104,7 @@ const Page: NextPageWithLayout = () => {
 								show(s) and{" "}
 								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
 								episode(s) totalling{" "}
-								<StatNumber text={userSummary.data.shows.runtime} /> minute(s).
+								<StatNumber text={userSummary.data.shows.runtime} isDuration />.
 							</Text>
 						</Box>
 						<Box>
@@ -112,8 +121,11 @@ const Page: NextPageWithLayout = () => {
 								You listened to{" "}
 								<StatNumber text={userSummary.data.audioBooks.played} />{" "}
 								audiobook(s) totalling{" "}
-								<StatNumber text={userSummary.data.audioBooks.runtime} />{" "}
-								minute(s).
+								<StatNumber
+									text={userSummary.data.audioBooks.runtime}
+									isDuration
+								/>
+								.
 							</Text>
 						</Box>
 					</SimpleGrid>

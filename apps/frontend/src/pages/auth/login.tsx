@@ -2,12 +2,12 @@ import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
-import { useMutation } from "@tanstack/react-query";
 import {
 	LoginErrorVariant,
 	type UserInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { LOGIN_USER } from "@ryot/graphql/backend/mutations";
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
@@ -71,6 +71,7 @@ export default function Page() {
 				label="Username"
 				{...form.getInputProps("username")}
 				required
+				autoFocus
 			/>
 			<PasswordInput
 				label="Password"

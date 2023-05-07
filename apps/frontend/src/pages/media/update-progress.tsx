@@ -1,10 +1,7 @@
-import { gqlClient } from "@/lib/services/api";
 import type { NextPageWithLayout } from "../_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { MEDIA_DETAILS } from "@ryot/graphql/backend/queries";
-import { useRouter } from "next/router";
-import { useState, type ReactElement } from "react";
+import { gqlClient } from "@/lib/services/api";
+import { Verb, getVerb } from "@/lib/utilities";
 import {
 	Alert,
 	Button,
@@ -15,15 +12,18 @@ import {
 	Stack,
 	Title,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import {
 	ProgressUpdateAction,
 	type ProgressUpdateMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { PROGRESS_UPDATE } from "@ryot/graphql/backend/mutations";
-import { Verb, getVerb } from "@/lib/utilities";
-import { DatePickerInput } from "@mantine/dates";
-import { DateTime } from "luxon";
+import { MEDIA_DETAILS } from "@ryot/graphql/backend/queries";
 import { IconAlertCircle } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { DateTime } from "luxon";
+import { useRouter } from "next/router";
+import { type ReactElement, useState } from "react";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -46,7 +46,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaDetails;
 		},
-		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (
@@ -55,7 +54,7 @@ const Page: NextPageWithLayout = () => {
 			if (onlySeason) {
 				for (const episode of details.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedSeason,
-				)!.episodes || []) {
+				)?.episodes || []) {
 					await gqlClient.request(PROGRESS_UPDATE, {
 						input: { ...variables.input, episodeNumber: episode.episodeNumber },
 					});
@@ -82,7 +81,7 @@ const Page: NextPageWithLayout = () => {
 
 	return details.data && title ? (
 		<Container size={"xs"}>
-			<Stack pos={"relative"} p='sm'>
+			<Stack pos={"relative"} p="sm">
 				<LoadingOverlay
 					visible={progressUpdate.isLoading}
 					overlayBlur={2}
@@ -92,7 +91,7 @@ const Page: NextPageWithLayout = () => {
 				{details.data.showSpecifics ? (
 					<>
 						{onlySeason ? (
-							<Alert color='yellow' icon={<IconAlertCircle size="1rem" />}>
+							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
 								This will mark all episodes for Season {selectedSeason} as seen
 							</Alert>
 						) : null}
@@ -112,8 +111,8 @@ const Page: NextPageWithLayout = () => {
 							<Select
 								label="Episode"
 								data={details.data.showSpecifics.seasons
-									.find((s) => s.seasonNumber === Number(selectedSeason))!
-									.episodes.map((e) => ({
+									.find((s) => s.seasonNumber === Number(selectedSeason))
+									?.episodes.map((e) => ({
 										label: `${e.episodeNumber}. ${e.name.toString()}`,
 										value: e.episodeNumber.toString(),
 									}))}

@@ -1,7 +1,6 @@
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
 import { Button, Flex, Image, Loader, Text } from "@mantine/core";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type BooksSearchQuery,
 	type CommitBookMutationVariables,
@@ -19,6 +18,7 @@ import {
 	AUDIO_BOOKS_SEARCH,
 	MEDIA_CONSUMED,
 } from "@ryot/graphql/backend/queries";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
@@ -84,7 +84,6 @@ export default function (props: {
 			});
 			return mediaConsumed;
 		},
-		{ staleTime: Infinity },
 	);
 	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {

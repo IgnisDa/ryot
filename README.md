@@ -1,7 +1,7 @@
 # ryot
 
-Ryot is a self hosted platform for tracking movies, TV shows, video games,
-books and audiobooks.
+**R**oll **Y**our **O**wn **T**racker (Ryot) is a self hosted platform for
+tracking movies, TV shows, video games, books and audiobooks.
 
 ## Project Status
 

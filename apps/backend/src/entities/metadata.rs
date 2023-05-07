@@ -29,6 +29,8 @@ pub enum Relation {
     MetadataImage,
     #[sea_orm(has_one = "super::movie::Entity")]
     Movie,
+    #[sea_orm(has_many = "super::review::Entity")]
+    Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
     #[sea_orm(has_one = "super::show::Entity")]
@@ -58,6 +60,12 @@ impl Related<super::metadata_image::Entity> for Entity {
 impl Related<super::movie::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Movie.def()
+    }
+}
+
+impl Related<super::review::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Review.def()
     }
 }
 
