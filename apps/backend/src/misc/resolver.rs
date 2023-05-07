@@ -47,10 +47,10 @@ struct PostReviewInput {
 }
 
 #[derive(Default)]
-pub struct ReviewsQuery;
+pub struct MiscQuery;
 
 #[Object]
-impl ReviewsQuery {
+impl MiscQuery {
     /// Get all the public reviews for a media item.
     async fn media_item_reviews(
         &self,
@@ -58,39 +58,39 @@ impl ReviewsQuery {
         metadata_id: i32,
     ) -> Result<Vec<ReviewItem>> {
         gql_ctx
-            .data_unchecked::<ReviewsService>()
+            .data_unchecked::<MiscService>()
             .media_item_reviews(&metadata_id)
             .await
     }
 }
 
 #[derive(Default)]
-pub struct ReviewsMutation;
+pub struct MiscMutation;
 
 #[Object]
-impl ReviewsMutation {
+impl MiscMutation {
     /// Create or update a review
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<ReviewsService>()
+            .data_unchecked::<MiscService>()
             .post_review(&user_id, input)
             .await
     }
 }
 
 #[derive(Debug)]
-pub struct ReviewsService {
+pub struct MiscService {
     db: DatabaseConnection,
 }
 
-impl ReviewsService {
+impl MiscService {
     pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
     }
 }
 
-impl ReviewsService {
+impl MiscService {
     async fn media_item_reviews(&self, metadata_id: &i32) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
