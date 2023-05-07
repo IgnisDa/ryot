@@ -19,17 +19,24 @@ pub trait IsFeatureEnabled {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct DatabaseConfig {
+pub struct AudibleConfig {
     pub url: String,
 }
 
-impl Default for DatabaseConfig {
+impl Default for AudibleConfig {
     fn default() -> Self {
         Self {
-            url: "sqlite:/data/ryot.db?mode=rwc".to_owned(),
+            url: "https://api.audible.com/1.0/catalog/products/".to_owned(),
         }
     }
 }
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct AudioBookConfig {
+    pub audible: AudibleConfig,
+}
+
+impl IsFeatureEnabled for AudioBookConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Display)]
 pub enum OpenlibraryCoverImageSize {
@@ -58,6 +65,26 @@ impl Default for OpenlibraryConfig {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct BookConfig {
+    pub openlibrary: OpenlibraryConfig,
+}
+
+impl IsFeatureEnabled for BookConfig {}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct DatabaseConfig {
+    pub url: String,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: "sqlite:/data/ryot.db?mode=rwc".to_owned(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TmdbConfig {
     pub url: String,
@@ -68,37 +95,10 @@ impl Default for TmdbConfig {
     fn default() -> Self {
         Self {
             url: TMDB_BASE_URL.to_owned(),
-            access_token: TMDB_ACCESS_KEY.to_owned()
+            access_token: TMDB_ACCESS_KEY.to_owned(),
         }
     }
 }
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct BookConfig {
-    pub openlibrary: OpenlibraryConfig,
-}
-
-impl IsFeatureEnabled for BookConfig {}
-
-#[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct AudibleConfig {
-    pub url: String,
-}
-
-impl Default for AudibleConfig {
-    fn default() -> Self {
-        Self {
-            url: "https://api.audible.com/1.0/catalog/products/".to_owned()
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct AudioBookConfig {
-    pub audible: AudibleConfig
-}
-
-impl IsFeatureEnabled for AudioBookConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct MovieConfig {
@@ -114,20 +114,12 @@ pub struct ShowConfig {
 
 impl IsFeatureEnabled for ShowConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct SchedulerConfig {}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct WebConfig {
-    pub cors_origins: Vec<String>,
-}
-
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TwitchConfig {
     pub client_id: String,
     pub client_secret: String,
     // Endpoint used to get access tokens which will be used by IGDB
-    pub access_token_url: String
+    pub access_token_url: String,
 }
 
 impl Default for TwitchConfig {
@@ -135,7 +127,7 @@ impl Default for TwitchConfig {
         Self {
             client_id: "".to_owned(),
             client_secret: "".to_owned(),
-            access_token_url: "https://id.twitch.tv/oauth2/token".to_owned()
+            access_token_url: "https://id.twitch.tv/oauth2/token".to_owned(),
         }
     }
 }
@@ -150,7 +142,7 @@ pub enum IgdbImageSize {
 pub struct IgdbConfig {
     pub base_url: String,
     pub images_base_url: String,
-    pub image_size: IgdbImageSize
+    pub image_size: IgdbImageSize,
 }
 
 impl Default for IgdbConfig {
@@ -158,7 +150,7 @@ impl Default for IgdbConfig {
         Self {
             base_url: "https://api.igdb.com/v4/".to_owned(),
             images_base_url: "https://images.igdb.com/igdb/image/upload/".to_owned(),
-            image_size: IgdbImageSize::Original
+            image_size: IgdbImageSize::Original,
         }
     }
 }
@@ -166,10 +158,10 @@ impl Default for IgdbConfig {
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct VideoGameConfig {
     pub twitch: TwitchConfig,
-    pub igdb: IgdbConfig
+    pub igdb: IgdbConfig,
 }
 
-impl IsFeatureEnabled for  VideoGameConfig {
+impl IsFeatureEnabled for VideoGameConfig {
     fn is_enabled(&self) -> bool {
         let mut enabled = false;
         if !self.twitch.client_id.is_empty() && !self.twitch.client_secret.is_empty() {
@@ -180,13 +172,21 @@ impl IsFeatureEnabled for  VideoGameConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct SchedulerConfig {}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct WebConfig {
+    pub cors_origins: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {
-    #[serde(default)]
-    pub database: DatabaseConfig,
     #[serde(default)]
     pub audio_books: AudioBookConfig,
     #[serde(default)]
     pub books: BookConfig,
+    #[serde(default)]
+    pub database: DatabaseConfig,
     #[serde(default)]
     pub movies: MovieConfig,
     #[serde(default)]
