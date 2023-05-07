@@ -75,10 +75,6 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-const navbarData = [
-	{ icon: IconHome2, label: "Home", href: "/" },
-	{ icon: IconListDetails, label: "Collections", href: "/collections" },
-];
 
 const getIcon = (lot: MetadataLot) => {
 	return match(lot)
@@ -90,7 +86,7 @@ const getIcon = (lot: MetadataLot) => {
 		.exhaustive();
 };
 
-export default function ({ children }: { children: ReactElement }) {
+export default function({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
 	useQuery({
@@ -124,7 +120,7 @@ export default function ({ children }: { children: ReactElement }) {
 	);
 
 	const links = [
-		...navbarData,
+		{ icon: IconHome2, label: "Home", href: "/" },
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -132,6 +128,7 @@ export default function ({ children }: { children: ReactElement }) {
 				icon: getIcon(f.name),
 				href: undefined,
 			})) || []),
+		{ icon: IconListDetails, label: "Collections", href: "/collections" },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
