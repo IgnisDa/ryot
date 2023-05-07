@@ -5,7 +5,6 @@ query MediaList($input: MediaListInput!) {
       identifier
       title
       posterImages
-			backdropImages
       publishYear
     }
   }
