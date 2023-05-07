@@ -9,7 +9,7 @@ use sea_orm::{
 
 use crate::{
     entities::{
-        collection,
+        collection, metadata_to_collection,
         prelude::{Collection, Metadata, Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
@@ -123,10 +123,10 @@ impl MiscMutation {
         gql_ctx: &Context<'_>,
         input: ToggleMediaInCollection,
     ) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
+        let _user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .toggle_media_in_collection(&user_id, input)
+            .toggle_media_in_collection(input)
             .await
     }
 }
@@ -265,11 +265,17 @@ impl MiscService {
         Ok(IdObject { id: inserted.id })
     }
 
-    async fn toggle_media_in_collection(
-        &self,
-        user_id: &i32,
-        input: ToggleMediaInCollection,
-    ) -> Result<bool> {
-        todo!();
+    async fn toggle_media_in_collection(&self, input: ToggleMediaInCollection) -> Result<bool> {
+        let col = metadata_to_collection::ActiveModel {
+            metadata_id: ActiveValue::Set(input.media_id),
+            collection_id: ActiveValue::Set(input.collection_id),
+        };
+        Ok(match col.clone().insert(&self.db).await {
+            Ok(_) => true,
+            Err(_) => {
+                col.delete(&self.db).await.unwrap();
+                false
+            }
+        })
     }
 }
