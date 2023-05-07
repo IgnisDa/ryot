@@ -59,7 +59,6 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { sample } from "lodash";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -396,8 +395,8 @@ const Page: NextPageWithLayout = () => {
 					<Title underline>{details.data.title}</Title>
 					{details.data.collections.length > 0 ? (
 						<Group>
-							{details.data.collections.map((c) => (
-								<Badge key={c} color={sample(MANTINE_COLORS)}>
+							{details.data.collections.map((c, idx) => (
+								<Badge key={c} color={MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]}>
 									<Text truncate>{c}</Text>
 								</Badge>
 							))}
