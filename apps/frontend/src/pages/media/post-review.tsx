@@ -28,7 +28,7 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
-	rating: z.number().default(0),
+	rating: z.preprocess(Number, z.number().min(0).max(5)),
 	text: z.string().default(""),
 	visibility: z.nativeEnum(Visibility).default(Visibility.Private),
 });
@@ -38,17 +38,11 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
-	const seasonNumber = Number(router.query.selectedSeason?.toString()) || null;
-	const episodeNumber =
-		Number(router.query.selectedEpisode?.toString()) || null;
+	const seasonNumber = Number(router.query.seasonNumber?.toString()) || null;
+	const episodeNumber = Number(router.query.episodeNumber?.toString()) || null;
 
 	const form = useForm<FormSchema>({
 		validate: zodResolver(formSchema),
-		transformValues: (values) => ({
-			rating: Number(values.rating),
-			visibility: values.visibility,
-			text: values.text,
-		}),
 	});
 
 	const details = useQuery({
@@ -62,7 +56,7 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	useQuery({
-		queryKey: ["reviews", metadataId],
+		queryKey: ["reviewDetails", metadataId, reviewId],
 		queryFn: async () => {
 			if (!reviewId) throw new Error("Can not get review details");
 			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
@@ -73,7 +67,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 		enabled: reviewId !== undefined,
-		onSettled: (data) => {
+		onSuccess: (data) => {
 			form.setValues({
 				rating: data?.rating || 0,
 				text: data?.text || "",

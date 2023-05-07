@@ -1,3 +1,4 @@
+import useUser from "@/lib/hooks/useUser";
 import type { NextPageWithLayout } from "../_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -5,6 +6,7 @@ import { Verb, getInitials, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Accordion,
+	ActionIcon,
 	Alert,
 	Anchor,
 	Avatar,
@@ -44,6 +46,7 @@ import {
 } from "@ryot/graphql/backend/queries";
 import {
 	IconAlertCircle,
+	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPlayerPlay,
@@ -156,6 +159,8 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const user = useUser();
+
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
@@ -557,12 +562,19 @@ const Page: NextPageWithLayout = () => {
 															{DateTime.fromJSDate(r.postedOn).toLocaleString()}
 														</Text>
 													</Box>
-													{/* 
-													TODO: Render this element on when it is the currently logged in user
-													<ActionIcon>
-														<IconEdit size="1rem" />
-													</ActionIcon>
-												*/}
+													{user && user.id === r.postedBy.id ? (
+														<Link
+															href={`/media/post-review?item=${metadataId}&reviewId=${r.id}`}
+															passHref
+															legacyBehavior
+														>
+															<Anchor>
+																<ActionIcon>
+																	<IconEdit size="1rem" />
+																</ActionIcon>
+															</Anchor>
+														</Link>
+													) : null}
 												</Flex>
 												<Box ml={"sm"} mt={"xs"}>
 													{r.rating ? (
