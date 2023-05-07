@@ -12,7 +12,7 @@ use crate::{
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
-    migrator::Visibility,
+    migrator::ReviewVisibility,
     utils::user_id_from_ctx,
 };
 
@@ -28,7 +28,7 @@ struct ReviewItem {
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
     text: Option<String>,
-    visibility: Visibility,
+    visibility: ReviewVisibility,
     season_number: Option<i32>,
     episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
@@ -38,7 +38,7 @@ struct ReviewItem {
 struct PostReviewInput {
     rating: Option<Decimal>,
     text: Option<String>,
-    visibility: Option<Visibility>,
+    visibility: Option<ReviewVisibility>,
     metadata_id: i32,
     /// ID of the review if this is an update to an existing review
     review_id: Option<i32>,
@@ -95,7 +95,7 @@ impl ReviewsService {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
-            .filter(review::Column::Visibility.eq(Visibility::Public))
+            .filter(review::Column::Visibility.eq(ReviewVisibility::Public))
             .find_also_related(User)
             .all(&self.db)
             .await

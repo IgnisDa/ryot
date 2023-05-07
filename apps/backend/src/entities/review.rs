@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::Visibility;
+use crate::migrator::ReviewVisibility;
 
 use super::utils::SeenExtraInformation;
 
@@ -16,7 +16,7 @@ pub struct Model {
     pub posted_on: DateTimeUtc,
     pub rating: Option<Decimal>,
     pub text: Option<String>,
-    pub visibility: Visibility,
+    pub visibility: ReviewVisibility,
     pub user_id: i32,
     pub metadata_id: i32,
     pub extra_information: Option<SeenExtraInformation>,

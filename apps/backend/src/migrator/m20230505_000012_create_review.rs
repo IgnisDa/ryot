@@ -11,7 +11,7 @@ pub struct Migration;
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum Visibility {
+pub enum ReviewVisibility {
     #[sea_orm(string_value = "PU")]
     Public,
     #[sea_orm(string_value = "PR")]
@@ -65,7 +65,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Review::Visibility)
                             .string_len(2)
                             .not_null()
-                            .default(Visibility::Private),
+                            .default(ReviewVisibility::Private),
                     )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
                     .col(ColumnDef::new(Review::MetadataId).integer().not_null())

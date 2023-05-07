@@ -266,7 +266,7 @@ export type PostReviewInput = {
   reviewId?: InputMaybe<Scalars['Int']>;
   seasonNumber?: InputMaybe<Scalars['Int']>;
   text?: InputMaybe<Scalars['String']>;
-  visibility?: InputMaybe<Visibility>;
+  visibility?: InputMaybe<ReviewVisibility>;
 };
 
 export type ProgressUpdate = {
@@ -384,13 +384,18 @@ export type ReviewItem = {
   rating?: Maybe<Scalars['Decimal']>;
   seasonNumber?: Maybe<Scalars['Int']>;
   text?: Maybe<Scalars['String']>;
-  visibility: Visibility;
+  visibility: ReviewVisibility;
 };
 
 export type ReviewPostedBy = {
   id: Scalars['Int'];
   name: Scalars['String'];
 };
+
+export enum ReviewVisibility {
+  Private = 'PRIVATE',
+  Public = 'PUBLIC'
+}
 
 export type Seen = {
   finishedOn?: Maybe<Scalars['NaiveDate']>;
@@ -498,11 +503,6 @@ export type VideoGamesSearchInput = {
 export type VideoGamesSummary = {
   played: Scalars['Int'];
 };
-
-export enum Visibility {
-  Private = 'PRIVATE',
-  Public = 'PUBLIC'
-}
 
 export type RegisterUserMutationVariables = Exact<{
   input: UserInput;
@@ -674,7 +674,7 @@ export type MediaItemReviewsQueryVariables = Exact<{
 }>;
 
 
-export type MediaItemReviewsQuery = { mediaItemReviews: Array<{ id: number, rating?: any | null, text?: string | null, visibility: Visibility, seasonNumber?: number | null, episodeNumber?: number | null, postedOn: Date, postedBy: { id: number, name: string } }> };
+export type MediaItemReviewsQuery = { mediaItemReviews: Array<{ id: number, rating?: any | null, text?: string | null, visibility: ReviewVisibility, seasonNumber?: number | null, episodeNumber?: number | null, postedOn: Date, postedBy: { id: number, name: string } }> };
 
 
 export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RegisterUserMutation, RegisterUserMutationVariables>;
