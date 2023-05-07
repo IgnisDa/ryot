@@ -2,8 +2,10 @@ import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
-import { type UserInput } from "@ryot/generated/graphql/backend/graphql";
-import { REGISTER_USER } from "@ryot/graphql/backend/mutations";
+import {
+	RegisterUserDocument,
+	type UserInput,
+} from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -25,7 +27,7 @@ export default function Page() {
 	const router = useRouter();
 	const registerUser = useMutation({
 		mutationFn: async (input: UserInput) => {
-			const { registerUser } = await gqlClient.request(REGISTER_USER, {
+			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
 				input,
 			});
 			return registerUser;

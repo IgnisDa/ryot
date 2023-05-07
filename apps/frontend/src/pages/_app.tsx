@@ -8,7 +8,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
-import { CORE_DETAILS } from "@ryot/graphql/backend/queries";
+import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { NextPage } from "next";
 import type { AppProps } from "next/app";
@@ -30,7 +30,7 @@ const Footer = () => {
 	const coreDetails = useQuery(
 		["coreDetails"],
 		async () => {
-			const { coreDetails } = await gqlClient.request(CORE_DETAILS);
+			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
 			return coreDetails;
 		},
 		{ staleTime: Infinity },

@@ -12,9 +12,11 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { RegerateUserSummaryMutationVariables } from "@ryot/generated/graphql/backend/graphql";
-import { REGENERATE_USER_SUMMARY } from "@ryot/graphql/backend/mutations";
-import { USER_SUMMARY } from "@ryot/graphql/backend/queries";
+import {
+	RegerateUserSummaryDocument,
+	type RegerateUserSummaryMutationVariables,
+	UserSummaryDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -44,7 +46,7 @@ const Page: NextPageWithLayout = () => {
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
-			const { userSummary } = await gqlClient.request(USER_SUMMARY);
+			const { userSummary } = await gqlClient.request(UserSummaryDocument);
 			return userSummary;
 		},
 		{ retry: false },
@@ -52,7 +54,7 @@ const Page: NextPageWithLayout = () => {
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (variables: RegerateUserSummaryMutationVariables) => {
 			const { regenerateUserSummary } = await gqlClient.request(
-				REGENERATE_USER_SUMMARY,
+				RegerateUserSummaryDocument,
 				variables,
 			);
 			return regenerateUserSummary;

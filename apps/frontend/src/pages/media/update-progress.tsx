@@ -14,11 +14,11 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import {
+	MediaDetailsDocument,
 	ProgressUpdateAction,
+	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { PROGRESS_UPDATE } from "@ryot/graphql/backend/mutations";
-import { MEDIA_DETAILS } from "@ryot/graphql/backend/queries";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -41,7 +41,7 @@ const Page: NextPageWithLayout = () => {
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MEDIA_DETAILS, {
+			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
 				metadataId: metadataId,
 			});
 			return mediaDetails;
@@ -55,14 +55,14 @@ const Page: NextPageWithLayout = () => {
 				for (const episode of details.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedSeason,
 				)?.episodes || []) {
-					await gqlClient.request(PROGRESS_UPDATE, {
+					await gqlClient.request(ProgressUpdateDocument, {
 						input: { ...variables.input, episodeNumber: episode.episodeNumber },
 					});
 				}
 				return;
 			}
 			const { progressUpdate } = await gqlClient.request(
-				PROGRESS_UPDATE,
+				ProgressUpdateDocument,
 				variables,
 			);
 			return progressUpdate;
@@ -110,12 +110,14 @@ const Page: NextPageWithLayout = () => {
 						{!onlySeason && selectedSeason ? (
 							<Select
 								label="Episode"
-								data={details.data.showSpecifics.seasons
-									.find((s) => s.seasonNumber === Number(selectedSeason))
-									?.episodes.map((e) => ({
-										label: `${e.episodeNumber}. ${e.name.toString()}`,
-										value: e.episodeNumber.toString(),
-									}))}
+								data={
+									details.data.showSpecifics.seasons
+										.find((s) => s.seasonNumber === Number(selectedSeason))
+										?.episodes.map((e) => ({
+											label: `${e.episodeNumber}. ${e.name.toString()}`,
+											value: e.episodeNumber.toString(),
+										})) || []
+								}
 								onChange={setSelectedEpisode}
 								defaultValue={selectedEpisode}
 							/>

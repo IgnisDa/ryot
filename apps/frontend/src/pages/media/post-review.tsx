@@ -14,14 +14,12 @@ import {
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import {
+	MediaDetailsDocument,
+	MediaItemReviewsDocument,
+	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewVisibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { POST_REVIEW } from "@ryot/graphql/backend/mutations";
-import {
-	MEDIA_DETAILS,
-	MEDIA_ITEM_REVIEWS,
-} from "@ryot/graphql/backend/queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
@@ -48,7 +46,7 @@ const Page: NextPageWithLayout = () => {
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MEDIA_DETAILS, {
+			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
 				metadataId: metadataId,
 			});
 			return mediaDetails;
@@ -59,9 +57,12 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["reviewDetails", metadataId, reviewId],
 		queryFn: async () => {
 			if (!reviewId) throw new Error("Can not get review details");
-			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
-				metadataId: metadataId,
-			});
+			const { mediaItemReviews } = await gqlClient.request(
+				MediaItemReviewsDocument,
+				{
+					metadataId: metadataId,
+				},
+			);
 			const review = mediaItemReviews.find((m) => m.id === reviewId);
 			return review;
 		},
@@ -77,7 +78,10 @@ const Page: NextPageWithLayout = () => {
 	});
 	const postReview = useMutation({
 		mutationFn: async (variables: PostReviewMutationVariables) => {
-			const { postReview } = await gqlClient.request(POST_REVIEW, variables);
+			const { postReview } = await gqlClient.request(
+				PostReviewDocument,
+				variables,
+			);
 			return postReview;
 		},
 		onSuccess: () => {
@@ -119,8 +123,14 @@ const Page: NextPageWithLayout = () => {
 						<SegmentedControl
 							fullWidth
 							data={[
-								{ label: ReviewVisibility.Private, value: ReviewVisibility.Private },
-								{ label: ReviewVisibility.Public, value: ReviewVisibility.Public },
+								{
+									label: ReviewVisibility.Private,
+									value: ReviewVisibility.Private,
+								},
+								{
+									label: ReviewVisibility.Public,
+									value: ReviewVisibility.Public,
+								},
 							]}
 							{...form.getInputProps("visibility")}
 						/>

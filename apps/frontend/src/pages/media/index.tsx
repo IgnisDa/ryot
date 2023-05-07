@@ -30,20 +30,16 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
+	MediaDetailsDocument,
+	MediaItemReviewsDocument,
 	MetadataLot,
 	ProgressUpdateAction,
+	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
+	SeenHistoryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	DELETE_SEEN_ITEM,
-	PROGRESS_UPDATE,
-} from "@ryot/graphql/backend/mutations";
-import {
-	MEDIA_DETAILS,
-	MEDIA_ITEM_REVIEWS,
-	SEEN_HISTORY,
-} from "@ryot/graphql/backend/queries";
 import {
 	IconAlertCircle,
 	IconEdit,
@@ -83,7 +79,7 @@ export function ProgressModal(props: {
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
 			const { progressUpdate } = await gqlClient.request(
-				PROGRESS_UPDATE,
+				ProgressUpdateDocument,
 				variables,
 			);
 			return progressUpdate;
@@ -164,7 +160,7 @@ const Page: NextPageWithLayout = () => {
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MEDIA_DETAILS, {
+			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
 				metadataId: metadataId,
 			});
 			return mediaDetails;
@@ -174,7 +170,7 @@ const Page: NextPageWithLayout = () => {
 	const history = useQuery({
 		queryKey: ["history", metadataId, details.data?.type],
 		queryFn: async () => {
-			const { seenHistory } = await gqlClient.request(SEEN_HISTORY, {
+			const { seenHistory } = await gqlClient.request(SeenHistoryDocument, {
 				metadataId: metadataId,
 				isShow: details.data?.type === MetadataLot.Show,
 			});
@@ -184,9 +180,12 @@ const Page: NextPageWithLayout = () => {
 	const reviews = useQuery({
 		queryKey: ["reviews", metadataId],
 		queryFn: async () => {
-			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
-				metadataId: metadataId,
-			});
+			const { mediaItemReviews } = await gqlClient.request(
+				MediaItemReviewsDocument,
+				{
+					metadataId: metadataId,
+				},
+			);
 			return mediaItemReviews;
 		},
 		staleTime: Infinity,
@@ -194,7 +193,7 @@ const Page: NextPageWithLayout = () => {
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
 			const { progressUpdate } = await gqlClient.request(
-				PROGRESS_UPDATE,
+				ProgressUpdateDocument,
 				variables,
 			);
 			return progressUpdate;
@@ -206,7 +205,7 @@ const Page: NextPageWithLayout = () => {
 	const deleteSeenItem = useMutation({
 		mutationFn: async (variables: DeleteSeenItemMutationVariables) => {
 			const { deleteSeenItem } = await gqlClient.request(
-				DELETE_SEEN_ITEM,
+				DeleteSeenItemDocument,
 				variables,
 			);
 			return deleteSeenItem;

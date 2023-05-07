@@ -8,12 +8,12 @@ import {
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
-import { LOGOUT_USER } from "@ryot/graphql/backend/mutations";
 import {
-	CORE_ENABLED_FEATURES,
-	USER_DETAILS,
-} from "@ryot/graphql/backend/queries";
+	CoreEnabledFeaturesDocument,
+	LogoutUserDocument,
+	MetadataLot,
+	UserDetailsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
 	IconBrandAppleArcade,
@@ -91,7 +91,7 @@ export default function ({ children }: { children: ReactElement }) {
 	useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
-			const { userDetails } = await gqlClient.request(USER_DETAILS);
+			const { userDetails } = await gqlClient.request(UserDetailsDocument);
 			return userDetails;
 		},
 		onSuccess: async (data) => {
@@ -111,7 +111,7 @@ export default function ({ children }: { children: ReactElement }) {
 		["enabledFeatures"],
 		async () => {
 			const { coreEnabledFeatures } = await gqlClient.request(
-				CORE_ENABLED_FEATURES,
+				CoreEnabledFeaturesDocument,
 			);
 			return coreEnabledFeatures;
 		},
@@ -136,7 +136,7 @@ export default function ({ children }: { children: ReactElement }) {
 	));
 	const logoutUser = useMutation({
 		mutationFn: async () => {
-			const { logoutUser } = await gqlClient.request(LOGOUT_USER);
+			const { logoutUser } = await gqlClient.request(LogoutUserDocument);
 			return logoutUser;
 		},
 		onSuccess: (data) => {

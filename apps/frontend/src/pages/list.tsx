@@ -18,15 +18,15 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
 import {
-	AUDIO_BOOKS_SEARCH,
-	BOOKS_SEARCH,
-	MEDIA_LIST,
-	MOVIES_SEARCH,
-	SHOWS_SEARCH,
-	VIDEO_GAMES_SEARCH,
-} from "@ryot/graphql/backend/queries";
+	AudioBooksSearchDocument,
+	BooksSearchDocument,
+	MediaListDocument,
+	MetadataLot,
+	MoviesSearchDocument,
+	ShowsSearchDocument,
+	VideoGamesSearchDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
@@ -72,7 +72,7 @@ const Page: NextPageWithLayout = () => {
 	const listMedia = useQuery({
 		queryKey: ["listMedia", activeMinePage, lot],
 		queryFn: async () => {
-			const { mediaList } = await gqlClient.request(MEDIA_LIST, {
+			const { mediaList } = await gqlClient.request(MediaListDocument, {
 				input: { lot: lot!, page: parseInt(activeMinePage) || 1 },
 			});
 			return mediaList;
@@ -87,26 +87,29 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
-					const { booksSearch } = await gqlClient.request(BOOKS_SEARCH, {
+					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
 						input: { query, offset },
 					});
 					return booksSearch;
 				})
 				.with(MetadataLot.Movie, async () => {
-					const { moviesSearch } = await gqlClient.request(MOVIES_SEARCH, {
-						input: { query, page: parseInt(activeSearchPage) || 1 },
-					});
+					const { moviesSearch } = await gqlClient.request(
+						MoviesSearchDocument,
+						{
+							input: { query, page: parseInt(activeSearchPage) || 1 },
+						},
+					);
 					return moviesSearch;
 				})
 				.with(MetadataLot.Show, async () => {
-					const { showSearch } = await gqlClient.request(SHOWS_SEARCH, {
+					const { showSearch } = await gqlClient.request(ShowsSearchDocument, {
 						input: { query, page: parseInt(activeSearchPage) || 1 },
 					});
 					return showSearch;
 				})
 				.with(MetadataLot.VideoGame, async () => {
 					const { videoGamesSearch } = await gqlClient.request(
-						VIDEO_GAMES_SEARCH,
+						VideoGamesSearchDocument,
 						{
 							input: { query, page: parseInt(activeSearchPage) || 1 },
 						},
@@ -115,7 +118,7 @@ const Page: NextPageWithLayout = () => {
 				})
 				.with(MetadataLot.AudioBook, async () => {
 					const { audioBooksSearch } = await gqlClient.request(
-						AUDIO_BOOKS_SEARCH,
+						AudioBooksSearchDocument,
 						{
 							input: { query, page: parseInt(activeSearchPage) || 1 },
 						},
