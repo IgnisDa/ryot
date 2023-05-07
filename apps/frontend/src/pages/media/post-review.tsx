@@ -23,6 +23,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -56,7 +57,7 @@ const Page: NextPageWithLayout = () => {
 	useQuery({
 		queryKey: ["reviewDetails", metadataId, reviewId],
 		queryFn: async () => {
-			if (!reviewId) throw new Error("Can not get review details");
+			invariant(reviewId, "Can not get review details");
 			const { mediaItemReviews } = await gqlClient.request(
 				MediaItemReviewsDocument,
 				{

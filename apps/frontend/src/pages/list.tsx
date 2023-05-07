@@ -32,6 +32,7 @@ import { useQuery } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
@@ -54,7 +55,7 @@ const Page: NextPageWithLayout = () => {
 	const listMedia = useQuery({
 		queryKey: ["listMedia", activeMinePage, lot],
 		queryFn: async () => {
-			if (!lot) throw new Error("Lot if not defined");
+			invariant(lot, "Lot is not defined");
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
 				input: { lot, page: parseInt(activeMinePage) || 1 },
 			});
