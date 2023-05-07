@@ -44,5 +44,3 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.image_name.outputs.image_names }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
