@@ -1,5 +1,5 @@
-import useUser from "@/lib/hooks/useUser";
 import type { NextPageWithLayout } from "../_app";
+import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getInitials, getVerb } from "@/lib/utilities";
