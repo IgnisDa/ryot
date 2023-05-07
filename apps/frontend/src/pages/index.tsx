@@ -29,7 +29,7 @@ const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
 
 const StatTitle = (props: { text: string }) => {
-	return <Title order={3}>{props.text}</Title>;
+	return <Title order={5}>{props.text}</Title>;
 };
 
 const StatNumber = (props: { text: number; isDuration?: boolean }) => {
@@ -76,9 +76,12 @@ const Page: NextPageWithLayout = () => {
 				) : null}
 				{userSummary.data ? (
 					<SimpleGrid
-						cols={1}
+						cols={2}
 						spacing="lg"
-						breakpoints={[{ minWidth: "sm", cols: 2 }]}
+						breakpoints={[
+							{ minWidth: "sm", cols: 3 },
+							{ minWidth: 'lg', cols: 4 }
+						]}
 					>
 						<Box>
 							<StatTitle text="Books" />
