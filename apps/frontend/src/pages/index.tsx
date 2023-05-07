@@ -76,6 +76,21 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<Container>
 			<Stack>
+				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
+					<>
+						<Title>In Progress</Title>
+						<Grid>
+							{mediaInProgress.data.map((lm) => (
+								<MediaItemWithoutUpdateModal
+									key={lm.identifier}
+									item={lm}
+									lot={lm.lot}
+									imageOnClick={async () => parseInt(lm.identifier)}
+								/>
+							))}
+						</Grid>
+					</>
+				) : null}
 				{userSummary.isLoading ? <Loader /> : null}
 				{userSummary.isError ? (
 					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
@@ -157,21 +172,6 @@ const Page: NextPageWithLayout = () => {
 						Recalculate
 					</Button>
 				</Box>
-				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
-					<>
-						<Title>In Progress</Title>
-						<Grid>
-							{mediaInProgress.data.map((lm) => (
-								<MediaItemWithoutUpdateModal
-									key={lm.identifier}
-									item={lm}
-									lot={lm.lot}
-									imageOnClick={async () => parseInt(lm.identifier)}
-								/>
-							))}
-						</Grid>
-					</>
-				) : null}
 			</Stack>
 		</Container>
 	);
