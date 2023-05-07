@@ -10,12 +10,14 @@ import {
 	Alert,
 	Anchor,
 	Avatar,
+	Badge,
 	Box,
 	Button,
 	Container,
 	Flex,
 	Group,
 	Image,
+	MANTINE_COLORS,
 	Modal,
 	Rating,
 	ScrollArea,
@@ -57,6 +59,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { sample } from "lodash";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -261,7 +264,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaDetails;
 		},
-		staleTime: Infinity,
 	});
 	const history = useQuery({
 		queryKey: ["history", metadataId, details.data?.type],
@@ -389,6 +391,13 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
 					<Title underline>{details.data.title}</Title>
+					{details.data.collections.length > 0 ? (
+						<Group>
+							{details.data.collections.map((c, idx) => (
+								<Badge key={c} color={sample(MANTINE_COLORS)}>{c}</Badge>
+							))}
+						</Group>
+					) : null}
 					{inProgressSeenItem ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, details.data.type)}ing this{" "}
