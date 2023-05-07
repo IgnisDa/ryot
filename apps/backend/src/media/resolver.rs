@@ -30,6 +30,15 @@ use crate::{
 
 use super::LIMIT;
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaGenericData {
+    pub model: MetadataModel,
+    pub creators: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
+    pub genres: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MediaSearchItem {
     pub identifier: String,
@@ -224,16 +233,7 @@ impl MediaService {
         Ok((poster_images, backdrop_images))
     }
 
-    pub async fn generic_metadata(
-        &self,
-        metadata_id: i32,
-    ) -> Result<(
-        MetadataModel,
-        Vec<String>,
-        Vec<String>,
-        Vec<String>,
-        Vec<String>,
-    )> {
+    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaGenericData> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -253,19 +253,30 @@ impl MediaService {
             .map(|c| c.name)
             .collect();
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
-        Ok((meta, creators, poster_images, backdrop_images, genres))
+        Ok(MediaGenericData {
+            model: meta,
+            creators,
+            poster_images,
+            backdrop_images,
+            genres,
+        })
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
-        let (meta, creators, poster_images, backdrop_images, genres) =
-            self.generic_metadata(metadata_id).await?;
+        let MediaGenericData {
+            model,
+            creators,
+            poster_images,
+            backdrop_images,
+            genres,
+        } = self.generic_metadata(metadata_id).await?;
         let mut resp = DatabaseMediaDetails {
-            id: meta.id,
-            title: meta.title,
-            description: meta.description,
-            publish_year: meta.publish_year,
-            publish_date: meta.publish_date,
-            lot: meta.lot,
+            id: model.id,
+            title: model.title,
+            description: model.description,
+            publish_year: model.publish_year,
+            publish_date: model.publish_date,
+            lot: model.lot,
             creators,
             genres,
             poster_images,
@@ -276,7 +287,7 @@ impl MediaService {
             video_game_specifics: None,
             audio_books_specifics: None,
         };
-        match meta.lot {
+        match model.lot {
             MetadataLot::Book => {
                 let additional = Book::find_by_id(metadata_id)
                     .one(&self.db)

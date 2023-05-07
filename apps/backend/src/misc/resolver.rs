@@ -206,11 +206,11 @@ impl MiscService {
             for meta in metas {
                 let m = self.media_service.generic_metadata(meta.id).await?;
                 meta_data.push(MediaSearchItem {
-                    identifier: m.0.id.to_string(),
-                    lot: m.0.lot,
-                    title: m.0.title,
-                    poster_images: m.2,
-                    publish_year: m.0.publish_year,
+                    identifier: m.model.id.to_string(),
+                    lot: m.model.lot,
+                    title: m.model.title,
+                    poster_images: m.poster_images,
+                    publish_year: m.model.publish_year,
                 })
             }
             data.push(CollectionItem {
