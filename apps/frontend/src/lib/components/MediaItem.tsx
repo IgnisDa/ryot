@@ -84,7 +84,6 @@ export default function (props: {
 			});
 			return mediaConsumed;
 		},
-		{ staleTime: Infinity },
 	);
 	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {

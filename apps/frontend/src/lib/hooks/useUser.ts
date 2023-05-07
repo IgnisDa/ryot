@@ -9,7 +9,6 @@ export default function () {
 			const { userDetails } = await gqlClient.request(USER_DETAILS);
 			return userDetails;
 		},
-		staleTime: Infinity,
 	});
 	return userDetails.data?.__typename === "User" ? userDetails.data : undefined;
 }

@@ -47,7 +47,7 @@ const Page: NextPageWithLayout = () => {
 			const { userSummary } = await gqlClient.request(USER_SUMMARY);
 			return userSummary;
 		},
-		{ staleTime: Infinity, retry: false },
+		{ retry: false },
 	);
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (variables: RegerateUserSummaryMutationVariables) => {

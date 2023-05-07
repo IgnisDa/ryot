@@ -45,8 +45,8 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(formSchema),
 	});
 
-	const details = useQuery({
-		queryKey: ["details", metadataId],
+	const mediaDetails = useQuery({
+		queryKey: ["mediaDetails", metadataId],
 		queryFn: async () => {
 			const { mediaDetails } = await gqlClient.request(MEDIA_DETAILS, {
 				metadataId: metadataId,
@@ -65,7 +65,6 @@ const Page: NextPageWithLayout = () => {
 			const review = mediaItemReviews.find((m) => m.id === reviewId);
 			return review;
 		},
-		staleTime: Infinity,
 		enabled: reviewId !== undefined,
 		onSuccess: (data) => {
 			form.setValues({
@@ -86,9 +85,9 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const title = details.data?.title;
+	const title = mediaDetails.data?.title;
 
-	return details.data && title ? (
+	return mediaDetails.data && title ? (
 		<Container size={"xs"}>
 			<Box
 				component="form"

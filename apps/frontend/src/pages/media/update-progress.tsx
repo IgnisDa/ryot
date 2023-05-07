@@ -46,7 +46,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaDetails;
 		},
-		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (
