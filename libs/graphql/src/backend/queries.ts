@@ -172,6 +172,9 @@ export const USER_DETAILS = graphql(`
 	query UserDetails {
 	  userDetails {
 	    __typename
+	    ... on User {
+	      id
+	    }
 	  }
 	}
 `);
