@@ -144,19 +144,19 @@ const Page: NextPageWithLayout = () => {
 									.
 								</Text>
 							</Box>
-							<Box>
-								<Button
-									style={{ flexGrow: 0 }}
-									variant="light"
-									onClick={() => regenerateUserSummary.mutate({})}
-									loading={regenerateUserSummary.isLoading}
-								>
-									Recalculate
-								</Button>
-							</Box>
 						</SimpleGrid>
 					</>
 				) : null}
+				<Box>
+					<Button
+						style={{ flexGrow: 0 }}
+						variant="light"
+						onClick={() => regenerateUserSummary.mutate({})}
+						loading={regenerateUserSummary.isLoading}
+					>
+						Recalculate
+					</Button>
+				</Box>
 				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
 					<>
 						<Title>In Progress</Title>
