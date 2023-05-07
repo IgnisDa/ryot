@@ -23,6 +23,7 @@ import {
 	IconHome2,
 	IconListDetails,
 	IconLogout,
+	IconSettings,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
@@ -129,6 +130,7 @@ export default function({ children }: { children: ReactElement }) {
 				href: undefined,
 			})) || []),
 		{ icon: IconListDetails, label: "Collections", href: "/collections" },
+		{ icon: IconSettings, label: "Settings", href: "/settings" },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
@@ -174,7 +176,7 @@ export default function({ children }: { children: ReactElement }) {
 
 	return enabledFeatures ? (
 		<Flex direction={"column"} w={"100%"}>
-			<Flex p="sm" align={"center"} justify={"center"}>
+			<Flex p="sm" align={"center"} justify={"center"} wrap={'wrap'}>
 				{links}
 				<NavbarButton
 					icon={IconLogout}
