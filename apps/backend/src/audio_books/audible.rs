@@ -121,6 +121,7 @@ impl AudibleService {
                 let a = self.audible_response_to_search_response(d);
                 MediaSearchItem {
                     identifier: a.identifier,
+                    lot: MetadataLot::AudioBook,
                     title: a.title,
                     poster_images: a.poster_images,
                     publish_year: a.publish_year,

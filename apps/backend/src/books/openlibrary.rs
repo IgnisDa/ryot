@@ -154,6 +154,7 @@ impl OpenlibraryService {
                 .into_iter()
                 .map(|b| MediaSearchItem {
                     identifier: b.identifier,
+                    lot: MetadataLot::Book,
                     title: b.title,
                     poster_images: b.poster_images,
                     publish_year: b.publish_year,

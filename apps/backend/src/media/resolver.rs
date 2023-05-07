@@ -33,6 +33,7 @@ use super::LIMIT;
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MediaSearchItem {
     pub identifier: String,
+    pub lot: MetadataLot,
     pub title: String,
     pub poster_images: Vec<String>,
     pub publish_year: Option<i32>,

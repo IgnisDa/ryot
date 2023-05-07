@@ -208,6 +208,7 @@ impl TmdbService {
                     convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
+                    lot: MetadataLot::Show,
                     title: d.name,
                     publish_year: convert_date_to_year(&d.first_air_date),
                     poster_images,
