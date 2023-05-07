@@ -1,0 +1,11 @@
+query MoviesSearch($input: MoviesSearchInput!) {
+  moviesSearch(input: $input) {
+    total
+    items {
+      identifier
+      title
+      posterImages
+      publishYear
+    }
+  }
+}

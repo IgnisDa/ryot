@@ -13,32 +13,32 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Therefore it is highly recommended to use the babel or swc plugin for production.
  */
 const documents = {
-    "\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n": types.RegisterUserDocument,
-    "\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n": types.LoginUserDocument,
-    "\n  mutation LogoutUser {\n    logoutUser\n  }\n": types.LogoutUserDocument,
-    "\n  mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n    commitBook(identifier: $identifier, input: $input, index: $index) {\n      id\n    }\n  }\n": types.CommitBookDocument,
-    "\n  mutation CommitMovie($identifier: String!) {\n    commitMovie(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitMovieDocument,
-    "\n  mutation CommitShow($identifier: String!) {\n    commitShow(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitShowDocument,
-    "\n  mutation CommitVideoGame($identifier: String!) {\n    commitVideoGame(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitVideoGameDocument,
-    "\n  mutation CommitAudioBook($identifier: String!) {\n    commitAudioBook(identifier: $identifier) {\n      id\n    }\n  }\n": types.CommitAudioBookDocument,
-    "\n  mutation ProgressUpdate($input: ProgressUpdate!) {\n    progressUpdate(input: $input) {\n      id\n    }\n  }\n": types.ProgressUpdateDocument,
-    "\n  mutation DeleteSeenItem($seenId: Int!) {\n    deleteSeenItem(seenId: $seenId) {\n      id\n    }\n  }\n": types.DeleteSeenItemDocument,
-    "\n  mutation RegerateUserSummary {\n    regenerateUserSummary {\n      id\n    }\n  }\n": types.RegerateUserSummaryDocument,
-    "\n  mutation PostReview($input: PostReviewInput!) {\n    postReview(input: $input) {\n      id\n    }\n  }\n": types.PostReviewDocument,
-    "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n": types.BooksSearchDocument,
-    "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MoviesSearchDocument,
-    "\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.ShowsSearchDocument,
-    "\n\tquery VideoGamesSearch($input: VideoGamesSearchInput!) {\n\t  videoGamesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.VideoGamesSearchDocument,
-    "\n\tquery AudioBooksSearch($input: AudioBookSearchInput!) {\n\t  audioBooksSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.AudioBooksSearchDocument,
-    "\n\tquery CoreDetails {\n\t  coreDetails {\n\t    version\n\t    authorName\n\t  }\n\t}\n": types.CoreDetailsDocument,
-    "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t    type\n\t    posterImages\n\t    backdropImages\n\t    publishYear\n\t    publishDate\n\t\t\tgenres\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t    showSpecifics {\n\t      seasons {\n\t        seasonNumber\n\t        name\n\t        overview\n\t        backdropImages\n\t        posterImages\n\t        episodes {\n\t\t\t\t\t\tid\n\t          name\n\t\t\t\t\t\tposterImages\n\t          episodeNumber\n\t          publishDate\n\t          name\n\t          overview\n\t        }\n\t      }\n\t    }\n\t  }\n\t}\n": types.MediaDetailsDocument,
-    "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n": types.SeenHistoryDocument,
-    "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n": types.MediaConsumedDocument,
-    "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n": types.MediaListDocument,
-    "\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n": types.CoreEnabledFeaturesDocument,
-    "\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t    ... on User {\n\t      id\n\t    }\n\t  }\n\t}\n": types.UserDetailsDocument,
-    "\n\tquery UserSummary {\n\t  userSummary {\n\t    books {\n\t      pages\n\t      read\n\t    }\n\t    movies {\n\t      runtime\n\t      watched\n\t    }\n\t    videoGames {\n\t      played\n\t    }\n\t    shows {\n\t      runtime\n\t      watchedEpisodes\n\t\t\t\twatchedShows\n\t    }\n\t    audioBooks {\n\t      runtime\n\t      played\n\t    }\n\t  }\n\t}\n": types.UserSummaryDocument,
-    "\n\tquery MediaItemReviews($metadataId: Int!) {\n\t  mediaItemReviews(metadataId: $metadataId) {\n\t    id\n\t    rating\n\t    text\n\t    visibility\n\t    seasonNumber\n\t    episodeNumber\n\t    postedOn\n\t    postedBy {\n\t      id\n\t      name\n\t    }\n\t  }\n\t}\n": types.MediaItemReviewsDocument,
+    "mutation CommitAudioBook($identifier: String!) {\n  commitAudioBook(identifier: $identifier) {\n    id\n  }\n}": types.CommitAudioBookDocument,
+    "mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n  commitBook(identifier: $identifier, input: $input, index: $index) {\n    id\n  }\n}": types.CommitBookDocument,
+    "mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}": types.CommitMovieDocument,
+    "mutation CommitShow($identifier: String!) {\n  commitShow(identifier: $identifier) {\n    id\n  }\n}": types.CommitShowDocument,
+    "mutation CommitVideoGame($identifier: String!) {\n  commitVideoGame(identifier: $identifier) {\n    id\n  }\n}": types.CommitVideoGameDocument,
+    "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
+    "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
+    "mutation LogoutUser {\n  logoutUser\n}": types.LogoutUserDocument,
+    "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
+    "mutation ProgressUpdate($input: ProgressUpdate!) {\n  progressUpdate(input: $input) {\n    id\n  }\n}": types.ProgressUpdateDocument,
+    "mutation RegerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}": types.RegerateUserSummaryDocument,
+    "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
+    "query AudioBooksSearch($input: AudioBookSearchInput!) {\n  audioBooksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.AudioBooksSearchDocument,
+    "query BooksSearch($input: BookSearchInput!) {\n  booksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.BooksSearchDocument,
+    "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n  }\n}": types.CoreDetailsDocument,
+    "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}": types.CoreEnabledFeaturesDocument,
+    "query MediaConsumed($input: MediaConsumedInput!) {\n  mediaConsumed(input: $input) {\n    seen\n  }\n}": types.MediaConsumedDocument,
+    "query MediaDetails($metadataId: Int!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    description\n    type\n    creators\n    type\n    posterImages\n    backdropImages\n    publishYear\n    publishDate\n    genres\n    movieSpecifics {\n      runtime\n    }\n    bookSpecifics {\n      pages\n    }\n    showSpecifics {\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n        }\n      }\n    }\n  }\n}": types.MediaDetailsDocument,
+    "query MediaItemReviews($metadataId: Int!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    visibility\n    seasonNumber\n    episodeNumber\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}": types.MediaItemReviewsDocument,
+    "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      backdropImages\n      publishYear\n    }\n  }\n}": types.MediaListDocument,
+    "query MoviesSearch($input: MoviesSearchInput!) {\n  moviesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.MoviesSearchDocument,
+    "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n  }\n}": types.SeenHistoryDocument,
+    "query ShowsSearch($input: ShowSearchInput!) {\n  showSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.ShowsSearchDocument,
+    "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n    }\n  }\n}": types.UserDetailsDocument,
+    "query UserSummary {\n  userSummary {\n    books {\n      pages\n      read\n    }\n    movies {\n      runtime\n      watched\n    }\n    videoGames {\n      played\n    }\n    shows {\n      runtime\n      watchedEpisodes\n      watchedShows\n    }\n    audioBooks {\n      runtime\n      played\n    }\n  }\n}": types.UserSummaryDocument,
+    "query VideoGamesSearch($input: VideoGamesSearchInput!) {\n  videoGamesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.VideoGamesSearchDocument,
 };
 
 /**
@@ -58,107 +58,107 @@ export function graphql(source: string): unknown;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation RegisterUser($input: UserInput!) {\n    registerUser(input: $input){\n      __typename\n      ... on RegisterError {\n        error\n      }\n      ... on IdObject {\n        id\n      }\n    }\n  }\n"];
+export function graphql(source: "mutation CommitAudioBook($identifier: String!) {\n  commitAudioBook(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitAudioBook($identifier: String!) {\n  commitAudioBook(identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation LoginUser($input: UserInput!) {\n    loginUser(input: $input) {\n      __typename\n      ... on LoginError {\n        error\n      }\n      ... on LoginResponse {\n        apiKey\n      }\n    }\n  }\n"];
+export function graphql(source: "mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n  commitBook(identifier: $identifier, input: $input, index: $index) {\n    id\n  }\n}"): (typeof documents)["mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n  commitBook(identifier: $identifier, input: $input, index: $index) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation LogoutUser {\n    logoutUser\n  }\n"): (typeof documents)["\n  mutation LogoutUser {\n    logoutUser\n  }\n"];
+export function graphql(source: "mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n    commitBook(identifier: $identifier, input: $input, index: $index) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n    commitBook(identifier: $identifier, input: $input, index: $index) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation CommitShow($identifier: String!) {\n  commitShow(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitShow($identifier: String!) {\n  commitShow(identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation CommitMovie($identifier: String!) {\n    commitMovie(identifier: $identifier) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitMovie($identifier: String!) {\n    commitMovie(identifier: $identifier) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation CommitVideoGame($identifier: String!) {\n  commitVideoGame(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitVideoGame($identifier: String!) {\n  commitVideoGame(identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation CommitShow($identifier: String!) {\n    commitShow(identifier: $identifier) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitShow($identifier: String!) {\n    commitShow(identifier: $identifier) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}"): (typeof documents)["mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation CommitVideoGame($identifier: String!) {\n    commitVideoGame(identifier: $identifier) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitVideoGame($identifier: String!) {\n    commitVideoGame(identifier: $identifier) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}"): (typeof documents)["mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation CommitAudioBook($identifier: String!) {\n    commitAudioBook(identifier: $identifier) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CommitAudioBook($identifier: String!) {\n    commitAudioBook(identifier: $identifier) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation LogoutUser {\n  logoutUser\n}"): (typeof documents)["mutation LogoutUser {\n  logoutUser\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation ProgressUpdate($input: ProgressUpdate!) {\n    progressUpdate(input: $input) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation ProgressUpdate($input: ProgressUpdate!) {\n    progressUpdate(input: $input) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation DeleteSeenItem($seenId: Int!) {\n    deleteSeenItem(seenId: $seenId) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation DeleteSeenItem($seenId: Int!) {\n    deleteSeenItem(seenId: $seenId) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation ProgressUpdate($input: ProgressUpdate!) {\n  progressUpdate(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation ProgressUpdate($input: ProgressUpdate!) {\n  progressUpdate(input: $input) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation RegerateUserSummary {\n    regenerateUserSummary {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation RegerateUserSummary {\n    regenerateUserSummary {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation RegerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}"): (typeof documents)["mutation RegerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation PostReview($input: PostReviewInput!) {\n    postReview(input: $input) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation PostReview($input: PostReviewInput!) {\n    postReview(input: $input) {\n      id\n    }\n  }\n"];
+export function graphql(source: "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}"): (typeof documents)["mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"): (typeof documents)["\n\tquery BooksSearch($input: BookSearchInput!) {\n  \tbooksSearch(input: $input) {\n\t\t\ttotal\n\t\t\titems {\n    \t\tidentifier\n    \t\ttitle\n    \t\tposterImages\n\t\t\t\tpublishYear\n\t\t\t}\n  \t}\n\t}\n"];
+export function graphql(source: "query AudioBooksSearch($input: AudioBookSearchInput!) {\n  audioBooksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"): (typeof documents)["query AudioBooksSearch($input: AudioBookSearchInput!) {\n  audioBooksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MoviesSearch($input: MoviesSearchInput!) {\n\t  moviesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query BooksSearch($input: BookSearchInput!) {\n  booksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"): (typeof documents)["query BooksSearch($input: BookSearchInput!) {\n  booksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery ShowsSearch($input: ShowSearchInput!) {\n\t  showSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery VideoGamesSearch($input: VideoGamesSearchInput!) {\n\t  videoGamesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery VideoGamesSearch($input: VideoGamesSearchInput!) {\n\t  videoGamesSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}"): (typeof documents)["query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery AudioBooksSearch($input: AudioBookSearchInput!) {\n\t  audioBooksSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery AudioBooksSearch($input: AudioBookSearchInput!) {\n\t  audioBooksSearch(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query MediaConsumed($input: MediaConsumedInput!) {\n  mediaConsumed(input: $input) {\n    seen\n  }\n}"): (typeof documents)["query MediaConsumed($input: MediaConsumedInput!) {\n  mediaConsumed(input: $input) {\n    seen\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery CoreDetails {\n\t  coreDetails {\n\t    version\n\t    authorName\n\t  }\n\t}\n"): (typeof documents)["\n\tquery CoreDetails {\n\t  coreDetails {\n\t    version\n\t    authorName\n\t  }\n\t}\n"];
+export function graphql(source: "query MediaDetails($metadataId: Int!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    description\n    type\n    creators\n    type\n    posterImages\n    backdropImages\n    publishYear\n    publishDate\n    genres\n    movieSpecifics {\n      runtime\n    }\n    bookSpecifics {\n      pages\n    }\n    showSpecifics {\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n        }\n      }\n    }\n  }\n}"): (typeof documents)["query MediaDetails($metadataId: Int!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    description\n    type\n    creators\n    type\n    posterImages\n    backdropImages\n    publishYear\n    publishDate\n    genres\n    movieSpecifics {\n      runtime\n    }\n    bookSpecifics {\n      pages\n    }\n    showSpecifics {\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n        }\n      }\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t    type\n\t    posterImages\n\t    backdropImages\n\t    publishYear\n\t    publishDate\n\t\t\tgenres\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t    showSpecifics {\n\t      seasons {\n\t        seasonNumber\n\t        name\n\t        overview\n\t        backdropImages\n\t        posterImages\n\t        episodes {\n\t\t\t\t\t\tid\n\t          name\n\t\t\t\t\t\tposterImages\n\t          episodeNumber\n\t          publishDate\n\t          name\n\t          overview\n\t        }\n\t      }\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaDetails($metadataId: Int!) {\n\t  mediaDetails(metadataId: $metadataId) {\n\t    title\n\t    description\n\t    type\n\t    creators\n\t    type\n\t    posterImages\n\t    backdropImages\n\t    publishYear\n\t    publishDate\n\t\t\tgenres\n\t    movieSpecifics {\n\t      runtime\n\t    }\n\t    bookSpecifics {\n\t      pages\n\t    }\n\t    showSpecifics {\n\t      seasons {\n\t        seasonNumber\n\t        name\n\t        overview\n\t        backdropImages\n\t        posterImages\n\t        episodes {\n\t\t\t\t\t\tid\n\t          name\n\t\t\t\t\t\tposterImages\n\t          episodeNumber\n\t          publishDate\n\t          name\n\t          overview\n\t        }\n\t      }\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query MediaItemReviews($metadataId: Int!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    visibility\n    seasonNumber\n    episodeNumber\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}"): (typeof documents)["query MediaItemReviews($metadataId: Int!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    visibility\n    seasonNumber\n    episodeNumber\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n"): (typeof documents)["\n\tquery SeenHistory($metadataId: Int!) {\n\t  seenHistory(metadataId: $metadataId) {\n\t    id\n\t    progress\n\t    startedOn\n\t    finishedOn\n\t    lastUpdatedOn\n\t\t\tshowInformation {\n\t\t\t\tepisode\n\t\t\t\tseason\n\t\t\t}\n\t  }\n\t}\n"];
+export function graphql(source: "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      backdropImages\n      publishYear\n    }\n  }\n}"): (typeof documents)["query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      backdropImages\n      publishYear\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaConsumed($input: MediaConsumedInput!) {\n\t  mediaConsumed(input: $input) {\n\t    seen\n\t  }\n\t}\n"];
+export function graphql(source: "query MoviesSearch($input: MoviesSearchInput!) {\n  moviesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"): (typeof documents)["query MoviesSearch($input: MoviesSearchInput!) {\n  moviesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaList($input: MediaListInput!) {\n\t  mediaList(input: $input) {\n\t    total\n\t    items {\n\t      identifier\n\t      title\n\t      posterImages\n\t\t\t\tbackdropImages\n\t      publishYear\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n  }\n}"): (typeof documents)["query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n"): (typeof documents)["\n\tquery CoreEnabledFeatures {\n\t  coreEnabledFeatures {\n\t    name\n\t    enabled\n\t  }\n\t}\n"];
+export function graphql(source: "query ShowsSearch($input: ShowSearchInput!) {\n  showSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"): (typeof documents)["query ShowsSearch($input: ShowSearchInput!) {\n  showSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t    ... on User {\n\t      id\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery UserDetails {\n\t  userDetails {\n\t    __typename\n\t    ... on User {\n\t      id\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n    }\n  }\n}"): (typeof documents)["query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery UserSummary {\n\t  userSummary {\n\t    books {\n\t      pages\n\t      read\n\t    }\n\t    movies {\n\t      runtime\n\t      watched\n\t    }\n\t    videoGames {\n\t      played\n\t    }\n\t    shows {\n\t      runtime\n\t      watchedEpisodes\n\t\t\t\twatchedShows\n\t    }\n\t    audioBooks {\n\t      runtime\n\t      played\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery UserSummary {\n\t  userSummary {\n\t    books {\n\t      pages\n\t      read\n\t    }\n\t    movies {\n\t      runtime\n\t      watched\n\t    }\n\t    videoGames {\n\t      played\n\t    }\n\t    shows {\n\t      runtime\n\t      watchedEpisodes\n\t\t\t\twatchedShows\n\t    }\n\t    audioBooks {\n\t      runtime\n\t      played\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query UserSummary {\n  userSummary {\n    books {\n      pages\n      read\n    }\n    movies {\n      runtime\n      watched\n    }\n    videoGames {\n      played\n    }\n    shows {\n      runtime\n      watchedEpisodes\n      watchedShows\n    }\n    audioBooks {\n      runtime\n      played\n    }\n  }\n}"): (typeof documents)["query UserSummary {\n  userSummary {\n    books {\n      pages\n      read\n    }\n    movies {\n      runtime\n      watched\n    }\n    videoGames {\n      played\n    }\n    shows {\n      runtime\n      watchedEpisodes\n      watchedShows\n    }\n    audioBooks {\n      runtime\n      played\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n\tquery MediaItemReviews($metadataId: Int!) {\n\t  mediaItemReviews(metadataId: $metadataId) {\n\t    id\n\t    rating\n\t    text\n\t    visibility\n\t    seasonNumber\n\t    episodeNumber\n\t    postedOn\n\t    postedBy {\n\t      id\n\t      name\n\t    }\n\t  }\n\t}\n"): (typeof documents)["\n\tquery MediaItemReviews($metadataId: Int!) {\n\t  mediaItemReviews(metadataId: $metadataId) {\n\t    id\n\t    rating\n\t    text\n\t    visibility\n\t    seasonNumber\n\t    episodeNumber\n\t    postedOn\n\t    postedBy {\n\t      id\n\t      name\n\t    }\n\t  }\n\t}\n"];
+export function graphql(source: "query VideoGamesSearch($input: VideoGamesSearchInput!) {\n  videoGamesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"): (typeof documents)["query VideoGamesSearch($input: VideoGamesSearchInput!) {\n  videoGamesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

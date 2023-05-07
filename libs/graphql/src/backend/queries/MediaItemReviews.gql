@@ -1,0 +1,15 @@
+query MediaItemReviews($metadataId: Int!) {
+  mediaItemReviews(metadataId: $metadataId) {
+    id
+    rating
+    text
+    visibility
+    seasonNumber
+    episodeNumber
+    postedOn
+    postedBy {
+      id
+      name
+    }
+  }
+}

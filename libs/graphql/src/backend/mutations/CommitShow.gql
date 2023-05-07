@@ -1,0 +1,5 @@
+mutation CommitShow($identifier: String!) {
+  commitShow(identifier: $identifier) {
+    id
+  }
+}

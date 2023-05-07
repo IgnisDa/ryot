@@ -1,0 +1,5 @@
+mutation CommitMovie($identifier: String!) {
+  commitMovie(identifier: $identifier) {
+    id
+  }
+}

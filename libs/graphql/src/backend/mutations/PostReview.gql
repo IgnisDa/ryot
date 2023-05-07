@@ -1,0 +1,5 @@
+mutation PostReview($input: PostReviewInput!) {
+  postReview(input: $input) {
+    id
+  }
+}

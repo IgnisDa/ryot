@@ -1,0 +1,11 @@
+query AudioBooksSearch($input: AudioBookSearchInput!) {
+  audioBooksSearch(input: $input) {
+    total
+    items {
+      identifier
+      title
+      posterImages
+      publishYear
+    }
+  }
+}

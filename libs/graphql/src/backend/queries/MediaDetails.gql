@@ -1,0 +1,38 @@
+query MediaDetails($metadataId: Int!) {
+  mediaDetails(metadataId: $metadataId) {
+    title
+    description
+    type
+    creators
+    type
+    posterImages
+    backdropImages
+    publishYear
+    publishDate
+		genres
+    movieSpecifics {
+      runtime
+    }
+    bookSpecifics {
+      pages
+    }
+    showSpecifics {
+      seasons {
+        seasonNumber
+        name
+        overview
+        backdropImages
+        posterImages
+        episodes {
+					id
+          name
+					posterImages
+          episodeNumber
+          publishDate
+          name
+          overview
+        }
+      }
+    }
+  }
+}
