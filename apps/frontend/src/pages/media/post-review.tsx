@@ -18,7 +18,10 @@ import {
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { POST_REVIEW } from "@ryot/graphql/backend/mutations";
-import { MEDIA_DETAILS } from "@ryot/graphql/backend/queries";
+import {
+	MEDIA_DETAILS,
+	MEDIA_ITEM_REVIEWS,
+} from "@ryot/graphql/backend/queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
@@ -34,9 +37,19 @@ type FormSchema = z.infer<typeof formSchema>;
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const reviewId = Number(router.query.reviewId?.toString()) || null;
 	const seasonNumber = Number(router.query.selectedSeason?.toString()) || null;
 	const episodeNumber =
 		Number(router.query.selectedEpisode?.toString()) || null;
+
+	const form = useForm<FormSchema>({
+		validate: zodResolver(formSchema),
+		transformValues: (values) => ({
+			rating: Number(values.rating),
+			visibility: values.visibility,
+			text: values.text,
+		}),
+	});
 
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -48,6 +61,27 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 	});
+	useQuery({
+		queryKey: ["reviews", metadataId],
+		queryFn: async () => {
+			if (!reviewId) throw new Error("Can not get review details");
+			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
+				metadataId: metadataId,
+			});
+			const review = mediaItemReviews.find((m) => m.id === reviewId);
+			return review;
+		},
+		staleTime: Infinity,
+		enabled: reviewId !== undefined,
+		onSettled: (data) => {
+			form.setValues({
+				rating: data?.rating || 0,
+				text: data?.text || "",
+				visibility: data?.visibility,
+			});
+			form.resetDirty();
+		},
+	});
 	const postReview = useMutation({
 		mutationFn: async (variables: PostReviewMutationVariables) => {
 			const { postReview } = await gqlClient.request(POST_REVIEW, variables);
@@ -57,7 +91,6 @@ const Page: NextPageWithLayout = () => {
 			router.push(`/media?item=${metadataId}`);
 		},
 	});
-	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	const title = details.data?.title;
 
@@ -66,9 +99,14 @@ const Page: NextPageWithLayout = () => {
 			<Box
 				component="form"
 				onSubmit={form.onSubmit((values) => {
-					console.log(values);
 					postReview.mutate({
-						input: { metadataId, ...values, seasonNumber, episodeNumber },
+						input: {
+							metadataId,
+							...values,
+							seasonNumber,
+							episodeNumber,
+							reviewId,
+						},
 					});
 				})}
 			>
@@ -95,7 +133,7 @@ const Page: NextPageWithLayout = () => {
 						/>
 					</Box>
 					<Button mt="md" type="submit" loading={postReview.isLoading} w="100%">
-						Submit
+						{reviewId ? "Update" : "Submit"}
 					</Button>
 				</Stack>
 			</Box>

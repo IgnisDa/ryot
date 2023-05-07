@@ -156,16 +156,6 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
-	const reviews = useQuery({
-		queryKey: ["reviews", metadataId],
-		queryFn: async () => {
-			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
-				metadataId: metadataId,
-			});
-			return mediaItemReviews;
-		},
-		staleTime: Infinity,
-	});
 	const details = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
@@ -185,6 +175,16 @@ const Page: NextPageWithLayout = () => {
 			});
 			return seenHistory;
 		},
+	});
+	const reviews = useQuery({
+		queryKey: ["reviews", metadataId],
+		queryFn: async () => {
+			const { mediaItemReviews } = await gqlClient.request(MEDIA_ITEM_REVIEWS, {
+				metadataId: metadataId,
+			});
+			return mediaItemReviews;
+		},
+		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
