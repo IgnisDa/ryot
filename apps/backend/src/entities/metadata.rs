@@ -114,4 +114,17 @@ impl Related<super::genre::Entity> for Entity {
     }
 }
 
+impl Related<super::collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::metadata_to_collection::Relation::Collection.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::metadata_to_collection::Relation::Metadata
+                .def()
+                .rev(),
+        )
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}
