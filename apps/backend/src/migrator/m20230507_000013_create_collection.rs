@@ -69,6 +69,17 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("collection__name-user_id__index")
+                    .table(Collection::Table)
+                    .col(Collection::Name)
+                    .col(Collection::UserId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
             .create_table(
                 Table::create()
                     .table(MetadataToCollection::Table)
