@@ -4,6 +4,7 @@ import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	Alert,
 	Container,
 	Stack,
 	Text,
@@ -12,6 +13,7 @@ import {
 import {
 	CollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconAlertCircle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 
@@ -26,7 +28,7 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<Container>
 			<Stack>
-				{collections.data ? (
+				{collections.data && collections.data.length > 0 ? (
 					collections.data.map(c => (
 						<Stack key={c.collectionDetails.id}>
 							<Title order={3} truncate>{c.collectionDetails.name}</Title>
@@ -47,7 +49,12 @@ const Page: NextPageWithLayout = () => {
 							}
 						</Stack>
 					))
-				) : <Text>You do not have any collections</Text>}
+				) : (
+					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+						You do not have any collections. You can create and add media to
+						collections from a media's details page.
+					</Alert>
+				)}
 			</Stack>
 		</Container>
 	);
