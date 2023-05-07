@@ -15,7 +15,7 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import {
 	type PostReviewMutationVariables,
-	Visibility,
+	ReviewVisibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { POST_REVIEW } from "@ryot/graphql/backend/mutations";
 import {
@@ -28,9 +28,9 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
-	rating: z.preprocess(Number, z.number().min(0).max(5)),
-	text: z.string().default(""),
-	visibility: z.nativeEnum(Visibility).default(Visibility.Private),
+	rating: z.preprocess(Number, z.number().min(0).max(5)).default(0),
+	text: z.string(),
+	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Private),
 });
 type FormSchema = z.infer<typeof formSchema>;
 
@@ -119,8 +119,8 @@ const Page: NextPageWithLayout = () => {
 						<SegmentedControl
 							fullWidth
 							data={[
-								{ label: Visibility.Private, value: Visibility.Private },
-								{ label: Visibility.Public, value: Visibility.Public },
+								{ label: ReviewVisibility.Private, value: ReviewVisibility.Private },
+								{ label: ReviewVisibility.Public, value: ReviewVisibility.Public },
 							]}
 							{...form.getInputProps("visibility")}
 						/>
