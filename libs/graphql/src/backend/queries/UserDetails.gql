@@ -3,6 +3,8 @@ query UserDetails {
     __typename
     ... on User {
       id
+      email
+      name
     }
   }
 }
