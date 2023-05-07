@@ -77,7 +77,7 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 
 const navbarData = [
 	{ icon: IconHome2, label: "Home", href: "/" },
-	{ icon: IconListDetails, label: "Collections", href: "/collections" }
+	{ icon: IconListDetails, label: "Collections", href: "/collections" },
 ];
 
 const getIcon = (lot: MetadataLot) => {
@@ -90,7 +90,7 @@ const getIcon = (lot: MetadataLot) => {
 		.exhaustive();
 };
 
-export default function({ children }: { children: ReactElement }) {
+export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
 	useQuery({

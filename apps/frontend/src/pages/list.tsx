@@ -72,7 +72,7 @@ const Page: NextPageWithLayout = () => {
 	const listMedia = useQuery({
 		queryKey: ["listMedia", activeMinePage, lot],
 		queryFn: async () => {
-			if (!lot) throw new Error('Lot if not defined')
+			if (!lot) throw new Error("Lot if not defined");
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
 				input: { lot, page: parseInt(activeMinePage) || 1 },
 			});
@@ -209,7 +209,7 @@ const Page: NextPageWithLayout = () => {
 					<Stack>
 						{listMedia.data && listMedia.data.total > 0 ? (
 							<Grid>
-								{listMedia.data.items.map((lm,) => (
+								{listMedia.data.items.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}
