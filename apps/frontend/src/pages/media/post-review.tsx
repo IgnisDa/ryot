@@ -28,7 +28,7 @@ import { z } from "zod";
 
 const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(5)).default(0),
-	text: z.string(),
+	text: z.string().optional(),
 	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Private),
 });
 type FormSchema = z.infer<typeof formSchema>;
