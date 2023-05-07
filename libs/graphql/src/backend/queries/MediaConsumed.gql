@@ -1,5 +1,0 @@
-query MediaConsumed($input: MediaConsumedInput!) {
-  mediaConsumed(input: $input) {
-    seen
-  }
-}

@@ -10,16 +10,15 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        audio_book, book, creator, genre,
+        creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, metadata_to_genre, movie,
+        metadata_image, metadata_to_creator, metadata_to_genre,
         prelude::{
             AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
-            UserToMetadata, VideoGame,
+            UserToMetadata,
         },
-        seen, show, user_to_metadata,
+        seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
-        video_game,
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -29,7 +28,7 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{SeenStatus, LIMIT};
+use super::LIMIT;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MediaSearchItem {
@@ -43,12 +42,6 @@ pub struct MediaSearchItem {
 pub struct MediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSeen {
-    pub identifier: String,
-    pub seen: SeenStatus,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
@@ -143,19 +136,6 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .seen_history(metadata_id, user_id)
-            .await
-    }
-
-    /// Check whether a media item has been consumed before
-    async fn media_consumed(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: MediaConsumedInput,
-    ) -> Result<MediaSeen> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .media_consumed(user_id, input)
             .await
     }
 
@@ -350,75 +330,6 @@ impl MediaService {
             }
         });
         Ok(prev_seen)
-    }
-
-    pub async fn media_consumed(
-        &self,
-        user_id: i32,
-        input: MediaConsumedInput,
-    ) -> Result<MediaSeen> {
-        let media = match input.lot {
-            MetadataLot::AudioBook => AudioBook::find()
-                .filter(audio_book::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Book => Book::find()
-                .filter(book::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Movie => Movie::find()
-                .filter(movie::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::Show => Show::find()
-                .filter(show::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-            MetadataLot::VideoGame => VideoGame::find()
-                .filter(video_game::Column::Identifier.eq(&input.identifier))
-                .one(&self.db)
-                .await
-                .unwrap()
-                .map(|b| b.metadata_id),
-        };
-        let resp = if let Some(m) = media {
-            let seen = Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(media))
-                .order_by_asc(seen::Column::LastUpdatedOn)
-                .all(&self.db)
-                .await
-                .unwrap();
-            let filtered = seen
-                .iter()
-                .filter(|b| b.metadata_id == m)
-                .collect::<Vec<_>>();
-            let is_there = if filtered.is_empty() {
-                SeenStatus::NotConsumed
-            } else if filtered.last().unwrap().progress < 100 {
-                SeenStatus::CurrentlyUnderway
-            } else {
-                SeenStatus::ConsumedAtleastOnce
-            };
-            MediaSeen {
-                identifier: input.identifier,
-                seen: is_there,
-            }
-        } else {
-            MediaSeen {
-                identifier: input.identifier,
-                seen: SeenStatus::NotInDatabase,
-            }
-        };
-        Ok(resp)
     }
 
     pub async fn media_list(
