@@ -35,18 +35,8 @@ use super::{SeenStatus, LIMIT};
 pub struct MediaSearchItem {
     pub identifier: String,
     pub title: String,
-    pub description: Option<String>,
-    pub author_names: Vec<String>,
-    pub genres: Vec<String>,
     pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_books_specifics: Option<AudioBookSpecifics>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -461,26 +451,11 @@ impl MediaService {
                 .filter(|f| f.lot == MetadataImageLot::Poster)
                 .map(|i| i.url.clone())
                 .collect();
-            let backdrop_images = images
-                .iter()
-                .filter(|f| f.lot == MetadataImageLot::Backdrop)
-                .map(|i| i.url.clone())
-                .collect();
             let _m = MediaSearchItem {
                 identifier: m.id.to_string(),
                 title: m.title,
-                description: m.description,
                 poster_images,
-                backdrop_images,
                 publish_year: m.publish_year,
-                publish_date: m.publish_date,
-                book_specifics: None,
-                movie_specifics: None,
-                show_specifics: None,
-                video_game_specifics: None,
-                audio_books_specifics: None,
-                genres: vec![],
-                author_names: vec![],
             };
             items.push(_m);
         }

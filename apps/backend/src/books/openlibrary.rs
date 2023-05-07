@@ -155,18 +155,8 @@ impl OpenlibraryService {
                 .map(|b| MediaSearchItem {
                     identifier: b.identifier,
                     title: b.title,
-                    description: b.description,
-                    author_names: b.author_names,
-                    genres: b.genres,
                     poster_images: b.poster_images,
-                    backdrop_images: b.backdrop_images,
                     publish_year: b.publish_year,
-                    publish_date: b.publish_date,
-                    book_specifics: Some(b.book_specifics),
-                    movie_specifics: None,
-                    show_specifics: None,
-                    video_game_specifics: None,
-                    audio_books_specifics: None,
                 })
                 .collect(),
         })

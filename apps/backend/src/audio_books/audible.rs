@@ -91,19 +91,6 @@ impl AudibleService {
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let d = self.audible_response_to_search_response(data.product);
-        let d = MediaDetails {
-            identifier: d.identifier,
-            title: d.title,
-            description: d.description,
-            lot: MetadataLot::AudioBook,
-            creators: d.author_names,
-            genres: d.genres,
-            poster_images: d.poster_images,
-            backdrop_images: d.backdrop_images,
-            publish_year: d.publish_year,
-            publish_date: d.publish_date,
-            specifics: d.audio_books_specifics.unwrap(),
-        };
         Ok(d)
     }
 
@@ -130,7 +117,15 @@ impl AudibleService {
         let resp = search
             .products
             .into_iter()
-            .map(|d| self.audible_response_to_search_response(d))
+            .map(|d| {
+                let a = self.audible_response_to_search_response(d);
+                MediaSearchItem {
+                    identifier: a.identifier,
+                    title: a.title,
+                    poster_images: a.poster_images,
+                    publish_year: a.publish_year,
+                }
+            })
             .collect::<Vec<_>>();
         Ok(MediaSearchResults {
             total: search.total_results,
@@ -138,24 +133,24 @@ impl AudibleService {
         })
     }
 
-    fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaSearchItem {
+    fn audible_response_to_search_response(
+        &self,
+        item: AudibleItem,
+    ) -> MediaDetails<AudioBookSpecifics> {
         let poster_images = convert_option_path_to_vec(item.product_images.image);
         let release_date = item.release_date.unwrap_or_default();
-        MediaSearchItem {
+        MediaDetails {
             identifier: item.asin,
+            lot: MetadataLot::AudioBook,
             title: item.title,
             description: item.merchandising_summary,
-            author_names: item.authors.into_iter().map(|a| a.name).collect(),
+            creators: item.authors.into_iter().map(|a| a.name).collect(),
             genres: vec![],
             publish_year: convert_date_to_year(&release_date),
             publish_date: convert_string_to_date(&release_date),
-            movie_specifics: None,
-            book_specifics: None,
-            show_specifics: None,
-            video_game_specifics: None,
-            audio_books_specifics: Some(AudioBookSpecifics {
+            specifics: AudioBookSpecifics {
                 runtime: item.runtime_length_min,
-            }),
+            },
             poster_images,
             backdrop_images: vec![],
         }

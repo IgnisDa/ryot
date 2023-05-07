@@ -123,18 +123,8 @@ impl TmdbService {
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     title: d.title,
-                    description: d.overview,
-                    author_names: vec![],
-                    genres: vec![],
                     publish_year: convert_date_to_year(&d.release_date),
-                    publish_date: convert_string_to_date(&d.release_date),
-                    movie_specifics: Some(MovieSpecifics { runtime: None }),
-                    book_specifics: None,
-                    show_specifics: None,
-                    video_game_specifics: None,
-                    audio_books_specifics: None,
                     poster_images,
-                    backdrop_images,
                 }
             })
             .collect::<Vec<_>>();

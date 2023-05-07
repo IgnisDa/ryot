@@ -101,19 +101,6 @@ where id = {id};
         let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
         let d = self.igdb_response_to_search_response(detail);
-        let d = MediaDetails {
-            identifier: d.identifier,
-            title: d.title,
-            description: d.description,
-            lot: MetadataLot::VideoGame,
-            creators: d.author_names,
-            genres: d.genres,
-            poster_images: d.poster_images,
-            backdrop_images: d.backdrop_images,
-            publish_year: d.publish_year,
-            publish_date: d.publish_date,
-            specifics: d.video_game_specifics.unwrap(),
-        };
         Ok(d)
     }
 
@@ -142,12 +129,23 @@ offset: {offset};
 
         let resp = search
             .into_iter()
-            .map(|r| self.igdb_response_to_search_response(r))
+            .map(|r| {
+                let a = self.igdb_response_to_search_response(r);
+                MediaSearchItem {
+                    identifier: a.identifier,
+                    title: a.title,
+                    poster_images: a.poster_images,
+                    publish_year: a.publish_year,
+                }
+            })
             .collect::<Vec<_>>();
         Ok(MediaSearchResults { total, items: resp })
     }
 
-    fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaSearchItem {
+    fn igdb_response_to_search_response(
+        &self,
+        item: IgdbSearchResponse,
+    ) -> MediaDetails<VideoGameSpecifics> {
         let mut poster_images =
             convert_option_path_to_vec(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
         let additional_images = item
@@ -156,11 +154,12 @@ offset: {offset};
             .into_iter()
             .map(|a| self.get_cover_image_url(a.image_id));
         poster_images.extend(additional_images);
-        MediaSearchItem {
+        MediaDetails {
             identifier: item.id.to_string(),
+            lot: MetadataLot::VideoGame,
             title: item.name,
             description: item.summary,
-            author_names: vec![],
+            creators: vec![],
             poster_images,
             backdrop_images: vec![],
             publish_date: item.first_release_date.map(|d| d.date_naive()),
@@ -171,13 +170,9 @@ offset: {offset};
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            video_game_specifics: Some(VideoGameSpecifics {
+            specifics: VideoGameSpecifics {
                 rating: item.rating,
-            }),
-            movie_specifics: None,
-            book_specifics: None,
-            show_specifics: None,
-            audio_books_specifics: None,
+            },
         }
     }
 
