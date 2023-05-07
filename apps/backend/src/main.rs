@@ -45,6 +45,7 @@ mod books;
 mod config;
 mod entities;
 mod graphql;
+mod importer;
 mod media;
 mod migrator;
 mod misc;
