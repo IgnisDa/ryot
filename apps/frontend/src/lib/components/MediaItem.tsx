@@ -60,7 +60,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	);
 };
 
-export default function (props: {
+export default function(props: {
 	item: Item;
 	idx: number;
 	query: string;
@@ -74,8 +74,9 @@ export default function (props: {
 	const mediaConsumed = useQuery(
 		["mediaConsumed", lot, props.item],
 		async () => {
+			if (!lot) throw new Error('Lot if not defined')
 			const { mediaConsumed } = await gqlClient.request(MediaConsumedDocument, {
-				input: { identifier: props.item.identifier, lot: lot! },
+				input: { identifier: props.item.identifier, lot },
 			});
 			return mediaConsumed;
 		},

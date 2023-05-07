@@ -21,6 +21,7 @@ import {
 	IconDeviceTv,
 	IconHeadphones,
 	IconHome2,
+	IconListDetails,
 	IconLogout,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ const useStyles = createStyles((theme) => ({
 }));
 
 interface NavbarLinkProps {
+	// rome-ignore lint/suspicious/noExplicitAny: I do not know what to use here instead
 	icon: React.FC<any>;
 	label: string;
 	onClick?(): void;
@@ -73,7 +75,10 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-const navbarData = [{ icon: IconHome2, label: "Home", href: "/" }];
+const navbarData = [
+	{ icon: IconHome2, label: "Home", href: "/" },
+	{ icon: IconListDetails, label: "Collections", href: "/collections" }
+];
 
 const getIcon = (lot: MetadataLot) => {
 	return match(lot)
@@ -85,7 +90,7 @@ const getIcon = (lot: MetadataLot) => {
 		.exhaustive();
 };
 
-export default function ({ children }: { children: ReactElement }) {
+export default function({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
 	useQuery({
