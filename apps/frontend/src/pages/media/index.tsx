@@ -43,6 +43,8 @@ import {
 	type CreateCollectionMutationVariables,
 	CreateCollectionDocument,
 	CollectionsDocument,
+	type ToggleMediaInCollectionMutationVariables,
+	ToggleMediaInCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -129,7 +131,10 @@ export function ProgressModal(props: {
 export function SelectCollectionModal(props: {
 	opened: boolean;
 	onClose: () => void;
+	metadataId: number;
 }) {
+	const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
@@ -150,6 +155,18 @@ export function SelectCollectionModal(props: {
 			collections.refetch()
 		},
 	});
+	const toggleMediaInCollection = useMutation({
+		mutationFn: async (variables: ToggleMediaInCollectionMutationVariables) => {
+			const { toggleMediaInCollection } = await gqlClient.request(
+				ToggleMediaInCollectionDocument,
+				variables,
+			);
+			return toggleMediaInCollection
+		},
+		onSuccess: () => {
+			props.onClose()
+		},
+	});
 
 	return (
 		<Modal
@@ -164,6 +181,7 @@ export function SelectCollectionModal(props: {
 					<Select
 						withinPortal
 						data={collections.data.map(c => ({ value: c.collectionDetails.id.toString(), label: c.collectionDetails.name }))}
+						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
 						creatable
@@ -176,7 +194,13 @@ export function SelectCollectionModal(props: {
 					<Button
 						data-autofocus
 						variant="outline"
-						onClick={async () => {
+						onClick={() => {
+							toggleMediaInCollection.mutate({
+								input: {
+									collectionId: Number(selectedCollection),
+									mediaId: props.metadataId
+								}
+							})
 						}}
 					>
 						Set
@@ -488,6 +512,7 @@ const Page: NextPageWithLayout = () => {
 									<SelectCollectionModal
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
+										metadataId={metadataId}
 									/>
 								</>
 							</SimpleGrid>
