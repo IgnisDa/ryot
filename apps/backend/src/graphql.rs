@@ -123,7 +123,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
-    let reviews_service = MiscService::new(&db);
+    let reviews_service = MiscService::new(&db, &media_service);
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),

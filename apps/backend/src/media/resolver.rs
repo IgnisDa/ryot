@@ -224,7 +224,7 @@ impl MediaService {
         Ok((poster_images, backdrop_images))
     }
 
-    async fn generic_metadata(
+    pub async fn generic_metadata(
         &self,
         metadata_id: i32,
     ) -> Result<(

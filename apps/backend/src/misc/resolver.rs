@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
 use rust_decimal::Decimal;
 use sea_orm::{
@@ -8,11 +10,12 @@ use sea_orm::{
 use crate::{
     entities::{
         collection,
-        prelude::{Review, User},
+        prelude::{Collection, Metadata, Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
+    media::resolver::{MediaSearchItem, MediaService},
     migrator::ReviewVisibility,
     utils::{user_id_from_ctx, NamedObject},
 };
@@ -47,6 +50,12 @@ struct PostReviewInput {
     episode_number: Option<i32>,
 }
 
+#[derive(Debug, SimpleObject)]
+struct CollectionItem {
+    collection_details: collection::Model,
+    media_details: Vec<MediaSearchItem>,
+}
+
 #[derive(Default)]
 pub struct MiscQuery;
 
@@ -62,6 +71,15 @@ impl MiscQuery {
         gql_ctx
             .data_unchecked::<MiscService>()
             .media_item_reviews(&user_id, &metadata_id)
+            .await
+    }
+
+    /// Get all collections for the currently logged in user
+    async fn collections(&self, gql_ctx: &Context<'_>) -> Result<Vec<CollectionItem>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .collections(&user_id)
             .await
     }
 }
@@ -97,11 +115,15 @@ impl MiscMutation {
 #[derive(Debug)]
 pub struct MiscService {
     db: DatabaseConnection,
+    media_service: Arc<MediaService>,
 }
 
 impl MiscService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
+    pub fn new(db: &DatabaseConnection, media_service: &MediaService) -> Self {
+        Self {
+            db: db.clone(),
+            media_service: Arc::new(media_service.clone()),
+        }
     }
 }
 
@@ -150,6 +172,34 @@ impl MiscService {
             })
             .collect();
         Ok(all_reviews)
+    }
+
+    async fn collections(&self, user_id: &i32) -> Result<Vec<CollectionItem>> {
+        let collections = Collection::find()
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .find_with_related(Metadata)
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mut data = vec![];
+        for (col, metas) in collections.into_iter() {
+            let mut meta_data = vec![];
+            for meta in metas {
+                let m = self.media_service.generic_metadata(meta.id).await?;
+                meta_data.push(MediaSearchItem {
+                    identifier: m.0.id.to_string(),
+                    lot: m.0.lot,
+                    title: m.0.title,
+                    poster_images: m.2,
+                    publish_year: m.0.publish_year,
+                })
+            }
+            data.push(CollectionItem {
+                collection_details: col,
+                media_details: meta_data,
+            });
+        }
+        Ok(data)
     }
 
     async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
