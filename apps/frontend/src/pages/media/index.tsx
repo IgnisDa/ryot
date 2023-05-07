@@ -162,6 +162,7 @@ export function SelectCollectionModal(props: {
 				<Stack>
 					<Title order={3}>Select collection</Title>
 					<Select
+						withinPortal
 						data={collections.data.map(c => ({ value: c.collectionDetails.id.toString(), label: c.collectionDetails.name }))}
 						searchable
 						nothingFound="Nothing found"
@@ -171,9 +172,9 @@ export function SelectCollectionModal(props: {
 							createCollection.mutate({ input: { name: query } })
 							return { value: "1", label: query } // technically this should return the id of the new collection but it works fine
 						}}
-						withinPortal
 					/>
 					<Button
+						data-autofocus
 						variant="outline"
 						onClick={async () => {
 						}}
