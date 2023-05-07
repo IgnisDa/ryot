@@ -84,75 +84,78 @@ const Page: NextPageWithLayout = () => {
 					</Alert>
 				) : null}
 				{userSummary.data ? (
-					<SimpleGrid
-						cols={2}
-						spacing="lg"
-						breakpoints={[
-							{ minWidth: "sm", cols: 3 },
-							{ minWidth: "lg", cols: 4 },
-						]}
-					>
-						<Box>
-							<StatTitle text="Books" />
-							<Text>
-								You read <StatNumber text={userSummary.data.books.read} />{" "}
-								book(s) totalling{" "}
-								<StatNumber text={userSummary.data.books.pages} /> page(s).
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Movies" />
-							<Text>
-								You watched{" "}
-								<StatNumber text={userSummary.data.movies.watched} /> movie(s)
-								totalling{" "}
-								<StatNumber text={userSummary.data.movies.runtime} isDuration />
-								.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Shows" />
-							<Text>
-								You watched{" "}
-								<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
-								show(s) and{" "}
-								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
-								episode(s) totalling{" "}
-								<StatNumber text={userSummary.data.shows.runtime} isDuration />.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Video Games" />
-							<Text>
-								You played{" "}
-								<StatNumber text={userSummary.data.videoGames.played} />{" "}
-								game(s).
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Audio Books" />
-							<Text>
-								You listened to{" "}
-								<StatNumber text={userSummary.data.audioBooks.played} />{" "}
-								audiobook(s) totalling{" "}
-								<StatNumber
-									text={userSummary.data.audioBooks.runtime}
-									isDuration
-								/>
-								.
-							</Text>
-						</Box>
-						<Box>
-							<Button
-								style={{ flexGrow: 0 }}
-								variant="light"
-								onClick={() => regenerateUserSummary.mutate({})}
-								loading={regenerateUserSummary.isLoading}
-							>
-								Recalculate
-							</Button>
-						</Box>
-					</SimpleGrid>
+					<>
+						<Title>Summary</Title>
+						<SimpleGrid
+							cols={2}
+							spacing="lg"
+							breakpoints={[
+								{ minWidth: "sm", cols: 3 },
+								{ minWidth: "lg", cols: 4 },
+							]}
+						>
+							<Box>
+								<StatTitle text="Books" />
+								<Text>
+									You read <StatNumber text={userSummary.data.books.read} />{" "}
+									book(s) totalling{" "}
+									<StatNumber text={userSummary.data.books.pages} /> page(s).
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Movies" />
+								<Text>
+									You watched{" "}
+									<StatNumber text={userSummary.data.movies.watched} /> movie(s)
+									totalling{" "}
+									<StatNumber text={userSummary.data.movies.runtime} isDuration />
+									.
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Shows" />
+								<Text>
+									You watched{" "}
+									<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
+									show(s) and{" "}
+									<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
+									episode(s) totalling{" "}
+									<StatNumber text={userSummary.data.shows.runtime} isDuration />.
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Video Games" />
+								<Text>
+									You played{" "}
+									<StatNumber text={userSummary.data.videoGames.played} />{" "}
+									game(s).
+								</Text>
+							</Box>
+							<Box>
+								<StatTitle text="Audio Books" />
+								<Text>
+									You listened to{" "}
+									<StatNumber text={userSummary.data.audioBooks.played} />{" "}
+									audiobook(s) totalling{" "}
+									<StatNumber
+										text={userSummary.data.audioBooks.runtime}
+										isDuration
+									/>
+									.
+								</Text>
+							</Box>
+							<Box>
+								<Button
+									style={{ flexGrow: 0 }}
+									variant="light"
+									onClick={() => regenerateUserSummary.mutate({})}
+									loading={regenerateUserSummary.isLoading}
+								>
+									Recalculate
+								</Button>
+							</Box>
+						</SimpleGrid>
+					</>
 				) : null}
 				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
 					<>
