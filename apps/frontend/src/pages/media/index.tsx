@@ -19,6 +19,7 @@ import {
 	Modal,
 	Rating,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Slider,
 	Space,
@@ -39,6 +40,9 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
+	type CreateCollectionMutationVariables,
+	CreateCollectionDocument,
+	CollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -122,6 +126,69 @@ export function ProgressModal(props: {
 	);
 }
 
+export function SelectCollectionModal(props: {
+	opened: boolean;
+	onClose: () => void;
+}) {
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(CollectionsDocument, {
+			});
+			return collections
+		},
+	});
+	const createCollection = useMutation({
+		mutationFn: async (variables: CreateCollectionMutationVariables) => {
+			const { createCollection } = await gqlClient.request(
+				CreateCollectionDocument,
+				variables,
+			);
+			return createCollection
+		},
+		onSuccess: () => {
+			collections.refetch()
+		},
+	});
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			{collections.data ? (
+				<Stack>
+					<Title order={3}>Select collection</Title>
+					<Select
+						data={collections.data.map(c => ({ value: c.collectionDetails.id.toString(), label: c.collectionDetails.name }))}
+						searchable
+						nothingFound="Nothing found"
+						creatable
+						getCreateLabel={(query) => `+ Create ${query}`}
+						onCreate={(query) => {
+							createCollection.mutate({ input: { name: query } })
+							return { value: "1", label: query } // technically this should return the id of the new collection but it works fine
+						}}
+						withinPortal
+					/>
+					<Button
+						variant="outline"
+						onClick={async () => {
+						}}
+					>
+						Set
+					</Button>
+					<Button variant="outline" color="red" onClick={props.onClose}>
+						Cancel
+					</Button>
+				</Stack>
+			) : null}
+		</Modal>
+	);
+}
+
 interface AccordionLabelProps {
 	name: string;
 	posterImages: string[];
@@ -152,6 +219,10 @@ const Page: NextPageWithLayout = () => {
 	const [
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
+	] = useDisclosure(false);
+	const [
+		collectionModalOpened,
+		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
@@ -251,7 +322,7 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
-						details.data.creators.length > 0 ? (
+							details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
@@ -406,6 +477,18 @@ const Page: NextPageWithLayout = () => {
 										</Button>
 									</Anchor>
 								</Link>
+								<>
+									<Button
+										variant="outline"
+										onClick={collectionModalOpen}
+									>
+										Add to collection
+									</Button>
+									<SelectCollectionModal
+										onClose={collectionModalClose}
+										opened={collectionModalOpened}
+									/>
+								</>
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history" pt="xs">
@@ -435,8 +518,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.startedOn
 																	? DateTime.fromISO(
-																			h.startedOn,
-																	  ).toLocaleString()
+																		h.startedOn,
+																	).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -445,8 +528,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.finishedOn
 																	? DateTime.fromISO(
-																			h.finishedOn,
-																	  ).toLocaleString()
+																		h.finishedOn,
+																	).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
