@@ -396,7 +396,16 @@ const Page: NextPageWithLayout = () => {
 					{details.data.collections.length > 0 ? (
 						<Group>
 							{details.data.collections.map((c, idx) => (
-								<Badge key={c} color={MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]}>
+								<Badge key={c} color={MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]} onClick={() => {
+									const yes = confirm(`Do you want to remove it from collection: "${c}"?`)
+									if (yes) {
+										notifications.show({
+											color: "red",
+											title: "Unimplemented",
+											message: "This feature has not been implemented yet"
+										})
+									}
+								}}>
 									<Text truncate>{c}</Text>
 								</Badge>
 							))}
