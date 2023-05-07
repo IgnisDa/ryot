@@ -56,6 +56,12 @@ struct CollectionItem {
     media_details: Vec<MediaSearchItem>,
 }
 
+#[derive(Debug, InputObject)]
+struct ToggleMediaInCollection {
+    collection_id: i32,
+    media_id: i32,
+}
+
 #[derive(Default)]
 pub struct MiscQuery;
 
@@ -108,6 +114,19 @@ impl MiscMutation {
         gql_ctx
             .data_unchecked::<MiscService>()
             .create_collection(&user_id, input)
+            .await
+    }
+
+    /// Add a media item to a collection if it is not there, otherwise remove it.
+    async fn toggle_media_in_collection(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: ToggleMediaInCollection,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .toggle_media_in_collection(&user_id, input)
             .await
     }
 }
@@ -244,5 +263,13 @@ impl MiscService {
             .await
             .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
         Ok(IdObject { id: inserted.id })
+    }
+
+    async fn toggle_media_in_collection(
+        &self,
+        user_id: &i32,
+        input: ToggleMediaInCollection,
+    ) -> Result<bool> {
+        todo!();
     }
 }
