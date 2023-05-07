@@ -57,9 +57,10 @@ impl MiscQuery {
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<Vec<ReviewItem>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .media_item_reviews(&metadata_id)
+            .media_item_reviews(&user_id, &metadata_id)
             .await
     }
 }
@@ -91,11 +92,14 @@ impl MiscService {
 }
 
 impl MiscService {
-    async fn media_item_reviews(&self, metadata_id: &i32) -> Result<Vec<ReviewItem>> {
+    async fn media_item_reviews(
+        &self,
+        user_id: &i32,
+        metadata_id: &i32,
+    ) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
-            .filter(review::Column::Visibility.eq(ReviewVisibility::Public))
             .find_also_related(User)
             .all(&self.db)
             .await
@@ -122,6 +126,13 @@ impl MiscService {
                         name: user.name,
                     },
                 }
+            })
+            .collect::<Vec<_>>();
+        let all_reviews = all_reviews
+            .into_iter()
+            .filter(|r| match r.visibility {
+                ReviewVisibility::Private => r.posted_by.id == *user_id,
+                _ => true,
             })
             .collect();
         Ok(all_reviews)
