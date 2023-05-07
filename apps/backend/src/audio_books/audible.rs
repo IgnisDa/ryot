@@ -7,9 +7,10 @@ use crate::{
     config::AudibleConfig,
     graphql::AUTHOR,
     media::{
-        resolver::{MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
+    migrator::MetadataLot,
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
     },
@@ -76,7 +77,7 @@ impl AudibleService {
 }
 
 impl AudibleService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
+    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleItemResponse {
             product: AudibleItem,
@@ -89,8 +90,21 @@ impl AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let detail = self.audible_response_to_search_response(data.product);
-        Ok(detail)
+        let d = self.audible_response_to_search_response(data.product);
+        let d = MediaDetails {
+            identifier: d.identifier,
+            title: d.title,
+            description: d.description,
+            lot: MetadataLot::AudioBook,
+            creators: d.author_names,
+            genres: d.genres,
+            poster_images: d.poster_images,
+            backdrop_images: d.backdrop_images,
+            publish_year: d.publish_year,
+            publish_date: d.publish_date,
+            specifics: d.audio_books_specifics.unwrap(),
+        };
+        Ok(d)
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {

@@ -6,6 +6,8 @@ use serde_with::serde_as;
 use serde_with::{formats::Flexible, TimestampSeconds};
 use surf::Client;
 
+use crate::media::resolver::MediaDetails;
+use crate::migrator::MetadataLot;
 use crate::{
     config::VideoGameConfig,
     media::{
@@ -80,7 +82,7 @@ impl IgdbService {
 }
 
 impl IgdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaSearchItem> {
+    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<VideoGameSpecifics>> {
         let req_body = format!(
             r#"
 {field}
@@ -98,7 +100,21 @@ where id = {id};
 
         let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
-        Ok(self.igdb_response_to_search_response(detail))
+        let d = self.igdb_response_to_search_response(detail);
+        let d = MediaDetails {
+            identifier: d.identifier,
+            title: d.title,
+            description: d.description,
+            lot: MetadataLot::VideoGame,
+            creators: d.author_names,
+            genres: d.genres,
+            poster_images: d.poster_images,
+            backdrop_images: d.backdrop_images,
+            publish_year: d.publish_year,
+            publish_date: d.publish_date,
+            specifics: d.video_game_specifics.unwrap(),
+        };
+        Ok(d)
     }
 
     pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {

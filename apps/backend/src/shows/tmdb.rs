@@ -5,7 +5,8 @@ use surf::Client;
 
 use crate::{
     config::TmdbConfig,
-    media::resolver::{MediaSearchItem, MediaSearchResults},
+    media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+    migrator::MetadataLot,
     shows::{ShowEpisode, ShowSeason},
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
@@ -28,7 +29,7 @@ impl TmdbService {
 }
 
 impl TmdbService {
-    pub async fn show_details(&self, identifier: &str) -> Result<MediaSearchItem> {
+    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<ShowSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
             season_number: i32,
@@ -105,15 +106,16 @@ impl TmdbService {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchItem {
+        Ok(MediaDetails {
             identifier: data.id.to_string(),
             title: data.name,
+            lot: MetadataLot::Show,
             description: data.overview,
-            author_names,
+            creators: author_names,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
-            show_specifics: Some(ShowSpecifics {
+            specifics: ShowSpecifics {
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
@@ -155,11 +157,7 @@ impl TmdbService {
                         }
                     })
                     .collect(),
-            }),
-            movie_specifics: None,
-            book_specifics: None,
-            video_game_specifics: None,
-            audio_books_specifics: None,
+            },
             poster_images,
             backdrop_images,
         })
