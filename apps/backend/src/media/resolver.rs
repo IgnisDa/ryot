@@ -343,7 +343,7 @@ impl MediaService {
     }
 
     pub async fn media_in_progress(&self, user_id: i32) -> Result<Vec<MediaSearchItem>> {
-        Ok(Seen::find()
+        let mut seens = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
@@ -354,16 +354,23 @@ impl MediaService {
             .into_iter()
             .map(|(_, m)| {
                 let a = m.unwrap();
-                MediaSearchItem {
-                    identifier: a.id.to_string(),
-                    title: a.title,
-                    lot: a.lot,
-                    // TODO: get the correct images
-                    poster_images: vec![],
-                    publish_year: a.publish_year,
-                }
+                (
+                    a.clone(),
+                    MediaSearchItem {
+                        identifier: a.id.to_string(),
+                        title: a.title,
+                        lot: a.lot,
+                        poster_images: vec![], // we will assign this later
+                        publish_year: a.publish_year,
+                    },
+                )
             })
-            .collect())
+            .collect::<Vec<_>>();
+        for (model, media_item) in seens.iter_mut() {
+            let (poster_images, _) = self.metadata_images(&model).await?;
+            media_item.poster_images = poster_images;
+        }
+        Ok(seens.into_iter().map(|s| s.1).collect())
     }
 
     pub async fn media_list(
