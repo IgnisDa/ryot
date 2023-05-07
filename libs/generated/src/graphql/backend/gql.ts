@@ -26,6 +26,7 @@ const documents = {
     "mutation ProgressUpdate($input: ProgressUpdate!) {\n  progressUpdate(input: $input) {\n    id\n  }\n}": types.ProgressUpdateDocument,
     "mutation RegerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}": types.RegerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
+    "mutation ToggleMediaInCollection($input: ToggleMediaInCollection!) {\n  toggleMediaInCollection(input: $input)\n}": types.ToggleMediaInCollectionDocument,
     "query AudioBooksSearch($input: AudioBookSearchInput!) {\n  audioBooksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.AudioBooksSearchDocument,
     "query BooksSearch($input: BookSearchInput!) {\n  booksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.BooksSearchDocument,
     "query Collections {\n  collections {\n    collectionDetails {\n      id\n      createdOn\n      name\n    }\n    mediaDetails {\n      identifier\n      lot\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.CollectionsDocument,
@@ -109,6 +110,10 @@ export function graphql(source: "mutation RegerateUserSummary {\n  regenerateUse
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}"): (typeof documents)["mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation ToggleMediaInCollection($input: ToggleMediaInCollection!) {\n  toggleMediaInCollection(input: $input)\n}"): (typeof documents)["mutation ToggleMediaInCollection($input: ToggleMediaInCollection!) {\n  toggleMediaInCollection(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
