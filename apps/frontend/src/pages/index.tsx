@@ -1,4 +1,6 @@
 import type { NextPageWithLayout } from "./_app";
+import Grid from "@/lib/components/Grid";
+import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -13,6 +15,7 @@ import {
 	Title,
 } from "@mantine/core";
 import {
+	MediaInProgressDocument,
 	RegerateUserSummaryDocument,
 	type RegerateUserSummaryMutationVariables,
 	UserSummaryDocument,
@@ -43,6 +46,12 @@ const StatNumber = (props: { text: number; isDuration?: boolean }) => {
 };
 
 const Page: NextPageWithLayout = () => {
+	const mediaInProgress = useQuery(["mediaInProgress"], async () => {
+		const { mediaInProgress } = await gqlClient.request(
+			MediaInProgressDocument,
+		);
+		return mediaInProgress;
+	});
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -133,18 +142,33 @@ const Page: NextPageWithLayout = () => {
 								.
 							</Text>
 						</Box>
+						<Box>
+							<Button
+								style={{ flexGrow: 0 }}
+								variant="light"
+								onClick={() => regenerateUserSummary.mutate({})}
+								loading={regenerateUserSummary.isLoading}
+							>
+								Recalculate
+							</Button>
+						</Box>
 					</SimpleGrid>
 				) : null}
-				<Box>
-					<Button
-						style={{ flexGrow: 0 }}
-						variant="light"
-						onClick={() => regenerateUserSummary.mutate({})}
-						loading={regenerateUserSummary.isLoading}
-					>
-						Recalculate
-					</Button>
-				</Box>
+				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
+					<>
+						<Title>In Progress</Title>
+						<Grid>
+							{mediaInProgress.data.map((lm) => (
+								<MediaItemWithoutUpdateModal
+									key={lm.identifier}
+									item={lm}
+									lot={lm.lot}
+									imageOnClick={async () => parseInt(lm.identifier)}
+								/>
+							))}
+						</Grid>
+					</>
+				) : null}
 			</Stack>
 		</Container>
 	);
