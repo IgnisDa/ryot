@@ -1,4 +1,4 @@
-use async_graphql::{Context, Error, Result, SimpleObject};
+use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
 use regex::Regex;
 use sea_orm::{
@@ -19,7 +19,8 @@ use crate::{
     GqlCtx,
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject)]
+#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
+#[graphql(input_name = "NamedObjectInput")]
 pub struct NamedObject {
     pub name: String,
 }

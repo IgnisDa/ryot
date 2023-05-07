@@ -1,4 +1,4 @@
-use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
+use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -7,13 +7,14 @@ use sea_orm::{
 
 use crate::{
     entities::{
+        collection,
         prelude::{Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
     migrator::ReviewVisibility,
-    utils::user_id_from_ctx,
+    utils::{user_id_from_ctx, NamedObject},
 };
 
 #[derive(Debug, SimpleObject)]
@@ -76,6 +77,19 @@ impl MiscMutation {
         gql_ctx
             .data_unchecked::<MiscService>()
             .post_review(&user_id, input)
+            .await
+    }
+
+    /// Create a new collection for the logged in user
+    async fn create_collection(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: NamedObject,
+    ) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .create_collection(&user_id, input)
             .await
     }
 }
@@ -167,5 +181,18 @@ impl MiscService {
         Ok(IdObject {
             id: insert.id.unwrap(),
         })
+    }
+
+    async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
+        let col = collection::ActiveModel {
+            name: ActiveValue::Set(input.name),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            ..Default::default()
+        };
+        let inserted = col
+            .insert(&self.db)
+            .await
+            .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
+        Ok(IdObject { id: inserted.id })
     }
 }
