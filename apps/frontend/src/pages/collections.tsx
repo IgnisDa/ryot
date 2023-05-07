@@ -29,7 +29,7 @@ const Page: NextPageWithLayout = () => {
 				{collections.data ? (
 					collections.data.map(c => (
 						<Stack key={c.collectionDetails.id}>
-							<Title order={3}>{c.collectionDetails.name}</Title>
+							<Title order={3} truncate>{c.collectionDetails.name}</Title>
 							{c.mediaDetails.length > 0 ?
 								(
 

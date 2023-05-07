@@ -310,7 +310,10 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: () => {
 			history.refetch();
-			notifications.show({ message: "Deleted successfully" });
+			notifications.show({
+				title: "Deleted",
+				message: "Record deleted from your history successfully"
+			});
 		},
 	});
 
@@ -393,8 +396,10 @@ const Page: NextPageWithLayout = () => {
 					<Title underline>{details.data.title}</Title>
 					{details.data.collections.length > 0 ? (
 						<Group>
-							{details.data.collections.map((c, idx) => (
-								<Badge key={c} color={sample(MANTINE_COLORS)}>{c}</Badge>
+							{details.data.collections.map((c) => (
+								<Badge key={c} color={sample(MANTINE_COLORS)}>
+									<Text truncate>{c}</Text>
+								</Badge>
 							))}
 						</Group>
 					) : null}
