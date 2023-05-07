@@ -45,6 +45,12 @@ export const MediaItemWithoutUpdateModal = (props: {
 					const id = await props.imageOnClick();
 					router.push(`/media?item=${id}`);
 				}}
+				sx={(t) => ({
+					":hover": { transform: "scale(1.02)" },
+					transitionProperty: "transform",
+					transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+					transitionDuration: "150ms"
+				})}
 			/>
 			<Flex justify={"space-between"} w="100%">
 				<Text c="dimmed">{props.item.publishYear}</Text>
@@ -58,7 +64,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	);
 };
 
-export default function (props: {
+export default function(props: {
 	item: Item;
 	idx: number;
 	query: string;
