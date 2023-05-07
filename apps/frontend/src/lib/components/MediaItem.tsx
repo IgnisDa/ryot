@@ -1,6 +1,6 @@
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
-import { Button, Flex, Image, Loader, Text } from "@mantine/core";
+import { Button, Flex, Image, Text } from "@mantine/core";
 import {
 	type BooksSearchQuery,
 	CommitAudioBookDocument,
@@ -9,11 +9,9 @@ import {
 	CommitMovieDocument,
 	CommitShowDocument,
 	CommitVideoGameDocument,
-	MediaConsumedDocument,
 	MetadataLot,
-	SeenStatus,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
@@ -71,16 +69,6 @@ export default function (props: {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
-	const mediaConsumed = useQuery(
-		["mediaConsumed", lot, props.item],
-		async () => {
-			if (!lot) throw new Error("Lot if not defined");
-			const { mediaConsumed } = await gqlClient.request(MediaConsumedDocument, {
-				input: { identifier: props.item.identifier, lot },
-			});
-			return mediaConsumed;
-		},
-	);
 	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {
 			return await match(lot)
@@ -131,31 +119,6 @@ export default function (props: {
 		});
 		return id;
 	};
-	const seenElm = match(mediaConsumed.data?.seen)
-		.with(
-			SeenStatus.NotConsumed,
-			SeenStatus.NotInDatabase,
-			SeenStatus.ConsumedAtleastOnce,
-			() => (
-				<>
-					<Button
-						variant="outline"
-						w="100%"
-						compact
-						loading={commitMedia.isLoading}
-						onClick={async () => {
-							const id = await commitFunction();
-							router.push(`/media/update-progress?item=${id}`);
-						}}
-					>
-						Mark as {getVerb(Verb.Read, props.lot)}
-					</Button>
-				</>
-			),
-		)
-		.with(SeenStatus.Undetermined, SeenStatus.CurrentlyUnderway, () => <></>)
-		.with(undefined, () => <Loader size="sm" />)
-		.exhaustive();
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -164,7 +127,18 @@ export default function (props: {
 			imageOnClick={async () => await commitFunction()}
 		>
 			{props.lot !== MetadataLot.Show ? (
-				seenElm
+				<Button
+					variant="outline"
+					w="100%"
+					compact
+					loading={commitMedia.isLoading}
+					onClick={async () => {
+						const id = await commitFunction();
+						router.push(`/media/update-progress?item=${id}`);
+					}}
+				>
+					Mark as {getVerb(Verb.Read, props.lot)}
+				</Button>
 			) : (
 				<>
 					<Button

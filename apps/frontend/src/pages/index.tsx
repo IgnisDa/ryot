@@ -80,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 						spacing="lg"
 						breakpoints={[
 							{ minWidth: "sm", cols: 3 },
-							{ minWidth: 'lg', cols: 4 }
+							{ minWidth: "lg", cols: 4 },
 						]}
 					>
 						<Box>
