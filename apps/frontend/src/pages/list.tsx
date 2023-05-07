@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
+import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
@@ -11,7 +12,6 @@ import {
 	Center,
 	Container,
 	Pagination,
-	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -35,24 +35,6 @@ import { type ReactElement } from "react";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
-
-const Grid = (props: { children: JSX.Element[] }) => {
-	return (
-		<SimpleGrid
-			cols={2}
-			spacing="lg"
-			mx={"lg"}
-			breakpoints={[
-				{ minWidth: "sm", cols: 3 },
-				{ minWidth: "md", cols: 4 },
-				{ minWidth: "lg", cols: 5 },
-				{ minWidth: "xl", cols: 6 },
-			]}
-		>
-			{props.children}
-		</SimpleGrid>
-	);
-};
 
 const Page: NextPageWithLayout = () => {
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
