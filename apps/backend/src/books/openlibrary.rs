@@ -8,9 +8,10 @@ use crate::{
     config::OpenlibraryConfig,
     graphql::AUTHOR,
     media::{
-        resolver::{MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
+    migrator::MetadataLot,
     utils::{convert_option_path_to_vec, get_data_parallely_from_sources},
 };
 
@@ -75,8 +76,8 @@ impl OpenlibraryService {
         query: &str,
         offset: Option<i32>,
         index: i32,
-    ) -> Result<MediaSearchItem> {
-        let mut detail = self.search(query, offset).await?.items[index as usize].clone();
+    ) -> Result<MediaDetails<BookSpecifics>> {
+        let mut d = self.search_internal(query, offset).await?.items[index as usize].clone();
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -118,18 +119,30 @@ impl OpenlibraryService {
         .into_iter()
         .map(|a: OpenlibraryAuthorPartial| a.name)
         .collect();
-        detail.description = data.description.map(|d| match d {
+        d.description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        detail.poster_images = data
+        d.poster_images = data
             .covers
             .unwrap_or_default()
             .into_iter()
             .map(|c| self.get_cover_image_url(c))
             .collect();
-        detail.author_names = authors;
-        Ok(detail)
+        d.author_names = authors;
+        Ok(MediaDetails {
+            identifier: d.identifier,
+            title: d.title,
+            description: d.description,
+            lot: MetadataLot::Book,
+            creators: d.author_names,
+            genres: d.genres,
+            poster_images: d.poster_images,
+            backdrop_images: d.backdrop_images,
+            publish_year: d.publish_year,
+            publish_date: d.publish_date,
+            specifics: d.book_specifics,
+        })
     }
 
     pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {

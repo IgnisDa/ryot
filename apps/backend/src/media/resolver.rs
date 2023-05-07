@@ -79,8 +79,23 @@ pub struct ProgressUpdate {
     pub episode_number: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaDetails<T> {
+    pub identifier: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub lot: MetadataLot,
+    pub creators: Vec<String>,
+    pub genres: Vec<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
+    pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
+    pub specifics: T,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaDetails {
+pub struct DatabaseMediaDetails {
     pub id: i32,
     pub title: String,
     pub description: Option<String>,
@@ -117,7 +132,11 @@ pub struct MediaQuery;
 #[Object]
 impl MediaQuery {
     /// Get details about a media present in the database
-    async fn media_details(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<MediaDetails> {
+    async fn media_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+    ) -> Result<DatabaseMediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .media_details(metadata_id)
@@ -257,10 +276,10 @@ impl MediaService {
         Ok((meta, creators, poster_images, backdrop_images, genres))
     }
 
-    async fn media_details(&self, metadata_id: i32) -> Result<MediaDetails> {
+    async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
         let (meta, creators, poster_images, backdrop_images, genres) =
             self.generic_metadata(metadata_id).await?;
-        let mut resp = MediaDetails {
+        let mut resp = DatabaseMediaDetails {
             id: meta.id,
             title: meta.title,
             description: meta.description,
