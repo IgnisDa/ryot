@@ -115,9 +115,6 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let backdrop_images = convert_option_path_to_vec(
-                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                );
                 let poster_images =
                     convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {

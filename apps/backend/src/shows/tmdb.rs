@@ -140,7 +140,7 @@ impl TmdbService {
                                     let poster_images = convert_option_path_to_vec(
                                         e.still_path.map(|p| self.get_cover_image_url(&p)),
                                     );
-                                    let ep = ShowEpisode {
+                                    ShowEpisode {
                                         id: e.id,
                                         name: e.name,
                                         runtime: e.runtime,
@@ -150,8 +150,7 @@ impl TmdbService {
                                         overview: e.overview,
                                         episode_number: e.episode_number,
                                         poster_images,
-                                    };
-                                    ep
+                                    }
                                 })
                                 .collect(),
                         }
@@ -201,9 +200,6 @@ impl TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let backdrop_images = convert_option_path_to_vec(
-                    d.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                );
                 let poster_images =
                     convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {

@@ -367,7 +367,7 @@ impl MediaService {
             })
             .collect::<Vec<_>>();
         for (model, media_item) in seens.iter_mut() {
-            let (poster_images, _) = self.metadata_images(&model).await?;
+            let (poster_images, _) = self.metadata_images(model).await?;
             media_item.poster_images = poster_images;
         }
         Ok(seens.into_iter().map(|s| s.1).collect())

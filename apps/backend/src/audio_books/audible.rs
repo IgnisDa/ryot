@@ -84,7 +84,7 @@ impl AudibleService {
         }
         let mut rsp = self
             .client
-            .get(format!("{}", identifier))
+            .get(identifier)
             .query(&PrimaryQuery::default())
             .unwrap()
             .await
