@@ -2,7 +2,7 @@ use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, QueryFilter,
+    EntityTrait, QueryFilter, QueryOrder,
 };
 
 use crate::{
@@ -93,6 +93,7 @@ impl ReviewsService {
 impl ReviewsService {
     async fn media_item_reviews(&self, metadata_id: &i32) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
+            .order_by_desc(review::Column::PostedOn)
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
             .filter(review::Column::Visibility.eq(Visibility::Public))
             .find_also_related(User)
