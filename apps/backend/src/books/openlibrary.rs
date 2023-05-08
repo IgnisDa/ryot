@@ -196,7 +196,6 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             num_found: i32,
             docs: Vec<OpenlibraryBook>,
         }
-
         let mut rsp = self
             .client
             .get("search.json")
@@ -210,7 +209,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
                     "first_publish_year",
                 ]
                 .join(","),
-                offset: page.unwrap_or_default() * LIMIT,
+                offset: (page.unwrap_or_default() - 1) * LIMIT,
                 limit: LIMIT,
                 lot: "work".to_owned(),
             })
