@@ -510,7 +510,7 @@ const Page: NextPageWithLayout = () => {
 						defaultValue={history.data.length > 0 ? "actions" : "overview"}
 						variant="outline"
 					>
-						<Tabs.List>
+						<Tabs.List pb={"xs"}>
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
 								Overview
 							</Tabs.Tab>
@@ -535,7 +535,7 @@ const Page: NextPageWithLayout = () => {
 								Reviews
 							</Tabs.Tab>
 						</Tabs.List>
-						<Tabs.Panel value="overview" pt="xs">
+						<Tabs.Panel value="overview">
 							<Box>
 								{details.data.description ? (
 									<ScrollArea.Autosize mah={300}>
@@ -546,7 +546,7 @@ const Page: NextPageWithLayout = () => {
 								)}
 							</Box>
 						</Tabs.Panel>
-						<Tabs.Panel value="actions" pt="xs">
+						<Tabs.Panel value="actions">
 							<SimpleGrid
 								cols={1}
 								spacing="lg"
@@ -625,7 +625,7 @@ const Page: NextPageWithLayout = () => {
 								</>
 							</SimpleGrid>
 						</Tabs.Panel>
-						<Tabs.Panel value="history" pt="xs">
+						<Tabs.Panel value="history">
 							{history.data.length > 0 ? (
 								<ScrollArea.Autosize mah={300}>
 									<Stack>
@@ -699,7 +699,7 @@ const Page: NextPageWithLayout = () => {
 							)}
 						</Tabs.Panel>
 						{details.data.showSpecifics ? (
-							<Tabs.Panel value="seasons" pt="xs">
+							<Tabs.Panel value="seasons">
 								<ScrollArea.Autosize mah={300}>
 									<Accordion chevronPosition="right" variant="contained">
 										{details.data.showSpecifics.seasons.map((s) => (
@@ -762,7 +762,7 @@ const Page: NextPageWithLayout = () => {
 								</ScrollArea.Autosize>
 							</Tabs.Panel>
 						) : null}
-						<Tabs.Panel value="reviews" pt="xs">
+						<Tabs.Panel value="reviews">
 							{reviews.data && reviews.data.length > 0 ? (
 								<ScrollArea.Autosize mah={300}>
 									<Stack>

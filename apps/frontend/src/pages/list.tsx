@@ -120,7 +120,7 @@ const Page: NextPageWithLayout = () => {
 	return lot ? (
 		<Container>
 			<Tabs variant="outline" defaultValue="search">
-				<Tabs.List>
+				<Tabs.List pb={"xs"}>
 					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
 						<Text size={"lg"}>Search</Text>
 					</Tabs.Tab>
@@ -144,7 +144,7 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 				</Tabs.List>
 
-				<Tabs.Panel value="search" pt="xs">
+				<Tabs.Panel value="search">
 					<Stack>
 						<TextInput
 							name="query"
@@ -185,7 +185,7 @@ const Page: NextPageWithLayout = () => {
 						)}
 					</Stack>
 				</Tabs.Panel>
-				<Tabs.Panel value="mine" pt="xs">
+				<Tabs.Panel value="mine">
 					<Stack>
 						{listMedia.data && listMedia.data.total > 0 ? (
 							<Grid>

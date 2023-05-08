@@ -59,12 +59,12 @@ const Page: NextPageWithLayout = () => {
 		<Container size="xs">
 			<Stack>
 				<Tabs defaultValue="profile">
-					<Tabs.List>
+					<Tabs.List mb={"sm"}>
 						<Tabs.Tab value="profile" icon={<IconUser size="1rem" />}>
 							Profile
 						</Tabs.Tab>
 					</Tabs.List>
-					<Tabs.Panel value="profile" mt={"sm"}>
+					<Tabs.Panel value="profile">
 						<Box
 							component="form"
 							onSubmit={form.onSubmit((values) => {
