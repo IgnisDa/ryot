@@ -28,6 +28,75 @@ use crate::{
 
 pub static COOKIE_NAME: &str = "auth";
 
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum UserDetailsErrorVariant {
+    AuthTokenInvalid,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserDetailsError {
+    error: UserDetailsErrorVariant,
+}
+
+#[derive(Union)]
+pub enum UserDetailsResult {
+    Ok(UserModel),
+    Error(UserDetailsError),
+}
+
+#[derive(Debug, InputObject)]
+struct UserInput {
+    username: String,
+    #[graphql(secret)]
+    password: String,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum RegisterErrorVariant {
+    UsernameAlreadyExists,
+}
+
+#[derive(Debug, SimpleObject)]
+struct RegisterError {
+    error: RegisterErrorVariant,
+}
+
+#[derive(Union)]
+enum RegisterResult {
+    Ok(IdObject),
+    Error(RegisterError),
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum LoginErrorVariant {
+    UsernameDoesNotExist,
+    CredentialsMismatch,
+}
+
+#[derive(Debug, SimpleObject)]
+struct LoginError {
+    error: LoginErrorVariant,
+}
+
+#[derive(Debug, SimpleObject)]
+struct LoginResponse {
+    api_key: Uuid,
+}
+
+#[derive(Union)]
+enum LoginResult {
+    Ok(LoginResponse),
+    Error(LoginError),
+}
+
+#[derive(Debug, InputObject)]
+struct UpdateUserInput {
+    username: Option<String>,
+    email: Option<String>,
+    #[graphql(secret)]
+    password: Option<String>,
+}
+
 fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(true);
     if expires {
@@ -151,6 +220,15 @@ impl UsersMutation {
         gql_ctx
             .data_unchecked::<UsersService>()
             .regenerate_user_summary(&user_id)
+            .await
+    }
+
+    /// Update a user's profile details.
+    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .update_user(&user_id, input)
             .await
     }
 }
@@ -425,65 +503,8 @@ impl UsersService {
             Ok(false)
         }
     }
-}
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum UserDetailsErrorVariant {
-    AuthTokenInvalid,
-}
-
-#[derive(Debug, SimpleObject)]
-pub struct UserDetailsError {
-    error: UserDetailsErrorVariant,
-}
-
-#[derive(Union)]
-pub enum UserDetailsResult {
-    Ok(UserModel),
-    Error(UserDetailsError),
-}
-
-#[derive(Debug, InputObject)]
-struct UserInput {
-    username: String,
-    #[graphql(secret)]
-    password: String,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum RegisterErrorVariant {
-    UsernameAlreadyExists,
-}
-
-#[derive(Debug, SimpleObject)]
-struct RegisterError {
-    error: RegisterErrorVariant,
-}
-
-#[derive(Union)]
-enum RegisterResult {
-    Ok(IdObject),
-    Error(RegisterError),
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum LoginErrorVariant {
-    UsernameDoesNotExist,
-    CredentialsMismatch,
-}
-
-#[derive(Debug, SimpleObject)]
-struct LoginError {
-    error: LoginErrorVariant,
-}
-
-#[derive(Debug, SimpleObject)]
-struct LoginResponse {
-    api_key: Uuid,
-}
-
-#[derive(Union)]
-enum LoginResult {
-    Ok(LoginResponse),
-    Error(LoginError),
+    async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
+        todo!();
+    }
 }
