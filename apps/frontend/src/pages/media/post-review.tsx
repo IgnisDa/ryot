@@ -4,6 +4,7 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Input,
 	Rating,
@@ -30,6 +31,7 @@ const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(5)).default(0),
 	text: z.string().optional(),
 	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Private),
+	spoiler: z.boolean().optional(),
 });
 type FormSchema = z.infer<typeof formSchema>;
 
@@ -136,6 +138,10 @@ const Page: NextPageWithLayout = () => {
 							{...form.getInputProps("visibility")}
 						/>
 					</Box>
+					<Checkbox
+						label="This review is a spoiler"
+						{...form.getInputProps("spoiler")}
+					/>
 					<Button mt="md" type="submit" loading={postReview.isLoading} w="100%">
 						{reviewId ? "Update" : "Submit"}
 					</Button>
