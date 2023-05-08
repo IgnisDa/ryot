@@ -13,6 +13,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Flex,
 	Group,
@@ -33,20 +34,21 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	CollectionsDocument,
+	CreateCollectionDocument,
+	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
+	type MediaItemReviewsQuery,
 	MetadataLot,
 	ProgressUpdateAction,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-	type CreateCollectionMutationVariables,
-	CreateCollectionDocument,
-	CollectionsDocument,
-	type ToggleMediaInCollectionMutationVariables,
 	ToggleMediaInCollectionDocument,
+	type ToggleMediaInCollectionMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -135,14 +137,15 @@ export function SelectCollectionModal(props: {
 	onClose: () => void;
 	metadataId: number;
 }) {
-	const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+	const [selectedCollection, setSelectedCollection] = useState<string | null>(
+		null,
+	);
 
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {
-			});
-			return collections
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
+			return collections;
 		},
 	});
 	const createCollection = useMutation({
@@ -151,10 +154,10 @@ export function SelectCollectionModal(props: {
 				CreateCollectionDocument,
 				variables,
 			);
-			return createCollection
+			return createCollection;
 		},
 		onSuccess: () => {
-			collections.refetch()
+			collections.refetch();
 		},
 	});
 	const toggleMediaInCollection = useMutation({
@@ -163,10 +166,10 @@ export function SelectCollectionModal(props: {
 				ToggleMediaInCollectionDocument,
 				variables,
 			);
-			return toggleMediaInCollection
+			return toggleMediaInCollection;
 		},
 		onSuccess: () => {
-			props.onClose()
+			props.onClose();
 		},
 	});
 
@@ -182,15 +185,18 @@ export function SelectCollectionModal(props: {
 					<Title order={3}>Select collection</Title>
 					<Select
 						withinPortal
-						data={collections.data.map(c => ({ value: c.collectionDetails.id.toString(), label: c.collectionDetails.name }))}
+						data={collections.data.map((c) => ({
+							value: c.collectionDetails.id.toString(),
+							label: c.collectionDetails.name,
+						}))}
 						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
 						creatable
 						getCreateLabel={(query) => `+ Create ${query}`}
 						onCreate={(query) => {
-							createCollection.mutate({ input: { name: query } })
-							return { value: "1", label: query } // technically this should return the id of the new collection but it works fine
+							createCollection.mutate({ input: { name: query } });
+							return { value: "1", label: query }; // technically this should return the id of the new collection but it works fine
 						}}
 					/>
 					<Button
@@ -200,9 +206,9 @@ export function SelectCollectionModal(props: {
 							toggleMediaInCollection.mutate({
 								input: {
 									collectionId: Number(selectedCollection),
-									mediaId: props.metadataId
-								}
-							})
+									mediaId: props.metadataId,
+								},
+							});
 						}}
 					>
 						Set
@@ -216,17 +222,15 @@ export function SelectCollectionModal(props: {
 	);
 }
 
-interface AccordionLabelProps {
-	name: string;
-	posterImages: string[];
-	overview?: string | null;
-}
-
 export const AccordionLabel = ({
 	name,
 	posterImages,
 	overview,
-}: AccordionLabelProps) => {
+}: {
+	name: string;
+	posterImages: string[];
+	overview?: string | null;
+}) => {
 	return (
 		<Group noWrap>
 			<Avatar src={posterImages[0]} radius="xl" size="lg" />
@@ -242,6 +246,66 @@ export const AccordionLabel = ({
 	);
 };
 
+const ReviewItem = ({
+	r,
+	metadataId,
+}: {
+	r: MediaItemReviewsQuery["mediaItemReviews"][number];
+	metadataId: number;
+}) => {
+	const [opened, { toggle }] = useDisclosure(false);
+	const user = useUser();
+
+	return (
+		<Box key={r.id}>
+			<Flex align={"center"} gap={"sm"}>
+				<Avatar color="cyan" radius="xl">
+					{getInitials(r.postedBy.name)}{" "}
+				</Avatar>
+				<Box>
+					<Text>{r.postedBy.name}</Text>
+					<Text>{DateTime.fromJSDate(r.postedOn).toLocaleString()}</Text>
+				</Box>
+				{user && user.id === r.postedBy.id ? (
+					<Link
+						href={`/media/post-review?item=${metadataId}&reviewId=${r.id}`}
+						passHref
+						legacyBehavior
+					>
+						<Anchor>
+							<ActionIcon>
+								<IconEdit size="1rem" />
+							</ActionIcon>
+						</Anchor>
+					</Link>
+				) : null}
+			</Flex>
+			<Box ml={"sm"} mt={"xs"}>
+				{r.rating ? (
+					<Rating value={Number(r.rating)} fractions={2} readOnly />
+				) : null}
+				<Space h="xs" />
+				{r.text ? (
+					!r.spoiler ? (
+						<Text>{r.text}</Text>
+					) : (
+						<>
+							{!opened ? (
+								<Button onClick={toggle} variant={"subtle"} compact>
+									Show spoiler
+								</Button>
+							) : null}
+							<Collapse in={opened}>
+								<Text>{r.text}</Text>
+							</Collapse>
+						</>
+					)
+				) : null}
+			</Box>
+		</Box>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const [
 		progressModalOpened,
@@ -253,7 +317,6 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
-	const user = useUser();
 
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -311,7 +374,7 @@ const Page: NextPageWithLayout = () => {
 			history.refetch();
 			notifications.show({
 				title: "Deleted",
-				message: "Record deleted from your history successfully"
+				message: "Record deleted from your history successfully",
 			});
 		},
 	});
@@ -351,7 +414,7 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
-							details.data.creators.length > 0 ? (
+						details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
@@ -396,16 +459,24 @@ const Page: NextPageWithLayout = () => {
 					{details.data.collections.length > 0 ? (
 						<Group>
 							{details.data.collections.map((c, idx) => (
-								<Badge key={c} color={MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]} onClick={() => {
-									const yes = confirm(`Do you want to remove it from collection: "${c}"?`)
-									if (yes) {
-										notifications.show({
-											color: "red",
-											title: "Unimplemented",
-											message: "This feature has not been implemented yet"
-										})
+								<Badge
+									key={c}
+									color={
+										MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]
 									}
-								}}>
+									onClick={() => {
+										const yes = confirm(
+											`Do you want to remove it from collection: "${c}"?`,
+										);
+										if (yes) {
+											notifications.show({
+												color: "red",
+												title: "Unimplemented",
+												message: "This feature has not been implemented yet",
+											});
+										}
+									}}
+								>
 									<Text truncate>{c}</Text>
 								</Badge>
 							))}
@@ -525,10 +596,7 @@ const Page: NextPageWithLayout = () => {
 									</Anchor>
 								</Link>
 								<>
-									<Button
-										variant="outline"
-										onClick={collectionModalOpen}
-									>
+									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
 									<SelectCollectionModal
@@ -566,8 +634,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.startedOn
 																	? DateTime.fromISO(
-																		h.startedOn,
-																	).toLocaleString()
+																			h.startedOn,
+																	  ).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -576,8 +644,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.finishedOn
 																	? DateTime.fromISO(
-																		h.finishedOn,
-																	).toLocaleString()
+																			h.finishedOn,
+																	  ).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -681,43 +749,7 @@ const Page: NextPageWithLayout = () => {
 								<ScrollArea.Autosize mah={300}>
 									<Stack>
 										{reviews.data.map((r) => (
-											<Box key={r.id}>
-												<Flex align={"center"} gap={"sm"}>
-													<Avatar color="cyan" radius="xl">
-														{getInitials(r.postedBy.name)}{" "}
-													</Avatar>
-													<Box>
-														<Text>{r.postedBy.name}</Text>
-														<Text>
-															{DateTime.fromJSDate(r.postedOn).toLocaleString()}
-														</Text>
-													</Box>
-													{user && user.id === r.postedBy.id ? (
-														<Link
-															href={`/media/post-review?item=${metadataId}&reviewId=${r.id}`}
-															passHref
-															legacyBehavior
-														>
-															<Anchor>
-																<ActionIcon>
-																	<IconEdit size="1rem" />
-																</ActionIcon>
-															</Anchor>
-														</Link>
-													) : null}
-												</Flex>
-												<Box ml={"sm"} mt={"xs"}>
-													{r.rating ? (
-														<Rating
-															value={Number(r.rating)}
-															fractions={2}
-															readOnly
-														/>
-													) : null}
-													<Space h="xs" />
-													{r.text ? <Text>{r.text}</Text> : null}
-												</Box>
-											</Box>
+											<ReviewItem r={r} key={r.id} metadataId={metadataId} />
 										))}
 									</Stack>
 								</ScrollArea.Autosize>
