@@ -510,7 +510,7 @@ const Page: NextPageWithLayout = () => {
 						defaultValue={history.data.length > 0 ? "actions" : "overview"}
 						variant="outline"
 					>
-						<Tabs.List pb={"xs"}>
+						<Tabs.List mb={"xs"}>
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
 								Overview
 							</Tabs.Tab>
