@@ -427,7 +427,7 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
-							details.data.creators.length > 0 ? (
+						details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
@@ -652,8 +652,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.startedOn
 																	? DateTime.fromISO(
-																		h.startedOn,
-																	).toLocaleString()
+																			h.startedOn,
+																	  ).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -662,8 +662,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.finishedOn
 																	? DateTime.fromISO(
-																		h.finishedOn,
-																	).toLocaleString()
+																			h.finishedOn,
+																	  ).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
