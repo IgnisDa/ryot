@@ -123,7 +123,10 @@ const Page: NextPageWithLayout = () => {
 									You watched{" "}
 									<StatNumber text={userSummary.data.movies.watched} /> movie(s)
 									totalling{" "}
-									<StatNumber text={userSummary.data.movies.runtime} isDuration />
+									<StatNumber
+										text={userSummary.data.movies.runtime}
+										isDuration
+									/>
 									.
 								</Text>
 							</Box>
@@ -135,7 +138,11 @@ const Page: NextPageWithLayout = () => {
 									show(s) and{" "}
 									<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
 									episode(s) totalling{" "}
-									<StatNumber text={userSummary.data.shows.runtime} isDuration />.
+									<StatNumber
+										text={userSummary.data.shows.runtime}
+										isDuration
+									/>
+									.
 								</Text>
 							</Box>
 							<Box>

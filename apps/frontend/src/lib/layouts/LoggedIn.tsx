@@ -76,7 +76,6 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-
 const getIcon = (lot: MetadataLot) => {
 	return match(lot)
 		.with(MetadataLot.Book, () => IconBook)
@@ -87,7 +86,7 @@ const getIcon = (lot: MetadataLot) => {
 		.exhaustive();
 };
 
-export default function({ children }: { children: ReactElement }) {
+export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
 	useQuery({
@@ -176,7 +175,7 @@ export default function({ children }: { children: ReactElement }) {
 
 	return enabledFeatures ? (
 		<Flex direction={"column"} w={"100%"}>
-			<Flex p="sm" align={"center"} justify={"center"} wrap={'wrap'}>
+			<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
 				{links}
 				<NavbarButton
 					icon={IconLogout}
