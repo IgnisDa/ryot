@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use surf::Client;
 
@@ -7,6 +8,7 @@ use crate::{
     config::TmdbConfig,
     media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
     migrator::MetadataLot,
+    providers::MediaProvider,
     shows::{ShowEpisode, ShowSeason},
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
@@ -28,8 +30,9 @@ impl TmdbService {
     }
 }
 
-impl TmdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<ShowSpecifics>> {
+#[async_trait]
+impl MediaProvider<ShowSpecifics> for TmdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<ShowSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
             season_number: i32,
@@ -162,7 +165,7 @@ impl TmdbService {
         })
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             query: String,
@@ -216,7 +219,9 @@ impl TmdbService {
             items: resp,
         })
     }
+}
 
+impl TmdbService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
     }

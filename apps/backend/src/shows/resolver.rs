@@ -10,6 +10,7 @@ use crate::{
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, ShowSource},
+    providers::MediaProvider,
 };
 
 use super::{tmdb::TmdbService, ShowSpecifics};
@@ -57,7 +58,6 @@ impl ShowsService {
     pub fn new(
         db: &DatabaseConnection,
         tmdb_service: &TmdbService,
-
         media_service: &MediaService,
     ) -> Self {
         Self {
