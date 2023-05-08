@@ -1,5 +1,26 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
+use async_graphql::Result;
+use sea_orm::DatabaseConnection;
+
+use super::MediaTrackerImportInput;
+
+#[derive(Debug)]
+pub struct MediaTrackerService {
+    db: DatabaseConnection,
+}
+
+impl MediaTrackerService {
+    pub fn new(db: &DatabaseConnection) -> Self {
+        Self { db: db.clone() }
+    }
+
+    pub async fn import(&self, input: MediaTrackerImportInput) -> Result<bool> {
+        dbg!(&input);
+        Ok(true)
+    }
+}
+
 pub mod utils {
     use chrono::NaiveDate;
     use regex::Regex;

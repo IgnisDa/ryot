@@ -12,6 +12,7 @@ use crate::{
         resolver::{BooksMutation, BooksQuery, BooksService},
     },
     config::{AppConfig, IsFeatureEnabled},
+    importer::{ImporterMutation, ImporterService},
     media::resolver::{MediaMutation, MediaQuery, MediaService},
     migrator::MetadataLot,
     misc::resolver::{MiscMutation, MiscQuery, MiscService},
@@ -106,6 +107,7 @@ pub struct MutationRoot(
     VideoGamesMutation,
     AudioBooksMutation,
     MiscMutation,
+    ImporterMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -124,6 +126,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
     let reviews_service = MiscService::new(&db, &media_service);
+    let importer_service = ImporterService::new(&db);
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
@@ -139,5 +142,6 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     .data(video_games_service)
     .data(audio_books_service)
     .data(reviews_service)
+    .data(importer_service)
     .finish()
 }
