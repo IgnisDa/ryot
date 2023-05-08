@@ -70,6 +70,12 @@ pub mod utils {
             false,
             TEXT_4
         )]
+        #[case(
+            format!("12/09/2018: [SPOILER]\n\n{TEXT_4}"),
+            NaiveDate::from_ymd_opt(2018, 9, 12).unwrap(),
+            true,
+            TEXT_4
+        )]
         fn test_extract_review_information(
             #[case] input: String,
             #[case] expected_date: NaiveDate,
