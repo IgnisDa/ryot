@@ -10,6 +10,7 @@ use crate::{
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, VideoGameSource},
+    providers::MediaProvider,
 };
 
 use super::igdb::IgdbService;
