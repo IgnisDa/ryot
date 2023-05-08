@@ -417,10 +417,8 @@ impl UsersService {
             audio_books_runtime: ActiveValue::Set(audio_books_total.iter().sum()),
             audio_books_played: ActiveValue::Set(audio_books_count.try_into().unwrap()),
         };
-        let obj = Summary::insert(summary_obj).exec(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: obj.last_insert_id,
-        })
+        let obj = summary_obj.insert(&self.db).await.unwrap();
+        Ok(IdObject { id: obj.id })
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
@@ -480,7 +478,7 @@ impl UsersService {
             last_used: ActiveValue::Set(Some(Utc::now())),
             ..Default::default()
         };
-        Token::insert(token).exec(&self.db).await.unwrap();
+        token.insert(&self.db).await.unwrap();
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
