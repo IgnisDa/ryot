@@ -103,8 +103,8 @@ impl OpenlibraryService {
         struct OpenlibraryBook {
             description: Option<OpenlibraryDescription>,
             covers: Option<Vec<i64>>,
-            authors: Vec<OpenlibraryAuthor>,
-            subjects: Vec<String>,
+            authors: Option<Vec<OpenlibraryAuthor>>,
+            subjects: Option<Vec<String>>,
         }
         let mut rsp = self
             .client
@@ -112,17 +112,45 @@ impl OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryEdition {
+            number_of_pages: Option<i32>,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryEditionsResponse {
+            entries: Vec<OpenlibraryEdition>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("works/{}/editions.json", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let editions: OpenlibraryEditionsResponse =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let all_pages = editions
+            .entries
+            .into_iter()
+            .filter_map(|f| f.number_of_pages)
+            .collect::<Vec<_>>();
+        let num_pages = if all_pages.is_empty() {
+            0
+        } else {
+            all_pages.iter().sum::<i32>() / all_pages.len() as i32
+        };
+
         #[derive(Debug, Serialize, Deserialize)]
         struct OpenlibraryAuthorPartial {
             name: String,
         }
-        let authors = get_data_parallely_from_sources(&data.authors, &self.client, |a| {
-            format!("{}.json", a.author.key)
-        })
-        .await
-        .into_iter()
-        .map(|a: OpenlibraryAuthorPartial| a.name)
-        .collect();
+        let authors =
+            get_data_parallely_from_sources(&data.authors.unwrap_or_default(), &self.client, |a| {
+                format!("{}.json", a.author.key)
+            })
+            .await
+            .into_iter()
+            .map(|a: OpenlibraryAuthorPartial| a.name)
+            .collect();
         d.description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
@@ -134,7 +162,7 @@ impl OpenlibraryService {
             .map(|c| self.get_cover_image_url(c))
             .collect();
         d.author_names = authors;
-        d.genres = data.subjects;
+        d.genres = data.subjects.unwrap_or_default();
         Ok(MediaDetails {
             identifier: d.identifier,
             title: d.title,
@@ -146,7 +174,9 @@ impl OpenlibraryService {
             backdrop_images: d.backdrop_images,
             publish_year: d.publish_year,
             publish_date: d.publish_date,
-            specifics: d.book_specifics,
+            specifics: BookSpecifics {
+                pages: Some(num_pages),
+            },
         })
     }
 
