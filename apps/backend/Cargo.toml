@@ -11,6 +11,7 @@ apalis = { version = "0.3.6", features = ["sqlite", "extensions"] }
 argon2 = "0.5.0"
 async-graphql = { version = "5.0.7", features = ["chrono", "decimal", "log", "uuid"] }
 async-graphql-axum = "5.0.7"
+async-trait = "0.1.68"
 axum = { version = "0.6.12", features = ["macros"] }
 chrono = "0.4.24"
 cookie = "0.17.0"
