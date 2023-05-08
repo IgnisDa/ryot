@@ -33,6 +33,7 @@ struct ReviewItem {
     rating: Option<Decimal>,
     text: Option<String>,
     visibility: ReviewVisibility,
+    spoiler: bool,
     season_number: Option<i32>,
     episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
@@ -43,6 +44,7 @@ struct PostReviewInput {
     rating: Option<Decimal>,
     text: Option<String>,
     visibility: Option<ReviewVisibility>,
+    spoiler: Option<bool>,
     metadata_id: i32,
     /// ID of the review if this is an update to an existing review
     review_id: Option<i32>,
@@ -172,6 +174,7 @@ impl MiscService {
                     id: r.id,
                     posted_on: r.posted_on,
                     rating: r.rating,
+                    spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
                     season_number: se,
@@ -235,6 +238,9 @@ impl MiscService {
             extra_information: ActiveValue::NotSet,
             ..Default::default()
         };
+        if let Some(s) = input.spoiler {
+            review_obj.spoiler = ActiveValue::Set(s);
+        }
         if let Some(v) = input.visibility {
             review_obj.visibility = ActiveValue::Set(v);
         }
