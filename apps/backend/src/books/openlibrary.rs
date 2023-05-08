@@ -101,6 +101,7 @@ impl OpenlibraryService {
             description: Option<OpenlibraryDescription>,
             covers: Option<Vec<i64>>,
             authors: Vec<OpenlibraryAuthor>,
+            subjects: Vec<String>,
         }
         let mut rsp = self
             .client
@@ -130,6 +131,7 @@ impl OpenlibraryService {
             .map(|c| self.get_cover_image_url(c))
             .collect();
         d.author_names = authors;
+        d.genres = data.subjects;
         Ok(MediaDetails {
             identifier: d.identifier,
             title: d.title,
