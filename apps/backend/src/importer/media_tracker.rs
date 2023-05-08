@@ -31,7 +31,50 @@ pub mod utils {
             None
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use rstest::rstest;
+
+        #[rstest]
+        #[case(
+            "01/05/2023:\n\nThe movie was fantastic! Highly recommend.",
+            NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
+            false,
+            "The movie was fantastic! Highly recommend."
+        )]
+        #[case(
+            "01/05/2023: [SPOILER]\n\nThe ending was unexpected.",
+            NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
+            true,
+            "The ending was unexpected."
+        )]
+        #[case(
+            "14/04/2023:\n\nShort and sweet romance.\n\nDefinitely worth the 7-8hrs I spent reading it.",
+            NaiveDate::from_ymd_opt(2023, 4, 14).unwrap(),
+            false,
+            "Short and sweet romance.\n\nDefinitely worth the 7-8hrs I spent reading it."
+        )]
+        #[case(
+            "12/08/2019:\n\nA text to start with.\nAnother text to end with.",
+            NaiveDate::from_ymd_opt(2019, 8, 12).unwrap(),
+            false,
+            "A text to start with.\nAnother text to end with."
+        )]
+        fn test_extract_review_information(
+            #[case] input: &str,
+            #[case] expected_date: NaiveDate,
+            #[case] expected_is_spoiler: bool,
+            #[case] expected_text: &str,
+        ) {
+            let info = extract_review_information(input);
+            assert!(info.is_some());
+
+            let info = info.unwrap();
+            assert_eq!(info.date, expected_date);
+            assert_eq!(info.spoiler, expected_is_spoiler);
+            assert_eq!(info.text, expected_text);
         }
-        result
     }
 }
