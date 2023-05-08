@@ -496,6 +496,22 @@ impl UsersService {
     }
 
     async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
-        todo!();
+        let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .into();
+        if let Some(n) = input.username {
+            user_obj.name = ActiveValue::Set(n);
+        }
+        if let Some(e) = input.email {
+            user_obj.email = ActiveValue::Set(Some(e));
+        }
+        if let Some(p) = input.password {
+            user_obj.password = ActiveValue::Set(p);
+        }
+        let user_obj = user_obj.update(&self.db).await.unwrap();
+        Ok(IdObject { id: user_obj.id })
     }
 }
