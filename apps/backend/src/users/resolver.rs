@@ -1,5 +1,5 @@
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
 };
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
@@ -7,8 +7,8 @@ use chrono::Utc;
 use cookie::{time::OffsetDateTime, Cookie};
 use http::header::SET_COOKIE;
 use sea_orm::{
-    ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder,
 };
 use uuid::Uuid;
 
@@ -435,10 +435,6 @@ impl UsersService {
                 error: RegisterErrorVariant::UsernameAlreadyExists,
             }));
         };
-        let salt = SaltString::generate(&mut OsRng);
-        let password_hash = get_hasher()
-            .hash_password(password.as_bytes(), &salt)?
-            .to_string();
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
             UserLot::Admin
         } else {
@@ -446,14 +442,12 @@ impl UsersService {
         };
         let user = user::ActiveModel {
             name: ActiveValue::Set(username.to_owned()),
-            password: ActiveValue::Set(password_hash.to_owned()),
+            password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
             ..Default::default()
         };
-        let user = User::insert(user).exec(&self.db).await.unwrap();
-        Ok(RegisterResult::Ok(IdObject {
-            id: user.last_insert_id,
-        }))
+        let user = user.insert(&self.db).await.unwrap();
+        Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
     async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
@@ -487,7 +481,6 @@ impl UsersService {
             ..Default::default()
         };
         Token::insert(token).exec(&self.db).await.unwrap();
-
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
