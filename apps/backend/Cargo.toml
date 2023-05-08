@@ -1,5 +1,5 @@
 [package]
-name = "ryot_backend"
+name = "ryot"
 version = "0.0.14"
 edition = "2021"
 
