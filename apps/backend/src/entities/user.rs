@@ -71,12 +71,15 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        let salt = SaltString::generate(&mut OsRng);
-        let password_hash = get_hasher()
-            .hash_password(self.password.unwrap().as_bytes(), &salt)
-            .map_err(|_| DbErr::Custom("Unable to hash password".to_owned()))?
-            .to_string();
-        self.password = ActiveValue::Set(password_hash);
+        if !self.password.is_unchanged() || self.password.is_not_set() {
+            let password = self.password.unwrap();
+            let salt = SaltString::generate(&mut OsRng);
+            let password_hash = get_hasher()
+                .hash_password(password.as_bytes(), &salt)
+                .map_err(|_| DbErr::Custom("Unable to hash password".to_owned()))?
+                .to_string();
+            self.password = ActiveValue::Set(password_hash);
+        }
         Ok(self)
     }
 }
