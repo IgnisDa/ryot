@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
@@ -11,6 +12,7 @@ use crate::{
         LIMIT,
     },
     migrator::MetadataLot,
+    providers::MediaProvider,
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
     },
@@ -76,8 +78,9 @@ impl AudibleService {
     }
 }
 
-impl AudibleService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
+#[async_trait]
+impl MediaProvider<AudioBookSpecifics> for AudibleService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleItemResponse {
             product: AudibleItem,
@@ -94,7 +97,7 @@ impl AudibleService {
         Ok(d)
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
             total_results: i32,
@@ -133,7 +136,9 @@ impl AudibleService {
             items: resp,
         })
     }
+}
 
+impl AudibleService {
     fn audible_response_to_search_response(
         &self,
         item: AudibleItem,
