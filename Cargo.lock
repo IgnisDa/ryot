@@ -3187,7 +3187,6 @@ dependencies = [
  "argon2",
  "async-graphql",
  "async-graphql-axum",
- "async-trait",
  "axum",
  "chrono",
  "cookie 0.17.0",

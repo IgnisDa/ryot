@@ -50,7 +50,6 @@ mod media;
 mod migrator;
 mod misc;
 mod movies;
-mod providers;
 mod shows;
 mod users;
 mod utils;
