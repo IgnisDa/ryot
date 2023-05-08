@@ -125,8 +125,6 @@ export default function (props: {
 	const commitFunction = async () => {
 		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
-			index: props.idx,
-			input: { query: props.query, offset: props.offset },
 		});
 		return id;
 	};

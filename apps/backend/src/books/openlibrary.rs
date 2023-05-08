@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
@@ -61,26 +61,7 @@ impl OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect::<Vec<_>>()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
-    }
-
-    // FIXME: We are calling internal search because the number of pages is not
-    // available on the work detail. We need a smarter way to do it so that we
-    // can extract traits for these providers.
-    pub async fn details(
-        &self,
-        identifier: &str,
-        query: &str,
-        offset: Option<i32>,
-        index: i32,
-    ) -> Result<MediaDetails<BookSpecifics>> {
-        let mut d = self.search_internal(query, offset).await?.items[index as usize].clone();
+    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<BookSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -101,7 +82,9 @@ impl OpenlibraryService {
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
+            key: String,
             description: Option<OpenlibraryDescription>,
+            title: String,
             covers: Option<Vec<i64>>,
             authors: Option<Vec<OpenlibraryAuthor>>,
             subjects: Option<Vec<String>>,
@@ -115,6 +98,7 @@ impl OpenlibraryService {
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryEdition {
+            publish_date: Option<String>,
             number_of_pages: Option<i32>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -130,7 +114,7 @@ impl OpenlibraryService {
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let all_pages = editions
             .entries
-            .into_iter()
+            .iter()
             .filter_map(|f| f.number_of_pages)
             .collect::<Vec<_>>();
         let num_pages = if all_pages.is_empty() {
@@ -138,6 +122,12 @@ impl OpenlibraryService {
         } else {
             all_pages.iter().sum::<i32>() / all_pages.len() as i32
         };
+        let first_release_date = editions
+            .entries
+            .iter()
+            .filter_map(|f| f.publish_date.clone())
+            .filter_map(|f| Self::parse_date(&f))
+            .min();
 
         #[derive(Debug, Serialize, Deserialize)]
         struct OpenlibraryAuthorPartial {
@@ -151,29 +141,27 @@ impl OpenlibraryService {
             .into_iter()
             .map(|a: OpenlibraryAuthorPartial| a.name)
             .collect();
-        d.description = data.description.map(|d| match d {
+        let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        d.poster_images = data
+        let poster_images = data
             .covers
             .unwrap_or_default()
             .into_iter()
             .map(|c| self.get_cover_image_url(c))
             .collect();
-        d.author_names = authors;
-        d.genres = data.subjects.unwrap_or_default();
         Ok(MediaDetails {
-            identifier: d.identifier,
-            title: d.title,
-            description: d.description,
+            identifier: Self::get_key(&data.key),
+            title: data.title,
+            description,
             lot: MetadataLot::Book,
-            creators: d.author_names,
-            genres: d.genres,
-            poster_images: d.poster_images,
-            backdrop_images: d.backdrop_images,
-            publish_year: d.publish_year,
-            publish_date: d.publish_date,
+            creators: authors,
+            genres: data.subjects.unwrap_or_default(),
+            poster_images,
+            backdrop_images: vec![],
+            publish_year: first_release_date.map(|d| d.year()),
+            publish_date: None,
             specifics: BookSpecifics {
                 pages: Some(num_pages),
             },
@@ -280,5 +268,24 @@ impl OpenlibraryService {
             "{}/id/{}-{}.jpg?default=false",
             self.image_url, c, self.image_size
         )
+    }
+
+    fn parse_date(input: &str) -> Option<NaiveDate> {
+        let formats = ["%b %d, %Y", "%Y", "%b %d, %Y"];
+        for format in formats.iter() {
+            if let Ok(date) = NaiveDate::parse_from_str(input, format) {
+                return Some(date);
+            }
+        }
+        None
+    }
+
+    fn get_key(key: &str) -> String {
+        key.split('/')
+            .collect::<Vec<_>>()
+            .last()
+            .cloned()
+            .unwrap()
+            .to_owned()
     }
 }

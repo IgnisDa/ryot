@@ -14,7 +14,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  */
 const documents = {
     "mutation CommitAudioBook($identifier: String!) {\n  commitAudioBook(identifier: $identifier) {\n    id\n  }\n}": types.CommitAudioBookDocument,
-    "mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n  commitBook(identifier: $identifier, input: $input, index: $index) {\n    id\n  }\n}": types.CommitBookDocument,
+    "mutation CommitBook($identifier: String!) {\n  commitBook(identifier: $identifier) {\n    id\n  }\n}": types.CommitBookDocument,
     "mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}": types.CommitMovieDocument,
     "mutation CommitShow($identifier: String!) {\n  commitShow(identifier: $identifier) {\n    id\n  }\n}": types.CommitShowDocument,
     "mutation CommitVideoGame($identifier: String!) {\n  commitVideoGame(identifier: $identifier) {\n    id\n  }\n}": types.CommitVideoGameDocument,
@@ -66,7 +66,7 @@ export function graphql(source: "mutation CommitAudioBook($identifier: String!) 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n  commitBook(identifier: $identifier, input: $input, index: $index) {\n    id\n  }\n}"): (typeof documents)["mutation CommitBook($identifier: String!, $input: BookSearchInput!, $index: Int!) {\n  commitBook(identifier: $identifier, input: $input, index: $index) {\n    id\n  }\n}"];
+export function graphql(source: "mutation CommitBook($identifier: String!) {\n  commitBook(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitBook($identifier: String!) {\n  commitBook(identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

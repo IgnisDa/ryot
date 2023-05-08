@@ -45,16 +45,10 @@ pub struct BooksMutation;
 #[Object]
 impl BooksMutation {
     /// Fetch details about a book and create a media item in the database
-    async fn commit_book(
-        &self,
-        gql_ctx: &Context<'_>,
-        identifier: String,
-        index: i32,
-        input: BookSearchInput,
-    ) -> Result<IdObject> {
+    async fn commit_book(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<BooksService>()
-            .commit_book(&identifier, &input.query, input.offset, index)
+            .commit_book(&identifier)
             .await
     }
 }
@@ -91,13 +85,7 @@ impl BooksService {
         Ok(books)
     }
 
-    async fn commit_book(
-        &self,
-        identifier: &str,
-        query: &str,
-        offset: Option<i32>,
-        index: i32,
-    ) -> Result<IdObject> {
+    async fn commit_book(&self, identifier: &str) -> Result<IdObject> {
         let meta = Book::find()
             .filter(book::Column::Identifier.eq(identifier))
             .one(&self.db)
@@ -106,11 +94,7 @@ impl BooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let book_details = self
-                .openlibrary_service
-                .details(identifier, query, offset, index)
-                .await
-                .unwrap();
+            let book_details = self.openlibrary_service.details(identifier).await.unwrap();
             let metadata_id = self
                 .media_service
                 .commit_media(
