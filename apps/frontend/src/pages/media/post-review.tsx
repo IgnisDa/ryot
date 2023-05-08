@@ -75,6 +75,7 @@ const Page: NextPageWithLayout = () => {
 				rating: data?.rating || 0,
 				text: data?.text || "",
 				visibility: data?.visibility,
+				spoiler: data?.spoiler !== undefined ? data?.spoiler : false
 			});
 			form.resetDirty();
 		},
