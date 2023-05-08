@@ -121,6 +121,12 @@ pub struct MediaListInput {
     pub lot: MetadataLot,
 }
 
+#[derive(Serialize, Deserialize, Debug, InputObject)]
+pub struct SearchInput {
+    pub query: String,
+    pub page: Option<i32>,
+}
+
 #[derive(Default)]
 pub struct MediaQuery;
 

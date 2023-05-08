@@ -9,17 +9,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{book, prelude::Book},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{BookSource, MetadataLot},
 };
 
 use super::openlibrary::OpenlibraryService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct BookSearchInput {
-    query: String,
-    offset: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct BooksQuery;
@@ -30,11 +24,11 @@ impl BooksQuery {
     async fn books_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: BookSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<BooksService>()
-            .books_search(&input.query, input.offset)
+            .books_search(&input.query, input.page)
             .await
     }
 }
@@ -76,12 +70,8 @@ impl BooksService {
 
 impl BooksService {
     // Get book details from all sources
-    async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
-        let books = self
-            .openlibrary_service
-            .search(query, offset)
-            .await
-            .unwrap();
+    async fn books_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let books = self.openlibrary_service.search(query, page).await.unwrap();
         Ok(books)
     }
 

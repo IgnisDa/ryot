@@ -168,25 +168,7 @@ impl OpenlibraryService {
         })
     }
 
-    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
-        let data = self.search_internal(query, offset).await?;
-        Ok(MediaSearchResults {
-            total: data.total,
-            items: data
-                .items
-                .into_iter()
-                .map(|b| MediaSearchItem {
-                    identifier: b.identifier,
-                    lot: MetadataLot::Book,
-                    title: b.title,
-                    poster_images: b.poster_images,
-                    publish_year: b.publish_year,
-                })
-                .collect(),
-        })
-    }
-
-    async fn search_internal(&self, query: &str, offset: Option<i32>) -> Result<BookSearchResults> {
+    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -223,10 +205,9 @@ impl OpenlibraryService {
                     "author_name",
                     "cover_i",
                     "first_publish_year",
-                    "number_of_pages_median",
                 ]
                 .join(","),
-                offset: offset.unwrap_or_default(),
+                offset: page.unwrap_or_default() * LIMIT,
                 limit: LIMIT,
                 lot: "work".to_owned(),
             })
@@ -257,9 +238,23 @@ impl OpenlibraryService {
                 }
             })
             .collect::<Vec<_>>();
-        Ok(BookSearchResults {
+        let data = BookSearchResults {
             total: search.num_found,
             items: resp,
+        };
+        Ok(MediaSearchResults {
+            total: data.total,
+            items: data
+                .items
+                .into_iter()
+                .map(|b| MediaSearchItem {
+                    identifier: b.identifier,
+                    lot: MetadataLot::Book,
+                    title: b.title,
+                    poster_images: b.poster_images,
+                    publish_year: b.publish_year,
+                })
+                .collect(),
         })
     }
 

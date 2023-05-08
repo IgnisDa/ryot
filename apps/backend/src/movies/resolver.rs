@@ -9,17 +9,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{movie, prelude::Movie},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, MovieSource},
 };
 
 use super::tmdb::TmdbService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct MoviesSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct MoviesQuery;
@@ -30,7 +24,7 @@ impl MoviesQuery {
     async fn movies_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: MoviesSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<MoviesService>()

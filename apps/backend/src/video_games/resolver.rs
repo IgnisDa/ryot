@@ -9,17 +9,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{prelude::VideoGame, video_game},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, VideoGameSource},
 };
 
 use super::igdb::IgdbService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct VideoGamesSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -30,7 +24,7 @@ impl VideoGamesQuery {
     async fn video_games_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: VideoGamesSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<VideoGamesService>()

@@ -9,17 +9,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{audio_book, prelude::AudioBook},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{AudioBookSource, MetadataLot},
 };
 
 use super::audible::AudibleService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct AudioBookSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -30,7 +24,7 @@ impl AudioBooksQuery {
     async fn audio_books_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: AudioBookSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<AudioBooksService>()

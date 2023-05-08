@@ -9,17 +9,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{prelude::Show, show},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, ShowSource},
 };
 
 use super::{tmdb::TmdbService, ShowSpecifics};
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct ShowSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct ShowsQuery;
@@ -30,7 +24,7 @@ impl ShowsQuery {
     async fn show_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: ShowSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<ShowsService>()

@@ -71,7 +71,7 @@ const Page: NextPageWithLayout = () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
-						input: { query, offset },
+						input: { query, page: parseInt(activeSearchPage) || 1 },
 					});
 					return booksSearch;
 				})

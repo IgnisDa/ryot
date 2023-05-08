@@ -1,4 +1,4 @@
-query MoviesSearch($input: MoviesSearchInput!) {
+query MoviesSearch($input: SearchInput!) {
   moviesSearch(input: $input) {
     total
     items {

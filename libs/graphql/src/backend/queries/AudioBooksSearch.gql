@@ -1,4 +1,4 @@
-query AudioBooksSearch($input: AudioBookSearchInput!) {
+query AudioBooksSearch($input: SearchInput!) {
   audioBooksSearch(input: $input) {
     total
     items {
