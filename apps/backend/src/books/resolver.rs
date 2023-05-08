@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{book, prelude::Book},
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{BookSource, MetadataLot},
+    providers::MediaProvider,
 };
 
 use super::openlibrary::OpenlibraryService;

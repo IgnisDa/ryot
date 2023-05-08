@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
+use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
@@ -12,6 +13,7 @@ use crate::{
         LIMIT,
     },
     migrator::MetadataLot,
+    providers::MediaProvider,
     utils::{convert_option_path_to_vec, get_data_parallely_from_sources},
 };
 
@@ -60,8 +62,9 @@ impl OpenlibraryService {
     }
 }
 
-impl OpenlibraryService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<BookSpecifics>> {
+#[async_trait]
+impl MediaProvider<BookSpecifics> for OpenlibraryService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<BookSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -168,7 +171,7 @@ impl OpenlibraryService {
         })
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -257,7 +260,9 @@ impl OpenlibraryService {
                 .collect(),
         })
     }
+}
 
+impl OpenlibraryService {
     fn get_cover_image_url(&self, c: i64) -> String {
         format!(
             "{}/id/{}-{}.jpg?default=false",
