@@ -6,26 +6,31 @@ pub mod utils {
 
     #[derive(Debug)]
     pub struct ReviewInformation {
-        pub date: NaiveDate,
-        pub spoiler: bool,
-        pub text: String,
+        date: NaiveDate,
+        spoiler: bool,
+        text: String,
     }
 
-    // DEV: The below code was written using ChatGPT
-    pub fn extract_review_info(input: &str) -> Vec<ReviewInformation> {
-        let review_regex = Regex::new(r"(?m)^(\d{2}/\d{2}/\d{4}):(\s*\[SPOILER\])?\n\n((?:[^\n]+(?:\n|$)){1,}.*(?:\n|$)?)(?:(?:\n\n---\n\n)|(?:\n---\n)|(?:\n\n---\n))?").unwrap();
-        let mut result = vec![];
-        for capture in review_regex.captures_iter(input) {
-            let date = NaiveDate::parse_from_str(&capture[1], "%d/%m/%Y").unwrap();
-            let spoiler = capture
-                .get(2)
-                .map_or(false, |m| m.as_str().contains("[SPOILER]"));
-            let text = capture[3].trim().to_string();
-            result.push(ReviewInformation {
+    pub fn extract_review_information(input: &str) -> Option<ReviewInformation> {
+        let regex_str =
+            r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILER\])?\n\n(?P<text>[\s\S]*)$";
+        let regex = Regex::new(regex_str).unwrap();
+        if let Some(captures) = regex.captures(input) {
+            let date_str = captures.name("date").unwrap().as_str();
+            let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y").ok()?;
+            let spoiler = captures
+                .name("spoiler")
+                .map_or(false, |m| m.as_str().trim() == "[SPOILER]");
+            let text = captures.name("text").unwrap().as_str().to_owned();
+            Some(ReviewInformation {
                 date,
                 spoiler,
                 text,
-            });
+            })
+        } else {
+            None
+        }
+    }
         }
         result
     }
