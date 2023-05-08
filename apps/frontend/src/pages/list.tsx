@@ -5,7 +5,7 @@ import MediaItem, {
 } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
+import { changeCase, getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -29,7 +29,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
@@ -126,9 +125,7 @@ const Page: NextPageWithLayout = () => {
 						<Text size={"lg"}>Search</Text>
 					</Tabs.Tab>
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
-						<Text size={"lg"}>
-							My {startCase(camelCase(lot.toLowerCase()))}s
-						</Text>
+						<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
 					<Box style={{ flexGrow: 1 }}>
 						<ActionIcon

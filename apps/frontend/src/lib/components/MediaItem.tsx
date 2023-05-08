@@ -1,5 +1,11 @@
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
+import {
+	Verb,
+	changeCase,
+	getInitials,
+	getLot,
+	getVerb,
+} from "@/lib/utilities";
 import { Button, Flex, Image, Text } from "@mantine/core";
 import {
 	type BooksSearchQuery,
@@ -12,7 +18,6 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
-import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
 
@@ -54,7 +59,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			/>
 			<Flex justify={"space-between"} w="100%">
 				<Text c="dimmed">{props.item.publishYear}</Text>
-				<Text c="dimmed">{startCase(camelCase(props.lot))}</Text>
+				<Text c="dimmed">{changeCase(props.lot)}</Text>
 			</Flex>
 			<Text w="100%" truncate fw={"bold"} mb="xs">
 				{props.item.title}

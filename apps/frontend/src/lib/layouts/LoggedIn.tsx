@@ -1,4 +1,5 @@
 import { gqlClient } from "../services/api";
+import { changeCase } from "@/lib//utilities";
 import {
 	Box,
 	Flex,
@@ -26,7 +27,6 @@ import {
 	IconSettings,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { camelCase, startCase } from "lodash";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -124,7 +124,7 @@ export default function ({ children }: { children: ReactElement }) {
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
-				label: startCase(camelCase(f.name.toString())),
+				label: changeCase(f.name.toString()),
 				icon: getIcon(f.name),
 				href: undefined,
 			})) || []),

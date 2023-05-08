@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "../_app";
 import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getInitials, getVerb } from "@/lib/utilities";
+import { Verb, changeCase, getInitials, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Accordion,
@@ -19,6 +19,7 @@ import {
 	Group,
 	Image,
 	MANTINE_COLORS,
+	type MantineGradient,
 	Modal,
 	Rating,
 	ScrollArea,
@@ -66,6 +67,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { match } from "ts-pattern";
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -379,6 +381,17 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const badgeGradient: MantineGradient = match(details.data?.type)
+		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
+		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
+		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
+		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
+		.with(MetadataLot.VideoGame, undefined, () => ({
+			from: "purple",
+			to: "blue",
+		}))
+		.exhaustive();
+
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = history.data?.find((h) => h.progress < 100);
 
@@ -414,7 +427,7 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
-						details.data.creators.length > 0 ? (
+							details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
@@ -455,7 +468,12 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
-					<Title underline>{details.data.title}</Title>
+					<Group>
+						<Title underline>{details.data.title}</Title>
+						<Badge variant="gradient" gradient={badgeGradient}>
+							{changeCase(details.data.type)}
+						</Badge>
+					</Group>
 					{details.data.collections.length > 0 ? (
 						<Group>
 							{details.data.collections.map((c, idx) => (
@@ -634,8 +652,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.startedOn
 																	? DateTime.fromISO(
-																			h.startedOn,
-																	  ).toLocaleString()
+																		h.startedOn,
+																	).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -644,8 +662,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.finishedOn
 																	? DateTime.fromISO(
-																			h.finishedOn,
-																	  ).toLocaleString()
+																		h.finishedOn,
+																	).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
