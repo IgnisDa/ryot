@@ -3,6 +3,7 @@ query MediaItemReviews($metadataId: Int!) {
     id
     rating
     text
+    spoiler
     visibility
     seasonNumber
     episodeNumber
