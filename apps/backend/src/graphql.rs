@@ -33,6 +33,7 @@ use crate::{
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static AUTHOR: &str = "ignisda";
+pub static PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 
 #[derive(SimpleObject)]
 pub struct CoreFeatureEnabled {

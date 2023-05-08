@@ -6,6 +6,8 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
+use crate::graphql::PROJECT_NAME;
+
 static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
 
 static TMDB_ACCESS_KEY: &str =
@@ -80,7 +82,7 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: "sqlite:/data/ryot.db?mode=rwc".to_owned(),
+            url: format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME),
         }
     }
 }
@@ -201,7 +203,7 @@ pub struct AppConfig {
 
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
-    let app = "ryot";
+    let app = PROJECT_NAME;
     Figment::new()
         .merge(Serialized::defaults(AppConfig::default()))
         .merge(Env::raw().split("_"))

@@ -6,7 +6,7 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::AudibleConfig,
-    graphql::AUTHOR,
+    graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
@@ -69,7 +69,7 @@ pub struct AudibleService {
 impl AudibleService {
     pub fn new(config: &AudibleConfig) -> Self {
         let client = Config::new()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()

@@ -96,11 +96,13 @@ where
 }
 
 pub mod tmdb {
+    use crate::graphql::PROJECT_NAME;
+
     use super::*;
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
             .unwrap()
@@ -122,6 +124,8 @@ pub mod tmdb {
 }
 
 pub mod igdb {
+    use crate::graphql::PROJECT_NAME;
+
     use super::*;
 
     pub async fn get_client_config(
@@ -157,7 +161,7 @@ pub mod igdb {
         let client: Client = Config::new()
             .add_header("Client-ID", twitch_client_id)
             .unwrap()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .add_header(
                 AUTHORIZATION,
