@@ -70,6 +70,9 @@ impl OpenlibraryService {
             .to_owned()
     }
 
+    // FIXME: We are calling internal search because the number of pages is not
+    // available on the work detail. We need a smarter way to do it so that we
+    // can extract traits for these providers.
     pub async fn details(
         &self,
         identifier: &str,
