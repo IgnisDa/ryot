@@ -14,14 +14,14 @@ pub mod utils {
     // Wrote with the help of ChatGPT.
     pub fn extract_review_information(input: &str) -> Option<ReviewInformation> {
         let regex_str =
-            r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILER\])?\n\n(?P<text>[\s\S]*)$";
+            r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILERS\])?\n\n(?P<text>[\s\S]*)$";
         let regex = Regex::new(regex_str).unwrap();
         if let Some(captures) = regex.captures(input) {
             let date_str = captures.name("date").unwrap().as_str();
             let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y").ok()?;
             let spoiler = captures
                 .name("spoiler")
-                .map_or(false, |m| m.as_str().trim() == "[SPOILER]");
+                .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
             let text = captures.name("text").unwrap().as_str().to_owned();
             Some(ReviewInformation {
                 date,
@@ -53,7 +53,7 @@ pub mod utils {
             TEXT_1
         )]
         #[case(
-            format!("01/05/2023: [SPOILER]\n\n{TEXT_2}"),
+            format!("01/05/2023: [SPOILERS]\n\n{TEXT_2}"),
             NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
             true,
             TEXT_2
@@ -71,7 +71,7 @@ pub mod utils {
             TEXT_4
         )]
         #[case(
-            format!("12/09/2018: [SPOILER]\n\n{TEXT_4}"),
+            format!("12/09/2018: [SPOILERS]\n\n{TEXT_4}"),
             NaiveDate::from_ymd_opt(2018, 9, 12).unwrap(),
             true,
             TEXT_4
