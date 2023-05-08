@@ -11,6 +11,7 @@ pub mod utils {
         text: String,
     }
 
+    // Wrote with the help of ChatGPT.
     pub fn extract_review_information(input: &str) -> Option<ReviewInformation> {
         let regex_str =
             r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILER\])?\n\n(?P<text>[\s\S]*)$";
@@ -37,38 +38,45 @@ pub mod utils {
         use super::*;
         use rstest::rstest;
 
+        static TEXT_1: &str = "The movie was fantastic! Highly recommend.";
+        static TEXT_2: &str = "The ending was unexpected.";
+        static TEXT_3: &str =
+            "Short and sweet romance.\n\nDefinitely worth the 7-8hrs I spent reading it.";
+        static TEXT_4: &str =
+            "This is a great book.\nThe characters are well-developed.\n\nI couldn't put it down!";
+
         #[rstest]
         #[case(
-            "01/05/2023:\n\nThe movie was fantastic! Highly recommend.",
+            format!("01/05/2023:\n\n{TEXT_1}"),
             NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
             false,
-            "The movie was fantastic! Highly recommend."
+            TEXT_1
         )]
         #[case(
-            "01/05/2023: [SPOILER]\n\nThe ending was unexpected.",
+            format!("01/05/2023: [SPOILER]\n\n{TEXT_2}"),
             NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
             true,
-            "The ending was unexpected."
+            TEXT_2
         )]
         #[case(
-            "14/04/2023:\n\nShort and sweet romance.\n\nDefinitely worth the 7-8hrs I spent reading it.",
+            format!("14/04/2023:\n\n{TEXT_3}"),
             NaiveDate::from_ymd_opt(2023, 4, 14).unwrap(),
             false,
-            "Short and sweet romance.\n\nDefinitely worth the 7-8hrs I spent reading it."
+            TEXT_3
         )]
         #[case(
-            "12/08/2019:\n\nA text to start with.\nAnother text to end with.",
+            format!("12/08/2019:\n\n{TEXT_4}"),
             NaiveDate::from_ymd_opt(2019, 8, 12).unwrap(),
             false,
-            "A text to start with.\nAnother text to end with."
+            TEXT_4
         )]
         fn test_extract_review_information(
-            #[case] input: &str,
+            #[case] input: String,
             #[case] expected_date: NaiveDate,
             #[case] expected_is_spoiler: bool,
             #[case] expected_text: &str,
         ) {
-            let info = extract_review_information(input);
+            let info = extract_review_information(input.as_str());
             assert!(info.is_some());
 
             let info = info.unwrap();
