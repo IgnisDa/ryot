@@ -218,7 +218,8 @@ impl OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| {
-                let poster_images = convert_option_path_to_vec(d.cover_i.map(|f| f.to_string()));
+                let poster_images =
+                    convert_option_path_to_vec(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
                     identifier: Self::get_key(&d.key),
                     title: d.title,
