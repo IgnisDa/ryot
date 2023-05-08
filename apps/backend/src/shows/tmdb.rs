@@ -8,8 +8,8 @@ use crate::{
     config::TmdbConfig,
     media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
     migrator::MetadataLot,
-    providers::MediaProvider,
     shows::{ShowEpisode, ShowSeason},
+    traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
     },

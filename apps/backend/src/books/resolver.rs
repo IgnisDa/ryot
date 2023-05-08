@@ -10,7 +10,7 @@ use crate::{
     graphql::IdObject,
     media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{BookSource, MetadataLot},
-    providers::MediaProvider,
+    traits::MediaProvider,
 };
 
 use super::openlibrary::OpenlibraryService;

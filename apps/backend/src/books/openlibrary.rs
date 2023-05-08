@@ -13,7 +13,7 @@ use crate::{
         LIMIT,
     },
     migrator::MetadataLot,
-    providers::MediaProvider,
+    traits::MediaProvider,
     utils::{convert_option_path_to_vec, get_data_parallely_from_sources},
 };
 

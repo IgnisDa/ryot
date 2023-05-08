@@ -9,7 +9,7 @@ use surf::Client;
 
 use crate::media::resolver::MediaDetails;
 use crate::migrator::MetadataLot;
-use crate::providers::MediaProvider;
+use crate::traits::MediaProvider;
 use crate::{
     config::VideoGameConfig,
     media::{

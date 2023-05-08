@@ -12,7 +12,7 @@ use crate::{
         LIMIT,
     },
     migrator::MetadataLot,
-    providers::MediaProvider,
+    traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
     },
