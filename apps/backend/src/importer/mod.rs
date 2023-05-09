@@ -40,7 +40,6 @@ pub struct MediaTrackerImportInput {
 
 #[derive(Debug)]
 pub struct ImportItemSeen {
-    started_on: Option<DateTimeUtc>,
     ended_on: Option<DateTimeUtc>,
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -129,7 +128,11 @@ impl ImporterService {
         input: MediaTrackerImportInput,
     ) -> Result<bool> {
         let import = media_tracker::import(input).await?;
-        for item in import.media.iter() {
+        for (idx, item) in import.media.iter().enumerate() {
+            tracing::trace!(
+                "Importing media with identifier = {iden}",
+                iden = item.identifier
+            );
             let data = match item.lot {
                 MetadataLot::AudioBook => {
                     self.audio_books_service
@@ -182,6 +185,14 @@ impl ImporterService {
                     )
                     .await?;
             }
+            tracing::trace!(
+                "Imported item: {idx}, lot: {lot}, identifier: {iden}, history count: {hist}, reviews count: {rev}",
+                idx = idx,
+                lot = item.lot,
+                iden = item.identifier,
+                hist = item.seen_history.len(),
+                rev = item.reviews.len()
+            );
         }
 
         dbg!(&import.failed_items);

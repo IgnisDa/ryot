@@ -103,9 +103,10 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
     // all items returned here are seen atleast once
     let mut rsp = client.get("items").await.unwrap();
     let data: Vec<Item> = rsp.body_json().await.unwrap();
+    let len = data.len();
 
     let mut final_data = vec![];
-    for d in data.into_iter() {
+    for (idx, d) in data.into_iter().enumerate() {
         let identifier = match d.media_type.clone() {
             MediaType::Book => openlibrary::get_key(&d.openlibrary_id.clone().unwrap()),
             MediaType::Movie => d.tmdb_id.unwrap().to_string(),
@@ -114,7 +115,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
             MediaType::Audiobook => d.audible_id.clone().unwrap(),
         };
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
-        let data: ItemDetails = rsp
+        let details: ItemDetails = rsp
             .body_json()
             .await
             .map_err(|_| {
@@ -124,11 +125,18 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                 });
             })
             .unwrap();
-        dbg!(&d);
+        let lot = MetadataLot::from(d.media_type.clone());
+        tracing::trace!(
+            "Got details for {type:?}: {id} ({idx}/{total})",
+            type = d.media_type,
+            id = d.id,
+            idx = idx,
+            total = len
+        );
         final_data.push(ImportItem {
-            lot: MetadataLot::from(d.media_type.clone()),
+            lot,
             identifier,
-            reviews: Vec::from_iter(data.user_rating.map(|r| {
+            reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(s) = r.review.map(|s| extract_review_information(&s)) {
                     s
                 } else {
@@ -143,12 +151,12 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                     rating: r.rating,
                 }
             })),
-            seen_history: data
+            seen_history: details
                 .seen_history
                 .iter()
                 .map(|s| {
                     let (season_number, episode_number) = if let Some(c) = s.episode_id {
-                        let episode = data
+                        let episode = details
                             .seasons
                             .iter()
                             .flat_map(|e| e.episodes.to_owned())
@@ -159,7 +167,6 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                         (None, None)
                     };
                     ImportItemSeen {
-                        started_on: None,
                         ended_on: Some(s.date),
                         season_number,
                         episode_number,
