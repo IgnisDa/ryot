@@ -1,0 +1,3 @@
+mutation DeployMediaTrackerImport($input: DeployMediaTrackerImportInput!) {
+  deployMediaTrackerImport(input: $input) 
+}
