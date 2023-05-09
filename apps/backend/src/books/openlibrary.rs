@@ -103,7 +103,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .get(format!("works/{}.json", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: OpenlibraryBook = rsp.body_json().await.unwrap();
+        let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryEdition {
@@ -119,7 +119,8 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .get(format!("works/{}/editions.json", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        let editions: OpenlibraryEditionsResponse = rsp.body_json().await.unwrap();
+        let editions: OpenlibraryEditionsResponse =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let entries = editions.entries.unwrap_or_default();
         let all_pages = entries
             .iter()
@@ -224,7 +225,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse = rsp.body_json().await.unwrap();
+        let search: OpenLibrarySearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
             .docs
