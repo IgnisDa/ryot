@@ -289,7 +289,7 @@ const ReviewItem = ({
 				<Space h="xs" />
 				{r.text ? (
 					!r.spoiler ? (
-						<Text>{r.text}</Text>
+						<ReactMarkdown>{r.text}</ReactMarkdown>
 					) : (
 						<>
 							{!opened ? (
@@ -298,7 +298,7 @@ const ReviewItem = ({
 								</Button>
 							) : null}
 							<Collapse in={opened}>
-								<Text>{r.text}</Text>
+								<ReactMarkdown>{r.text}</ReactMarkdown>
 							</Collapse>
 						</>
 					)
