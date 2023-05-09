@@ -3,8 +3,7 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use serde_with::{formats::Flexible, TimestampSeconds};
+use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::Client;
 
 use crate::media::resolver::MediaDetails;
