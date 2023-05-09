@@ -17,7 +17,7 @@ import {
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconUser } from "@tabler/icons-react";
+import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { z } from "zod";
@@ -63,6 +63,9 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Tab value="profile" icon={<IconUser size="1rem" />}>
 							Profile
 						</Tabs.Tab>
+						<Tabs.Tab value="import" icon={<IconDatabaseImport size="1rem" />}>
+							Import
+						</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="profile">
 						<Box
@@ -91,6 +94,9 @@ const Page: NextPageWithLayout = () => {
 								</Button>
 							</Stack>
 						</Box>
+					</Tabs.Panel>
+					<Tabs.Panel value="import">
+						<Stack>Imports</Stack>
 					</Tabs.Panel>
 				</Tabs>
 			</Stack>
