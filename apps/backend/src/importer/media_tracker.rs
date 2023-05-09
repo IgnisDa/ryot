@@ -53,6 +53,7 @@ struct Item {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemReview {
+    id: i32,
     rating: Option<i32>,
     review: Option<String>,
 }
@@ -150,6 +151,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                     None
                 };
                 ImportItemRating {
+                    id: r.id.to_string(),
                     review,
                     rating: r.rating,
                 }

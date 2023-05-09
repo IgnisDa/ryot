@@ -26,6 +26,7 @@ pub struct ImportItemReview {
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemRating {
+    id: String,
     review: Option<ImportItemReview>,
     rating: Option<i32>,
 }
@@ -186,6 +187,7 @@ impl ImporterService {
                     .post_review(
                         &user_id,
                         PostReviewInput {
+                            identifier: Some(review.id.clone()),
                             rating: review.rating.map(Into::into),
                             text,
                             spoiler,
