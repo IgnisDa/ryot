@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
+use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
-    audio_books::resolver::AudioBooksService, books::resolver::BooksService, migrator::MetadataLot,
-    movies::resolver::MoviesService, shows::resolver::ShowsService,
-    video_games::resolver::VideoGamesService,
+    audio_books::resolver::AudioBooksService, books::resolver::BooksService,
+    entities::utils::SeenExtraInformation, migrator::MetadataLot, movies::resolver::MoviesService,
+    shows::resolver::ShowsService, video_games::resolver::VideoGamesService,
 };
 
 mod media_tracker;
@@ -19,9 +20,17 @@ pub struct MediaTrackerImportInput {
 }
 
 #[derive(Debug)]
+pub struct ImportItemSeen {
+    started_on: Option<DateTimeUtc>,
+    ended_on: Option<DateTimeUtc>,
+    extra_information: Option<SeenExtraInformation>,
+}
+
+#[derive(Debug)]
 pub struct ImportItem {
     lot: MetadataLot,
     identifier: String,
+    seen: Vec<ImportItemSeen>,
 }
 
 #[derive(Debug)]

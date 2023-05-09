@@ -1,11 +1,15 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
+    entities::utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     graphql::{AUTHOR, PROJECT_NAME},
+    importer::ImportItemSeen,
     migrator::MetadataLot,
     utils::openlibrary,
 };
@@ -45,6 +49,36 @@ struct Item {
     openlibrary_id: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ItemEpisode {
+    id: i32,
+    season_number: i32,
+    episode_number: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ItemSeason {
+    episodes: Vec<ItemEpisode>,
+}
+
+#[serde_as]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ItemSeen {
+    #[serde_as(as = "TimestampMilliSeconds<i64, Flexible>")]
+    date: DateTimeUtc,
+    episode_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ItemDetails {
+    seen_history: Vec<ItemSeen>,
+    seasons: Vec<ItemSeason>,
+}
+
 pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
     let client: Client = Config::new()
         .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
@@ -57,23 +91,50 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
     // all items returned here are seen atleast once
     let mut rsp = client.get("items").await.unwrap();
     let data: Vec<Item> = rsp.body_json().await.unwrap();
-    let media = data
-        .iter()
-        .map(|d| {
-            let identifier = match d.media_type.clone() {
-                MediaType::Book => openlibrary::get_key(&d.openlibrary_id.clone().unwrap()),
-                MediaType::Movie => d.tmdb_id.unwrap().to_string(),
-                MediaType::Tv => d.tmdb_id.unwrap().to_string(),
-                MediaType::VideoGame => d.igdb_id.unwrap().to_string(),
-                MediaType::Audiobook => d.audible_id.clone().unwrap(),
-            };
-            ImportItem {
-                lot: MetadataLot::from(d.media_type.clone()),
-                identifier,
-            }
-        })
-        .collect();
-    Ok(ImportResult { media })
+
+    let mut final_data = vec![];
+    for d in data.into_iter() {
+        let identifier = match d.media_type.clone() {
+            MediaType::Book => openlibrary::get_key(&d.openlibrary_id.clone().unwrap()),
+            MediaType::Movie => d.tmdb_id.unwrap().to_string(),
+            MediaType::Tv => d.tmdb_id.unwrap().to_string(),
+            MediaType::VideoGame => d.igdb_id.unwrap().to_string(),
+            MediaType::Audiobook => d.audible_id.clone().unwrap(),
+        };
+        let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
+        let data: ItemDetails = rsp.body_json().await.unwrap();
+        final_data.push(ImportItem {
+            lot: MetadataLot::from(d.media_type.clone()),
+            identifier,
+            seen: data
+                .seen_history
+                .iter()
+                .map(|s| {
+                    let extra_information = if let Some(c) = s.episode_id {
+                        let episode = data
+                            .seasons
+                            .iter()
+                            .flat_map(|e| e.episodes.to_owned())
+                            .find(|e| e.id == c)
+                            .unwrap();
+                        Some(SeenExtraInformation::Show(SeenSeasonExtraInformation {
+                            season: episode.season_number,
+                            episode: episode.episode_number,
+                        }))
+                    } else {
+                        None
+                    };
+                    ImportItemSeen {
+                        started_on: None,
+                        ended_on: Some(s.date),
+                        extra_information,
+                    }
+                })
+                .collect(),
+        });
+    }
+    dbg!(&final_data);
+    Ok(ImportResult { media: final_data })
 }
 
 pub mod utils {
