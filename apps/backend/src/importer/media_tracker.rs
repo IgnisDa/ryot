@@ -135,6 +135,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
             total = len
         );
         final_data.push(ImportItem {
+            source_id: d.id.to_string(),
             lot,
             identifier,
             reviews: Vec::from_iter(details.user_rating.map(|r| {

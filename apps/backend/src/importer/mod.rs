@@ -47,6 +47,7 @@ pub struct ImportItemSeen {
 
 #[derive(Debug)]
 pub struct ImportItem {
+    source_id: String,
     lot: MetadataLot,
     identifier: String,
     seen_history: Vec<ImportItemSeen>,
@@ -157,7 +158,7 @@ impl ImporterService {
                     import.failed_items.push(ImportFailedItem {
                         lot: item.lot,
                         step: ImportFailStep::MediaDetailsFromProvider,
-                        identifier: item.identifier.to_owned(),
+                        identifier: item.source_id.to_owned(),
                     });
                     continue;
                 }
