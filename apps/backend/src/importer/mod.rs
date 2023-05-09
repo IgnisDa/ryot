@@ -5,9 +5,14 @@ use chrono::NaiveDate;
 use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
-    audio_books::resolver::AudioBooksService, books::resolver::BooksService,
-    entities::utils::SeenExtraInformation, migrator::MetadataLot, movies::resolver::MoviesService,
-    shows::resolver::ShowsService, video_games::resolver::VideoGamesService,
+    audio_books::resolver::AudioBooksService,
+    books::resolver::BooksService,
+    media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
+    migrator::MetadataLot,
+    movies::resolver::MoviesService,
+    shows::resolver::ShowsService,
+    utils::user_id_from_ctx,
+    video_games::resolver::VideoGamesService,
 };
 
 mod media_tracker;
@@ -37,7 +42,8 @@ pub struct MediaTrackerImportInput {
 pub struct ImportItemSeen {
     started_on: Option<DateTimeUtc>,
     ended_on: Option<DateTimeUtc>,
-    extra_information: Option<SeenExtraInformation>,
+    season_number: Option<i32>,
+    episode_number: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -64,9 +70,10 @@ impl ImporterMutation {
         gql_ctx: &Context<'_>,
         input: MediaTrackerImportInput,
     ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<ImporterService>()
-            .media_tracker_import(input)
+            .media_tracker_import(user_id, input)
             .await
     }
 }
@@ -75,6 +82,7 @@ impl ImporterMutation {
 pub struct ImporterService {
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
+    media_service: Arc<MediaService>,
     movies_service: Arc<MoviesService>,
     shows_service: Arc<ShowsService>,
     video_games_service: Arc<VideoGamesService>,
@@ -84,6 +92,7 @@ impl ImporterService {
     pub fn new(
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
+        media_service: &MediaService,
         movies_service: &MoviesService,
         shows_service: &ShowsService,
         video_games_service: &VideoGamesService,
@@ -91,13 +100,18 @@ impl ImporterService {
         Self {
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),
+            media_service: Arc::new(media_service.clone()),
             movies_service: Arc::new(movies_service.clone()),
             shows_service: Arc::new(shows_service.clone()),
             video_games_service: Arc::new(video_games_service.clone()),
         }
     }
 
-    pub async fn media_tracker_import(&self, input: MediaTrackerImportInput) -> Result<bool> {
+    pub async fn media_tracker_import(
+        &self,
+        user_id: i32,
+        input: MediaTrackerImportInput,
+    ) -> Result<bool> {
         let import = media_tracker::import(input).await?;
         for item in import.media.iter() {
             let data = match item.lot {
@@ -115,7 +129,22 @@ impl ImporterService {
                         .await
                 }
             };
-            data.ok();
+            let metadata = data.unwrap();
+            for seen in item.seen_history.iter() {
+                self.media_service
+                    .progress_update(
+                        ProgressUpdate {
+                            metadata_id: metadata.id,
+                            progress: None,
+                            action: ProgressUpdateAction::InThePast,
+                            date: seen.ended_on.map(|d| d.date_naive()),
+                            season_number: seen.season_number,
+                            episode_number: seen.episode_number,
+                        },
+                        user_id,
+                    )
+                    .await?;
+            }
         }
         tracing::info!(
             "Imported {} media items from MediaTracker",

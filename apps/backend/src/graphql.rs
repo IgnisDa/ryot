@@ -130,6 +130,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let importer_service = ImporterService::new(
         &audio_books_service,
         &books_service,
+        &media_service,
         &movies_service,
         &shows_service,
         &video_games_service,

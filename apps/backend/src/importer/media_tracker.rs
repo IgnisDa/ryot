@@ -7,7 +7,6 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
-    entities::utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     graphql::{AUTHOR, PROJECT_NAME},
     importer::{
         media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
@@ -124,24 +123,22 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                 .seen_history
                 .iter()
                 .map(|s| {
-                    let extra_information = if let Some(c) = s.episode_id {
+                    let (season_number, episode_number) = if let Some(c) = s.episode_id {
                         let episode = data
                             .seasons
                             .iter()
                             .flat_map(|e| e.episodes.to_owned())
                             .find(|e| e.id == c)
                             .unwrap();
-                        Some(SeenExtraInformation::Show(SeenSeasonExtraInformation {
-                            season: episode.season_number,
-                            episode: episode.episode_number,
-                        }))
+                        (Some(episode.season_number), Some(episode.episode_number))
                     } else {
-                        None
+                        (None, None)
                     };
                     ImportItemSeen {
                         started_on: None,
                         ended_on: Some(s.date),
-                        extra_information,
+                        season_number,
+                        episode_number,
                     }
                 })
                 .collect(),
