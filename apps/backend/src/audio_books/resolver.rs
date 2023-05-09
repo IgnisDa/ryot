@@ -79,7 +79,7 @@ impl AudioBooksService {
         query: &str,
         page: Option<i32>,
     ) -> Result<MediaSearchResults> {
-        let audio_books = self.audible_service.search(query, page).await.unwrap();
+        let audio_books = self.audible_service.search(query, page).await?;
         Ok(audio_books)
     }
 
@@ -92,7 +92,7 @@ impl AudioBooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let audio_books_details = self.audible_service.details(identifier).await.unwrap();
+            let audio_books_details = self.audible_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(

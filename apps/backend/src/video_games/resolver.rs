@@ -79,7 +79,7 @@ impl VideoGamesService {
         query: &str,
         page: Option<i32>,
     ) -> Result<MediaSearchResults> {
-        let movies = self.igdb_service.search(query, page).await.unwrap();
+        let movies = self.igdb_service.search(query, page).await?;
         Ok(movies)
     }
 
@@ -92,7 +92,7 @@ impl VideoGamesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let game_details = self.igdb_service.details(identifier).await.unwrap();
+            let game_details = self.igdb_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(

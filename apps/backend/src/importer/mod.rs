@@ -151,7 +151,8 @@ impl ImporterService {
             };
             let metadata = match data {
                 Ok(r) => r,
-                Err(_) => {
+                Err(e) => {
+                    tracing::error!("{e:?}");
                     import.failed_items.push(ImportFailedItem {
                         step: ImportFailStep::MediaDetailsFromProvider,
                         identifier: item.identifier.to_owned(),

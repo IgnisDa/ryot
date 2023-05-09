@@ -72,7 +72,7 @@ impl MoviesService {
 impl MoviesService {
     // Get movie details from all sources
     async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let movies = self.tmdb_service.search(query, page).await.unwrap();
+        let movies = self.tmdb_service.search(query, page).await?;
         Ok(movies)
     }
 
@@ -85,7 +85,7 @@ impl MoviesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let movie_details = self.tmdb_service.details(identifier).await.unwrap();
+            let movie_details = self.tmdb_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(

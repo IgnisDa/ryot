@@ -71,7 +71,7 @@ impl BooksService {
 impl BooksService {
     // Get book details from all sources
     async fn books_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let books = self.openlibrary_service.search(query, page).await.unwrap();
+        let books = self.openlibrary_service.search(query, page).await?;
         Ok(books)
     }
 
@@ -84,7 +84,7 @@ impl BooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let book_details = self.openlibrary_service.details(identifier).await.unwrap();
+            let book_details = self.openlibrary_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(
