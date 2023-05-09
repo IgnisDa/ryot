@@ -148,7 +148,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
 }
 
 pub mod utils {
-    use chrono::NaiveDate;
+    use chrono::{NaiveDateTime, TimeZone, Utc};
     use regex::Regex;
 
     use crate::importer::ImportItemReview;
@@ -160,7 +160,13 @@ pub mod utils {
         let regex = Regex::new(regex_str).unwrap();
         if let Some(captures) = regex.captures(input) {
             let date_str = captures.name("date").unwrap().as_str();
-            let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y").ok()?;
+            let date = NaiveDateTime::parse_from_str(
+                &format!("{} 00:00:00", date_str),
+                "%d/%m/%Y %H:%M:%S",
+            )
+            .ok()
+            .and_then(|d| Utc.from_local_datetime(&d).earliest())
+            .unwrap();
             let spoiler = captures
                 .name("spoiler")
                 .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
@@ -179,6 +185,7 @@ pub mod utils {
     mod tests {
         use super::*;
         use rstest::rstest;
+        use sea_orm::prelude::DateTimeUtc;
 
         static TEXT_1: &str = "The movie was fantastic! Highly recommend.";
         static TEXT_2: &str = "The ending was unexpected.";
@@ -190,37 +197,37 @@ pub mod utils {
         #[rstest]
         #[case(
             format!("01/05/2023:\n\n{TEXT_1}"),
-            NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
+            Utc.with_ymd_and_hms(2023, 5, 1, 0, 0, 0).unwrap(),
             false,
             TEXT_1
         )]
         #[case(
             format!("01/05/2023: [SPOILERS]\n\n{TEXT_2}"),
-            NaiveDate::from_ymd_opt(2023, 5, 1).unwrap(),
+            Utc.with_ymd_and_hms(2023, 5, 1, 0, 0, 0).unwrap(),
             true,
             TEXT_2
         )]
         #[case(
             format!("14/04/2023:\n\n{TEXT_3}"),
-            NaiveDate::from_ymd_opt(2023, 4, 14).unwrap(),
+            Utc.with_ymd_and_hms(2023, 4, 14, 0, 0, 0).unwrap(),
             false,
             TEXT_3
         )]
         #[case(
             format!("12/08/2019:\n\n{TEXT_4}"),
-            NaiveDate::from_ymd_opt(2019, 8, 12).unwrap(),
+            Utc.with_ymd_and_hms(2019, 8, 12, 0, 0, 0).unwrap(),
             false,
             TEXT_4
         )]
         #[case(
             format!("12/09/2018: [SPOILERS]\n\n{TEXT_4}"),
-            NaiveDate::from_ymd_opt(2018, 9, 12).unwrap(),
+            Utc.with_ymd_and_hms(2018, 9, 12, 0, 0, 0).unwrap(),
             true,
             TEXT_4
         )]
         fn test_extract_review_information(
             #[case] input: String,
-            #[case] expected_date: NaiveDate,
+            #[case] expected_date: DateTimeUtc,
             #[case] expected_is_spoiler: bool,
             #[case] expected_text: &str,
         ) {

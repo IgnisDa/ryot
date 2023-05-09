@@ -40,16 +40,17 @@ struct ReviewItem {
 }
 
 #[derive(Debug, InputObject)]
-struct PostReviewInput {
-    rating: Option<Decimal>,
-    text: Option<String>,
-    visibility: Option<ReviewVisibility>,
-    spoiler: Option<bool>,
-    metadata_id: i32,
+pub struct PostReviewInput {
+    pub rating: Option<Decimal>,
+    pub text: Option<String>,
+    pub visibility: Option<ReviewVisibility>,
+    pub spoiler: Option<bool>,
+    pub metadata_id: i32,
+    pub date: Option<DateTimeUtc>,
     /// ID of the review if this is an update to an existing review
-    review_id: Option<i32>,
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
+    pub review_id: Option<i32>,
+    pub season_number: Option<i32>,
+    pub episode_number: Option<i32>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -224,7 +225,7 @@ impl MiscService {
         Ok(data)
     }
 
-    async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
+    pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
         let review_id = match input.review_id {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
@@ -243,6 +244,9 @@ impl MiscService {
         }
         if let Some(v) = input.visibility {
             review_obj.visibility = ActiveValue::Set(v);
+        }
+        if let Some(d) = input.date {
+            review_obj.posted_on = ActiveValue::Set(d);
         }
         if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
             review_obj.extra_information = ActiveValue::Set(Some(SeenExtraInformation::Show(

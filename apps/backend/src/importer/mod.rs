@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use chrono::NaiveDate;
 use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
@@ -9,7 +8,7 @@ use crate::{
     books::resolver::BooksService,
     media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::MetadataLot,
-    misc::resolver::MiscService,
+    misc::resolver::{MiscService, PostReviewInput},
     movies::resolver::MoviesService,
     shows::resolver::ShowsService,
     utils::user_id_from_ctx,
@@ -18,14 +17,14 @@ use crate::{
 
 mod media_tracker;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImportItemReview {
-    date: NaiveDate,
+    date: DateTimeUtc,
     spoiler: bool,
     text: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImportItemRating {
     review: Option<ImportItemReview>,
     rating: Option<i32>,
@@ -145,7 +144,28 @@ impl ImporterService {
                             season_number: seen.season_number,
                             episode_number: seen.episode_number,
                         },
-                        user_id,
+                        user_id.clone(),
+                    )
+                    .await?;
+            }
+            for review in item.reviews.iter() {
+                let text = review.review.clone().map(|r| r.text);
+                let spoiler = review.review.clone().map(|r| r.spoiler);
+                let date = review.review.clone().map(|r| r.date);
+                self.misc_service
+                    .post_review(
+                        &user_id,
+                        PostReviewInput {
+                            rating: review.rating.map(Into::into),
+                            text,
+                            spoiler,
+                            date,
+                            visibility: None,
+                            metadata_id: metadata.id,
+                            review_id: None,
+                            season_number: None,
+                            episode_number: None,
+                        },
                     )
                     .await?;
             }
