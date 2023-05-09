@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
-apalis = { version = "0.3.6", features = ["sqlite", "extensions"] }
+apalis = { git = "https://github.com/geofmureithi/apalis.git", rev = "cdcf52", features = ["sqlite", "extensions"] }
 argon2 = "0.5.0"
 async-graphql = { version = "5.0.7", features = ["chrono", "decimal", "log", "uuid"] }
 async-graphql-axum = "5.0.7"

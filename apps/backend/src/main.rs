@@ -1,9 +1,5 @@
 use anyhow::Result;
-use apalis::{
-    layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
-    prelude::{Monitor, Storage, WorkerBuilder, WorkerFactoryFn},
-    sqlite::SqliteStorage,
-};
+use apalis::{layers::TraceLayer as ApalisTraceLayer, prelude::*, sqlite::SqliteStorage};
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
@@ -32,7 +28,7 @@ use tower_http::{
 };
 
 use crate::{
-    background::{refresh_media, RefreshMedia},
+    background::{import_media, refresh_media, RefreshMedia},
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
@@ -114,7 +110,6 @@ async fn main() -> Result<()> {
     });
 
     let sched = JobScheduler::new().await.unwrap();
-    sched.shutdown_on_ctrl_c();
 
     sched
         .add(
@@ -129,7 +124,7 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let schema = get_schema(db.clone(), &config).await;
+    let schema = get_schema(db.clone(), &config, &storage).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -161,18 +156,23 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on {}", addr);
 
     let monitor = async {
-        let monitor = Monitor::new()
-            .register_with_count(1, move |_| {
-                WorkerBuilder::new(storage.clone())
-                    .layer(ApalisExtension(config.clone()))
-                    .layer(ApalisExtension(db.clone()))
+        let mn = Monitor::new()
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("refresh_media-{c}"))
                     .layer(ApalisTraceLayer::new())
+                    .with_storage(storage.clone())
                     .build_fn(refresh_media)
             })
+            // .register_with_count(1, move |c| {
+            //     WorkerBuilder::new(format!("import_media-{c}"))
+            //         .with_storage(storage.clone())
+            //         .build_fn(import_media)
+            // })
             .run()
             .await;
-        Ok(monitor)
+        Ok(mn)
     };
+
     let http = async {
         Server::bind(&addr)
             .serve(app.into_make_service())

@@ -1,3 +1,4 @@
+use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject};
 use sea_orm::DatabaseConnection;
 use std::env;
@@ -7,6 +8,7 @@ use crate::{
         audible::AudibleService,
         resolver::{AudioBooksMutation, AudioBooksQuery, AudioBooksService},
     },
+    background::RefreshMedia,
     books::{
         openlibrary::OpenlibraryService,
         resolver::{BooksMutation, BooksQuery, BooksService},
@@ -113,7 +115,11 @@ pub struct MutationRoot(
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSchema {
+pub async fn get_schema(
+    db: DatabaseConnection,
+    config: &AppConfig,
+    refresh_media: &SqliteStorage<RefreshMedia>,
+) -> GraphqlSchema {
     let media_service = MediaService::new(&db);
     let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
@@ -135,6 +141,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
         &movies_service,
         &shows_service,
         &video_games_service,
+        refresh_media,
     );
     Schema::build(
         QueryRoot::default(),
