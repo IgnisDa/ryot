@@ -22,6 +22,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import humanFormat from "human-format";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -40,7 +41,7 @@ const StatNumber = (props: { text: number; isDuration?: boolean }) => {
 		<Text fw="bold" style={{ display: "inline" }}>
 			{props.isDuration
 				? humaizer.humanize(props.text * 1000 * 60)
-				: props.text}
+				: humanFormat(props.text)}
 		</Text>
 	);
 };
