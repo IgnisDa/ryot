@@ -3,9 +3,9 @@ use std::sync::Arc;
 use async_graphql::{Context, InputObject, Object, Result};
 
 use crate::{
-    audio_books::resolver::AudioBooksService, books::resolver::BooksService,
-    media::resolver::MediaService, migrator::MetadataLot, movies::resolver::MoviesService,
-    shows::resolver::ShowsService, video_games::resolver::VideoGamesService,
+    audio_books::resolver::AudioBooksService, books::resolver::BooksService, migrator::MetadataLot,
+    movies::resolver::MoviesService, shows::resolver::ShowsService,
+    video_games::resolver::VideoGamesService,
 };
 
 mod media_tracker;
