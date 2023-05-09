@@ -21,6 +21,7 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: i32,
     pub extra_information: Option<SeenExtraInformation>,
+    pub identifier: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

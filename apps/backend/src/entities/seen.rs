@@ -23,6 +23,8 @@ pub struct Model {
     pub extra_information: Option<SeenExtraInformation>,
     #[sea_orm(ignore)]
     pub show_information: Option<SeenSeasonExtraInformation>,
+    #[graphql(skip)]
+    pub identifier: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

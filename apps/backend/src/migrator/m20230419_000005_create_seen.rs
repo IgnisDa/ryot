@@ -16,6 +16,8 @@ pub enum Seen {
     LastUpdatedOn,
     // for the time being this stores the `season` and `episode` numbers
     ExtraInformation,
+    // This will store the ID in case this review was imported
+    Identifier,
 }
 
 impl MigrationName for Migration {
@@ -53,6 +55,7 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Seen::Identifier).string().not_null())
                     .col(ColumnDef::new(Seen::ExtraInformation).json())
                     .foreign_key(
                         ForeignKey::create()
