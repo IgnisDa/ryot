@@ -133,7 +133,7 @@ impl MiscMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
     media_service: Arc<MediaService>,

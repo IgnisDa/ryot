@@ -126,11 +126,12 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
-    let reviews_service = MiscService::new(&db, &media_service);
+    let misc_service = MiscService::new(&db, &media_service);
     let importer_service = ImporterService::new(
         &audio_books_service,
         &books_service,
         &media_service,
+        &misc_service,
         &movies_service,
         &shows_service,
         &video_games_service,
@@ -149,7 +150,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     .data(users_service)
     .data(video_games_service)
     .data(audio_books_service)
-    .data(reviews_service)
+    .data(misc_service)
     .data(importer_service)
     .finish()
 }
