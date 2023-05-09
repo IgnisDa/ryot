@@ -37,6 +37,7 @@ use crate::{
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
     users::resolver::COOKIE_NAME,
+    utils::create_app_services,
 };
 
 mod audio_books;
@@ -125,7 +126,8 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let schema = get_schema(db.clone(), &config, &import_media_storage).await;
+    let app_services = create_app_services(db.clone(), &config, &import_media_storage).await;
+    let schema = get_schema(&app_services, db.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])

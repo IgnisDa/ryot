@@ -109,7 +109,7 @@ impl ImporterMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImporterService {
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,

@@ -1,36 +1,20 @@
-use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject};
 use sea_orm::DatabaseConnection;
 use std::env;
 
 use crate::{
-    audio_books::{
-        audible::AudibleService,
-        resolver::{AudioBooksMutation, AudioBooksQuery, AudioBooksService},
-    },
-    background::ImportMedia,
-    books::{
-        openlibrary::OpenlibraryService,
-        resolver::{BooksMutation, BooksQuery, BooksService},
-    },
+    audio_books::resolver::{AudioBooksMutation, AudioBooksQuery},
+    books::resolver::{BooksMutation, BooksQuery},
     config::{AppConfig, IsFeatureEnabled},
-    importer::{ImporterMutation, ImporterService},
-    media::resolver::{MediaMutation, MediaQuery, MediaService},
+    importer::ImporterMutation,
+    media::resolver::{MediaMutation, MediaQuery},
     migrator::MetadataLot,
-    misc::resolver::{MiscMutation, MiscQuery, MiscService},
-    movies::{
-        resolver::{MoviesMutation, MoviesQuery, MoviesService},
-        tmdb::TmdbService as MovieTmdbService,
-    },
-    shows::{
-        resolver::{ShowsMutation, ShowsQuery, ShowsService},
-        tmdb::TmdbService as ShowTmdbService,
-    },
-    users::resolver::{UsersMutation, UsersQuery, UsersService},
-    video_games::{
-        igdb::IgdbService,
-        resolver::{VideoGamesMutation, VideoGamesQuery, VideoGamesService},
-    },
+    misc::resolver::{MiscMutation, MiscQuery},
+    movies::resolver::{MoviesMutation, MoviesQuery},
+    shows::resolver::{ShowsMutation, ShowsQuery},
+    users::resolver::{UsersMutation, UsersQuery},
+    utils::AppServices,
+    video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
 };
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -116,33 +100,10 @@ pub struct MutationRoot(
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub async fn get_schema(
+    app_services: &AppServices,
     db: DatabaseConnection,
     config: &AppConfig,
-    import_media_job: &SqliteStorage<ImportMedia>,
 ) -> GraphqlSchema {
-    let media_service = MediaService::new(&db);
-    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
-    let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
-    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
-    let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
-    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
-    let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
-    let audible_service = AudibleService::new(&config.audio_books.audible);
-    let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
-    let igdb_service = IgdbService::new(&config.video_games).await;
-    let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
-    let users_service = UsersService::new(&db);
-    let misc_service = MiscService::new(&db, &media_service);
-    let importer_service = ImporterService::new(
-        &audio_books_service,
-        &books_service,
-        &media_service,
-        &misc_service,
-        &movies_service,
-        &shows_service,
-        &video_games_service,
-        import_media_job,
-    );
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
@@ -150,14 +111,14 @@ pub async fn get_schema(
     )
     .data(config.to_owned())
     .data(db)
-    .data(books_service)
-    .data(media_service)
-    .data(movies_service)
-    .data(shows_service)
-    .data(users_service)
-    .data(video_games_service)
-    .data(audio_books_service)
-    .data(misc_service)
-    .data(importer_service)
+    .data(app_services.books_service.clone())
+    .data(app_services.media_service.clone())
+    .data(app_services.movies_service.clone())
+    .data(app_services.shows_service.clone())
+    .data(app_services.users_service.clone())
+    .data(app_services.video_games_service.clone())
+    .data(app_services.audio_books_service.clone())
+    .data(app_services.misc_service.clone())
+    .data(app_services.importer_service.clone())
     .finish()
 }
