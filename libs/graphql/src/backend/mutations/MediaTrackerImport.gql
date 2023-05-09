@@ -1,0 +1,12 @@
+mutation MediaTrackerImport($input: MediaTrackerImportInput!) {
+  mediaTrackerImport(input: $input) {
+    media {
+      sourceId
+    }
+    failedItems {
+      lot
+      step
+      identifier
+    }
+  }
+}
