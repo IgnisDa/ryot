@@ -120,7 +120,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
             .await
             .map_err(|_| {
                 failed_items.push(ImportFailedItem {
-                    step: ImportFailStep::ItemDetails,
+                    step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
                 });
             })

@@ -55,8 +55,9 @@ pub struct ImportItem {
 
 #[derive(Debug)]
 pub enum ImportFailStep {
-    ItemDetails,
+    ItemDetailsFromSource,
     ReviewTransformation,
+    MediaDetailsFromProvider,
 }
 
 #[derive(Debug)]
@@ -127,7 +128,7 @@ impl ImporterService {
         user_id: i32,
         input: MediaTrackerImportInput,
     ) -> Result<bool> {
-        let import = media_tracker::import(input).await?;
+        let mut import = media_tracker::import(input).await?;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",
@@ -148,7 +149,16 @@ impl ImporterService {
                         .await
                 }
             };
-            let metadata = data.unwrap();
+            let metadata = match data {
+                Ok(r) => r,
+                Err(_) => {
+                    import.failed_items.push(ImportFailedItem {
+                        step: ImportFailStep::MediaDetailsFromProvider,
+                        identifier: item.identifier.to_owned(),
+                    });
+                    continue;
+                }
+            };
             for seen in item.seen_history.iter() {
                 self.media_service
                     .progress_update(
