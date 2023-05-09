@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -59,14 +59,14 @@ pub struct ImportItem {
     reviews: Vec<ImportItemRating>,
 }
 
-#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
     ItemDetailsFromSource,
     ReviewTransformation,
     MediaDetailsFromProvider,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize)]
 pub struct ImportFailedItem {
     lot: MetadataLot,
     step: ImportFailStep,

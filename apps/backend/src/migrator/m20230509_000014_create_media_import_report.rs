@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(MediaImportReport::Failed).not_null().json())
+                    .col(ColumnDef::new(MediaImportReport::Failed).json())
                     .col(ColumnDef::new(MediaImportReport::FinishedOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(MediaImportReport::Total).integer())
                     .foreign_key(
