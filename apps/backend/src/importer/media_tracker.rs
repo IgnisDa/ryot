@@ -76,6 +76,7 @@ struct ItemSeason {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemSeen {
+    id: i32,
     #[serde_as(as = "TimestampMilliSeconds<i64, Flexible>")]
     date: DateTimeUtc,
     episode_id: Option<i32>,
@@ -172,6 +173,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                         (None, None)
                     };
                     ImportItemSeen {
+                        id: s.id.to_string(),
                         ended_on: Some(s.date),
                         season_number,
                         episode_number,

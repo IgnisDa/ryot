@@ -41,6 +41,7 @@ pub struct MediaTrackerImportInput {
 
 #[derive(Debug, SimpleObject)]
 pub struct ImportItemSeen {
+    id: String,
     ended_on: Option<DateTimeUtc>,
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -168,6 +169,7 @@ impl ImporterService {
                 self.media_service
                     .progress_update(
                         ProgressUpdate {
+                            identifier: Some(seen.id.clone()),
                             metadata_id: metadata.id,
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
