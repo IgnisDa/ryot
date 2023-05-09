@@ -107,6 +107,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
 
     let mut final_data = vec![];
     for (idx, d) in data.into_iter().enumerate() {
+        let lot = MetadataLot::from(d.media_type.clone());
         let identifier = match d.media_type.clone() {
             MediaType::Book => openlibrary::get_key(&d.openlibrary_id.clone().unwrap()),
             MediaType::Movie => d.tmdb_id.unwrap().to_string(),
@@ -120,12 +121,12 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
             .await
             .map_err(|_| {
                 failed_items.push(ImportFailedItem {
+                    lot,
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
                 });
             })
             .unwrap();
-        let lot = MetadataLot::from(d.media_type.clone());
         tracing::trace!(
             "Got details for {type:?}: {id} ({idx}/{total})",
             type = d.media_type,
@@ -141,6 +142,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                     s
                 } else {
                     failed_items.push(ImportFailedItem {
+                        lot,
                         step: ImportFailStep::ReviewTransformation,
                         identifier: d.id.to_string(),
                     });

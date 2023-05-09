@@ -62,6 +62,7 @@ pub enum ImportFailStep {
 
 #[derive(Debug)]
 pub struct ImportFailedItem {
+    lot: MetadataLot,
     step: ImportFailStep,
     identifier: String,
 }
@@ -154,6 +155,7 @@ impl ImporterService {
                 Err(e) => {
                     tracing::error!("{e:?}");
                     import.failed_items.push(ImportFailedItem {
+                        lot: item.lot,
                         step: ImportFailStep::MediaDetailsFromProvider,
                         identifier: item.identifier.to_owned(),
                     });
