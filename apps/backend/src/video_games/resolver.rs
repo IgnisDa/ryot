@@ -51,7 +51,7 @@ impl VideoGamesMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VideoGamesService {
     db: DatabaseConnection,
     igdb_service: Arc<IgdbService>,
@@ -83,7 +83,7 @@ impl VideoGamesService {
         Ok(movies)
     }
 
-    async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
         let meta = VideoGame::find()
             .filter(video_game::Column::Identifier.eq(identifier))
             .one(&self.db)

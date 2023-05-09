@@ -51,7 +51,7 @@ impl AudioBooksMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AudioBooksService {
     db: DatabaseConnection,
     audible_service: Arc<AudibleService>,
@@ -83,7 +83,7 @@ impl AudioBooksService {
         Ok(audio_books)
     }
 
-    async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {
         let meta = AudioBook::find()
             .filter(audio_book::Column::Identifier.eq(identifier))
             .one(&self.db)

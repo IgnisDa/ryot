@@ -47,7 +47,7 @@ impl ShowsMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShowsService {
     db: DatabaseConnection,
     tmdb_service: Arc<TmdbService>,
@@ -75,7 +75,7 @@ impl ShowsService {
         Ok(movies)
     }
 
-    async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
         let meta = Show::find()
             .filter(show::Column::Identifier.eq(identifier))
             .one(&self.db)

@@ -14,7 +14,7 @@ use crate::{
     },
     migrator::MetadataLot,
     traits::MediaProvider,
-    utils::{convert_option_path_to_vec, get_data_parallely_from_sources},
+    utils::{convert_option_path_to_vec, get_data_parallely_from_sources, openlibrary},
 };
 
 use super::BookSpecifics;
@@ -106,7 +106,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryEditionsResponse {
-            entries: Vec<OpenlibraryEdition>,
+            entries: Option<Vec<OpenlibraryEdition>>,
         }
         let mut rsp = self
             .client
@@ -115,8 +115,8 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .map_err(|e| anyhow!(e))?;
         let editions: OpenlibraryEditionsResponse =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let all_pages = editions
-            .entries
+        let entries = editions.entries.unwrap_or_default();
+        let all_pages = entries
             .iter()
             .filter_map(|f| f.number_of_pages)
             .collect::<Vec<_>>();
@@ -125,8 +125,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
         } else {
             all_pages.iter().sum::<i32>() / all_pages.len() as i32
         };
-        let first_release_date = editions
-            .entries
+        let first_release_date = entries
             .iter()
             .filter_map(|f| f.publish_date.clone())
             .filter_map(|f| Self::parse_date(&f))
@@ -155,7 +154,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .map(|c| self.get_cover_image_url(c))
             .collect();
         Ok(MediaDetails {
-            identifier: Self::get_key(&data.key),
+            identifier: openlibrary::get_key(&data.key),
             title: data.title,
             description,
             lot: MetadataLot::Book,
@@ -225,7 +224,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
                 let poster_images =
                     convert_option_path_to_vec(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
-                    identifier: Self::get_key(&d.key),
+                    identifier: openlibrary::get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
@@ -277,14 +276,5 @@ impl OpenlibraryService {
             }
         }
         None
-    }
-
-    fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect::<Vec<_>>()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
     }
 }

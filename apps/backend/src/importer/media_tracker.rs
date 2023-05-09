@@ -7,6 +7,7 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     migrator::MetadataLot,
+    utils::openlibrary,
 };
 
 use super::{ImportItem, ImportResult, MediaTrackerImportInput};
@@ -60,7 +61,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
         .iter()
         .map(|d| {
             let identifier = match d.media_type.clone() {
-                MediaType::Book => d.openlibrary_id.clone().unwrap(),
+                MediaType::Book => openlibrary::get_key(&d.openlibrary_id.clone().unwrap()),
                 MediaType::Movie => d.tmdb_id.unwrap().to_string(),
                 MediaType::Tv => d.tmdb_id.unwrap().to_string(),
                 MediaType::VideoGame => d.igdb_id.unwrap().to_string(),

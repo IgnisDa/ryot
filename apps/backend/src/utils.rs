@@ -174,3 +174,14 @@ pub mod igdb {
         client
     }
 }
+
+pub mod openlibrary {
+    pub fn get_key(key: &str) -> String {
+        key.split('/')
+            .collect::<Vec<_>>()
+            .last()
+            .cloned()
+            .unwrap()
+            .to_owned()
+    }
+}

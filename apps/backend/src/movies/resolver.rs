@@ -47,7 +47,7 @@ impl MoviesMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MoviesService {
     db: DatabaseConnection,
     tmdb_service: Arc<TmdbService>,
@@ -76,7 +76,7 @@ impl MoviesService {
         Ok(movies)
     }
 
-    async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
         let meta = Movie::find()
             .filter(movie::Column::Identifier.eq(identifier))
             .one(&self.db)

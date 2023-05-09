@@ -47,7 +47,7 @@ impl BooksMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BooksService {
     db: DatabaseConnection,
     openlibrary_service: Arc<OpenlibraryService>,
@@ -75,7 +75,7 @@ impl BooksService {
         Ok(books)
     }
 
-    async fn commit_book(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_book(&self, identifier: &str) -> Result<IdObject> {
         let meta = Book::find()
             .filter(book::Column::Identifier.eq(identifier))
             .one(&self.db)
