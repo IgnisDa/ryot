@@ -54,9 +54,9 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
         .set_base_url(Url::parse(&format!("{}/api/", input.api_url)).unwrap())
         .try_into()
         .unwrap();
+    // all items returned here are seen atleast once
     let mut rsp = client.get("items").await.unwrap();
     let data: Vec<Item> = rsp.body_json().await.unwrap();
-
     let media = data
         .iter()
         .map(|d| {

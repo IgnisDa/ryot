@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
@@ -75,6 +75,12 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         #[serde(untagged)]
+        enum OpenlibraryAuthorResponse {
+            Flat(OpenlibraryKey),
+            Nested(OpenlibraryAuthor),
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        #[serde(untagged)]
         enum OpenlibraryDescription {
             Text(String),
             Nested {
@@ -89,15 +95,15 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             description: Option<OpenlibraryDescription>,
             title: String,
             covers: Option<Vec<i64>>,
-            authors: Option<Vec<OpenlibraryAuthor>>,
+            authors: Option<Vec<OpenlibraryAuthorResponse>>,
             subjects: Option<Vec<String>>,
         }
         let mut rsp = self
             .client
             .get(format!("works/{}.json", identifier))
             .await
-            .map_err(|e| anyhow!(e))?;
-        let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            .unwrap();
+        let data: OpenlibraryBook = rsp.body_json().await.unwrap();
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryEdition {
@@ -112,9 +118,8 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .client
             .get(format!("works/{}/editions.json", identifier))
             .await
-            .map_err(|e| anyhow!(e))?;
-        let editions: OpenlibraryEditionsResponse =
-            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            .unwrap();
+        let editions: OpenlibraryEditionsResponse = rsp.body_json().await.unwrap();
         let entries = editions.entries.unwrap_or_default();
         let all_pages = entries
             .iter()
@@ -137,7 +142,11 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
         }
         let authors =
             get_data_parallely_from_sources(&data.authors.unwrap_or_default(), &self.client, |a| {
-                format!("{}.json", a.author.key)
+                let key = match a {
+                    OpenlibraryAuthorResponse::Flat(s) => s.key.to_owned(),
+                    OpenlibraryAuthorResponse::Nested(s) => s.author.key.to_owned(),
+                };
+                format!("{}.json", key)
             })
             .await
             .into_iter()
@@ -214,8 +223,8 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             })
             .unwrap()
             .await
-            .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            .unwrap();
+        let search: OpenLibrarySearchResponse = rsp.body_json().await.unwrap();
 
         let resp = search
             .docs
