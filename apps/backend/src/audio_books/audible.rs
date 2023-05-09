@@ -13,9 +13,7 @@ use crate::{
     },
     migrator::MetadataLot,
     traits::MediaProvider,
-    utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
-    },
+    utils::{convert_date_to_year, convert_option_to_vec, convert_string_to_date, NamedObject},
 };
 
 use super::AudioBookSpecifics;
@@ -143,7 +141,7 @@ impl AudibleService {
         &self,
         item: AudibleItem,
     ) -> MediaDetails<AudioBookSpecifics> {
-        let poster_images = convert_option_path_to_vec(item.product_images.image);
+        let poster_images = convert_option_to_vec(item.product_images.image);
         let release_date = item.release_date.unwrap_or_default();
         MediaDetails {
             identifier: item.asin,

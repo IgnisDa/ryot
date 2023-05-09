@@ -14,7 +14,7 @@ use crate::{
     },
     migrator::MetadataLot,
     traits::MediaProvider,
-    utils::{convert_option_path_to_vec, get_data_parallely_from_sources, openlibrary},
+    utils::{convert_option_to_vec, get_data_parallely_from_sources, openlibrary},
 };
 
 use super::BookSpecifics;
@@ -231,7 +231,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .into_iter()
             .map(|d| {
                 let poster_images =
-                    convert_option_path_to_vec(d.cover_i.map(|f| self.get_cover_image_url(f)));
+                    convert_option_to_vec(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
                     identifier: openlibrary::get_key(&d.key),
                     title: d.title,

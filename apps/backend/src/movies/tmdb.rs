@@ -10,7 +10,7 @@ use crate::{
     migrator::MetadataLot,
     traits::MediaProvider,
     utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
+        convert_date_to_year, convert_option_to_vec, convert_string_to_date, tmdb, NamedObject,
     },
 };
 
@@ -60,9 +60,9 @@ impl MediaProvider<MovieSpecifics> for TmdbService {
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let poster_images =
-            convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
+            convert_option_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
-            convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+            convert_option_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             lot: MetadataLot::Movie,
@@ -119,7 +119,7 @@ impl MediaProvider<MovieSpecifics> for TmdbService {
             .into_iter()
             .map(|d| {
                 let poster_images =
-                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                    convert_option_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Movie,
