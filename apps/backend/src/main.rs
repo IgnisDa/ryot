@@ -1,6 +1,6 @@
 use anyhow::Result;
 use apalis::{
-    layers::TraceLayer as ApalisTraceLayer,
+    layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
     prelude::{Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
@@ -115,7 +115,8 @@ async fn main() -> Result<()> {
 
     sched
         .add(
-            Job::new_async("0 * * * *", move |_uuid, _l| {
+            // every 30 minutes
+            Job::new_async("0 */30 * * * *", move |_uuid, _l| {
                 let tx = tx.clone();
                 Box::pin(async move {
                     tx.send(1).await.unwrap();
@@ -169,6 +170,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(app_services.importer_service.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })
