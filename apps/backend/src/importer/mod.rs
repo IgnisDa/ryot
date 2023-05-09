@@ -257,7 +257,7 @@ impl ImporterService {
         );
         let details = ImportResultResponse {
             import: ImportDetails {
-                total: import.media.len(),
+                total: import.media.len() - import.failed_items.len(),
             },
             failed_items: import.failed_items,
         };
