@@ -15,6 +15,7 @@ mod m20230504_000010_create_summary;
 mod m20230504_000011_create_audio_book;
 mod m20230505_000012_create_review;
 mod m20230507_000013_create_collection;
+mod m20230509_000014_create_media_import_report;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -45,6 +46,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230504_000011_create_audio_book::Migration),
             Box::new(m20230505_000012_create_review::Migration),
             Box::new(m20230507_000013_create_collection::Migration),
+            Box::new(m20230509_000014_create_media_import_report::Migration),
         ]
     }
 }
