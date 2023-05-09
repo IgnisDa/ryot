@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::resolver::AudioBooksService,
-    background::RefreshMedia,
+    background::ImportMedia,
     books::resolver::BooksService,
     media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::MetadataLot,
@@ -34,7 +34,7 @@ pub struct ImportItemRating {
     rating: Option<i32>,
 }
 
-#[derive(Debug, InputObject, Serialize, Deserialize)]
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct MediaTrackerImportInput {
     /// The base url where the resource is present at
     api_url: String,
@@ -118,7 +118,7 @@ pub struct ImporterService {
     movies_service: Arc<MoviesService>,
     shows_service: Arc<ShowsService>,
     video_games_service: Arc<VideoGamesService>,
-    refresh_media: SqliteStorage<RefreshMedia>,
+    import_media: SqliteStorage<ImportMedia>,
 }
 
 impl ImporterService {
@@ -130,7 +130,7 @@ impl ImporterService {
         movies_service: &MoviesService,
         shows_service: &ShowsService,
         video_games_service: &VideoGamesService,
-        refresh_media: &SqliteStorage<RefreshMedia>,
+        import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
             audio_books_service: Arc::new(audio_books_service.clone()),
@@ -140,7 +140,7 @@ impl ImporterService {
             movies_service: Arc::new(movies_service.clone()),
             shows_service: Arc::new(shows_service.clone()),
             video_games_service: Arc::new(video_games_service.clone()),
-            refresh_media: refresh_media.clone(),
+            import_media: import_media.clone(),
         }
     }
 
@@ -149,8 +149,13 @@ impl ImporterService {
         user_id: i32,
         input: MediaTrackerImportInput,
     ) -> Result<ImportResultResponse> {
-        let mut storage = self.refresh_media.clone();
-        storage.push(RefreshMedia {}).await.unwrap();
+        let mut storage = self.import_media.clone();
+        storage
+            .push(ImportMedia {
+                input: input.clone(),
+            })
+            .await
+            .unwrap();
         let mut import = media_tracker::import(input).await?;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(

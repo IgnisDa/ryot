@@ -17,7 +17,7 @@ pub async fn refresh_media(information: RefreshMedia, _ctx: JobContext) -> Resul
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImportMedia {
-    input: MediaTrackerImportInput,
+    pub input: MediaTrackerImportInput,
 }
 
 impl Job for ImportMedia {

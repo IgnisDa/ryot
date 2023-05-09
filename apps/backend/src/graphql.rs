@@ -8,7 +8,7 @@ use crate::{
         audible::AudibleService,
         resolver::{AudioBooksMutation, AudioBooksQuery, AudioBooksService},
     },
-    background::RefreshMedia,
+    background::ImportMedia,
     books::{
         openlibrary::OpenlibraryService,
         resolver::{BooksMutation, BooksQuery, BooksService},
@@ -118,7 +118,7 @@ pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 pub async fn get_schema(
     db: DatabaseConnection,
     config: &AppConfig,
-    refresh_media: &SqliteStorage<RefreshMedia>,
+    import_media_job: &SqliteStorage<ImportMedia>,
 ) -> GraphqlSchema {
     let media_service = MediaService::new(&db);
     let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
@@ -141,7 +141,7 @@ pub async fn get_schema(
         &movies_service,
         &shows_service,
         &video_games_service,
-        refresh_media,
+        import_media_job,
     );
     Schema::build(
         QueryRoot::default(),

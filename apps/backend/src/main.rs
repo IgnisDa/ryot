@@ -93,14 +93,19 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
     Migrator::up(&db, None).await.unwrap();
 
-    let storage = {
+    let refresh_media_storage = {
+        let st = SqliteStorage::connect(":memory:").await.unwrap();
+        st.setup().await.unwrap();
+        st
+    };
+    let import_media_storage = {
         let st = SqliteStorage::connect(":memory:").await.unwrap();
         st.setup().await.unwrap();
         st
     };
 
     let (tx, mut rx) = channel::<u8>(1);
-    let mut new_storage = storage.clone();
+    let mut new_storage = refresh_media_storage.clone();
     tokio::spawn(async move {
         loop {
             if (rx.recv().await).is_some() {
@@ -124,7 +129,7 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let schema = get_schema(db.clone(), &config, &storage).await;
+    let schema = get_schema(db.clone(), &config, &import_media_storage).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -160,14 +165,14 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("refresh_media-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .with_storage(storage.clone())
+                    .with_storage(refresh_media_storage.clone())
                     .build_fn(refresh_media)
             })
-            // .register_with_count(1, move |c| {
-            //     WorkerBuilder::new(format!("import_media-{c}"))
-            //         .with_storage(storage.clone())
-            //         .build_fn(import_media)
-            // })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("import_media-{c}"))
+                    .with_storage(import_media_storage.clone())
+                    .build_fn(import_media)
+            })
             .run()
             .await;
         Ok(mn)
