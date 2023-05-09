@@ -9,9 +9,11 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     entities::utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     graphql::{AUTHOR, PROJECT_NAME},
-    importer::ImportItemSeen,
+    importer::{
+        media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
+    },
     migrator::MetadataLot,
-    utils::openlibrary,
+    utils::{convert_option_to_vec, openlibrary},
 };
 
 use super::{ImportItem, ImportResult, MediaTrackerImportInput};
@@ -51,6 +53,13 @@ struct Item {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+struct ItemReview {
+    rating: Option<i32>,
+    review: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct ItemEpisode {
     id: i32,
     season_number: i32,
@@ -77,6 +86,7 @@ struct ItemSeen {
 struct ItemDetails {
     seen_history: Vec<ItemSeen>,
     seasons: Vec<ItemSeason>,
+    user_rating: Option<ItemReview>,
 }
 
 pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
@@ -106,7 +116,11 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
         final_data.push(ImportItem {
             lot: MetadataLot::from(d.media_type.clone()),
             identifier,
-            seen: data
+            reviews: convert_option_to_vec(data.user_rating.map(|r| ImportItemRating {
+                review: r.review.map(|t| extract_review_information(&t).unwrap()),
+                rating: r.rating,
+            })),
+            seen_history: data
                 .seen_history
                 .iter()
                 .map(|s| {
@@ -133,7 +147,6 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                 .collect(),
         });
     }
-    dbg!(&final_data);
     Ok(ImportResult { media: final_data })
 }
 
@@ -141,15 +154,10 @@ pub mod utils {
     use chrono::NaiveDate;
     use regex::Regex;
 
-    #[derive(Debug)]
-    pub struct ReviewInformation {
-        date: NaiveDate,
-        spoiler: bool,
-        text: String,
-    }
+    use crate::importer::ImportItemReview;
 
     // Wrote with the help of ChatGPT.
-    pub fn extract_review_information(input: &str) -> Option<ReviewInformation> {
+    pub fn extract_review_information(input: &str) -> Option<ImportItemReview> {
         let regex_str =
             r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILERS\])?\n\n(?P<text>[\s\S]*)$";
         let regex = Regex::new(regex_str).unwrap();
@@ -160,7 +168,7 @@ pub mod utils {
                 .name("spoiler")
                 .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
             let text = captures.name("text").unwrap().as_str().to_owned();
-            Some(ReviewInformation {
+            Some(ImportItemReview {
                 date,
                 spoiler,
                 text,

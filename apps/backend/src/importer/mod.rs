@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
+use chrono::NaiveDate;
 use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
@@ -10,6 +11,19 @@ use crate::{
 };
 
 mod media_tracker;
+
+#[derive(Debug)]
+pub struct ImportItemReview {
+    date: NaiveDate,
+    spoiler: bool,
+    text: String,
+}
+
+#[derive(Debug)]
+pub struct ImportItemRating {
+    review: Option<ImportItemReview>,
+    rating: Option<i32>,
+}
 
 #[derive(Debug, InputObject)]
 pub struct MediaTrackerImportInput {
@@ -30,7 +44,8 @@ pub struct ImportItemSeen {
 pub struct ImportItem {
     lot: MetadataLot,
     identifier: String,
-    seen: Vec<ImportItemSeen>,
+    seen_history: Vec<ImportItemSeen>,
+    reviews: Vec<ImportItemRating>,
 }
 
 #[derive(Debug)]
