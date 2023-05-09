@@ -15,7 +15,7 @@ use crate::{
     utils::openlibrary,
 };
 
-use super::{ImportItem, ImportResult, MediaTrackerImportInput};
+use super::{ImportFailStep, ImportFailedItem, ImportItem, ImportResult, MediaTrackerImportInput};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -97,6 +97,9 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
         .set_base_url(Url::parse(&format!("{}/api/", input.api_url)).unwrap())
         .try_into()
         .unwrap();
+
+    let mut failed_items = vec![];
+
     // all items returned here are seen atleast once
     let mut rsp = client.get("items").await.unwrap();
     let data: Vec<Item> = rsp.body_json().await.unwrap();
@@ -111,13 +114,34 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
             MediaType::Audiobook => d.audible_id.clone().unwrap(),
         };
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
-        let data: ItemDetails = rsp.body_json().await.unwrap();
+        let data: ItemDetails = rsp
+            .body_json()
+            .await
+            .map_err(|_| {
+                failed_items.push(ImportFailedItem {
+                    step: ImportFailStep::ItemDetails,
+                    identifier: d.id.to_string(),
+                });
+            })
+            .unwrap();
+        dbg!(&d);
         final_data.push(ImportItem {
             lot: MetadataLot::from(d.media_type.clone()),
             identifier,
-            reviews: Vec::from_iter(data.user_rating.map(|r| ImportItemRating {
-                review: r.review.map(|t| extract_review_information(&t).unwrap()),
-                rating: r.rating,
+            reviews: Vec::from_iter(data.user_rating.map(|r| {
+                let review = if let Some(s) = r.review.map(|s| extract_review_information(&s)) {
+                    s
+                } else {
+                    failed_items.push(ImportFailedItem {
+                        step: ImportFailStep::ReviewTransformation,
+                        identifier: d.id.to_string(),
+                    });
+                    None
+                };
+                ImportItemRating {
+                    review,
+                    rating: r.rating,
+                }
             })),
             seen_history: data
                 .seen_history
@@ -144,7 +168,10 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
                 .collect(),
         });
     }
-    Ok(ImportResult { media: final_data })
+    Ok(ImportResult {
+        media: final_data,
+        failed_items,
+    })
 }
 
 pub mod utils {

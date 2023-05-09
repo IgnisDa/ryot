@@ -55,8 +55,21 @@ pub struct ImportItem {
 }
 
 #[derive(Debug)]
+pub enum ImportFailStep {
+    ItemDetails,
+    ReviewTransformation,
+}
+
+#[derive(Debug)]
+pub struct ImportFailedItem {
+    step: ImportFailStep,
+    identifier: String,
+}
+
+#[derive(Debug)]
 pub struct ImportResult {
     media: Vec<ImportItem>,
+    failed_items: Vec<ImportFailedItem>,
 }
 
 #[derive(Default)]
@@ -170,6 +183,9 @@ impl ImporterService {
                     .await?;
             }
         }
+
+        dbg!(&import.failed_items);
+
         tracing::info!(
             "Imported {} media items from MediaTracker",
             import.media.len()
