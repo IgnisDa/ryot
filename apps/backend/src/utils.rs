@@ -60,10 +60,6 @@ pub fn convert_date_to_year(d: &str) -> Option<i32> {
     convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
 }
 
-pub fn convert_option_to_vec<T>(p: Option<T>) -> Vec<T> {
-    Vec::from_iter(p)
-}
-
 pub async fn get_data_parallely_from_sources<'a, T, F, R>(
     iteree: &'a [T],
     client: &'a Client,

@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
-    utils::{convert_option_to_vec, igdb},
+    utils::igdb,
 };
 
 use super::VideoGameSpecifics;
@@ -152,7 +152,7 @@ impl IgdbService {
         item: IgdbSearchResponse,
     ) -> MediaDetails<VideoGameSpecifics> {
         let mut poster_images =
-            convert_option_to_vec(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
+            Vec::from_iter(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
         let additional_images = item
             .artworks
             .unwrap_or_default()

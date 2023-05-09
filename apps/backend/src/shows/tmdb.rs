@@ -10,9 +10,7 @@ use crate::{
     migrator::MetadataLot,
     shows::{ShowEpisode, ShowSeason},
     traits::MediaProvider,
-    utils::{
-        convert_date_to_year, convert_option_to_vec, convert_string_to_date, tmdb, NamedObject,
-    },
+    utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
 };
 
 use super::ShowSpecifics;
@@ -55,10 +53,9 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let poster_images =
-            convert_option_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
+        let poster_images = Vec::from_iter(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
-            convert_option_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+            Vec::from_iter(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
             id: i32,
@@ -122,12 +119,10 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
-                        let poster_images = convert_option_to_vec(
-                            s.poster_path.map(|p| self.get_cover_image_url(&p)),
-                        );
-                        let backdrop_images = convert_option_to_vec(
-                            s.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                        );
+                        let poster_images =
+                            Vec::from_iter(s.poster_path.map(|p| self.get_cover_image_url(&p)));
+                        let backdrop_images =
+                            Vec::from_iter(s.backdrop_path.map(|p| self.get_cover_image_url(&p)));
                         ShowSeason {
                             id: s.id,
                             name: s.name,
@@ -140,7 +135,7 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
                                 .episodes
                                 .into_iter()
                                 .map(|e| {
-                                    let poster_images = convert_option_to_vec(
+                                    let poster_images = Vec::from_iter(
                                         e.still_path.map(|p| self.get_cover_image_url(&p)),
                                     );
                                     ShowEpisode {
@@ -204,7 +199,7 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
             .into_iter()
             .map(|d| {
                 let poster_images =
-                    convert_option_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                    Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Show,

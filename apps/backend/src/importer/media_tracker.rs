@@ -13,7 +13,7 @@ use crate::{
         media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
     },
     migrator::MetadataLot,
-    utils::{convert_option_to_vec, openlibrary},
+    utils::openlibrary,
 };
 
 use super::{ImportItem, ImportResult, MediaTrackerImportInput};
@@ -116,7 +116,7 @@ pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
         final_data.push(ImportItem {
             lot: MetadataLot::from(d.media_type.clone()),
             identifier,
-            reviews: convert_option_to_vec(data.user_rating.map(|r| ImportItemRating {
+            reviews: Vec::from_iter(data.user_rating.map(|r| ImportItemRating {
                 review: r.review.map(|t| extract_review_information(&t).unwrap()),
                 rating: r.rating,
             })),
