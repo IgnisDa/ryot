@@ -62,7 +62,6 @@ impl VideoGamesService {
     pub fn new(
         db: &DatabaseConnection,
         igdb_service: &IgdbService,
-
         media_service: &MediaService,
     ) -> Self {
         Self {

@@ -127,7 +127,7 @@ pub async fn get_schema(db: DatabaseConnection, config: &AppConfig) -> GraphqlSc
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let users_service = UsersService::new(&db);
     let reviews_service = MiscService::new(&db, &media_service);
-    let importer_service = ImporterService::new(&db);
+    let importer_service = ImporterService::new(&media_service);
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),

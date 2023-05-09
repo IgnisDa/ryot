@@ -1,24 +1,78 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
-use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
+use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
-use super::MediaTrackerImportInput;
+use crate::{
+    graphql::{AUTHOR, PROJECT_NAME},
+    migrator::MetadataLot,
+};
 
-#[derive(Debug)]
-pub struct MediaTrackerService {
-    db: DatabaseConnection,
+use super::{ImportItem, ImportResult, MediaTrackerImportInput};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+enum MediaType {
+    Book,
+    Movie,
+    Tv,
+    VideoGame,
+    Audiobook,
 }
 
-impl MediaTrackerService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
+impl From<MediaType> for MetadataLot {
+    fn from(value: MediaType) -> Self {
+        match value {
+            MediaType::Book => Self::Book,
+            MediaType::Movie => Self::Movie,
+            MediaType::Tv => Self::Show,
+            MediaType::VideoGame => Self::VideoGame,
+            MediaType::Audiobook => Self::AudioBook,
+        }
     }
+}
 
-    pub async fn import(&self, input: MediaTrackerImportInput) -> Result<bool> {
-        dbg!(&input);
-        Ok(true)
-    }
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Item {
+    id: i32,
+    media_type: MediaType,
+    audible_id: Option<String>,
+    igdb_id: Option<i32>,
+    tmdb_id: Option<i32>,
+    openlibrary_id: Option<String>,
+}
+
+pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
+    let client: Client = Config::new()
+        .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+        .unwrap()
+        .add_header("Access-Token", input.api_key)
+        .unwrap()
+        .set_base_url(Url::parse(&format!("{}/api/", input.api_url)).unwrap())
+        .try_into()
+        .unwrap();
+    let mut rsp = client.get("items").await.unwrap();
+    let data: Vec<Item> = rsp.body_json().await.unwrap();
+
+    let media = data
+        .iter()
+        .map(|d| {
+            let identifier = match d.media_type.clone() {
+                MediaType::Book => d.openlibrary_id.clone().unwrap(),
+                MediaType::Movie => d.tmdb_id.unwrap().to_string(),
+                MediaType::Tv => d.tmdb_id.unwrap().to_string(),
+                MediaType::VideoGame => d.igdb_id.unwrap().to_string(),
+                MediaType::Audiobook => d.audible_id.clone().unwrap(),
+            };
+            ImportItem {
+                lot: MetadataLot::from(d.media_type.clone()),
+                identifier,
+            }
+        })
+        .collect();
+    Ok(ImportResult { media })
 }
 
 pub mod utils {

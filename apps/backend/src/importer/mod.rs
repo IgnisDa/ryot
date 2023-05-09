@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, InputObject, Object, Result};
-use sea_orm::DatabaseConnection;
 
-use self::media_tracker::MediaTrackerService;
+use crate::{media::resolver::MediaService, migrator::MetadataLot};
 
 mod media_tracker;
 
@@ -15,12 +14,23 @@ pub struct MediaTrackerImportInput {
     api_key: String,
 }
 
+#[derive(Debug)]
+pub struct ImportItem {
+    lot: MetadataLot,
+    identifier: String,
+}
+
+#[derive(Debug)]
+pub struct ImportResult {
+    media: Vec<ImportItem>,
+}
+
 #[derive(Default)]
 pub struct ImporterMutation;
 
 #[Object]
 impl ImporterMutation {
-    /// Add request for importing data from MediaTracker.
+    /// Add job to import data from MediaTracker.
     async fn media_tracker_import(
         &self,
         gql_ctx: &Context<'_>,
@@ -35,17 +45,19 @@ impl ImporterMutation {
 
 #[derive(Debug)]
 pub struct ImporterService {
-    media_tracker: Arc<MediaTrackerService>,
+    media_service: Arc<MediaService>,
 }
 
 impl ImporterService {
-    pub fn new(db: &DatabaseConnection) -> Self {
+    pub fn new(media_service: &MediaService) -> Self {
         Self {
-            media_tracker: Arc::new(MediaTrackerService::new(&db)),
+            media_service: Arc::new(media_service.clone()),
         }
     }
 
     pub async fn media_tracker_import(&self, input: MediaTrackerImportInput) -> Result<bool> {
-        self.media_tracker.import(input).await
+        let import = media_tracker::import(input).await?;
+        dbg!(&import);
+        Ok(true)
     }
 }
