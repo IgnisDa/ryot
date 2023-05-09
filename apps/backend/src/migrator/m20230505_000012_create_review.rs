@@ -69,7 +69,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Review::Identifier).string().not_null())
+                    .col(ColumnDef::new(Review::Identifier).string())
                     .col(ColumnDef::new(Review::ExtraInformation).json())
                     .col(
                         ColumnDef::new(Review::Visibility)
