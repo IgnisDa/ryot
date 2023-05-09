@@ -75,7 +75,7 @@ impl ImporterService {
 
     pub async fn media_tracker_import(&self, input: MediaTrackerImportInput) -> Result<bool> {
         let import = media_tracker::import(input).await?;
-        for item in import.media {
+        for item in import.media.iter() {
             let data = match item.lot {
                 MetadataLot::AudioBook => {
                     self.audio_books_service
@@ -93,6 +93,10 @@ impl ImporterService {
             };
             data.ok();
         }
+        tracing::info!(
+            "Imported {} media items from MediaTracker",
+            import.media.len()
+        );
         Ok(true)
     }
 }
