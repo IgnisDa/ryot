@@ -98,8 +98,8 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
     Migrator::up(&db, None).await.unwrap();
 
-    let refresh_media_storage = create_storage(&config.database.url).await;
-    let import_media_storage = create_storage(&config.database.url).await;
+    let refresh_media_storage = create_storage().await;
+    let import_media_storage = create_storage().await;
 
     let (tx, mut rx) = channel::<u8>(1);
     let mut new_storage = refresh_media_storage.clone();
@@ -243,8 +243,9 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
-async fn create_storage<T: ApalisJob>(url: &str) -> SqliteStorage<T> {
-    let st = SqliteStorage::connect(url).await.unwrap();
+async fn create_storage<T: ApalisJob>() -> SqliteStorage<T> {
+    // it is necessary to initialize it in memory and not connect to the same database
+    let st = SqliteStorage::connect(":memory:").await.unwrap();
     st.setup().await.unwrap();
     st
 }
