@@ -168,7 +168,8 @@ impl ImporterService {
         &self,
         user_id: i32,
         input: DeployMediaTrackerImportInput,
-    ) -> Result<ImportResultResponse> {
+    ) -> Result<()> {
+        let db_import_job = self.misc_service.start_import_job(user_id).await?;
         let mut import = media_tracker::import(input).await?;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
@@ -254,11 +255,15 @@ impl ImporterService {
             "Imported {} media items from MediaTracker",
             import.media.len()
         );
-        Ok(ImportResultResponse {
+        let details = ImportResultResponse {
             import: ImportDetails {
                 total: import.media.len(),
             },
             failed_items: import.failed_items,
-        })
+        };
+        self.misc_service
+            .finish_import_job(db_import_job, details)
+            .await?;
+        Ok(())
     }
 }

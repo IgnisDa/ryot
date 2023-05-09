@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
+use chrono::Utc;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -9,12 +10,13 @@ use sea_orm::{
 
 use crate::{
     entities::{
-        collection, metadata_to_collection,
+        collection, media_import_report, metadata_to_collection,
         prelude::{Collection, Metadata, Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
+    importer::ImportResultResponse,
     media::resolver::{MediaSearchItem, MediaService},
     migrator::ReviewVisibility,
     utils::{user_id_from_ctx, NamedObject},
@@ -299,5 +301,26 @@ impl MiscService {
                 false
             }
         })
+    }
+
+    pub async fn start_import_job(&self, user_id: i32) -> Result<media_import_report::Model> {
+        let model = media_import_report::ActiveModel {
+            user_id: ActiveValue::Set(user_id),
+            ..Default::default()
+        };
+        let model = model.insert(&self.db).await.unwrap();
+        Ok(model)
+    }
+
+    pub async fn finish_import_job(
+        &self,
+        job: media_import_report::Model,
+        details: ImportResultResponse,
+    ) -> Result<media_import_report::Model> {
+        let mut model: media_import_report::ActiveModel = job.into();
+        model.finished_on = ActiveValue::Set(Some(Utc::now()));
+        model.details = ActiveValue::Set(Some(details));
+        let model = model.update(&self.db).await.unwrap();
+        Ok(model)
     }
 }
