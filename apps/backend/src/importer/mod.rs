@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
@@ -17,14 +17,14 @@ use crate::{
 
 mod media_tracker;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemReview {
     date: DateTimeUtc,
     spoiler: bool,
     text: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemRating {
     review: Option<ImportItemReview>,
     rating: Option<i32>,
@@ -38,14 +38,14 @@ pub struct MediaTrackerImportInput {
     api_key: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, SimpleObject)]
 pub struct ImportItemSeen {
     ended_on: Option<DateTimeUtc>,
     season_number: Option<i32>,
     episode_number: Option<i32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, SimpleObject)]
 pub struct ImportItem {
     source_id: String,
     lot: MetadataLot,
@@ -54,21 +54,21 @@ pub struct ImportItem {
     reviews: Vec<ImportItemRating>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone)]
 pub enum ImportFailStep {
     ItemDetailsFromSource,
     ReviewTransformation,
     MediaDetailsFromProvider,
 }
 
-#[derive(Debug)]
+#[derive(Debug, SimpleObject)]
 pub struct ImportFailedItem {
     lot: MetadataLot,
     step: ImportFailStep,
     identifier: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, SimpleObject)]
 pub struct ImportResult {
     media: Vec<ImportItem>,
     failed_items: Vec<ImportFailedItem>,
@@ -84,7 +84,7 @@ impl ImporterMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: MediaTrackerImportInput,
-    ) -> Result<bool> {
+    ) -> Result<ImportResult> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<ImporterService>()
@@ -129,7 +129,7 @@ impl ImporterService {
         &self,
         user_id: i32,
         input: MediaTrackerImportInput,
-    ) -> Result<bool> {
+    ) -> Result<ImportResult> {
         let mut import = media_tracker::import(input).await?;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
@@ -209,12 +209,10 @@ impl ImporterService {
             );
         }
 
-        dbg!(&import.failed_items);
-
         tracing::info!(
             "Imported {} media items from MediaTracker",
             import.media.len()
         );
-        Ok(true)
+        Ok(import)
     }
 }
