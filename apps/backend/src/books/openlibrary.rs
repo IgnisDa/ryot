@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
@@ -102,7 +102,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .client
             .get(format!("works/{}.json", identifier))
             .await
-            .unwrap();
+            .map_err(|e| anyhow!(e))?;
         let data: OpenlibraryBook = rsp.body_json().await.unwrap();
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -118,7 +118,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             .client
             .get(format!("works/{}/editions.json", identifier))
             .await
-            .unwrap();
+            .map_err(|e| anyhow!(e))?;
         let editions: OpenlibraryEditionsResponse = rsp.body_json().await.unwrap();
         let entries = editions.entries.unwrap_or_default();
         let all_pages = entries
@@ -223,7 +223,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             })
             .unwrap()
             .await
-            .unwrap();
+            .map_err(|e| anyhow!(e))?;
         let search: OpenLibrarySearchResponse = rsp.body_json().await.unwrap();
 
         let resp = search
