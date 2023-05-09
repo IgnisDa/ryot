@@ -1,5 +1,9 @@
 use anyhow::Result;
-use apalis::{layers::TraceLayer as ApalisTraceLayer, prelude::*, sqlite::SqliteStorage};
+use apalis::{
+    layers::TraceLayer as ApalisTraceLayer,
+    prelude::{Job as ApalisJob, *},
+    sqlite::SqliteStorage,
+};
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
@@ -93,16 +97,8 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
     Migrator::up(&db, None).await.unwrap();
 
-    let refresh_media_storage = {
-        let st = SqliteStorage::connect(":memory:").await.unwrap();
-        st.setup().await.unwrap();
-        st
-    };
-    let import_media_storage = {
-        let st = SqliteStorage::connect(":memory:").await.unwrap();
-        st.setup().await.unwrap();
-        st
-    };
+    let refresh_media_storage = create_storage(&config.database.url).await;
+    let import_media_storage = create_storage(&config.database.url).await;
 
     let (tx, mut rx) = channel::<u8>(1);
     let mut new_storage = refresh_media_storage.clone();
@@ -118,7 +114,7 @@ async fn main() -> Result<()> {
 
     sched
         .add(
-            Job::new_async("1/10 * * * * *", move |_uuid, _l| {
+            Job::new_async("0 * * * *", move |_uuid, _l| {
                 let tx = tx.clone();
                 Box::pin(async move {
                     tx.send(1).await.unwrap();
@@ -240,4 +236,10 @@ async fn not_found() -> Response {
         .status(StatusCode::NOT_FOUND)
         .body(boxed(Full::from("404")))
         .unwrap()
+}
+
+async fn create_storage<T: ApalisJob>(url: &str) -> SqliteStorage<T> {
+    let st = SqliteStorage::connect(url).await.unwrap();
+    st.setup().await.unwrap();
+    st
 }
