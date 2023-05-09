@@ -66,19 +66,23 @@ pub enum ImportFailStep {
     MediaDetailsFromProvider,
 }
 
-#[derive(Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize)]
+#[derive(
+    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
+)]
 pub struct ImportFailedItem {
     lot: MetadataLot,
     step: ImportFailStep,
     identifier: String,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct ImportDetails {
     total: usize,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
+)]
 pub struct ImportResultResponse {
     import: ImportDetails,
     failed_items: Vec<ImportFailedItem>,

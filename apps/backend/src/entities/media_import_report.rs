@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::importer::ImportResultResponse;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "media_import_report")]
 pub struct Model {
@@ -11,9 +13,7 @@ pub struct Model {
     pub user_id: i32,
     pub started_on: DateTimeUtc,
     pub finished_on: Option<DateTimeUtc>,
-    pub total: Option<i32>,
-    pub failed: Option<String>,
-    // pub failed: Option<Vec<ImportFailedItem>>,
+    pub details: Option<ImportResultResponse>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

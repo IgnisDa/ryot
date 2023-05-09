@@ -11,8 +11,7 @@ pub enum MediaImportReport {
     UserId,
     StartedOn,
     FinishedOn,
-    Total,
-    Failed,
+    Details,
 }
 
 impl MigrationName for Migration {
@@ -46,9 +45,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(MediaImportReport::Failed).json())
                     .col(ColumnDef::new(MediaImportReport::FinishedOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(MediaImportReport::Total).integer())
+                    .col(ColumnDef::new(MediaImportReport::Details).json())
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")
