@@ -168,6 +168,7 @@ async fn main() -> Result<()> {
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
+                    .layer(ApalisTraceLayer::new())
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })
