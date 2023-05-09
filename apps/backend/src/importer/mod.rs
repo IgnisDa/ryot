@@ -71,6 +71,17 @@ pub struct ImportFailedItem {
 }
 
 #[derive(Debug, SimpleObject)]
+pub struct ImportDetails {
+    total: usize,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct ImportResultResponse {
+    import: ImportDetails,
+    failed_items: Vec<ImportFailedItem>,
+}
+
+#[derive(Debug, SimpleObject)]
 pub struct ImportResult {
     media: Vec<ImportItem>,
     failed_items: Vec<ImportFailedItem>,
@@ -86,7 +97,7 @@ impl ImporterMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: MediaTrackerImportInput,
-    ) -> Result<ImportResult> {
+    ) -> Result<ImportResultResponse> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<ImporterService>()
@@ -131,7 +142,7 @@ impl ImporterService {
         &self,
         user_id: i32,
         input: MediaTrackerImportInput,
-    ) -> Result<ImportResult> {
+    ) -> Result<ImportResultResponse> {
         let mut import = media_tracker::import(input).await?;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
@@ -217,6 +228,11 @@ impl ImporterService {
             "Imported {} media items from MediaTracker",
             import.media.len()
         );
-        Ok(import)
+        Ok(ImportResultResponse {
+            import: ImportDetails {
+                total: import.media.len(),
+            },
+            failed_items: import.failed_items,
+        })
     }
 }

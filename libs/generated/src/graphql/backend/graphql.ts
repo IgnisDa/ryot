@@ -104,6 +104,10 @@ export type IdObject = {
   id: Scalars['Int'];
 };
 
+export type ImportDetails = {
+  total: Scalars['Int'];
+};
+
 export enum ImportFailStep {
   ItemDetailsFromSource = 'ITEM_DETAILS_FROM_SOURCE',
   MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER',
@@ -116,34 +120,9 @@ export type ImportFailedItem = {
   step: ImportFailStep;
 };
 
-export type ImportItem = {
-  identifier: Scalars['String'];
-  lot: MetadataLot;
-  reviews: Array<ImportItemRating>;
-  seenHistory: Array<ImportItemSeen>;
-  sourceId: Scalars['String'];
-};
-
-export type ImportItemRating = {
-  rating?: Maybe<Scalars['Int']>;
-  review?: Maybe<ImportItemReview>;
-};
-
-export type ImportItemReview = {
-  date: Scalars['DateTime'];
-  spoiler: Scalars['Boolean'];
-  text: Scalars['String'];
-};
-
-export type ImportItemSeen = {
-  endedOn?: Maybe<Scalars['DateTime']>;
-  episodeNumber?: Maybe<Scalars['Int']>;
-  seasonNumber?: Maybe<Scalars['Int']>;
-};
-
-export type ImportResult = {
+export type ImportResultResponse = {
   failedItems: Array<ImportFailedItem>;
-  media: Array<ImportItem>;
+  import: ImportDetails;
 };
 
 export type LoginError = {
@@ -223,7 +202,7 @@ export type MutationRoot = {
   /** Logout a user from the server, deleting their login token */
   logoutUser: Scalars['Boolean'];
   /** Add job to import data from MediaTracker. */
-  mediaTrackerImport: ImportResult;
+  mediaTrackerImport: ImportResultResponse;
   /** Create or update a review */
   postReview: IdObject;
   /** Mark a user's progress on a specific media item */
@@ -318,6 +297,8 @@ export type NamedObjectInput = {
 export type PostReviewInput = {
   date?: InputMaybe<Scalars['DateTime']>;
   episodeNumber?: InputMaybe<Scalars['Int']>;
+  /** If this review comes from a different source, this should be set */
+  identifier?: InputMaybe<Scalars['String']>;
   metadataId: Scalars['Int'];
   rating?: InputMaybe<Scalars['Decimal']>;
   /** ID of the review if this is an update to an existing review */
@@ -332,6 +313,8 @@ export type ProgressUpdate = {
   action: ProgressUpdateAction;
   date?: InputMaybe<Scalars['NaiveDate']>;
   episodeNumber?: InputMaybe<Scalars['Int']>;
+  /** If this update comes from a different source, this should be set */
+  identifier?: InputMaybe<Scalars['String']>;
   metadataId: Scalars['Int'];
   progress?: InputMaybe<Scalars['Int']>;
   seasonNumber?: InputMaybe<Scalars['Int']>;
@@ -626,7 +609,7 @@ export type MediaTrackerImportMutationVariables = Exact<{
 }>;
 
 
-export type MediaTrackerImportMutation = { mediaTrackerImport: { media: Array<{ sourceId: string }>, failedItems: Array<{ lot: MetadataLot, step: ImportFailStep, identifier: string }> } };
+export type MediaTrackerImportMutation = { mediaTrackerImport: { import: { total: number }, failedItems: Array<{ lot: MetadataLot, step: ImportFailStep, identifier: string }> } };
 
 export type PostReviewMutationVariables = Exact<{
   input: PostReviewInput;
@@ -771,7 +754,7 @@ export const CreateCollectionDocument = {"kind":"Document","definitions":[{"kind
 export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
 export const LoginUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}}]}}]}}]}}]} as unknown as DocumentNode<LoginUserMutation, LoginUserMutationVariables>;
 export const LogoutUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LogoutUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logoutUser"}}]}}]} as unknown as DocumentNode<LogoutUserMutation, LogoutUserMutationVariables>;
-export const MediaTrackerImportDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MediaTrackerImport"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MediaTrackerImportInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaTrackerImport"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"media"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sourceId"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}}]}}]}}]}}]} as unknown as DocumentNode<MediaTrackerImportMutation, MediaTrackerImportMutationVariables>;
+export const MediaTrackerImportDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MediaTrackerImport"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MediaTrackerImportInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaTrackerImport"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"import"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}}]}}]}}]}}]} as unknown as DocumentNode<MediaTrackerImportMutation, MediaTrackerImportMutationVariables>;
 export const PostReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PostReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PostReviewInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"postReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<PostReviewMutation, PostReviewMutationVariables>;
 export const ProgressUpdateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ProgressUpdate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ProgressUpdate"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"progressUpdate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<ProgressUpdateMutation, ProgressUpdateMutationVariables>;
 export const RegerateUserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegerateUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"regenerateUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RegerateUserSummaryMutation, RegerateUserSummaryMutationVariables>;

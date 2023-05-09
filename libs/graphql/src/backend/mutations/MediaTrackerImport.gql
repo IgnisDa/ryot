@@ -1,7 +1,7 @@
 mutation MediaTrackerImport($input: MediaTrackerImportInput!) {
   mediaTrackerImport(input: $input) {
-    media {
-      sourceId
+    import {
+      total
     }
     failedItems {
       lot
