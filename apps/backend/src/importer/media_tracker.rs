@@ -239,5 +239,11 @@ pub mod utils {
             assert_eq!(info.spoiler, expected_is_spoiler);
             assert_eq!(info.text, expected_text);
         }
+
+        #[test]
+        fn test_extract_review_information_invalid() {
+            let info = extract_review_information("");
+            assert!(info.is_none());
+        }
     }
 }
