@@ -197,7 +197,7 @@ impl ImporterService {
     pub async fn media_tracker_import(&self, user_id: i32, input: ImportInput) -> Result<()> {
         let db_import_job = self
             .misc_service
-            .start_import_job(user_id, MediaImportSource::MediaTracker)
+            .start_import_job(user_id, input.source)
             .await?;
         let mut import = match input.source {
             MediaImportSource::MediaTracker => {
