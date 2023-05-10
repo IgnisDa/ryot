@@ -20,12 +20,11 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
-	DeployMediaTrackerImportDocument,
-	type DeployMediaTrackerImportMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
-	DeployGoodreadsImportDocument,
-	type DeployGoodreadsImportMutationVariables,
+	DeployImportDocument,
+	type DeployImportMutationVariables,
+	MediaImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
@@ -127,28 +126,13 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const goodreadsImport = useMutation({
-		mutationFn: async (variables: DeployGoodreadsImportMutationVariables) => {
-			const { deployGoodreadsImport } = await gqlClient.request(
-				DeployGoodreadsImportDocument,
+	const deployImport = useMutation({
+		mutationFn: async (variables: DeployImportMutationVariables) => {
+			const { deployImport } = await gqlClient.request(
+				DeployImportDocument,
 				variables,
 			);
-			return deployGoodreadsImport;
-		},
-		onSuccess: () => {
-			notifications.show(message);
-		},
-	});
-
-	const deploymediaTrackerImport = useMutation({
-		mutationFn: async (
-			variables: DeployMediaTrackerImportMutationVariables,
-		) => {
-			const { deployMediaTrackerImport } = await gqlClient.request(
-				DeployMediaTrackerImportDocument,
-				variables,
-			);
-			return deployMediaTrackerImport;
+			return deployImport;
 		},
 		onSuccess: () => {
 			notifications.show(message);
@@ -208,7 +192,12 @@ const Page: NextPageWithLayout = () => {
 							</Flex>
 							<ImportSource
 								onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-									deploymediaTrackerImport.mutate({ input: values });
+									deployImport.mutate({
+										input: {
+											mediaTracker: values,
+											source: MediaImportSource.MediaTracker,
+										},
+									});
 								})}
 								title="Media Tracker"
 							>
@@ -223,8 +212,11 @@ const Page: NextPageWithLayout = () => {
 							</ImportSource>
 							<ImportSource
 								onSubmit={goodreadsImportForm.onSubmit(async (values) => {
-									goodreadsImport.mutate({
-										input: { data: await fileToText(values.file) },
+									deployImport.mutate({
+										input: {
+											source: MediaImportSource.Goodreads,
+											goodreads: { data: await fileToText(values.file) },
+										},
 									});
 								})}
 								title="Goodreads"

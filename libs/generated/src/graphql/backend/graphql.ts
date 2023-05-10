@@ -127,7 +127,7 @@ export type ImportFailedItem = {
 export type ImportInput = {
   goodreads?: InputMaybe<GoodreadsImportInput>;
   mediaTracker?: InputMaybe<MediaTrackerImportInput>;
-  source: ImportSource;
+  source: MediaImportSource;
 };
 
 export type ImportResultResponse = {
@@ -135,11 +135,6 @@ export type ImportResultResponse = {
   import: ImportDetails;
   source: MediaImportSource;
 };
-
-export enum ImportSource {
-  Goodreads = 'GOODREADS',
-  MediaTracker = 'MEDIA_TRACKER'
-}
 
 export type LoginError = {
   error: LoginErrorVariant;

@@ -49,15 +49,9 @@ pub struct GoodreadsImportInput {
     data: String,
 }
 
-#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
-pub enum ImportSource {
-    MediaTracker,
-    Goodreads,
-}
-
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct ImportInput {
-    pub source: ImportSource,
+    pub source: MediaImportSource,
     pub media_tracker: Option<MediaTrackerImportInput>,
     pub goodreads: Option<GoodreadsImportInput>,
 }
@@ -206,10 +200,10 @@ impl ImporterService {
             .start_import_job(user_id, MediaImportSource::MediaTracker)
             .await?;
         let mut import = match input.source {
-            ImportSource::MediaTracker => {
+            MediaImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
-            ImportSource::Goodreads => todo!(),
+            MediaImportSource::Goodreads => todo!(),
         };
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
