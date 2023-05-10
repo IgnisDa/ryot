@@ -19,7 +19,7 @@ primitive and as a result the following things can not be imported.
 - Click on the "Application tokens" section.
 - Enter a name and click on "Add token".
 - Copy the token that was just generated.
-- Enter the correct details in the inputs.
+- Enter the details in the inputs.
 
 ## Goodreads
 
@@ -30,6 +30,6 @@ All [Goodreads](https://www.goodreads.com) shelves are converted into
 
 - Login to your Goodreads account and go to your profile.
 - Find your account ID. The link in the browser will be in the format
-  "https://www.goodreads.com/user/show/<user-id>-<username>". You need to get the
-  `user-id`.
+  `https://www.goodreads.com/user/show/<user-id>-<username>`. You need to get the
+  `user-id`. It will be a long number.
 - Enter this number in the input.
