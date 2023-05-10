@@ -164,7 +164,7 @@ export enum MediaImportSource {
 export type MediaListInput = {
   lot: MetadataLot;
   page: Scalars['Int'];
-  sort: MediaSortInput;
+  sort?: InputMaybe<MediaSortInput>;
 };
 
 export type MediaSearchItem = {

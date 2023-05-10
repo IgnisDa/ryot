@@ -118,6 +118,15 @@ pub enum MediaSortOrder {
     Asc,
 }
 
+impl From<MediaSortOrder> for Order {
+    fn from(value: MediaSortOrder) -> Self {
+        match value {
+            MediaSortOrder::Desc => Self::Desc,
+            MediaSortOrder::Asc => Self::Asc,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortBy {
     Title,
@@ -137,7 +146,7 @@ pub struct MediaSortInput {
 pub struct MediaListInput {
     pub page: i32,
     pub lot: MetadataLot,
-    pub sort: MediaSortInput,
+    pub sort: Option<MediaSortInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -448,13 +457,15 @@ impl MediaService {
         let condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Id.is_in(distinct_meta_ids));
-        let sort_by = match input.sort.by {
-            MediaSortBy::Title => metadata::Column::Title,
-            MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
-        };
-        let sort_order = match input.sort.order {
-            MediaSortOrder::Desc => Order::Desc,
-            MediaSortOrder::Asc => Order::Asc,
+        let (sort_by, sort_order) = match input.sort {
+            None => (metadata::Column::Id, Order::Asc),
+            Some(s) => (
+                match s.by {
+                    MediaSortBy::Title => metadata::Column::Title,
+                    MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
+                },
+                Order::from(s.order),
+            ),
         };
         let condition = condition.order_by(sort_by, sort_order);
         let counts = condition.clone().count(&self.db).await.unwrap();
