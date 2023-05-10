@@ -97,7 +97,12 @@ pub async fn import(
     input: DeployGoodreadsImportInput,
     config: &ImporterConfig,
 ) -> Result<ImportResult> {
-    let content= surf::get("https://www.goodreads.com/review/list_rss/143396636?key=_jDQ1VBqbEt1ZW9url-9ggk350it3MgzVAuhgbnukLeKbdqi&shelf=%23ALL%23").await.unwrap().body_bytes().await.unwrap();
+    let content = surf::get(format!("{}/{}", config.goodreads_rss_url, input.user_id))
+        .await
+        .unwrap()
+        .body_bytes()
+        .await
+        .unwrap();
     let feed = parser::parse(&content[..]).unwrap();
     dbg!(&feed);
     todo!("Since goodreads does not provide an API, it is difficult to get data reliably from there. And I find RSS stupid. Instead I would like to use the `identifier` field of openlibrary responses to get the correct data.");

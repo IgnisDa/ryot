@@ -95,7 +95,7 @@ pub struct ImporterConfig {
 impl Default for ImporterConfig {
     fn default() -> Self {
         Self {
-            goodreads_rss_url: "https://www.goodreads.com/review/list_rss/".to_owned(),
+            goodreads_rss_url: "https://www.goodreads.com/review/list_rss".to_owned(),
         }
     }
 }
