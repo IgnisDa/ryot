@@ -1,0 +1,3 @@
+mutation DeployGoodreadsImport($file: Upload!) {
+  deployGoodreadsImport(file: $file) 
+}

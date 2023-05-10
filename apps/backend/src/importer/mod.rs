@@ -1,7 +1,9 @@
-use std::sync::Arc;
+use std::{io::Read, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
+use async_graphql::{
+    Context, Enum, InputObject, Object, Result, SimpleObject, Upload, UploadValue,
+};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
@@ -131,6 +133,15 @@ impl ImporterMutation {
             .deploy_media_tracker_import(user_id, input)
             .await
     }
+
+    /// Add job to import data from MediaTracker.
+    async fn deploy_goodreads_import(&self, gql_ctx: &Context<'_>, file: Upload) -> Result<String> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<ImporterService>()
+            .deploy_goodreads_import(user_id, file.value(gql_ctx).unwrap())
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -168,7 +179,11 @@ impl ImporterService {
         }
     }
 
-    pub async fn deploy_goodreads_import(&self, user_id: i32) -> Result<String> {
+    pub async fn deploy_goodreads_import(&self, user_id: i32, file: UploadValue) -> Result<String> {
+        let mut file = file;
+        let mut contents = String::new();
+        file.content.read_to_string(&mut contents).unwrap();
+        dbg!(contents);
         todo!("Implement import from good read using the CSV export.");
     }
 
