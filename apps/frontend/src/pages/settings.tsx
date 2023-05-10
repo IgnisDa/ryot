@@ -43,6 +43,38 @@ type MediaTrackerImportFormSchema = z.infer<
 	typeof mediaTrackerImportFormSchema
 >;
 
+export const ImportSource = (props: {
+	onSubmit: () => void;
+	title: string;
+	children: JSX.Element[];
+}) => {
+	return (
+		<Box>
+			<Card
+				shadow="sm"
+				radius="md"
+				withBorder
+				padding={"sm"}
+				component="form"
+				onSubmit={props.onSubmit}
+			>
+				<Title order={3}>{props.title}</Title>
+				{props.children}
+				<Button
+					variant="light"
+					color="blue"
+					fullWidth
+					mt="md"
+					type="submit"
+					radius="md"
+				>
+					Import
+				</Button>
+			</Card>
+		</Box>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
@@ -146,41 +178,22 @@ const Page: NextPageWithLayout = () => {
 									Docs
 								</Anchor>
 							</Flex>
-							<Box>
-								<Card
-									shadow="sm"
-									radius="md"
-									withBorder
-									padding={"sm"}
-									component="form"
-									onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-										deploymediaTrackerImport.mutate({ input: values });
-									})}
-								>
-									<Title order={3}>Media Tracker</Title>
-
-									<TextInput
-										label="Instance Url"
-										mt="md"
-										{...mediaTrackerImportForm.getInputProps("apiUrl")}
-									/>
-									<PasswordInput
-										label="API Key"
-										{...mediaTrackerImportForm.getInputProps("apiKey")}
-									/>
-
-									<Button
-										variant="light"
-										color="blue"
-										fullWidth
-										mt="md"
-										type="submit"
-										radius="md"
-									>
-										Import
-									</Button>
-								</Card>
-							</Box>
+							<ImportSource
+								onSubmit={mediaTrackerImportForm.onSubmit((values) => {
+									deploymediaTrackerImport.mutate({ input: values });
+								})}
+								title="Media Tracker"
+							>
+								<TextInput
+									label="Instance Url"
+									mt="md"
+									{...mediaTrackerImportForm.getInputProps("apiUrl")}
+								/>
+								<PasswordInput
+									label="API Key"
+									{...mediaTrackerImportForm.getInputProps("apiKey")}
+								/>
+							</ImportSource>
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>
