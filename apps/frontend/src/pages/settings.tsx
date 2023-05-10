@@ -108,7 +108,7 @@ const Page: NextPageWithLayout = () => {
 							Profile
 						</Tabs.Tab>
 						<Tabs.Tab value="import" icon={<IconDatabaseImport size="1rem" />}>
-							Import
+							Imports
 						</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="profile">
@@ -164,6 +164,7 @@ const Page: NextPageWithLayout = () => {
 
 									<TextInput
 										label="Instance Url"
+										mt="md"
 										{...mediaTrackerImportForm.getInputProps("apiUrl")}
 									/>
 									<PasswordInput
