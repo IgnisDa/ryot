@@ -1,7 +1,7 @@
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, Order,
     PaginatorTrait, QueryFilter, QueryOrder,
 };
 use serde::{Deserialize, Serialize};
@@ -111,15 +111,38 @@ pub struct DatabaseMediaDetails {
     pub audio_books_specifics: Option<AudioBookSpecifics>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum MediaSortOrder {
+    Desc,
+    #[default]
+    Asc,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum MediaSortBy {
+    Title,
+    #[default]
+    ReleaseDate,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaConsumedInput {
-    pub identifier: String,
-    pub lot: MetadataLot,
+pub struct MediaSortInput {
+    #[graphql(default)]
+    pub order: MediaSortOrder,
+    #[graphql(default)]
+    pub by: MediaSortBy,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct MediaListInput {
     pub page: i32,
+    pub lot: MetadataLot,
+    pub sort: MediaSortInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaConsumedInput {
+    pub identifier: String,
     pub lot: MetadataLot,
 }
 
@@ -425,30 +448,29 @@ impl MediaService {
         let condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Id.is_in(distinct_meta_ids));
+        let sort_by = match input.sort.by {
+            MediaSortBy::Title => metadata::Column::Title,
+            MediaSortBy::ReleaseDate => metadata::Column::PublishDate,
+        };
+        let sort_order = match input.sort.order {
+            MediaSortOrder::Desc => Order::Desc,
+            MediaSortOrder::Asc => Order::Asc,
+        };
+        let condition = condition.order_by(sort_by, sort_order);
         let counts = condition.clone().count(&self.db).await.unwrap();
         let paginator = condition.paginate(&self.db, LIMIT as u64);
         let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
         let mut items = vec![];
         for m in metas {
-            let mut images = Metadata::find_by_id(m.id)
-                .find_with_related(MetadataImage)
-                .all(&self.db)
-                .await
-                .unwrap();
-            let images = images.remove(0).1;
-            let poster_images = images
-                .iter()
-                .filter(|f| f.lot == MetadataImageLot::Poster)
-                .map(|i| i.url.clone())
-                .collect();
-            let _m = MediaSearchItem {
+            let (poster_images, _) = self.metadata_images(&m).await?;
+            let m_smol = MediaSearchItem {
                 identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
                 poster_images,
                 publish_year: m.publish_year,
             };
-            items.push(_m);
+            items.push(m_smol);
         }
         Ok(MediaSearchResults {
             total: counts as i32,
@@ -548,6 +570,7 @@ impl MediaService {
                 ));
             }
             si.delete(&self.db).await.ok();
+            // FIXME: Delete the `UserToMetadata` entry if this is the only seen item
             Ok(IdObject { id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
