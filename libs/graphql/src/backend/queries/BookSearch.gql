@@ -1,4 +1,4 @@
-query BooksSearch($input: BookSearchInput!) {
+query BooksSearch($input: SearchInput!) {
 	booksSearch(input: $input) {
 		total
 		items {

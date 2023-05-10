@@ -1,4 +1,5 @@
 import { gqlClient } from "../services/api";
+import { changeCase } from "@/lib//utilities";
 import {
 	Box,
 	Flex,
@@ -23,9 +24,9 @@ import {
 	IconHome2,
 	IconListDetails,
 	IconLogout,
+	IconSettings,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { camelCase, startCase } from "lodash";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -75,7 +76,6 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-
 const getIcon = (lot: MetadataLot) => {
 	return match(lot)
 		.with(MetadataLot.Book, () => IconBook)
@@ -86,7 +86,7 @@ const getIcon = (lot: MetadataLot) => {
 		.exhaustive();
 };
 
-export default function({ children }: { children: ReactElement }) {
+export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
 	useQuery({
@@ -124,11 +124,12 @@ export default function({ children }: { children: ReactElement }) {
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
-				label: startCase(camelCase(f.name.toString())),
+				label: changeCase(f.name.toString()),
 				icon: getIcon(f.name),
 				href: undefined,
 			})) || []),
 		{ icon: IconListDetails, label: "Collections", href: "/collections" },
+		{ icon: IconSettings, label: "Settings", href: "/settings" },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
@@ -174,7 +175,7 @@ export default function({ children }: { children: ReactElement }) {
 
 	return enabledFeatures ? (
 		<Flex direction={"column"} w={"100%"}>
-			<Flex p="sm" align={"center"} justify={"center"}>
+			<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
 				{links}
 				<NavbarButton
 					icon={IconLogout}

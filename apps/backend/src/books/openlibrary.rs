@@ -1,18 +1,20 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
-use chrono::NaiveDate;
+use async_trait::async_trait;
+use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::OpenlibraryConfig,
-    graphql::AUTHOR,
+    graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
     migrator::MetadataLot,
-    utils::{convert_option_path_to_vec, get_data_parallely_from_sources},
+    traits::MediaProvider,
+    utils::{get_data_parallely_from_sources, openlibrary},
 };
 
 use super::BookSpecifics;
@@ -47,7 +49,7 @@ pub struct OpenlibraryService {
 impl OpenlibraryService {
     pub fn new(config: &OpenlibraryConfig) -> Self {
         let client = Config::new()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
@@ -60,24 +62,9 @@ impl OpenlibraryService {
     }
 }
 
-impl OpenlibraryService {
-    fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect::<Vec<_>>()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
-    }
-
-    pub async fn details(
-        &self,
-        identifier: &str,
-        query: &str,
-        offset: Option<i32>,
-        index: i32,
-    ) -> Result<MediaDetails<BookSpecifics>> {
-        let mut d = self.search_internal(query, offset).await?.items[index as usize].clone();
+#[async_trait]
+impl MediaProvider<BookSpecifics> for OpenlibraryService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<BookSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -85,6 +72,12 @@ impl OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        #[serde(untagged)]
+        enum OpenlibraryAuthorResponse {
+            Flat(OpenlibraryKey),
+            Nested(OpenlibraryAuthor),
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         #[serde(untagged)]
@@ -98,9 +91,12 @@ impl OpenlibraryService {
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
+            key: String,
             description: Option<OpenlibraryDescription>,
+            title: String,
             covers: Option<Vec<i64>>,
-            authors: Vec<OpenlibraryAuthor>,
+            authors: Option<Vec<OpenlibraryAuthorResponse>>,
+            subjects: Option<Vec<String>>,
         }
         let mut rsp = self
             .client
@@ -108,62 +104,83 @@ impl OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryEdition {
+            publish_date: Option<String>,
+            number_of_pages: Option<i32>,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryEditionsResponse {
+            entries: Option<Vec<OpenlibraryEdition>>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("works/{}/editions.json", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let editions: OpenlibraryEditionsResponse =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let entries = editions.entries.unwrap_or_default();
+        let all_pages = entries
+            .iter()
+            .filter_map(|f| f.number_of_pages)
+            .collect::<Vec<_>>();
+        let num_pages = if all_pages.is_empty() {
+            0
+        } else {
+            all_pages.iter().sum::<i32>() / all_pages.len() as i32
+        };
+        let first_release_date = entries
+            .iter()
+            .filter_map(|f| f.publish_date.clone())
+            .filter_map(|f| Self::parse_date(&f))
+            .min();
+
         #[derive(Debug, Serialize, Deserialize)]
         struct OpenlibraryAuthorPartial {
             name: String,
         }
-        let authors = get_data_parallely_from_sources(&data.authors, &self.client, |a| {
-            format!("{}.json", a.author.key)
-        })
-        .await
-        .into_iter()
-        .map(|a: OpenlibraryAuthorPartial| a.name)
-        .collect();
-        d.description = data.description.map(|d| match d {
+        let authors =
+            get_data_parallely_from_sources(&data.authors.unwrap_or_default(), &self.client, |a| {
+                let key = match a {
+                    OpenlibraryAuthorResponse::Flat(s) => s.key.to_owned(),
+                    OpenlibraryAuthorResponse::Nested(s) => s.author.key.to_owned(),
+                };
+                format!("{}.json", key)
+            })
+            .await
+            .into_iter()
+            .map(|a: OpenlibraryAuthorPartial| a.name)
+            .collect();
+        let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        d.poster_images = data
+        let poster_images = data
             .covers
             .unwrap_or_default()
             .into_iter()
             .map(|c| self.get_cover_image_url(c))
             .collect();
-        d.author_names = authors;
         Ok(MediaDetails {
-            identifier: d.identifier,
-            title: d.title,
-            description: d.description,
+            identifier: openlibrary::get_key(&data.key),
+            title: data.title,
+            description,
             lot: MetadataLot::Book,
-            creators: d.author_names,
-            genres: d.genres,
-            poster_images: d.poster_images,
-            backdrop_images: d.backdrop_images,
-            publish_year: d.publish_year,
-            publish_date: d.publish_date,
-            specifics: d.book_specifics,
+            creators: authors,
+            genres: data.subjects.unwrap_or_default(),
+            poster_images,
+            backdrop_images: vec![],
+            publish_year: first_release_date.map(|d| d.year()),
+            publish_date: None,
+            specifics: BookSpecifics {
+                pages: Some(num_pages),
+            },
         })
     }
 
-    pub async fn search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
-        let data = self.search_internal(query, offset).await?;
-        Ok(MediaSearchResults {
-            total: data.total,
-            items: data
-                .items
-                .into_iter()
-                .map(|b| MediaSearchItem {
-                    identifier: b.identifier,
-                    lot: MetadataLot::Book,
-                    title: b.title,
-                    poster_images: b.poster_images,
-                    publish_year: b.publish_year,
-                })
-                .collect(),
-        })
-    }
-
-    async fn search_internal(&self, query: &str, offset: Option<i32>) -> Result<BookSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             q: String,
@@ -188,7 +205,6 @@ impl OpenlibraryService {
             num_found: i32,
             docs: Vec<OpenlibraryBook>,
         }
-
         let mut rsp = self
             .client
             .get("search.json")
@@ -200,10 +216,9 @@ impl OpenlibraryService {
                     "author_name",
                     "cover_i",
                     "first_publish_year",
-                    "number_of_pages_median",
                 ]
                 .join(","),
-                offset: offset.unwrap_or_default(),
+                offset: (page.unwrap_or_default() - 1) * LIMIT,
                 limit: LIMIT,
                 lot: "work".to_owned(),
             })
@@ -216,9 +231,9 @@ impl OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| {
-                let poster_images = convert_option_path_to_vec(d.cover_i.map(|f| f.to_string()));
+                let poster_images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
-                    identifier: Self::get_key(&d.key),
+                    identifier: openlibrary::get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
@@ -233,16 +248,42 @@ impl OpenlibraryService {
                 }
             })
             .collect::<Vec<_>>();
-        Ok(BookSearchResults {
+        let data = BookSearchResults {
             total: search.num_found,
             items: resp,
+        };
+        Ok(MediaSearchResults {
+            total: data.total,
+            items: data
+                .items
+                .into_iter()
+                .map(|b| MediaSearchItem {
+                    identifier: b.identifier,
+                    lot: MetadataLot::Book,
+                    title: b.title,
+                    poster_images: b.poster_images,
+                    publish_year: b.publish_year,
+                })
+                .collect(),
         })
     }
+}
 
+impl OpenlibraryService {
     fn get_cover_image_url(&self, c: i64) -> String {
         format!(
             "{}/id/{}-{}.jpg?default=false",
             self.image_url, c, self.image_size
         )
+    }
+
+    fn parse_date(input: &str) -> Option<NaiveDate> {
+        let formats = ["%b %d, %Y", "%Y", "%b %d, %Y"];
+        for format in formats.iter() {
+            if let Ok(date) = NaiveDate::parse_from_str(input, format) {
+                return Some(date);
+            }
+        }
+        None
     }
 }

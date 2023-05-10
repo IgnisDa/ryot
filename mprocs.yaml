@@ -1,7 +1,7 @@
 procs:
   Backend:
-    shell: "cargo watch -qx 'run --package ryot_backend'"
+    shell: "cargo watch -qx 'run --package ryot'"
     env:
-      RUST_LOG: "tower_http=trace,ryot=trace,sea_orm=debug"
+      RUST_LOG: "tower_http=trace,ryot=trace,sea_orm=debug,apalis=debug"
   Frontend:
     shell: "moon run frontend:dev"

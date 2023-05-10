@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "../_app";
 import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getInitials, getVerb } from "@/lib/utilities";
+import { Verb, changeCase, getInitials, getVerb } from "@/lib/utilities";
 import { Carousel } from "@mantine/carousel";
 import {
 	Accordion,
@@ -13,11 +13,13 @@ import {
 	Badge,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Flex,
 	Group,
 	Image,
 	MANTINE_COLORS,
+	type MantineGradient,
 	Modal,
 	Rating,
 	ScrollArea,
@@ -33,20 +35,21 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	CollectionsDocument,
+	CreateCollectionDocument,
+	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
+	type MediaItemReviewsQuery,
 	MetadataLot,
 	ProgressUpdateAction,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-	type CreateCollectionMutationVariables,
-	CreateCollectionDocument,
-	CollectionsDocument,
-	type ToggleMediaInCollectionMutationVariables,
 	ToggleMediaInCollectionDocument,
+	type ToggleMediaInCollectionMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -64,6 +67,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { match } from "ts-pattern";
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -135,14 +139,15 @@ export function SelectCollectionModal(props: {
 	onClose: () => void;
 	metadataId: number;
 }) {
-	const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+	const [selectedCollection, setSelectedCollection] = useState<string | null>(
+		null,
+	);
 
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {
-			});
-			return collections
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
+			return collections;
 		},
 	});
 	const createCollection = useMutation({
@@ -151,10 +156,10 @@ export function SelectCollectionModal(props: {
 				CreateCollectionDocument,
 				variables,
 			);
-			return createCollection
+			return createCollection;
 		},
 		onSuccess: () => {
-			collections.refetch()
+			collections.refetch();
 		},
 	});
 	const toggleMediaInCollection = useMutation({
@@ -163,10 +168,10 @@ export function SelectCollectionModal(props: {
 				ToggleMediaInCollectionDocument,
 				variables,
 			);
-			return toggleMediaInCollection
+			return toggleMediaInCollection;
 		},
 		onSuccess: () => {
-			props.onClose()
+			props.onClose();
 		},
 	});
 
@@ -182,15 +187,18 @@ export function SelectCollectionModal(props: {
 					<Title order={3}>Select collection</Title>
 					<Select
 						withinPortal
-						data={collections.data.map(c => ({ value: c.collectionDetails.id.toString(), label: c.collectionDetails.name }))}
+						data={collections.data.map((c) => ({
+							value: c.collectionDetails.id.toString(),
+							label: c.collectionDetails.name,
+						}))}
 						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
 						creatable
 						getCreateLabel={(query) => `+ Create ${query}`}
 						onCreate={(query) => {
-							createCollection.mutate({ input: { name: query } })
-							return { value: "1", label: query } // technically this should return the id of the new collection but it works fine
+							createCollection.mutate({ input: { name: query } });
+							return { value: "1", label: query }; // technically this should return the id of the new collection but it works fine
 						}}
 					/>
 					<Button
@@ -200,9 +208,9 @@ export function SelectCollectionModal(props: {
 							toggleMediaInCollection.mutate({
 								input: {
 									collectionId: Number(selectedCollection),
-									mediaId: props.metadataId
-								}
-							})
+									mediaId: props.metadataId,
+								},
+							});
 						}}
 					>
 						Set
@@ -216,17 +224,15 @@ export function SelectCollectionModal(props: {
 	);
 }
 
-interface AccordionLabelProps {
-	name: string;
-	posterImages: string[];
-	overview?: string | null;
-}
-
 export const AccordionLabel = ({
 	name,
 	posterImages,
 	overview,
-}: AccordionLabelProps) => {
+}: {
+	name: string;
+	posterImages: string[];
+	overview?: string | null;
+}) => {
 	return (
 		<Group noWrap>
 			<Avatar src={posterImages[0]} radius="xl" size="lg" />
@@ -242,6 +248,66 @@ export const AccordionLabel = ({
 	);
 };
 
+const ReviewItem = ({
+	r,
+	metadataId,
+}: {
+	r: MediaItemReviewsQuery["mediaItemReviews"][number];
+	metadataId: number;
+}) => {
+	const [opened, { toggle }] = useDisclosure(false);
+	const user = useUser();
+
+	return (
+		<Box key={r.id}>
+			<Flex align={"center"} gap={"sm"}>
+				<Avatar color="cyan" radius="xl">
+					{getInitials(r.postedBy.name)}{" "}
+				</Avatar>
+				<Box>
+					<Text>{r.postedBy.name}</Text>
+					<Text>{DateTime.fromJSDate(r.postedOn).toLocaleString()}</Text>
+				</Box>
+				{user && user.id === r.postedBy.id ? (
+					<Link
+						href={`/media/post-review?item=${metadataId}&reviewId=${r.id}`}
+						passHref
+						legacyBehavior
+					>
+						<Anchor>
+							<ActionIcon>
+								<IconEdit size="1rem" />
+							</ActionIcon>
+						</Anchor>
+					</Link>
+				) : null}
+			</Flex>
+			<Box ml={"sm"} mt={"xs"}>
+				{r.rating ? (
+					<Rating value={Number(r.rating)} fractions={2} readOnly />
+				) : null}
+				<Space h="xs" />
+				{r.text ? (
+					!r.spoiler ? (
+						<ReactMarkdown>{r.text}</ReactMarkdown>
+					) : (
+						<>
+							{!opened ? (
+								<Button onClick={toggle} variant={"subtle"} compact>
+									Show spoiler
+								</Button>
+							) : null}
+							<Collapse in={opened}>
+								<ReactMarkdown>{r.text}</ReactMarkdown>
+							</Collapse>
+						</>
+					)
+				) : null}
+			</Box>
+		</Box>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const [
 		progressModalOpened,
@@ -253,7 +319,6 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
-	const user = useUser();
 
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -311,10 +376,21 @@ const Page: NextPageWithLayout = () => {
 			history.refetch();
 			notifications.show({
 				title: "Deleted",
-				message: "Record deleted from your history successfully"
+				message: "Record deleted from your history successfully",
 			});
 		},
 	});
+
+	const badgeGradient: MantineGradient = match(details.data?.type)
+		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
+		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
+		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
+		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
+		.with(MetadataLot.VideoGame, undefined, () => ({
+			from: "purple",
+			to: "blue",
+		}))
+		.exhaustive();
 
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = history.data?.find((h) => h.progress < 100);
@@ -351,7 +427,7 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
-							details.data.creators.length > 0 ? (
+						details.data.creators.length > 0 ? (
 							<StatDisplay
 								name="Author(s)"
 								value={details.data.creators.join(", ")}
@@ -392,20 +468,33 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
-					<Title underline>{details.data.title}</Title>
+					<Group>
+						<Title underline>{details.data.title}</Title>
+						<Badge variant="gradient" gradient={badgeGradient}>
+							{changeCase(details.data.type)}
+						</Badge>
+					</Group>
 					{details.data.collections.length > 0 ? (
 						<Group>
 							{details.data.collections.map((c, idx) => (
-								<Badge key={c} color={MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]} onClick={() => {
-									const yes = confirm(`Do you want to remove it from collection: "${c}"?`)
-									if (yes) {
-										notifications.show({
-											color: "red",
-											title: "Unimplemented",
-											message: "This feature has not been implemented yet"
-										})
+								<Badge
+									key={c}
+									color={
+										MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]
 									}
-								}}>
+									onClick={() => {
+										const yes = confirm(
+											`Do you want to remove it from collection: "${c}"?`,
+										);
+										if (yes) {
+											notifications.show({
+												color: "red",
+												title: "Unimplemented",
+												message: "This feature has not been implemented yet",
+											});
+										}
+									}}
+								>
 									<Text truncate>{c}</Text>
 								</Badge>
 							))}
@@ -421,7 +510,7 @@ const Page: NextPageWithLayout = () => {
 						defaultValue={history.data.length > 0 ? "actions" : "overview"}
 						variant="outline"
 					>
-						<Tabs.List>
+						<Tabs.List mb={"xs"}>
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
 								Overview
 							</Tabs.Tab>
@@ -446,7 +535,7 @@ const Page: NextPageWithLayout = () => {
 								Reviews
 							</Tabs.Tab>
 						</Tabs.List>
-						<Tabs.Panel value="overview" pt="xs">
+						<Tabs.Panel value="overview">
 							<Box>
 								{details.data.description ? (
 									<ScrollArea.Autosize mah={300}>
@@ -457,7 +546,7 @@ const Page: NextPageWithLayout = () => {
 								)}
 							</Box>
 						</Tabs.Panel>
-						<Tabs.Panel value="actions" pt="xs">
+						<Tabs.Panel value="actions">
 							<SimpleGrid
 								cols={1}
 								spacing="lg"
@@ -525,10 +614,7 @@ const Page: NextPageWithLayout = () => {
 									</Anchor>
 								</Link>
 								<>
-									<Button
-										variant="outline"
-										onClick={collectionModalOpen}
-									>
+									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
 									<SelectCollectionModal
@@ -539,7 +625,7 @@ const Page: NextPageWithLayout = () => {
 								</>
 							</SimpleGrid>
 						</Tabs.Panel>
-						<Tabs.Panel value="history" pt="xs">
+						<Tabs.Panel value="history">
 							{history.data.length > 0 ? (
 								<ScrollArea.Autosize mah={300}>
 									<Stack>
@@ -566,8 +652,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.startedOn
 																	? DateTime.fromISO(
-																		h.startedOn,
-																	).toLocaleString()
+																			h.startedOn,
+																	  ).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -576,8 +662,8 @@ const Page: NextPageWithLayout = () => {
 															<Text size="sm" fw="bold">
 																{h.finishedOn
 																	? DateTime.fromISO(
-																		h.finishedOn,
-																	).toLocaleString()
+																			h.finishedOn,
+																	  ).toLocaleString()
 																	: "N/A"}
 															</Text>
 														</Flex>
@@ -613,7 +699,7 @@ const Page: NextPageWithLayout = () => {
 							)}
 						</Tabs.Panel>
 						{details.data.showSpecifics ? (
-							<Tabs.Panel value="seasons" pt="xs">
+							<Tabs.Panel value="seasons">
 								<ScrollArea.Autosize mah={300}>
 									<Accordion chevronPosition="right" variant="contained">
 										{details.data.showSpecifics.seasons.map((s) => (
@@ -676,48 +762,12 @@ const Page: NextPageWithLayout = () => {
 								</ScrollArea.Autosize>
 							</Tabs.Panel>
 						) : null}
-						<Tabs.Panel value="reviews" pt="xs">
+						<Tabs.Panel value="reviews">
 							{reviews.data && reviews.data.length > 0 ? (
 								<ScrollArea.Autosize mah={300}>
 									<Stack>
 										{reviews.data.map((r) => (
-											<Box key={r.id}>
-												<Flex align={"center"} gap={"sm"}>
-													<Avatar color="cyan" radius="xl">
-														{getInitials(r.postedBy.name)}{" "}
-													</Avatar>
-													<Box>
-														<Text>{r.postedBy.name}</Text>
-														<Text>
-															{DateTime.fromJSDate(r.postedOn).toLocaleString()}
-														</Text>
-													</Box>
-													{user && user.id === r.postedBy.id ? (
-														<Link
-															href={`/media/post-review?item=${metadataId}&reviewId=${r.id}`}
-															passHref
-															legacyBehavior
-														>
-															<Anchor>
-																<ActionIcon>
-																	<IconEdit size="1rem" />
-																</ActionIcon>
-															</Anchor>
-														</Link>
-													) : null}
-												</Flex>
-												<Box ml={"sm"} mt={"xs"}>
-													{r.rating ? (
-														<Rating
-															value={Number(r.rating)}
-															fractions={2}
-															readOnly
-														/>
-													) : null}
-													<Space h="xs" />
-													{r.text ? <Text>{r.text}</Text> : null}
-												</Box>
-											</Box>
+											<ReviewItem r={r} key={r.id} metadataId={metadataId} />
 										))}
 									</Stack>
 								</ScrollArea.Autosize>

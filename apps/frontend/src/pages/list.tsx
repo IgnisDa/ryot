@@ -5,7 +5,7 @@ import MediaItem, {
 } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
+import { changeCase, getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -29,7 +29,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
@@ -72,7 +71,7 @@ const Page: NextPageWithLayout = () => {
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
-						input: { query, offset },
+						input: { query, page: parseInt(activeSearchPage) || 1 },
 					});
 					return booksSearch;
 				})
@@ -121,14 +120,12 @@ const Page: NextPageWithLayout = () => {
 	return lot ? (
 		<Container>
 			<Tabs variant="outline" defaultValue="search">
-				<Tabs.List>
+				<Tabs.List mb={"xs"}>
 					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
 						<Text size={"lg"}>Search</Text>
 					</Tabs.Tab>
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
-						<Text size={"lg"}>
-							My {startCase(camelCase(lot.toLowerCase()))}s
-						</Text>
+						<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
 					<Box style={{ flexGrow: 1 }}>
 						<ActionIcon
@@ -147,7 +144,7 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 				</Tabs.List>
 
-				<Tabs.Panel value="search" pt="xs">
+				<Tabs.Panel value="search">
 					<Stack>
 						<TextInput
 							name="query"
@@ -188,7 +185,7 @@ const Page: NextPageWithLayout = () => {
 						)}
 					</Stack>
 				</Tabs.Panel>
-				<Tabs.Panel value="mine" pt="xs">
+				<Tabs.Panel value="mine">
 					<Stack>
 						{listMedia.data && listMedia.data.total > 0 ? (
 							<Grid>

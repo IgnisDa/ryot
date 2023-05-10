@@ -1,6 +1,6 @@
+use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
-use regex::Regex;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
 };
@@ -12,12 +12,89 @@ use surf::{
 };
 use tokio::task::JoinSet;
 
+use crate::audio_books::audible::AudibleService;
+use crate::audio_books::resolver::AudioBooksService;
+use crate::background::ImportMedia;
+use crate::books::openlibrary::OpenlibraryService;
+use crate::books::resolver::BooksService;
+use crate::config::AppConfig;
 use crate::graphql::AUTHOR;
-
+use crate::importer::ImporterService;
+use crate::media::resolver::MediaService;
+use crate::misc::resolver::MiscService;
+use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbService};
+use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
+use crate::users::resolver::UsersService;
+use crate::video_games::igdb::IgdbService;
+use crate::video_games::resolver::VideoGamesService;
 use crate::{
     entities::{prelude::Token, token},
     GqlCtx,
 };
+
+/// All the services that are used by the app
+pub struct AppServices {
+    pub media_service: MediaService,
+    pub openlibrary_service: OpenlibraryService,
+    pub books_service: BooksService,
+    pub tmdb_movies_service: MovieTmdbService,
+    pub movies_service: MoviesService,
+    pub tmdb_shows_service: ShowTmdbService,
+    pub shows_service: ShowsService,
+    pub audible_service: AudibleService,
+    pub audio_books_service: AudioBooksService,
+    pub igdb_service: IgdbService,
+    pub video_games_service: VideoGamesService,
+    pub users_service: UsersService,
+    pub misc_service: MiscService,
+    pub importer_service: ImporterService,
+}
+
+pub async fn create_app_services(
+    db: DatabaseConnection,
+    config: &AppConfig,
+    import_media_job: &SqliteStorage<ImportMedia>,
+) -> AppServices {
+    let media_service = MediaService::new(&db);
+    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
+    let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
+    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
+    let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
+    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
+    let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
+    let audible_service = AudibleService::new(&config.audio_books.audible);
+    let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
+    let igdb_service = IgdbService::new(&config.video_games).await;
+    let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
+    let users_service = UsersService::new(&db);
+    let misc_service = MiscService::new(&db, &media_service);
+    let importer_service = ImporterService::new(
+        &audio_books_service,
+        &books_service,
+        &media_service,
+        &misc_service,
+        &movies_service,
+        &shows_service,
+        &video_games_service,
+        import_media_job,
+    );
+    AppServices {
+        media_service,
+        openlibrary_service,
+        books_service,
+        tmdb_movies_service,
+        movies_service,
+        tmdb_shows_service,
+        shows_service,
+        audible_service,
+        audio_books_service,
+        igdb_service,
+        video_games_service,
+        users_service,
+        misc_service,
+        importer_service,
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
 #[graphql(input_name = "NamedObjectInput")]
@@ -61,14 +138,6 @@ pub fn convert_date_to_year(d: &str) -> Option<i32> {
     convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
 }
 
-pub fn convert_option_path_to_vec(p: Option<String>) -> Vec<String> {
-    let mut resp = vec![];
-    if let Some(c) = p {
-        resp.push(c);
-    }
-    resp
-}
-
 pub async fn get_data_parallely_from_sources<'a, T, F, R>(
     iteree: &'a [T],
     client: &'a Client,
@@ -97,11 +166,13 @@ where
 }
 
 pub mod tmdb {
+    use crate::graphql::PROJECT_NAME;
+
     use super::*;
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
             .unwrap()
@@ -123,6 +194,8 @@ pub mod tmdb {
 }
 
 pub mod igdb {
+    use crate::graphql::PROJECT_NAME;
+
     use super::*;
 
     pub async fn get_client_config(
@@ -158,7 +231,7 @@ pub mod igdb {
         let client: Client = Config::new()
             .add_header("Client-ID", twitch_client_id)
             .unwrap()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .add_header(
                 AUTHORIZATION,
@@ -172,32 +245,13 @@ pub mod igdb {
     }
 }
 
-pub mod media_tracker {
-    use super::*;
-
-    #[derive(Debug)]
-    pub struct ReviewInformation {
-        pub date: NaiveDate,
-        pub spoiler: bool,
-        pub text: String,
-    }
-
-    // DEV: The below code was written using ChatGPT
-    pub fn extract_review_info(input: &str) -> Vec<ReviewInformation> {
-        let review_regex = Regex::new(r"(?m)^(\d{2}/\d{2}/\d{4}):(\s*\[SPOILER\])?\n\n((?:[^\n]+(?:\n|$)){1,}.*(?:\n|$)?)(?:(?:\n\n---\n\n)|(?:\n---\n)|(?:\n\n---\n))?").unwrap();
-        let mut result = vec![];
-        for capture in review_regex.captures_iter(input) {
-            let date = NaiveDate::parse_from_str(&capture[1], "%d/%m/%Y").unwrap();
-            let spoiler = capture
-                .get(2)
-                .map_or(false, |m| m.as_str().contains("[SPOILER]"));
-            let text = capture[3].trim().to_string();
-            result.push(ReviewInformation {
-                date,
-                spoiler,
-                text,
-            });
-        }
-        result
+pub mod openlibrary {
+    pub fn get_key(key: &str) -> String {
+        key.split('/')
+            .collect::<Vec<_>>()
+            .last()
+            .cloned()
+            .unwrap()
+            .to_owned()
     }
 }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
+use chrono::Utc;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -9,14 +10,15 @@ use sea_orm::{
 
 use crate::{
     entities::{
-        collection, metadata_to_collection,
-        prelude::{Collection, Metadata, Review, User},
+        collection, media_import_report, metadata_to_collection,
+        prelude::{Collection, MediaImportReport, Metadata, Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
+    importer::ImportResultResponse,
     media::resolver::{MediaSearchItem, MediaService},
-    migrator::ReviewVisibility,
+    migrator::{MediaImportSource, ReviewVisibility},
     utils::{user_id_from_ctx, NamedObject},
 };
 
@@ -33,21 +35,26 @@ struct ReviewItem {
     rating: Option<Decimal>,
     text: Option<String>,
     visibility: ReviewVisibility,
+    spoiler: bool,
     season_number: Option<i32>,
     episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
 }
 
 #[derive(Debug, InputObject)]
-struct PostReviewInput {
-    rating: Option<Decimal>,
-    text: Option<String>,
-    visibility: Option<ReviewVisibility>,
-    metadata_id: i32,
+pub struct PostReviewInput {
+    pub rating: Option<Decimal>,
+    pub text: Option<String>,
+    pub visibility: Option<ReviewVisibility>,
+    pub spoiler: Option<bool>,
+    pub metadata_id: i32,
+    pub date: Option<DateTimeUtc>,
+    /// If this review comes from a different source, this should be set
+    pub identifier: Option<String>,
     /// ID of the review if this is an update to an existing review
-    review_id: Option<i32>,
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
+    pub review_id: Option<i32>,
+    pub season_number: Option<i32>,
+    pub episode_number: Option<i32>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -131,7 +138,7 @@ impl MiscMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
     media_service: Arc<MediaService>,
@@ -172,6 +179,7 @@ impl MiscService {
                     id: r.id,
                     posted_on: r.posted_on,
                     rating: r.rating,
+                    spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
                     season_number: se,
@@ -221,35 +229,51 @@ impl MiscService {
         Ok(data)
     }
 
-    async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
-        let review_id = match input.review_id {
-            Some(i) => ActiveValue::Set(i),
-            None => ActiveValue::NotSet,
-        };
-        let mut review_obj = review::ActiveModel {
-            id: review_id,
-            rating: ActiveValue::Set(input.rating),
-            text: ActiveValue::Set(input.text),
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            metadata_id: ActiveValue::Set(input.metadata_id),
-            extra_information: ActiveValue::NotSet,
-            ..Default::default()
-        };
-        if let Some(v) = input.visibility {
-            review_obj.visibility = ActiveValue::Set(v);
+    pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
+        let meta = Review::find()
+            .filter(review::Column::Identifier.eq(input.identifier.clone()))
+            .one(&self.db)
+            .await
+            .unwrap();
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.metadata_id })
+        } else {
+            let review_id = match input.review_id {
+                Some(i) => ActiveValue::Set(i),
+                None => ActiveValue::NotSet,
+            };
+            let mut review_obj = review::ActiveModel {
+                id: review_id,
+                rating: ActiveValue::Set(input.rating),
+                text: ActiveValue::Set(input.text),
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                metadata_id: ActiveValue::Set(input.metadata_id),
+                extra_information: ActiveValue::NotSet,
+                identifier: ActiveValue::Set(input.identifier),
+                ..Default::default()
+            };
+            if let Some(s) = input.spoiler {
+                review_obj.spoiler = ActiveValue::Set(s);
+            }
+            if let Some(v) = input.visibility {
+                review_obj.visibility = ActiveValue::Set(v);
+            }
+            if let Some(d) = input.date {
+                review_obj.posted_on = ActiveValue::Set(d);
+            }
+            if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
+                review_obj.extra_information = ActiveValue::Set(Some(SeenExtraInformation::Show(
+                    SeenSeasonExtraInformation {
+                        season: s,
+                        episode: e,
+                    },
+                )));
+            }
+            let insert = review_obj.save(&self.db).await.unwrap();
+            Ok(IdObject {
+                id: insert.id.unwrap(),
+            })
         }
-        if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
-            review_obj.extra_information = ActiveValue::Set(Some(SeenExtraInformation::Show(
-                SeenSeasonExtraInformation {
-                    season: s,
-                    episode: e,
-                },
-            )));
-        }
-        let insert = review_obj.save(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: insert.id.unwrap(),
-        })
     }
 
     async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
@@ -277,5 +301,43 @@ impl MiscService {
                 false
             }
         })
+    }
+
+    pub async fn start_import_job(
+        &self,
+        user_id: i32,
+        source: MediaImportSource,
+    ) -> Result<media_import_report::Model> {
+        let model = media_import_report::ActiveModel {
+            user_id: ActiveValue::Set(user_id),
+            source: ActiveValue::Set(source),
+            ..Default::default()
+        };
+        let model = model.insert(&self.db).await.unwrap();
+        Ok(model)
+    }
+
+    pub async fn finish_import_job(
+        &self,
+        job: media_import_report::Model,
+        details: ImportResultResponse,
+    ) -> Result<media_import_report::Model> {
+        let mut model: media_import_report::ActiveModel = job.into();
+        model.finished_on = ActiveValue::Set(Some(Utc::now()));
+        model.details = ActiveValue::Set(Some(details));
+        let model = model.update(&self.db).await.unwrap();
+        Ok(model)
+    }
+
+    pub async fn media_import_reports(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<media_import_report::Model>> {
+        let reports = MediaImportReport::find()
+            .filter(media_import_report::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        Ok(reports)
     }
 }

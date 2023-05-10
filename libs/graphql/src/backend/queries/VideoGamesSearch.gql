@@ -1,4 +1,4 @@
-query VideoGamesSearch($input: VideoGamesSearchInput!) {
+query VideoGamesSearch($input: SearchInput!) {
   videoGamesSearch(input: $input) {
     total
     items {

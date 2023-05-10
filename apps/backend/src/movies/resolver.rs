@@ -1,25 +1,19 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{movie, prelude::Movie},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, MovieSource},
+    traits::MediaProvider,
 };
 
 use super::tmdb::TmdbService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct MoviesSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct MoviesQuery;
@@ -30,7 +24,7 @@ impl MoviesQuery {
     async fn movies_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: MoviesSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<MoviesService>()
@@ -53,7 +47,7 @@ impl MoviesMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MoviesService {
     db: DatabaseConnection,
     tmdb_service: Arc<TmdbService>,
@@ -78,11 +72,11 @@ impl MoviesService {
 impl MoviesService {
     // Get movie details from all sources
     async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let movies = self.tmdb_service.search(query, page).await.unwrap();
+        let movies = self.tmdb_service.search(query, page).await?;
         Ok(movies)
     }
 
-    async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
         let meta = Movie::find()
             .filter(movie::Column::Identifier.eq(identifier))
             .one(&self.db)
@@ -91,7 +85,7 @@ impl MoviesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let movie_details = self.tmdb_service.details(identifier).await.unwrap();
+            let movie_details = self.tmdb_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(

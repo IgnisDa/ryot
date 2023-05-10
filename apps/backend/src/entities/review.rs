@@ -17,9 +17,11 @@ pub struct Model {
     pub rating: Option<Decimal>,
     pub text: Option<String>,
     pub visibility: ReviewVisibility,
+    pub spoiler: bool,
     pub user_id: i32,
     pub metadata_id: i32,
     pub extra_information: Option<SeenExtraInformation>,
+    pub identifier: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -1,19 +1,19 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::AudibleConfig,
-    graphql::AUTHOR,
+    graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
     migrator::MetadataLot,
-    utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, NamedObject,
-    },
+    traits::MediaProvider,
+    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
 use super::AudioBookSpecifics;
@@ -67,7 +67,7 @@ pub struct AudibleService {
 impl AudibleService {
     pub fn new(config: &AudibleConfig) -> Self {
         let client = Config::new()
-            .add_header(USER_AGENT, format!("{}/ryot", AUTHOR))
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
@@ -76,8 +76,9 @@ impl AudibleService {
     }
 }
 
-impl AudibleService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
+#[async_trait]
+impl MediaProvider<AudioBookSpecifics> for AudibleService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleItemResponse {
             product: AudibleItem,
@@ -94,7 +95,7 @@ impl AudibleService {
         Ok(d)
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
             total_results: i32,
@@ -133,12 +134,14 @@ impl AudibleService {
             items: resp,
         })
     }
+}
 
+impl AudibleService {
     fn audible_response_to_search_response(
         &self,
         item: AudibleItem,
     ) -> MediaDetails<AudioBookSpecifics> {
-        let poster_images = convert_option_path_to_vec(item.product_images.image);
+        let poster_images = Vec::from_iter(item.product_images.image);
         let release_date = item.release_date.unwrap_or_default();
         MediaDetails {
             identifier: item.asin,

@@ -1,5 +1,11 @@
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getInitials, getLot, getVerb } from "@/lib/utilities";
+import {
+	Verb,
+	changeCase,
+	getInitials,
+	getLot,
+	getVerb,
+} from "@/lib/utilities";
 import { Button, Flex, Image, Text } from "@mantine/core";
 import {
 	type BooksSearchQuery,
@@ -12,7 +18,6 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
-import { camelCase, startCase } from "lodash";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
 
@@ -45,16 +50,16 @@ export const MediaItemWithoutUpdateModal = (props: {
 					const id = await props.imageOnClick();
 					router.push(`/media?item=${id}`);
 				}}
-				sx={(t) => ({
+				sx={(_t) => ({
 					":hover": { transform: "scale(1.02)" },
 					transitionProperty: "transform",
 					transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-					transitionDuration: "150ms"
+					transitionDuration: "150ms",
 				})}
 			/>
 			<Flex justify={"space-between"} w="100%">
 				<Text c="dimmed">{props.item.publishYear}</Text>
-				<Text c="dimmed">{startCase(camelCase(props.lot))}</Text>
+				<Text c="dimmed">{changeCase(props.lot)}</Text>
 			</Flex>
 			<Text w="100%" truncate fw={"bold"} mb="xs">
 				{props.item.title}
@@ -64,7 +69,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	);
 };
 
-export default function(props: {
+export default function (props: {
 	item: Item;
 	idx: number;
 	query: string;
@@ -120,8 +125,6 @@ export default function(props: {
 	const commitFunction = async () => {
 		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
-			index: props.idx,
-			input: { query: props.query, offset: props.offset },
 		});
 		return id;
 	};

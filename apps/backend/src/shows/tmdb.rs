@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use surf::Client;
 
@@ -8,9 +9,8 @@ use crate::{
     media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
     migrator::MetadataLot,
     shows::{ShowEpisode, ShowSeason},
-    utils::{
-        convert_date_to_year, convert_option_path_to_vec, convert_string_to_date, tmdb, NamedObject,
-    },
+    traits::MediaProvider,
+    utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
 };
 
 use super::ShowSpecifics;
@@ -28,8 +28,9 @@ impl TmdbService {
     }
 }
 
-impl TmdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<ShowSpecifics>> {
+#[async_trait]
+impl MediaProvider<ShowSpecifics> for TmdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<ShowSpecifics>> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
             season_number: i32,
@@ -52,10 +53,9 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let poster_images =
-            convert_option_path_to_vec(data.poster_path.map(|p| self.get_cover_image_url(&p)));
+        let poster_images = Vec::from_iter(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
-            convert_option_path_to_vec(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+            Vec::from_iter(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
             id: i32,
@@ -119,12 +119,10 @@ impl TmdbService {
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
-                        let poster_images = convert_option_path_to_vec(
-                            s.poster_path.map(|p| self.get_cover_image_url(&p)),
-                        );
-                        let backdrop_images = convert_option_path_to_vec(
-                            s.backdrop_path.map(|p| self.get_cover_image_url(&p)),
-                        );
+                        let poster_images =
+                            Vec::from_iter(s.poster_path.map(|p| self.get_cover_image_url(&p)));
+                        let backdrop_images =
+                            Vec::from_iter(s.backdrop_path.map(|p| self.get_cover_image_url(&p)));
                         ShowSeason {
                             id: s.id,
                             name: s.name,
@@ -137,7 +135,7 @@ impl TmdbService {
                                 .episodes
                                 .into_iter()
                                 .map(|e| {
-                                    let poster_images = convert_option_path_to_vec(
+                                    let poster_images = Vec::from_iter(
                                         e.still_path.map(|p| self.get_cover_image_url(&p)),
                                     );
                                     ShowEpisode {
@@ -162,7 +160,7 @@ impl TmdbService {
         })
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         #[derive(Serialize, Deserialize)]
         struct Query {
             query: String,
@@ -201,7 +199,7 @@ impl TmdbService {
             .into_iter()
             .map(|d| {
                 let poster_images =
-                    convert_option_path_to_vec(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                    Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Show,
@@ -216,7 +214,9 @@ impl TmdbService {
             items: resp,
         })
     }
+}
 
+impl TmdbService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
     }

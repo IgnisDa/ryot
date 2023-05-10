@@ -1,4 +1,5 @@
 import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import { camelCase, startCase } from "lodash";
 import { match } from "ts-pattern";
 
 /**
@@ -12,6 +13,12 @@ export const getInitials = (name: string) => {
 	).toUpperCase();
 	return actuals;
 };
+
+/**
+ * Change case to a presentable format
+ */
+export const changeCase = (name: string) =>
+	startCase(camelCase(name.toLowerCase()));
 
 /**
  * Get the correct name of the lot from a string

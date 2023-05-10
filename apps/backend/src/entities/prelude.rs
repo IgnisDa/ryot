@@ -5,6 +5,7 @@ pub use super::book::Entity as Book;
 pub use super::collection::Entity as Collection;
 pub use super::creator::Entity as Creator;
 pub use super::genre::Entity as Genre;
+pub use super::media_import_report::Entity as MediaImportReport;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_image::Entity as MetadataImage;
 pub use super::metadata_to_collection::Entity as MetadataToCollection;

@@ -1,20 +1,21 @@
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use chrono::Datelike;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use serde_with::{formats::Flexible, TimestampSeconds};
+use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::Client;
 
 use crate::media::resolver::MediaDetails;
 use crate::migrator::MetadataLot;
+use crate::traits::MediaProvider;
 use crate::{
     config::VideoGameConfig,
     media::{
         resolver::{MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
-    utils::{convert_option_path_to_vec, igdb},
+    utils::igdb,
 };
 
 use super::VideoGameSpecifics;
@@ -81,8 +82,9 @@ impl IgdbService {
     }
 }
 
-impl IgdbService {
-    pub async fn details(&self, identifier: &str) -> Result<MediaDetails<VideoGameSpecifics>> {
+#[async_trait]
+impl MediaProvider<VideoGameSpecifics> for IgdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails<VideoGameSpecifics>> {
         let req_body = format!(
             r#"
 {field}
@@ -104,7 +106,7 @@ where id = {id};
         Ok(d)
     }
 
-    pub async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let req_body = format!(
             r#"
 {field}
@@ -142,13 +144,15 @@ offset: {offset};
             .collect::<Vec<_>>();
         Ok(MediaSearchResults { total, items: resp })
     }
+}
 
+impl IgdbService {
     fn igdb_response_to_search_response(
         &self,
         item: IgdbSearchResponse,
     ) -> MediaDetails<VideoGameSpecifics> {
         let mut poster_images =
-            convert_option_path_to_vec(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
+            Vec::from_iter(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
         let additional_images = item
             .artworks
             .unwrap_or_default()

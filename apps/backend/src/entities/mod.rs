@@ -7,6 +7,7 @@ pub mod book;
 pub mod collection;
 pub mod creator;
 pub mod genre;
+pub mod media_import_report;
 pub mod metadata;
 pub mod metadata_image;
 pub mod metadata_to_collection;

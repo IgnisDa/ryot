@@ -1,25 +1,19 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{prelude::VideoGame, video_game},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, VideoGameSource},
+    traits::MediaProvider,
 };
 
 use super::igdb::IgdbService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct VideoGamesSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -30,7 +24,7 @@ impl VideoGamesQuery {
     async fn video_games_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: VideoGamesSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<VideoGamesService>()
@@ -57,7 +51,7 @@ impl VideoGamesMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VideoGamesService {
     db: DatabaseConnection,
     igdb_service: Arc<IgdbService>,
@@ -68,7 +62,6 @@ impl VideoGamesService {
     pub fn new(
         db: &DatabaseConnection,
         igdb_service: &IgdbService,
-
         media_service: &MediaService,
     ) -> Self {
         Self {
@@ -86,11 +79,11 @@ impl VideoGamesService {
         query: &str,
         page: Option<i32>,
     ) -> Result<MediaSearchResults> {
-        let movies = self.igdb_service.search(query, page).await.unwrap();
+        let movies = self.igdb_service.search(query, page).await?;
         Ok(movies)
     }
 
-    async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
         let meta = VideoGame::find()
             .filter(video_game::Column::Identifier.eq(identifier))
             .one(&self.db)
@@ -99,7 +92,7 @@ impl VideoGamesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let game_details = self.igdb_service.details(identifier).await.unwrap();
+            let game_details = self.igdb_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(

@@ -1,25 +1,19 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{book, prelude::Book},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{BookSource, MetadataLot},
+    traits::MediaProvider,
 };
 
 use super::openlibrary::OpenlibraryService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct BookSearchInput {
-    query: String,
-    offset: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct BooksQuery;
@@ -30,11 +24,11 @@ impl BooksQuery {
     async fn books_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: BookSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<BooksService>()
-            .books_search(&input.query, input.offset)
+            .books_search(&input.query, input.page)
             .await
     }
 }
@@ -45,21 +39,15 @@ pub struct BooksMutation;
 #[Object]
 impl BooksMutation {
     /// Fetch details about a book and create a media item in the database
-    async fn commit_book(
-        &self,
-        gql_ctx: &Context<'_>,
-        identifier: String,
-        index: i32,
-        input: BookSearchInput,
-    ) -> Result<IdObject> {
+    async fn commit_book(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<BooksService>()
-            .commit_book(&identifier, &input.query, input.offset, index)
+            .commit_book(&identifier)
             .await
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BooksService {
     db: DatabaseConnection,
     openlibrary_service: Arc<OpenlibraryService>,
@@ -82,22 +70,12 @@ impl BooksService {
 
 impl BooksService {
     // Get book details from all sources
-    async fn books_search(&self, query: &str, offset: Option<i32>) -> Result<MediaSearchResults> {
-        let books = self
-            .openlibrary_service
-            .search(query, offset)
-            .await
-            .unwrap();
+    async fn books_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let books = self.openlibrary_service.search(query, page).await?;
         Ok(books)
     }
 
-    async fn commit_book(
-        &self,
-        identifier: &str,
-        query: &str,
-        offset: Option<i32>,
-        index: i32,
-    ) -> Result<IdObject> {
+    pub async fn commit_book(&self, identifier: &str) -> Result<IdObject> {
         let meta = Book::find()
             .filter(book::Column::Identifier.eq(identifier))
             .one(&self.db)
@@ -106,11 +84,7 @@ impl BooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let book_details = self
-                .openlibrary_service
-                .details(identifier, query, offset, index)
-                .await
-                .unwrap();
+            let book_details = self.openlibrary_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(
@@ -122,7 +96,7 @@ impl BooksService {
                     book_details.poster_images,
                     book_details.backdrop_images,
                     book_details.creators,
-                    vec![],
+                    book_details.genres,
                 )
                 .await?;
             let book = book::ActiveModel {

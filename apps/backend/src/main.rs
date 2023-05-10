@@ -1,7 +1,7 @@
 use anyhow::Result;
 use apalis::{
     layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
-    prelude::{Monitor, Storage, WorkerBuilder, WorkerFactoryFn},
+    prelude::{Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
 use async_graphql::http::GraphiQLSource;
@@ -32,11 +32,12 @@ use tower_http::{
 };
 
 use crate::{
-    background::{refresh_media, RefreshMedia},
+    background::{import_media, refresh_media, RefreshMedia},
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
     users::resolver::COOKIE_NAME,
+    utils::create_app_services,
 };
 
 mod audio_books;
@@ -45,11 +46,13 @@ mod books;
 mod config;
 mod entities;
 mod graphql;
+mod importer;
 mod media;
 mod migrator;
 mod misc;
 mod movies;
 mod shows;
+mod traits;
 mod users;
 mod utils;
 mod video_games;
@@ -95,14 +98,11 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
     Migrator::up(&db, None).await.unwrap();
 
-    let storage = {
-        let st = SqliteStorage::connect(":memory:").await.unwrap();
-        st.setup().await.unwrap();
-        st
-    };
+    let refresh_media_storage = create_storage().await;
+    let import_media_storage = create_storage().await;
 
     let (tx, mut rx) = channel::<u8>(1);
-    let mut new_storage = storage.clone();
+    let mut new_storage = refresh_media_storage.clone();
     tokio::spawn(async move {
         loop {
             if (rx.recv().await).is_some() {
@@ -112,11 +112,11 @@ async fn main() -> Result<()> {
     });
 
     let sched = JobScheduler::new().await.unwrap();
-    sched.shutdown_on_ctrl_c();
 
     sched
         .add(
-            Job::new_async("1/10 * * * * *", move |_uuid, _l| {
+            // every 30 minutes
+            Job::new_async("0 */30 * * * *", move |_uuid, _l| {
                 let tx = tx.clone();
                 Box::pin(async move {
                     tx.send(1).await.unwrap();
@@ -127,7 +127,8 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let schema = get_schema(db.clone(), &config).await;
+    let app_services = create_app_services(db.clone(), &config, &import_media_storage).await;
+    let schema = get_schema(&app_services, db.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -159,18 +160,25 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on {}", addr);
 
     let monitor = async {
-        let monitor = Monitor::new()
-            .register_with_count(1, move |_| {
-                WorkerBuilder::new(storage.clone())
-                    .layer(ApalisExtension(config.clone()))
-                    .layer(ApalisExtension(db.clone()))
+        let mn = Monitor::new()
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("refresh_media-{c}"))
                     .layer(ApalisTraceLayer::new())
+                    .with_storage(refresh_media_storage.clone())
                     .build_fn(refresh_media)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("import_media-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(app_services.importer_service.clone()))
+                    .with_storage(import_media_storage.clone())
+                    .build_fn(import_media)
             })
             .run()
             .await;
-        Ok(monitor)
+        Ok(mn)
     };
+
     let http = async {
         Server::bind(&addr)
             .serve(app.into_make_service())
@@ -233,4 +241,11 @@ async fn not_found() -> Response {
         .status(StatusCode::NOT_FOUND)
         .body(boxed(Full::from("404")))
         .unwrap()
+}
+
+async fn create_storage<T: ApalisJob>() -> SqliteStorage<T> {
+    // it is necessary to initialize it in memory and not connect to the same database
+    let st = SqliteStorage::connect(":memory:").await.unwrap();
+    st.setup().await.unwrap();
+    st
 }

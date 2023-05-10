@@ -1,5 +1,5 @@
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
 };
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
@@ -7,8 +7,8 @@ use chrono::Utc;
 use cookie::{time::OffsetDateTime, Cookie};
 use http::header::SET_COOKIE;
 use sea_orm::{
-    ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder,
 };
 use uuid::Uuid;
 
@@ -27,6 +27,75 @@ use crate::{
 };
 
 pub static COOKIE_NAME: &str = "auth";
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum UserDetailsErrorVariant {
+    AuthTokenInvalid,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserDetailsError {
+    error: UserDetailsErrorVariant,
+}
+
+#[derive(Union)]
+pub enum UserDetailsResult {
+    Ok(UserModel),
+    Error(UserDetailsError),
+}
+
+#[derive(Debug, InputObject)]
+struct UserInput {
+    username: String,
+    #[graphql(secret)]
+    password: String,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum RegisterErrorVariant {
+    UsernameAlreadyExists,
+}
+
+#[derive(Debug, SimpleObject)]
+struct RegisterError {
+    error: RegisterErrorVariant,
+}
+
+#[derive(Union)]
+enum RegisterResult {
+    Ok(IdObject),
+    Error(RegisterError),
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum LoginErrorVariant {
+    UsernameDoesNotExist,
+    CredentialsMismatch,
+}
+
+#[derive(Debug, SimpleObject)]
+struct LoginError {
+    error: LoginErrorVariant,
+}
+
+#[derive(Debug, SimpleObject)]
+struct LoginResponse {
+    api_key: Uuid,
+}
+
+#[derive(Union)]
+enum LoginResult {
+    Ok(LoginResponse),
+    Error(LoginError),
+}
+
+#[derive(Debug, InputObject)]
+struct UpdateUserInput {
+    username: Option<String>,
+    email: Option<String>,
+    #[graphql(secret)]
+    password: Option<String>,
+}
 
 fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(true);
@@ -153,9 +222,18 @@ impl UsersMutation {
             .regenerate_user_summary(&user_id)
             .await
     }
+
+    /// Update a user's profile details.
+    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .update_user(&user_id, input)
+            .await
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UsersService {
     db: DatabaseConnection,
 }
@@ -339,10 +417,8 @@ impl UsersService {
             audio_books_runtime: ActiveValue::Set(audio_books_total.iter().sum()),
             audio_books_played: ActiveValue::Set(audio_books_count.try_into().unwrap()),
         };
-        let obj = Summary::insert(summary_obj).exec(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: obj.last_insert_id,
-        })
+        let obj = summary_obj.insert(&self.db).await.unwrap();
+        Ok(IdObject { id: obj.id })
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
@@ -357,10 +433,6 @@ impl UsersService {
                 error: RegisterErrorVariant::UsernameAlreadyExists,
             }));
         };
-        let salt = SaltString::generate(&mut OsRng);
-        let password_hash = get_hasher()
-            .hash_password(password.as_bytes(), &salt)?
-            .to_string();
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
             UserLot::Admin
         } else {
@@ -368,14 +440,12 @@ impl UsersService {
         };
         let user = user::ActiveModel {
             name: ActiveValue::Set(username.to_owned()),
-            password: ActiveValue::Set(password_hash.to_owned()),
+            password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
             ..Default::default()
         };
-        let user = User::insert(user).exec(&self.db).await.unwrap();
-        Ok(RegisterResult::Ok(IdObject {
-            id: user.last_insert_id,
-        }))
+        let user = user.insert(&self.db).await.unwrap();
+        Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
     async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
@@ -408,8 +478,7 @@ impl UsersService {
             last_used: ActiveValue::Set(Some(Utc::now())),
             ..Default::default()
         };
-        Token::insert(token).exec(&self.db).await.unwrap();
-
+        token.insert(&self.db).await.unwrap();
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
@@ -425,65 +494,24 @@ impl UsersService {
             Ok(false)
         }
     }
-}
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum UserDetailsErrorVariant {
-    AuthTokenInvalid,
-}
-
-#[derive(Debug, SimpleObject)]
-pub struct UserDetailsError {
-    error: UserDetailsErrorVariant,
-}
-
-#[derive(Union)]
-pub enum UserDetailsResult {
-    Ok(UserModel),
-    Error(UserDetailsError),
-}
-
-#[derive(Debug, InputObject)]
-struct UserInput {
-    username: String,
-    #[graphql(secret)]
-    password: String,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum RegisterErrorVariant {
-    UsernameAlreadyExists,
-}
-
-#[derive(Debug, SimpleObject)]
-struct RegisterError {
-    error: RegisterErrorVariant,
-}
-
-#[derive(Union)]
-enum RegisterResult {
-    Ok(IdObject),
-    Error(RegisterError),
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum LoginErrorVariant {
-    UsernameDoesNotExist,
-    CredentialsMismatch,
-}
-
-#[derive(Debug, SimpleObject)]
-struct LoginError {
-    error: LoginErrorVariant,
-}
-
-#[derive(Debug, SimpleObject)]
-struct LoginResponse {
-    api_key: Uuid,
-}
-
-#[derive(Union)]
-enum LoginResult {
-    Ok(LoginResponse),
-    Error(LoginError),
+    async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
+        let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .into();
+        if let Some(n) = input.username {
+            user_obj.name = ActiveValue::Set(n);
+        }
+        if let Some(e) = input.email {
+            user_obj.email = ActiveValue::Set(Some(e));
+        }
+        if let Some(p) = input.password {
+            user_obj.password = ActiveValue::Set(p);
+        }
+        let user_obj = user_obj.update(&self.db).await.unwrap();
+        Ok(IdObject { id: user_obj.id })
+    }
 }

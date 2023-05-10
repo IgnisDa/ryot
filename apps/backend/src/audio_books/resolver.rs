@@ -1,25 +1,19 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{audio_book, prelude::AudioBook},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService},
+    media::resolver::{MediaSearchResults, MediaService, SearchInput},
     migrator::{AudioBookSource, MetadataLot},
+    traits::MediaProvider,
 };
 
 use super::audible::AudibleService;
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct AudioBookSearchInput {
-    query: String,
-    page: Option<i32>,
-}
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -30,7 +24,7 @@ impl AudioBooksQuery {
     async fn audio_books_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: AudioBookSearchInput,
+        input: SearchInput,
     ) -> Result<MediaSearchResults> {
         gql_ctx
             .data_unchecked::<AudioBooksService>()
@@ -57,7 +51,7 @@ impl AudioBooksMutation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AudioBooksService {
     db: DatabaseConnection,
     audible_service: Arc<AudibleService>,
@@ -85,11 +79,11 @@ impl AudioBooksService {
         query: &str,
         page: Option<i32>,
     ) -> Result<MediaSearchResults> {
-        let audio_books = self.audible_service.search(query, page).await.unwrap();
+        let audio_books = self.audible_service.search(query, page).await?;
         Ok(audio_books)
     }
 
-    async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {
+    pub async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {
         let meta = AudioBook::find()
             .filter(audio_book::Column::Identifier.eq(identifier))
             .one(&self.db)
@@ -98,7 +92,7 @@ impl AudioBooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let audio_books_details = self.audible_service.details(identifier).await.unwrap();
+            let audio_books_details = self.audible_service.details(identifier).await?;
             let metadata_id = self
                 .media_service
                 .commit_media(

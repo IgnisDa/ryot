@@ -71,6 +71,8 @@ pub struct ProgressUpdate {
     pub date: Option<NaiveDate>,
     pub season_number: Option<i32>,
     pub episode_number: Option<i32>,
+    /// If this update comes from a different source, this should be set
+    pub identifier: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -119,6 +121,12 @@ pub struct MediaConsumedInput {
 pub struct MediaListInput {
     pub page: i32,
     pub lot: MetadataLot,
+}
+
+#[derive(Serialize, Deserialize, Debug, InputObject)]
+pub struct SearchInput {
+    pub query: String,
+    pub page: Option<i32>,
 }
 
 #[derive(Default)]
@@ -449,75 +457,85 @@ impl MediaService {
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
-        let user_to_meta = user_to_metadata::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            metadata_id: ActiveValue::Set(input.metadata_id),
-            ..Default::default()
-        };
-        // we do not care if it succeeded or failed, since we need just one instance
-        user_to_meta.insert(&self.db).await.ok();
-        let prev_seen = Seen::find()
-            .filter(seen::Column::Progress.lt(100))
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::MetadataId.eq(input.metadata_id))
-            .order_by_desc(seen::Column::LastUpdatedOn)
-            .all(&self.db)
+        let meta = Seen::find()
+            .filter(seen::Column::Identifier.eq(input.identifier.clone()))
+            .one(&self.db)
             .await
             .unwrap();
-        let seen_item = match input.action {
-            ProgressUpdateAction::Update => {
-                if prev_seen.len() != 1 {
-                    return Err(Error::new("There is no `seen` item underway".to_owned()));
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.metadata_id })
+        } else {
+            let user_to_meta = user_to_metadata::ActiveModel {
+                user_id: ActiveValue::Set(user_id),
+                metadata_id: ActiveValue::Set(input.metadata_id),
+                ..Default::default()
+            };
+            // we do not care if it succeeded or failed, since we need just one instance
+            user_to_meta.insert(&self.db).await.ok();
+            let prev_seen = Seen::find()
+                .filter(seen::Column::Progress.lt(100))
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(input.metadata_id))
+                .order_by_desc(seen::Column::LastUpdatedOn)
+                .all(&self.db)
+                .await
+                .unwrap();
+            let seen_item = match input.action {
+                ProgressUpdateAction::Update => {
+                    if prev_seen.len() != 1 {
+                        return Err(Error::new("There is no `seen` item underway".to_owned()));
+                    }
+                    let progress = input.progress.unwrap();
+                    let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                    last_seen.progress = ActiveValue::Set(progress);
+                    last_seen.last_updated_on = ActiveValue::Set(Utc::now());
+                    if progress == 100 {
+                        last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
+                    }
+                    last_seen.update(&self.db).await.unwrap()
                 }
-                let progress = input.progress.unwrap();
-                let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
-                last_seen.progress = ActiveValue::Set(progress);
-                last_seen.last_updated_on = ActiveValue::Set(Utc::now());
-                if progress == 100 {
-                    last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
-                }
-                last_seen.update(&self.db).await.unwrap()
-            }
-            ProgressUpdateAction::Now
-            | ProgressUpdateAction::InThePast
-            | ProgressUpdateAction::JustStarted => {
-                let meta = Metadata::find_by_id(input.metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                let finished_on = if input.action == ProgressUpdateAction::Now {
-                    Some(Utc::now().date_naive())
-                } else {
-                    input.date
-                };
-                let (progress, started_on) =
-                    if matches!(input.action, ProgressUpdateAction::JustStarted) {
-                        (0, Some(Utc::now().date_naive()))
+                ProgressUpdateAction::Now
+                | ProgressUpdateAction::InThePast
+                | ProgressUpdateAction::JustStarted => {
+                    let meta = Metadata::find_by_id(input.metadata_id)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    let finished_on = if input.action == ProgressUpdateAction::Now {
+                        Some(Utc::now().date_naive())
                     } else {
-                        (100, None)
+                        input.date
                     };
-                let mut seen_ins = seen::ActiveModel {
-                    progress: ActiveValue::Set(progress),
-                    user_id: ActiveValue::Set(user_id),
-                    metadata_id: ActiveValue::Set(input.metadata_id),
-                    started_on: ActiveValue::Set(started_on),
-                    finished_on: ActiveValue::Set(finished_on),
-                    last_updated_on: ActiveValue::Set(Utc::now()),
-                    ..Default::default()
-                };
-                if meta.lot == MetadataLot::Show {
-                    seen_ins.extra_information = ActiveValue::Set(Some(
-                        SeenExtraInformation::Show(SeenSeasonExtraInformation {
-                            season: input.season_number.unwrap(),
-                            episode: input.episode_number.unwrap(),
-                        }),
-                    ));
+                    let (progress, started_on) =
+                        if matches!(input.action, ProgressUpdateAction::JustStarted) {
+                            (0, Some(Utc::now().date_naive()))
+                        } else {
+                            (100, None)
+                        };
+                    let mut seen_ins = seen::ActiveModel {
+                        progress: ActiveValue::Set(progress),
+                        user_id: ActiveValue::Set(user_id),
+                        metadata_id: ActiveValue::Set(input.metadata_id),
+                        started_on: ActiveValue::Set(started_on),
+                        finished_on: ActiveValue::Set(finished_on),
+                        last_updated_on: ActiveValue::Set(Utc::now()),
+                        identifier: ActiveValue::Set(input.identifier),
+                        ..Default::default()
+                    };
+                    if meta.lot == MetadataLot::Show {
+                        seen_ins.extra_information = ActiveValue::Set(Some(
+                            SeenExtraInformation::Show(SeenSeasonExtraInformation {
+                                season: input.season_number.unwrap(),
+                                episode: input.episode_number.unwrap(),
+                            }),
+                        ));
+                    }
+                    seen_ins.insert(&self.db).await.unwrap()
                 }
-                seen_ins.insert(&self.db).await.unwrap()
-            }
-        };
-        Ok(IdObject { id: seen_item.id })
+            };
+            Ok(IdObject { id: seen_item.id })
+        }
     }
 
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {

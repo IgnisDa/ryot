@@ -1,4 +1,4 @@
-query ShowsSearch($input: ShowSearchInput!) {
+query ShowsSearch($input: SearchInput!) {
   showSearch(input: $input) {
     total
     items {
