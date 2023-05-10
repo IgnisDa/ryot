@@ -14,8 +14,8 @@ use crate::{
         metadata::{self, Model as MetadataModel},
         metadata_image, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage, Movie, Seen,
-            Show, UserToMetadata, VideoGame,
+            AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
+            UserToMetadata, VideoGame,
         },
         seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
@@ -37,7 +37,6 @@ pub struct MediaGenericData {
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub genres: Vec<String>,
-    pub collections: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -99,7 +98,6 @@ pub struct DatabaseMediaDetails {
     pub lot: MetadataLot,
     pub creators: Vec<String>,
     pub genres: Vec<String>,
-    pub collections: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -284,14 +282,6 @@ impl MediaService {
             Some(m) => m,
             None => return Err(Error::new("The record does not exit".to_owned())),
         };
-        let collections = meta
-            .find_related(Collection)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|c| c.name)
-            .collect();
         let genres = meta
             .find_related(Genre)
             .all(&self.db)
@@ -315,7 +305,6 @@ impl MediaService {
             poster_images,
             backdrop_images,
             genres,
-            collections,
         })
     }
 
@@ -326,7 +315,6 @@ impl MediaService {
             poster_images,
             backdrop_images,
             genres,
-            collections,
         } = self.generic_metadata(metadata_id).await?;
         let mut resp = DatabaseMediaDetails {
             id: model.id,
@@ -338,7 +326,6 @@ impl MediaService {
             creators,
             genres,
             poster_images,
-            collections,
             backdrop_images,
             book_specifics: None,
             movie_specifics: None,
