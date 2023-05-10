@@ -10,7 +10,7 @@ use crate::{
     background::ImportMedia,
     books::resolver::BooksService,
     media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
-    migrator::MetadataLot,
+    migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
     movies::resolver::MoviesService,
     shows::resolver::ShowsService,
@@ -169,7 +169,10 @@ impl ImporterService {
         user_id: i32,
         input: DeployMediaTrackerImportInput,
     ) -> Result<()> {
-        let db_import_job = self.misc_service.start_import_job(user_id).await?;
+        let db_import_job = self
+            .misc_service
+            .start_import_job(user_id, MediaImportSource::MediaTracker)
+            .await?;
         let mut import = media_tracker::import(input).await?;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
@@ -252,8 +255,9 @@ impl ImporterService {
         }
 
         tracing::info!(
-            "Imported {} media items from MediaTracker",
-            import.media.len()
+            "Imported {total} media items from {source}",
+            total = import.media.len(),
+            source = db_import_job.source
         );
         let details = ImportResultResponse {
             import: ImportDetails {

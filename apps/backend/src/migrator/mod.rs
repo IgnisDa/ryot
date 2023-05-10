@@ -26,6 +26,7 @@ pub use m20230425_000007_create_show::ShowSource;
 pub use m20230502_000008_create_video_game::VideoGameSource;
 pub use m20230504_000011_create_audio_book::AudioBookSource;
 pub use m20230505_000012_create_review::ReviewVisibility;
+pub use m20230509_000014_create_media_import_report::MediaImportSource;
 
 pub struct Migrator;
 

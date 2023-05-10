@@ -1,8 +1,17 @@
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::m20230417_000004_create_user::User;
 
 pub struct Migration;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+pub enum MediaImportSource {
+    #[sea_orm(string_value = "MT")]
+    MediaTracker,
+}
 
 #[derive(Iden)]
 pub enum MediaImportReport {
@@ -11,6 +20,7 @@ pub enum MediaImportReport {
     UserId,
     StartedOn,
     FinishedOn,
+    Source,
     Details,
 }
 
@@ -33,6 +43,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .auto_increment()
                             .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(MediaImportReport::Source)
+                            .string_len(2)
+                            .not_null(),
                     )
                     .col(
                         ColumnDef::new(MediaImportReport::UserId)

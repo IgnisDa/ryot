@@ -18,7 +18,7 @@ use crate::{
     graphql::IdObject,
     importer::ImportResultResponse,
     media::resolver::{MediaSearchItem, MediaService},
-    migrator::ReviewVisibility,
+    migrator::{MediaImportSource, ReviewVisibility},
     utils::{user_id_from_ctx, NamedObject},
 };
 
@@ -303,9 +303,14 @@ impl MiscService {
         })
     }
 
-    pub async fn start_import_job(&self, user_id: i32) -> Result<media_import_report::Model> {
+    pub async fn start_import_job(
+        &self,
+        user_id: i32,
+        source: MediaImportSource,
+    ) -> Result<media_import_report::Model> {
         let model = media_import_report::ActiveModel {
             user_id: ActiveValue::Set(user_id),
+            source: ActiveValue::Set(source),
             ..Default::default()
         };
         let model = model.insert(&self.db).await.unwrap();
