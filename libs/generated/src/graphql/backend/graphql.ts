@@ -111,7 +111,7 @@ export type DatabaseMediaDetails = {
 };
 
 export type DeployGoodreadsImportInput = {
-  data: Scalars['String'];
+  rssUrl: Scalars['String'];
 };
 
 export type DeployImportInput = {

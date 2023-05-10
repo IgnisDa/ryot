@@ -2,14 +2,13 @@ import type { NextPageWithLayout } from "./_app";
 import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { fileToText } from "@/lib/utilities";
+
 import {
 	Anchor,
 	Box,
 	Button,
 	Card,
 	Container,
-	FileInput,
 	Flex,
 	PasswordInput,
 	Stack,
@@ -52,7 +51,7 @@ type MediaTrackerImportFormSchema = z.infer<
 >;
 
 const goodreadsImportFormSchema = z.object({
-	file: z.any(),
+	rssUrl: z.string().url(),
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
@@ -215,16 +214,15 @@ const Page: NextPageWithLayout = () => {
 									deployImport.mutate({
 										input: {
 											source: MediaImportSource.Goodreads,
-											goodreads: { data: await fileToText(values.file) },
+											goodreads: values,
 										},
 									});
 								})}
 								title="Goodreads"
 							>
-								<FileInput
-									label="CSV file"
-									accept=".csv"
-									{...goodreadsImportForm.getInputProps("file")}
+								<TextInput
+									label="RSS Link"
+									{...goodreadsImportForm.getInputProps("rssUrl")}
 								/>
 								<></>
 							</ImportSource>
