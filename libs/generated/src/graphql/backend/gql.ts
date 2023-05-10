@@ -21,7 +21,7 @@ const documents = {
     "mutation CreateCollection($input: NamedObjectInput!) {\n  createCollection(input: $input) {\n    id\n  }\n}": types.CreateCollectionDocument,
     "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
     "mutation DeployMediaTrackerImport($input: DeployMediaTrackerImportInput!) {\n  deployMediaTrackerImport(input: $input)\n}": types.DeployMediaTrackerImportDocument,
-    "mutation DeployGoodreadsImport($file: Upload!) {\n  deployGoodreadsImport(file: $file)\n}": types.DeployGoodreadsImportDocument,
+    "mutation DeployGoodreadsImport($input: DeployGoodreadsImportInput!) {\n  deployGoodreadsImport(input: $input)\n}": types.DeployGoodreadsImportDocument,
     "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
     "mutation LogoutUser {\n  logoutUser\n}": types.LogoutUserDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
@@ -97,7 +97,7 @@ export function graphql(source: "mutation DeployMediaTrackerImport($input: Deplo
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation DeployGoodreadsImport($file: Upload!) {\n  deployGoodreadsImport(file: $file)\n}"): (typeof documents)["mutation DeployGoodreadsImport($file: Upload!) {\n  deployGoodreadsImport(file: $file)\n}"];
+export function graphql(source: "mutation DeployGoodreadsImport($input: DeployGoodreadsImportInput!) {\n  deployGoodreadsImport(input: $input)\n}"): (typeof documents)["mutation DeployGoodreadsImport($input: DeployGoodreadsImportInput!) {\n  deployGoodreadsImport(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

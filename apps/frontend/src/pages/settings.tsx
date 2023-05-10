@@ -2,6 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { fileToText } from "@/lib/utilities";
 import {
 	Anchor,
 	Box,
@@ -23,12 +24,19 @@ import {
 	type DeployMediaTrackerImportMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
+	DeployGoodreadsImportDocument,
+	type DeployGoodreadsImportMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { z } from "zod";
 
+const message = {
+	title: "Success",
+	message: "Your import has started. Check back later.",
+	color: "green",
+};
 const updateProfileFormSchema = z.object({
 	username: z.string().optional(),
 	password: z.string().optional(),
@@ -43,6 +51,11 @@ const mediaTrackerImportFormSchema = z.object({
 type MediaTrackerImportFormSchema = z.infer<
 	typeof mediaTrackerImportFormSchema
 >;
+
+const goodreadsImportFormSchema = z.object({
+	file: z.any(),
+});
+type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
 export const ImportSource = (props: {
 	onSubmit: () => void;
@@ -85,6 +98,9 @@ const Page: NextPageWithLayout = () => {
 	const mediaTrackerImportForm = useForm<MediaTrackerImportFormSchema>({
 		validate: zodResolver(mediaTrackerImportFormSchema),
 	});
+	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
+		validate: zodResolver(goodreadsImportFormSchema),
+	});
 
 	useUser((data) => {
 		updateProfileForm.setValues({
@@ -111,6 +127,19 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const goodreadsImport = useMutation({
+		mutationFn: async (variables: DeployGoodreadsImportMutationVariables) => {
+			const { deployGoodreadsImport } = await gqlClient.request(
+				DeployGoodreadsImportDocument,
+				variables,
+			);
+			return deployGoodreadsImport;
+		},
+		onSuccess: () => {
+			notifications.show(message);
+		},
+	});
+
 	const deploymediaTrackerImport = useMutation({
 		mutationFn: async (
 			variables: DeployMediaTrackerImportMutationVariables,
@@ -122,11 +151,7 @@ const Page: NextPageWithLayout = () => {
 			return deployMediaTrackerImport;
 		},
 		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "Your import has started. Check back later.",
-				color: "green",
-			});
+			notifications.show(message);
 		},
 	});
 
@@ -197,15 +222,17 @@ const Page: NextPageWithLayout = () => {
 								/>
 							</ImportSource>
 							<ImportSource
-								onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-									deploymediaTrackerImport.mutate({ input: values });
+								onSubmit={goodreadsImportForm.onSubmit(async (values) => {
+									goodreadsImport.mutate({
+										input: { data: await fileToText(values.file) },
+									});
 								})}
 								title="Goodreads"
 							>
 								<FileInput
 									label="CSV file"
 									accept=".csv"
-									{...mediaTrackerImportForm.getInputProps("apiUrl")}
+									{...goodreadsImportForm.getInputProps("file")}
 								/>
 								<></>
 							</ImportSource>

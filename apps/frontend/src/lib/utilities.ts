@@ -52,3 +52,14 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 		})
 		.otherwise(() => "");
 };
+
+/**
+ * Convert a file to its base64 representation.
+ */
+export const fileToText = (file: File): Promise<string> =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.readAsText(file);
+		reader.onload = () => resolve(reader.result?.toString() || "");
+		reader.onerror = reject;
+	});
