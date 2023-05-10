@@ -8,7 +8,7 @@ import {
 	Button,
 	Card,
 	Container,
-	Group,
+	Flex,
 	PasswordInput,
 	Stack,
 	Tabs,
@@ -23,11 +23,7 @@ import {
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	IconDatabaseImport,
-	IconExternalLink,
-	IconUser,
-} from "@tabler/icons-react";
+import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { z } from "zod";
@@ -141,6 +137,15 @@ const Page: NextPageWithLayout = () => {
 					</Tabs.Panel>
 					<Tabs.Panel value="import">
 						<Stack>
+							<Flex justify={"end"}>
+								<Anchor
+									size="xs"
+									href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
+									target="_blank"
+								>
+									Docs
+								</Anchor>
+							</Flex>
 							<Box>
 								<Card
 									shadow="sm"
@@ -152,15 +157,7 @@ const Page: NextPageWithLayout = () => {
 										deploymediaTrackerImport.mutate({ input: values });
 									})}
 								>
-									<Group align="center">
-										<Title order={3}>Media Tracker</Title>
-										<Anchor
-											href="https://github.com/bonukai/MediaTracker"
-											target="_blank"
-										>
-											<IconExternalLink size="1rem" />
-										</Anchor>
-									</Group>
+									<Title order={3}>Media Tracker</Title>
 
 									<TextInput
 										label="Instance Url"
