@@ -9,6 +9,7 @@ use crate::{
     audio_books::resolver::AudioBooksService,
     background::ImportMedia,
     books::resolver::BooksService,
+    entities::media_import_report,
     media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
@@ -77,21 +78,40 @@ pub struct ImportFailedItem {
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct ImportDetails {
-    total: usize,
-}
-
-#[derive(
-    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
-)]
-pub struct ImportResultResponse {
-    import: ImportDetails,
-    failed_items: Vec<ImportFailedItem>,
+    pub total: usize,
 }
 
 #[derive(Debug, SimpleObject)]
 pub struct ImportResult {
     media: Vec<ImportItem>,
     failed_items: Vec<ImportFailedItem>,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
+)]
+pub struct ImportResultResponse {
+    pub source: MediaImportSource,
+    pub import: ImportDetails,
+    pub failed_items: Vec<ImportFailedItem>,
+}
+
+#[derive(Default)]
+pub struct ImporterQuery;
+
+#[Object]
+impl ImporterQuery {
+    /// Get all the import jobs deployed by the user
+    async fn media_import_reports(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<media_import_report::Model>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<ImporterService>()
+            .media_import_reports(user_id)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -162,6 +182,13 @@ impl ImporterService {
             .await
             .unwrap();
         Ok(job.to_string())
+    }
+
+    pub async fn media_import_reports(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<media_import_report::Model>> {
+        self.misc_service.media_import_reports(user_id).await
     }
 
     pub async fn media_tracker_import(
@@ -260,6 +287,7 @@ impl ImporterService {
             source = db_import_job.source
         );
         let details = ImportResultResponse {
+            source: db_import_job.source,
             import: ImportDetails {
                 total: import.media.len() - import.failed_items.len(),
             },

@@ -6,7 +6,7 @@ use crate::{
     audio_books::resolver::{AudioBooksMutation, AudioBooksQuery},
     books::resolver::{BooksMutation, BooksQuery},
     config::{AppConfig, IsFeatureEnabled},
-    importer::ImporterMutation,
+    importer::{ImporterMutation, ImporterQuery},
     media::resolver::{MediaMutation, MediaQuery},
     migrator::MetadataLot,
     misc::resolver::{MiscMutation, MiscQuery},
@@ -82,6 +82,7 @@ pub struct QueryRoot(
     UsersQuery,
     AudioBooksQuery,
     MiscQuery,
+    ImporterQuery,
 );
 
 #[derive(MergedObject, Default)]

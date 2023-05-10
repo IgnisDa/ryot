@@ -11,7 +11,7 @@ use sea_orm::{
 use crate::{
     entities::{
         collection, media_import_report, metadata_to_collection,
-        prelude::{Collection, Metadata, Review, User},
+        prelude::{Collection, MediaImportReport, Metadata, Review, User},
         review,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
@@ -327,5 +327,17 @@ impl MiscService {
         model.details = ActiveValue::Set(Some(details));
         let model = model.update(&self.db).await.unwrap();
         Ok(model)
+    }
+
+    pub async fn media_import_reports(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<media_import_report::Model>> {
+        let reports = MediaImportReport::find()
+            .filter(media_import_report::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        Ok(reports)
     }
 }
