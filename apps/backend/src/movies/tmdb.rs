@@ -7,7 +7,7 @@ use surf::Client;
 use crate::{
     config::TmdbConfig,
     media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-    migrator::MetadataLot,
+    migrator::{MetadataLot, MovieSource},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
 };
@@ -72,6 +72,7 @@ impl MediaProvider<MovieSpecifics> for TmdbService {
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
             specifics: MovieSpecifics {
+                source: MovieSource::Tmdb,
                 runtime: Some(data.runtime),
             },
         })

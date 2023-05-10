@@ -7,7 +7,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::Client;
 
 use crate::media::resolver::MediaDetails;
-use crate::migrator::MetadataLot;
+use crate::migrator::{MetadataLot, VideoGameSource};
 use crate::traits::MediaProvider;
 use crate::{
     config::VideoGameConfig,
@@ -176,7 +176,7 @@ impl IgdbService {
                 .map(|g| g.name)
                 .collect(),
             specifics: VideoGameSpecifics {
-                rating: item.rating,
+                source: VideoGameSource::Igdb,
             },
         }
     }

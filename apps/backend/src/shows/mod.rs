@@ -4,6 +4,8 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
+use crate::migrator::ShowSource;
+
 pub mod resolver;
 pub mod tmdb;
 
@@ -12,6 +14,7 @@ pub mod tmdb;
 )]
 pub struct ShowSpecifics {
     pub seasons: Vec<ShowSeason>,
+    pub source: ShowSource,
 }
 
 #[derive(

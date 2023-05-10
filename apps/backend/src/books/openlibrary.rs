@@ -12,7 +12,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         LIMIT,
     },
-    migrator::MetadataLot,
+    migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
     utils::{get_data_parallely_from_sources, openlibrary},
 };
@@ -176,6 +176,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             publish_date: None,
             specifics: BookSpecifics {
                 pages: Some(num_pages),
+                source: BookSource::OpenLibrary,
             },
         })
     }
@@ -242,6 +243,7 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
                     publish_date: None,
                     book_specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
+                        source: BookSource::OpenLibrary,
                     },
                     poster_images,
                     backdrop_images: vec![],

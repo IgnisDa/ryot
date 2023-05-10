@@ -104,6 +104,7 @@ impl ShowsService {
                 identifier: ActiveValue::Set(show_details.identifier),
                 details: ActiveValue::Set(ShowSpecifics {
                     seasons: show_details.specifics.seasons,
+                    source: show_details.specifics.source,
                 }),
                 source: ActiveValue::Set(ShowSource::Tmdb),
             };

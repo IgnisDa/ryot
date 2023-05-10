@@ -7,7 +7,7 @@ use surf::Client;
 use crate::{
     config::TmdbConfig,
     media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-    migrator::MetadataLot,
+    migrator::{MetadataLot, ShowSource},
     shows::{ShowEpisode, ShowSeason},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
@@ -116,6 +116,7 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             specifics: ShowSpecifics {
+                source: ShowSource::Tmdb,
                 seasons: seasons
                     .into_iter()
                     .map(|s| {

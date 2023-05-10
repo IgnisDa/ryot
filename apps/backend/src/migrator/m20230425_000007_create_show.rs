@@ -1,3 +1,4 @@
+use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -6,7 +7,9 @@ use super::Metadata;
 
 pub struct Migration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+)]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum ShowSource {
     #[sea_orm(string_value = "T")]

@@ -15,7 +15,7 @@ use crate::{
         metadata_image, metadata_to_creator, metadata_to_genre,
         prelude::{
             AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage, Movie, Seen,
-            Show, UserToMetadata,
+            Show, UserToMetadata, VideoGame,
         },
         seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
@@ -108,7 +108,7 @@ pub struct DatabaseMediaDetails {
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_books_specifics: Option<AudioBookSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -344,7 +344,7 @@ impl MediaService {
             movie_specifics: None,
             show_specifics: None,
             video_game_specifics: None,
-            audio_books_specifics: None,
+            audio_book_specifics: None,
         };
         match model.lot {
             MetadataLot::Book => {
@@ -355,6 +355,7 @@ impl MediaService {
                     .unwrap();
                 resp.book_specifics = Some(BookSpecifics {
                     pages: additional.num_pages,
+                    source: additional.source,
                 });
             }
             MetadataLot::Movie => {
@@ -365,6 +366,7 @@ impl MediaService {
                     .unwrap();
                 resp.movie_specifics = Some(MovieSpecifics {
                     runtime: additional.runtime,
+                    source: additional.source,
                 });
             }
             MetadataLot::Show => {
@@ -376,7 +378,14 @@ impl MediaService {
                 resp.show_specifics = Some(additional.details);
             }
             MetadataLot::VideoGame => {
-                // No additional metadata is stored in the database
+                let additional = VideoGame::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.video_game_specifics = Some(VideoGameSpecifics {
+                    source: additional.source,
+                });
             }
             MetadataLot::AudioBook => {
                 let additional = AudioBook::find_by_id(metadata_id)
@@ -384,8 +393,9 @@ impl MediaService {
                     .await
                     .unwrap()
                     .unwrap();
-                resp.audio_books_specifics = Some(AudioBookSpecifics {
+                resp.audio_book_specifics = Some(AudioBookSpecifics {
                     runtime: additional.runtime,
+                    source: additional.source,
                 });
             }
         };
