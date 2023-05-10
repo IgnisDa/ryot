@@ -51,7 +51,7 @@ const Page: NextPageWithLayout = () => {
 	const [mineSortOrder, toggleMineSortOrder] = useToggle(
 		Object.values(MediaSortOrder),
 	);
-	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.Title);
+	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.ReleaseDate);
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
