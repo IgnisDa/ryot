@@ -574,15 +574,29 @@ impl MediaService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            let id = si.id;
+            let seen_id = si.id;
+            let metadata_id = si.metadata_id;
             if si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
             si.delete(&self.db).await.ok();
-            // FIXME: Delete the `UserToMetadata` entry if this is the only seen item
-            Ok(IdObject { id })
+            let count = Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(metadata_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if count == 0 {
+                UserToMetadata::delete_many()
+                    .filter(user_to_metadata::Column::UserId.eq(user_id))
+                    .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
+                    .exec(&self.db)
+                    .await
+                    .ok();
+            }
+            Ok(IdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }
