@@ -8,6 +8,7 @@ import {
 	Button,
 	Card,
 	Container,
+	FileInput,
 	Flex,
 	PasswordInput,
 	Stack,
@@ -58,7 +59,9 @@ export const ImportSource = (props: {
 				component="form"
 				onSubmit={props.onSubmit}
 			>
-				<Title order={3}>{props.title}</Title>
+				<Title order={3} mb="md">
+					{props.title}
+				</Title>
 				{props.children}
 				<Button
 					variant="light"
@@ -186,13 +189,25 @@ const Page: NextPageWithLayout = () => {
 							>
 								<TextInput
 									label="Instance Url"
-									mt="md"
 									{...mediaTrackerImportForm.getInputProps("apiUrl")}
 								/>
 								<PasswordInput
 									label="API Key"
 									{...mediaTrackerImportForm.getInputProps("apiKey")}
 								/>
+							</ImportSource>
+							<ImportSource
+								onSubmit={mediaTrackerImportForm.onSubmit((values) => {
+									deploymediaTrackerImport.mutate({ input: values });
+								})}
+								title="Goodreads"
+							>
+								<FileInput
+									label="CSV file"
+									accept=".csv"
+									{...mediaTrackerImportForm.getInputProps("apiUrl")}
+								/>
+								<></>
 							</ImportSource>
 						</Stack>
 					</Tabs.Panel>
