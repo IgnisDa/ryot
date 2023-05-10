@@ -174,13 +174,9 @@ impl ImporterService {
         input: DeployMediaTrackerImportInput,
     ) -> Result<String> {
         let mut storage = self.import_media.clone();
-        let job = storage
-            .push(ImportMedia {
-                user_id,
-                input: input.clone(),
-            })
-            .await
-            .unwrap();
+        let mut input = input.clone();
+        input.api_url = input.api_url.trim_end_matches("/").to_owned();
+        let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
         Ok(job.to_string())
     }
 
