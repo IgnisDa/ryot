@@ -46,8 +46,8 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
-    // The rss link
-    rss_url: String,
+    // The ID of the user from which the RSS url will be constructed
+    user_id: i32,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

@@ -28,8 +28,8 @@ All [Goodreads](https://www.goodreads.com) shelves are converted into
 
 ### Steps
 
-- Login to your Goodreads account and click on "My Books" on the topbar.
-- Select "Import and export" under the "Tools" section on the left.
-- Click on the "Export" button and wait for some time.
-- When ready download the CSV export.
-- Upload it to the given input.
+- Login to your Goodreads account and go to your profile.
+- Find your account ID. The link in the browser will be in the format
+  "https://www.goodreads.com/user/show/<user-id>-<username>". You need to get the
+  `user-id`.
+- Enter this number in the input.

@@ -10,6 +10,7 @@ import {
 	Card,
 	Container,
 	Flex,
+	NumberInput,
 	PasswordInput,
 	Stack,
 	Tabs,
@@ -51,7 +52,7 @@ type MediaTrackerImportFormSchema = z.infer<
 >;
 
 const goodreadsImportFormSchema = z.object({
-	rssUrl: z.string().url(),
+	userId: z.number(),
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
@@ -220,9 +221,9 @@ const Page: NextPageWithLayout = () => {
 								})}
 								title="Goodreads"
 							>
-								<TextInput
-									label="RSS Link"
-									{...goodreadsImportForm.getInputProps("rssUrl")}
+								<NumberInput
+									label="User ID"
+									{...goodreadsImportForm.getInputProps("userId")}
 								/>
 								<></>
 							</ImportSource>
