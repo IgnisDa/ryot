@@ -450,7 +450,7 @@ impl MediaService {
             .filter(metadata::Column::Id.is_in(distinct_meta_ids));
         let sort_by = match input.sort.by {
             MediaSortBy::Title => metadata::Column::Title,
-            MediaSortBy::ReleaseDate => metadata::Column::PublishDate,
+            MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
         };
         let sort_order = match input.sort.order {
             MediaSortOrder::Desc => Order::Desc,
