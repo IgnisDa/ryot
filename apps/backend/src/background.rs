@@ -1,7 +1,7 @@
 use apalis::prelude::{Job, JobContext, JobError};
 use serde::{Deserialize, Serialize};
 
-use crate::importer::{DeployMediaTrackerImportInput, ImporterService};
+use crate::importer::{ImportInput, ImporterService};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RefreshMedia {}
@@ -18,7 +18,7 @@ pub async fn refresh_media(information: RefreshMedia, _ctx: JobContext) -> Resul
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImportMedia {
     pub user_id: i32,
-    pub input: DeployMediaTrackerImportInput,
+    pub input: ImportInput,
 }
 
 impl Job for ImportMedia {

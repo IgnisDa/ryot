@@ -1,3 +1,0 @@
-mutation DeployGoodreadsImport($input: DeployGoodreadsImportInput!) {
-  deployGoodreadsImport(input: $input) 
-}

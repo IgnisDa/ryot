@@ -1,0 +1,3 @@
+mutation DeployImport($input: ImportInput!) {
+  deployImport(input: $input) 
+}

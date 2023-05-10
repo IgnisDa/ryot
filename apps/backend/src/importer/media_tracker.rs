@@ -15,9 +15,7 @@ use crate::{
     utils::openlibrary,
 };
 
-use super::{
-    DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
-};
+use super::{ImportFailStep, ImportFailedItem, ImportItem, ImportResult, MediaTrackerImportInput};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -92,7 +90,7 @@ struct ItemDetails {
     user_rating: Option<ItemReview>,
 }
 
-pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
+pub async fn import(input: MediaTrackerImportInput) -> Result<ImportResult> {
     let client: Client = Config::new()
         .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
         .unwrap()
