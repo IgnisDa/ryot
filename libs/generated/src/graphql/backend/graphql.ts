@@ -154,6 +154,7 @@ export type MediaImportReport = {
   id: Scalars['Int'];
   source: MediaImportSource;
   startedOn: Scalars['DateTime'];
+  success?: Maybe<Scalars['Boolean']>;
   userId: Scalars['Int'];
 };
 
