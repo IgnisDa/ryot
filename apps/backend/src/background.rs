@@ -31,6 +31,7 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
         .media_tracker_import(information.user_id, information.input)
         .await
         .unwrap();
-    tracing::info!("Media import successful");
     Ok(())
 }
+
+// TODO: Job that invalidates import jobs that have been running too long
