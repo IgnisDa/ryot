@@ -1,0 +1,18 @@
+query MediaImportReports {
+  mediaImportReports {
+    id
+    source
+    startedOn
+    finishedOn
+    details {
+      import {
+        total
+      }
+      failedItems {
+        lot
+        step
+        identifier
+      }
+    }
+  }
+}
