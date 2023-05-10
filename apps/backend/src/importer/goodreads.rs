@@ -6,6 +6,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
+    config::ImporterConfig,
     graphql::{AUTHOR, PROJECT_NAME},
     importer::{
         media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
@@ -92,7 +93,10 @@ struct ItemDetails {
     user_rating: Option<ItemReview>,
 }
 
-pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
+pub async fn import(
+    input: DeployGoodreadsImportInput,
+    config: &ImporterConfig,
+) -> Result<ImportResult> {
     let content= surf::get("https://www.goodreads.com/review/list_rss/143396636?key=_jDQ1VBqbEt1ZW9url-9ggk350it3MgzVAuhgbnukLeKbdqi&shelf=%23ALL%23").await.unwrap().body_bytes().await.unwrap();
     let feed = parser::parse(&content[..]).unwrap();
     dbg!(&feed);

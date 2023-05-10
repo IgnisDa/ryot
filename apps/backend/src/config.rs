@@ -88,6 +88,19 @@ impl Default for DatabaseConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct ImporterConfig {
+    pub goodreads_rss_url: String,
+}
+
+impl Default for ImporterConfig {
+    fn default() -> Self {
+        Self {
+            goodreads_rss_url: "https://www.goodreads.com/review/list_rss/".to_owned(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct TmdbConfig {
     pub url: String,
     pub access_token: String,
@@ -189,6 +202,8 @@ pub struct AppConfig {
     pub books: BookConfig,
     #[serde(default)]
     pub database: DatabaseConfig,
+    #[serde(default)]
+    pub importer: ImporterConfig,
     #[serde(default)]
     pub movies: MovieConfig,
     #[serde(default)]

@@ -9,6 +9,7 @@ use crate::{
     audio_books::resolver::AudioBooksService,
     background::ImportMedia,
     books::resolver::BooksService,
+    config::ImporterConfig,
     entities::media_import_report,
     media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
@@ -203,7 +204,12 @@ impl ImporterService {
         self.misc_service.media_import_reports(user_id).await
     }
 
-    pub async fn media_tracker_import(&self, user_id: i32, input: DeployImportInput) -> Result<()> {
+    pub async fn media_tracker_import(
+        &self,
+        user_id: i32,
+        input: DeployImportInput,
+        config: &ImporterConfig,
+    ) -> Result<()> {
         let db_import_job = self
             .misc_service
             .start_import_job(user_id, input.source)
@@ -212,7 +218,9 @@ impl ImporterService {
             MediaImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
-            MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
+            MediaImportSource::Goodreads => {
+                goodreads::import(input.goodreads.unwrap(), &config).await?
+            }
         };
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(

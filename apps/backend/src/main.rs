@@ -171,6 +171,7 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.importer_service.clone()))
+                    .layer(ApalisExtension(config.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })

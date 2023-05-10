@@ -1,7 +1,10 @@
 use apalis::prelude::{Job, JobContext, JobError};
 use serde::{Deserialize, Serialize};
 
-use crate::importer::{DeployImportInput, ImporterService};
+use crate::{
+    config::AppConfig,
+    importer::{DeployImportInput, ImporterService},
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RefreshMedia {}
@@ -26,9 +29,10 @@ impl Job for ImportMedia {
 }
 
 pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
+    let config = ctx.data::<AppConfig>().unwrap();
     ctx.data::<ImporterService>()
         .unwrap()
-        .media_tracker_import(information.user_id, information.input)
+        .media_tracker_import(information.user_id, information.input, &config.importer)
         .await
         .unwrap();
     Ok(())
