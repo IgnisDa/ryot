@@ -198,7 +198,11 @@ impl MediaQuery {
             .await
     }
 
-    /// Get all the media items for a specific media type
+    /// Get all the media items related to a user for a specific media type. A media
+    /// is related to a user if:
+    /// - the user has it in their seen history
+    /// - added it to a collection
+    /// - has reviewed it
     async fn media_list(
         &self,
         gql_ctx: &Context<'_>,
