@@ -1,8 +1,8 @@
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, Order,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,14 +10,14 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        creator, genre,
+        collection, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, metadata_to_genre,
+        metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
-            UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
+            MetadataToCollection, Movie, Review, Seen, Show, UserToMetadata, VideoGame,
         },
-        seen, user_to_metadata,
+        review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
@@ -449,6 +449,30 @@ impl MediaService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<MediaSearchResults> {
+        let reviewed_ids: Vec<i32> = Review::find()
+            .select_only()
+            .column(review::Column::MetadataId)
+            .filter(review::Column::UserId.eq(user_id))
+            .into_tuple()
+            .all(&self.db)
+            .await
+            .unwrap();
+        let collection_ids: Vec<i32> = Collection::find()
+            .select_only()
+            .column(collection::Column::Id)
+            .filter(collection::Column::UserId.eq(user_id))
+            .into_tuple()
+            .all(&self.db)
+            .await
+            .unwrap();
+        let meta_ids: Vec<i32> = MetadataToCollection::find()
+            .select_only()
+            .column(metadata_to_collection::Column::MetadataId)
+            .filter(metadata_to_collection::Column::CollectionId.is_in(collection_ids))
+            .into_tuple()
+            .all(&self.db)
+            .await
+            .unwrap();
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -457,7 +481,15 @@ impl MediaService {
         let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
         let condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids));
+            .filter(
+                Condition::any()
+                    // if it is in the user's collection
+                    .add(metadata::Column::Id.is_in(meta_ids))
+                    // if it is in the seen history
+                    .add(metadata::Column::Id.is_in(distinct_meta_ids))
+                    // if it is reviewed by the user
+                    .add(metadata::Column::Id.is_in(reviewed_ids)),
+            );
         let (sort_by, sort_order) = match input.sort {
             None => (metadata::Column::Id, Order::Asc),
             Some(s) => (
