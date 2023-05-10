@@ -168,6 +168,10 @@ impl ImporterService {
         }
     }
 
+    pub async fn deploy_goodreads_import(&self, user_id: i32) -> Result<String> {
+        todo!("Implement import from good read using the CSV export.");
+    }
+
     pub async fn deploy_media_tracker_import(
         &self,
         user_id: i32,

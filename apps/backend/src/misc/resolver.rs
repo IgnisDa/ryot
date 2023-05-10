@@ -325,6 +325,7 @@ impl MiscService {
         let mut model: media_import_report::ActiveModel = job.into();
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
+        model.success = ActiveValue::Set(Some(true));
         let model = model.update(&self.db).await.unwrap();
         Ok(model)
     }

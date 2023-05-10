@@ -1,7 +1,7 @@
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, Order,
     PaginatorTrait, QueryFilter, QueryOrder,
 };
 use serde::{Deserialize, Serialize};
@@ -111,15 +111,47 @@ pub struct DatabaseMediaDetails {
     pub audio_books_specifics: Option<AudioBookSpecifics>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum MediaSortOrder {
+    Desc,
+    #[default]
+    Asc,
+}
+
+impl From<MediaSortOrder> for Order {
+    fn from(value: MediaSortOrder) -> Self {
+        match value {
+            MediaSortOrder::Desc => Self::Desc,
+            MediaSortOrder::Asc => Self::Asc,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum MediaSortBy {
+    Title,
+    #[default]
+    ReleaseDate,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaConsumedInput {
-    pub identifier: String,
-    pub lot: MetadataLot,
+pub struct MediaSortInput {
+    #[graphql(default)]
+    pub order: MediaSortOrder,
+    #[graphql(default)]
+    pub by: MediaSortBy,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct MediaListInput {
     pub page: i32,
+    pub lot: MetadataLot,
+    pub sort: Option<MediaSortInput>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaConsumedInput {
+    pub identifier: String,
     pub lot: MetadataLot,
 }
 
@@ -425,30 +457,31 @@ impl MediaService {
         let condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Id.is_in(distinct_meta_ids));
+        let (sort_by, sort_order) = match input.sort {
+            None => (metadata::Column::Id, Order::Asc),
+            Some(s) => (
+                match s.by {
+                    MediaSortBy::Title => metadata::Column::Title,
+                    MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
+                },
+                Order::from(s.order),
+            ),
+        };
+        let condition = condition.order_by(sort_by, sort_order);
         let counts = condition.clone().count(&self.db).await.unwrap();
         let paginator = condition.paginate(&self.db, LIMIT as u64);
         let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
         let mut items = vec![];
         for m in metas {
-            let mut images = Metadata::find_by_id(m.id)
-                .find_with_related(MetadataImage)
-                .all(&self.db)
-                .await
-                .unwrap();
-            let images = images.remove(0).1;
-            let poster_images = images
-                .iter()
-                .filter(|f| f.lot == MetadataImageLot::Poster)
-                .map(|i| i.url.clone())
-                .collect();
-            let _m = MediaSearchItem {
+            let (poster_images, _) = self.metadata_images(&m).await?;
+            let m_smol = MediaSearchItem {
                 identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
                 poster_images,
                 publish_year: m.publish_year,
             };
-            items.push(_m);
+            items.push(m_smol);
         }
         Ok(MediaSearchResults {
             total: counts as i32,
@@ -541,14 +574,29 @@ impl MediaService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            let id = si.id;
+            let seen_id = si.id;
+            let metadata_id = si.metadata_id;
             if si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
             si.delete(&self.db).await.ok();
-            Ok(IdObject { id })
+            let count = Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(metadata_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if count == 0 {
+                UserToMetadata::delete_many()
+                    .filter(user_to_metadata::Column::UserId.eq(user_id))
+                    .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
+                    .exec(&self.db)
+                    .await
+                    .ok();
+            }
+            Ok(IdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }

@@ -25,6 +25,7 @@ pub enum MediaImportReport {
     FinishedOn,
     Source,
     Details,
+    Success,
 }
 
 impl MigrationName for Migration {
@@ -65,6 +66,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(MediaImportReport::FinishedOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(MediaImportReport::Details).json())
+                    .col(ColumnDef::new(MediaImportReport::Success).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")

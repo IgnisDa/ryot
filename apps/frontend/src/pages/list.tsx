@@ -11,32 +11,47 @@ import {
 	Box,
 	Center,
 	Container,
+	Group,
 	Pagination,
+	Select,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useLocalStorage, useToggle } from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
 	MediaListDocument,
+	MediaSortBy,
+	MediaSortOrder,
 	MetadataLot,
 	MoviesSearchDocument,
 	ShowsSearchDocument,
 	VideoGamesSearchDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconListCheck, IconRefresh, IconSearch } from "@tabler/icons-react";
+import {
+	IconListCheck,
+	IconRefresh,
+	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { lowerCase, startCase } from "lodash";
 import { useRouter } from "next/router";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
+	const [mineSortOrder, toggleMineSortOrder] = useToggle(
+		Object.values(MediaSortOrder),
+	);
+	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.ReleaseDate);
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
@@ -52,11 +67,15 @@ const Page: NextPageWithLayout = () => {
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
 	const listMedia = useQuery({
-		queryKey: ["listMedia", activeMinePage, lot],
+		queryKey: ["listMedia", activeMinePage, lot, mineSortBy, mineSortOrder],
 		queryFn: async () => {
 			invariant(lot, "Lot is not defined");
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
-				input: { lot, page: parseInt(activeMinePage) || 1 },
+				input: {
+					lot,
+					page: parseInt(activeMinePage) || 1,
+					sort: { order: mineSortOrder, by: mineSortBy },
+				},
 			});
 			return mediaList;
 		},
@@ -119,13 +138,13 @@ const Page: NextPageWithLayout = () => {
 
 	return lot ? (
 		<Container>
-			<Tabs variant="outline" defaultValue="search">
+			<Tabs variant="outline" defaultValue="mine">
 				<Tabs.List mb={"xs"}>
-					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
-						<Text size={"lg"}>Search</Text>
-					</Tabs.Tab>
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
 						<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
+					</Tabs.Tab>
+					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
+						<Text size={"lg"}>Search</Text>
 					</Tabs.Tab>
 					<Box style={{ flexGrow: 1 }}>
 						<ActionIcon
@@ -143,6 +162,63 @@ const Page: NextPageWithLayout = () => {
 						</ActionIcon>
 					</Box>
 				</Tabs.List>
+
+				<Tabs.Panel value="mine">
+					<Stack>
+						<Group>
+							<Select
+								size="xs"
+								data={Object.values(MediaSortBy).map((o) => ({
+									value: o.toString(),
+									label: startCase(lowerCase(o)),
+								}))}
+								defaultValue={mineSortBy.toString()}
+								onChange={(v) => {
+									const orderBy = match(v)
+										.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
+										.with("TITLE", () => MediaSortBy.Title)
+										.otherwise(() => MediaSortBy.Title);
+									setMineSortBy(orderBy);
+								}}
+							/>
+							<ActionIcon onClick={() => toggleMineSortOrder()}>
+								{mineSortOrder === MediaSortOrder.Asc ? (
+									<IconSortAscending />
+								) : (
+									<IconSortDescending />
+								)}
+							</ActionIcon>
+						</Group>
+						{listMedia.data && listMedia.data.total > 0 ? (
+							<>
+								<Grid>
+									{listMedia.data.items.map((lm) => (
+										<MediaItemWithoutUpdateModal
+											key={lm.identifier}
+											item={lm}
+											lot={lot}
+											imageOnClick={async () => parseInt(lm.identifier)}
+										/>
+									))}
+								</Grid>
+							</>
+						) : (
+							<Text>You do not have any saved yet</Text>
+						)}
+						{listMedia.data && (
+							<Center>
+								<Pagination
+									size="sm"
+									value={parseInt(activeMinePage)}
+									onChange={(v) => setMinePage(v.toString())}
+									total={Math.ceil(listMedia.data.total / LIMIT)}
+									boundaries={1}
+									siblings={0}
+								/>
+							</Center>
+						)}
+					</Stack>
+				</Tabs.Panel>
 
 				<Tabs.Panel value="search">
 					<Stack>
@@ -178,36 +254,6 @@ const Page: NextPageWithLayout = () => {
 									value={parseInt(activeSearchPage)}
 									onChange={(v) => setSearchPage(v.toString())}
 									total={Math.ceil(searchQuery.data.total / LIMIT)}
-									boundaries={1}
-									siblings={0}
-								/>
-							</Center>
-						)}
-					</Stack>
-				</Tabs.Panel>
-				<Tabs.Panel value="mine">
-					<Stack>
-						{listMedia.data && listMedia.data.total > 0 ? (
-							<Grid>
-								{listMedia.data.items.map((lm) => (
-									<MediaItemWithoutUpdateModal
-										key={lm.identifier}
-										item={lm}
-										lot={lot}
-										imageOnClick={async () => parseInt(lm.identifier)}
-									/>
-								))}
-							</Grid>
-						) : (
-							<Text>You do not have any saved yet</Text>
-						)}
-						{listMedia.data && (
-							<Center>
-								<Pagination
-									size="sm"
-									value={parseInt(activeMinePage)}
-									onChange={(v) => setMinePage(v.toString())}
-									total={Math.ceil(listMedia.data.total / LIMIT)}
 									boundaries={1}
 									siblings={0}
 								/>

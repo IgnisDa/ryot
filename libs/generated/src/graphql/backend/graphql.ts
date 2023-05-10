@@ -154,6 +154,7 @@ export type MediaImportReport = {
   id: Scalars['Int'];
   source: MediaImportSource;
   startedOn: Scalars['DateTime'];
+  success?: Maybe<Scalars['Boolean']>;
   userId: Scalars['Int'];
 };
 
@@ -164,6 +165,7 @@ export enum MediaImportSource {
 export type MediaListInput = {
   lot: MetadataLot;
   page: Scalars['Int'];
+  sort?: InputMaybe<MediaSortInput>;
 };
 
 export type MediaSearchItem = {
@@ -178,6 +180,21 @@ export type MediaSearchResults = {
   items: Array<MediaSearchItem>;
   total: Scalars['Int'];
 };
+
+export enum MediaSortBy {
+  ReleaseDate = 'RELEASE_DATE',
+  Title = 'TITLE'
+}
+
+export type MediaSortInput = {
+  by?: MediaSortBy;
+  order?: MediaSortOrder;
+};
+
+export enum MediaSortOrder {
+  Asc = 'ASC',
+  Desc = 'DESC'
+}
 
 export enum MetadataLot {
   AudioBook = 'AUDIO_BOOK',
