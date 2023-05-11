@@ -6,7 +6,10 @@ use surf::Client;
 
 use crate::{
     config::TmdbConfig,
-    media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+    media::{
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        MediaSpecifics,
+    },
     migrator::{MetadataLot, MovieSource},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
@@ -28,8 +31,8 @@ impl TmdbService {
 }
 
 #[async_trait]
-impl MediaProvider<MovieSpecifics> for TmdbService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails<MovieSpecifics>> {
+impl MediaProvider for TmdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
             id: i32,
@@ -71,10 +74,10 @@ impl MediaProvider<MovieSpecifics> for TmdbService {
             publish_year: convert_date_to_year(&data.release_date),
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
-            specifics: MovieSpecifics {
+            specifics: MediaSpecifics::Movie(MovieSpecifics {
                 source: MovieSource::Tmdb,
                 runtime: Some(data.runtime),
-            },
+            }),
         })
     }
 

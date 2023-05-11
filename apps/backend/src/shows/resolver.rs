@@ -8,7 +8,10 @@ use sea_orm::{
 use crate::{
     entities::{prelude::Show, show},
     graphql::IdObject,
-    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
     migrator::{MetadataLot, ShowSource},
     traits::MediaProvider,
 };
@@ -89,7 +92,7 @@ impl ShowsService {
         }
     }
 
-    pub async fn save_to_db(&self, details: MediaDetails<ShowSpecifics>) -> Result<IdObject> {
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
         let show_metadata_id = self
             .media_service
             .commit_media(
@@ -104,18 +107,23 @@ impl ShowsService {
                 details.genres,
             )
             .await?;
-        let show = show::ActiveModel {
-            metadata_id: ActiveValue::Set(show_metadata_id),
-            identifier: ActiveValue::Set(details.identifier),
-            details: ActiveValue::Set(ShowSpecifics {
-                seasons: details.specifics.seasons,
-                source: details.specifics.source,
-            }),
-            source: ActiveValue::Set(ShowSource::Tmdb),
-        };
-        let show = show.insert(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: show.metadata_id,
-        })
+        match details.specifics {
+            MediaSpecifics::Show(s) => {
+                let show = show::ActiveModel {
+                    metadata_id: ActiveValue::Set(show_metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    details: ActiveValue::Set(ShowSpecifics {
+                        seasons: s.seasons,
+                        source: s.source,
+                    }),
+                    source: ActiveValue::Set(ShowSource::Tmdb),
+                };
+                let show = show.insert(&self.db).await.unwrap();
+                Ok(IdObject {
+                    id: show.metadata_id,
+                })
+            }
+            _ => unreachable!(),
+        }
     }
 }

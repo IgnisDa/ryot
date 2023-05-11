@@ -1,7 +1,7 @@
 use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
 
-use crate::{migrator::MovieSource, traits::MediaSpecifics};
+use crate::migrator::MovieSource;
 
 pub mod resolver;
 pub mod tmdb;
@@ -11,5 +11,3 @@ pub struct MovieSpecifics {
     pub runtime: Option<i32>,
     pub source: MovieSource,
 }
-
-impl MediaSpecifics for MovieSpecifics {}

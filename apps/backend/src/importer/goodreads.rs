@@ -1,7 +1,7 @@
 use async_graphql::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{config::ImporterConfig, traits::MediaSpecifics};
+use crate::config::ImporterConfig;
 
 use super::{DeployGoodreadsImportInput, ImportResult};
 
@@ -37,13 +37,10 @@ struct RssDetail {
     channel: RssChannel,
 }
 
-pub async fn import<T>(
+pub async fn import(
     input: DeployGoodreadsImportInput,
     config: &ImporterConfig,
-) -> Result<ImportResult<T>>
-where
-    T: MediaSpecifics,
-{
+) -> Result<ImportResult> {
     let content = surf::get(format!("{}/{}", config.goodreads_rss_url, input.user_id))
         .await
         .unwrap()

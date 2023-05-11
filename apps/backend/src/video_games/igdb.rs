@@ -7,6 +7,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::Client;
 
 use crate::media::resolver::MediaDetails;
+use crate::media::MediaSpecifics;
 use crate::migrator::{MetadataLot, VideoGameSource};
 use crate::traits::MediaProvider;
 use crate::{
@@ -83,8 +84,8 @@ impl IgdbService {
 }
 
 #[async_trait]
-impl MediaProvider<VideoGameSpecifics> for IgdbService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails<VideoGameSpecifics>> {
+impl MediaProvider for IgdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let req_body = format!(
             r#"
 {field}
@@ -147,10 +148,7 @@ offset: {offset};
 }
 
 impl IgdbService {
-    fn igdb_response_to_search_response(
-        &self,
-        item: IgdbSearchResponse,
-    ) -> MediaDetails<VideoGameSpecifics> {
+    fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
         let mut poster_images =
             Vec::from_iter(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
         let additional_images = item
@@ -175,9 +173,9 @@ impl IgdbService {
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            specifics: VideoGameSpecifics {
+            specifics: MediaSpecifics::VideoGame(VideoGameSpecifics {
                 source: VideoGameSource::Igdb,
-            },
+            }),
         }
     }
 

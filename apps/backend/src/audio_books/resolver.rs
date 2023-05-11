@@ -8,12 +8,15 @@ use sea_orm::{
 use crate::{
     entities::{audio_book, prelude::AudioBook},
     graphql::IdObject,
-    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
     migrator::{AudioBookSource, MetadataLot},
     traits::MediaProvider,
 };
 
-use super::{audible::AudibleService, AudioBookSpecifics};
+use super::audible::AudibleService;
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -97,7 +100,7 @@ impl AudioBooksService {
         }
     }
 
-    pub async fn save_to_db(&self, details: MediaDetails<AudioBookSpecifics>) -> Result<IdObject> {
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata_id = self
             .media_service
             .commit_media(
@@ -112,13 +115,18 @@ impl AudioBooksService {
                 details.genres,
             )
             .await?;
-        let audio_book = audio_book::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            identifier: ActiveValue::Set(details.identifier),
-            runtime: ActiveValue::Set(details.specifics.runtime),
-            source: ActiveValue::Set(AudioBookSource::Audible),
-        };
-        audio_book.insert(&self.db).await.unwrap();
-        Ok(IdObject { id: metadata_id })
+        match details.specifics {
+            MediaSpecifics::AudioBook(s) => {
+                let audio_book = audio_book::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    runtime: ActiveValue::Set(s.runtime),
+                    source: ActiveValue::Set(AudioBookSource::Audible),
+                };
+                audio_book.insert(&self.db).await.unwrap();
+                Ok(IdObject { id: metadata_id })
+            }
+            _ => unreachable!(),
+        }
     }
 }

@@ -8,12 +8,15 @@ use sea_orm::{
 use crate::{
     entities::{book, prelude::Book},
     graphql::IdObject,
-    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
     migrator::MetadataLot,
     traits::MediaProvider,
 };
 
-use super::{openlibrary::OpenlibraryService, BookSpecifics};
+use super::openlibrary::OpenlibraryService;
 
 #[derive(Default)]
 pub struct BooksQuery;
@@ -89,7 +92,7 @@ impl BooksService {
         }
     }
 
-    pub async fn save_to_db(&self, details: MediaDetails<BookSpecifics>) -> Result<IdObject> {
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata_id = self
             .media_service
             .commit_media(
@@ -104,13 +107,18 @@ impl BooksService {
                 details.genres,
             )
             .await?;
-        let book = book::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            identifier: ActiveValue::Set(details.identifier),
-            num_pages: ActiveValue::Set(details.specifics.pages),
-            source: ActiveValue::Set(details.specifics.source),
-        };
-        book.insert(&self.db).await.unwrap();
-        Ok(IdObject { id: metadata_id })
+        match details.specifics {
+            MediaSpecifics::Book(s) => {
+                let book = book::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    num_pages: ActiveValue::Set(s.pages),
+                    source: ActiveValue::Set(s.source),
+                };
+                book.insert(&self.db).await.unwrap();
+                Ok(IdObject { id: metadata_id })
+            }
+            _ => unreachable!(),
+        }
     }
 }

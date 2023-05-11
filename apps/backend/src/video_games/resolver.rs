@@ -8,12 +8,15 @@ use sea_orm::{
 use crate::{
     entities::{prelude::VideoGame, video_game},
     graphql::IdObject,
-    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-    migrator::{MetadataLot, VideoGameSource},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
+    migrator::MetadataLot,
     traits::MediaProvider,
 };
 
-use super::{igdb::IgdbService, VideoGameSpecifics};
+use super::igdb::IgdbService;
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -97,7 +100,7 @@ impl VideoGamesService {
         }
     }
 
-    pub async fn save_to_db(&self, details: MediaDetails<VideoGameSpecifics>) -> Result<IdObject> {
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata_id = self
             .media_service
             .commit_media(
@@ -112,12 +115,17 @@ impl VideoGamesService {
                 details.genres,
             )
             .await?;
-        let game = video_game::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            identifier: ActiveValue::Set(details.identifier),
-            source: ActiveValue::Set(VideoGameSource::Igdb),
-        };
-        game.insert(&self.db).await.unwrap();
-        Ok(IdObject { id: metadata_id })
+        match details.specifics {
+            MediaSpecifics::VideoGame(s) => {
+                let game = video_game::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    source: ActiveValue::Set(s.source),
+                };
+                game.insert(&self.db).await.unwrap();
+                Ok(IdObject { id: metadata_id })
+            }
+            _ => unreachable!(),
+        }
     }
 }

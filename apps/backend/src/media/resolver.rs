@@ -24,15 +24,14 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     shows::ShowSpecifics,
-    traits::MediaSpecifics,
     utils::user_id_from_ctx,
     video_games::VideoGameSpecifics,
 };
 
-use super::LIMIT;
+use super::{MediaSpecifics, LIMIT};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaGenericData {
+pub struct MediaBaseData {
     pub model: MetadataModel,
     pub creators: Vec<String>,
     pub poster_images: Vec<String>,
@@ -76,10 +75,7 @@ pub struct ProgressUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaDetails<T>
-where
-    T: MediaSpecifics,
-{
+pub struct MediaDetails {
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
@@ -90,7 +86,7 @@ where
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
-    pub specifics: T,
+    pub specifics: MediaSpecifics,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -277,7 +273,7 @@ impl MediaService {
         Ok((poster_images, backdrop_images))
     }
 
-    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaGenericData> {
+    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -303,7 +299,7 @@ impl MediaService {
             .map(|c| c.name)
             .collect();
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
-        Ok(MediaGenericData {
+        Ok(MediaBaseData {
             model: meta,
             creators,
             poster_images,
@@ -313,7 +309,7 @@ impl MediaService {
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
-        let MediaGenericData {
+        let MediaBaseData {
             model,
             creators,
             poster_images,

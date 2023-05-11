@@ -8,12 +8,15 @@ use sea_orm::{
 use crate::{
     entities::{movie, prelude::Movie},
     graphql::IdObject,
-    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
     migrator::{MetadataLot, MovieSource},
     traits::MediaProvider,
 };
 
-use super::{tmdb::TmdbService, MovieSpecifics};
+use super::tmdb::TmdbService;
 
 #[derive(Default)]
 pub struct MoviesQuery;
@@ -90,7 +93,7 @@ impl MoviesService {
         }
     }
 
-    pub async fn save_to_db(&self, details: MediaDetails<MovieSpecifics>) -> Result<IdObject> {
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata_id = self
             .media_service
             .commit_media(
@@ -105,13 +108,18 @@ impl MoviesService {
                 details.genres,
             )
             .await?;
-        let movie = movie::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            identifier: ActiveValue::Set(details.identifier),
-            runtime: ActiveValue::Set(details.specifics.runtime),
-            source: ActiveValue::Set(MovieSource::Tmdb),
-        };
-        movie.insert(&self.db).await.unwrap();
-        Ok(IdObject { id: metadata_id })
+        match details.specifics {
+            MediaSpecifics::Movie(s) => {
+                let movie = movie::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    runtime: ActiveValue::Set(s.runtime),
+                    source: ActiveValue::Set(MovieSource::Tmdb),
+                };
+                movie.insert(&self.db).await.unwrap();
+                Ok(IdObject { id: metadata_id })
+            }
+            _ => unreachable!(),
+        }
     }
 }

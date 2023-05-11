@@ -16,7 +16,6 @@ use crate::{
     misc::resolver::{MiscService, PostReviewInput},
     movies::resolver::MoviesService,
     shows::resolver::ShowsService,
-    traits::MediaSpecifics,
     utils::user_id_from_ctx,
     video_games::resolver::VideoGamesService,
 };
@@ -68,24 +67,18 @@ pub struct ImportItemSeen {
 }
 
 #[derive(Debug)]
-pub enum ImportItemIdentifier<T>
-where
-    T: MediaSpecifics,
-{
+pub enum ImportItemIdentifier {
     // the identifier in case we need to fetch details
     NeedsDetails(String),
     // details are already filled and just need to be comitted to database
-    AlreadyFilled(MediaDetails<T>),
+    AlreadyFilled(MediaDetails),
 }
 
 #[derive(Debug)]
-pub struct ImportItem<T>
-where
-    T: MediaSpecifics,
-{
+pub struct ImportItem {
     source_id: String,
     lot: MetadataLot,
-    identifier: ImportItemIdentifier<T>,
+    identifier: ImportItemIdentifier,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
 }
@@ -112,11 +105,8 @@ pub struct ImportDetails {
 }
 
 #[derive(Debug)]
-pub struct ImportResult<T>
-where
-    T: MediaSpecifics,
-{
-    media: Vec<ImportItem<T>>,
+pub struct ImportResult {
+    media: Vec<ImportItem>,
     failed_items: Vec<ImportFailedItem>,
 }
 
@@ -258,25 +248,33 @@ impl ImporterService {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.books_service.commit_book(i).await
                     }
-                    _ => todo!(),
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.books_service.save_to_db(a.clone()).await
+                    }
                 },
                 MetadataLot::Movie => match &item.identifier {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.movies_service.commit_movie(i).await
                     }
-                    _ => todo!(),
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.movies_service.save_to_db(a.clone()).await
+                    }
                 },
                 MetadataLot::Show => match &item.identifier {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.shows_service.commit_show(i).await
                     }
-                    _ => todo!(),
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.shows_service.save_to_db(a.clone()).await
+                    }
                 },
                 MetadataLot::VideoGame => match &item.identifier {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.video_games_service.commit_video_game(i).await
                     }
-                    _ => todo!(),
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.video_games_service.save_to_db(a.clone()).await
+                    }
                 },
             };
             let metadata = match data {

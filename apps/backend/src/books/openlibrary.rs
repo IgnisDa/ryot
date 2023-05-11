@@ -10,7 +10,7 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        LIMIT,
+        MediaSpecifics, LIMIT,
     },
     migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
@@ -63,8 +63,8 @@ impl OpenlibraryService {
 }
 
 #[async_trait]
-impl MediaProvider<BookSpecifics> for OpenlibraryService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails<BookSpecifics>> {
+impl MediaProvider for OpenlibraryService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryKey {
             key: String,
@@ -174,10 +174,10 @@ impl MediaProvider<BookSpecifics> for OpenlibraryService {
             backdrop_images: vec![],
             publish_year: first_release_date.map(|d| d.year()),
             publish_date: None,
-            specifics: BookSpecifics {
+            specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
                 source: BookSource::OpenLibrary,
-            },
+            }),
         })
     }
 

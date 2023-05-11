@@ -13,7 +13,6 @@ use crate::{
         ImportItemSeen,
     },
     migrator::MetadataLot,
-    traits::MediaSpecifics,
     utils::openlibrary,
 };
 
@@ -94,10 +93,7 @@ struct ItemDetails {
     user_rating: Option<ItemReview>,
 }
 
-pub async fn import<T>(input: DeployMediaTrackerImportInput) -> Result<ImportResult<T>>
-where
-    T: MediaSpecifics,
-{
+pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
     let client: Client = Config::new()
         .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
         .unwrap()
