@@ -24,6 +24,7 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     shows::ShowSpecifics,
+    traits::MediaSpecifics,
     utils::user_id_from_ctx,
     video_games::VideoGameSpecifics,
 };
@@ -75,7 +76,10 @@ pub struct ProgressUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaDetails<T> {
+pub struct MediaDetails<T>
+where
+    T: MediaSpecifics,
+{
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,

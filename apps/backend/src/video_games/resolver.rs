@@ -8,12 +8,12 @@ use sea_orm::{
 use crate::{
     entities::{prelude::VideoGame, video_game},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService, SearchInput},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, VideoGameSource},
     traits::MediaProvider,
 };
 
-use super::igdb::IgdbService;
+use super::{igdb::IgdbService, VideoGameSpecifics};
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -92,28 +92,32 @@ impl VideoGamesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let game_details = self.igdb_service.details(identifier).await?;
-            let metadata_id = self
-                .media_service
-                .commit_media(
-                    MetadataLot::VideoGame,
-                    game_details.title,
-                    game_details.description,
-                    game_details.publish_year,
-                    game_details.publish_date,
-                    game_details.poster_images,
-                    game_details.backdrop_images,
-                    game_details.creators,
-                    game_details.genres,
-                )
-                .await?;
-            let game = video_game::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
-                identifier: ActiveValue::Set(game_details.identifier),
-                source: ActiveValue::Set(VideoGameSource::Igdb),
-            };
-            game.insert(&self.db).await.unwrap();
-            Ok(IdObject { id: metadata_id })
+            let details = self.igdb_service.details(identifier).await?;
+            self.save_to_db(details).await
         }
+    }
+
+    pub async fn save_to_db(&self, details: MediaDetails<VideoGameSpecifics>) -> Result<IdObject> {
+        let metadata_id = self
+            .media_service
+            .commit_media(
+                MetadataLot::VideoGame,
+                details.title,
+                details.description,
+                details.publish_year,
+                details.publish_date,
+                details.poster_images,
+                details.backdrop_images,
+                details.creators,
+                details.genres,
+            )
+            .await?;
+        let game = video_game::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            identifier: ActiveValue::Set(details.identifier),
+            source: ActiveValue::Set(VideoGameSource::Igdb),
+        };
+        game.insert(&self.db).await.unwrap();
+        Ok(IdObject { id: metadata_id })
     }
 }

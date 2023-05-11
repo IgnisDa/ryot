@@ -8,12 +8,12 @@ use sea_orm::{
 use crate::{
     entities::{audio_book, prelude::AudioBook},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService, SearchInput},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
     migrator::{AudioBookSource, MetadataLot},
     traits::MediaProvider,
 };
 
-use super::audible::AudibleService;
+use super::{audible::AudibleService, AudioBookSpecifics};
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -92,29 +92,33 @@ impl AudioBooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let audio_books_details = self.audible_service.details(identifier).await?;
-            let metadata_id = self
-                .media_service
-                .commit_media(
-                    MetadataLot::AudioBook,
-                    audio_books_details.title,
-                    audio_books_details.description,
-                    audio_books_details.publish_year,
-                    audio_books_details.publish_date,
-                    audio_books_details.poster_images,
-                    audio_books_details.backdrop_images,
-                    audio_books_details.creators,
-                    audio_books_details.genres,
-                )
-                .await?;
-            let movie = audio_book::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
-                identifier: ActiveValue::Set(audio_books_details.identifier),
-                runtime: ActiveValue::Set(audio_books_details.specifics.runtime),
-                source: ActiveValue::Set(AudioBookSource::Audible),
-            };
-            movie.insert(&self.db).await.unwrap();
-            Ok(IdObject { id: metadata_id })
+            let details = self.audible_service.details(identifier).await?;
+            self.save_to_db(details).await
         }
+    }
+
+    pub async fn save_to_db(&self, details: MediaDetails<AudioBookSpecifics>) -> Result<IdObject> {
+        let metadata_id = self
+            .media_service
+            .commit_media(
+                MetadataLot::AudioBook,
+                details.title,
+                details.description,
+                details.publish_year,
+                details.publish_date,
+                details.poster_images,
+                details.backdrop_images,
+                details.creators,
+                details.genres,
+            )
+            .await?;
+        let audio_book = audio_book::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            identifier: ActiveValue::Set(details.identifier),
+            runtime: ActiveValue::Set(details.specifics.runtime),
+            source: ActiveValue::Set(AudioBookSource::Audible),
+        };
+        audio_book.insert(&self.db).await.unwrap();
+        Ok(IdObject { id: metadata_id })
     }
 }

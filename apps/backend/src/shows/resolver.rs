@@ -8,7 +8,7 @@ use sea_orm::{
 use crate::{
     entities::{prelude::Show, show},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService, SearchInput},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
     migrator::{MetadataLot, ShowSource},
     traits::MediaProvider,
 };
@@ -84,34 +84,38 @@ impl ShowsService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let show_details = self.tmdb_service.details(identifier).await?;
-            let show_metadata_id = self
-                .media_service
-                .commit_media(
-                    MetadataLot::Show,
-                    show_details.title,
-                    show_details.description,
-                    show_details.publish_year,
-                    show_details.publish_date,
-                    show_details.poster_images,
-                    show_details.backdrop_images,
-                    show_details.creators,
-                    show_details.genres,
-                )
-                .await?;
-            let show = show::ActiveModel {
-                metadata_id: ActiveValue::Set(show_metadata_id),
-                identifier: ActiveValue::Set(show_details.identifier),
-                details: ActiveValue::Set(ShowSpecifics {
-                    seasons: show_details.specifics.seasons,
-                    source: show_details.specifics.source,
-                }),
-                source: ActiveValue::Set(ShowSource::Tmdb),
-            };
-            let show = show.insert(&self.db).await.unwrap();
-            Ok(IdObject {
-                id: show.metadata_id,
-            })
+            let details = self.tmdb_service.details(identifier).await?;
+            self.save_to_db(details).await
         }
+    }
+
+    pub async fn save_to_db(&self, details: MediaDetails<ShowSpecifics>) -> Result<IdObject> {
+        let show_metadata_id = self
+            .media_service
+            .commit_media(
+                MetadataLot::Show,
+                details.title,
+                details.description,
+                details.publish_year,
+                details.publish_date,
+                details.poster_images,
+                details.backdrop_images,
+                details.creators,
+                details.genres,
+            )
+            .await?;
+        let show = show::ActiveModel {
+            metadata_id: ActiveValue::Set(show_metadata_id),
+            identifier: ActiveValue::Set(details.identifier),
+            details: ActiveValue::Set(ShowSpecifics {
+                seasons: details.specifics.seasons,
+                source: details.specifics.source,
+            }),
+            source: ActiveValue::Set(ShowSource::Tmdb),
+        };
+        let show = show.insert(&self.db).await.unwrap();
+        Ok(IdObject {
+            id: show.metadata_id,
+        })
     }
 }
