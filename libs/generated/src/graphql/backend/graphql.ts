@@ -57,6 +57,7 @@ export type AudioBooksSummary = {
 };
 
 export enum BookSource {
+  Goodreads = 'GOODREADS',
   OpenLibrary = 'OPEN_LIBRARY'
 }
 
@@ -402,13 +403,7 @@ export type QueryRoot = {
   mediaInProgress: Array<MediaSearchItem>;
   /** Get all the public reviews for a media item. */
   mediaItemReviews: Array<ReviewItem>;
-  /**
-   * Get all the media items related to a user for a specific media type. A media
-   * is related to a user if:
-   * - the user has it in their seen history
-   * - added it to a collection
-   * - has reviewed it
-   */
+  /** Get all the media items related to a user for a specific media type. */
   mediaList: MediaSearchResults;
   /** Search for a list of movies by a particular search query and a given page. */
   moviesSearch: MediaSearchResults;

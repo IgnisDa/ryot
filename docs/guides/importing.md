@@ -23,8 +23,7 @@ primitive and as a result the following things can not be imported.
 
 ## Goodreads
 
-All [Goodreads](https://www.goodreads.com) shelves are converted into
-"Collections" in Ryot.
+Shelves are not supported at the time of writing this.
 
 ### Steps
 

@@ -14,6 +14,8 @@ pub struct Migration;
 pub enum BookSource {
     #[sea_orm(string_value = "O")]
     OpenLibrary,
+    #[sea_orm(string_value = "G")]
+    Goodreads,
 }
 
 #[derive(Iden)]

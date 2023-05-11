@@ -155,7 +155,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     None
                 };
                 ImportItemRating {
-                    id: r.id.to_string(),
+                    id: Some(r.id.to_string()),
                     review,
                     rating: r.rating,
                 }
@@ -216,7 +216,7 @@ pub mod utils {
                 .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
             let text = captures.name("text").unwrap().as_str().to_owned();
             Some(ImportItemReview {
-                date,
+                date: Some(date),
                 spoiler,
                 text,
             })
@@ -279,7 +279,7 @@ pub mod utils {
             assert!(info.is_some());
 
             let info = info.unwrap();
-            assert_eq!(info.date, expected_date);
+            assert_eq!(info.date.unwrap(), expected_date);
             assert_eq!(info.spoiler, expected_is_spoiler);
             assert_eq!(info.text, expected_text);
         }

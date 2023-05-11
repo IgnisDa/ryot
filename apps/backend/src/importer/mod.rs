@@ -25,14 +25,14 @@ mod media_tracker;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemReview {
-    date: DateTimeUtc,
+    date: Option<DateTimeUtc>,
     spoiler: bool,
     text: String,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemRating {
-    id: String,
+    id: Option<String>,
     review: Option<ImportItemReview>,
     rating: Option<i32>,
 }
@@ -313,11 +313,11 @@ impl ImporterService {
                     .post_review(
                         &user_id,
                         PostReviewInput {
-                            identifier: Some(review.id.clone()),
+                            identifier: review.id.clone(),
                             rating: review.rating.map(Into::into),
                             text,
                             spoiler,
-                            date,
+                            date: date.flatten(),
                             visibility: None,
                             metadata_id: metadata.id,
                             review_id: None,
