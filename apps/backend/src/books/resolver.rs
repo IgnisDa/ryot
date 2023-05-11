@@ -8,8 +8,11 @@ use sea_orm::{
 use crate::{
     entities::{book, prelude::Book},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService, SearchInput},
-    migrator::{BookSource, MetadataLot},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
+    migrator::MetadataLot,
     traits::MediaProvider,
 };
 
@@ -84,29 +87,38 @@ impl BooksService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let book_details = self.openlibrary_service.details(identifier).await?;
-            let metadata_id = self
-                .media_service
-                .commit_media(
-                    MetadataLot::Book,
-                    book_details.title,
-                    book_details.description,
-                    book_details.publish_year,
-                    None,
-                    book_details.poster_images,
-                    book_details.backdrop_images,
-                    book_details.creators,
-                    book_details.genres,
-                )
-                .await?;
-            let book = book::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
-                identifier: ActiveValue::Set(book_details.identifier),
-                num_pages: ActiveValue::Set(book_details.specifics.pages),
-                source: ActiveValue::Set(BookSource::OpenLibrary),
-            };
-            book.insert(&self.db).await.unwrap();
-            Ok(IdObject { id: metadata_id })
+            let details = self.openlibrary_service.details(identifier).await?;
+            self.save_to_db(details).await
+        }
+    }
+
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
+        let metadata_id = self
+            .media_service
+            .commit_media(
+                MetadataLot::Book,
+                details.title,
+                details.description,
+                details.publish_year,
+                None,
+                details.poster_images,
+                details.backdrop_images,
+                details.creators,
+                details.genres,
+            )
+            .await?;
+        match details.specifics {
+            MediaSpecifics::Book(s) => {
+                let book = book::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    num_pages: ActiveValue::Set(s.pages),
+                    source: ActiveValue::Set(s.source),
+                };
+                book.insert(&self.db).await.unwrap();
+                Ok(IdObject { id: metadata_id })
+            }
+            _ => unreachable!(),
         }
     }
 }

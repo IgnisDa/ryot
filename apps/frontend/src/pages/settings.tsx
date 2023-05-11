@@ -2,13 +2,15 @@ import type { NextPageWithLayout } from "./_app";
 import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+
 import {
 	Anchor,
 	Box,
 	Button,
 	Card,
 	Container,
-	Group,
+	Flex,
+	NumberInput,
 	PasswordInput,
 	Stack,
 	Tabs,
@@ -18,20 +20,22 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
-	DeployMediaTrackerImportDocument,
-	type DeployMediaTrackerImportMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
+	DeployImportDocument,
+	type DeployImportMutationVariables,
+	MediaImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	IconDatabaseImport,
-	IconExternalLink,
-	IconUser,
-} from "@tabler/icons-react";
+import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { z } from "zod";
 
+const message = {
+	title: "Success",
+	message: "Your import has started. Check back later.",
+	color: "green",
+};
 const updateProfileFormSchema = z.object({
 	username: z.string().optional(),
 	password: z.string().optional(),
@@ -47,12 +51,54 @@ type MediaTrackerImportFormSchema = z.infer<
 	typeof mediaTrackerImportFormSchema
 >;
 
+const goodreadsImportFormSchema = z.object({
+	userId: z.number(),
+});
+type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
+
+export const ImportSource = (props: {
+	onSubmit: () => void;
+	title: string;
+	children: JSX.Element[];
+}) => {
+	return (
+		<Box>
+			<Card
+				shadow="sm"
+				radius="md"
+				withBorder
+				padding={"sm"}
+				component="form"
+				onSubmit={props.onSubmit}
+			>
+				<Title order={3} mb="md">
+					{props.title}
+				</Title>
+				{props.children}
+				<Button
+					variant="light"
+					color="blue"
+					fullWidth
+					mt="md"
+					type="submit"
+					radius="md"
+				>
+					Import
+				</Button>
+			</Card>
+		</Box>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
 	});
 	const mediaTrackerImportForm = useForm<MediaTrackerImportFormSchema>({
 		validate: zodResolver(mediaTrackerImportFormSchema),
+	});
+	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
+		validate: zodResolver(goodreadsImportFormSchema),
 	});
 
 	useUser((data) => {
@@ -80,22 +126,16 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const deploymediaTrackerImport = useMutation({
-		mutationFn: async (
-			variables: DeployMediaTrackerImportMutationVariables,
-		) => {
-			const { deployMediaTrackerImport } = await gqlClient.request(
-				DeployMediaTrackerImportDocument,
+	const deployImport = useMutation({
+		mutationFn: async (variables: DeployImportMutationVariables) => {
+			const { deployImport } = await gqlClient.request(
+				DeployImportDocument,
 				variables,
 			);
-			return deployMediaTrackerImport;
+			return deployImport;
 		},
 		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "Your import has started. Check back later.",
-				color: "green",
-			});
+			notifications.show(message);
 		},
 	});
 
@@ -108,7 +148,7 @@ const Page: NextPageWithLayout = () => {
 							Profile
 						</Tabs.Tab>
 						<Tabs.Tab value="import" icon={<IconDatabaseImport size="1rem" />}>
-							Import
+							Imports
 						</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="profile">
@@ -141,48 +181,52 @@ const Page: NextPageWithLayout = () => {
 					</Tabs.Panel>
 					<Tabs.Panel value="import">
 						<Stack>
-							<Box>
-								<Card
-									shadow="sm"
-									radius="md"
-									withBorder
-									padding={"sm"}
-									component="form"
-									onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-										deploymediaTrackerImport.mutate({ input: values });
-									})}
+							<Flex justify={"end"}>
+								<Anchor
+									size="xs"
+									href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
+									target="_blank"
 								>
-									<Group align="center">
-										<Title order={3}>Media Tracker</Title>
-										<Anchor
-											href="https://github.com/bonukai/MediaTracker"
-											target="_blank"
-										>
-											<IconExternalLink size="1rem" />
-										</Anchor>
-									</Group>
-
-									<TextInput
-										label="Instance Url"
-										{...mediaTrackerImportForm.getInputProps("apiUrl")}
-									/>
-									<PasswordInput
-										label="API Key"
-										{...mediaTrackerImportForm.getInputProps("apiKey")}
-									/>
-
-									<Button
-										variant="light"
-										color="blue"
-										fullWidth
-										mt="md"
-										type="submit"
-										radius="md"
-									>
-										Import
-									</Button>
-								</Card>
-							</Box>
+									Docs
+								</Anchor>
+							</Flex>
+							<ImportSource
+								onSubmit={mediaTrackerImportForm.onSubmit((values) => {
+									deployImport.mutate({
+										input: {
+											mediaTracker: values,
+											source: MediaImportSource.MediaTracker,
+										},
+									});
+								})}
+								title="Media Tracker"
+							>
+								<TextInput
+									label="Instance Url"
+									{...mediaTrackerImportForm.getInputProps("apiUrl")}
+								/>
+								<PasswordInput
+									label="API Key"
+									{...mediaTrackerImportForm.getInputProps("apiKey")}
+								/>
+							</ImportSource>
+							<ImportSource
+								onSubmit={goodreadsImportForm.onSubmit(async (values) => {
+									deployImport.mutate({
+										input: {
+											source: MediaImportSource.Goodreads,
+											goodreads: values,
+										},
+									});
+								})}
+								title="Goodreads"
+							>
+								<NumberInput
+									label="User ID"
+									{...goodreadsImportForm.getInputProps("userId")}
+								/>
+								<></>
+							</ImportSource>
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>

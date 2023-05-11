@@ -8,7 +8,10 @@ use sea_orm::{
 use crate::{
     entities::{movie, prelude::Movie},
     graphql::IdObject,
-    media::resolver::{MediaSearchResults, MediaService, SearchInput},
+    media::{
+        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+        MediaSpecifics,
+    },
     migrator::{MetadataLot, MovieSource},
     traits::MediaProvider,
 };
@@ -85,29 +88,38 @@ impl MoviesService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let movie_details = self.tmdb_service.details(identifier).await?;
-            let metadata_id = self
-                .media_service
-                .commit_media(
-                    MetadataLot::Movie,
-                    movie_details.title,
-                    movie_details.description,
-                    movie_details.publish_year,
-                    movie_details.publish_date,
-                    movie_details.poster_images,
-                    movie_details.backdrop_images,
-                    movie_details.creators,
-                    movie_details.genres,
-                )
-                .await?;
-            let movie = movie::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
-                identifier: ActiveValue::Set(movie_details.identifier),
-                runtime: ActiveValue::Set(movie_details.specifics.runtime),
-                source: ActiveValue::Set(MovieSource::Tmdb),
-            };
-            movie.insert(&self.db).await.unwrap();
-            Ok(IdObject { id: metadata_id })
+            let details = self.tmdb_service.details(identifier).await?;
+            self.save_to_db(details).await
+        }
+    }
+
+    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
+        let metadata_id = self
+            .media_service
+            .commit_media(
+                MetadataLot::Movie,
+                details.title,
+                details.description,
+                details.publish_year,
+                details.publish_date,
+                details.poster_images,
+                details.backdrop_images,
+                details.creators,
+                details.genres,
+            )
+            .await?;
+        match details.specifics {
+            MediaSpecifics::Movie(s) => {
+                let movie = movie::ActiveModel {
+                    metadata_id: ActiveValue::Set(metadata_id),
+                    identifier: ActiveValue::Set(details.identifier),
+                    runtime: ActiveValue::Set(s.runtime),
+                    source: ActiveValue::Set(MovieSource::Tmdb),
+                };
+                movie.insert(&self.db).await.unwrap();
+                Ok(IdObject { id: metadata_id })
+            }
+            _ => unreachable!(),
         }
     }
 }

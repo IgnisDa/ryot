@@ -10,14 +10,19 @@ query MediaDetails($metadataId: Int!) {
     publishYear
     publishDate
 		genres
-    collections
-    movieSpecifics {
-      runtime
+    audioBookSpecifics {
+      source
     }
     bookSpecifics {
       pages
+      source
+    }
+    movieSpecifics {
+      runtime
+      source
     }
     showSpecifics {
+      source
       seasons {
         seasonNumber
         name
@@ -34,6 +39,9 @@ query MediaDetails($metadataId: Int!) {
           overview
         }
       }
+    }
+    videoGameSpecifics {
+      source
     }
   }
 }

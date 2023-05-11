@@ -277,16 +277,26 @@ impl MiscService {
     }
 
     async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
-        let col = collection::ActiveModel {
-            name: ActiveValue::Set(input.name),
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            ..Default::default()
-        };
-        let inserted = col
-            .insert(&self.db)
+        let meta = Collection::find()
+            .filter(collection::Column::Name.eq(input.name.clone()))
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .one(&self.db)
             .await
-            .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
-        Ok(IdObject { id: inserted.id })
+            .unwrap();
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.id })
+        } else {
+            let col = collection::ActiveModel {
+                name: ActiveValue::Set(input.name),
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                ..Default::default()
+            };
+            let inserted = col
+                .insert(&self.db)
+                .await
+                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
+            Ok(IdObject { id: inserted.id })
+        }
     }
 
     async fn toggle_media_in_collection(&self, input: ToggleMediaInCollection) -> Result<bool> {

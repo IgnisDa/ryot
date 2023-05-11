@@ -9,7 +9,8 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     importer::{
-        media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
+        media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
+        ImportItemSeen,
     },
     migrator::MetadataLot,
     utils::openlibrary,
@@ -141,7 +142,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         final_data.push(ImportItem {
             source_id: d.id.to_string(),
             lot,
-            identifier,
+            identifier: ImportItemIdentifier::NeedsDetails(identifier),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(s) = r.review.map(|s| extract_review_information(&s)) {
                     s
@@ -154,7 +155,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     None
                 };
                 ImportItemRating {
-                    id: r.id.to_string(),
+                    id: Some(r.id.to_string()),
                     review,
                     rating: r.rating,
                 }
@@ -175,7 +176,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         (None, None)
                     };
                     ImportItemSeen {
-                        id: s.id.to_string(),
+                        id: Some(s.id.to_string()),
                         ended_on: Some(s.date),
                         season_number,
                         episode_number,
@@ -215,7 +216,7 @@ pub mod utils {
                 .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
             let text = captures.name("text").unwrap().as_str().to_owned();
             Some(ImportItemReview {
-                date,
+                date: Some(date),
                 spoiler,
                 text,
             })
@@ -278,7 +279,7 @@ pub mod utils {
             assert!(info.is_some());
 
             let info = info.unwrap();
-            assert_eq!(info.date, expected_date);
+            assert_eq!(info.date.unwrap(), expected_date);
             assert_eq!(info.spoiler, expected_is_spoiler);
             assert_eq!(info.text, expected_text);
         }

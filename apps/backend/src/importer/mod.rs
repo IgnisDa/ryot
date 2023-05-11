@@ -9,8 +9,9 @@ use crate::{
     audio_books::resolver::AudioBooksService,
     background::ImportMedia,
     books::resolver::BooksService,
+    config::ImporterConfig,
     entities::media_import_report,
-    media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
+    media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
     movies::resolver::MoviesService,
@@ -19,18 +20,19 @@ use crate::{
     video_games::resolver::VideoGamesService,
 };
 
+mod goodreads;
 mod media_tracker;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemReview {
-    date: DateTimeUtc,
+    date: Option<DateTimeUtc>,
     spoiler: bool,
     text: String,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemRating {
-    id: String,
+    id: Option<String>,
     review: Option<ImportItemReview>,
     rating: Option<i32>,
 }
@@ -43,19 +45,40 @@ pub struct DeployMediaTrackerImportInput {
     api_key: String,
 }
 
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployGoodreadsImportInput {
+    // The ID of the user from which the RSS url will be constructed
+    user_id: i32,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployImportInput {
+    pub source: MediaImportSource,
+    pub media_tracker: Option<DeployMediaTrackerImportInput>,
+    pub goodreads: Option<DeployGoodreadsImportInput>,
+}
+
 #[derive(Debug, SimpleObject)]
 pub struct ImportItemSeen {
-    id: String,
+    id: Option<String>,
     ended_on: Option<DateTimeUtc>,
     season_number: Option<i32>,
     episode_number: Option<i32>,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug)]
+pub enum ImportItemIdentifier {
+    // the identifier in case we need to fetch details
+    NeedsDetails(String),
+    // details are already filled and just need to be comitted to database
+    AlreadyFilled(MediaDetails),
+}
+
+#[derive(Debug)]
 pub struct ImportItem {
     source_id: String,
     lot: MetadataLot,
-    identifier: String,
+    identifier: ImportItemIdentifier,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
 }
@@ -81,7 +104,7 @@ pub struct ImportDetails {
     pub total: usize,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug)]
 pub struct ImportResult {
     media: Vec<ImportItem>,
     failed_items: Vec<ImportFailedItem>,
@@ -119,16 +142,16 @@ pub struct ImporterMutation;
 
 #[Object]
 impl ImporterMutation {
-    /// Add job to import data from MediaTracker.
-    async fn deploy_media_tracker_import(
+    /// Add job to import data from various sources.
+    async fn deploy_import(
         &self,
         gql_ctx: &Context<'_>,
-        input: DeployMediaTrackerImportInput,
+        input: DeployImportInput,
     ) -> Result<String> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<ImporterService>()
-            .deploy_media_tracker_import(user_id, input)
+            .deploy_import(user_id, input)
             .await
     }
 }
@@ -168,18 +191,16 @@ impl ImporterService {
         }
     }
 
-    pub async fn deploy_goodreads_import(&self, user_id: i32) -> Result<String> {
-        todo!("Implement import from good read using the CSV export.");
-    }
-
-    pub async fn deploy_media_tracker_import(
+    pub async fn deploy_import(
         &self,
         user_id: i32,
-        input: DeployMediaTrackerImportInput,
+        mut input: DeployImportInput,
     ) -> Result<String> {
         let mut storage = self.import_media.clone();
-        let mut input = input.clone();
-        input.api_url = input.api_url.trim_end_matches("/").to_owned();
+        match input.media_tracker.as_mut() {
+            Some(s) => s.api_url = s.api_url.trim_end_matches("/").to_owned(),
+            None => {}
+        };
         let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
         Ok(job.to_string())
     }
@@ -194,32 +215,67 @@ impl ImporterService {
     pub async fn media_tracker_import(
         &self,
         user_id: i32,
-        input: DeployMediaTrackerImportInput,
+        input: DeployImportInput,
+        config: &ImporterConfig,
     ) -> Result<()> {
         let db_import_job = self
             .misc_service
-            .start_import_job(user_id, MediaImportSource::MediaTracker)
+            .start_import_job(user_id, input.source)
             .await?;
-        let mut import = media_tracker::import(input).await?;
+        let mut import = match input.source {
+            MediaImportSource::MediaTracker => {
+                media_tracker::import(input.media_tracker.unwrap()).await?
+            }
+            MediaImportSource::Goodreads => {
+                goodreads::import(input.goodreads.unwrap(), &config).await?
+            }
+        };
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",
-                iden = item.identifier
+                iden = item.source_id
             );
             let data = match item.lot {
-                MetadataLot::AudioBook => {
-                    self.audio_books_service
-                        .commit_audio_book(&item.identifier)
-                        .await
-                }
-                MetadataLot::Book => self.books_service.commit_book(&item.identifier).await,
-                MetadataLot::Movie => self.movies_service.commit_movie(&item.identifier).await,
-                MetadataLot::Show => self.shows_service.commit_show(&item.identifier).await,
-                MetadataLot::VideoGame => {
-                    self.video_games_service
-                        .commit_video_game(&item.identifier)
-                        .await
-                }
+                MetadataLot::AudioBook => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.audio_books_service.commit_audio_book(i).await
+                    }
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.audio_books_service.save_to_db(a.clone()).await
+                    }
+                },
+                MetadataLot::Book => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.books_service.commit_book(i).await
+                    }
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.books_service.save_to_db(a.clone()).await
+                    }
+                },
+                MetadataLot::Movie => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.movies_service.commit_movie(i).await
+                    }
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.movies_service.save_to_db(a.clone()).await
+                    }
+                },
+                MetadataLot::Show => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.shows_service.commit_show(i).await
+                    }
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.shows_service.save_to_db(a.clone()).await
+                    }
+                },
+                MetadataLot::VideoGame => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.video_games_service.commit_video_game(i).await
+                    }
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.video_games_service.save_to_db(a.clone()).await
+                    }
+                },
             };
             let metadata = match data {
                 Ok(r) => r,
@@ -237,7 +293,7 @@ impl ImporterService {
                 self.media_service
                     .progress_update(
                         ProgressUpdate {
-                            identifier: Some(seen.id.clone()),
+                            identifier: seen.id.clone(),
                             metadata_id: metadata.id,
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
@@ -257,11 +313,11 @@ impl ImporterService {
                     .post_review(
                         &user_id,
                         PostReviewInput {
-                            identifier: Some(review.id.clone()),
+                            identifier: review.id.clone(),
                             rating: review.rating.map(Into::into),
                             text,
                             spoiler,
-                            date,
+                            date: date.flatten(),
                             visibility: None,
                             metadata_id: metadata.id,
                             review_id: None,
@@ -272,10 +328,9 @@ impl ImporterService {
                     .await?;
             }
             tracing::trace!(
-                "Imported item: {idx}, lot: {lot}, identifier: {iden}, history count: {hist}, reviews count: {rev}",
+                "Imported item: {idx}, lot: {lot}, history count: {hist}, reviews count: {rev}",
                 idx = idx,
                 lot = item.lot,
-                iden = item.identifier,
                 hist = item.seen_history.len(),
                 rev = item.reviews.len()
             );

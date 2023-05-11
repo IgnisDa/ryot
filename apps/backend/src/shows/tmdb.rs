@@ -6,8 +6,11 @@ use surf::Client;
 
 use crate::{
     config::TmdbConfig,
-    media::resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-    migrator::MetadataLot,
+    media::{
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        MediaSpecifics,
+    },
+    migrator::{MetadataLot, ShowSource},
     shows::{ShowEpisode, ShowSeason},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
@@ -29,8 +32,8 @@ impl TmdbService {
 }
 
 #[async_trait]
-impl MediaProvider<ShowSpecifics> for TmdbService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails<ShowSpecifics>> {
+impl MediaProvider for TmdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
             season_number: i32,
@@ -115,7 +118,8 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
-            specifics: ShowSpecifics {
+            specifics: MediaSpecifics::Show(ShowSpecifics {
+                source: ShowSource::Tmdb,
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
@@ -154,7 +158,7 @@ impl MediaProvider<ShowSpecifics> for TmdbService {
                         }
                     })
                     .collect(),
-            },
+            }),
             poster_images,
             backdrop_images,
         })

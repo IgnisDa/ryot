@@ -14,6 +14,8 @@ pub struct Migration;
 pub enum MediaImportSource {
     #[sea_orm(string_value = "MT")]
     MediaTracker,
+    #[sea_orm(string_value = "GO")]
+    Goodreads,
 }
 
 #[derive(Iden)]

@@ -2,7 +2,8 @@ use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    FromQueryResult, QueryFilter, QuerySelect,
 };
 use serde::de;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,7 @@ use crate::background::ImportMedia;
 use crate::books::openlibrary::OpenlibraryService;
 use crate::books::resolver::BooksService;
 use crate::config::AppConfig;
+use crate::entities::user_to_metadata;
 use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
@@ -100,6 +102,19 @@ pub async fn create_app_services(
 #[graphql(input_name = "NamedObjectInput")]
 pub struct NamedObject {
     pub name: String,
+}
+
+pub async fn associate_user_with_metadata<C>(user_id: &i32, metadata_id: &i32, db: &C) -> Result<()>
+where
+    C: ConnectionTrait,
+{
+    let user_to_meta = user_to_metadata::ActiveModel {
+        user_id: ActiveValue::Set(*user_id),
+        metadata_id: ActiveValue::Set(*metadata_id),
+        ..Default::default()
+    };
+    user_to_meta.insert(db).await.ok();
+    Ok(())
 }
 
 pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {

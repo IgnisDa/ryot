@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "0.0.15"
+version = "0.0.16"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,6 +20,7 @@ dotenvy = "0.15.7"
 figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 http = "0.2.9"
 mime_guess = "2.0.4"
+quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
 regex = "1.8.1"
 ron = "0.8.0"
 rust-embed = "6.6.1"

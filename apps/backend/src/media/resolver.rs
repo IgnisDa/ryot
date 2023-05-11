@@ -2,7 +2,7 @@ use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObj
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, Order,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,14 +10,14 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        creator, genre,
+        collection, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, metadata_to_genre,
+        metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage, Movie, Seen,
-            Show, UserToMetadata,
+            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
+            MetadataToCollection, Movie, Review, Seen, Show, UserToMetadata, VideoGame,
         },
-        seen, user_to_metadata,
+        review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
@@ -28,16 +28,15 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::LIMIT;
+use super::{MediaSpecifics, LIMIT};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaGenericData {
+pub struct MediaBaseData {
     pub model: MetadataModel,
     pub creators: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub genres: Vec<String>,
-    pub collections: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -76,7 +75,7 @@ pub struct ProgressUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaDetails<T> {
+pub struct MediaDetails {
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
@@ -87,7 +86,7 @@ pub struct MediaDetails<T> {
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
-    pub specifics: T,
+    pub specifics: MediaSpecifics,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -99,7 +98,6 @@ pub struct DatabaseMediaDetails {
     pub lot: MetadataLot,
     pub creators: Vec<String>,
     pub genres: Vec<String>,
-    pub collections: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub publish_year: Option<i32>,
@@ -108,7 +106,7 @@ pub struct DatabaseMediaDetails {
     pub movie_specifics: Option<MovieSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_books_specifics: Option<AudioBookSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -200,7 +198,7 @@ impl MediaQuery {
             .await
     }
 
-    /// Get all the media items for a specific media type
+    /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
         gql_ctx: &Context<'_>,
@@ -275,7 +273,7 @@ impl MediaService {
         Ok((poster_images, backdrop_images))
     }
 
-    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaGenericData> {
+    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
         let meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -284,14 +282,6 @@ impl MediaService {
             Some(m) => m,
             None => return Err(Error::new("The record does not exit".to_owned())),
         };
-        let collections = meta
-            .find_related(Collection)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|c| c.name)
-            .collect();
         let genres = meta
             .find_related(Genre)
             .all(&self.db)
@@ -309,24 +299,22 @@ impl MediaService {
             .map(|c| c.name)
             .collect();
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
-        Ok(MediaGenericData {
+        Ok(MediaBaseData {
             model: meta,
             creators,
             poster_images,
             backdrop_images,
             genres,
-            collections,
         })
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
-        let MediaGenericData {
+        let MediaBaseData {
             model,
             creators,
             poster_images,
             backdrop_images,
             genres,
-            collections,
         } = self.generic_metadata(metadata_id).await?;
         let mut resp = DatabaseMediaDetails {
             id: model.id,
@@ -338,13 +326,12 @@ impl MediaService {
             creators,
             genres,
             poster_images,
-            collections,
             backdrop_images,
             book_specifics: None,
             movie_specifics: None,
             show_specifics: None,
             video_game_specifics: None,
-            audio_books_specifics: None,
+            audio_book_specifics: None,
         };
         match model.lot {
             MetadataLot::Book => {
@@ -355,6 +342,7 @@ impl MediaService {
                     .unwrap();
                 resp.book_specifics = Some(BookSpecifics {
                     pages: additional.num_pages,
+                    source: additional.source,
                 });
             }
             MetadataLot::Movie => {
@@ -365,6 +353,7 @@ impl MediaService {
                     .unwrap();
                 resp.movie_specifics = Some(MovieSpecifics {
                     runtime: additional.runtime,
+                    source: additional.source,
                 });
             }
             MetadataLot::Show => {
@@ -376,7 +365,14 @@ impl MediaService {
                 resp.show_specifics = Some(additional.details);
             }
             MetadataLot::VideoGame => {
-                // No additional metadata is stored in the database
+                let additional = VideoGame::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.video_game_specifics = Some(VideoGameSpecifics {
+                    source: additional.source,
+                });
             }
             MetadataLot::AudioBook => {
                 let additional = AudioBook::find_by_id(metadata_id)
@@ -384,8 +380,9 @@ impl MediaService {
                     .await
                     .unwrap()
                     .unwrap();
-                resp.audio_books_specifics = Some(AudioBookSpecifics {
+                resp.audio_book_specifics = Some(AudioBookSpecifics {
                     runtime: additional.runtime,
+                    source: additional.source,
                 });
             }
         };
@@ -498,13 +495,6 @@ impl MediaService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let user_to_meta = user_to_metadata::ActiveModel {
-                user_id: ActiveValue::Set(user_id),
-                metadata_id: ActiveValue::Set(input.metadata_id),
-                ..Default::default()
-            };
-            // we do not care if it succeeded or failed, since we need just one instance
-            user_to_meta.insert(&self.db).await.ok();
             let prev_seen = Seen::find()
                 .filter(seen::Column::Progress.lt(100))
                 .filter(seen::Column::UserId.eq(user_id))
@@ -575,31 +565,62 @@ impl MediaService {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
             let seen_id = si.id;
-            let metadata_id = si.metadata_id;
             if si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
             si.delete(&self.db).await.ok();
-            let count = Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(metadata_id))
-                .count(&self.db)
-                .await
-                .unwrap();
-            if count == 0 {
-                UserToMetadata::delete_many()
-                    .filter(user_to_metadata::Column::UserId.eq(user_id))
-                    .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
-                    .exec(&self.db)
-                    .await
-                    .ok();
-            }
             Ok(IdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }
+    }
+
+    pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
+        let user_to_metadatas = UserToMetadata::find().all(&self.db).await.unwrap();
+        for u in user_to_metadatas {
+            // check if there is any seen item
+            let seen_count = Seen::find()
+                .filter(seen::Column::UserId.eq(u.user_id))
+                .filter(seen::Column::MetadataId.eq(u.metadata_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            // check if it has been reviewed
+            let reviewed_count = Review::find()
+                .filter(review::Column::UserId.eq(u.user_id))
+                .filter(review::Column::MetadataId.eq(u.metadata_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            // check if it is part of any collection
+            let collection_ids: Vec<i32> = Collection::find()
+                .select_only()
+                .column(collection::Column::Id)
+                .filter(collection::Column::UserId.eq(u.user_id))
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let meta_ids: Vec<i32> = MetadataToCollection::find()
+                .select_only()
+                .column(metadata_to_collection::Column::MetadataId)
+                .filter(metadata_to_collection::Column::CollectionId.is_in(collection_ids))
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let is_in_collection = meta_ids.contains(&u.metadata_id);
+            if seen_count + reviewed_count == 0 && !is_in_collection {
+                tracing::debug!(
+                    "Removing user_to_metadata = {id:?}",
+                    id = (u.user_id, u.metadata_id)
+                );
+                u.delete(&self.db).await.ok();
+            }
+        }
+        Ok(())
     }
 
     pub async fn commit_media(

@@ -7,6 +7,11 @@ use super::Metadata;
 
 pub struct Migration;
 
+/// This exists if a media item is related to a user. A media is related to a
+/// user if:
+/// - the user has it in their seen history
+/// - added it to a collection
+/// - has reviewed it
 #[derive(Iden)]
 enum UserToMetadata {
     Table,

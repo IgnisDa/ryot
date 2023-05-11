@@ -9,9 +9,9 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        LIMIT,
+        MediaSpecifics, LIMIT,
     },
-    migrator::MetadataLot,
+    migrator::{AudioBookSource, MetadataLot},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
@@ -77,8 +77,8 @@ impl AudibleService {
 }
 
 #[async_trait]
-impl MediaProvider<AudioBookSpecifics> for AudibleService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails<AudioBookSpecifics>> {
+impl MediaProvider for AudibleService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleItemResponse {
             product: AudibleItem,
@@ -137,10 +137,7 @@ impl MediaProvider<AudioBookSpecifics> for AudibleService {
 }
 
 impl AudibleService {
-    fn audible_response_to_search_response(
-        &self,
-        item: AudibleItem,
-    ) -> MediaDetails<AudioBookSpecifics> {
+    fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
         let poster_images = Vec::from_iter(item.product_images.image);
         let release_date = item.release_date.unwrap_or_default();
         MediaDetails {
@@ -152,9 +149,10 @@ impl AudibleService {
             genres: vec![],
             publish_year: convert_date_to_year(&release_date),
             publish_date: convert_string_to_date(&release_date),
-            specifics: AudioBookSpecifics {
+            specifics: MediaSpecifics::AudioBook(AudioBookSpecifics {
                 runtime: item.runtime_length_min,
-            },
+                source: AudioBookSource::Audible,
+            }),
             poster_images,
             backdrop_images: vec![],
         }

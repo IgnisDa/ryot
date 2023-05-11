@@ -50,6 +50,7 @@ import {
 	SeenHistoryDocument,
 	ToggleMediaInCollectionDocument,
 	type ToggleMediaInCollectionMutationVariables,
+	type CollectionsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -138,18 +139,13 @@ export function SelectCollectionModal(props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
+	refetchCollections: () => void;
+	collections: CollectionsQuery["collections"];
 }) {
 	const [selectedCollection, setSelectedCollection] = useState<string | null>(
 		null,
 	);
 
-	const collections = useQuery({
-		queryKey: ["collections"],
-		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections;
-		},
-	});
 	const createCollection = useMutation({
 		mutationFn: async (variables: CreateCollectionMutationVariables) => {
 			const { createCollection } = await gqlClient.request(
@@ -159,7 +155,7 @@ export function SelectCollectionModal(props: {
 			return createCollection;
 		},
 		onSuccess: () => {
-			collections.refetch();
+			props.refetchCollections();
 		},
 	});
 	const toggleMediaInCollection = useMutation({
@@ -182,12 +178,12 @@ export function SelectCollectionModal(props: {
 			withCloseButton={false}
 			centered
 		>
-			{collections.data ? (
+			{props.collections ? (
 				<Stack>
 					<Title order={3}>Select collection</Title>
 					<Select
 						withinPortal
-						data={collections.data.map((c) => ({
+						data={props.collections.map((c) => ({
 							value: c.collectionDetails.id.toString(),
 							label: c.collectionDetails.name,
 						}))}
@@ -339,6 +335,13 @@ const Page: NextPageWithLayout = () => {
 			return seenHistory;
 		},
 	});
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
+			return collections;
+		},
+	});
 	const reviews = useQuery({
 		queryKey: ["reviews", metadataId],
 		queryFn: async () => {
@@ -394,6 +397,13 @@ const Page: NextPageWithLayout = () => {
 
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = history.data?.find((h) => h.progress < 100);
+
+	// all the collections that the user has added this media to
+	const mediaCollections = collections.data
+		?.filter((c) =>
+			c.mediaDetails.some((m) => m.identifier === metadataId.toString()),
+		)
+		.map((c) => c.collectionDetails.name);
 
 	return details.data && history.data ? (
 		<Container>
@@ -474,9 +484,9 @@ const Page: NextPageWithLayout = () => {
 							{changeCase(details.data.type)}
 						</Badge>
 					</Group>
-					{details.data.collections.length > 0 ? (
+					{mediaCollections && mediaCollections.length > 0 ? (
 						<Group>
-							{details.data.collections.map((c, idx) => (
+							{mediaCollections.map((c, idx) => (
 								<Badge
 									key={c}
 									color={
@@ -617,11 +627,15 @@ const Page: NextPageWithLayout = () => {
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
-									<SelectCollectionModal
-										onClose={collectionModalClose}
-										opened={collectionModalOpened}
-										metadataId={metadataId}
-									/>
+									{collections.data ? (
+										<SelectCollectionModal
+											onClose={collectionModalClose}
+											opened={collectionModalOpened}
+											metadataId={metadataId}
+											collections={collections.data}
+											refetchCollections={collections.refetch}
+										/>
+									) : null}
 								</>
 							</SimpleGrid>
 						</Tabs.Panel>
