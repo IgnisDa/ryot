@@ -1,8 +1,8 @@
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,14 +10,14 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        collection, creator, genre,
+        creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_image, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
-            MetadataToCollection, Movie, Review, Seen, Show, UserToMetadata, VideoGame,
+            AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
+            UserToMetadata, VideoGame,
         },
-        review, seen, user_to_metadata,
+        seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
@@ -198,11 +198,7 @@ impl MediaQuery {
             .await
     }
 
-    /// Get all the media items related to a user for a specific media type. A media
-    /// is related to a user if:
-    /// - the user has it in their seen history
-    /// - added it to a collection
-    /// - has reviewed it
+    /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
         gql_ctx: &Context<'_>,
@@ -449,30 +445,6 @@ impl MediaService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<MediaSearchResults> {
-        let reviewed_ids: Vec<i32> = Review::find()
-            .select_only()
-            .column(review::Column::MetadataId)
-            .filter(review::Column::UserId.eq(user_id))
-            .into_tuple()
-            .all(&self.db)
-            .await
-            .unwrap();
-        let collection_ids: Vec<i32> = Collection::find()
-            .select_only()
-            .column(collection::Column::Id)
-            .filter(collection::Column::UserId.eq(user_id))
-            .into_tuple()
-            .all(&self.db)
-            .await
-            .unwrap();
-        let meta_ids: Vec<i32> = MetadataToCollection::find()
-            .select_only()
-            .column(metadata_to_collection::Column::MetadataId)
-            .filter(metadata_to_collection::Column::CollectionId.is_in(collection_ids))
-            .into_tuple()
-            .all(&self.db)
-            .await
-            .unwrap();
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -481,15 +453,7 @@ impl MediaService {
         let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
         let condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(
-                Condition::any()
-                    // if it is in the user's collection
-                    .add(metadata::Column::Id.is_in(meta_ids))
-                    // if it is in the seen history
-                    .add(metadata::Column::Id.is_in(distinct_meta_ids))
-                    // if it is reviewed by the user
-                    .add(metadata::Column::Id.is_in(reviewed_ids)),
-            );
+            .filter(metadata::Column::Id.is_in(distinct_meta_ids));
         let (sort_by, sort_order) = match input.sort {
             None => (metadata::Column::Id, Order::Asc),
             Some(s) => (
@@ -531,13 +495,6 @@ impl MediaService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.metadata_id })
         } else {
-            let user_to_meta = user_to_metadata::ActiveModel {
-                user_id: ActiveValue::Set(user_id),
-                metadata_id: ActiveValue::Set(input.metadata_id),
-                ..Default::default()
-            };
-            // we do not care if it succeeded or failed, since we need just one instance
-            user_to_meta.insert(&self.db).await.ok();
             let prev_seen = Seen::find()
                 .filter(seen::Column::Progress.lt(100))
                 .filter(seen::Column::UserId.eq(user_id))
@@ -608,27 +565,12 @@ impl MediaService {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
             let seen_id = si.id;
-            let metadata_id = si.metadata_id;
             if si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
             si.delete(&self.db).await.ok();
-            let count = Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(metadata_id))
-                .count(&self.db)
-                .await
-                .unwrap();
-            if count == 0 {
-                UserToMetadata::delete_many()
-                    .filter(user_to_metadata::Column::UserId.eq(user_id))
-                    .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
-                    .exec(&self.db)
-                    .await
-                    .ok();
-            }
             Ok(IdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
