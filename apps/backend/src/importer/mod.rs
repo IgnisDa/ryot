@@ -250,7 +250,9 @@ impl ImporterService {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.audio_books_service.commit_audio_book(i).await
                     }
-                    _ => todo!(),
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.audio_books_service.save_to_db(a.clone()).await
+                    }
                 },
                 MetadataLot::Book => match &item.identifier {
                     ImportItemIdentifier::NeedsDetails(i) => {
