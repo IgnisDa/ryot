@@ -11,11 +11,12 @@ use crate::{
     books::resolver::BooksService,
     config::ImporterConfig,
     entities::media_import_report,
-    media::resolver::{MediaService, ProgressUpdate, ProgressUpdateAction},
+    media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
     movies::resolver::MoviesService,
     shows::resolver::ShowsService,
+    traits::MediaSpecifics,
     utils::user_id_from_ctx,
     video_games::resolver::VideoGamesService,
 };
@@ -66,11 +67,25 @@ pub struct ImportItemSeen {
     episode_number: Option<i32>,
 }
 
-#[derive(Debug, SimpleObject)]
-pub struct ImportItem {
+#[derive(Debug)]
+pub enum ImportItemIdentifier<T>
+where
+    T: MediaSpecifics,
+{
+    // the identifier in case we need to fetch details
+    NeedsDetails(String),
+    // details are already filled and just need to be comitted to database
+    AlreadyFilled(MediaDetails<T>),
+}
+
+#[derive(Debug)]
+pub struct ImportItem<T>
+where
+    T: MediaSpecifics,
+{
     source_id: String,
     lot: MetadataLot,
-    identifier: String,
+    identifier: ImportItemIdentifier<T>,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
 }
@@ -96,9 +111,12 @@ pub struct ImportDetails {
     pub total: usize,
 }
 
-#[derive(Debug, SimpleObject)]
-pub struct ImportResult {
-    media: Vec<ImportItem>,
+#[derive(Debug)]
+pub struct ImportResult<T>
+where
+    T: MediaSpecifics,
+{
+    media: Vec<ImportItem<T>>,
     failed_items: Vec<ImportFailedItem>,
 }
 
@@ -225,22 +243,39 @@ impl ImporterService {
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",
-                iden = item.identifier
+                iden = item.source_id
             );
             let data = match item.lot {
-                MetadataLot::AudioBook => {
-                    self.audio_books_service
-                        .commit_audio_book(&item.identifier)
-                        .await
-                }
-                MetadataLot::Book => self.books_service.commit_book(&item.identifier).await,
-                MetadataLot::Movie => self.movies_service.commit_movie(&item.identifier).await,
-                MetadataLot::Show => self.shows_service.commit_show(&item.identifier).await,
-                MetadataLot::VideoGame => {
-                    self.video_games_service
-                        .commit_video_game(&item.identifier)
-                        .await
-                }
+                MetadataLot::AudioBook => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.audio_books_service.commit_audio_book(i).await
+                    }
+                    _ => todo!(),
+                },
+                MetadataLot::Book => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.books_service.commit_book(i).await
+                    }
+                    _ => todo!(),
+                },
+                MetadataLot::Movie => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.movies_service.commit_movie(i).await
+                    }
+                    _ => todo!(),
+                },
+                MetadataLot::Show => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.shows_service.commit_show(i).await
+                    }
+                    _ => todo!(),
+                },
+                MetadataLot::VideoGame => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.video_games_service.commit_video_game(i).await
+                    }
+                    _ => todo!(),
+                },
             };
             let metadata = match data {
                 Ok(r) => r,
@@ -293,10 +328,9 @@ impl ImporterService {
                     .await?;
             }
             tracing::trace!(
-                "Imported item: {idx}, lot: {lot}, identifier: {iden}, history count: {hist}, reviews count: {rev}",
+                "Imported item: {idx}, lot: {lot}, history count: {hist}, reviews count: {rev}",
                 idx = idx,
                 lot = item.lot,
-                iden = item.identifier,
                 hist = item.seen_history.len(),
                 rev = item.reviews.len()
             );

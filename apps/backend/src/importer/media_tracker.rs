@@ -9,9 +9,11 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     importer::{
-        media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
+        media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
+        ImportItemSeen,
     },
     migrator::MetadataLot,
+    traits::MediaSpecifics,
     utils::openlibrary,
 };
 
@@ -92,7 +94,10 @@ struct ItemDetails {
     user_rating: Option<ItemReview>,
 }
 
-pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
+pub async fn import<T>(input: DeployMediaTrackerImportInput) -> Result<ImportResult<T>>
+where
+    T: MediaSpecifics,
+{
     let client: Client = Config::new()
         .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
         .unwrap()
@@ -141,7 +146,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         final_data.push(ImportItem {
             source_id: d.id.to_string(),
             lot,
-            identifier,
+            identifier: ImportItemIdentifier::NeedsDetails(identifier),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(s) = r.review.map(|s| extract_review_information(&s)) {
                     s

@@ -11,3 +11,5 @@ pub trait MediaProvider<T> {
     /// Get details about a media item for the particular identifier.
     async fn details(&self, identifier: &str) -> Result<MediaDetails<T>>;
 }
+
+pub trait MediaSpecifics {}
