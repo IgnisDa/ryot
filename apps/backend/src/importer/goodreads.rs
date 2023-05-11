@@ -1,96 +1,40 @@
 use async_graphql::Result;
-use feed_rs::parser;
-use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
-use crate::{
-    config::ImporterConfig,
-    graphql::{AUTHOR, PROJECT_NAME},
-    importer::{
-        media_tracker::utils::extract_review_information, ImportItemRating, ImportItemSeen,
-    },
-    migrator::MetadataLot,
-    utils::openlibrary,
-};
+use crate::config::ImporterConfig;
 
-use super::{
-    DeployGoodreadsImportInput, DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem,
-    ImportItem, ImportResult,
-};
+use super::{DeployGoodreadsImportInput, ImportResult};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-enum MediaType {
-    Book,
-    Movie,
-    Tv,
-    VideoGame,
-    Audiobook,
-}
-
-impl From<MediaType> for MetadataLot {
-    fn from(value: MediaType) -> Self {
-        match value {
-            MediaType::Book => Self::Book,
-            MediaType::Movie => Self::Movie,
-            MediaType::Tv => Self::Show,
-            MediaType::VideoGame => Self::VideoGame,
-            MediaType::Audiobook => Self::AudioBook,
-        }
-    }
+#[derive(Debug, Serialize, Deserialize)]
+struct RssBookDetails {
+    #[serde(default)]
+    num_pages: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Item {
-    id: i32,
-    media_type: MediaType,
-    audible_id: Option<String>,
-    igdb_id: Option<i32>,
-    tmdb_id: Option<i32>,
-    openlibrary_id: Option<String>,
+struct RssItem {
+    title: String,
+    book_description: String,
+    author_name: String,
+    book_image_url: String,
+    book_id: i32,
+    book: RssBookDetails,
+    book_published: String,
+    user_shelves: String,
+    user_read_at: String,
+    user_review: String,
+    user_rating: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ItemReview {
-    id: i32,
-    rating: Option<i32>,
-    review: Option<String>,
+#[derive(Debug, Serialize, Deserialize)]
+struct RssChannel {
+    title: String,
+    item: Vec<RssItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ItemEpisode {
-    id: i32,
-    season_number: i32,
-    episode_number: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ItemSeason {
-    episodes: Vec<ItemEpisode>,
-}
-
-#[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ItemSeen {
-    id: i32,
-    #[serde_as(as = "TimestampMilliSeconds<i64, Flexible>")]
-    date: DateTimeUtc,
-    episode_id: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ItemDetails {
-    seen_history: Vec<ItemSeen>,
-    seasons: Vec<ItemSeason>,
-    user_rating: Option<ItemReview>,
+#[derive(Debug, Serialize, Deserialize)]
+struct RssDetail {
+    channel: RssChannel,
 }
 
 pub async fn import(
@@ -100,12 +44,19 @@ pub async fn import(
     let content = surf::get(format!("{}/{}", config.goodreads_rss_url, input.user_id))
         .await
         .unwrap()
-        .body_bytes()
+        .body_string()
         .await
         .unwrap();
-    let feed = parser::parse(&content[..]).unwrap();
-    dbg!(&feed);
-    todo!("Since goodreads does not provide an API, it is difficult to get data reliably from there. And I find RSS stupid. Instead I would like to use the `identifier` field of openlibrary responses to get the correct data.");
+    let doc: RssDetail = quick_xml::de::from_str(&content).unwrap();
+    let doc = doc
+        .channel
+        .item
+        .into_iter()
+        // .map(|d| (d.title, d.user_shelves))
+        .rev()
+        .collect::<Vec<_>>();
+    dbg!(&doc);
+    todo!("Since goodreads does not provide an API, it is difficult to get data reliably from there. We will use RSS instead.");
     // let client: Client = Config::new()
     //     .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
     //     .unwrap()
