@@ -118,7 +118,8 @@ async fn main() -> Result<()> {
 
     sched
         .add(
-            Job::new_async("*/10 * * * * *", move |_uuid, _l| {
+            // every 5 minutes
+            Job::new_async("0 */5 * * * *", move |_uuid, _l| {
                 let tx = tx.clone();
                 Box::pin(async move {
                     tx.send(1).await.unwrap();
