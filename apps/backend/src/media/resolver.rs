@@ -10,14 +10,14 @@ use crate::{
     audio_books::AudioBookSpecifics,
     books::BookSpecifics,
     entities::{
-        creator, genre,
+        collection, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_creator, metadata_to_genre,
+        metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Creator, Genre, Metadata, MetadataImage, Movie, Seen, Show,
-            UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
+            MetadataToCollection, Movie, Review, Seen, Show, UserToMetadata, VideoGame,
         },
-        seen, user_to_metadata,
+        review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
     },
     graphql::IdObject,
@@ -575,6 +575,52 @@ impl MediaService {
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }
+    }
+
+    pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
+        let user_to_metadatas = UserToMetadata::find().all(&self.db).await.unwrap();
+        for u in user_to_metadatas {
+            // check if there is any seen item
+            let seen_count = Seen::find()
+                .filter(seen::Column::UserId.eq(u.user_id))
+                .filter(seen::Column::MetadataId.eq(u.metadata_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            // check if it has been reviewed
+            let reviewed_count = Review::find()
+                .filter(review::Column::UserId.eq(u.user_id))
+                .filter(review::Column::MetadataId.eq(u.metadata_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            // check if it is part of any collection
+            let collection_ids: Vec<i32> = Collection::find()
+                .select_only()
+                .column(collection::Column::Id)
+                .filter(collection::Column::UserId.eq(u.user_id))
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let meta_ids: Vec<i32> = MetadataToCollection::find()
+                .select_only()
+                .column(metadata_to_collection::Column::MetadataId)
+                .filter(metadata_to_collection::Column::CollectionId.is_in(collection_ids))
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let is_in_collection = meta_ids.contains(&u.metadata_id);
+            if seen_count + reviewed_count == 0 && !is_in_collection {
+                tracing::debug!(
+                    "Removing user_to_metadata = {id:?}",
+                    id = (u.user_id, u.metadata_id)
+                );
+                u.delete(&self.db).await.ok();
+            }
+        }
+        Ok(())
     }
 
     pub async fn commit_media(

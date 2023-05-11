@@ -32,7 +32,7 @@ use tower_http::{
 };
 
 use crate::{
-    background::{import_media, refresh_media, RefreshMedia},
+    background::{import_media, refresh_user_to_media_association, RefreshUserToMediaAssociation},
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
@@ -98,15 +98,18 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
     Migrator::up(&db, None).await.unwrap();
 
-    let refresh_media_storage = create_storage().await;
+    let refresh_user_to_media_association_storage = create_storage().await;
     let import_media_storage = create_storage().await;
 
     let (tx, mut rx) = channel::<u8>(1);
-    let mut new_storage = refresh_media_storage.clone();
+    let mut new_storage = refresh_user_to_media_association_storage.clone();
     tokio::spawn(async move {
         loop {
             if (rx.recv().await).is_some() {
-                new_storage.push(RefreshMedia {}).await.unwrap();
+                new_storage
+                    .push(RefreshUserToMediaAssociation {})
+                    .await
+                    .unwrap();
             }
         }
     });
@@ -115,8 +118,7 @@ async fn main() -> Result<()> {
 
     sched
         .add(
-            // every 30 minutes
-            Job::new_async("0 */30 * * * *", move |_uuid, _l| {
+            Job::new_async("*/10 * * * * *", move |_uuid, _l| {
                 let tx = tx.clone();
                 Box::pin(async move {
                     tx.send(1).await.unwrap();
@@ -162,10 +164,11 @@ async fn main() -> Result<()> {
     let monitor = async {
         let mn = Monitor::new()
             .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("refresh_media-{c}"))
+                WorkerBuilder::new(format!("refresh_user_to_media_association-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .with_storage(refresh_media_storage.clone())
-                    .build_fn(refresh_media)
+                    .layer(ApalisExtension(app_services.media_service.clone()))
+                    .with_storage(refresh_user_to_media_association_storage.clone())
+                    .build_fn(refresh_user_to_media_association)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
