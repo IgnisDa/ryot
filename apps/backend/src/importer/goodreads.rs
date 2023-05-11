@@ -1,4 +1,5 @@
 use async_graphql::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
 
 use super::{
     DeployGoodreadsImportInput, ImportItem, ImportItemIdentifier, ImportItemRating,
-    ImportItemReview, ImportResult,
+    ImportItemReview, ImportItemSeen, ImportResult,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,10 +56,11 @@ pub async fn import(
         .body_string()
         .await
         .unwrap();
-    let doc: RssDetail = quick_xml::de::from_str(&content).unwrap();
-    let doc = doc.channel.item.into_iter().collect::<Vec<_>>();
+    let books: RssDetail = quick_xml::de::from_str(&content).unwrap();
+    let books = books.channel.item.into_iter().collect::<Vec<_>>();
+    dbg!(&books);
     Ok(ImportResult {
-        media: doc
+        media: books
             .into_iter()
             .map(|d| ImportItem {
                 source_id: d.book_id.to_string(),
@@ -79,7 +81,14 @@ pub async fn import(
                         source: BookSource::Goodreads,
                     }),
                 }),
-                seen_history: vec![],
+                seen_history: vec![ImportItemSeen {
+                    id: None,
+                    ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
+                        .ok()
+                        .map(|d| d.with_timezone(&Utc)),
+                    season_number: None,
+                    episode_number: None,
+                }],
                 reviews: vec![ImportItemRating {
                     id: None,
                     review: Some(ImportItemReview {

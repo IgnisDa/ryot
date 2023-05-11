@@ -176,7 +176,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         (None, None)
                     };
                     ImportItemSeen {
-                        id: s.id.to_string(),
+                        id: Some(s.id.to_string()),
                         ended_on: Some(s.date),
                         season_number,
                         episode_number,
