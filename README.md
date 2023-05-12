@@ -1,9 +1,11 @@
 <h1 align="center">Ryot</h1>
 
-<h3 align="center">
+<h2 align="center">
   A self hosted platform for tracking various facets of your life - media,
   fitness etc.
-</h3>
+</h2>
+
+![Screenshot](/docs/assets/screenshot.png)
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
 only self hosted tracker you will ever need!
@@ -19,7 +21,6 @@ only self hosted tracker you will ever need!
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
-
 
 ## 🧪 Project Status
 

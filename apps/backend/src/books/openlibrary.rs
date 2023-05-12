@@ -3,7 +3,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
+use surf::{http::headers::USER_AGENT, middleware::Redirect, Client, Config, Url};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -48,12 +48,13 @@ pub struct OpenlibraryService {
 
 impl OpenlibraryService {
     pub fn new(config: &OpenlibraryConfig) -> Self {
-        let client = Config::new()
+        let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
             .unwrap();
+        let client = client.with(Redirect::new(1));
         Self {
             image_url: config.cover_image_url.to_owned(),
             image_size: config.cover_image_size.to_string(),
