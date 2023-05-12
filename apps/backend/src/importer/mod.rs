@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use chrono::{Duration, Utc};
+use sea_orm::{
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
+    EntityTrait, FromJsonQueryResult, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,7 +14,7 @@ use crate::{
     background::ImportMedia,
     books::resolver::BooksService,
     config::ImporterConfig,
-    entities::media_import_report,
+    entities::{media_import_report, prelude::MediaImportReport},
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
@@ -158,6 +162,7 @@ impl ImporterMutation {
 
 #[derive(Debug, Clone)]
 pub struct ImporterService {
+    db: DatabaseConnection,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
     media_service: Arc<MediaService>,
@@ -170,6 +175,7 @@ pub struct ImporterService {
 
 impl ImporterService {
     pub fn new(
+        db: &DatabaseConnection,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
         media_service: &MediaService,
@@ -180,6 +186,7 @@ impl ImporterService {
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
+            db: db.clone(),
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),
             media_service: Arc::new(media_service.clone()),
@@ -203,6 +210,22 @@ impl ImporterService {
         };
         let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
         Ok(job.to_string())
+    }
+
+    pub async fn invalidate_import_jobs(&self) -> Result<()> {
+        let all_jobs = MediaImportReport::find()
+            .filter(media_import_report::Column::Success.is_null())
+            .all(&self.db)
+            .await?;
+        for job in all_jobs {
+            if Utc::now() - job.started_on > Duration::hours(24) {
+                tracing::info!("Invalidating job with id = {id}", id = job.id);
+                let mut job: media_import_report::ActiveModel = job.into();
+                job.success = ActiveValue::Set(Some(false));
+                job.save(&self.db).await?;
+            }
+        }
+        Ok(())
     }
 
     pub async fn media_import_reports(

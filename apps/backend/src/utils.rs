@@ -71,6 +71,7 @@ pub async fn create_app_services(
     let users_service = UsersService::new(&db);
     let misc_service = MiscService::new(&db, &media_service);
     let importer_service = ImporterService::new(
+        &db,
         &audio_books_service,
         &books_service,
         &media_service,
