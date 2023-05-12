@@ -58,7 +58,6 @@ pub async fn import(
         .unwrap();
     let books: RssDetail = quick_xml::de::from_str(&content).unwrap();
     let books = books.channel.item.into_iter().collect::<Vec<_>>();
-    dbg!(&books);
     Ok(ImportResult {
         media: books
             .into_iter()
