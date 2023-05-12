@@ -21,36 +21,6 @@ only self hosted tracker you will ever need!
 - ✅ Lightning fast
 - ✅ Self-hosted
 
-## 🔧 Configuration options
-
-You can specify configuration options via files (loaded from `config/ryot.json`,
-`config/ryot.toml`, `config/ryot.yaml`). You can see a minimal example in
-[`config/ryot.example.json`](config/ryot.example.json).
-
-An overview of all options.
-Only the `DATABASE_URL` variable is loaded from the environment.
-
-**Note**: You can see the defaults in the [config](apps/backend/src/config.rs)
-builder.
-
-| Key                                   | Description                                                                                                              |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                              |
-| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                          |
-| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                             |
-| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                               |
-| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                               |
-| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                      |
-| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                      |
-| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                        |
-| `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                       |
-| `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md) |
-| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                      |
-| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                           |
-| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                         |
-| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                    |
-| `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                      |
-| `web.cors_origins`                    | An array of URLs for CORS.                                                                                               |
 
 ## 🧪  Project Status
 
@@ -59,7 +29,16 @@ to have breaking changes without any warning, for example backwards incompatible
 schema changes. You can see the latest release
 [here](https://github.com/IgnisDa/ryot/releases).
 
-## ⌨️ How to use?
+## 📖 Guides
+
+Some things might not be obvious on how to setup or get working. I have written
+a number of guides to make thing easier.
+
+- [Deployment](/docs/guides/deployment.md): Deploy Ryot to various platforms
+- [Importing](/docs/guides/importing.md): Import data from various sources
+- [Video Games](/docs/guides/video-games.md): Get video games tracking working
+
+## ⌨️  How to use?
 
 **NOTE**: There is no default user. The first user you register is automatically
 set as admin of the instance.
@@ -88,6 +67,37 @@ $ moon run frontend:build
 # Run it
 $ cargo run --bin ryot --release
 ```
+
+## 🔧 Configuration options
+
+You can specify configuration options via files (loaded from `config/ryot.json`,
+`config/ryot.toml`, `config/ryot.yaml`). You can see a minimal example in
+[`config/ryot.example.json`](config/ryot.example.json). Ryot writes the
+configuration loaded at runtime to `computed-config.ron` for debugging purposes.
+
+Only the `DATABASE_URL` variable is loaded from the environment.
+
+**Note**: You can see the defaults in the [config](apps/backend/src/config.rs)
+builder.
+
+| Key                                   | Description                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                              |
+| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                          |
+| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                             |
+| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                               |
+| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                               |
+| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                      |
+| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                      |
+| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                        |
+| `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                       |
+| `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md) |
+| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                      |
+| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                           |
+| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                         |
+| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                    |
+| `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                      |
+| `web.cors_origins`                    | An array of URLs for CORS.                                                                                               |
 
 ## 🤓 Developer notes
 
