@@ -1,7 +1,27 @@
-# Ryot
+<h1 align="center">Ryot</h1>
 
-Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self hosted
-platform for tracking movies, TV shows, video games, books and audiobooks.
+<h3 align="center">
+  A self hosted platform for tracking various facets of your life - media,
+  fitness etc.
+</h3>
+
+Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
+only self hosted tracker you will ever need!
+
+## 🚀 Features
+
+* ✅ Free and open-source
+* ✅ [Importing data](./docs/guides/importing.md)
+  - Goodreads
+  - MediaTracker
+* ✅ Supports tracking media (audio books, books, movies, shows, video games)
+  and fitness (exercises) (https://github.com/IgnisDa/ryot/discussions/4)
+* ✅ Built by developers for developers
+* ✅ GraphQL API
+* ✅ Lightning fast
+* ✅ Self-hosted
+
+
 
 ## Project Status
 
@@ -10,7 +30,9 @@ to have breaking changes without any warning, for example backwards incompatible
 schema changes. You can see the latest release
 [here](https://github.com/IgnisDa/ryot/releases).
 
-## How to use?
+## ⌨️ How to use?
+
+### 🐳 Option 1: Use Docker
 
 To get a demo server running, use the docker image:
 
@@ -20,6 +42,18 @@ $ docker run --detach \
   --volume ./ryot-data:/data \
   --name ryot \
   ghcr.io/ignisda/ryot:latest
+```
+
+### 🧑‍💻 Option 2: Compile and run from source
+
+- Install [moonrepor](https://moonrepo.dev/https://moonrepo.dev/)
+
+```bash
+# Build the frontend
+$ moon run frontend:build
+
+# Run it
+$ cargo run --bin ryot --release
 ```
 
 ## Development
