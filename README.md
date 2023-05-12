@@ -72,6 +72,7 @@ To get a demo server running, use the docker image:
 $ docker run --detach \
   --publish 8000:8000 \
   --volume ./ryot-data:/data \
+  --volume ./config/ryot.example.json:/data/config/ryot.json \
   --name ryot \
   ghcr.io/ignisda/ryot:latest
 ```

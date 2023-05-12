@@ -38,8 +38,8 @@ const message = {
 };
 const updateProfileFormSchema = z.object({
 	username: z.string().optional(),
+	email: z.string().email().optional(),
 	password: z.string().optional(),
-	email: z.string().optional(),
 });
 type UpdateProfileFormSchema = z.infer<typeof updateProfileFormSchema>;
 
@@ -103,7 +103,7 @@ const Page: NextPageWithLayout = () => {
 
 	useUser((data) => {
 		updateProfileForm.setValues({
-			email: data.email,
+			email: data.email || undefined,
 			username: data.name,
 		});
 		updateProfileForm.resetDirty();
