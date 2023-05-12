@@ -212,7 +212,7 @@ impl ImporterService {
         self.misc_service.media_import_reports(user_id).await
     }
 
-    pub async fn media_tracker_import(
+    pub async fn import_from_source(
         &self,
         user_id: i32,
         input: DeployImportInput,

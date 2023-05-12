@@ -21,7 +21,7 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
     let config = ctx.data::<AppConfig>().unwrap();
     ctx.data::<ImporterService>()
         .unwrap()
-        .media_tracker_import(information.user_id, information.input, &config.importer)
+        .import_from_source(information.user_id, information.input, &config.importer)
         .await
         .unwrap();
     Ok(())

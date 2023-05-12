@@ -324,6 +324,7 @@ impl MiscService {
             ..Default::default()
         };
         let model = model.insert(&self.db).await.unwrap();
+        tracing::info!("Started import job with id = {id}", id = model.id);
         Ok(model)
     }
 
