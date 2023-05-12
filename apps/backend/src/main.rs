@@ -160,7 +160,7 @@ async fn main() -> Result<()> {
     sched
         .add(
             // every day
-            Job::new_async("* * * * * *", move |_uuid, _l| {
+            Job::new_async("0 0 0 * * *", move |_uuid, _l| {
                 let tx_2 = tx_2.clone();
                 Box::pin(async move {
                     tx_2.send(1).await.unwrap();
