@@ -16,7 +16,7 @@ use axum::{
 use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
-use sea_orm::Database;
+use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use std::{
     env, fs,
@@ -96,6 +96,15 @@ async fn main() -> Result<()> {
     let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
+
+    let selected_database = match db {
+        DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
+        DatabaseConnection::SqlxMySqlPoolConnection(_) => "MySQL",
+        DatabaseConnection::SqlxPostgresPoolConnection(_) => "PostgreSQL",
+        _ => "Unrecognized",
+    };
+    tracing::info!("Using database backend: {selected_database:?}");
+
     Migrator::up(&db, None).await.unwrap();
 
     let refresh_user_to_media_association_storage = create_storage().await;
