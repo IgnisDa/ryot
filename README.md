@@ -10,19 +10,18 @@ only self hosted tracker you will ever need!
 
 ## 🚀 Features
 
-- ✅ Free and open-source
-- ✅ [Importing data](./docs/guides/importing.md)
+- ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media and fitness.
+- ✅ Import data
   - Goodreads
   - MediaTracker
-- ✅ Supports tracking media (audio books, books, movies, shows, video games)
-  and fitness (exercises) (https://github.com/IgnisDa/ryot/discussions/4)
-- ✅ Built by developers for developers
-- ✅ GraphQL API
-- ✅ Lightning fast
 - ✅ Self-hosted
+- ✅ Documented GraphQL API
+- ✅ Easy to understand UI
+- ✅ Lightning fast (written in Rust BTW)
+- ✅ Free and open-source
 
 
-## 🧪  Project Status
+## 🧪 Project Status
 
 This project is still very much a WIP. Until it hits `1.0.0`, consider the project
 to have breaking changes without any warning, for example backwards incompatible
@@ -56,7 +55,7 @@ $ docker run --detach \
   ghcr.io/ignisda/ryot:latest
 ```
 
-### 🧑‍💻 Option 2: Compile and run from source
+### 🧑‍💻Option 2: Compile and run from source
 
 - Install [moonrepo](https://moonrepo.dev/https://moonrepo.dev/)
 
@@ -101,14 +100,14 @@ builder.
 
 ## 🤓 Developer notes
 
-Ryot is an Axum server running in the backend. The frontend is a pre-rendered
-Nextjs app served statically by the backend server.
+In production, the frontend is a pre-rendered Nextjs app served statically by the
+Axum backend server.
 
-To get the servers running, install [mprocs](https://github.com/pvolok/mprocs),
-and run `mprocs` in the project root and access the frontend at
-http://localhost:3000 and backend at http://localhost:8000. If you do not want
-to install it, take a look at [`mproc.yaml`](./mprocs.yaml) to see what all
-commands are needed to get it working.
+In development, both servers are started independently running on `:3000` and 
+`:8000` respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs),
+and run `mprocs` in the project root. If you do not want to install `mprocs`,
+take a look at [`mproc.yaml`](./mprocs.yaml) to see what all commands are
+needed to get it working.
 
 ## 🙏 Acknowledgements
 

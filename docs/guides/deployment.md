@@ -65,6 +65,14 @@ dokku letsencrypt:enable "$APPNAME"
 dokku git:from-image "$APPNAME" "$image_sha"
 ```
 
-You can now create `/var/lib/dokku/storage/$APPNAME/config/ryot.{json,toml,yaml}`
+This will start a Ryot using the default SQLite database backend. To use a
+separate backend, link a service to your app. For example with Postgres:
+
+```bash
+dokku postgres:create $APPNAME-service
+dokku postgres:link $APPNAME-service $APPNAME
+```
+
+You can create `/var/lib/dokku/storage/$APPNAME/config/ryot.{json,toml,yaml}`
 files to configure the instance. Make sure to restart the server after you change
 the configuration.
