@@ -72,12 +72,12 @@ impl IgdbService {
             &config.twitch.access_token_url,
             &config.twitch.client_id,
             &config.twitch.client_secret,
-            &config.igdb.base_url,
+            &config.igdb.url,
         )
         .await;
         Self {
             client,
-            image_url: config.igdb.images_base_url.to_owned(),
+            image_url: config.igdb.image_url.to_owned(),
             image_size: config.igdb.image_size.to_string(),
         }
     }

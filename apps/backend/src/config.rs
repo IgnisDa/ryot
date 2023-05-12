@@ -155,16 +155,16 @@ pub enum IgdbImageSize {
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct IgdbConfig {
-    pub base_url: String,
-    pub images_base_url: String,
+    pub url: String,
+    pub image_url: String,
     pub image_size: IgdbImageSize,
 }
 
 impl Default for IgdbConfig {
     fn default() -> Self {
         Self {
-            base_url: "https://api.igdb.com/v4/".to_owned(),
-            images_base_url: "https://images.igdb.com/igdb/image/upload/".to_owned(),
+            url: "https://api.igdb.com/v4/".to_owned(),
+            image_url: "https://images.igdb.com/igdb/image/upload/".to_owned(),
             image_size: IgdbImageSize::Original,
         }
     }
@@ -221,7 +221,7 @@ pub fn get_app_config() -> Result<AppConfig> {
     let app = PROJECT_NAME;
     Figment::new()
         .merge(Serialized::defaults(AppConfig::default()))
-        .merge(Env::raw().split("_"))
+        .merge(Env::raw().split("_").only(&["database.url"]))
         .merge(Json::file(format!("{config}/{app}.json")))
         .merge(Toml::file(format!("{config}/{app}.toml")))
         .merge(Yaml::file(format!("{config}/{app}.yaml")))

@@ -1,0 +1,11 @@
+{
+	"web": {
+		"cors_origins": ["http://origin-1.com", "https://origin-2.com"]
+	},
+	"video_games": {
+		"twitch": {
+			"client_id": "",
+			"client_secret": ""
+		}
+	}
+}

@@ -23,4 +23,4 @@ node_modules
 out/
 target
 tmp
-/config
+/config/ryot.json
