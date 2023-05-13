@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use crate::{
     background::UserCreatedJob,
+    config::AppConfig,
     entities::{
         audio_book, book, movie,
         prelude::{AudioBook, Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
@@ -105,8 +106,13 @@ struct UpdateUserInput {
     password: Option<String>,
 }
 
-fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> {
-    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(true);
+fn create_cookie(
+    ctx: &Context<'_>,
+    api_key: &str,
+    expires: bool,
+    insecure_cookie: bool,
+) -> Result<()> {
+    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
     if expires {
         cookie = cookie.expires(OffsetDateTime::now_utc());
     } else {
@@ -208,15 +214,17 @@ impl UsersMutation {
             .data_unchecked::<UsersService>()
             .login_user(&input.username, &input.password)
             .await?;
+        let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
         if let LoginResult::Ok(LoginResponse { api_key }) = api_key {
-            create_cookie(gql_ctx, &api_key.to_string(), false)?;
+            create_cookie(gql_ctx, &api_key.to_string(), false, cookie_insecure)?;
         };
         Ok(api_key)
     }
 
     /// Logout a user from the server, deleting their login token
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        create_cookie(gql_ctx, "", true)?;
+        let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
+        create_cookie(gql_ctx, "", true, cookie_insecure)?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<UsersService>()
@@ -330,6 +338,17 @@ impl UsersService {
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
+                MetadataLot::AudioBook => {
+                    let item = meta
+                        .find_related(AudioBook)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if let Some(r) = item.runtime {
+                        audio_books_total.push(r);
+                    }
+                }
                 MetadataLot::Book => {
                     let item = meta
                         .find_related(Book)
@@ -374,17 +393,6 @@ impl UsersService {
                                 }
                             }
                         }
-                    }
-                }
-                MetadataLot::AudioBook => {
-                    let item = meta
-                        .find_related(AudioBook)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap();
-                    if let Some(r) = item.runtime {
-                        audio_books_total.push(r);
                     }
                 }
                 MetadataLot::VideoGame => {
