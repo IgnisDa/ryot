@@ -7,7 +7,10 @@ use argon2::{
 };
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
-use cookie::{time::OffsetDateTime, Cookie};
+use cookie::{
+    time::{ext::NumericalDuration, OffsetDateTime},
+    Cookie,
+};
 use http::header::SET_COOKIE;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
@@ -106,6 +109,8 @@ fn create_cookie(ctx: &Context<'_>, api_key: &str, expires: bool) -> Result<()> 
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(true);
     if expires {
         cookie = cookie.expires(OffsetDateTime::now_utc());
+    } else {
+        cookie = cookie.expires(OffsetDateTime::now_utc().checked_add(90.days()));
     }
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
