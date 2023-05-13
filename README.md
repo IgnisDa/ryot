@@ -106,7 +106,7 @@ builder.
 | `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                    |
 | `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                      |
 | `web.cors_origins`                    | An array of URLs for CORS.                                                                                               |
-| `web.insecure_cookie`                 | Setting this to `true` will make auth cookies secure. [More information](https://github.com/IgnisDa/ryot/issues/23#)   |
+| `web.insecure_cookie`                 | Setting this to `true` will make auth cookies insecure. [More information](https://github.com/IgnisDa/ryot/issues/23#)   |
 
 ## 🤓 Developer notes
 
