@@ -211,6 +211,8 @@ pub mod tmdb {
 }
 
 pub mod igdb {
+    use serde_json::json;
+
     use crate::graphql::PROJECT_NAME;
 
     use super::*;
@@ -221,18 +223,12 @@ pub mod igdb {
         twitch_client_secret: &str,
         igdb_base_url: &str,
     ) -> Client {
-        #[derive(Deserialize, Serialize)]
-        struct Query {
-            client_id: String,
-            client_secret: String,
-            grant_type: String,
-        }
         let mut access_res = surf::post(twitch_base_url)
-            .query(&Query {
-                client_id: twitch_client_id.to_owned(),
-                client_secret: twitch_client_secret.to_owned(),
-                grant_type: "client_credentials".to_owned(),
-            })
+            .query(&json!({
+                "client_id": twitch_client_id.to_owned(),
+                "client_secret": twitch_client_secret.to_owned(),
+                "grant_type": "client_credentials".to_owned(),
+            }))
             .unwrap()
             .await
             .unwrap();
