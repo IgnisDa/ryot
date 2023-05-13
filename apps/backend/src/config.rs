@@ -131,7 +131,7 @@ pub struct ListenNotesConfig {
 impl Default for ListenNotesConfig {
     fn default() -> Self {
         Self {
-            url: "https://listen-api-test.listennotes.com/api/v2/".to_owned(),
+            url: "https://listen-api.listennotes.com/api/v2/".to_owned(),
             api_token: "".to_owned(),
         }
     }
