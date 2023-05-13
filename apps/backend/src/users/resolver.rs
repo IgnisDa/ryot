@@ -1,4 +1,6 @@
-use apalis::sqlite::SqliteStorage;
+use std::sync::Arc;
+
+use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{
     password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
@@ -25,7 +27,8 @@ use crate::{
     },
     graphql::IdObject,
     migrator::{MetadataLot, TokenLot, UserLot},
-    utils::{user_auth_token_from_ctx, user_id_from_ctx},
+    misc::resolver::MiscService,
+    utils::{user_auth_token_from_ctx, user_id_from_ctx, NamedObject},
 };
 
 pub static COOKIE_NAME: &str = "auth";
@@ -238,13 +241,19 @@ impl UsersMutation {
 #[derive(Debug, Clone)]
 pub struct UsersService {
     db: DatabaseConnection,
+    misc_service: Arc<MiscService>,
     user_created: SqliteStorage<UserCreatedJob>,
 }
 
 impl UsersService {
-    pub fn new(db: &DatabaseConnection, user_created: &SqliteStorage<UserCreatedJob>) -> Self {
+    pub fn new(
+        db: &DatabaseConnection,
+        misc_service: &MiscService,
+        user_created: &SqliteStorage<UserCreatedJob>,
+    ) -> Self {
         Self {
             db: db.clone(),
+            misc_service: Arc::new(misc_service.clone()),
             user_created: user_created.clone(),
         }
     }
@@ -428,6 +437,7 @@ impl UsersService {
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
+        let mut storage = self.user_created.clone();
         if User::find()
             .filter(user::Column::Name.eq(username))
             .count(&self.db)
@@ -451,6 +461,11 @@ impl UsersService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
+        storage
+            .push(UserCreatedJob {
+                user_id: user.id.clone(),
+            })
+            .await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
@@ -503,6 +518,14 @@ impl UsersService {
 
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
+        self.misc_service
+            .create_collection(
+                user_id,
+                NamedObject {
+                    name: "Watchlist".to_owned(),
+                },
+            )
+            .await?;
         Ok(())
     }
 

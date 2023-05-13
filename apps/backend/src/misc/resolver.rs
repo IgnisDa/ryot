@@ -276,7 +276,7 @@ impl MiscService {
         }
     }
 
-    async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
+    pub async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
             .filter(collection::Column::UserId.eq(user_id.to_owned()))

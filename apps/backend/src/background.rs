@@ -70,7 +70,7 @@ pub async fn refresh_user_to_media_association(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserCreatedJob {
-    user_id: i32,
+    pub user_id: i32,
 }
 
 impl Job for UserCreatedJob {
