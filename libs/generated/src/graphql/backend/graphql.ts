@@ -221,6 +221,7 @@ export enum MetadataLot {
   AudioBook = 'AUDIO_BOOK',
   Book = 'BOOK',
   Movie = 'MOVIE',
+  Podcast = 'PODCAST',
   Show = 'SHOW',
   VideoGame = 'VIDEO_GAME'
 }
