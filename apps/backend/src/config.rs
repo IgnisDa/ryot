@@ -122,6 +122,36 @@ pub struct MovieConfig {
 
 impl IsFeatureEnabled for MovieConfig {}
 
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct ListenNotesConfig {
+    pub url: String,
+    pub api_token: String,
+}
+
+impl Default for ListenNotesConfig {
+    fn default() -> Self {
+        Self {
+            url: "https://listen-api-test.listennotes.com/api/v2/".to_owned(),
+            api_token: "".to_owned(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct PodcastConfig {
+    pub listennotes: ListenNotesConfig,
+}
+
+impl IsFeatureEnabled for PodcastConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.listennotes.api_token.is_empty() {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct ShowConfig {
     pub tmdb: TmdbConfig,
@@ -206,6 +236,8 @@ pub struct AppConfig {
     pub importer: ImporterConfig,
     #[serde(default)]
     pub movies: MovieConfig,
+    #[serde(default)]
+    pub podcasts: PodcastConfig,
     #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]

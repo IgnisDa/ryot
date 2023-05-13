@@ -34,6 +34,8 @@ pub enum MetadataLot {
     AudioBook,
     #[sea_orm(string_value = "BO")]
     Book,
+    #[sea_orm(string_value = "PO")]
+    Podcast,
     #[sea_orm(string_value = "MO")]
     Movie,
     #[sea_orm(string_value = "SH")]

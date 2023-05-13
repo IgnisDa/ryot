@@ -46,12 +46,13 @@ impl CoreQuery {
     /// Get all the features that are enabled for the service
     async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Vec<CoreFeatureEnabled> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
-        let feats: [(MetadataLot, &dyn IsFeatureEnabled); 5] = [
+        let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
             (MetadataLot::Book, &config.books),
             (MetadataLot::Movie, &config.movies),
             (MetadataLot::Show, &config.shows),
             (MetadataLot::VideoGame, &config.video_games),
             (MetadataLot::AudioBook, &config.audio_books),
+            (MetadataLot::Podcast, &config.podcasts),
         ];
         feats
             .into_iter()
