@@ -1,6 +1,7 @@
 {
 	"web": {
-		"cors_origins": ["http://origin-1.com", "https://origin-2.com"]
+		"cors_origins": ["http://localhost:3000"],
+		"insecure_cookie": true
 	},
 	"video_games": {
 		"twitch": {
