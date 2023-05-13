@@ -10,6 +10,14 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
 only self hosted tracker you will ever need!
 
+## 📝 ELI5
+
+Imagine you have a special notebook where you can write down all the books
+you've read, movies and shows you've watched, audiobooks you've listened to, and
+video games you've played. Now, imagine that instead of a physical notebook, you
+have a special tool on your computer or phone that lets you keep track of all
+these things digitally.
+
 ## 🚀 Features
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media and fitness.
