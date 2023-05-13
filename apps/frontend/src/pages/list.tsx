@@ -87,6 +87,7 @@ const Page: NextPageWithLayout = () => {
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, query],
 		queryFn: async () => {
+			invariant(lot, "Lot must be defined");
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
@@ -127,7 +128,17 @@ const Page: NextPageWithLayout = () => {
 					);
 					return audioBooksSearch;
 				})
-				.run();
+				.with(MetadataLot.Podcast, async () => {
+					throw new Error();
+					const { podcastsSearch } = await gqlClient.request(
+						PodcastsSearchDocument,
+						{
+							input: { query, page: parseInt(activeSearchPage) || 1 },
+						},
+					);
+					return podcastsSearch;
+				})
+				.exhaustive();
 		},
 		onSuccess: () => {
 			if (!activeSearchPage) setSearchPage("1");

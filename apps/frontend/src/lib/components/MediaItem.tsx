@@ -19,6 +19,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/router";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 type Item = BooksSearchQuery["booksSearch"]["items"][number];
@@ -82,6 +83,7 @@ export default function (props: {
 
 	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {
+			invariant(lot, "Lot must be defined");
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { commitBook } = await gqlClient.request(
@@ -118,7 +120,10 @@ export default function (props: {
 					);
 					return commitAudioBook;
 				})
-				.run();
+				.with(MetadataLot.AudioBook, async () => {
+					throw new Error();
+				})
+				.exhaustive();
 		},
 	);
 
