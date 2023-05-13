@@ -275,6 +275,7 @@ impl ImporterService {
                         self.books_service.save_to_db(a.clone()).await
                     }
                 },
+                MetadataLot::Podcast => todo!(),
                 MetadataLot::Movie => match &item.identifier {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.movies_service.commit_movie(i).await

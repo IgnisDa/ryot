@@ -334,6 +334,17 @@ impl MediaService {
             audio_book_specifics: None,
         };
         match model.lot {
+            MetadataLot::AudioBook => {
+                let additional = AudioBook::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.audio_book_specifics = Some(AudioBookSpecifics {
+                    runtime: additional.runtime,
+                    source: additional.source,
+                });
+            }
             MetadataLot::Book => {
                 let additional = Book::find_by_id(metadata_id)
                     .one(&self.db)
@@ -345,6 +356,7 @@ impl MediaService {
                     source: additional.source,
                 });
             }
+            MetadataLot::Podcast => todo!(),
             MetadataLot::Movie => {
                 let additional = Movie::find_by_id(metadata_id)
                     .one(&self.db)
@@ -371,17 +383,6 @@ impl MediaService {
                     .unwrap()
                     .unwrap();
                 resp.video_game_specifics = Some(VideoGameSpecifics {
-                    source: additional.source,
-                });
-            }
-            MetadataLot::AudioBook => {
-                let additional = AudioBook::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.audio_book_specifics = Some(AudioBookSpecifics {
-                    runtime: additional.runtime,
                     source: additional.source,
                 });
             }
