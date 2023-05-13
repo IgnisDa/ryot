@@ -5,6 +5,7 @@ use crate::{
     config::AppConfig,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
+    users::resolver::UsersService,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -62,6 +63,28 @@ pub async fn refresh_user_to_media_association(
     ctx.data::<MediaService>()
         .unwrap()
         .cleanup_user_and_metadata_association()
+        .await
+        .unwrap();
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UserCreatedJob {
+    user_id: i32,
+}
+
+impl Job for UserCreatedJob {
+    const NAME: &'static str = "apalis::UserCreatedJob";
+}
+
+pub async fn user_created_job(
+    information: UserCreatedJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::debug!("Running jobs after user creation");
+    ctx.data::<UsersService>()
+        .unwrap()
+        .user_created_job(&information.user_id)
         .await
         .unwrap();
     Ok(())

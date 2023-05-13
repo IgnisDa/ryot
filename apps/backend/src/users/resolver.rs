@@ -1,3 +1,4 @@
+use apalis::sqlite::SqliteStorage;
 use argon2::{
     password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
@@ -13,6 +14,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
+    background::UserCreatedJob,
     entities::{
         audio_book, book, movie,
         prelude::{AudioBook, Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
@@ -236,11 +238,15 @@ impl UsersMutation {
 #[derive(Debug, Clone)]
 pub struct UsersService {
     db: DatabaseConnection,
+    user_created: SqliteStorage<UserCreatedJob>,
 }
 
 impl UsersService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
+    pub fn new(db: &DatabaseConnection, user_created: &SqliteStorage<UserCreatedJob>) -> Self {
+        Self {
+            db: db.clone(),
+            user_created: user_created.clone(),
+        }
     }
 }
 
@@ -493,6 +499,11 @@ impl UsersService {
         } else {
             Ok(false)
         }
+    }
+
+    // this job is run when a user is created for the first time
+    pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
+        Ok(())
     }
 
     async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {

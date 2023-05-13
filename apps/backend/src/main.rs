@@ -33,7 +33,7 @@ use tower_http::{
 
 use crate::{
     background::{
-        import_media, invalidate_import_job, refresh_user_to_media_association,
+        import_media, invalidate_import_job, refresh_user_to_media_association, user_created_job,
         InvalidateImportJob, RefreshUserToMediaAssociation,
     },
     config::get_app_config,
@@ -110,9 +110,10 @@ async fn main() -> Result<()> {
 
     Migrator::up(&db, None).await.unwrap();
 
-    let refresh_user_to_media_association_storage = create_storage().await;
-    let import_media_storage = create_storage().await;
-    let invalidate_import_job_storage = create_storage().await;
+    let refresh_user_to_media_association_storage = create_storage(&config.database.url).await;
+    let import_media_storage = create_storage(&config.database.url).await;
+    let invalidate_import_job_storage = create_storage(&config.database.url).await;
+    let user_created_job_storage = create_storage(&config.database.url).await;
 
     let (tx_1, mut rx_1) = channel::<u8>(1);
     let mut new_refresh_user_to_media_association_storage =
@@ -171,7 +172,13 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let app_services = create_app_services(db.clone(), &config, &import_media_storage).await;
+    let app_services = create_app_services(
+        db.clone(),
+        &config,
+        &import_media_storage,
+        &user_created_job_storage,
+    )
+    .await;
     let schema = get_schema(&app_services, db.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
@@ -228,6 +235,13 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(importer_service_2.clone()))
                     .with_storage(invalidate_import_job_storage.clone())
                     .build_fn(invalidate_import_job)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("user_created_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(app_services.users_service.clone()))
+                    .with_storage(user_created_job_storage.clone())
+                    .build_fn(user_created_job)
             })
             .run()
             .await;
@@ -298,7 +312,7 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
-async fn create_storage<T: ApalisJob>() -> SqliteStorage<T> {
+async fn create_storage<T: ApalisJob>(_url: &str) -> SqliteStorage<T> {
     // it is necessary to initialize it in memory and not connect to the same database
     let st = SqliteStorage::connect(":memory:").await.unwrap();
     st.setup().await.unwrap();
