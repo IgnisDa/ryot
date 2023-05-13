@@ -219,9 +219,19 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct SchedulerConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
+    pub insecure_cookie: bool,
+}
+
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self {
+            cors_origins: vec![],
+            insecure_cookie: false,
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
