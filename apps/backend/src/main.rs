@@ -32,7 +32,10 @@ use tower_http::{
 };
 
 use crate::{
-    background::{import_media, refresh_user_to_media_association, RefreshUserToMediaAssociation},
+    background::{
+        import_media, invalidate_import_job, refresh_user_to_media_association, user_created_job,
+        InvalidateImportJob, RefreshUserToMediaAssociation,
+    },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
@@ -107,16 +110,32 @@ async fn main() -> Result<()> {
 
     Migrator::up(&db, None).await.unwrap();
 
-    let refresh_user_to_media_association_storage = create_storage().await;
-    let import_media_storage = create_storage().await;
+    let refresh_user_to_media_association_storage = create_storage(&config.database.url).await;
+    let import_media_storage = create_storage(&config.database.url).await;
+    let invalidate_import_job_storage = create_storage(&config.database.url).await;
+    let user_created_job_storage = create_storage(&config.database.url).await;
 
-    let (tx, mut rx) = channel::<u8>(1);
-    let mut new_storage = refresh_user_to_media_association_storage.clone();
+    let (tx_1, mut rx_1) = channel::<u8>(1);
+    let mut new_refresh_user_to_media_association_storage =
+        refresh_user_to_media_association_storage.clone();
     tokio::spawn(async move {
         loop {
-            if (rx.recv().await).is_some() {
-                new_storage
+            if (rx_1.recv().await).is_some() {
+                new_refresh_user_to_media_association_storage
                     .push(RefreshUserToMediaAssociation {})
+                    .await
+                    .unwrap();
+            }
+        }
+    });
+
+    let (tx_2, mut rx_2) = channel::<u8>(1);
+    let mut new_invalidate_import_job_storage = invalidate_import_job_storage.clone();
+    tokio::spawn(async move {
+        loop {
+            if (rx_2.recv().await).is_some() {
+                new_invalidate_import_job_storage
+                    .push(InvalidateImportJob {})
                     .await
                     .unwrap();
             }
@@ -129,9 +148,9 @@ async fn main() -> Result<()> {
         .add(
             // every 5 minutes
             Job::new_async("0 */5 * * * *", move |_uuid, _l| {
-                let tx = tx.clone();
+                let tx_1 = tx_1.clone();
                 Box::pin(async move {
-                    tx.send(1).await.unwrap();
+                    tx_1.send(1).await.unwrap();
                 })
             })
             .unwrap(),
@@ -139,7 +158,27 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    let app_services = create_app_services(db.clone(), &config, &import_media_storage).await;
+    sched
+        .add(
+            // every day
+            Job::new_async("0 0 0 * * *", move |_uuid, _l| {
+                let tx_2 = tx_2.clone();
+                Box::pin(async move {
+                    tx_2.send(1).await.unwrap();
+                })
+            })
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let app_services = create_app_services(
+        db.clone(),
+        &config,
+        &import_media_storage,
+        &user_created_job_storage,
+    )
+    .await;
     let schema = get_schema(&app_services, db.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
@@ -171,6 +210,8 @@ async fn main() -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
+    let importer_service_1 = app_services.importer_service.clone();
+    let importer_service_2 = app_services.importer_service.clone();
     let monitor = async {
         let mn = Monitor::new()
             .register_with_count(1, move |c| {
@@ -183,10 +224,24 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(app_services.importer_service.clone()))
+                    .layer(ApalisExtension(importer_service_1.clone()))
                     .layer(ApalisExtension(config.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("invalidate_import_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(importer_service_2.clone()))
+                    .with_storage(invalidate_import_job_storage.clone())
+                    .build_fn(invalidate_import_job)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("user_created_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(app_services.users_service.clone()))
+                    .with_storage(user_created_job_storage.clone())
+                    .build_fn(user_created_job)
             })
             .run()
             .await;
@@ -257,7 +312,7 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
-async fn create_storage<T: ApalisJob>() -> SqliteStorage<T> {
+async fn create_storage<T: ApalisJob>(_url: &str) -> SqliteStorage<T> {
     // it is necessary to initialize it in memory and not connect to the same database
     let st = SqliteStorage::connect(":memory:").await.unwrap();
     st.setup().await.unwrap();
