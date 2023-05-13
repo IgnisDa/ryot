@@ -19,6 +19,7 @@ impl Job for ImportMedia {
 }
 
 pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
+    tracing::info!("Importing media");
     let config = ctx.data::<AppConfig>().unwrap();
     ctx.data::<ImporterService>()
         .unwrap()
@@ -39,7 +40,7 @@ pub async fn invalidate_import_job(
     _information: InvalidateImportJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::debug!("Invalidating invalid media import jobs");
+    tracing::info!("Invalidating invalid media import jobs");
     ctx.data::<ImporterService>()
         .unwrap()
         .invalidate_import_jobs()
@@ -59,7 +60,7 @@ pub async fn refresh_user_to_media_association(
     _information: RefreshUserToMediaAssociation,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::debug!("Running user and metadata association cleanup");
+    tracing::info!("Running user and metadata association cleanup");
     ctx.data::<MediaService>()
         .unwrap()
         .cleanup_user_and_metadata_association()
@@ -81,7 +82,7 @@ pub async fn user_created_job(
     information: UserCreatedJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::debug!("Running jobs after user creation");
+    tracing::info!("Running jobs after user creation");
     ctx.data::<UsersService>()
         .unwrap()
         .user_created_job(&information.user_id)
