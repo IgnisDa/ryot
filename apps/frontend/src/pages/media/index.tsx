@@ -36,6 +36,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CollectionsDocument,
+	type CollectionsQuery,
 	CreateCollectionDocument,
 	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
@@ -50,7 +51,6 @@ import {
 	SeenHistoryDocument,
 	ToggleMediaInCollectionDocument,
 	type ToggleMediaInCollectionMutationVariables,
-	type CollectionsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -389,7 +389,7 @@ const Page: NextPageWithLayout = () => {
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
 		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
 		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame,  () => ({
+		.with(MetadataLot.VideoGame, () => ({
 			from: "purple",
 			to: "blue",
 		}))

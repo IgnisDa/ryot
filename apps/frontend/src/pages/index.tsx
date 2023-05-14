@@ -18,7 +18,7 @@ import {
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconAlertCircle } from "@tabler/icons-react";
-import {  useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,

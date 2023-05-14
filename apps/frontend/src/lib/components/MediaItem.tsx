@@ -13,10 +13,10 @@ import {
 	CommitBookDocument,
 	type CommitBookMutationVariables,
 	CommitMovieDocument,
+	CommitPodcastDocument,
 	CommitShowDocument,
 	CommitVideoGameDocument,
 	MetadataLot,
-    CommitPodcastDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/router";
@@ -108,11 +108,11 @@ export default function (props: {
 					return commitMovie;
 				})
 				.with(MetadataLot.Podcast, async () => {
-					const { commitPodcast} = await gqlClient.request(
+					const { commitPodcast } = await gqlClient.request(
 						CommitPodcastDocument,
 						variables,
 					);
-					return commitPodcast
+					return commitPodcast;
 				})
 				.with(MetadataLot.Show, async () => {
 					const { commitShow } = await gqlClient.request(
