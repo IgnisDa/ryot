@@ -18,7 +18,7 @@ use crate::{
             MetadataToCollection, Movie, Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
-        utils::{SeenExtraInformation, SeenSeasonExtraInformation},
+        utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -414,6 +414,9 @@ impl MediaService {
                     SeenExtraInformation::Show(sea) => {
                         s.show_information = Some(sea.clone());
                     }
+                    SeenExtraInformation::Podcast(sea) => {
+                        s.podcast_information = Some(sea.clone());
+                    }
                 };
             }
         });
@@ -559,7 +562,7 @@ impl MediaService {
                     };
                     if meta.lot == MetadataLot::Show {
                         seen_ins.extra_information = ActiveValue::Set(Some(
-                            SeenExtraInformation::Show(SeenSeasonExtraInformation {
+                            SeenExtraInformation::Show(SeenShowExtraInformation {
                                 season: input.season_number.unwrap(),
                                 episode: input.episode_number.unwrap(),
                             }),

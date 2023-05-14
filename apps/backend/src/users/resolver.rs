@@ -22,8 +22,10 @@ use crate::{
     background::UserCreatedJob,
     config::AppConfig,
     entities::{
-        audio_book, book, movie,
-        prelude::{AudioBook, Book, Metadata, Movie, Seen, Show, Summary, Token, User, VideoGame},
+        audio_book, book, movie, podcast,
+        prelude::{
+            AudioBook, Book, Metadata, Movie, Podcast, Seen, Show, Summary, Token, User, VideoGame,
+        },
         seen, show, summary, token, user,
         user::Model as UserModel,
         utils::SeenExtraInformation,
@@ -335,6 +337,7 @@ impl UsersService {
         let mut audio_books_total = vec![];
         let mut shows_total = vec![];
         let mut episodes_total = vec![];
+        let mut podcasts_total = vec![];
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
@@ -360,7 +363,26 @@ impl UsersService {
                         books_total.push(pg);
                     }
                 }
-                MetadataLot::Podcast => todo!(),
+                MetadataLot::Podcast => {
+                    let item = meta
+                        .find_related(Podcast)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    for episode in item.details.episodes {
+                        match seen.extra_information.to_owned().unwrap() {
+                            SeenExtraInformation::Show(_) => unreachable!(),
+                            SeenExtraInformation::Podcast(s) => {
+                                if s.episode_id == episode.id {
+                                    if let Some(r) = episode.runtime {
+                                        podcasts_total.push(r);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 MetadataLot::Movie => {
                     let item = meta
                         .find_related(Movie)
@@ -382,6 +404,7 @@ impl UsersService {
                     for season in item.details.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
+                                SeenExtraInformation::Podcast(_) => unreachable!(),
                                 SeenExtraInformation::Show(s) => {
                                     if s.season == season.season_number
                                         && s.episode == episode.episode_number
@@ -431,6 +454,11 @@ impl UsersService {
             .count(&self.db)
             .await
             .unwrap();
+        let podcasts_count = Podcast::find()
+            .filter(podcast::Column::MetadataId.is_in(metadata_ids.clone()))
+            .count(&self.db)
+            .await
+            .unwrap();
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
             created_on: ActiveValue::NotSet,
@@ -445,6 +473,8 @@ impl UsersService {
             video_games_played: ActiveValue::Set(video_games_count.try_into().unwrap()),
             audio_books_runtime: ActiveValue::Set(audio_books_total.iter().sum()),
             audio_books_played: ActiveValue::Set(audio_books_count.try_into().unwrap()),
+            podcasts_runtime: ActiveValue::Set(podcasts_total.iter().sum()),
+            podcasts_played: ActiveValue::Set(podcasts_count.try_into().unwrap()),
         };
         let obj = summary_obj.insert(&self.db).await.unwrap();
         Ok(IdObject { id: obj.id })

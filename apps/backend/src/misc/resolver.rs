@@ -13,7 +13,7 @@ use crate::{
         collection, media_import_report, metadata_to_collection,
         prelude::{Collection, MediaImportReport, Metadata, Review, User},
         review,
-        utils::{SeenExtraInformation, SeenSeasonExtraInformation},
+        utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::IdObject,
     importer::ImportResultResponse,
@@ -39,6 +39,7 @@ struct ReviewItem {
     season_number: Option<i32>,
     episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
+    podcast_episode_id: Option<String>,
 }
 
 #[derive(Debug, InputObject)]
@@ -168,11 +169,12 @@ impl MiscService {
             .unwrap()
             .into_iter()
             .map(|(r, u)| {
-                let (se, ep) = match r.extra_information {
+                let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
-                        SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode)),
+                        SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode), None),
+                        SeenExtraInformation::Podcast(d) => (None, None, Some(d.episode_id)),
                     },
-                    None => (None, None),
+                    None => (None, None, None),
                 };
                 let user = u.unwrap();
                 ReviewItem {
@@ -182,8 +184,9 @@ impl MiscService {
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
-                    season_number: se,
-                    episode_number: ep,
+                    season_number: show_se,
+                    episode_number: show_ep,
+                    podcast_episode_id: podcast_ep,
                     posted_by: ReviewPostedBy {
                         id: user.id,
                         name: user.name,
@@ -262,12 +265,11 @@ impl MiscService {
                 review_obj.posted_on = ActiveValue::Set(d);
             }
             if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
-                review_obj.extra_information = ActiveValue::Set(Some(SeenExtraInformation::Show(
-                    SeenSeasonExtraInformation {
+                review_obj.extra_information =
+                    ActiveValue::Set(Some(SeenExtraInformation::Show(SeenShowExtraInformation {
                         season: s,
                         episode: e,
-                    },
-                )));
+                    })));
             }
             let insert = review_obj.save(&self.db).await.unwrap();
             Ok(IdObject {

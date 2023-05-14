@@ -101,6 +101,7 @@ export type DatabaseMediaDetails = {
   genres: Array<Scalars['String']>;
   id: Scalars['Int'];
   movieSpecifics?: Maybe<MovieSpecifics>;
+  podcastSpecifics?: Maybe<PodcastSpecifics>;
   posterImages: Array<Scalars['String']>;
   publishDate?: Maybe<Scalars['NaiveDate']>;
   publishYear?: Maybe<Scalars['Int']>;
@@ -359,6 +360,24 @@ export type NamedObjectInput = {
   name: Scalars['String'];
 };
 
+export type PodcastEpisode = {
+  id: Scalars['String'];
+  overview?: Maybe<Scalars['String']>;
+  publishDate?: Maybe<Scalars['DateTime']>;
+  runtime?: Maybe<Scalars['Int']>;
+  thumbnail?: Maybe<Scalars['String']>;
+  title: Scalars['String'];
+};
+
+export enum PodcastSource {
+  Listennotes = 'LISTENNOTES'
+}
+
+export type PodcastSpecifics = {
+  episodes: Array<PodcastEpisode>;
+  source: PodcastSource;
+};
+
 export type PostReviewInput = {
   date?: InputMaybe<Scalars['DateTime']>;
   episodeNumber?: InputMaybe<Scalars['Int']>;
@@ -492,6 +511,7 @@ export type RegisterResult = IdObject | RegisterError;
 export type ReviewItem = {
   episodeNumber?: Maybe<Scalars['Int']>;
   id: Scalars['Int'];
+  podcastEpisodeId?: Maybe<Scalars['String']>;
   postedBy: ReviewPostedBy;
   postedOn: Scalars['DateTime'];
   rating?: Maybe<Scalars['Decimal']>;
@@ -521,13 +541,18 @@ export type Seen = {
   id: Scalars['Int'];
   lastUpdatedOn: Scalars['DateTime'];
   metadataId: Scalars['Int'];
+  podcastInformation?: Maybe<SeenPodcastExtraInformation>;
   progress: Scalars['Int'];
-  showInformation?: Maybe<SeenSeasonExtraInformation>;
+  showInformation?: Maybe<SeenShowExtraInformation>;
   startedOn?: Maybe<Scalars['NaiveDate']>;
   userId: Scalars['Int'];
 };
 
-export type SeenSeasonExtraInformation = {
+export type SeenPodcastExtraInformation = {
+  episodeId: Scalars['String'];
+};
+
+export type SeenShowExtraInformation = {
   episode: Scalars['Int'];
   season: Scalars['Int'];
 };
