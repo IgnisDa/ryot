@@ -16,6 +16,7 @@ const documents = {
     "mutation CommitAudioBook($identifier: String!) {\n  commitAudioBook(identifier: $identifier) {\n    id\n  }\n}": types.CommitAudioBookDocument,
     "mutation CommitBook($identifier: String!) {\n  commitBook(identifier: $identifier) {\n    id\n  }\n}": types.CommitBookDocument,
     "mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}": types.CommitMovieDocument,
+    "mutation CommitPodcast($identifier: String!) {\n  commitPodcast(identifier: $identifier) {\n    id\n  }\n}": types.CommitPodcastDocument,
     "mutation CommitShow($identifier: String!) {\n  commitShow(identifier: $identifier) {\n    id\n  }\n}": types.CommitShowDocument,
     "mutation CommitVideoGame($identifier: String!) {\n  commitVideoGame(identifier: $identifier) {\n    id\n  }\n}": types.CommitVideoGameDocument,
     "mutation CreateCollection($input: NamedObjectInput!) {\n  createCollection(input: $input) {\n    id\n  }\n}": types.CreateCollectionDocument,
@@ -74,6 +75,10 @@ export function graphql(source: "mutation CommitBook($identifier: String!) {\n  
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitMovie($identifier: String!) {\n  commitMovie(identifier: $identifier) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation CommitPodcast($identifier: String!) {\n  commitPodcast(identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitPodcast($identifier: String!) {\n  commitPodcast(identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
