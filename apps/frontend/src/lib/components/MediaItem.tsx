@@ -16,6 +16,7 @@ import {
 	CommitShowDocument,
 	CommitVideoGameDocument,
 	MetadataLot,
+    CommitPodcastDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/router";
@@ -85,6 +86,13 @@ export default function (props: {
 		async (variables: CommitBookMutationVariables) => {
 			invariant(lot, "Lot must be defined");
 			return await match(lot)
+				.with(MetadataLot.AudioBook, async () => {
+					const { commitAudioBook } = await gqlClient.request(
+						CommitAudioBookDocument,
+						variables,
+					);
+					return commitAudioBook;
+				})
 				.with(MetadataLot.Book, async () => {
 					const { commitBook } = await gqlClient.request(
 						CommitBookDocument,
@@ -99,6 +107,13 @@ export default function (props: {
 					);
 					return commitMovie;
 				})
+				.with(MetadataLot.Podcast, async () => {
+					const { commitPodcast} = await gqlClient.request(
+						CommitPodcastDocument,
+						variables,
+					);
+					return commitPodcast
+				})
 				.with(MetadataLot.Show, async () => {
 					const { commitShow } = await gqlClient.request(
 						CommitShowDocument,
@@ -112,16 +127,6 @@ export default function (props: {
 						variables,
 					);
 					return commitVideoGame;
-				})
-				.with(MetadataLot.AudioBook, async () => {
-					const { commitAudioBook } = await gqlClient.request(
-						CommitAudioBookDocument,
-						variables,
-					);
-					return commitAudioBook;
-				})
-				.with(MetadataLot.AudioBook, async () => {
-					throw new Error();
 				})
 				.exhaustive();
 		},

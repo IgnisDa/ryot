@@ -389,9 +389,13 @@ const Page: NextPageWithLayout = () => {
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
 		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
 		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame, undefined, () => ({
+		.with(MetadataLot.VideoGame,  () => ({
 			from: "purple",
 			to: "blue",
+		}))
+		.with(MetadataLot.Podcast, undefined, () => ({
+			from: "yellow",
+			to: "purple",
 		}))
 		.exhaustive();
 
