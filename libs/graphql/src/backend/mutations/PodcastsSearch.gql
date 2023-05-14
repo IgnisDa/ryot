@@ -1,0 +1,11 @@
+query PodcastsSearch($input: SearchInput!) {
+	podcastsSearch(input: $input) {
+		total
+		items {
+  		identifier
+  		title
+  		posterImages
+			publishYear
+		}
+	}
+}

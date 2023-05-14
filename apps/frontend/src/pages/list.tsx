@@ -28,6 +28,7 @@ import {
 	MediaSortOrder,
 	MetadataLot,
 	MoviesSearchDocument,
+	PodcastsSearchDocument,
 	ShowsSearchDocument,
 	VideoGamesSearchDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -129,7 +130,6 @@ const Page: NextPageWithLayout = () => {
 					return audioBooksSearch;
 				})
 				.with(MetadataLot.Podcast, async () => {
-					throw new Error();
 					const { podcastsSearch } = await gqlClient.request(
 						PodcastsSearchDocument,
 						{
