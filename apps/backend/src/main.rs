@@ -54,6 +54,7 @@ mod media;
 mod migrator;
 mod misc;
 mod movies;
+mod podcasts;
 mod shows;
 mod traits;
 mod users;
