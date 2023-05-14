@@ -1,9 +1,10 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::Datelike;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
+use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::Client;
 
 use crate::config::PodcastConfig;
@@ -14,7 +15,7 @@ use crate::media::{
 };
 use crate::migrator::MetadataLot;
 use crate::traits::MediaProvider;
-use crate::utils::{convert_date_to_year, listennotes};
+use crate::utils::listennotes;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbGenre {
@@ -25,20 +26,6 @@ struct IgdbGenre {
 struct IgdbImage {
     image_id: String,
     url: String,
-}
-
-#[serde_as]
-#[derive(Serialize, Deserialize, Debug)]
-struct IgdbSearchResponse {
-    id: i32,
-    name: String,
-    summary: Option<String>,
-    cover: Option<IgdbImage>,
-    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
-    first_release_date: Option<DateTimeUtc>,
-    rating: Option<f32>,
-    artworks: Option<Vec<IgdbImage>>,
-    genres: Option<Vec<IgdbGenre>>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,12 +51,14 @@ impl MediaProvider for ListennotesService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
-            title: String,
+            title_original: String,
             id: String,
-            #[serde(rename = "pub_date_ms")]
-            pub publish_date: Option<String>,
+            #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
+            #[serde(rename = "earliest_pub_date_ms")]
+            publish_date: Option<DateTimeUtc>,
             image: Option<String>,
         }
         #[derive(Serialize, Deserialize, Debug)]
@@ -83,6 +72,7 @@ impl MediaProvider for ListennotesService {
             .query(&json!({
                 "q": query.to_owned(),
                 "offset": (page.unwrap_or_default() - 1) * LIMIT,
+                "type": "podcast"
             }))
             .unwrap()
             .await
@@ -97,44 +87,11 @@ impl MediaProvider for ListennotesService {
             .map(|r| MediaSearchItem {
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
-                title: r.title,
+                title: r.title_original,
                 poster_images: Vec::from_iter(r.image),
-                publish_year: r.publish_date.map(|r| convert_date_to_year(&r)).flatten(),
+                publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect::<Vec<_>>();
         Ok(MediaSearchResults { total, items: resp })
-    }
-}
-
-impl ListennotesService {
-    fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
-        let mut poster_images = Vec::from_iter(item.cover.map(|p| p.image_id));
-        let additional_images = item
-            .artworks
-            .unwrap_or_default()
-            .into_iter()
-            .map(|a| a.image_id);
-        poster_images.extend(additional_images);
-        todo!();
-        // MediaDetails {
-        //     identifier: item.id.to_string(),
-        //     lot: MetadataLot::Podcast,
-        //     title: item.name,
-        //     description: item.summary,
-        //     creators: vec![],
-        //     poster_images,
-        //     backdrop_images: vec![],
-        //     publish_date: item.first_release_date.map(|d| d.date_naive()),
-        //     publish_year: item.first_release_date.map(|d| d.year()),
-        //     genres: item
-        //         .genres
-        //         .unwrap_or_default()
-        //         .into_iter()
-        //         .map(|g| g.name)
-        //         .collect(),
-        //     specifics: MediaSpecifics::Podcasts(PodcastSpecifics {
-        //         source: PodcastSource::Listennotes,
-        //     }),
-        // }
     }
 }
