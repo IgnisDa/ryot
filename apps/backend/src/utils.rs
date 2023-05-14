@@ -72,7 +72,7 @@ pub async fn create_app_services(
     let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
-    let listennotes_service = ListennotesService::new(&config.podcasts);
+    let listennotes_service = ListennotesService::new(&config.podcasts).await;
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(&db, &media_service);
     let users_service = UsersService::new(&db, &misc_service, user_created_job);
@@ -217,9 +217,15 @@ pub mod tmdb {
 }
 
 pub mod listennotes {
+    use std::collections::HashMap;
+
     use super::*;
 
-    pub fn get_client_config(url: &str, api_token: &str, user_agent: &str) -> Client {
+    pub async fn get_client_config(
+        url: &str,
+        api_token: &str,
+        user_agent: &str,
+    ) -> (Client, HashMap<i32, String>) {
         let client: Client = Config::new()
             .add_header("X-ListenAPI-Key", api_token)
             .unwrap()
@@ -228,7 +234,22 @@ pub mod listennotes {
             .set_base_url(Url::parse(url).unwrap())
             .try_into()
             .unwrap();
-        client
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Genre {
+            id: i32,
+            name: String,
+        }
+        #[derive(Debug, Serialize, Deserialize)]
+        struct GenreResponse {
+            genres: Vec<Genre>,
+        }
+        let mut rsp = client.get("genres").await.unwrap();
+        let data: GenreResponse = rsp.body_json().await.unwrap();
+        let mut genres = HashMap::new();
+        for genre in data.genres {
+            genres.insert(genre.id, genre.name);
+        }
+        (client, genres)
     }
 }
 

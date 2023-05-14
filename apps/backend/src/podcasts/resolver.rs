@@ -6,7 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{podcast, prelude::VideoGame, video_game},
+    entities::{podcast, prelude::Podcast},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -45,7 +45,7 @@ impl PodcastsMutation {
     async fn commit_podcast(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<PodcastsService>()
-            .commit_video_game(&identifier)
+            .commit_podcast(&identifier)
             .await
     }
 }
@@ -78,9 +78,9 @@ impl PodcastsService {
         Ok(movies)
     }
 
-    pub async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
-        let meta = VideoGame::find()
-            .filter(video_game::Column::Identifier.eq(identifier))
+    pub async fn commit_podcast(&self, identifier: &str) -> Result<IdObject> {
+        let meta = Podcast::find()
+            .filter(podcast::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();

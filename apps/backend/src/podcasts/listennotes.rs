@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
@@ -9,11 +11,13 @@ use surf::Client;
 
 use crate::config::PodcastConfig;
 use crate::media::resolver::MediaDetails;
+use crate::media::MediaSpecifics;
 use crate::media::{
     resolver::{MediaSearchItem, MediaSearchResults},
     LIMIT,
 };
-use crate::migrator::MetadataLot;
+use crate::migrator::{MetadataLot, PodcastSource};
+use crate::podcasts::{PodcastEpisode, PodcastSpecifics};
 use crate::traits::MediaProvider;
 use crate::utils::listennotes;
 
@@ -31,23 +35,63 @@ struct IgdbImage {
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
     client: Client,
+    genres: HashMap<i32, String>,
 }
 
 impl ListennotesService {
-    pub fn new(config: &PodcastConfig) -> Self {
-        let client = listennotes::get_client_config(
+    pub async fn new(config: &PodcastConfig) -> Self {
+        let (client, genres) = listennotes::get_client_config(
             &config.listennotes.url,
             &config.listennotes.api_token,
             &config.listennotes.user_agent,
-        );
-        Self { client }
+        )
+        .await;
+        Self { client, genres }
     }
 }
 
 #[async_trait]
 impl MediaProvider for ListennotesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        todo!();
+        #[serde_as]
+        #[derive(Serialize, Deserialize, Debug)]
+        struct Podcast {
+            title: String,
+            description: Option<String>,
+            id: String,
+            #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
+            #[serde(rename = "earliest_pub_date_ms")]
+            publish_date: Option<DateTimeUtc>,
+            image: Option<String>,
+            episodes: Vec<PodcastEpisode>,
+            genre_ids: Vec<i32>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("podcasts/{}", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let d: Podcast = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        Ok(MediaDetails {
+            identifier: d.id,
+            title: d.title,
+            description: d.description,
+            lot: MetadataLot::Podcast,
+            creators: vec![],
+            genres: d
+                .genre_ids
+                .into_iter()
+                .filter_map(|g| self.genres.get(&g).cloned())
+                .collect(),
+            poster_images: Vec::from_iter(d.image),
+            backdrop_images: vec![],
+            publish_year: d.publish_date.map(|r| r.year()),
+            publish_date: d.publish_date.map(|d| d.date_naive()),
+            specifics: MediaSpecifics::Podcast(PodcastSpecifics {
+                episodes: d.episodes,
+                source: PodcastSource::Listennotes,
+            }),
+        })
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
