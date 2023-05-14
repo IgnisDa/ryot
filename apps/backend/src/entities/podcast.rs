@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::PodcastSource;
+use crate::{migrator::PodcastSource, podcasts::PodcastSpecifics};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "podcast")]
@@ -11,7 +11,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     pub identifier: String,
-    pub details: String,
+    pub details: PodcastSpecifics,
     pub source: PodcastSource,
 }
 

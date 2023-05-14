@@ -8,7 +8,7 @@ use surf::Client;
 
 use crate::media::resolver::MediaDetails;
 use crate::media::MediaSpecifics;
-use crate::migrator::{MetadataLot, VideoGameSource};
+use crate::migrator::{MetadataLot, PodcastSource, VideoGameSource};
 use crate::traits::MediaProvider;
 use crate::{
     config::VideoGameConfig,
@@ -157,26 +157,27 @@ impl IgdbService {
             .into_iter()
             .map(|a| self.get_cover_image_url(a.image_id));
         poster_images.extend(additional_images);
-        MediaDetails {
-            identifier: item.id.to_string(),
-            lot: MetadataLot::VideoGame,
-            title: item.name,
-            description: item.summary,
-            creators: vec![],
-            poster_images,
-            backdrop_images: vec![],
-            publish_date: item.first_release_date.map(|d| d.date_naive()),
-            publish_year: item.first_release_date.map(|d| d.year()),
-            genres: item
-                .genres
-                .unwrap_or_default()
-                .into_iter()
-                .map(|g| g.name)
-                .collect(),
-            specifics: MediaSpecifics::Podcasts(PodcastSpecifics {
-                source: VideoGameSource::Igdb,
-            }),
-        }
+        todo!();
+        // MediaDetails {
+        //     identifier: item.id.to_string(),
+        //     lot: MetadataLot::Podcast,
+        //     title: item.name,
+        //     description: item.summary,
+        //     creators: vec![],
+        //     poster_images,
+        //     backdrop_images: vec![],
+        //     publish_date: item.first_release_date.map(|d| d.date_naive()),
+        //     publish_year: item.first_release_date.map(|d| d.year()),
+        //     genres: item
+        //         .genres
+        //         .unwrap_or_default()
+        //         .into_iter()
+        //         .map(|g| g.name)
+        //         .collect(),
+        //     specifics: MediaSpecifics::Podcasts(PodcastSpecifics {
+        //         source: PodcastSource::Listennotes,
+        //     }),
+        // }
     }
 
     fn get_cover_image_url(&self, hash: String) -> String {
