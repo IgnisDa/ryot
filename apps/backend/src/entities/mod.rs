@@ -14,6 +14,7 @@ pub mod metadata_to_collection;
 pub mod metadata_to_creator;
 pub mod metadata_to_genre;
 pub mod movie;
+pub mod podcast;
 pub mod review;
 pub mod seen;
 pub mod show;

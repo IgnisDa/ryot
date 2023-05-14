@@ -12,6 +12,7 @@ pub use super::metadata_to_collection::Entity as MetadataToCollection;
 pub use super::metadata_to_creator::Entity as MetadataToCreator;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::movie::Entity as Movie;
+pub use super::podcast::Entity as Podcast;
 pub use super::review::Entity as Review;
 pub use super::seen::Entity as Seen;
 pub use super::show::Entity as Show;
