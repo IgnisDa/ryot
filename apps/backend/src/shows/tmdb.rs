@@ -9,7 +9,7 @@ use crate::{
     config::TmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics,
+        MediaSpecifics, LIMIT,
     },
     migrator::{MetadataLot, ShowSource},
     shows::{ShowEpisode, ShowSeason},
@@ -208,6 +208,7 @@ impl MediaProvider for TmdbService {
                 }
             })
             .collect::<Vec<_>>();
+        let resp = resp[..(LIMIT as usize)].to_vec();
         Ok(MediaSearchResults {
             total: search.total_results,
             items: resp,
