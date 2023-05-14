@@ -18,7 +18,6 @@ use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use std::{
     env, fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
@@ -112,13 +111,10 @@ async fn main() -> Result<()> {
 
     Migrator::up(&db, None).await.unwrap();
 
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite:./jobs.db?mode=rwc")
-        .await?;
-    let refresh_user_to_media_association_storage = create_storage(&pool).await;
-    let import_media_storage = create_storage(&pool).await;
-    let invalidate_import_job_storage = create_storage(&pool).await;
-    let user_created_job_storage = create_storage(&pool).await;
+    let refresh_user_to_media_association_storage = create_storage(&config.database.url).await;
+    let import_media_storage = create_storage(&config.database.url).await;
+    let invalidate_import_job_storage = create_storage(&config.database.url).await;
+    let user_created_job_storage = create_storage(&config.database.url).await;
 
     let (tx_1, mut rx_1) = channel::<u8>(1);
     let mut new_refresh_user_to_media_association_storage =
@@ -317,8 +313,9 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
-async fn create_storage<T: ApalisJob>(pool: &Pool<Sqlite>) -> SqliteStorage<T> {
-    let storage = SqliteStorage::<T>::new(pool.to_owned());
-    storage.setup().await.unwrap();
-    storage
+async fn create_storage<T: ApalisJob>(_url: &str) -> SqliteStorage<T> {
+    // it is necessary to initialize it in memory and not connect to the same database
+    let st = SqliteStorage::connect(":memory:").await.unwrap();
+    st.setup().await.unwrap();
+    st
 }
