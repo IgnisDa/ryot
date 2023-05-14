@@ -46,7 +46,7 @@ import { type ReactElement, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
-const LIMIT = 10;
+const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
 	const [mineSortOrder, toggleMineSortOrder] = useToggle(

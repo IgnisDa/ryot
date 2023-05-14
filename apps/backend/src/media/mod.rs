@@ -7,7 +7,7 @@ use crate::{
 
 pub mod resolver;
 
-pub static LIMIT: i32 = 10;
+pub static LIMIT: i32 = 20;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum MediaSpecifics {

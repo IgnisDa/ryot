@@ -9,7 +9,7 @@ use crate::{
     config::TmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, LIMIT,
+        MediaSpecifics,
     },
     migrator::{MetadataLot, MovieSource},
     traits::MediaProvider,
@@ -125,7 +125,6 @@ impl MediaProvider for TmdbService {
                 }
             })
             .collect::<Vec<_>>();
-        let resp = resp.get(..(LIMIT as usize)).unwrap_or_else(|| &resp[..]);
         Ok(MediaSearchResults {
             total: search.total_results,
             items: resp.to_vec(),
