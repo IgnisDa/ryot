@@ -85,6 +85,7 @@ pub async fn create_app_services(
         &movies_service,
         &shows_service,
         &video_games_service,
+        &podcasts_service,
         import_media_job,
     );
     AppServices {

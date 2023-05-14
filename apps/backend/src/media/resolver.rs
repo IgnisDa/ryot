@@ -15,7 +15,7 @@ use crate::{
         metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
             AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
-            MetadataToCollection, Movie, Review, Seen, Show, UserToMetadata, VideoGame,
+            MetadataToCollection, Movie, Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenSeasonExtraInformation},
@@ -23,6 +23,7 @@ use crate::{
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
+    podcasts::PodcastSpecifics,
     shows::ShowSpecifics,
     utils::user_id_from_ctx,
     video_games::VideoGameSpecifics,
@@ -107,6 +108,7 @@ pub struct DatabaseMediaDetails {
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -332,6 +334,7 @@ impl MediaService {
             show_specifics: None,
             video_game_specifics: None,
             audio_book_specifics: None,
+            podcast_specifics: None,
         };
         match model.lot {
             MetadataLot::AudioBook => {
@@ -356,7 +359,14 @@ impl MediaService {
                     source: additional.source,
                 });
             }
-            MetadataLot::Podcast => todo!(),
+            MetadataLot::Podcast => {
+                let additional = Podcast::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.podcast_specifics = Some(additional.details);
+            }
             MetadataLot::Movie => {
                 let additional = Movie::find_by_id(metadata_id)
                     .one(&self.db)
