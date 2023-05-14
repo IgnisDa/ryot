@@ -1,38 +1,20 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use chrono::Datelike;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::Client;
 
+use crate::config::PodcastConfig;
 use crate::media::resolver::MediaDetails;
-use crate::media::MediaSpecifics;
-use crate::migrator::{MetadataLot, PodcastSource, VideoGameSource};
-use crate::traits::MediaProvider;
-use crate::{
-    config::VideoGameConfig,
-    media::{
-        resolver::{MediaSearchItem, MediaSearchResults},
-        LIMIT,
-    },
-    utils::igdb,
+use crate::media::{
+    resolver::{MediaSearchItem, MediaSearchResults},
+    LIMIT,
 };
-
-use super::PodcastSpecifics;
-
-static FIELDS: &str = "
-fields
-    id,
-    name,
-    summary,
-    cover.*, 
-    first_release_date,
-    artworks.*,
-    rating,
-    genres.*;
-where version_parent = null; 
-";
+use crate::migrator::MetadataLot;
+use crate::traits::MediaProvider;
+use crate::utils::{convert_date_to_year, listennotes};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbGenre {
@@ -60,102 +42,78 @@ struct IgdbSearchResponse {
 }
 
 #[derive(Debug, Clone)]
-pub struct IgdbService {
+pub struct ListennotesService {
     client: Client,
-    image_url: String,
-    image_size: String,
 }
 
-impl IgdbService {
-    pub async fn new(config: &VideoGameConfig) -> Self {
-        let client = igdb::get_client_config(
-            &config.twitch.access_token_url,
-            &config.twitch.client_id,
-            &config.twitch.client_secret,
-            &config.igdb.url,
-        )
-        .await;
-        Self {
-            client,
-            image_url: config.igdb.image_url.to_owned(),
-            image_size: config.igdb.image_size.to_string(),
-        }
+impl ListennotesService {
+    pub fn new(config: &PodcastConfig) -> Self {
+        let client = listennotes::get_client_config(
+            &config.listennotes.url,
+            &config.listennotes.api_token,
+            &config.listennotes.user_agent,
+        );
+        Self { client }
     }
 }
 
 #[async_trait]
-impl MediaProvider for IgdbService {
+impl MediaProvider for ListennotesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let req_body = format!(
-            r#"
-{field}
-where id = {id};
-            "#,
-            field = FIELDS,
-            id = identifier
-        );
-        let mut rsp = self
-            .client
-            .post("games")
-            .body_string(req_body)
-            .await
-            .map_err(|e| anyhow!(e))?;
-
-        let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let detail = details.pop().unwrap();
-        let d = self.igdb_response_to_search_response(detail);
-        Ok(d)
+        todo!();
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let req_body = format!(
-            r#"
-{field}
-search "{query}"; 
-limit {LIMIT};
-offset: {offset};
-            "#,
-            field = FIELDS,
-            offset = (page.unwrap_or_default() - 1) * LIMIT
-        );
+        #[derive(Serialize, Deserialize, Debug)]
+        struct Podcast {
+            title: String,
+            id: String,
+            #[serde(rename = "pub_date_ms")]
+            pub publish_date: Option<String>,
+            image: Option<String>,
+        }
+        #[derive(Serialize, Deserialize, Debug)]
+        struct SearchResponse {
+            total: i32,
+            results: Vec<Podcast>,
+        }
         let mut rsp = self
             .client
-            .post("games")
-            .body_string(req_body)
+            .get("search")
+            .query(&json!({
+                "q": query.to_owned(),
+                "offset": (page.unwrap_or_default() - 1) * LIMIT,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
 
-        let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        // let total = search.len() as i32;
-        // FIXME: I have not yet found a way to get the total number of responses, so we will hardcode this
-        let total = 100;
+        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let total = search.total;
 
         let resp = search
+            .results
             .into_iter()
-            .map(|r| {
-                let a = self.igdb_response_to_search_response(r);
-                MediaSearchItem {
-                    identifier: a.identifier,
-                    lot: MetadataLot::VideoGame,
-                    title: a.title,
-                    poster_images: a.poster_images,
-                    publish_year: a.publish_year,
-                }
+            .map(|r| MediaSearchItem {
+                identifier: r.id,
+                lot: MetadataLot::Podcast,
+                title: r.title,
+                poster_images: Vec::from_iter(r.image),
+                publish_year: r.publish_date.map(|r| convert_date_to_year(&r)).flatten(),
             })
             .collect::<Vec<_>>();
         Ok(MediaSearchResults { total, items: resp })
     }
 }
 
-impl IgdbService {
+impl ListennotesService {
     fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
-        let mut poster_images =
-            Vec::from_iter(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
+        let mut poster_images = Vec::from_iter(item.cover.map(|p| p.image_id));
         let additional_images = item
             .artworks
             .unwrap_or_default()
             .into_iter()
-            .map(|a| self.get_cover_image_url(a.image_id));
+            .map(|a| a.image_id);
         poster_images.extend(additional_images);
         todo!();
         // MediaDetails {
@@ -178,9 +136,5 @@ impl IgdbService {
         //         source: PodcastSource::Listennotes,
         //     }),
         // }
-    }
-
-    fn get_cover_image_url(&self, hash: String) -> String {
-        format!("{}{}/{}.jpg", self.image_url, self.image_size, hash)
     }
 }

@@ -25,6 +25,8 @@ use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
 use crate::misc::resolver::MiscService;
 use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbService};
+use crate::podcasts::listennotes::ListennotesService;
+use crate::podcasts::resolver::PodcastsService;
 use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
 use crate::users::resolver::UsersService;
 use crate::video_games::igdb::IgdbService;
@@ -50,6 +52,7 @@ pub struct AppServices {
     pub users_service: UsersService,
     pub misc_service: MiscService,
     pub importer_service: ImporterService,
+    pub podcasts_service: PodcastsService,
 }
 
 pub async fn create_app_services(
@@ -69,6 +72,8 @@ pub async fn create_app_services(
     let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
+    let listennotes_service = ListennotesService::new(&config.podcasts);
+    let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(&db, &media_service);
     let users_service = UsersService::new(&db, &misc_service, user_created_job);
     let importer_service = ImporterService::new(
@@ -97,6 +102,7 @@ pub async fn create_app_services(
         users_service,
         misc_service,
         importer_service,
+        podcasts_service,
     }
 }
 
@@ -207,6 +213,22 @@ pub mod tmdb {
         let mut rsp = client.get("configuration").await.unwrap();
         let data: TmdbConfiguration = rsp.body_json().await.unwrap();
         (client, data.images.secure_base_url)
+    }
+}
+
+pub mod listennotes {
+    use super::*;
+
+    pub fn get_client_config(url: &str, api_token: &str, user_agent: &str) -> Client {
+        let client: Client = Config::new()
+            .add_header("X-ListenAPI-Key", api_token)
+            .unwrap()
+            .add_header(USER_AGENT, user_agent)
+            .unwrap()
+            .set_base_url(Url::parse(url).unwrap())
+            .try_into()
+            .unwrap();
+        client
     }
 }
 

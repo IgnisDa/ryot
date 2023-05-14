@@ -11,6 +11,7 @@ use crate::{
     migrator::MetadataLot,
     misc::resolver::{MiscMutation, MiscQuery},
     movies::resolver::{MoviesMutation, MoviesQuery},
+    podcasts::resolver::{PodcastsMutation, PodcastsQuery},
     shows::resolver::{ShowsMutation, ShowsQuery},
     users::resolver::{UsersMutation, UsersQuery},
     utils::AppServices,
@@ -84,6 +85,7 @@ pub struct QueryRoot(
     AudioBooksQuery,
     MiscQuery,
     ImporterQuery,
+    PodcastsQuery,
 );
 
 #[derive(MergedObject, Default)]
@@ -97,6 +99,7 @@ pub struct MutationRoot(
     AudioBooksMutation,
     MiscMutation,
     ImporterMutation,
+    PodcastsMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -122,5 +125,6 @@ pub async fn get_schema(
     .data(app_services.audio_books_service.clone())
     .data(app_services.misc_service.clone())
     .data(app_services.importer_service.clone())
+    .data(app_services.podcasts_service.clone())
     .finish()
 }

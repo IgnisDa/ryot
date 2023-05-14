@@ -16,5 +16,5 @@ pub enum MediaSpecifics {
     Movie(MovieSpecifics),
     Show(ShowSpecifics),
     VideoGame(VideoGameSpecifics),
-    Podcasts(PodcastSpecifics),
+    Podcast(PodcastSpecifics),
 }

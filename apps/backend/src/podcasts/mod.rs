@@ -3,7 +3,7 @@ use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 
-use crate::migrator::VideoGameSource;
+use crate::migrator::PodcastSource;
 
 pub mod listennotes;
 pub mod resolver;
@@ -13,7 +13,7 @@ pub mod resolver;
 )]
 pub struct PodcastSpecifics {
     pub episodes: Vec<PodcastEpisode>,
-    pub source: VideoGameSource,
+    pub source: PodcastSource,
 }
 
 #[serde_as]
