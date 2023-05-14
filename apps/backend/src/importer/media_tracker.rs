@@ -121,17 +121,18 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             MediaType::Audiobook => d.audible_id.clone().unwrap(),
         };
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
-        let details: ItemDetails = rsp
-            .body_json()
-            .await
-            .map_err(|_| {
+        let details: ItemDetails = match rsp.body_json().await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Encountered error: {e:?}");
                 failed_items.push(ImportFailedItem {
                     lot,
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
                 });
-            })
-            .unwrap();
+                continue;
+            }
+        };
         tracing::trace!(
             "Got details for {type:?}: {id} ({idx}/{total})",
             type = d.media_type,
