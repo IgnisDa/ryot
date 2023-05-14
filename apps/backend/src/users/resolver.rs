@@ -325,7 +325,7 @@ impl UsersService {
         }
     }
 
-    async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
+    pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::Progress.eq(100))

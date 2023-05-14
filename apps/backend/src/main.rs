@@ -216,6 +216,8 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
+    let users_service_1 = app_services.users_service.clone();
+    let users_service_2 = app_services.users_service.clone();
     let monitor = async {
         let mn = Monitor::new()
             .register_with_count(1, move |c| {
@@ -243,7 +245,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(app_services.users_service.clone()))
+                    .layer(ApalisExtension(users_service_1.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
@@ -251,6 +253,7 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("after_media_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.misc_service.clone()))
+                    .layer(ApalisExtension(users_service_2.clone()))
                     .layer(ApalisExtension(db.clone()))
                     .with_storage(after_media_seen_job_storage.clone())
                     .build_fn(after_media_seen_job)

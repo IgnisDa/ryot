@@ -126,5 +126,10 @@ pub async fn after_media_seen_job(
         )
         .await
         .unwrap();
+    ctx.data::<UsersService>()
+        .unwrap()
+        .regenerate_user_summary(&seen.user_id)
+        .await
+        .unwrap();
     Ok(())
 }
