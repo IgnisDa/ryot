@@ -80,8 +80,8 @@ struct ItemSeason {
 #[serde(rename_all = "camelCase")]
 struct ItemSeen {
     id: i32,
-    #[serde_as(as = "TimestampMilliSeconds<i64, Flexible>")]
-    date: DateTimeUtc,
+    #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
+    date: Option<DateTimeUtc>,
     episode_id: Option<i32>,
 }
 
@@ -124,7 +124,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         let details: ItemDetails = match rsp.body_json().await {
             Ok(s) => s,
             Err(e) => {
-                tracing::error!("Encountered error: {e:?}");
+                tracing::error!("Encountered error for id = {id:?}: {e:?}", id = d.id);
                 failed_items.push(ImportFailedItem {
                     lot,
                     step: ImportFailStep::ItemDetailsFromSource,
@@ -178,7 +178,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     };
                     ImportItemSeen {
                         id: Some(s.id.to_string()),
-                        ended_on: Some(s.date),
+                        ended_on: s.date,
                         season_number,
                         episode_number,
                     }
