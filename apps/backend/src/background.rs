@@ -1,11 +1,15 @@
 use apalis::prelude::{Job, JobContext, JobError};
+use sea_orm::{DatabaseConnection, EntityTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     config::AppConfig,
+    entities::prelude::Seen,
     importer::{DeployImportInput, ImporterService},
-    media::resolver::MediaService,
+    media::{resolver::MediaService, WATCHLIST},
+    misc::resolver::MiscService,
     users::resolver::UsersService,
+    utils::NamedObject,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -86,6 +90,40 @@ pub async fn user_created_job(
     ctx.data::<UsersService>()
         .unwrap()
         .user_created_job(&information.user_id)
+        .await
+        .unwrap();
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AfterMediaSeenJob {
+    pub seen_id: i32,
+}
+
+impl Job for AfterMediaSeenJob {
+    const NAME: &'static str = "apalis::AfterMediaSeenJob";
+}
+
+pub async fn after_media_seen_job(
+    information: AfterMediaSeenJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Running jobs after media item seen");
+    let db = ctx.data::<DatabaseConnection>().unwrap();
+    let seen = Seen::find_by_id(information.seen_id)
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    ctx.data::<MiscService>()
+        .unwrap()
+        .remove_media_item_from_collection(
+            &seen.user_id,
+            &seen.metadata_id,
+            NamedObject {
+                name: WATCHLIST.to_owned(),
+            },
+        )
         .await
         .unwrap();
     Ok(())

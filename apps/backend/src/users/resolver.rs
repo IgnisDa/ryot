@@ -32,6 +32,7 @@ use crate::{
         video_game,
     },
     graphql::IdObject,
+    media::WATCHLIST,
     migrator::{MetadataLot, TokenLot, UserLot},
     misc::resolver::MiscService,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, NamedObject},
@@ -566,7 +567,7 @@ impl UsersService {
             .create_collection(
                 user_id,
                 NamedObject {
-                    name: "Watchlist".to_owned(),
+                    name: WATCHLIST.to_owned(),
                 },
             )
             .await?;

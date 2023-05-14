@@ -8,6 +8,7 @@ use crate::{
 pub mod resolver;
 
 pub static LIMIT: i32 = 20;
+pub static WATCHLIST: &str = "Watchlist";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum MediaSpecifics {

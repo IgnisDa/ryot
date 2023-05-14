@@ -33,8 +33,9 @@ use tower_http::{
 
 use crate::{
     background::{
-        import_media, invalidate_import_job, refresh_user_to_media_association, user_created_job,
-        InvalidateImportJob, RefreshUserToMediaAssociation,
+        after_media_seen_job, import_media, invalidate_import_job,
+        refresh_user_to_media_association, user_created_job, InvalidateImportJob,
+        RefreshUserToMediaAssociation,
     },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
@@ -115,6 +116,7 @@ async fn main() -> Result<()> {
     let import_media_storage = create_storage(&config.database.url).await;
     let invalidate_import_job_storage = create_storage(&config.database.url).await;
     let user_created_job_storage = create_storage(&config.database.url).await;
+    let after_media_seen_job_storage = create_storage(&config.database.url).await;
 
     let (tx_1, mut rx_1) = channel::<u8>(1);
     let mut new_refresh_user_to_media_association_storage =
@@ -178,6 +180,7 @@ async fn main() -> Result<()> {
         &config,
         &import_media_storage,
         &user_created_job_storage,
+        &after_media_seen_job_storage,
     )
     .await;
     let schema = get_schema(&app_services, db.clone(), &config).await;
@@ -243,6 +246,14 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(app_services.users_service.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("after_media_created_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(app_services.misc_service.clone()))
+                    .layer(ApalisExtension(db.clone()))
+                    .with_storage(after_media_seen_job_storage.clone())
+                    .build_fn(after_media_seen_job)
             })
             .run()
             .await;

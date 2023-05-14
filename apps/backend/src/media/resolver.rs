@@ -1,3 +1,4 @@
+use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics,
+    background::AfterMediaSeenJob,
     books::BookSpecifics,
     entities::{
         collection, creator, genre,
@@ -245,11 +247,15 @@ impl MediaMutation {
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
+    after_media_seen: SqliteStorage<AfterMediaSeenJob>,
 }
 
 impl MediaService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
+    pub fn new(db: &DatabaseConnection, import_media: &SqliteStorage<AfterMediaSeenJob>) -> Self {
+        Self {
+            db: db.clone(),
+            after_media_seen: import_media.clone(),
+        }
     }
 }
 
@@ -568,7 +574,12 @@ impl MediaService {
                             }),
                         ));
                     }
-                    seen_ins.insert(&self.db).await.unwrap()
+                    let seen = seen_ins.insert(&self.db).await.unwrap();
+                    if seen.progress == 100 {
+                        let mut storage = self.after_media_seen.clone();
+                        storage.push(AfterMediaSeenJob { seen_id: seen.id }).await?;
+                    }
+                    seen
                 }
             };
             Ok(IdObject { id: seen_item.id })

@@ -301,6 +301,27 @@ impl MiscService {
         }
     }
 
+    pub async fn remove_media_item_from_collection(
+        &self,
+        user_id: &i32,
+        metadata_id: &i32,
+        input: NamedObject,
+    ) -> Result<()> {
+        let collect = Collection::find()
+            .filter(collection::Column::Name.eq(input.name.clone()))
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let col = metadata_to_collection::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            collection_id: ActiveValue::Set(collect.id),
+        };
+        col.delete(&self.db).await.ok();
+        Ok(())
+    }
+
     async fn toggle_media_in_collection(&self, input: ToggleMediaInCollection) -> Result<bool> {
         let col = metadata_to_collection::ActiveModel {
             metadata_id: ActiveValue::Set(input.media_id),
