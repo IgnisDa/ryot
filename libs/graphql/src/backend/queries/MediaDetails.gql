@@ -29,6 +29,7 @@ query MediaDetails($metadataId: Int!) {
         number
       }
       source
+      totalEpisodes
     }
     showSpecifics {
       source
