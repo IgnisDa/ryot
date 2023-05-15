@@ -7,12 +7,14 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
+    books::BookSpecifics,
     graphql::{AUTHOR, PROJECT_NAME},
     importer::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
     },
-    migrator::MetadataLot,
+    media::{resolver::MediaDetails, MediaSpecifics},
+    migrator::{BookSource, MetadataLot},
     utils::openlibrary,
 };
 
@@ -91,6 +93,11 @@ struct ItemDetails {
     seen_history: Vec<ItemSeen>,
     seasons: Vec<ItemSeason>,
     user_rating: Option<ItemReview>,
+    goodreads_id: Option<i32>,
+    title: String,
+    overview: Option<String>,
+    authors: Option<Vec<String>>,
+    number_of_pages: Option<i32>,
 }
 
 pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
@@ -113,13 +120,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     let mut final_data = vec![];
     for (idx, d) in data.into_iter().enumerate() {
         let lot = MetadataLot::from(d.media_type.clone());
-        let identifier = match d.media_type.clone() {
-            MediaType::Book => openlibrary::get_key(&d.openlibrary_id.clone().unwrap()),
-            MediaType::Movie => d.tmdb_id.unwrap().to_string(),
-            MediaType::Tv => d.tmdb_id.unwrap().to_string(),
-            MediaType::VideoGame => d.igdb_id.unwrap().to_string(),
-            MediaType::Audiobook => d.audible_id.clone().unwrap(),
-        };
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
         let details: ItemDetails = match rsp.body_json().await {
             Ok(s) => s,
@@ -133,6 +133,19 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
+        let identifier = match d.media_type.clone() {
+            MediaType::Book => {
+                if let Some(g_id) = details.goodreads_id {
+                    g_id.to_string()
+                } else {
+                    openlibrary::get_key(&d.openlibrary_id.clone().unwrap())
+                }
+            }
+            MediaType::Movie => d.tmdb_id.unwrap().to_string(),
+            MediaType::Tv => d.tmdb_id.unwrap().to_string(),
+            MediaType::VideoGame => d.igdb_id.unwrap().to_string(),
+            MediaType::Audiobook => d.audible_id.clone().unwrap(),
+        };
         tracing::trace!(
             "Got details for {type:?}: {id} ({idx}/{total})",
             type = d.media_type,
@@ -140,56 +153,97 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             idx = idx,
             total = len
         );
-        final_data.push(ImportItem {
-            source_id: d.id.to_string(),
+        let need_details = details.goodreads_id.is_none();
+        final_data.push(convert_item(
+            d,
+            details,
+            identifier,
             lot,
-            identifier: ImportItemIdentifier::NeedsDetails(identifier),
-            reviews: Vec::from_iter(details.user_rating.map(|r| {
-                let review = if let Some(s) = r.review.map(|s| extract_review_information(&s)) {
-                    s
-                } else {
-                    failed_items.push(ImportFailedItem {
-                        lot,
-                        step: ImportFailStep::ReviewTransformation,
-                        identifier: d.id.to_string(),
-                    });
-                    None
-                };
-                ImportItemRating {
-                    id: Some(r.id.to_string()),
-                    review,
-                    rating: r.rating,
-                }
-            })),
-            seen_history: details
-                .seen_history
-                .iter()
-                .map(|s| {
-                    let (season_number, episode_number) = if let Some(c) = s.episode_id {
-                        let episode = details
-                            .seasons
-                            .iter()
-                            .flat_map(|e| e.episodes.to_owned())
-                            .find(|e| e.id == c)
-                            .unwrap();
-                        (Some(episode.season_number), Some(episode.episode_number))
-                    } else {
-                        (None, None)
-                    };
-                    ImportItemSeen {
-                        id: Some(s.id.to_string()),
-                        ended_on: s.date,
-                        season_number,
-                        episode_number,
-                    }
-                })
-                .collect(),
-        });
+            &mut failed_items,
+            need_details,
+        ));
     }
     Ok(ImportResult {
         media: final_data,
         failed_items,
     })
+}
+
+fn convert_item(
+    d: Item,
+    details: ItemDetails,
+    identifier: String,
+    lot: MetadataLot,
+    failed_items: &mut Vec<ImportFailedItem>,
+    need_details: bool,
+) -> ImportItem {
+    ImportItem {
+        source_id: d.id.to_string(),
+        lot,
+        identifier: match need_details {
+            false => ImportItemIdentifier::AlreadyFilled(MediaDetails {
+                identifier,
+                title: details.title,
+                description: details.overview,
+                lot,
+                creators: details.authors.unwrap_or_default(),
+                genres: vec![],
+                poster_images: vec![],
+                backdrop_images: vec![],
+                publish_year: None,
+                publish_date: None,
+                specifics: MediaSpecifics::Book(BookSpecifics {
+                    pages: details.number_of_pages,
+                    source: BookSource::Goodreads,
+                }),
+            }),
+            true => ImportItemIdentifier::NeedsDetails(identifier),
+        },
+        reviews: Vec::from_iter(details.user_rating.map(|r| {
+            let review = if let Some(s) = r.clone().review.map(|s| extract_review_information(&s)) {
+                s
+            } else {
+                failed_items.push(ImportFailedItem {
+                    lot,
+                    step: ImportFailStep::ReviewTransformation,
+                    identifier: d.id.to_string(),
+                });
+                Some(super::ImportItemReview {
+                    date: None,
+                    spoiler: false,
+                    text: r.review.unwrap_or_default(),
+                })
+            };
+            ImportItemRating {
+                id: Some(r.id.to_string()),
+                review,
+                rating: r.rating,
+            }
+        })),
+        seen_history: details
+            .seen_history
+            .iter()
+            .map(|s| {
+                let (season_number, episode_number) = if let Some(c) = s.episode_id {
+                    let episode = details
+                        .seasons
+                        .iter()
+                        .flat_map(|e| e.episodes.to_owned())
+                        .find(|e| e.id == c)
+                        .unwrap();
+                    (Some(episode.season_number), Some(episode.episode_number))
+                } else {
+                    (None, None)
+                };
+                ImportItemSeen {
+                    id: Some(s.id.to_string()),
+                    ended_on: s.date,
+                    season_number,
+                    episode_number,
+                }
+            })
+            .collect(),
+    }
 }
 
 pub mod utils {
