@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::USER_AGENT, middleware::Redirect, Client, Config, Url};
+use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -55,7 +55,6 @@ impl OpenlibraryService {
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
             .unwrap();
-        let client = client.with(Redirect::new(1));
         Self {
             image_url: config.cover_image_url.to_owned(),
             image_size: config.cover_image_size.to_string(),
