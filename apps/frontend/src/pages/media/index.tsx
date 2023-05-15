@@ -35,8 +35,12 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	AddMediaToCollectionDocument,
+	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
 	type CollectionsQuery,
+	CommitNext10PodcastEpisodesDocument,
+	type CommitNext10PodcastEpisodesMutationVariables,
 	CreateCollectionDocument,
 	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
@@ -49,8 +53,6 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-	type AddMediaToCollectionMutationVariables,
-	AddMediaToCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -381,6 +383,20 @@ const Page: NextPageWithLayout = () => {
 				title: "Deleted",
 				message: "Record deleted from your history successfully",
 			});
+		},
+	});
+	const commitNext10Episodes = useMutation({
+		mutationFn: async (
+			variables: CommitNext10PodcastEpisodesMutationVariables,
+		) => {
+			const { commitNext10PodcastEpisodes } = await gqlClient.request(
+				CommitNext10PodcastEpisodesDocument,
+				variables,
+			);
+			return commitNext10PodcastEpisodes;
+		},
+		onSuccess: () => {
+			details.refetch();
 		},
 	});
 
@@ -820,6 +836,19 @@ const Page: NextPageWithLayout = () => {
 												</Box>
 											</Box>
 										))}
+										{details.data.podcastSpecifics.totalEpisodes >
+										details.data.podcastSpecifics.episodes.length ? (
+											<Button
+												onClick={() =>
+													commitNext10Episodes.mutate({ podcastId: metadataId })
+												}
+												loading={
+													commitNext10Episodes.isLoading || details.isLoading
+												}
+											>
+												Load 10 more
+											</Button>
+										) : null}
 									</Stack>
 								</ScrollArea.Autosize>
 							</Tabs.Panel>
