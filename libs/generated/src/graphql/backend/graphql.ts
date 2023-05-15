@@ -399,6 +399,7 @@ export type ProgressUpdate = {
   episodeNumber?: InputMaybe<Scalars['Int']>;
   /** If this update comes from a different source, this should be set */
   identifier?: InputMaybe<Scalars['String']>;
+  isBulkRequest?: InputMaybe<Scalars['Boolean']>;
   metadataId: Scalars['Int'];
   progress?: InputMaybe<Scalars['Int']>;
   seasonNumber?: InputMaybe<Scalars['Int']>;

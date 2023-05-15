@@ -56,7 +56,7 @@ const Page: NextPageWithLayout = () => {
 					(s) => s.seasonNumber.toString() === selectedSeason,
 				)?.episodes || []) {
 					await gqlClient.request(ProgressUpdateDocument, {
-						input: { ...variables.input, episodeNumber: episode.episodeNumber },
+						input: { ...variables.input, episodeNumber: episode.episodeNumber, isBulkRequest: onlySeason },
 					});
 				}
 				return;
