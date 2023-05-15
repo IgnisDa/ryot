@@ -186,7 +186,7 @@ impl MiscService {
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode), None),
-                        SeenExtraInformation::Podcast(d) => (None, None, Some(d.episode_id)),
+                        SeenExtraInformation::Podcast(d) => (None, None, Some(d.episode)),
                     },
                     None => (None, None, None),
                 };

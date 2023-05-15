@@ -37,7 +37,7 @@ pub mod utils {
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenPodcastExtraInformation {
-        pub episode_id: String,
+        pub episode: String,
     }
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]

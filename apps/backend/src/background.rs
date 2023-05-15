@@ -73,6 +73,8 @@ pub async fn general_user_cleanup(
         .unwrap();
     tracing::info!("Removing old user summaries");
     // TODO
+    tracing::info!("Remove unused login tokens");
+    // TODO
     Ok(())
 }
 
