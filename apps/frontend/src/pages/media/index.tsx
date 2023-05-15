@@ -49,8 +49,8 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-	ToggleMediaInCollectionDocument,
-	type ToggleMediaInCollectionMutationVariables,
+    type AddMediaToCollectionMutationVariables,
+    AddMediaToCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -158,13 +158,13 @@ export function SelectCollectionModal(props: {
 			props.refetchCollections();
 		},
 	});
-	const toggleMediaInCollection = useMutation({
-		mutationFn: async (variables: ToggleMediaInCollectionMutationVariables) => {
-			const { toggleMediaInCollection } = await gqlClient.request(
-				ToggleMediaInCollectionDocument,
+	const addMediaToCollection = useMutation({
+		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
+			const { addMediaToCollection} = await gqlClient.request(
+				AddMediaToCollectionDocument,
 				variables,
 			);
-			return toggleMediaInCollection;
+			return addMediaToCollection
 		},
 		onSuccess: () => {
 			props.onClose();
@@ -201,7 +201,7 @@ export function SelectCollectionModal(props: {
 						data-autofocus
 						variant="outline"
 						onClick={() => {
-							toggleMediaInCollection.mutate({
+							addMediaToCollection.mutate({
 								input: {
 									collectionId: Number(selectedCollection),
 									mediaId: props.metadataId,

@@ -65,7 +65,7 @@ struct CollectionItem {
 }
 
 #[derive(Debug, InputObject)]
-struct ToggleMediaInCollection {
+struct AddMediaToCollection {
     collection_id: i32,
     media_id: i32,
 }
@@ -125,16 +125,16 @@ impl MiscMutation {
             .await
     }
 
-    /// Add a media item to a collection if it is not there, otherwise remove it.
-    async fn toggle_media_in_collection(
+    /// Add a media item to a collection if it is not there, otherwise do nothing.
+    async fn add_media_to_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: ToggleMediaInCollection,
+        input: AddMediaToCollection,
     ) -> Result<bool> {
         let _user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .toggle_media_in_collection(input)
+            .add_media_to_collection(input)
             .await
     }
 }
@@ -322,17 +322,14 @@ impl MiscService {
         Ok(())
     }
 
-    async fn toggle_media_in_collection(&self, input: ToggleMediaInCollection) -> Result<bool> {
+    async fn add_media_to_collection(&self, input: AddMediaToCollection) -> Result<bool> {
         let col = metadata_to_collection::ActiveModel {
             metadata_id: ActiveValue::Set(input.media_id),
             collection_id: ActiveValue::Set(input.collection_id),
         };
         Ok(match col.clone().insert(&self.db).await {
             Ok(_) => true,
-            Err(_) => {
-                col.delete(&self.db).await.unwrap();
-                false
-            }
+            Err(_) => false,
         })
     }
 
