@@ -49,6 +49,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
+	const [activeTab, setActiveTab] = useState<string | null>("mine");
 	const [mineSortOrder, toggleMineSortOrder] = useToggle(
 		Object.values(MediaSortOrder),
 	);
@@ -143,13 +144,13 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			if (!activeSearchPage) setSearchPage("1");
 		},
-		enabled: query !== "" && lot !== undefined,
+		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
 	});
 
 	return lot ? (
 		<Container>
-			<Tabs variant="outline" defaultValue="mine">
+			<Tabs variant="outline" value={activeTab} onTabChange={setActiveTab}>
 				<Tabs.List mb={"xs"}>
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
 						<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
