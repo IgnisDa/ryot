@@ -23,6 +23,7 @@ pub enum Podcast {
     Identifier,
     Details,
     Source,
+    TotalEpisodes,
 }
 
 impl MigrationName for Migration {
@@ -56,6 +57,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Podcast::Identifier).string().not_null())
                     .col(ColumnDef::new(Podcast::Details).not_null().json())
                     .col(ColumnDef::new(Podcast::Source).string_len(1).not_null())
+                    .col(ColumnDef::new(Podcast::TotalEpisodes).integer().not_null())
                     .to_owned(),
             )
             .await?;

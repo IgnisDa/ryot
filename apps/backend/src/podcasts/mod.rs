@@ -14,6 +14,7 @@ pub mod resolver;
 pub struct PodcastSpecifics {
     pub episodes: Vec<PodcastEpisode>,
     pub source: PodcastSource,
+    pub total_episodes: i32,
 }
 
 #[serde_as]

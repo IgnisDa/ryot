@@ -113,6 +113,7 @@ impl PodcastsService {
                     metadata_id: ActiveValue::Set(metadata_id),
                     identifier: ActiveValue::Set(details.identifier),
                     source: ActiveValue::Set(s.source),
+                    total_episodes: ActiveValue::Set(s.total_episodes),
                     details: ActiveValue::Set(s),
                 };
                 podcast.insert(&self.db).await.unwrap();

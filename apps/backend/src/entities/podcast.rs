@@ -13,6 +13,7 @@ pub struct Model {
     pub identifier: String,
     pub details: PodcastSpecifics,
     pub source: PodcastSource,
+    pub total_episodes: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

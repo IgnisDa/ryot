@@ -42,7 +42,8 @@ impl ListennotesService {
 #[async_trait]
 impl MediaProvider for ListennotesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        self.details_internal(identifier, None, None).await
+        self.details_with_paginated_episodes(identifier, None, None)
+            .await
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -95,7 +96,7 @@ impl ListennotesService {
     // The API does not return all the episodes for a podcast, and instead needs to be
     // paginated through. It also does not return the episode number. So we have to
     // handle thouse manually.
-    async fn details_internal(
+    async fn details_with_paginated_episodes(
         &self,
         identifier: &str,
         next_pub_date: Option<i64>,
@@ -113,6 +114,7 @@ impl ListennotesService {
             image: Option<String>,
             episodes: Vec<PodcastEpisode>,
             genre_ids: Vec<i32>,
+            total_episodes: i32,
         }
         let mut rsp = self
             .client
@@ -151,6 +153,7 @@ impl ListennotesService {
                     })
                     .collect(),
                 source: PodcastSource::Listennotes,
+                total_episodes: d.total_episodes,
             }),
         })
     }
