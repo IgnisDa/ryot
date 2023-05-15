@@ -9,7 +9,6 @@ use crate::{
     media::{resolver::MediaService, WATCHLIST},
     misc::resolver::MiscService,
     users::resolver::UsersService,
-    utils::NamedObject,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -123,13 +122,7 @@ pub async fn after_media_seen_job(
         .unwrap();
     ctx.data::<MiscService>()
         .unwrap()
-        .remove_media_item_from_collection(
-            &seen.user_id,
-            &seen.metadata_id,
-            NamedObject {
-                name: WATCHLIST.to_owned(),
-            },
-        )
+        .remove_media_item_from_collection(&seen.user_id, &seen.metadata_id, WATCHLIST)
         .await
         .unwrap();
     ctx.data::<UsersService>()

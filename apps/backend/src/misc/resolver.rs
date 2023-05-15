@@ -137,6 +137,20 @@ impl MiscMutation {
             .add_media_to_collection(input)
             .await
     }
+
+    /// Remove a media item from a collection if it is not there, otherwise do nothing.
+    async fn remove_media_from_collection(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+        collection_name: String,
+    ) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .remove_media_item_from_collection(&user_id, &metadata_id, &collection_name)
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -305,10 +319,10 @@ impl MiscService {
         &self,
         user_id: &i32,
         metadata_id: &i32,
-        input: NamedObject,
-    ) -> Result<()> {
+        collection_name: &str,
+    ) -> Result<IdObject> {
         let collect = Collection::find()
-            .filter(collection::Column::Name.eq(input.name.clone()))
+            .filter(collection::Column::Name.eq(collection_name.clone()))
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await
@@ -318,8 +332,9 @@ impl MiscService {
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             collection_id: ActiveValue::Set(collect.id),
         };
+        let id = col.collection_id.clone().unwrap();
         col.delete(&self.db).await.ok();
-        Ok(())
+        Ok(IdObject { id })
     }
 
     async fn add_media_to_collection(&self, input: AddMediaToCollection) -> Result<bool> {
