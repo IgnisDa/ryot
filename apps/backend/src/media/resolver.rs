@@ -20,7 +20,7 @@ use crate::{
             MetadataToCollection, Movie, Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
-        utils::{SeenExtraInformation, SeenShowExtraInformation},
+        utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
@@ -73,6 +73,7 @@ pub struct ProgressUpdate {
     pub date: Option<NaiveDate>,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
     /// If this update comes from a different source, this should be set
     pub identifier: Option<String>,
     pub is_bulk_request: Option<bool>,
@@ -574,6 +575,12 @@ impl MediaService {
                                 episode: input.show_episode_number.unwrap(),
                             }),
                         ));
+                    } else if meta.lot == MetadataLot::Podcast {
+                        seen_ins.extra_information = ActiveValue::Set(Some(
+                            SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
+                                episode: input.podcast_episode_number.unwrap(),
+                            }),
+                        ))
                     }
                     let seen = seen_ins.insert(&self.db).await.unwrap();
                     seen

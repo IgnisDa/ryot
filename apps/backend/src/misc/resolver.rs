@@ -39,7 +39,7 @@ struct ReviewItem {
     season_number: Option<i32>,
     episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
-    podcast_episode_id: Option<String>,
+    podcast_episode_id: Option<i32>,
 }
 
 #[derive(Debug, InputObject)]

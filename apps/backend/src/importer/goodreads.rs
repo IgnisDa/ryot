@@ -85,8 +85,9 @@ pub async fn import(
                     ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
                         .ok()
                         .map(|d| d.with_timezone(&Utc)),
-                    season_number: None,
-                    episode_number: None,
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 }],
                 reviews: vec![ImportItemRating {
                     id: None,

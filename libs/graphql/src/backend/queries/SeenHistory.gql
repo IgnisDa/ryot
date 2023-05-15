@@ -9,5 +9,8 @@ query SeenHistory($metadataId: Int!) {
 			episode
 			season
 		}
+		podcastInformation {
+			episode
+		}
   }
 }

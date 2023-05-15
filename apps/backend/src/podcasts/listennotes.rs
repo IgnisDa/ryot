@@ -149,6 +149,7 @@ impl ListennotesService {
                     .enumerate()
                     .map(|(idx, episode)| PodcastEpisode {
                         number: (episode_number.unwrap_or_default() + idx as i32 + 1),
+                        runtime: episode.runtime.map(|r| r / 60), // the api responds in seconds
                         ..episode
                     })
                     .collect(),

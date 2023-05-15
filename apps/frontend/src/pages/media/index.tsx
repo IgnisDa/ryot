@@ -693,6 +693,11 @@ const Page: NextPageWithLayout = () => {
 															{h.showInformation.episode}
 														</Text>
 													) : null}
+													{h.podcastInformation ? (
+														<Text color="dimmed">
+															EP-{h.podcastInformation.episode}
+														</Text>
+													) : null}
 												</Flex>
 												<Flex ml="sm" direction={"column"} gap={4}>
 													<Flex gap="xl">
@@ -823,7 +828,7 @@ const Page: NextPageWithLayout = () => {
 														variant="outline"
 														onClick={() => {
 															router.push(
-																`/media/update-progress?item=${metadataId}&selectedPodcastEpisode=${e.number}`,
+																`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
 															);
 														}}
 													>

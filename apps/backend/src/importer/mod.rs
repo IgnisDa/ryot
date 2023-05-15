@@ -67,8 +67,9 @@ pub struct DeployImportInput {
 pub struct ImportItemSeen {
     id: Option<String>,
     ended_on: Option<DateTimeUtc>,
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -333,9 +334,10 @@ impl ImporterService {
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
                             date: seen.ended_on.map(|d| d.date_naive()),
-                            show_season_number: seen.season_number,
-                            show_episode_number: seen.episode_number,
+                            show_season_number: seen.show_season_number,
+                            show_episode_number: seen.show_episode_number,
                             is_bulk_request: None,
+                            podcast_episode_number: seen.podcast_episode_number,
                         },
                         user_id.clone(),
                     )

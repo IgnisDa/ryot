@@ -4,6 +4,7 @@ import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
 import {
 	Alert,
+	Autocomplete,
 	Button,
 	Container,
 	Group,
@@ -30,12 +31,16 @@ const Page: NextPageWithLayout = () => {
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const onlySeason = !!router.query.onlySeason;
 
-	const [selectedShowSeason, setSelectedShowSeason] = useState<string | null>(
-		router.query.selectedShowSeason?.toString() || null,
-	);
-	const [selectedShowEpisode, setSelectedShowEpisode] = useState<string | null>(
-		router.query.selectedShowEpisode?.toString() || null,
-	);
+	const [selectedShowSeasonNumber, setSelectedShowSeasonNumber] = useState<
+		string | null
+	>(router.query.selectedShowSeasonNumber?.toString() || null);
+	const [selectedShowEpisodeNumber, setSelectedShowEpisodeNumber] = useState<
+		string | null
+	>(router.query.selectedShowEpisodeNumber?.toString() || null);
+	const [selectedPodcastEpisodeNumber, setSelectedPodcastEpisodeNumber] =
+		useState<string | null>(
+			router.query.selectedPodcastEpisodeNumber?.toString() || null,
+		);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
 	const details = useQuery({
@@ -53,7 +58,7 @@ const Page: NextPageWithLayout = () => {
 		) => {
 			if (onlySeason) {
 				for (const episode of details.data?.showSpecifics?.seasons.find(
-					(s) => s.seasonNumber.toString() === selectedShowSeason,
+					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
 				)?.episodes || []) {
 					await gqlClient.request(ProgressUpdateDocument, {
 						input: {
@@ -80,8 +85,9 @@ const Page: NextPageWithLayout = () => {
 
 	const mutationInput = {
 		metadataId: metadataId || 0,
-		showEpisodeNumber: Number(selectedShowEpisode),
-		showSeasonNumber: Number(selectedShowSeason),
+		showEpisodeNumber: Number(selectedShowEpisodeNumber),
+		showSeasonNumber: Number(selectedShowSeasonNumber),
+		podcastEpisodeNumber: Number(selectedPodcastEpisodeNumber),
 	};
 
 	return details.data && title ? (
@@ -97,8 +103,8 @@ const Page: NextPageWithLayout = () => {
 					<>
 						{onlySeason ? (
 							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
-								This will mark all episodes for Season {selectedShowSeason} as
-								seen
+								This will mark all episodes for Season{" "}
+								{selectedShowSeasonNumber} as seen
 							</Alert>
 						) : null}
 						<Title order={6}>
@@ -110,24 +116,40 @@ const Page: NextPageWithLayout = () => {
 								label: `${s.seasonNumber}. ${s.name.toString()}`,
 								value: s.seasonNumber.toString(),
 							}))}
-							onChange={setSelectedShowSeason}
-							defaultValue={selectedShowSeason}
+							onChange={setSelectedShowSeasonNumber}
 						/>
-						{!onlySeason && selectedShowSeason ? (
+						{!onlySeason && selectedShowSeasonNumber ? (
 							<Select
 								label="Episode"
 								data={
 									details.data.showSpecifics.seasons
-										.find((s) => s.seasonNumber === Number(selectedShowSeason))
+										.find(
+											(s) =>
+												s.seasonNumber === Number(selectedShowSeasonNumber),
+										)
 										?.episodes.map((e) => ({
 											label: `${e.episodeNumber}. ${e.name.toString()}`,
 											value: e.episodeNumber.toString(),
 										})) || []
 								}
-								onChange={setSelectedShowEpisode}
-								defaultValue={selectedShowEpisode}
+								onChange={setSelectedShowEpisodeNumber}
+								defaultValue={selectedShowEpisodeNumber}
 							/>
 						) : null}
+					</>
+				) : null}
+				{details.data.podcastSpecifics ? (
+					<>
+						<Title order={6}>Select episode</Title>
+						<Autocomplete
+							label="Episode"
+							data={details.data.podcastSpecifics.episodes.map((se) => ({
+								label: se.title.toString(),
+								value: se.number.toString(),
+							}))}
+							onChange={setSelectedPodcastEpisodeNumber}
+							defaultValue={selectedPodcastEpisodeNumber || undefined}
+						/>
 					</>
 				) : null}
 				<Title order={6}>

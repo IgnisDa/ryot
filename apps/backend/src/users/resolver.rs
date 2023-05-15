@@ -387,9 +387,10 @@ impl UsersService {
                             Some(sei) => match sei {
                                 SeenExtraInformation::Show(_) => unreachable!(),
                                 SeenExtraInformation::Podcast(s) => {
-                                    if s.episode == episode.id {
+                                    if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
                                             podcasts_total.push(r);
+                                            dbg!(&podcasts_total);
                                         }
                                     }
                                 }
