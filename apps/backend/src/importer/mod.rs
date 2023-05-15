@@ -92,7 +92,6 @@ pub struct ImportItem {
 #[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
     ItemDetailsFromSource,
-    ReviewTransformation,
     MediaDetailsFromProvider,
 }
 
@@ -325,7 +324,7 @@ impl ImporterService {
                     continue;
                 }
             };
-            for seen in item.seen_history.iter() {
+            for (idx, seen) in item.seen_history.iter().enumerate() {
                 self.media_service
                     .progress_update(
                         ProgressUpdate {
@@ -336,7 +335,7 @@ impl ImporterService {
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
-                            is_bulk_request: None,
+                            is_bulk_request: Some(idx != item.seen_history.len() - 1),
                             podcast_episode_number: seen.podcast_episode_number,
                         },
                         user_id.clone(),

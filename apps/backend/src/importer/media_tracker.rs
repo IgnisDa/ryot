@@ -154,14 +154,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             total = len
         );
         let need_details = details.goodreads_id.is_none();
-        final_data.push(convert_item(
-            d,
-            details,
-            identifier,
-            lot,
-            &mut failed_items,
-            need_details,
-        ));
+        final_data.push(convert_item(d, details, identifier, lot, need_details));
     }
     Ok(ImportResult {
         media: final_data,
@@ -174,7 +167,6 @@ fn convert_item(
     details: ItemDetails,
     identifier: String,
     lot: MetadataLot,
-    failed_items: &mut Vec<ImportFailedItem>,
     need_details: bool,
 ) -> ImportItem {
     ImportItem {
@@ -203,11 +195,6 @@ fn convert_item(
             let review = if let Some(s) = r.clone().review.map(|s| extract_review_information(&s)) {
                 s
             } else {
-                failed_items.push(ImportFailedItem {
-                    lot,
-                    step: ImportFailStep::ReviewTransformation,
-                    identifier: d.id.to_string(),
-                });
                 Some(super::ImportItemReview {
                     date: None,
                     spoiler: false,
