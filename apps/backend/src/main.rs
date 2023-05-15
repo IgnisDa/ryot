@@ -219,7 +219,7 @@ async fn main() -> Result<()> {
     let users_service_3 = app_services.users_service.clone();
     let monitor = async {
         let mn = Monitor::new()
-            .register_with_count(1, move |c| {
+            .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.media_service.clone()))
@@ -227,7 +227,7 @@ async fn main() -> Result<()> {
                     .with_storage(general_user_cleanup_storage.clone())
                     .build_fn(general_user_cleanup)
             })
-            .register_with_count(1, move |c| {
+            .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_1.clone()))
@@ -235,21 +235,21 @@ async fn main() -> Result<()> {
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })
-            .register_with_count(1, move |c| {
+            .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
                     .with_storage(general_media_cleanup_storage.clone())
                     .build_fn(general_media_cleanup_jobs)
             })
-            .register_with_count(1, move |c| {
+            .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(users_service_2.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
-            .register_with_count(1, move |c| {
+            .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("after_media_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.misc_service.clone()))
@@ -329,6 +329,7 @@ async fn not_found() -> Response {
 
 async fn create_storage<T: ApalisJob>(_url: &str) -> SqliteStorage<T> {
     // it is necessary to initialize it in memory and not connect to the same database
+    // let st = SqliteStorage::connect(_url).await.unwrap();
     let st = SqliteStorage::connect(":memory:").await.unwrap();
     st.setup().await.unwrap();
     st
