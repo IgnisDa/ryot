@@ -372,15 +372,18 @@ impl UsersService {
                         .unwrap()
                         .unwrap();
                     for episode in item.details.episodes {
-                        match seen.extra_information.to_owned().unwrap() {
-                            SeenExtraInformation::Show(_) => unreachable!(),
-                            SeenExtraInformation::Podcast(s) => {
-                                if s.episode_id == episode.id {
-                                    if let Some(r) = episode.runtime {
-                                        podcasts_total.push(r);
+                        match seen.extra_information.to_owned() {
+                            None => continue,
+                            Some(sei) => match sei {
+                                SeenExtraInformation::Show(_) => unreachable!(),
+                                SeenExtraInformation::Podcast(s) => {
+                                    if s.episode_id == episode.id {
+                                        if let Some(r) = episode.runtime {
+                                            podcasts_total.push(r);
+                                        }
                                     }
                                 }
-                            }
+                            },
                         }
                     }
                 }

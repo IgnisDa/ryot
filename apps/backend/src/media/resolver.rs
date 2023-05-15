@@ -576,13 +576,17 @@ impl MediaService {
                         ));
                     }
                     let seen = seen_ins.insert(&self.db).await.unwrap();
-                    if seen.progress == 100 && !input.is_bulk_request.unwrap_or(false) {
-                        let mut storage = self.after_media_seen.clone();
-                        storage.push(AfterMediaSeenJob { seen_id: seen.id }).await?;
-                    }
                     seen
                 }
             };
+            if !input.is_bulk_request.unwrap_or(false) {
+                let mut storage = self.after_media_seen.clone();
+                storage
+                    .push(AfterMediaSeenJob {
+                        seen_id: seen_item.id,
+                    })
+                    .await?;
+            }
             Ok(IdObject { id: seen_item.id })
         }
     }
