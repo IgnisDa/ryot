@@ -13,7 +13,7 @@ use crate::{
         collection, media_import_report, metadata_to_collection,
         prelude::{Collection, MediaImportReport, Metadata, Review, User},
         review,
-        utils::{SeenExtraInformation, SeenSeasonExtraInformation},
+        utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::IdObject,
     importer::ImportResultResponse,
@@ -39,6 +39,7 @@ struct ReviewItem {
     season_number: Option<i32>,
     episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
+    podcast_episode_id: Option<i32>,
 }
 
 #[derive(Debug, InputObject)]
@@ -64,7 +65,7 @@ struct CollectionItem {
 }
 
 #[derive(Debug, InputObject)]
-struct ToggleMediaInCollection {
+struct AddMediaToCollection {
     collection_id: i32,
     media_id: i32,
 }
@@ -124,16 +125,30 @@ impl MiscMutation {
             .await
     }
 
-    /// Add a media item to a collection if it is not there, otherwise remove it.
-    async fn toggle_media_in_collection(
+    /// Add a media item to a collection if it is not there, otherwise do nothing.
+    async fn add_media_to_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: ToggleMediaInCollection,
+        input: AddMediaToCollection,
     ) -> Result<bool> {
         let _user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .toggle_media_in_collection(input)
+            .add_media_to_collection(input)
+            .await
+    }
+
+    /// Remove a media item from a collection if it is not there, otherwise do nothing.
+    async fn remove_media_from_collection(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+        collection_name: String,
+    ) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .remove_media_item_from_collection(&user_id, &metadata_id, &collection_name)
             .await
     }
 }
@@ -168,11 +183,12 @@ impl MiscService {
             .unwrap()
             .into_iter()
             .map(|(r, u)| {
-                let (se, ep) = match r.extra_information {
+                let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
-                        SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode)),
+                        SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode), None),
+                        SeenExtraInformation::Podcast(d) => (None, None, Some(d.episode)),
                     },
-                    None => (None, None),
+                    None => (None, None, None),
                 };
                 let user = u.unwrap();
                 ReviewItem {
@@ -182,8 +198,9 @@ impl MiscService {
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
-                    season_number: se,
-                    episode_number: ep,
+                    season_number: show_se,
+                    episode_number: show_ep,
+                    podcast_episode_id: podcast_ep,
                     posted_by: ReviewPostedBy {
                         id: user.id,
                         name: user.name,
@@ -262,12 +279,11 @@ impl MiscService {
                 review_obj.posted_on = ActiveValue::Set(d);
             }
             if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
-                review_obj.extra_information = ActiveValue::Set(Some(SeenExtraInformation::Show(
-                    SeenSeasonExtraInformation {
+                review_obj.extra_information =
+                    ActiveValue::Set(Some(SeenExtraInformation::Show(SeenShowExtraInformation {
                         season: s,
                         episode: e,
-                    },
-                )));
+                    })));
             }
             let insert = review_obj.save(&self.db).await.unwrap();
             Ok(IdObject {
@@ -299,17 +315,36 @@ impl MiscService {
         }
     }
 
-    async fn toggle_media_in_collection(&self, input: ToggleMediaInCollection) -> Result<bool> {
+    pub async fn remove_media_item_from_collection(
+        &self,
+        user_id: &i32,
+        metadata_id: &i32,
+        collection_name: &str,
+    ) -> Result<IdObject> {
+        let collect = Collection::find()
+            .filter(collection::Column::Name.eq(collection_name.clone()))
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let col = metadata_to_collection::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            collection_id: ActiveValue::Set(collect.id),
+        };
+        let id = col.collection_id.clone().unwrap();
+        col.delete(&self.db).await.ok();
+        Ok(IdObject { id })
+    }
+
+    async fn add_media_to_collection(&self, input: AddMediaToCollection) -> Result<bool> {
         let col = metadata_to_collection::ActiveModel {
             metadata_id: ActiveValue::Set(input.media_id),
             collection_id: ActiveValue::Set(input.collection_id),
         };
         Ok(match col.clone().insert(&self.db).await {
             Ok(_) => true,
-            Err(_) => {
-                col.delete(&self.db).await.unwrap();
-                false
-            }
+            Err(_) => false,
         })
     }
 

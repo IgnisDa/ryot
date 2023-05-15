@@ -35,7 +35,12 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	AddMediaToCollectionDocument,
+	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
+	type CollectionsQuery,
+	CommitNext10PodcastEpisodesDocument,
+	type CommitNext10PodcastEpisodesMutationVariables,
 	CreateCollectionDocument,
 	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
@@ -48,9 +53,6 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-	ToggleMediaInCollectionDocument,
-	type ToggleMediaInCollectionMutationVariables,
-	type CollectionsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -158,13 +160,13 @@ export function SelectCollectionModal(props: {
 			props.refetchCollections();
 		},
 	});
-	const toggleMediaInCollection = useMutation({
-		mutationFn: async (variables: ToggleMediaInCollectionMutationVariables) => {
-			const { toggleMediaInCollection } = await gqlClient.request(
-				ToggleMediaInCollectionDocument,
+	const addMediaToCollection = useMutation({
+		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
+			const { addMediaToCollection } = await gqlClient.request(
+				AddMediaToCollectionDocument,
 				variables,
 			);
-			return toggleMediaInCollection;
+			return addMediaToCollection;
 		},
 		onSuccess: () => {
 			props.onClose();
@@ -201,7 +203,7 @@ export function SelectCollectionModal(props: {
 						data-autofocus
 						variant="outline"
 						onClick={() => {
-							toggleMediaInCollection.mutate({
+							addMediaToCollection.mutate({
 								input: {
 									collectionId: Number(selectedCollection),
 									mediaId: props.metadataId,
@@ -383,15 +385,33 @@ const Page: NextPageWithLayout = () => {
 			});
 		},
 	});
+	const commitNext10Episodes = useMutation({
+		mutationFn: async (
+			variables: CommitNext10PodcastEpisodesMutationVariables,
+		) => {
+			const { commitNext10PodcastEpisodes } = await gqlClient.request(
+				CommitNext10PodcastEpisodesDocument,
+				variables,
+			);
+			return commitNext10PodcastEpisodes;
+		},
+		onSuccess: () => {
+			details.refetch();
+		},
+	});
 
 	const badgeGradient: MantineGradient = match(details.data?.type)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
 		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
 		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame, undefined, () => ({
+		.with(MetadataLot.VideoGame, () => ({
 			from: "purple",
 			to: "blue",
+		}))
+		.with(MetadataLot.Podcast, undefined, () => ({
+			from: "yellow",
+			to: "purple",
 		}))
 		.exhaustive();
 
@@ -475,6 +495,12 @@ const Page: NextPageWithLayout = () => {
 								}
 							/>
 						) : null}
+						{details.data.podcastSpecifics?.totalEpisodes ? (
+							<StatDisplay
+								name="Total episodes"
+								value={details.data.podcastSpecifics.totalEpisodes?.toString()}
+							/>
+						) : null}
 					</Box>
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
@@ -538,6 +564,14 @@ const Page: NextPageWithLayout = () => {
 									Seasons
 								</Tabs.Tab>
 							) : null}
+							{details.data.podcastSpecifics ? (
+								<Tabs.Tab
+									value="episodes"
+									icon={<IconPlayerPlay size="1rem" />}
+								>
+									Episodes
+								</Tabs.Tab>
+							) : null}
 							<Tabs.Tab
 								value="reviews"
 								icon={<IconMessageCircle2 size="1rem" />}
@@ -549,7 +583,11 @@ const Page: NextPageWithLayout = () => {
 							<Box>
 								{details.data.description ? (
 									<ScrollArea.Autosize mah={300}>
-										<ReactMarkdown>{details.data.description}</ReactMarkdown>
+										<Text
+											dangerouslySetInnerHTML={{
+												__html: details.data.description,
+											}}
+										/>
 									</ScrollArea.Autosize>
 								) : (
 									<Text fs="italic">No overview available</Text>
@@ -589,7 +627,8 @@ const Page: NextPageWithLayout = () => {
 											I finished {getVerb(Verb.Read, details.data.type)}ing it
 										</Button>
 									</>
-								) : details.data.type === MetadataLot.Show ? null : (
+								) : details.data.type === MetadataLot.Show ||
+								  details.data.type === MetadataLot.Podcast ? null : (
 									<Button
 										variant="outline"
 										onClick={async () => {
@@ -656,6 +695,11 @@ const Page: NextPageWithLayout = () => {
 														<Text color="dimmed">
 															S{h.showInformation.season}-E
 															{h.showInformation.episode}
+														</Text>
+													) : null}
+													{h.podcastInformation ? (
+														<Text color="dimmed">
+															EP-{h.podcastInformation.episode}
 														</Text>
 													) : null}
 												</Flex>
@@ -735,7 +779,7 @@ const Page: NextPageWithLayout = () => {
 															variant="outline"
 															onClick={() => {
 																router.push(
-																	`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&onlySeason=1`,
+																	`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&onlySeason=1`,
 																);
 															}}
 														>
@@ -761,7 +805,7 @@ const Page: NextPageWithLayout = () => {
 																variant="outline"
 																onClick={() => {
 																	router.push(
-																		`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&selectedEpisode=${e.episodeNumber}`,
+																		`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&selectedShowEpisode=${e.episodeNumber}`,
 																	);
 																}}
 															>
@@ -773,6 +817,55 @@ const Page: NextPageWithLayout = () => {
 											</Accordion.Item>
 										))}
 									</Accordion>
+								</ScrollArea.Autosize>
+							</Tabs.Panel>
+						) : null}
+						{details.data.podcastSpecifics ? (
+							<Tabs.Panel value="episodes">
+								<ScrollArea.Autosize mah={300}>
+									<Stack>
+										{details.data.podcastSpecifics.episodes.map((e) => (
+											<Box key={e.number}>
+												<Group>
+													<Avatar src={e.thumbnail} radius="xl" size="lg" />
+													<Button
+														variant="outline"
+														onClick={() => {
+															router.push(
+																`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
+															);
+														}}
+													>
+														Mark as seen
+													</Button>
+												</Group>
+												<Space h="xs" />
+												<Text>{e.title}</Text>
+												<Box>
+													{e.overview ? (
+														<Text
+															size="sm"
+															color="dimmed"
+															dangerouslySetInnerHTML={{ __html: e.overview }}
+														/>
+													) : null}
+												</Box>
+											</Box>
+										))}
+										{details.data.podcastSpecifics.totalEpisodes >
+										details.data.podcastSpecifics.episodes.length ? (
+											<Button
+												onClick={() =>
+													commitNext10Episodes.mutate({ podcastId: metadataId })
+												}
+												loading={
+													commitNext10Episodes.isLoading || details.isLoading
+												}
+											>
+												Load 10 more
+											</Button>
+										) : null}
+									</Stack>
 								</ScrollArea.Autosize>
 							</Tabs.Panel>
 						) : null}

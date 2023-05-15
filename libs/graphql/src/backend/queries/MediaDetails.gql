@@ -21,6 +21,16 @@ query MediaDetails($metadataId: Int!) {
       runtime
       source
     }
+    podcastSpecifics {
+      episodes {
+        title
+        overview
+        thumbnail
+        number
+      }
+      source
+      totalEpisodes
+    }
     showSpecifics {
       source
       seasons {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics, books::BookSpecifics, movies::MovieSpecifics,
-    shows::ShowSpecifics, video_games::VideoGameSpecifics,
+    podcasts::PodcastSpecifics, shows::ShowSpecifics, video_games::VideoGameSpecifics,
 };
 
 pub mod resolver;
@@ -16,4 +16,5 @@ pub enum MediaSpecifics {
     Movie(MovieSpecifics),
     Show(ShowSpecifics),
     VideoGame(VideoGameSpecifics),
+    Podcast(PodcastSpecifics),
 }

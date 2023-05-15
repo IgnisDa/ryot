@@ -15,7 +15,7 @@ use tokio::task::JoinSet;
 
 use crate::audio_books::audible::AudibleService;
 use crate::audio_books::resolver::AudioBooksService;
-use crate::background::{ImportMedia, UserCreatedJob};
+use crate::background::{AfterMediaSeenJob, ImportMedia, UserCreatedJob};
 use crate::books::openlibrary::OpenlibraryService;
 use crate::books::resolver::BooksService;
 use crate::config::AppConfig;
@@ -25,6 +25,8 @@ use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
 use crate::misc::resolver::MiscService;
 use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbService};
+use crate::podcasts::listennotes::ListennotesService;
+use crate::podcasts::resolver::PodcastsService;
 use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
 use crate::users::resolver::UsersService;
 use crate::video_games::igdb::IgdbService;
@@ -50,6 +52,7 @@ pub struct AppServices {
     pub users_service: UsersService,
     pub misc_service: MiscService,
     pub importer_service: ImporterService,
+    pub podcasts_service: PodcastsService,
 }
 
 pub async fn create_app_services(
@@ -57,8 +60,9 @@ pub async fn create_app_services(
     config: &AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
+    after_media_seen_job: &SqliteStorage<AfterMediaSeenJob>,
 ) -> AppServices {
-    let media_service = MediaService::new(&db);
+    let media_service = MediaService::new(&db, after_media_seen_job);
     let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
     let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
@@ -69,6 +73,8 @@ pub async fn create_app_services(
     let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
     let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
+    let listennotes_service = ListennotesService::new(&config.podcasts).await;
+    let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(&db, &media_service);
     let users_service = UsersService::new(&db, &misc_service, user_created_job);
     let importer_service = ImporterService::new(
@@ -80,6 +86,7 @@ pub async fn create_app_services(
         &movies_service,
         &shows_service,
         &video_games_service,
+        &podcasts_service,
         import_media_job,
     );
     AppServices {
@@ -97,6 +104,7 @@ pub async fn create_app_services(
         users_service,
         misc_service,
         importer_service,
+        podcasts_service,
     }
 }
 
@@ -210,7 +218,46 @@ pub mod tmdb {
     }
 }
 
+pub mod listennotes {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    pub async fn get_client_config(
+        url: &str,
+        api_token: &str,
+        user_agent: &str,
+    ) -> (Client, HashMap<i32, String>) {
+        let client: Client = Config::new()
+            .add_header("X-ListenAPI-Key", api_token)
+            .unwrap()
+            .add_header(USER_AGENT, user_agent)
+            .unwrap()
+            .set_base_url(Url::parse(url).unwrap())
+            .try_into()
+            .unwrap();
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Genre {
+            id: i32,
+            name: String,
+        }
+        #[derive(Debug, Serialize, Deserialize)]
+        struct GenreResponse {
+            genres: Vec<Genre>,
+        }
+        let mut rsp = client.get("genres").await.unwrap();
+        let data: GenreResponse = rsp.body_json().await.unwrap();
+        let mut genres = HashMap::new();
+        for genre in data.genres {
+            genres.insert(genre.id, genre.name);
+        }
+        (client, genres)
+    }
+}
+
 pub mod igdb {
+    use serde_json::json;
+
     use crate::graphql::PROJECT_NAME;
 
     use super::*;
@@ -221,18 +268,12 @@ pub mod igdb {
         twitch_client_secret: &str,
         igdb_base_url: &str,
     ) -> Client {
-        #[derive(Deserialize, Serialize)]
-        struct Query {
-            client_id: String,
-            client_secret: String,
-            grant_type: String,
-        }
         let mut access_res = surf::post(twitch_base_url)
-            .query(&Query {
-                client_id: twitch_client_id.to_owned(),
-                client_secret: twitch_client_secret.to_owned(),
-                grant_type: "client_credentials".to_owned(),
-            })
+            .query(&json!({
+                "client_id": twitch_client_id.to_owned(),
+                "client_secret": twitch_client_secret.to_owned(),
+                "grant_type": "client_credentials".to_owned(),
+            }))
             .unwrap()
             .await
             .unwrap();

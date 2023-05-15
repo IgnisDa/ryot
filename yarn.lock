@@ -1942,44 +1942,44 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rometools/cli-darwin-arm64@npm:12.0.0-nightly.5aa3efa":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "@rometools/cli-darwin-arm64@npm:12.0.0-nightly.5aa3efa"
+"@rometools/cli-darwin-arm64@npm:12.1.0":
+  version: 12.1.0
+  resolution: "@rometools/cli-darwin-arm64@npm:12.1.0"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@rometools/cli-darwin-x64@npm:12.0.0-nightly.5aa3efa":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "@rometools/cli-darwin-x64@npm:12.0.0-nightly.5aa3efa"
+"@rometools/cli-darwin-x64@npm:12.1.0":
+  version: 12.1.0
+  resolution: "@rometools/cli-darwin-x64@npm:12.1.0"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@rometools/cli-linux-arm64@npm:12.0.0-nightly.5aa3efa":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "@rometools/cli-linux-arm64@npm:12.0.0-nightly.5aa3efa"
+"@rometools/cli-linux-arm64@npm:12.1.0":
+  version: 12.1.0
+  resolution: "@rometools/cli-linux-arm64@npm:12.1.0"
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: hard
 
-"@rometools/cli-linux-x64@npm:12.0.0-nightly.5aa3efa":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "@rometools/cli-linux-x64@npm:12.0.0-nightly.5aa3efa"
+"@rometools/cli-linux-x64@npm:12.1.0":
+  version: 12.1.0
+  resolution: "@rometools/cli-linux-x64@npm:12.1.0"
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: hard
 
-"@rometools/cli-win32-arm64@npm:12.0.0-nightly.5aa3efa":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "@rometools/cli-win32-arm64@npm:12.0.0-nightly.5aa3efa"
+"@rometools/cli-win32-arm64@npm:12.1.0":
+  version: 12.1.0
+  resolution: "@rometools/cli-win32-arm64@npm:12.1.0"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@rometools/cli-win32-x64@npm:12.0.0-nightly.5aa3efa":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "@rometools/cli-win32-x64@npm:12.0.0-nightly.5aa3efa"
+"@rometools/cli-win32-x64@npm:12.1.0":
+  version: 12.1.0
+  resolution: "@rometools/cli-win32-x64@npm:12.1.0"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -2018,7 +2018,7 @@ __metadata:
     react-dom: 18.2.0
     react-markdown: 8.0.7
     tiny-invariant: 1.3.1
-    ts-pattern: 4.2.2
+    ts-pattern: 4.3.0
     typescript: 5.0.4
     zod: 3.21.4
   languageName: unknown
@@ -2049,7 +2049,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/root@workspace:."
   dependencies:
-    rome: nightly
+    rome: 12.1.0
     tsconfig-moon: 1.3.0
     typescript: 5.0.2
   languageName: unknown
@@ -5723,16 +5723,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rome@npm:nightly":
-  version: 12.0.0-nightly.5aa3efa
-  resolution: "rome@npm:12.0.0-nightly.5aa3efa"
+"rome@npm:12.1.0":
+  version: 12.1.0
+  resolution: "rome@npm:12.1.0"
   dependencies:
-    "@rometools/cli-darwin-arm64": 12.0.0-nightly.5aa3efa
-    "@rometools/cli-darwin-x64": 12.0.0-nightly.5aa3efa
-    "@rometools/cli-linux-arm64": 12.0.0-nightly.5aa3efa
-    "@rometools/cli-linux-x64": 12.0.0-nightly.5aa3efa
-    "@rometools/cli-win32-arm64": 12.0.0-nightly.5aa3efa
-    "@rometools/cli-win32-x64": 12.0.0-nightly.5aa3efa
+    "@rometools/cli-darwin-arm64": 12.1.0
+    "@rometools/cli-darwin-x64": 12.1.0
+    "@rometools/cli-linux-arm64": 12.1.0
+    "@rometools/cli-linux-x64": 12.1.0
+    "@rometools/cli-win32-arm64": 12.1.0
+    "@rometools/cli-win32-x64": 12.1.0
   dependenciesMeta:
     "@rometools/cli-darwin-arm64":
       optional: true
@@ -5748,7 +5748,7 @@ __metadata:
       optional: true
   bin:
     rome: bin/rome
-  checksum: 5689c20e6aba97b2d99185ec8ea3e641c253ac20fa45370d123d3a7d4a61f1713d7ca354b2e9db9902b6a4e428d7ba8174d5dfdfcca1cc951cadcefe77d6f4b9
+  checksum: c21df579dad347b4979caa12bcacabf6bb0ca259da9d2526071fddb7598ff234536549cd9e1cc04541cc55076d9995868ff0abe359c9b660f04449389fcb0d83
   languageName: node
   linkType: hard
 
@@ -6245,10 +6245,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-pattern@npm:4.2.2":
-  version: 4.2.2
-  resolution: "ts-pattern@npm:4.2.2"
-  checksum: e9e818f0d4a1706930f81bb3e6fce69db998a584999b113ef0d0c73db5a810f0ead3a295393603f2fed4e17ba2cc90e6bf38223bea4f615a9e42deb514e91cc2
+"ts-pattern@npm:4.3.0":
+  version: 4.3.0
+  resolution: "ts-pattern@npm:4.3.0"
+  checksum: f5167f6f721212c1e22f8590bb1fc21e27fd591d6fc5af0e467778f8e5b2dc1ae490cf5c633c83a3021a61283a671a53faf250b081c17c0f025e73eb775e5fe3
   languageName: node
   linkType: hard
 

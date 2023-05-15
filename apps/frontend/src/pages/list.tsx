@@ -28,6 +28,7 @@ import {
 	MediaSortOrder,
 	MetadataLot,
 	MoviesSearchDocument,
+	PodcastsSearchDocument,
 	ShowsSearchDocument,
 	VideoGamesSearchDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -48,6 +49,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
+	const [activeTab, setActiveTab] = useState<string | null>("mine");
 	const [mineSortOrder, toggleMineSortOrder] = useToggle(
 		Object.values(MediaSortOrder),
 	);
@@ -87,6 +89,7 @@ const Page: NextPageWithLayout = () => {
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, query],
 		queryFn: async () => {
+			invariant(lot, "Lot must be defined");
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
@@ -127,18 +130,27 @@ const Page: NextPageWithLayout = () => {
 					);
 					return audioBooksSearch;
 				})
-				.run();
+				.with(MetadataLot.Podcast, async () => {
+					const { podcastsSearch } = await gqlClient.request(
+						PodcastsSearchDocument,
+						{
+							input: { query, page: parseInt(activeSearchPage) || 1 },
+						},
+					);
+					return podcastsSearch;
+				})
+				.exhaustive();
 		},
 		onSuccess: () => {
 			if (!activeSearchPage) setSearchPage("1");
 		},
-		enabled: query !== "" && lot !== undefined,
+		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
 	});
 
 	return lot ? (
 		<Container>
-			<Tabs variant="outline" defaultValue="mine">
+			<Tabs variant="outline" value={activeTab} onTabChange={setActiveTab}>
 				<Tabs.List mb={"xs"}>
 					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
 						<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>

@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use surf::Client;
 
 use crate::{
@@ -165,12 +166,6 @@ impl MediaProvider for TmdbService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        #[derive(Serialize, Deserialize)]
-        struct Query {
-            query: String,
-            page: i32,
-            language: String,
-        }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbShow {
             id: i32,
@@ -188,11 +183,11 @@ impl MediaProvider for TmdbService {
         let mut rsp = self
             .client
             .get("search/tv")
-            .query(&Query {
-                query: query.to_owned(),
-                page: page.unwrap_or(1),
-                language: "en-US".to_owned(),
-            })
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page.unwrap_or(1),
+                "language": "en-US".to_owned(),
+            }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -215,7 +210,7 @@ impl MediaProvider for TmdbService {
             .collect::<Vec<_>>();
         Ok(MediaSearchResults {
             total: search.total_results,
-            items: resp,
+            items: resp.to_vec(),
         })
     }
 }

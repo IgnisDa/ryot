@@ -19,6 +19,7 @@ use crate::{
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
     movies::resolver::MoviesService,
+    podcasts::resolver::PodcastsService,
     shows::resolver::ShowsService,
     utils::user_id_from_ctx,
     video_games::resolver::VideoGamesService,
@@ -66,8 +67,9 @@ pub struct DeployImportInput {
 pub struct ImportItemSeen {
     id: Option<String>,
     ended_on: Option<DateTimeUtc>,
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -170,6 +172,7 @@ pub struct ImporterService {
     movies_service: Arc<MoviesService>,
     shows_service: Arc<ShowsService>,
     video_games_service: Arc<VideoGamesService>,
+    podcasts_service: Arc<PodcastsService>,
     import_media: SqliteStorage<ImportMedia>,
 }
 
@@ -183,6 +186,7 @@ impl ImporterService {
         movies_service: &MoviesService,
         shows_service: &ShowsService,
         video_games_service: &VideoGamesService,
+        podcasts_service: &PodcastsService,
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
@@ -194,6 +198,7 @@ impl ImporterService {
             movies_service: Arc::new(movies_service.clone()),
             shows_service: Arc::new(shows_service.clone()),
             video_games_service: Arc::new(video_games_service.clone()),
+            podcasts_service: Arc::new(podcasts_service.clone()),
             import_media: import_media.clone(),
         }
     }
@@ -275,6 +280,14 @@ impl ImporterService {
                         self.books_service.save_to_db(a.clone()).await
                     }
                 },
+                MetadataLot::Podcast => match &item.identifier {
+                    ImportItemIdentifier::NeedsDetails(i) => {
+                        self.podcasts_service.commit_podcast(i).await
+                    }
+                    ImportItemIdentifier::AlreadyFilled(a) => {
+                        self.podcasts_service.save_to_db(a.clone()).await
+                    }
+                },
                 MetadataLot::Movie => match &item.identifier {
                     ImportItemIdentifier::NeedsDetails(i) => {
                         self.movies_service.commit_movie(i).await
@@ -321,8 +334,10 @@ impl ImporterService {
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
                             date: seen.ended_on.map(|d| d.date_naive()),
-                            season_number: seen.season_number,
-                            episode_number: seen.episode_number,
+                            show_season_number: seen.show_season_number,
+                            show_episode_number: seen.show_episode_number,
+                            is_bulk_request: None,
+                            podcast_episode_number: seen.podcast_episode_number,
                         },
                         user_id.clone(),
                     )

@@ -4,9 +4,7 @@ import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
-	Alert,
 	Box,
-	Button,
 	Container,
 	Loader,
 	SimpleGrid,
@@ -16,12 +14,9 @@ import {
 } from "@mantine/core";
 import {
 	MediaInProgressDocument,
-	RegerateUserSummaryDocument,
-	type RegerateUserSummaryMutationVariables,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconAlertCircle } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
@@ -61,18 +56,6 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ retry: false },
 	);
-	const regenerateUserSummary = useMutation({
-		mutationFn: async (variables: RegerateUserSummaryMutationVariables) => {
-			const { regenerateUserSummary } = await gqlClient.request(
-				RegerateUserSummaryDocument,
-				variables,
-			);
-			return regenerateUserSummary;
-		},
-		onSuccess: () => {
-			userSummary.refetch();
-		},
-	});
 
 	return (
 		<Container>
@@ -93,12 +76,6 @@ const Page: NextPageWithLayout = () => {
 					</>
 				) : null}
 				{userSummary.isLoading ? <Loader /> : null}
-				{userSummary.isError ? (
-					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
-						You have not generated any summaries yet. Click below to generate
-						one.
-					</Alert>
-				) : null}
 				{userSummary.data ? (
 					<>
 						<Title>Summary</Title>
@@ -167,19 +144,22 @@ const Page: NextPageWithLayout = () => {
 									.
 								</Text>
 							</Box>
+							<Box>
+								<StatTitle text="Podcasts" />
+								<Text>
+									You listened to{" "}
+									<StatNumber text={userSummary.data.podcasts.watched} />{" "}
+									podcast(s) totalling{" "}
+									<StatNumber
+										text={userSummary.data.podcasts.runtime}
+										isDuration
+									/>
+									.
+								</Text>
+							</Box>
 						</SimpleGrid>
 					</>
 				) : null}
-				<Box>
-					<Button
-						style={{ flexGrow: 0 }}
-						variant="light"
-						onClick={() => regenerateUserSummary.mutate({})}
-						loading={regenerateUserSummary.isLoading}
-					>
-						Recalculate
-					</Button>
-				</Box>
 			</Stack>
 		</Container>
 	);

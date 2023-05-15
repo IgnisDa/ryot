@@ -1,3 +1,0 @@
-mutation ToggleMediaInCollection($input: ToggleMediaInCollection!) {
-  toggleMediaInCollection(input: $input)
-}

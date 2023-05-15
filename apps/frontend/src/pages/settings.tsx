@@ -20,11 +20,11 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
-	UpdateUserDocument,
-	type UpdateUserMutationVariables,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
+	UpdateUserDocument,
+	type UpdateUserMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";

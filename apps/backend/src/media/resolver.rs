@@ -1,3 +1,4 @@
+use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics,
+    background::AfterMediaSeenJob,
     books::BookSpecifics,
     entities::{
         collection, creator, genre,
@@ -15,14 +17,15 @@ use crate::{
         metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
             AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
-            MetadataToCollection, Movie, Review, Seen, Show, UserToMetadata, VideoGame,
+            MetadataToCollection, Movie, Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
-        utils::{SeenExtraInformation, SeenSeasonExtraInformation},
+        utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
     graphql::IdObject,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
+    podcasts::PodcastSpecifics,
     shows::ShowSpecifics,
     utils::user_id_from_ctx,
     video_games::VideoGameSpecifics,
@@ -68,10 +71,12 @@ pub struct ProgressUpdate {
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
-    pub season_number: Option<i32>,
-    pub episode_number: Option<i32>,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
     /// If this update comes from a different source, this should be set
     pub identifier: Option<String>,
+    pub is_bulk_request: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -107,6 +112,7 @@ pub struct DatabaseMediaDetails {
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -243,11 +249,15 @@ impl MediaMutation {
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
+    after_media_seen: SqliteStorage<AfterMediaSeenJob>,
 }
 
 impl MediaService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
+    pub fn new(db: &DatabaseConnection, import_media: &SqliteStorage<AfterMediaSeenJob>) -> Self {
+        Self {
+            db: db.clone(),
+            after_media_seen: import_media.clone(),
+        }
     }
 }
 
@@ -332,8 +342,20 @@ impl MediaService {
             show_specifics: None,
             video_game_specifics: None,
             audio_book_specifics: None,
+            podcast_specifics: None,
         };
         match model.lot {
+            MetadataLot::AudioBook => {
+                let additional = AudioBook::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.audio_book_specifics = Some(AudioBookSpecifics {
+                    runtime: additional.runtime,
+                    source: additional.source,
+                });
+            }
             MetadataLot::Book => {
                 let additional = Book::find_by_id(metadata_id)
                     .one(&self.db)
@@ -344,6 +366,14 @@ impl MediaService {
                     pages: additional.num_pages,
                     source: additional.source,
                 });
+            }
+            MetadataLot::Podcast => {
+                let additional = Podcast::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                resp.podcast_specifics = Some(additional.details);
             }
             MetadataLot::Movie => {
                 let additional = Movie::find_by_id(metadata_id)
@@ -374,17 +404,6 @@ impl MediaService {
                     source: additional.source,
                 });
             }
-            MetadataLot::AudioBook => {
-                let additional = AudioBook::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.audio_book_specifics = Some(AudioBookSpecifics {
-                    runtime: additional.runtime,
-                    source: additional.source,
-                });
-            }
         };
         Ok(resp)
     }
@@ -402,6 +421,9 @@ impl MediaService {
                 match i {
                     SeenExtraInformation::Show(sea) => {
                         s.show_information = Some(sea.clone());
+                    }
+                    SeenExtraInformation::Podcast(sea) => {
+                        s.podcast_information = Some(sea.clone());
                     }
                 };
             }
@@ -548,15 +570,30 @@ impl MediaService {
                     };
                     if meta.lot == MetadataLot::Show {
                         seen_ins.extra_information = ActiveValue::Set(Some(
-                            SeenExtraInformation::Show(SeenSeasonExtraInformation {
-                                season: input.season_number.unwrap(),
-                                episode: input.episode_number.unwrap(),
+                            SeenExtraInformation::Show(SeenShowExtraInformation {
+                                season: input.show_season_number.unwrap(),
+                                episode: input.show_episode_number.unwrap(),
                             }),
                         ));
+                    } else if meta.lot == MetadataLot::Podcast {
+                        seen_ins.extra_information = ActiveValue::Set(Some(
+                            SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
+                                episode: input.podcast_episode_number.unwrap(),
+                            }),
+                        ))
                     }
-                    seen_ins.insert(&self.db).await.unwrap()
+                    let seen = seen_ins.insert(&self.db).await.unwrap();
+                    seen
                 }
             };
+            if !input.is_bulk_request.unwrap_or(false) {
+                let mut storage = self.after_media_seen.clone();
+                storage
+                    .push(AfterMediaSeenJob {
+                        seen_id: seen_item.id,
+                    })
+                    .await?;
+            }
             Ok(IdObject { id: seen_item.id })
         }
     }
@@ -723,5 +760,20 @@ impl MediaService {
             intermediate.insert(&self.db).await.ok();
         }
         Ok(metadata.id)
+    }
+
+    pub async fn cleanup_metadata_with_associated_user_activities(&self) -> Result<()> {
+        let all_metadata = Metadata::find().all(&self.db).await.unwrap();
+        for metadata in all_metadata {
+            let num_associations = UserToMetadata::find()
+                .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                metadata.delete(&self.db).await.ok();
+            }
+        }
+        Ok(())
     }
 }

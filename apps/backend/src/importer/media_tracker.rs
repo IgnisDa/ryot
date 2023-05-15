@@ -238,8 +238,10 @@ fn convert_item(
                 ImportItemSeen {
                     id: Some(s.id.to_string()),
                     ended_on: s.date,
-                    season_number,
-                    episode_number,
+                    show_season_number: season_number,
+                    show_episode_number: episode_number,
+                    // DEV: Since this source does not support podcasts
+                    podcast_episode_number: None,
                 }
             })
             .collect(),

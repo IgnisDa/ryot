@@ -6,7 +6,7 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use crate::graphql::PROJECT_NAME;
+use crate::graphql::{AUTHOR, PROJECT_NAME};
 
 static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
 
@@ -122,6 +122,38 @@ pub struct MovieConfig {
 
 impl IsFeatureEnabled for MovieConfig {}
 
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct ListenNotesConfig {
+    pub url: String,
+    pub api_token: String,
+    pub user_agent: String,
+}
+
+impl Default for ListenNotesConfig {
+    fn default() -> Self {
+        Self {
+            url: "https://listen-api.listennotes.com/api/v2/".to_owned(),
+            api_token: "".to_owned(),
+            user_agent: format!("{}/{}", AUTHOR, PROJECT_NAME),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+pub struct PodcastConfig {
+    pub listennotes: ListenNotesConfig,
+}
+
+impl IsFeatureEnabled for PodcastConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.listennotes.api_token.is_empty() {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct ShowConfig {
     pub tmdb: TmdbConfig,
@@ -216,6 +248,8 @@ pub struct AppConfig {
     pub importer: ImporterConfig,
     #[serde(default)]
     pub movies: MovieConfig,
+    #[serde(default)]
+    pub podcasts: PodcastConfig,
     #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]

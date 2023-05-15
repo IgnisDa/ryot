@@ -12,11 +12,8 @@ import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { NextPage } from "next";
 import type { AppProps } from "next/app";
-import { Inter } from "next/font/google";
 import Head from "next/head";
 import type { ReactElement, ReactNode } from "react";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
 	getLayout?: (page: ReactElement) => ReactNode;
@@ -72,14 +69,10 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 				<MantineProvider
 					withGlobalStyles
 					withNormalizeCSS
-					theme={{ colorScheme: "dark" }}
+					theme={{ colorScheme: "dark", fontFamily: "Poppins" }}
 				>
 					<Notifications />
-					<Flex
-						className={`${inter.className}`}
-						direction={"column"}
-						style={{ minHeight: "100vh" }}
-					>
+					<Flex direction={"column"} style={{ minHeight: "100vh" }}>
 						<Flex style={{ flexGrow: 1 }}>
 							{getLayout(<Component {...pageProps} />)}
 						</Flex>

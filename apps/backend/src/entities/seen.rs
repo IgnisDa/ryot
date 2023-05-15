@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::associate_user_with_metadata;
 
-use super::utils::{SeenExtraInformation, SeenSeasonExtraInformation};
+use super::utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Seen")]
@@ -25,7 +25,9 @@ pub struct Model {
     #[graphql(skip)]
     pub extra_information: Option<SeenExtraInformation>,
     #[sea_orm(ignore)]
-    pub show_information: Option<SeenSeasonExtraInformation>,
+    pub show_information: Option<SeenShowExtraInformation>,
+    #[sea_orm(ignore)]
+    pub podcast_information: Option<SeenPodcastExtraInformation>,
     #[graphql(skip)]
     pub identifier: Option<String>,
 }

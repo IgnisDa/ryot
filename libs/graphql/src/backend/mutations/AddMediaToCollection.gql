@@ -1,0 +1,3 @@
+mutation AddMediaToCollection($input: AddMediaToCollection!) {
+  addMediaToCollection(input: $input)
+}

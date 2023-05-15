@@ -3,7 +3,8 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::USER_AGENT, middleware::Redirect, Client, Config, Url};
+use serde_json::json;
+use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -54,7 +55,6 @@ impl OpenlibraryService {
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
             .unwrap();
-        let client = client.with(Redirect::new(1));
         Self {
             image_url: config.cover_image_url.to_owned(),
             image_size: config.cover_image_size.to_string(),
@@ -183,15 +183,6 @@ impl MediaProvider for OpenlibraryService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        #[derive(Serialize, Deserialize)]
-        struct Query {
-            q: String,
-            fields: String,
-            offset: i32,
-            limit: i32,
-            #[serde(rename = "type")]
-            lot: String,
-        }
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct OpenlibraryBook {
             key: String,
@@ -207,23 +198,24 @@ impl MediaProvider for OpenlibraryService {
             num_found: i32,
             docs: Vec<OpenlibraryBook>,
         }
+        let fields = [
+            "key",
+            "title",
+            "author_name",
+            "cover_i",
+            "first_publish_year",
+        ]
+        .join(",");
         let mut rsp = self
             .client
             .get("search.json")
-            .query(&Query {
-                q: query.to_owned(),
-                fields: [
-                    "key",
-                    "title",
-                    "author_name",
-                    "cover_i",
-                    "first_publish_year",
-                ]
-                .join(","),
-                offset: (page.unwrap_or_default() - 1) * LIMIT,
-                limit: LIMIT,
-                lot: "work".to_owned(),
-            })
+            .query(&json!({
+                "q": query.to_owned(),
+                "fields": fields,
+                "offset": (page.unwrap_or_default() - 1) * LIMIT,
+                "limit": LIMIT,
+                "type": "work".to_owned(),
+            }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;

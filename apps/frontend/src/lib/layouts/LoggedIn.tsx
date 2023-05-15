@@ -24,6 +24,7 @@ import {
 	IconHome2,
 	IconListDetails,
 	IconLogout,
+	IconMicrophone,
 	IconSettings,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -83,6 +84,7 @@ const getIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Show, () => IconDeviceDesktop)
 		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
 		.with(MetadataLot.AudioBook, () => IconHeadphones)
+		.with(MetadataLot.Podcast, () => IconMicrophone)
 		.exhaustive();
 };
 

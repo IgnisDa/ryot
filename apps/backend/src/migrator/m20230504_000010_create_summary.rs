@@ -20,6 +20,8 @@ pub enum Summary {
     VideoGamesPlayed,
     AudioBooksRuntime,
     AudioBooksPlayed,
+    PodcastsRuntime,
+    PodcastsPlayed,
 }
 
 impl MigrationName for Migration {
@@ -59,6 +61,8 @@ impl MigrationTrait for Migration {
                     .col(&mut get_integer_col(Summary::VideoGamesPlayed))
                     .col(&mut get_integer_col(Summary::AudioBooksRuntime))
                     .col(&mut get_integer_col(Summary::AudioBooksPlayed))
+                    .col(&mut get_integer_col(Summary::PodcastsRuntime))
+                    .col(&mut get_integer_col(Summary::PodcastsPlayed))
                     .foreign_key(
                         ForeignKey::create()
                             .name("summary_to_user_foreign_key")

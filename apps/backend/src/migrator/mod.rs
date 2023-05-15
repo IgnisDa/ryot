@@ -16,6 +16,7 @@ mod m20230504_000011_create_audio_book;
 mod m20230505_000012_create_review;
 mod m20230507_000013_create_collection;
 mod m20230509_000014_create_media_import_report;
+mod m20230514_000015_create_podcast;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -27,6 +28,7 @@ pub use m20230502_000008_create_video_game::VideoGameSource;
 pub use m20230504_000011_create_audio_book::AudioBookSource;
 pub use m20230505_000012_create_review::ReviewVisibility;
 pub use m20230509_000014_create_media_import_report::MediaImportSource;
+pub use m20230514_000015_create_podcast::PodcastSource;
 
 pub struct Migrator;
 
@@ -48,6 +50,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230505_000012_create_review::Migration),
             Box::new(m20230507_000013_create_collection::Migration),
             Box::new(m20230509_000014_create_media_import_report::Migration),
+            Box::new(m20230514_000015_create_podcast::Migration),
         ]
     }
 }

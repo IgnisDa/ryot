@@ -1,11 +1,5 @@
 {
 	"$schema": "./node_modules/rome/configuration_schema.json",
-	"files": {
-		"ignore": [
-			"dist", "coverage", "build", "tmp", "node_modules", "libs/generated/**",
-			"out/**", ".next/**"
-		]
-	},
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -21,5 +15,10 @@
 	},
 	"organizeImports": {
 		"enabled": true
+	},
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
 	}
 }
