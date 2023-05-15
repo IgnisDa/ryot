@@ -154,6 +154,12 @@ pub struct MoviesSummary {
 }
 
 #[derive(SimpleObject)]
+pub struct PodcastsSummary {
+    runtime: i32,
+    watched: i32,
+}
+
+#[derive(SimpleObject)]
 pub struct ShowsSummary {
     runtime: i32,
     watched_shows: i32,
@@ -164,6 +170,7 @@ pub struct ShowsSummary {
 pub struct UserSummary {
     books: BooksSummary,
     movies: MoviesSummary,
+    podcasts: PodcastsSummary,
     shows: ShowsSummary,
     video_games: VideoGamesSummary,
     audio_books: AudioBooksSummary,
@@ -307,6 +314,10 @@ impl UsersService {
                 movies: MoviesSummary {
                     runtime: ls.movies_runtime,
                     watched: ls.movies_watched,
+                },
+                podcasts: PodcastsSummary {
+                    runtime: ls.podcasts_runtime,
+                    watched: ls.podcasts_played,
                 },
                 shows: ShowsSummary {
                     runtime: ls.shows_runtime,

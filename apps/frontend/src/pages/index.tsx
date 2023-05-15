@@ -144,6 +144,19 @@ const Page: NextPageWithLayout = () => {
 									.
 								</Text>
 							</Box>
+							<Box>
+								<StatTitle text="Podcasts" />
+								<Text>
+									You listened to{" "}
+									<StatNumber text={userSummary.data.podcasts.watched} />{" "}
+									podcast(s) totalling{" "}
+									<StatNumber
+										text={userSummary.data.podcasts.runtime}
+										isDuration
+									/>
+									.
+								</Text>
+							</Box>
 						</SimpleGrid>
 					</>
 				) : null}

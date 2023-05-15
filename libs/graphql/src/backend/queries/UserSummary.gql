@@ -8,6 +8,10 @@ query UserSummary {
       runtime
       watched
     }
+    podcasts {
+      runtime
+      watched
+    }
     videoGames {
       played
     }
