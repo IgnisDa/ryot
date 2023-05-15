@@ -583,7 +583,11 @@ const Page: NextPageWithLayout = () => {
 							<Box>
 								{details.data.description ? (
 									<ScrollArea.Autosize mah={300}>
-										<ReactMarkdown>{details.data.description}</ReactMarkdown>
+										<Text
+											dangerouslySetInnerHTML={{
+												__html: details.data.description,
+											}}
+										/>
 									</ScrollArea.Autosize>
 								) : (
 									<Text fs="italic">No overview available</Text>
