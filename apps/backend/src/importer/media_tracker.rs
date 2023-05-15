@@ -129,6 +129,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     lot,
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
+                    error: e.to_string(),
                 });
                 continue;
             }

@@ -102,6 +102,7 @@ pub struct ImportFailedItem {
     lot: MetadataLot,
     step: ImportFailStep,
     identifier: String,
+    error: String,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
@@ -320,11 +321,12 @@ impl ImporterService {
                         lot: item.lot,
                         step: ImportFailStep::MediaDetailsFromProvider,
                         identifier: item.source_id.to_owned(),
+                        error: e.message,
                     });
                     continue;
                 }
             };
-            for (idx, seen) in item.seen_history.iter().enumerate() {
+            for seen in item.seen_history.iter() {
                 self.media_service
                     .progress_update(
                         ProgressUpdate {
@@ -335,7 +337,7 @@ impl ImporterService {
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
-                            is_bulk_request: Some(idx != item.seen_history.len() - 1),
+                            is_bulk_request: Some(true),
                             podcast_episode_number: seen.podcast_episode_number,
                         },
                         user_id.clone(),
