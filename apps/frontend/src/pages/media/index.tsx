@@ -495,6 +495,12 @@ const Page: NextPageWithLayout = () => {
 								}
 							/>
 						) : null}
+						{details.data.podcastSpecifics?.totalEpisodes ? (
+							<StatDisplay
+								name="Total episodes"
+								value={details.data.podcastSpecifics.totalEpisodes?.toString()}
+							/>
+						) : null}
 					</Box>
 				</Stack>
 				<Stack style={{ flexGrow: 1 }}>
