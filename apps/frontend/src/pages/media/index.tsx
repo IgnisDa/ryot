@@ -49,8 +49,8 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-    type AddMediaToCollectionMutationVariables,
-    AddMediaToCollectionDocument,
+	type AddMediaToCollectionMutationVariables,
+	AddMediaToCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -160,11 +160,11 @@ export function SelectCollectionModal(props: {
 	});
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
-			const { addMediaToCollection} = await gqlClient.request(
+			const { addMediaToCollection } = await gqlClient.request(
 				AddMediaToCollectionDocument,
 				variables,
 			);
-			return addMediaToCollection
+			return addMediaToCollection;
 		},
 		onSuccess: () => {
 			props.onClose();
