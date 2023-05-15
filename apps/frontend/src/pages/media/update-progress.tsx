@@ -58,7 +58,7 @@ const Page: NextPageWithLayout = () => {
 					await gqlClient.request(ProgressUpdateDocument, {
 						input: {
 							...variables.input,
-							episodeNumber: episode.episodeNumber,
+							showEpisodeNumber: episode.episodeNumber,
 							isBulkRequest: onlySeason,
 						},
 					});
@@ -77,10 +77,11 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const title = details.data?.title;
+
 	const mutationInput = {
-		metadataId,
-		episodeNumber: Number(selectedEpisode),
-		seasonNumber: Number(selectedSeason),
+		metadataId: metadataId || 0,
+		showEpisodeNumber: Number(selectedEpisode),
+		showSeasonNumber: Number(selectedSeason),
 	};
 
 	return details.data && title ? (

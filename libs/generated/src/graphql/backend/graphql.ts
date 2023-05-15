@@ -423,13 +423,13 @@ export type PostReviewInput = {
 export type ProgressUpdate = {
   action: ProgressUpdateAction;
   date?: InputMaybe<Scalars['NaiveDate']>;
-  episodeNumber?: InputMaybe<Scalars['Int']>;
   /** If this update comes from a different source, this should be set */
   identifier?: InputMaybe<Scalars['String']>;
   isBulkRequest?: InputMaybe<Scalars['Boolean']>;
   metadataId: Scalars['Int'];
   progress?: InputMaybe<Scalars['Int']>;
-  seasonNumber?: InputMaybe<Scalars['Int']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']>;
 };
 
 export enum ProgressUpdateAction {

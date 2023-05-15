@@ -71,8 +71,8 @@ pub struct ProgressUpdate {
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
-    pub season_number: Option<i32>,
-    pub episode_number: Option<i32>,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
     /// If this update comes from a different source, this should be set
     pub identifier: Option<String>,
     pub is_bulk_request: Option<bool>,
@@ -570,8 +570,8 @@ impl MediaService {
                     if meta.lot == MetadataLot::Show {
                         seen_ins.extra_information = ActiveValue::Set(Some(
                             SeenExtraInformation::Show(SeenShowExtraInformation {
-                                season: input.season_number.unwrap(),
-                                episode: input.episode_number.unwrap(),
+                                season: input.show_season_number.unwrap(),
+                                episode: input.show_episode_number.unwrap(),
                             }),
                         ));
                     }
