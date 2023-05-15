@@ -623,7 +623,8 @@ const Page: NextPageWithLayout = () => {
 											I finished {getVerb(Verb.Read, details.data.type)}ing it
 										</Button>
 									</>
-								) : details.data.type === MetadataLot.Show ? null : (
+								) : details.data.type === MetadataLot.Show ||
+								  details.data.type === MetadataLot.Podcast ? null : (
 									<Button
 										variant="outline"
 										onClick={async () => {
@@ -769,7 +770,7 @@ const Page: NextPageWithLayout = () => {
 															variant="outline"
 															onClick={() => {
 																router.push(
-																	`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&onlySeason=1`,
+																	`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&onlySeason=1`,
 																);
 															}}
 														>
@@ -795,7 +796,7 @@ const Page: NextPageWithLayout = () => {
 																variant="outline"
 																onClick={() => {
 																	router.push(
-																		`/media/update-progress?item=${metadataId}&selectedSeason=${s.seasonNumber}&selectedEpisode=${e.episodeNumber}`,
+																		`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&selectedShowEpisode=${e.episodeNumber}`,
 																	);
 																}}
 															>
@@ -822,7 +823,7 @@ const Page: NextPageWithLayout = () => {
 														variant="outline"
 														onClick={() => {
 															router.push(
-																`/media/update-progress?item=${metadataId}&selectedEpisode=${e.number}&onlyEpisode=1`,
+																`/media/update-progress?item=${metadataId}&selectedPodcastEpisode=${e.number}`,
 															);
 														}}
 													>

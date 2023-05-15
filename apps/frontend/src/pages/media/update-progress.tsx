@@ -30,11 +30,11 @@ const Page: NextPageWithLayout = () => {
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const onlySeason = !!router.query.onlySeason;
 
-	const [selectedSeason, setSelectedSeason] = useState<string | null>(
-		router.query.selectedSeason?.toString() || null,
+	const [selectedShowSeason, setSelectedShowSeason] = useState<string | null>(
+		router.query.selectedShowSeason?.toString() || null,
 	);
-	const [selectedEpisode, setSelectedEpisode] = useState<string | null>(
-		router.query.selectedEpisode?.toString() || null,
+	const [selectedShowEpisode, setSelectedShowEpisode] = useState<string | null>(
+		router.query.selectedShowEpisode?.toString() || null,
 	);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -53,7 +53,7 @@ const Page: NextPageWithLayout = () => {
 		) => {
 			if (onlySeason) {
 				for (const episode of details.data?.showSpecifics?.seasons.find(
-					(s) => s.seasonNumber.toString() === selectedSeason,
+					(s) => s.seasonNumber.toString() === selectedShowSeason,
 				)?.episodes || []) {
 					await gqlClient.request(ProgressUpdateDocument, {
 						input: {
@@ -80,8 +80,8 @@ const Page: NextPageWithLayout = () => {
 
 	const mutationInput = {
 		metadataId: metadataId || 0,
-		showEpisodeNumber: Number(selectedEpisode),
-		showSeasonNumber: Number(selectedSeason),
+		showEpisodeNumber: Number(selectedShowEpisode),
+		showSeasonNumber: Number(selectedShowSeason),
 	};
 
 	return details.data && title ? (
@@ -97,7 +97,8 @@ const Page: NextPageWithLayout = () => {
 					<>
 						{onlySeason ? (
 							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
-								This will mark all episodes for Season {selectedSeason} as seen
+								This will mark all episodes for Season {selectedShowSeason} as
+								seen
 							</Alert>
 						) : null}
 						<Title order={6}>
@@ -109,22 +110,22 @@ const Page: NextPageWithLayout = () => {
 								label: `${s.seasonNumber}. ${s.name.toString()}`,
 								value: s.seasonNumber.toString(),
 							}))}
-							onChange={setSelectedSeason}
-							defaultValue={selectedSeason}
+							onChange={setSelectedShowSeason}
+							defaultValue={selectedShowSeason}
 						/>
-						{!onlySeason && selectedSeason ? (
+						{!onlySeason && selectedShowSeason ? (
 							<Select
 								label="Episode"
 								data={
 									details.data.showSpecifics.seasons
-										.find((s) => s.seasonNumber === Number(selectedSeason))
+										.find((s) => s.seasonNumber === Number(selectedShowSeason))
 										?.episodes.map((e) => ({
 											label: `${e.episodeNumber}. ${e.name.toString()}`,
 											value: e.episodeNumber.toString(),
 										})) || []
 								}
-								onChange={setSelectedEpisode}
-								defaultValue={selectedEpisode}
+								onChange={setSelectedShowEpisode}
+								defaultValue={selectedShowEpisode}
 							/>
 						) : null}
 					</>
