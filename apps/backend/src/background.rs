@@ -34,14 +34,14 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct InvalidateImportJob {}
+pub struct GeneralMediaCleanJobs;
 
-impl Job for InvalidateImportJob {
-    const NAME: &'static str = "apalis::InvalidateImportJob";
+impl Job for GeneralMediaCleanJobs {
+    const NAME: &'static str = "apalis::GeneralMediaCleanupJob";
 }
 
-pub async fn invalidate_import_job(
-    _information: InvalidateImportJob,
+pub async fn general_media_cleanup_jobs(
+    _information: GeneralMediaCleanJobs,
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Invalidating invalid media import jobs");
@@ -54,22 +54,24 @@ pub async fn invalidate_import_job(
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RefreshUserToMediaAssociation {}
+pub struct GeneralUserCleanup;
 
-impl Job for RefreshUserToMediaAssociation {
-    const NAME: &'static str = "apalis::RefreshUserToMediaAssociation";
+impl Job for GeneralUserCleanup {
+    const NAME: &'static str = "apalis::GeneralUserCleanup";
 }
 
-pub async fn refresh_user_to_media_association(
-    _information: RefreshUserToMediaAssociation,
+pub async fn general_user_cleanup(
+    _information: GeneralUserCleanup,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Running user and metadata association cleanup");
+    tracing::info!("Cleaning up user and metadata association");
     ctx.data::<MediaService>()
         .unwrap()
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
+    tracing::info!("Removing old user summaries");
+    // TODO
     Ok(())
 }
 

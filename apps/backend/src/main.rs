@@ -33,9 +33,8 @@ use tower_http::{
 
 use crate::{
     background::{
-        after_media_seen_job, import_media, invalidate_import_job,
-        refresh_user_to_media_association, user_created_job, InvalidateImportJob,
-        RefreshUserToMediaAssociation,
+        after_media_seen_job, general_media_cleanup_jobs, general_user_cleanup, import_media,
+        user_created_job, GeneralMediaCleanJobs, GeneralUserCleanup,
     },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
@@ -112,20 +111,19 @@ async fn main() -> Result<()> {
 
     Migrator::up(&db, None).await.unwrap();
 
-    let refresh_user_to_media_association_storage = create_storage(&config.database.url).await;
     let import_media_storage = create_storage(&config.database.url).await;
-    let invalidate_import_job_storage = create_storage(&config.database.url).await;
+    let general_user_cleanup_storage = create_storage(&config.database.url).await;
+    let general_media_cleanup_storage = create_storage(&config.database.url).await;
     let user_created_job_storage = create_storage(&config.database.url).await;
     let after_media_seen_job_storage = create_storage(&config.database.url).await;
 
     let (tx_1, mut rx_1) = channel::<u8>(1);
-    let mut new_refresh_user_to_media_association_storage =
-        refresh_user_to_media_association_storage.clone();
+    let mut new_general_user_cleanup_storage = general_user_cleanup_storage.clone();
     tokio::spawn(async move {
         loop {
             if (rx_1.recv().await).is_some() {
-                new_refresh_user_to_media_association_storage
-                    .push(RefreshUserToMediaAssociation {})
+                new_general_user_cleanup_storage
+                    .push(GeneralUserCleanup {})
                     .await
                     .unwrap();
             }
@@ -133,12 +131,12 @@ async fn main() -> Result<()> {
     });
 
     let (tx_2, mut rx_2) = channel::<u8>(1);
-    let mut new_invalidate_import_job_storage = invalidate_import_job_storage.clone();
+    let mut new_general_media_cleanup_storage = general_media_cleanup_storage.clone();
     tokio::spawn(async move {
         loop {
             if (rx_2.recv().await).is_some() {
-                new_invalidate_import_job_storage
-                    .push(InvalidateImportJob {})
+                new_general_media_cleanup_storage
+                    .push(GeneralMediaCleanJobs {})
                     .await
                     .unwrap();
             }
@@ -221,11 +219,11 @@ async fn main() -> Result<()> {
     let monitor = async {
         let mn = Monitor::new()
             .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("refresh_user_to_media_association-{c}"))
+                WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.media_service.clone()))
-                    .with_storage(refresh_user_to_media_association_storage.clone())
-                    .build_fn(refresh_user_to_media_association)
+                    .with_storage(general_user_cleanup_storage.clone())
+                    .build_fn(general_user_cleanup)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
@@ -236,11 +234,11 @@ async fn main() -> Result<()> {
                     .build_fn(import_media)
             })
             .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("invalidate_import_job-{c}"))
+                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
-                    .with_storage(invalidate_import_job_storage.clone())
-                    .build_fn(invalidate_import_job)
+                    .with_storage(general_media_cleanup_storage.clone())
+                    .build_fn(general_media_cleanup_jobs)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
