@@ -27,8 +27,8 @@ tracking.
 
 5. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 
-6. Set the correct configuration variables in the environment in which the
-	Ryot server is running.
+6. Set the `video_games.*` configuration variables in the environment as
+	described in the [configuration](/README.md#-configuration-options) docs.
 
 ## Important notes
 
