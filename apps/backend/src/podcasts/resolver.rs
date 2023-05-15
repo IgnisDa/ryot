@@ -41,11 +41,23 @@ pub struct PodcastsMutation;
 
 #[Object]
 impl PodcastsMutation {
-    /// Fetch details about a game and create a media item in the database
+    /// Fetch details about a podcast and create a media item in the database
     async fn commit_podcast(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<PodcastsService>()
             .commit_podcast(&identifier)
+            .await
+    }
+
+    /// Load next 10 episodes of a podcast if they exist.
+    async fn commit_next_10_podcast_episodes(
+        &self,
+        gql_ctx: &Context<'_>,
+        podcast_id: i32,
+    ) -> Result<bool> {
+        gql_ctx
+            .data_unchecked::<PodcastsService>()
+            .commit_next_10_podcast_episodes(podcast_id)
             .await
     }
 }
@@ -90,6 +102,39 @@ impl PodcastsService {
             let details = self.listennotes_service.details(identifier).await?;
             self.save_to_db(details).await
         }
+    }
+
+    pub async fn commit_next_10_podcast_episodes(&self, podcast_id: i32) -> Result<bool> {
+        let meta = Podcast::find_by_id(podcast_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        if meta.total_episodes == meta.details.episodes.len() as i32 {
+            return Ok(false);
+        }
+        let last_episode = meta.details.episodes.last().unwrap();
+        let next_pub_date = last_episode.publish_date.timestamp();
+        let episode_number = last_episode.number;
+        let details = self
+            .listennotes_service
+            .details_with_paginated_episodes(
+                &meta.identifier,
+                Some(next_pub_date),
+                Some(episode_number),
+            )
+            .await?;
+        match details.specifics {
+            MediaSpecifics::Podcast(ed) => {
+                let mut meta: podcast::ActiveModel = meta.into();
+                let mut dets = meta.details.unwrap();
+                dets.episodes.extend(ed.episodes.into_iter());
+                meta.details = ActiveValue::Set(dets);
+                meta.save(&self.db).await.unwrap();
+            }
+            _ => unreachable!(),
+        }
+        Ok(true)
     }
 
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {

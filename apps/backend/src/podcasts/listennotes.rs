@@ -96,7 +96,7 @@ impl ListennotesService {
     // The API does not return all the episodes for a podcast, and instead needs to be
     // paginated through. It also does not return the episode number. So we have to
     // handle thouse manually.
-    async fn details_with_paginated_episodes(
+    pub async fn details_with_paginated_episodes(
         &self,
         identifier: &str,
         next_pub_date: Option<i64>,
