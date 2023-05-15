@@ -6,8 +6,8 @@ use crate::{
     config::AppConfig,
     entities::prelude::Seen,
     importer::{DeployImportInput, ImporterService},
-    media::{resolver::MediaService, WATCHLIST},
-    misc::resolver::MiscService,
+    media::resolver::MediaService,
+    misc::{resolver::MiscService, WATCHLIST},
     users::resolver::UsersService,
 };
 
@@ -49,6 +49,8 @@ pub async fn general_media_cleanup_jobs(
         .invalidate_import_jobs()
         .await
         .unwrap();
+    tracing::info!("Cleaning up media items without associated user activities");
+    // TODO
     Ok(())
 }
 
@@ -120,8 +122,8 @@ pub async fn after_media_seen_job(
         .await
         .unwrap()
         .unwrap();
-    ctx.data::<MiscService>()
-        .unwrap()
+    let misc_service = ctx.data::<MiscService>().unwrap();
+    misc_service
         .remove_media_item_from_collection(&seen.user_id, &seen.metadata_id, WATCHLIST)
         .await
         .unwrap();
