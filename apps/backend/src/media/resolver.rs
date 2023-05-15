@@ -761,4 +761,19 @@ impl MediaService {
         }
         Ok(metadata.id)
     }
+
+    pub async fn cleanup_metadata_with_associated_user_activities(&self) -> Result<()> {
+        let all_metadata = Metadata::find().all(&self.db).await.unwrap();
+        for metadata in all_metadata {
+            let num_associations = UserToMetadata::find()
+                .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                metadata.delete(&self.db).await.ok();
+            }
+        }
+        Ok(())
+    }
 }

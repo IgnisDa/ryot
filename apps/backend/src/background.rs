@@ -50,7 +50,11 @@ pub async fn general_media_cleanup_jobs(
         .await
         .unwrap();
     tracing::info!("Cleaning up media items without associated user activities");
-    // TODO
+    ctx.data::<MediaService>()
+        .unwrap()
+        .cleanup_metadata_with_associated_user_activities()
+        .await
+        .unwrap();
     Ok(())
 }
 
@@ -72,8 +76,6 @@ pub async fn general_user_cleanup(
         .await
         .unwrap();
     tracing::info!("Removing old user summaries");
-    // TODO
-    tracing::info!("Remove unused login tokens");
     // TODO
     Ok(())
 }

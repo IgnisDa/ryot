@@ -214,6 +214,7 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
+    let media_service_1 = app_services.media_service.clone();
     let users_service_1 = app_services.users_service.clone();
     let users_service_2 = app_services.users_service.clone();
     let users_service_3 = app_services.users_service.clone();
@@ -239,6 +240,7 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
+                    .layer(ApalisExtension(media_service_1.clone()))
                     .with_storage(general_media_cleanup_storage.clone())
                     .build_fn(general_media_cleanup_jobs)
             })
