@@ -87,9 +87,13 @@ pub async fn user_created_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Running jobs after user creation");
-    ctx.data::<UsersService>()
-        .unwrap()
+    let service = ctx.data::<UsersService>().unwrap();
+    service
         .user_created_job(&information.user_id)
+        .await
+        .unwrap();
+    service
+        .regenerate_user_summary(&information.user_id)
         .await
         .unwrap();
     Ok(())
