@@ -69,6 +69,8 @@ impl MediaProvider for ListennotesService {
         let mut rsp = self
             .client
             .get(format!("podcasts/{}", identifier))
+            .query(&json!({ "sort": "oldest_first" }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let d: Podcast = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -88,7 +90,15 @@ impl MediaProvider for ListennotesService {
             publish_year: d.publish_date.map(|r| r.year()),
             publish_date: d.publish_date.map(|d| d.date_naive()),
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
-                episodes: d.episodes,
+                episodes: d
+                    .episodes
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, episode)| PodcastEpisode {
+                        number: (idx + 1).try_into().unwrap(),
+                        ..episode
+                    })
+                    .collect(),
                 source: PodcastSource::Listennotes,
             }),
         })

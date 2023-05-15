@@ -21,6 +21,8 @@ pub struct PodcastSpecifics {
     Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult,
 )]
 pub struct PodcastEpisode {
+    #[serde(default)]
+    pub number: i32,
     pub id: String,
     #[serde(rename = "audio_length_sec")]
     pub runtime: Option<i32>,
