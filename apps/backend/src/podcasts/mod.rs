@@ -29,8 +29,8 @@ pub struct PodcastEpisode {
     #[serde(rename = "description")]
     pub overview: Option<String>,
     pub title: String,
-    #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
+    #[serde_as(as = "TimestampMilliSeconds<i64, Flexible>")]
     #[serde(rename = "pub_date_ms")]
-    pub publish_date: Option<DateTimeUtc>,
+    pub publish_date: DateTimeUtc,
     pub thumbnail: Option<String>,
 }
