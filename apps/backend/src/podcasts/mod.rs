@@ -1,7 +1,6 @@
 use async_graphql::SimpleObject;
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
-use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 
 use crate::migrator::PodcastSource;
 
@@ -17,7 +16,6 @@ pub struct PodcastSpecifics {
     pub total_episodes: i32,
 }
 
-#[serde_as]
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult,
 )]
@@ -30,8 +28,7 @@ pub struct PodcastEpisode {
     #[serde(rename = "description")]
     pub overview: Option<String>,
     pub title: String,
-    #[serde_as(as = "TimestampMilliSeconds<i64, Flexible>")]
     #[serde(rename = "pub_date_ms")]
-    pub publish_date: DateTimeUtc,
+    pub publish_date: i64,
     pub thumbnail: Option<String>,
 }

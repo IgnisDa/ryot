@@ -114,7 +114,7 @@ impl PodcastsService {
             return Ok(false);
         }
         let last_episode = meta.details.episodes.last().unwrap();
-        let next_pub_date = last_episode.publish_date.timestamp();
+        let next_pub_date = last_episode.publish_date;
         let episode_number = last_episode.number;
         let details = self
             .listennotes_service
