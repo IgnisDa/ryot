@@ -76,7 +76,11 @@ pub async fn general_user_cleanup(
         .await
         .unwrap();
     tracing::info!("Removing old user summaries");
-    // TODO
+    ctx.data::<UsersService>()
+        .unwrap()
+        .cleanup_user_summaries()
+        .await
+        .unwrap();
     Ok(())
 }
 

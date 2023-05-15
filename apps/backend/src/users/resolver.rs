@@ -615,4 +615,20 @@ impl UsersService {
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(IdObject { id: user_obj.id })
     }
+
+    pub async fn cleanup_user_summaries(&self) -> Result<()> {
+        let all_users = User::find().all(&self.db).await.unwrap();
+        for user in all_users {
+            let summaries = user
+                .find_related(Summary)
+                .order_by_desc(summary::Column::CreatedOn)
+                .all(&self.db)
+                .await
+                .unwrap();
+            for summary in summaries.into_iter().skip(1) {
+                summary.delete(&self.db).await.ok();
+            }
+        }
+        Ok(())
+    }
 }
