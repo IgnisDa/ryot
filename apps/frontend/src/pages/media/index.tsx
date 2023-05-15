@@ -542,6 +542,14 @@ const Page: NextPageWithLayout = () => {
 									Seasons
 								</Tabs.Tab>
 							) : null}
+							{details.data.podcastSpecifics ? (
+								<Tabs.Tab
+									value="episodes"
+									icon={<IconPlayerPlay size="1rem" />}
+								>
+									Episodes
+								</Tabs.Tab>
+							) : null}
 							<Tabs.Tab
 								value="reviews"
 								icon={<IconMessageCircle2 size="1rem" />}
@@ -777,6 +785,42 @@ const Page: NextPageWithLayout = () => {
 											</Accordion.Item>
 										))}
 									</Accordion>
+								</ScrollArea.Autosize>
+							</Tabs.Panel>
+						) : null}
+						{details.data.podcastSpecifics ? (
+							<Tabs.Panel value="episodes">
+								<ScrollArea.Autosize mah={300}>
+									<Stack>
+										{details.data.podcastSpecifics.episodes.map((e) => (
+											<Box key={e.number}>
+												<Group>
+													<Avatar src={e.thumbnail} radius="xl" size="lg" />
+													<Button
+														variant="outline"
+														onClick={() => {
+															router.push(
+																`/media/update-progress?item=${metadataId}&selectedEpisode=${e.number}&onlyEpisode=1`,
+															);
+														}}
+													>
+														Mark as seen
+													</Button>
+												</Group>
+												<Space h="xs" />
+												<Text>{e.title}</Text>
+												<Box>
+													{e.overview ? (
+														<Text
+															size="sm"
+															color="dimmed"
+															dangerouslySetInnerHTML={{ __html: e.overview }}
+														/>
+													) : null}
+												</Box>
+											</Box>
+										))}
+									</Stack>
 								</ScrollArea.Autosize>
 							</Tabs.Panel>
 						) : null}
