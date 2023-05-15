@@ -236,17 +236,17 @@ pub mod listennotes {
             .set_base_url(Url::parse(url).unwrap())
             .try_into()
             .unwrap();
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize, Default)]
         struct Genre {
             id: i32,
             name: String,
         }
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize, Default)]
         struct GenreResponse {
             genres: Vec<Genre>,
         }
         let mut rsp = client.get("genres").await.unwrap();
-        let data: GenreResponse = rsp.body_json().await.unwrap();
+        let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
         let mut genres = HashMap::new();
         for genre in data.genres {
             genres.insert(genre.id, genre.name);
