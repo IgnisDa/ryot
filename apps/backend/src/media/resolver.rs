@@ -75,6 +75,7 @@ pub struct ProgressUpdate {
     pub episode_number: Option<i32>,
     /// If this update comes from a different source, this should be set
     pub identifier: Option<String>,
+    pub is_bulk_request: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -575,7 +576,7 @@ impl MediaService {
                         ));
                     }
                     let seen = seen_ins.insert(&self.db).await.unwrap();
-                    if seen.progress == 100 {
+                    if seen.progress == 100 && !input.is_bulk_request.unwrap_or(false) {
                         let mut storage = self.after_media_seen.clone();
                         storage.push(AfterMediaSeenJob { seen_id: seen.id }).await?;
                     }
