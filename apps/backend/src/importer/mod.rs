@@ -335,6 +335,7 @@ impl ImporterService {
                             date: seen.ended_on.map(|d| d.date_naive()),
                             season_number: seen.season_number,
                             episode_number: seen.episode_number,
+                            is_bulk_request: None,
                         },
                         user_id.clone(),
                     )
