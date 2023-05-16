@@ -120,8 +120,8 @@ checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "apalis"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -131,8 +131,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-core"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -154,8 +154,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-cron"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -168,8 +168,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-redis"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -185,8 +185,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -3183,6 +3183,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sqlx",
  "strum",
  "surf",
  "tokio 1.28.1",

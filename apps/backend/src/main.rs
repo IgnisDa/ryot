@@ -18,6 +18,7 @@ use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
+use sqlx::SqlitePool;
 use std::{
     env, fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
@@ -111,11 +112,13 @@ async fn main() -> Result<()> {
 
     Migrator::up(&db, None).await.unwrap();
 
-    let import_media_storage = create_storage(&config.database.url).await;
-    let general_user_cleanup_storage = create_storage(&config.database.url).await;
-    let general_media_cleanup_storage = create_storage(&config.database.url).await;
-    let user_created_job_storage = create_storage(&config.database.url).await;
-    let after_media_seen_job_storage = create_storage(&config.database.url).await;
+    let pool = SqlitePool::connect(&config.database.url).await?;
+
+    let import_media_storage = create_storage(pool.clone()).await;
+    let general_user_cleanup_storage = create_storage(pool.clone()).await;
+    let general_media_cleanup_storage = create_storage(pool.clone()).await;
+    let user_created_job_storage = create_storage(pool.clone()).await;
+    let after_media_seen_job_storage = create_storage(pool.clone()).await;
 
     let (tx_1, mut rx_1) = channel::<u8>(1);
     let mut new_general_user_cleanup_storage = general_user_cleanup_storage.clone();
@@ -329,10 +332,8 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
-async fn create_storage<T: ApalisJob>(_url: &str) -> SqliteStorage<T> {
-    // it is necessary to initialize it in memory and not connect to the same database
-    // let st = SqliteStorage::connect(_url).await.unwrap();
-    let st = SqliteStorage::connect(":memory:").await.unwrap();
+async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
+    let st = SqliteStorage::new(pool);
     st.setup().await.unwrap();
     st
 }
