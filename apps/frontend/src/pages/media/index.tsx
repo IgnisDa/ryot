@@ -428,7 +428,6 @@ const Page: NextPageWithLayout = () => {
 
 	return details.data && history.data ? (
 		<Container>
-			{/* TODO: Display source */}
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 				<Stack
 					sx={(t) => ({
@@ -437,26 +436,45 @@ const Page: NextPageWithLayout = () => {
 						[t.fn.largerThan("md")]: { width: "35%" },
 					})}
 				>
-					{details.data.posterImages.length > 0 ? (
-						<Carousel
-							withIndicators={details.data.posterImages.length > 1}
-							withControls={details.data.posterImages.length > 1}
-							w={300}
+					<Box pos={"relative"}>
+						{details.data.posterImages.length > 0 ? (
+							<Carousel
+								withIndicators={details.data.posterImages.length > 1}
+								withControls={details.data.posterImages.length > 1}
+								w={300}
+							>
+								{[
+									...details.data.posterImages,
+									...details.data.backdropImages,
+								].map((i) => (
+									<Carousel.Slide key={i}>
+										<Image src={i} radius={"lg"} />
+									</Carousel.Slide>
+								))}
+							</Carousel>
+						) : (
+							<Box w={300}>
+								<Image withPlaceholder height={400} radius={"lg"} />
+							</Box>
+						)}
+						<Badge
+							id="data-source"
+							pos={"absolute"}
+							size="lg"
+							top={10}
+							left={10}
+							color="dark"
+							variant="filled"
 						>
-							{[
-								...details.data.posterImages,
-								...details.data.backdropImages,
-							].map((i) => (
-								<Carousel.Slide key={i}>
-									<Image src={i} radius={"lg"} />
-								</Carousel.Slide>
-							))}
-						</Carousel>
-					) : (
-						<Box w={300}>
-							<Image withPlaceholder height={400} radius={"lg"} />
-						</Box>
-					)}
+							{details.data.audioBookSpecifics?.source ||
+								details.data.bookSpecifics?.source ||
+								details.data.movieSpecifics?.source ||
+								details.data.podcastSpecifics?.source ||
+								details.data.showSpecifics?.source ||
+								details.data.videoGameSpecifics?.source ||
+								"UNKNOWN"}
+						</Badge>
+					</Box>
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
 						details.data.creators.length > 0 ? (
