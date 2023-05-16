@@ -2,7 +2,7 @@
 
 Ryot supports tracking video games via [IGDB](https://www.igdb.com/). However,
 the API is heavily rate limited, so it is not possible to hardcode the API keys
-in the application (unlike other keys which are [hardcoded](../../apps/backend/src/config.rs)).
+in the application (unlike other keys which are [hardcoded](/apps/backend/src/config.rs)).
 
 You can follow the below steps to obtain your own API keys to enable video game
 tracking.
@@ -17,7 +17,7 @@ tracking.
 
 3. Fill up the details.
 
-	![Twitch application](../assets/twitch-application.png)
+	![Twitch application](/docs/assets/twitch-application.png)
 
 	Note that you must use a unique name. Any name will suffice. Click on
 	"Create" when you are done.
@@ -35,6 +35,10 @@ tracking.
 - The Twitch Access Token is only active for **60 days**. Please create a new
 	client secret using the above steps when your token has expired. More
 	information [here](https://api-docs.igdb.com/#4-my-accesstoken-stopped-working-why).
+- The Access Token expires after a [given time](https://api-docs.igdb.com/#authentication).
+	I have not yet figured out a way to refresh the token effectively. As a result,
+	video game integration will stop working given long enough. The easiest way to
+	fix this is by restarting the Ryot server.
 	
 ## Conclusion
 
