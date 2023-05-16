@@ -103,7 +103,7 @@ pub struct ImportFailedItem {
     lot: MetadataLot,
     step: ImportFailStep,
     identifier: String,
-    error: String,
+    error: Option<String>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
@@ -322,7 +322,7 @@ impl ImporterService {
                         lot: item.lot,
                         step: ImportFailStep::MediaDetailsFromProvider,
                         identifier: item.source_id.to_owned(),
-                        error: e.message,
+                        error: Some(e.message),
                     });
                     continue;
                 }
