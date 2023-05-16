@@ -586,7 +586,7 @@ impl MediaService {
                     seen
                 }
             };
-            if !input.is_bulk_request.unwrap_or(false) {
+            if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
                 self.deploy_recalculate_summary_job(seen_item.id).await.ok();
             }
             Ok(IdObject { id: seen_item.id })
