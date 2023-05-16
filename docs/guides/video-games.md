@@ -35,10 +35,6 @@ tracking.
 - The Twitch Access Token is only active for **60 days**. Please create a new
 	client secret using the above steps when your token has expired. More
 	information [here](https://api-docs.igdb.com/#4-my-accesstoken-stopped-working-why).
-- The Access Token expires after a [given time](https://api-docs.igdb.com/#authentication).
-	I have not yet figured out a way to refresh the token effectively. As a result,
-	video game integration will stop working given long enough. The easiest way to
-	fix this is by restarting the Ryot server.
 	
 ## Conclusion
 

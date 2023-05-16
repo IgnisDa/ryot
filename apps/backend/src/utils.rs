@@ -1,3 +1,8 @@
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
@@ -5,7 +10,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     FromQueryResult, QueryFilter, QuerySelect,
 };
-use serde::de;
+use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Serialize};
 use surf::{
     http::headers::{AUTHORIZATION, USER_AGENT},
@@ -190,6 +195,20 @@ where
     data
 }
 
+fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
+    let mut file = File::open(path).ok()?;
+    let mut data = String::new();
+    file.read_to_string(&mut data).unwrap();
+    serde_json::from_str::<T>(&data).ok()
+}
+
+fn get_now_timestamp() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+}
+
 pub mod tmdb {
     use crate::graphql::PROJECT_NAME;
 
@@ -256,50 +275,72 @@ pub mod listennotes {
 }
 
 pub mod igdb {
+    use std::{env, fs};
+
     use serde_json::json;
 
-    use crate::graphql::PROJECT_NAME;
-
     use super::*;
+    use crate::{config::VideoGameConfig, graphql::PROJECT_NAME};
 
-    pub async fn get_client_config(
-        twitch_base_url: &str,
-        twitch_client_id: &str,
-        twitch_client_secret: &str,
-        igdb_base_url: &str,
-    ) -> Client {
-        let mut access_res = surf::post(twitch_base_url)
+    #[derive(Deserialize, Debug, Serialize)]
+    struct Credentials {
+        access_token: String,
+        expires_at: u128,
+    }
+
+    async fn get_access_token(config: &VideoGameConfig) -> Credentials {
+        let mut access_res = surf::post(&config.twitch.access_token_url)
             .query(&json!({
-                "client_id": twitch_client_id.to_owned(),
-                "client_secret": twitch_client_secret.to_owned(),
+                "client_id": config.twitch.client_id.to_owned(),
+                "client_secret": config.twitch.client_secret.to_owned(),
                 "grant_type": "client_credentials".to_owned(),
             }))
             .unwrap()
             .await
             .unwrap();
-        #[derive(Deserialize, Serialize, Default)]
+        #[derive(Deserialize, Serialize, Default, Debug)]
         struct AccessResponse {
             access_token: String,
             token_type: String,
+            expires_in: u128,
         }
         let access = access_res
             .body_json::<AccessResponse>()
             .await
             .unwrap_or_default();
-        let client: Client = Config::new()
-            .add_header("Client-ID", twitch_client_id)
+        let expires_at = get_now_timestamp() + (access.expires_in * 1000);
+        let access_token = format!("{} {}", access.token_type, access.access_token);
+        Credentials {
+            access_token: access_token.clone(),
+            expires_at,
+        }
+    }
+
+    // Ideally, I want this to use a mutex to store the client and expiry time.
+    // However for the time being we will read and write to a file.
+    pub async fn get_client(config: &VideoGameConfig) -> Client {
+        let path = env::temp_dir().join("igdb-credentials.json");
+        let access_token = if let Some(mut creds) = read_file_to_json::<Credentials>(&path) {
+            if creds.expires_at < get_now_timestamp() {
+                creds = get_access_token(config).await;
+                fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
+            }
+            creds.access_token
+        } else {
+            let creds = get_access_token(config).await;
+            fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
+            creds.access_token
+        };
+        Config::new()
+            .add_header("Client-ID", config.twitch.client_id.to_owned())
             .unwrap()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
-            .add_header(
-                AUTHORIZATION,
-                format!("{} {}", access.token_type, access.access_token),
-            )
+            .add_header(AUTHORIZATION, access_token)
             .unwrap()
-            .set_base_url(Url::parse(igdb_base_url).unwrap())
+            .set_base_url(Url::parse(&config.igdb.url).unwrap())
             .try_into()
-            .unwrap();
-        client
+            .unwrap()
     }
 }
 
