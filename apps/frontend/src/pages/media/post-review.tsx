@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -149,7 +150,9 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Box>
 		</Container>
-	) : null;
+	) : (
+		<LoadingPage />
+	);
 };
 
 Page.getLayout = (page: ReactElement) => {

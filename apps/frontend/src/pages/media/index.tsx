@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../_app";
 import useUser from "@/lib/hooks/useUser";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, changeCase, getInitials, getVerb } from "@/lib/utilities";
@@ -427,6 +428,7 @@ const Page: NextPageWithLayout = () => {
 
 	return details.data && history.data ? (
 		<Container>
+			{/* TODO: Display source */}
 			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 				<Stack
 					sx={(t) => ({
@@ -886,7 +888,9 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Flex>
 		</Container>
-	) : null;
+	) : (
+		<LoadingPage />
+	);
 };
 
 Page.getLayout = (page: ReactElement) => {
