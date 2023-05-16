@@ -15,6 +15,7 @@ use crate::{
     books::resolver::BooksService,
     config::ImporterConfig,
     entities::{media_import_report, prelude::MediaImportReport},
+    graphql::IdObject,
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
@@ -326,8 +327,10 @@ impl ImporterService {
                     continue;
                 }
             };
+            let mut last_seen_id = None;
             for seen in item.seen_history.iter() {
-                self.media_service
+                let IdObject { id } = self
+                    .media_service
                     .progress_update(
                         ProgressUpdate {
                             identifier: seen.id.clone(),
@@ -343,6 +346,13 @@ impl ImporterService {
                         user_id.clone(),
                     )
                     .await?;
+                last_seen_id = Some(id);
+            }
+            if let Some(id) = last_seen_id {
+                self.media_service
+                    .deploy_recalculate_summary_job(id)
+                    .await
+                    .ok();
             }
             for review in item.reviews.iter() {
                 let text = review.review.clone().map(|r| r.text);

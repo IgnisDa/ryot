@@ -587,15 +587,16 @@ impl MediaService {
                 }
             };
             if !input.is_bulk_request.unwrap_or(false) {
-                let mut storage = self.after_media_seen.clone();
-                storage
-                    .push(AfterMediaSeenJob {
-                        seen_id: seen_item.id,
-                    })
-                    .await?;
+                self.deploy_recalculate_summary_job(seen_item.id).await.ok();
             }
             Ok(IdObject { id: seen_item.id })
         }
+    }
+
+    pub async fn deploy_recalculate_summary_job(&self, seen_id: i32) -> Result<()> {
+        let mut storage = self.after_media_seen.clone();
+        storage.push(AfterMediaSeenJob { seen_id }).await?;
+        Ok(())
     }
 
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
