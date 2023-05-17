@@ -229,23 +229,29 @@ export const AccordionLabel = ({
 	name,
 	posterImages,
 	overview,
+	children,
 }: {
 	name: string;
 	posterImages: string[];
 	overview?: string | null;
+	children: JSX.Element;
 }) => {
 	return (
-		<Group noWrap>
-			<Avatar src={posterImages[0]} radius="xl" size="lg" />
-			<Box>
-				<Text>{name}</Text>
-				{overview ? (
-					<Text size="sm" color="dimmed">
-						{overview}
-					</Text>
-				) : null}
-			</Box>
-		</Group>
+		<Box>
+			<Flex align={"center"} gap="sm">
+				<Avatar src={posterImages[0]} radius="xl" size="lg" />
+				{children}
+			</Flex>
+			<Space h="xs" />
+			<Text>{name}</Text>
+			{overview ? (
+				<Text
+					size="sm"
+					color="dimmed"
+					dangerouslySetInnerHTML={{ __html: overview }}
+				/>
+			) : null}
+		</Box>
 	);
 };
 
@@ -812,15 +818,10 @@ const Page: NextPageWithLayout = () => {
 												key={s.seasonNumber}
 											>
 												<Accordion.Control>
-													<Flex
-														align={"center"}
-														justify={"space-between"}
-														gap={"xs"}
+													<AccordionLabel
+														{...s}
+														name={`${s.seasonNumber}. ${s.name}`}
 													>
-														<AccordionLabel
-															{...s}
-															name={`${s.seasonNumber}. ${s.name}`}
-														/>
 														<Button
 															variant="outline"
 															onClick={() => {
@@ -831,33 +832,28 @@ const Page: NextPageWithLayout = () => {
 														>
 															Mark as seen
 														</Button>
-													</Flex>
+													</AccordionLabel>
 												</Accordion.Control>
 												<Accordion.Panel>
 													{s.episodes.map((e) => (
-														<Flex
-															mb={"xs"}
-															ml={"md"}
-															justify={"space-between"}
-															align={"center"}
-															gap={"xs"}
-														>
+														<Box mb={"xs"} ml={"md"} key={e.id}>
 															<AccordionLabel
 																{...e}
 																key={e.episodeNumber}
 																name={`${e.episodeNumber}. ${e.name}`}
-															/>
-															<Button
-																variant="outline"
-																onClick={() => {
-																	router.push(
-																		`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&selectedShowEpisode=${e.episodeNumber}`,
-																	);
-																}}
 															>
-																Mark as seen
-															</Button>
-														</Flex>
+																<Button
+																	variant="outline"
+																	onClick={() => {
+																		router.push(
+																			`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&selectedShowEpisode=${e.episodeNumber}`,
+																		);
+																	}}
+																>
+																	Mark as seen
+																</Button>
+															</AccordionLabel>
+														</Box>
 													))}
 												</Accordion.Panel>
 											</Accordion.Item>
@@ -871,32 +867,23 @@ const Page: NextPageWithLayout = () => {
 								<ScrollArea.Autosize mah={300}>
 									<Stack>
 										{details.data.podcastSpecifics.episodes.map((e) => (
-											<Box key={e.number}>
-												<Group>
-													<Avatar src={e.thumbnail} radius="xl" size="lg" />
-													<Button
-														variant="outline"
-														onClick={() => {
-															router.push(
-																`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
-															);
-														}}
-													>
-														Mark as seen
-													</Button>
-												</Group>
-												<Space h="xs" />
-												<Text>{e.title}</Text>
-												<Box>
-													{e.overview ? (
-														<Text
-															size="sm"
-															color="dimmed"
-															dangerouslySetInnerHTML={{ __html: e.overview }}
-														/>
-													) : null}
-												</Box>
-											</Box>
+											<AccordionLabel
+												name={e.title}
+												posterImages={[e.thumbnail || ""]}
+												overview={e.overview}
+												key={e.number}
+											>
+												<Button
+													variant="outline"
+													onClick={() => {
+														router.push(
+															`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
+														);
+													}}
+												>
+													Mark as seen
+												</Button>
+											</AccordionLabel>
 										))}
 										{details.data.podcastSpecifics.totalEpisodes >
 										details.data.podcastSpecifics.episodes.length ? (
