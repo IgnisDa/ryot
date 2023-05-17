@@ -1,5 +1,5 @@
 use apalis::prelude::{Job, JobContext, JobError};
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{prelude::DateTimeUtc, DatabaseConnection, EntityTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,6 +11,61 @@ use crate::{
     misc::{resolver::MiscService, WATCHLIST},
     users::resolver::UsersService,
 };
+
+// Cron Jobs
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ScheduledJob(DateTimeUtc);
+
+impl From<DateTimeUtc> for ScheduledJob {
+    fn from(value: DateTimeUtc) -> Self {
+        Self(value)
+    }
+}
+
+impl Job for ScheduledJob {
+    const NAME: &'static str = "apalis::ScheduledJob";
+}
+
+pub async fn general_media_cleanup_jobs(
+    _information: ScheduledJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Invalidating invalid media import jobs");
+    ctx.data::<ImporterService>()
+        .unwrap()
+        .invalidate_import_jobs()
+        .await
+        .unwrap();
+    tracing::info!("Cleaning up media items without associated user activities");
+    ctx.data::<MediaService>()
+        .unwrap()
+        .cleanup_metadata_with_associated_user_activities()
+        .await
+        .unwrap();
+    Ok(())
+}
+
+pub async fn general_user_cleanup(
+    _information: ScheduledJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Cleaning up user and metadata association");
+    ctx.data::<MediaService>()
+        .unwrap()
+        .cleanup_user_and_metadata_association()
+        .await
+        .unwrap();
+    tracing::info!("Removing old user summaries");
+    ctx.data::<UsersService>()
+        .unwrap()
+        .cleanup_user_summaries()
+        .await
+        .unwrap();
+    Ok(())
+}
+
+// Application Jobs
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImportMedia {
@@ -32,58 +87,6 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
             information.input,
             &config.importer,
         )
-        .await
-        .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct GeneralMediaCleanJobs;
-
-impl Job for GeneralMediaCleanJobs {
-    const NAME: &'static str = "apalis::GeneralMediaCleanupJob";
-}
-
-pub async fn general_media_cleanup_jobs(
-    _information: GeneralMediaCleanJobs,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::info!("Invalidating invalid media import jobs");
-    ctx.data::<ImporterService>()
-        .unwrap()
-        .invalidate_import_jobs()
-        .await
-        .unwrap();
-    tracing::info!("Cleaning up media items without associated user activities");
-    ctx.data::<MediaService>()
-        .unwrap()
-        .cleanup_metadata_with_associated_user_activities()
-        .await
-        .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct GeneralUserCleanup;
-
-impl Job for GeneralUserCleanup {
-    const NAME: &'static str = "apalis::GeneralUserCleanup";
-}
-
-pub async fn general_user_cleanup(
-    _information: GeneralUserCleanup,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::info!("Cleaning up user and metadata association");
-    ctx.data::<MediaService>()
-        .unwrap()
-        .cleanup_user_and_metadata_association()
-        .await
-        .unwrap();
-    tracing::info!("Removing old user summaries");
-    ctx.data::<UsersService>()
-        .unwrap()
-        .cleanup_user_summaries()
         .await
         .unwrap();
     Ok(())

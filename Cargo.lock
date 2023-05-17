@@ -2273,17 +2273,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-derive"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3187,7 +3176,6 @@ dependencies = [
  "strum",
  "surf",
  "tokio 1.28.1",
- "tokio-cron-scheduler",
  "tower-cookies",
  "tower-http",
  "tracing",
@@ -4139,21 +4127,6 @@ dependencies = [
  "bytes 0.4.12",
  "futures 0.1.31",
  "tokio-io",
-]
-
-[[package]]
-name = "tokio-cron-scheduler"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de2c1fd54a857b29c6cd1846f31903d0ae8e28175615c14a277aed45c58d8e27"
-dependencies = [
- "chrono",
- "cron",
- "num-derive",
- "num-traits",
- "tokio 1.28.1",
- "tracing",
- "uuid",
 ]
 
 [[package]]
