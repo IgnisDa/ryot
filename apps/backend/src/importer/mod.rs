@@ -265,6 +265,7 @@ impl ImporterService {
                 goodreads::import(input.goodreads.unwrap(), &config).await?
             }
         };
+        let mut last_seen_id = None;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",
@@ -333,7 +334,6 @@ impl ImporterService {
                     continue;
                 }
             };
-            let mut last_seen_id = None;
             for seen in item.seen_history.iter() {
                 let IdObject { id } = self
                     .media_service
@@ -353,12 +353,6 @@ impl ImporterService {
                     )
                     .await?;
                 last_seen_id = Some(id);
-            }
-            if let Some(id) = last_seen_id {
-                self.media_service
-                    .deploy_recalculate_summary_job(id.into())
-                    .await
-                    .ok();
             }
             for review in item.reviews.iter() {
                 let text = review.review.clone().map(|r| r.text);
@@ -391,6 +385,12 @@ impl ImporterService {
             );
         }
 
+        if let Some(id) = last_seen_id {
+            self.media_service
+                .deploy_recalculate_summary_job(id.into())
+                .await
+                .ok();
+        }
         tracing::info!(
             "Imported {total} media items from {source}",
             total = import.media.len(),
