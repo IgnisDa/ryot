@@ -87,7 +87,7 @@ const StatDisplay = (props: { name: string; value: string }) => {
 	);
 };
 
-export function ProgressModal(props: {
+function ProgressModal(props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -141,7 +141,7 @@ export function ProgressModal(props: {
 	);
 }
 
-export function SelectCollectionModal(props: {
+function SelectCollectionModal(props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -226,7 +226,7 @@ export function SelectCollectionModal(props: {
 	);
 }
 
-export const AccordionLabel = ({
+const AccordionLabel = ({
 	name,
 	posterImages,
 	overview,
@@ -246,7 +246,7 @@ export const AccordionLabel = ({
 					disabled={!displayIndicator}
 					label="Seen"
 					offset={7}
-					position="top-start"
+					position="bottom-end"
 					size={16}
 					color="red"
 				>
@@ -833,6 +833,14 @@ const Page: NextPageWithLayout = () => {
 													<AccordionLabel
 														{...s}
 														name={`${s.seasonNumber}. ${s.name}`}
+														displayIndicator={s.episodes.every((e) =>
+															history.data.some(
+																(h) =>
+																	h.showInformation?.episode ===
+																		e.episodeNumber &&
+																	h.showInformation.season === s.seasonNumber,
+															),
+														)}
 													>
 														<Button
 															variant="outline"
