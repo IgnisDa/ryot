@@ -7,7 +7,7 @@ use sea_orm::{
 
 use crate::{
     entities::{podcast, prelude::Podcast},
-    graphql::IdObject,
+    graphql::{IdObject, Identifier},
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
@@ -53,11 +53,11 @@ impl PodcastsMutation {
     async fn commit_next_10_podcast_episodes(
         &self,
         gql_ctx: &Context<'_>,
-        podcast_id: i32,
+        podcast_id: Identifier,
     ) -> Result<bool> {
         gql_ctx
             .data_unchecked::<PodcastsService>()
-            .commit_next_10_podcast_episodes(podcast_id)
+            .commit_next_10_podcast_episodes(podcast_id.into())
             .await
     }
 }
@@ -97,7 +97,9 @@ impl PodcastsService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let details = self.listennotes_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -162,7 +164,9 @@ impl PodcastsService {
                     details: ActiveValue::Set(s),
                 };
                 podcast.insert(&self.db).await.unwrap();
-                Ok(IdObject { id: metadata_id })
+                Ok(IdObject {
+                    id: metadata_id.into(),
+                })
             }
             _ => unreachable!(),
         }

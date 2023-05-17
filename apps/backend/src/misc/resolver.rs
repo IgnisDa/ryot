@@ -15,7 +15,7 @@ use crate::{
         review,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
-    graphql::IdObject,
+    graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
     media::resolver::{MediaSearchItem, MediaService},
     migrator::{MediaImportSource, ReviewVisibility},
@@ -24,13 +24,13 @@ use crate::{
 
 #[derive(Debug, SimpleObject)]
 struct ReviewPostedBy {
-    id: i32,
+    id: Identifier,
     name: String,
 }
 
 #[derive(Debug, SimpleObject)]
 struct ReviewItem {
-    id: i32,
+    id: Identifier,
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
     text: Option<String>,
@@ -48,12 +48,12 @@ pub struct PostReviewInput {
     pub text: Option<String>,
     pub visibility: Option<ReviewVisibility>,
     pub spoiler: Option<bool>,
-    pub metadata_id: i32,
+    pub metadata_id: Identifier,
     pub date: Option<DateTimeUtc>,
     /// If this review comes from a different source, this should be set
     pub identifier: Option<String>,
     /// ID of the review if this is an update to an existing review
-    pub review_id: Option<i32>,
+    pub review_id: Option<Identifier>,
     pub season_number: Option<i32>,
     pub episode_number: Option<i32>,
 }
@@ -66,8 +66,8 @@ struct CollectionItem {
 
 #[derive(Debug, InputObject)]
 struct AddMediaToCollection {
-    collection_id: i32,
-    media_id: i32,
+    collection_id: Identifier,
+    media_id: Identifier,
 }
 
 #[derive(Default)]
@@ -79,12 +79,12 @@ impl MiscQuery {
     async fn media_item_reviews(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: Identifier,
     ) -> Result<Vec<ReviewItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .media_item_reviews(&user_id, &metadata_id)
+            .media_item_reviews(&user_id, &metadata_id.into())
             .await
     }
 
@@ -142,13 +142,13 @@ impl MiscMutation {
     async fn remove_media_from_collection(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: Identifier,
         collection_name: String,
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .remove_media_item_from_collection(&user_id, &metadata_id, &collection_name)
+            .remove_media_item_from_collection(&user_id, &metadata_id.into(), &collection_name)
             .await
     }
 }
@@ -192,7 +192,7 @@ impl MiscService {
                 };
                 let user = u.unwrap();
                 ReviewItem {
-                    id: r.id,
+                    id: r.id.into(),
                     posted_on: r.posted_on,
                     rating: r.rating,
                     spoiler: r.spoiler,
@@ -202,7 +202,7 @@ impl MiscService {
                     episode_number: show_ep,
                     podcast_episode_id: podcast_ep,
                     posted_by: ReviewPostedBy {
-                        id: user.id,
+                        id: user.id.into(),
                         name: user.name,
                     },
                 }
@@ -211,7 +211,7 @@ impl MiscService {
         let all_reviews = all_reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                ReviewVisibility::Private => r.posted_by.id == *user_id,
+                ReviewVisibility::Private => i32::from(r.posted_by.id) == *user_id,
                 _ => true,
             })
             .collect();
@@ -253,10 +253,12 @@ impl MiscService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let review_id = match input.review_id {
-                Some(i) => ActiveValue::Set(i),
+                Some(i) => ActiveValue::Set(i32::from(i)),
                 None => ActiveValue::NotSet,
             };
             let mut review_obj = review::ActiveModel {
@@ -264,7 +266,7 @@ impl MiscService {
                 rating: ActiveValue::Set(input.rating),
                 text: ActiveValue::Set(input.text),
                 user_id: ActiveValue::Set(user_id.to_owned()),
-                metadata_id: ActiveValue::Set(input.metadata_id),
+                metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
                 extra_information: ActiveValue::NotSet,
                 identifier: ActiveValue::Set(input.identifier),
                 ..Default::default()
@@ -287,7 +289,7 @@ impl MiscService {
             }
             let insert = review_obj.save(&self.db).await.unwrap();
             Ok(IdObject {
-                id: insert.id.unwrap(),
+                id: insert.id.unwrap().into(),
             })
         }
     }
@@ -300,7 +302,7 @@ impl MiscService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.id })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let col = collection::ActiveModel {
                 name: ActiveValue::Set(input.name),
@@ -311,7 +313,9 @@ impl MiscService {
                 .insert(&self.db)
                 .await
                 .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
-            Ok(IdObject { id: inserted.id })
+            Ok(IdObject {
+                id: inserted.id.into(),
+            })
         }
     }
 
@@ -334,13 +338,13 @@ impl MiscService {
         };
         let id = col.collection_id.clone().unwrap();
         col.delete(&self.db).await.ok();
-        Ok(IdObject { id })
+        Ok(IdObject { id: id.into() })
     }
 
     async fn add_media_to_collection(&self, input: AddMediaToCollection) -> Result<bool> {
         let col = metadata_to_collection::ActiveModel {
-            metadata_id: ActiveValue::Set(input.media_id),
-            collection_id: ActiveValue::Set(input.collection_id),
+            metadata_id: ActiveValue::Set(i32::from(input.media_id)),
+            collection_id: ActiveValue::Set(i32::from(input.collection_id)),
         };
         Ok(match col.clone().insert(&self.db).await {
             Ok(_) => true,

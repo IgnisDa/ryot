@@ -22,7 +22,7 @@ use crate::{
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
-    graphql::IdObject,
+    graphql::{IdObject, Identifier},
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
@@ -67,7 +67,7 @@ pub enum ProgressUpdateAction {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdate {
-    pub metadata_id: i32,
+    pub metadata_id: Identifier,
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
@@ -174,11 +174,11 @@ impl MediaQuery {
     async fn media_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: Identifier,
     ) -> Result<DatabaseMediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
-            .media_details(metadata_id)
+            .media_details(metadata_id.into())
             .await
     }
 
@@ -186,12 +186,12 @@ impl MediaQuery {
     async fn seen_history(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: Identifier,
     ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .seen_history(metadata_id, user_id)
+            .seen_history(metadata_id.into(), user_id)
             .await
     }
 
@@ -237,11 +237,15 @@ impl MediaMutation {
     }
 
     /// Delete a seen item from a user's history
-    async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
+    async fn delete_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        seen_id: Identifier,
+    ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .delete_seen_item(seen_id, user_id)
+            .delete_seen_item(seen_id.into(), user_id)
             .await
     }
 }
@@ -521,12 +525,14 @@ impl MediaService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let prev_seen = Seen::find()
                 .filter(seen::Column::Progress.lt(100))
                 .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(input.metadata_id))
+                .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .all(&self.db)
                 .await
@@ -567,7 +573,7 @@ impl MediaService {
                     let mut seen_ins = seen::ActiveModel {
                         progress: ActiveValue::Set(progress),
                         user_id: ActiveValue::Set(user_id),
-                        metadata_id: ActiveValue::Set(input.metadata_id),
+                        metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
                         started_on: ActiveValue::Set(started_on),
                         finished_on: ActiveValue::Set(finished_on),
                         last_updated_on: ActiveValue::Set(Utc::now()),
@@ -595,13 +601,19 @@ impl MediaService {
             if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
                 self.deploy_recalculate_summary_job(seen_item.id).await.ok();
             }
-            Ok(IdObject { id: seen_item.id })
+            Ok(IdObject {
+                id: seen_item.id.into(),
+            })
         }
     }
 
     pub async fn deploy_recalculate_summary_job(&self, seen_id: i32) -> Result<()> {
         let mut storage = self.after_media_seen.clone();
-        storage.push(AfterMediaSeenJob { seen_id }).await?;
+        storage
+            .push(AfterMediaSeenJob {
+                seen_id: seen_id.into(),
+            })
+            .await?;
         Ok(())
     }
 
@@ -615,7 +627,7 @@ impl MediaService {
                 ));
             }
             si.delete(&self.db).await.ok();
-            Ok(IdObject { id: seen_id })
+            Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }

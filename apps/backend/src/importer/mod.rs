@@ -214,7 +214,13 @@ impl ImporterService {
             Some(s) => s.api_url = s.api_url.trim_end_matches("/").to_owned(),
             None => {}
         };
-        let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
+        let job = storage
+            .push(ImportMedia {
+                user_id: user_id.into(),
+                input,
+            })
+            .await
+            .unwrap();
         Ok(job.to_string())
     }
 
@@ -334,7 +340,7 @@ impl ImporterService {
                     .progress_update(
                         ProgressUpdate {
                             identifier: seen.id.clone(),
-                            metadata_id: metadata.id,
+                            metadata_id: metadata.id.into(),
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
                             date: seen.ended_on.map(|d| d.date_naive()),
@@ -350,7 +356,7 @@ impl ImporterService {
             }
             if let Some(id) = last_seen_id {
                 self.media_service
-                    .deploy_recalculate_summary_job(id)
+                    .deploy_recalculate_summary_job(id.into())
                     .await
                     .ok();
             }

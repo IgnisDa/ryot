@@ -1,5 +1,8 @@
-use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject};
+use async_graphql::{
+    scalar, Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject,
+};
 use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
 use std::env;
 
 use crate::{
@@ -22,6 +25,23 @@ pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static AUTHOR: &str = "ignisda";
 pub static PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct Identifier(i32);
+
+impl From<Identifier> for i32 {
+    fn from(value: Identifier) -> Self {
+        value.0
+    }
+}
+
+impl From<i32> for Identifier {
+    fn from(value: i32) -> Self {
+        Self(value)
+    }
+}
+
+scalar!(Identifier);
+
 #[derive(SimpleObject)]
 pub struct CoreFeatureEnabled {
     name: MetadataLot,
@@ -36,7 +56,7 @@ pub struct CoreDetails {
 
 #[derive(Debug, SimpleObject)]
 pub struct IdObject {
-    pub id: i32,
+    pub id: Identifier,
 }
 
 #[derive(Default)]

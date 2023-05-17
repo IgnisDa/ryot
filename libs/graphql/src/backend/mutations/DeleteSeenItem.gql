@@ -1,4 +1,4 @@
-mutation DeleteSeenItem($seenId: Int!) {
+mutation DeleteSeenItem($seenId: Identifier!) {
   deleteSeenItem(seenId: $seenId) {
     id
   }

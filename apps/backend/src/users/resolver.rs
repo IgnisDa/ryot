@@ -492,7 +492,7 @@ impl UsersService {
             podcasts_played: ActiveValue::Set(podcasts_count.try_into().unwrap()),
         };
         let obj = summary_obj.insert(&self.db).await.unwrap();
-        Ok(IdObject { id: obj.id })
+        Ok(IdObject { id: obj.id.into() })
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
@@ -522,10 +522,10 @@ impl UsersService {
         let user = user.insert(&self.db).await.unwrap();
         storage
             .push(UserCreatedJob {
-                user_id: user.id.clone(),
+                user_id: user.id.clone().into(),
             })
             .await?;
-        Ok(RegisterResult::Ok(IdObject { id: user.id }))
+        Ok(RegisterResult::Ok(IdObject { id: user.id.into() }))
     }
 
     async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
@@ -613,7 +613,9 @@ impl UsersService {
             user_obj.password = ActiveValue::Set(p);
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
-        Ok(IdObject { id: user_obj.id })
+        Ok(IdObject {
+            id: user_obj.id.into(),
+        })
     }
 
     pub async fn cleanup_user_summaries(&self) -> Result<()> {

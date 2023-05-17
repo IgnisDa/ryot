@@ -85,7 +85,9 @@ impl ShowsService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let details = self.tmdb_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -120,7 +122,7 @@ impl ShowsService {
                 };
                 let show = show.insert(&self.db).await.unwrap();
                 Ok(IdObject {
-                    id: show.metadata_id,
+                    id: show.metadata_id.into(),
                 })
             }
             _ => unreachable!(),

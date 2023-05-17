@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     config::AppConfig,
     entities::prelude::Seen,
+    graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
     misc::{resolver::MiscService, WATCHLIST},
@@ -13,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImportMedia {
-    pub user_id: i32,
+    pub user_id: Identifier,
     pub input: DeployImportInput,
 }
 
@@ -26,7 +27,11 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
     let config = ctx.data::<AppConfig>().unwrap();
     ctx.data::<ImporterService>()
         .unwrap()
-        .import_from_source(information.user_id, information.input, &config.importer)
+        .import_from_source(
+            information.user_id.into(),
+            information.input,
+            &config.importer,
+        )
         .await
         .unwrap();
     Ok(())
@@ -86,7 +91,7 @@ pub async fn general_user_cleanup(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserCreatedJob {
-    pub user_id: i32,
+    pub user_id: Identifier,
 }
 
 impl Job for UserCreatedJob {
@@ -100,11 +105,11 @@ pub async fn user_created_job(
     tracing::info!("Running jobs after user creation");
     let service = ctx.data::<UsersService>().unwrap();
     service
-        .user_created_job(&information.user_id)
+        .user_created_job(&information.user_id.into())
         .await
         .unwrap();
     service
-        .regenerate_user_summary(&information.user_id)
+        .regenerate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())
@@ -112,7 +117,7 @@ pub async fn user_created_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AfterMediaSeenJob {
-    pub seen_id: i32,
+    pub seen_id: Identifier,
 }
 
 impl Job for AfterMediaSeenJob {
@@ -145,7 +150,7 @@ pub async fn after_media_seen_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateMetadataJob {
-    pub metadata_id: i32,
+    pub metadata_id: Identifier,
 }
 
 impl Job for UpdateMetadataJob {
@@ -156,6 +161,6 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Updating metadata for id = {}", information.metadata_id);
+    tracing::info!("Updating metadata for id = {:?}", information.metadata_id);
     Ok(())
 }
