@@ -390,7 +390,6 @@ impl UsersService {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
                                             podcasts_total.push(r);
-                                            dbg!(&podcasts_total);
                                         }
                                     }
                                 }
