@@ -118,6 +118,7 @@ const Page: NextPageWithLayout = () => {
 								value: s.seasonNumber.toString(),
 							}))}
 							onChange={setSelectedShowSeasonNumber}
+							defaultValue={selectedShowSeasonNumber}
 						/>
 						{!onlySeason && selectedShowSeasonNumber ? (
 							<Select

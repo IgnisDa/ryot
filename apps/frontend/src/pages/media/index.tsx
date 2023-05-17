@@ -826,7 +826,7 @@ const Page: NextPageWithLayout = () => {
 															variant="outline"
 															onClick={() => {
 																router.push(
-																	`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&onlySeason=1`,
+																	`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
 																);
 															}}
 														>
@@ -846,7 +846,7 @@ const Page: NextPageWithLayout = () => {
 																	variant="outline"
 																	onClick={() => {
 																		router.push(
-																			`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&selectedShowEpisode=${e.episodeNumber}`,
+																			`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
 																		);
 																	}}
 																>
