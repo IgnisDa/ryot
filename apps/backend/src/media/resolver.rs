@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics,
-    background::AfterMediaSeenJob,
+    background::{AfterMediaSeenJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
         collection, creator, genre,
@@ -250,13 +250,19 @@ impl MediaMutation {
 pub struct MediaService {
     db: DatabaseConnection,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
+    update_metadata: SqliteStorage<UpdateMetadataJob>,
 }
 
 impl MediaService {
-    pub fn new(db: &DatabaseConnection, import_media: &SqliteStorage<AfterMediaSeenJob>) -> Self {
+    pub fn new(
+        db: &DatabaseConnection,
+        after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
+        update_metadata: &SqliteStorage<UpdateMetadataJob>,
+    ) -> Self {
         Self {
             db: db.clone(),
-            after_media_seen: import_media.clone(),
+            after_media_seen: after_media_seen.clone(),
+            update_metadata: update_metadata.clone(),
         }
     }
 }

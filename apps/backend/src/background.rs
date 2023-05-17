@@ -142,3 +142,20 @@ pub async fn after_media_seen_job(
         .unwrap();
     Ok(())
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UpdateMetadataJob {
+    pub metadata_id: i32,
+}
+
+impl Job for UpdateMetadataJob {
+    const NAME: &'static str = "apalis::UpdateMetadataJob";
+}
+
+pub async fn update_metadata_job(
+    information: UpdateMetadataJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Updating metadata for id = {}", information.metadata_id);
+    Ok(())
+}
