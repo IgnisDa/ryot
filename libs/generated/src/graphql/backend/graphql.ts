@@ -266,17 +266,19 @@ export type MutationRoot = {
   commitVideoGame: IdObject;
   /** Create a new collection for the logged in user */
   createCollection: IdObject;
-  /** Delete a seen item from a user's history */
+  /** Delete a seen item from a user's history. */
   deleteSeenItem: IdObject;
   /** Add job to import data from various sources. */
   deployImport: Scalars['String'];
+  /** Deploy a job to update a media item's metadata. */
+  deployUpdateMetadataJob: Scalars['String'];
   /** Login a user using their username and password and return an API key. */
   loginUser: LoginResult;
   /** Logout a user from the server, deleting their login token */
   logoutUser: Scalars['Boolean'];
   /** Create or update a review */
   postReview: IdObject;
-  /** Mark a user's progress on a specific media item */
+  /** Mark a user's progress on a specific media item. */
   progressUpdate: IdObject;
   /** Generate a summary for the currently logged in user */
   regenerateUserSummary: IdObject;
@@ -344,6 +346,11 @@ export type MutationRootDeleteSeenItemArgs = {
 
 export type MutationRootDeployImportArgs = {
   input: DeployImportInput;
+};
+
+
+export type MutationRootDeployUpdateMetadataJobArgs = {
+  metadataId: Scalars['Identifier'];
 };
 
 
@@ -452,11 +459,11 @@ export type QueryRoot = {
   coreDetails: CoreDetails;
   /** Get all the features that are enabled for the service */
   coreEnabledFeatures: Array<CoreFeatureEnabled>;
-  /** Get details about a media present in the database */
+  /** Get details about a media present in the database. */
   mediaDetails: DatabaseMediaDetails;
   /** Get all the import jobs deployed by the user */
   mediaImportReports: Array<MediaImportReport>;
-  /** Get all the media items which are in progress for the currently logged in user */
+  /** Get all the media items which are in progress for the currently logged in user. */
   mediaInProgress: Array<MediaSearchItem>;
   /** Get all the public reviews for a media item. */
   mediaItemReviews: Array<ReviewItem>;
@@ -466,7 +473,7 @@ export type QueryRoot = {
   moviesSearch: MediaSearchResults;
   /** Search for a list of games by a particular search query and a given page. */
   podcastsSearch: MediaSearchResults;
-  /** Get the user's seen history for a particular media item */
+  /** Get the user's seen history for a particular media item. */
   seenHistory: Array<Seen>;
   /** Search for a list of show by a particular search query and a given page. */
   showSearch: MediaSearchResults;
@@ -754,6 +761,13 @@ export type DeployImportMutationVariables = Exact<{
 
 export type DeployImportMutation = { deployImport: string };
 
+export type DeployUpdateMetadataJobMutationVariables = Exact<{
+  metadataId: Scalars['Identifier'];
+}>;
+
+
+export type DeployUpdateMetadataJobMutation = { deployUpdateMetadataJob: string };
+
 export type LoginUserMutationVariables = Exact<{
   input: UserInput;
 }>;
@@ -924,6 +938,7 @@ export const CommitVideoGameDocument = {"kind":"Document","definitions":[{"kind"
 export const CreateCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"NamedObjectInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCollectionMutation, CreateCollectionMutationVariables>;
 export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
 export const DeployImportDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployImport"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeployImportInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployImport"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployImportMutation, DeployImportMutationVariables>;
+export const DeployUpdateMetadataJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdateMetadataJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdateMetadataJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DeployUpdateMetadataJobMutation, DeployUpdateMetadataJobMutationVariables>;
 export const LoginUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}}]}}]}}]}}]} as unknown as DocumentNode<LoginUserMutation, LoginUserMutationVariables>;
 export const LogoutUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LogoutUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"logoutUser"}}]}}]} as unknown as DocumentNode<LogoutUserMutation, LogoutUserMutationVariables>;
 export const PodcastsSearchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PodcastsSearch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"podcastsSearch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<PodcastsSearchQuery, PodcastsSearchQueryVariables>;

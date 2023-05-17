@@ -170,7 +170,7 @@ pub struct MediaQuery;
 
 #[Object]
 impl MediaQuery {
-    /// Get details about a media present in the database
+    /// Get details about a media present in the database.
     async fn media_details(
         &self,
         gql_ctx: &Context<'_>,
@@ -182,7 +182,7 @@ impl MediaQuery {
             .await
     }
 
-    /// Get the user's seen history for a particular media item
+    /// Get the user's seen history for a particular media item.
     async fn seen_history(
         &self,
         gql_ctx: &Context<'_>,
@@ -195,7 +195,7 @@ impl MediaQuery {
             .await
     }
 
-    /// Get all the media items which are in progress for the currently logged in user
+    /// Get all the media items which are in progress for the currently logged in user.
     async fn media_in_progress(&self, gql_ctx: &Context<'_>) -> Result<Vec<MediaSearchItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -223,7 +223,7 @@ pub struct MediaMutation;
 
 #[Object]
 impl MediaMutation {
-    /// Mark a user's progress on a specific media item
+    /// Mark a user's progress on a specific media item.
     async fn progress_update(
         &self,
         gql_ctx: &Context<'_>,
@@ -236,7 +236,7 @@ impl MediaMutation {
             .await
     }
 
-    /// Delete a seen item from a user's history
+    /// Delete a seen item from a user's history.
     async fn delete_seen_item(
         &self,
         gql_ctx: &Context<'_>,
@@ -246,6 +246,18 @@ impl MediaMutation {
         gql_ctx
             .data_unchecked::<MediaService>()
             .delete_seen_item(seen_id.into(), user_id)
+            .await
+    }
+
+    /// Deploy a job to update a media item's metadata.
+    async fn deploy_update_metadata_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: Identifier,
+    ) -> Result<String> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .deploy_update_metadata_job(metadata_id.into())
             .await
     }
 }
@@ -794,5 +806,15 @@ impl MediaService {
             }
         }
         Ok(())
+    }
+
+    pub async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+        let mut storage = self.update_metadata.clone();
+        let job_id = storage
+            .push(UpdateMetadataJob {
+                metadata_id: metadata_id.into(),
+            })
+            .await?;
+        Ok(job_id.to_string())
     }
 }
