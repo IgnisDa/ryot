@@ -19,6 +19,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Indicator,
 	MANTINE_COLORS,
 	type MantineGradient,
 	Modal,
@@ -46,6 +47,8 @@ import {
 	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
+	DeployUpdateMetadataJobDocument,
+	type DeployUpdateMetadataJobMutationVariables,
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
 	type MediaItemReviewsQuery,
@@ -54,8 +57,6 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
-	type DeployUpdateMetadataJobMutationVariables,
-	DeployUpdateMetadataJobDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -230,16 +231,27 @@ export const AccordionLabel = ({
 	posterImages,
 	overview,
 	children,
+	displayIndicator,
 }: {
 	name: string;
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
+	displayIndicator?: boolean;
 }) => {
 	return (
 		<Box>
 			<Flex align={"center"} gap="sm">
-				<Avatar src={posterImages[0]} radius="xl" size="lg" />
+				<Indicator
+					disabled={!displayIndicator}
+					label="Seen"
+					offset={7}
+					position="top-start"
+					size={16}
+					color="red"
+				>
+					<Avatar src={posterImages[0]} radius="xl" size="lg" />
+				</Indicator>
 				{children}
 			</Flex>
 			<Space h="xs" />
@@ -841,6 +853,12 @@ const Page: NextPageWithLayout = () => {
 																{...e}
 																key={e.episodeNumber}
 																name={`${e.episodeNumber}. ${e.name}`}
+																displayIndicator={history.data.some(
+																	(h) =>
+																		h.showInformation?.episode ===
+																			e.episodeNumber &&
+																		h.showInformation.season === s.seasonNumber,
+																)}
 															>
 																<Button
 																	variant="outline"
@@ -865,13 +883,16 @@ const Page: NextPageWithLayout = () => {
 						{details.data.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
 								<ScrollArea.Autosize mah={300}>
-									<Stack>
+									<Stack ml="md">
 										{details.data.podcastSpecifics.episodes.map((e) => (
 											<AccordionLabel
 												name={e.title}
 												posterImages={[e.thumbnail || ""]}
 												overview={e.overview}
 												key={e.number}
+												displayIndicator={history.data.some(
+													(h) => h.podcastInformation?.episode === e.number,
+												)}
 											>
 												<Button
 													variant="outline"
