@@ -161,6 +161,6 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Updating metadata for id = {:?}", information.metadata_id);
+    tracing::info!("Updating metadata for {:?}", information.metadata_id);
     Ok(())
 }
