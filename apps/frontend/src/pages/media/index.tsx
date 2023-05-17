@@ -54,6 +54,8 @@ import {
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
+	type DeployUpdateMetadataJobMutationVariables,
+	DeployUpdateMetadataJobDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
@@ -400,6 +402,22 @@ const Page: NextPageWithLayout = () => {
 			details.refetch();
 		},
 	});
+	const deployUpdateMetadataJob = useMutation({
+		mutationFn: async (variables: DeployUpdateMetadataJobMutationVariables) => {
+			const { deployUpdateMetadataJob } = await gqlClient.request(
+				DeployUpdateMetadataJobDocument,
+				variables,
+			);
+			return deployUpdateMetadataJob;
+		},
+		onSuccess: () => {
+			history.refetch();
+			notifications.show({
+				title: "Deployed",
+				message: "This record's metadata will be updated in the background.",
+			});
+		},
+	});
 
 	const badgeGradient: MantineGradient = match(details.data?.type)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
@@ -696,6 +714,14 @@ const Page: NextPageWithLayout = () => {
 										/>
 									) : null}
 								</>
+								<Button
+									variant="outline"
+									onClick={() => {
+										deployUpdateMetadataJob.mutate({ metadataId });
+									}}
+								>
+									Update metadata
+								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
