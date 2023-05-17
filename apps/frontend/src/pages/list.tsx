@@ -19,7 +19,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useLocalStorage, useToggle } from "@mantine/hooks";
+import { useDebouncedState, useLocalStorage, useToggle } from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
@@ -42,7 +42,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
@@ -61,6 +61,7 @@ const Page: NextPageWithLayout = () => {
 		key: "savedQuery",
 		getInitialValueInEffect: false,
 	});
+	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 500);
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
@@ -87,13 +88,16 @@ const Page: NextPageWithLayout = () => {
 		enabled: lot !== undefined,
 	});
 	const searchQuery = useQuery({
-		queryKey: ["searchQuery", activeSearchPage, lot, query],
+		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
 			invariant(lot, "Lot must be defined");
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
-						input: { query, page: parseInt(activeSearchPage) || 1 },
+						input: {
+							query: debouncedQuery,
+							page: parseInt(activeSearchPage) || 1,
+						},
 					});
 					return booksSearch;
 				})
@@ -147,6 +151,10 @@ const Page: NextPageWithLayout = () => {
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
 	});
+
+	useEffect(() => {
+		setDebouncedQuery(query);
+	}, [query]);
 
 	return lot ? (
 		<Container>
