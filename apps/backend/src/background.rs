@@ -8,7 +8,7 @@ use crate::{
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
-    misc::{resolver::MiscService, WATCHLIST},
+    misc::{resolver::MiscService, DefaultCollection},
     users::resolver::UsersService,
 };
 
@@ -140,7 +140,11 @@ pub async fn after_media_seen_job(
         .unwrap();
     let misc_service = ctx.data::<MiscService>().unwrap();
     misc_service
-        .remove_media_item_from_collection(&seen.user_id, &seen.metadata_id, WATCHLIST)
+        .remove_media_item_from_collection(
+            &seen.user_id,
+            &seen.metadata_id,
+            &DefaultCollection::Watchlist.to_string(),
+        )
         .await
         .unwrap();
     ctx.data::<UsersService>()
