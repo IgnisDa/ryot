@@ -195,15 +195,6 @@ impl MediaQuery {
             .await
     }
 
-    /// Get all the media items which are in progress for the currently logged in user.
-    async fn media_in_progress(&self, gql_ctx: &Context<'_>) -> Result<Vec<MediaSearchItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .media_in_progress(user_id)
-            .await
-    }
-
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
@@ -448,37 +439,6 @@ impl MediaService {
             }
         });
         Ok(prev_seen)
-    }
-
-    pub async fn media_in_progress(&self, user_id: i32) -> Result<Vec<MediaSearchItem>> {
-        let mut seens = Seen::find()
-            .filter(seen::Column::Progress.lt(100))
-            .filter(seen::Column::UserId.eq(user_id))
-            .order_by_desc(seen::Column::LastUpdatedOn)
-            .find_also_related(Metadata)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|(_, m)| {
-                let a = m.unwrap();
-                (
-                    a.clone(),
-                    MediaSearchItem {
-                        identifier: a.id.to_string(),
-                        title: a.title,
-                        lot: a.lot,
-                        poster_images: vec![], // we will assign this later
-                        publish_year: a.publish_year,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-        for (model, media_item) in seens.iter_mut() {
-            let (poster_images, _) = self.metadata_images(model).await?;
-            media_item.poster_images = poster_images;
-        }
-        Ok(seens.into_iter().map(|s| s.1).collect())
     }
 
     pub async fn media_list(

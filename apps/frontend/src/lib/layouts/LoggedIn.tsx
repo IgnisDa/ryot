@@ -22,7 +22,6 @@ import {
 	IconDeviceTv,
 	IconHeadphones,
 	IconHome2,
-	IconListDetails,
 	IconLogout,
 	IconMicrophone,
 	IconSettings,
@@ -130,7 +129,6 @@ export default function ({ children }: { children: ReactElement }) {
 				icon: getIcon(f.name),
 				href: undefined,
 			})) || []),
-		{ icon: IconListDetails, label: "Collections", href: "/collections" },
 		{ icon: IconSettings, label: "Settings", href: "/settings" },
 	].map((link, _index) => (
 		<NavbarButton
