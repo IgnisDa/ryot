@@ -4,15 +4,7 @@ import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import {
-	Box,
-	Container,
-	Loader,
-	SimpleGrid,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { Box, Container, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import {
 	MediaInProgressDocument,
 	UserSummaryDocument,

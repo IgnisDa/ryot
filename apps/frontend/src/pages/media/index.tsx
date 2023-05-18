@@ -189,10 +189,7 @@ function SelectCollectionModal(props: {
 					<Title order={3}>Select collection</Title>
 					<Select
 						withinPortal
-						data={props.collections.map((c) => ({
-							value: c.collectionDetails.id.toString(),
-							label: c.collectionDetails.name,
-						}))}
+						data={props.collections.map((c) => c.collectionDetails.name)}
 						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
@@ -209,7 +206,7 @@ function SelectCollectionModal(props: {
 						onClick={() => {
 							addMediaToCollection.mutate({
 								input: {
-									collectionId: Number(selectedCollection),
+									collectionName: selectedCollection || "",
 									mediaId: props.metadataId,
 								},
 							});

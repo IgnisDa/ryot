@@ -44,7 +44,7 @@ export type Scalars = {
 };
 
 export type AddMediaToCollection = {
-  collectionId: Scalars['Identifier'];
+  collectionName: Scalars['String'];
   mediaId: Scalars['Identifier'];
 };
 

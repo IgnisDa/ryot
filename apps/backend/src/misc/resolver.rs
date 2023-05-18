@@ -65,9 +65,9 @@ struct CollectionItem {
 }
 
 #[derive(Debug, InputObject)]
-struct AddMediaToCollection {
-    collection_id: Identifier,
-    media_id: Identifier,
+pub struct AddMediaToCollection {
+    pub collection_name: String,
+    pub media_id: Identifier,
 }
 
 #[derive(Default)]
@@ -131,10 +131,10 @@ impl MiscMutation {
         gql_ctx: &Context<'_>,
         input: AddMediaToCollection,
     ) -> Result<bool> {
-        let _user_id = user_id_from_ctx(gql_ctx).await?;
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .add_media_to_collection(input)
+            .add_media_to_collection(&user_id, input)
             .await
     }
 
@@ -341,10 +341,21 @@ impl MiscService {
         Ok(IdObject { id: id.into() })
     }
 
-    async fn add_media_to_collection(&self, input: AddMediaToCollection) -> Result<bool> {
+    pub async fn add_media_to_collection(
+        &self,
+        user_id: &i32,
+        input: AddMediaToCollection,
+    ) -> Result<bool> {
+        let collection = Collection::find()
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .filter(collection::Column::Name.eq(input.collection_name))
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
         let col = metadata_to_collection::ActiveModel {
             metadata_id: ActiveValue::Set(i32::from(input.media_id)),
-            collection_id: ActiveValue::Set(i32::from(input.collection_id)),
+            collection_id: ActiveValue::Set(i32::from(collection.id)),
         };
         Ok(match col.clone().insert(&self.db).await {
             Ok(_) => true,

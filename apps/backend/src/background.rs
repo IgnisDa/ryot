@@ -8,7 +8,10 @@ use crate::{
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
-    misc::{resolver::MiscService, DefaultCollection},
+    misc::{
+        resolver::{AddMediaToCollection, MiscService},
+        DefaultCollection,
+    },
     users::resolver::UsersService,
 };
 
@@ -136,14 +139,27 @@ pub async fn after_media_seen_job(
         information.seen.id
     );
     let misc_service = ctx.data::<MiscService>().unwrap();
-    misc_service
-        .remove_media_item_from_collection(
-            &information.seen.user_id,
-            &information.seen.metadata_id,
-            &DefaultCollection::Watchlist.to_string(),
-        )
-        .await
-        .unwrap();
+    if information.seen.progress == 100 {
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::Watchlist.to_string(),
+            )
+            .await
+            .ok();
+    } else {
+        misc_service
+            .add_media_to_collection(
+                &information.seen.user_id,
+                AddMediaToCollection {
+                    collection_name: DefaultCollection::InProgress.to_string(),
+                    media_id: information.seen.metadata_id.into(),
+                },
+            )
+            .await
+            .ok();
+    }
     Ok(())
 }
 
