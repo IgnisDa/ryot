@@ -33,7 +33,7 @@ use crate::{
     },
     graphql::IdObject,
     migrator::{MetadataLot, TokenLot, UserLot},
-    misc::{resolver::MiscService, ABANDONED, WATCHLIST},
+    misc::{resolver::MiscService, DefaultCollection},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, NamedObject},
 };
 
@@ -580,7 +580,7 @@ impl UsersService {
             .create_collection(
                 user_id,
                 NamedObject {
-                    name: WATCHLIST.to_owned(),
+                    name: DefaultCollection::Watchlist.to_string(),
                 },
             )
             .await?;
@@ -588,7 +588,15 @@ impl UsersService {
             .create_collection(
                 user_id,
                 NamedObject {
-                    name: ABANDONED.to_owned(),
+                    name: DefaultCollection::Abandoned.to_string(),
+                },
+            )
+            .await?;
+        self.misc_service
+            .create_collection(
+                user_id,
+                NamedObject {
+                    name: DefaultCollection::InProgress.to_string(),
                 },
             )
             .await?;

@@ -6,18 +6,21 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Box,
+	Button,
 	Container,
-	Loader,
+	Divider,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
 import {
-	MediaInProgressDocument,
+	CollectionsDocument,
 	UserSummaryDocument,
+	type RemoveMediaFromCollectionMutationVariables,
+	RemoveMediaFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
@@ -43,12 +46,6 @@ const StatNumber = (props: { text: number; isDuration?: boolean }) => {
 };
 
 const Page: NextPageWithLayout = () => {
-	const mediaInProgress = useQuery(["mediaInProgress"], async () => {
-		const { mediaInProgress } = await gqlClient.request(
-			MediaInProgressDocument,
-		);
-		return mediaInProgress;
-	});
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -57,15 +54,37 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ retry: false },
 	);
+	const collections = useQuery(["collections"], async () => {
+		const { collections } = await gqlClient.request(CollectionsDocument);
+		return collections;
+	});
+	const removeMediaFromCollection = useMutation({
+		mutationFn: async (
+			variables: RemoveMediaFromCollectionMutationVariables,
+		) => {
+			const { removeMediaFromCollection } = await gqlClient.request(
+				RemoveMediaFromCollectionDocument,
+				variables,
+			);
+			return removeMediaFromCollection;
+		},
+		onSuccess: () => {
+			collections.refetch();
+		},
+	});
 
-	return mediaInProgress.data && userSummary.data ? (
+	const inProgressCollection = collections.data?.find(
+		(c) => c.collectionDetails.name === "In Progress",
+	);
+
+	return collections.data && userSummary.data ? (
 		<Container>
 			<Stack>
-				{mediaInProgress.data.length > 0 ? (
+				{inProgressCollection ? (
 					<>
 						<Title>In Progress</Title>
 						<Grid>
-							{mediaInProgress.data.map((lm) => (
+							{inProgressCollection.mediaDetails.map((lm) => (
 								<MediaItemWithoutUpdateModal
 									key={lm.identifier}
 									item={lm}
@@ -74,6 +93,7 @@ const Page: NextPageWithLayout = () => {
 								/>
 							))}
 						</Grid>
+						<Divider />
 					</>
 				) : null}
 				<Title>Summary</Title>
@@ -142,6 +162,44 @@ const Page: NextPageWithLayout = () => {
 						</Text>
 					</Box>
 				</SimpleGrid>
+				<Divider />
+				<Title>Your Collections</Title>
+				{collections.data &&
+					collections.data.map((collection) => (
+						<Stack key={collection.collectionDetails.id}>
+							<Title order={3} truncate>
+								{collection.collectionDetails.name}
+							</Title>
+							{collection.mediaDetails.length > 0 ? (
+								<Grid>
+									{collection.mediaDetails.map((mediaItem) => (
+										<MediaItemWithoutUpdateModal
+											key={mediaItem.identifier}
+											item={mediaItem}
+											lot={mediaItem.lot}
+											imageOnClick={async () => parseInt(mediaItem.identifier)}
+										>
+											<Button
+												fullWidth
+												color="red"
+												variant="outline"
+												onClick={() => {
+													removeMediaFromCollection.mutate({
+														collectionName: collection.collectionDetails.name,
+														metadataId: Number(mediaItem.identifier),
+													});
+												}}
+											>
+												Remove
+											</Button>
+										</MediaItemWithoutUpdateModal>
+									))}
+								</Grid>
+							) : (
+								<Text>No items in this collection</Text>
+							)}
+						</Stack>
+					))}
 			</Stack>
 		</Container>
 	) : (

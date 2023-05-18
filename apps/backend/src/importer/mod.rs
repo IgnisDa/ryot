@@ -15,7 +15,6 @@ use crate::{
     books::resolver::BooksService,
     config::ImporterConfig,
     entities::{media_import_report, prelude::MediaImportReport},
-    graphql::IdObject,
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
@@ -265,7 +264,6 @@ impl ImporterService {
                 goodreads::import(input.goodreads.unwrap(), &config).await?
             }
         };
-        let mut last_seen_id = None;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",
@@ -335,8 +333,7 @@ impl ImporterService {
                 }
             };
             for seen in item.seen_history.iter() {
-                let IdObject { id } = self
-                    .media_service
+                self.media_service
                     .progress_update(
                         ProgressUpdate {
                             identifier: seen.id.clone(),
@@ -352,7 +349,6 @@ impl ImporterService {
                         user_id.clone(),
                     )
                     .await?;
-                last_seen_id = Some(id);
             }
             for review in item.reviews.iter() {
                 let text = review.review.clone().map(|r| r.text);
@@ -384,13 +380,10 @@ impl ImporterService {
                 rev = item.reviews.len()
             );
         }
-
-        if let Some(id) = last_seen_id {
-            self.media_service
-                .deploy_recalculate_summary_job(id.into())
-                .await
-                .ok();
-        }
+        self.media_service
+            .deploy_recalculate_summary_job(user_id)
+            .await
+            .ok();
         tracing::info!(
             "Imported {total} media items from {source}",
             total = import.media.len(),

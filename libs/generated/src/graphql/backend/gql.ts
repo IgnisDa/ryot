@@ -41,7 +41,6 @@ const documents = {
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query MediaDetails($metadataId: Identifier!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    description\n    type\n    creators\n    type\n    posterImages\n    backdropImages\n    publishYear\n    publishDate\n    genres\n    audioBookSpecifics {\n      source\n    }\n    bookSpecifics {\n      pages\n      source\n    }\n    movieSpecifics {\n      runtime\n      source\n    }\n    podcastSpecifics {\n      episodes {\n        title\n        overview\n        thumbnail\n        number\n      }\n      source\n      totalEpisodes\n    }\n    showSpecifics {\n      source\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n        }\n      }\n    }\n    videoGameSpecifics {\n      source\n    }\n  }\n}": types.MediaDetailsDocument,
     "query MediaImportReports {\n  mediaImportReports {\n    id\n    source\n    startedOn\n    finishedOn\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n      }\n    }\n  }\n}": types.MediaImportReportsDocument,
-    "query MediaInProgress {\n  mediaInProgress {\n    identifier\n    title\n    posterImages\n    publishYear\n    lot\n  }\n}": types.MediaInProgressDocument,
     "query MediaItemReviews($metadataId: Identifier!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    spoiler\n    visibility\n    seasonNumber\n    episodeNumber\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}": types.MediaItemReviewsDocument,
     "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.MediaListDocument,
     "query MoviesSearch($input: SearchInput!) {\n  moviesSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.MoviesSearchDocument,
@@ -178,10 +177,6 @@ export function graphql(source: "query MediaDetails($metadataId: Identifier!) {\
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query MediaImportReports {\n  mediaImportReports {\n    id\n    source\n    startedOn\n    finishedOn\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n      }\n    }\n  }\n}"): (typeof documents)["query MediaImportReports {\n  mediaImportReports {\n    id\n    source\n    startedOn\n    finishedOn\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n      }\n    }\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "query MediaInProgress {\n  mediaInProgress {\n    identifier\n    title\n    posterImages\n    publishYear\n    lot\n  }\n}"): (typeof documents)["query MediaInProgress {\n  mediaInProgress {\n    identifier\n    title\n    posterImages\n    publishYear\n    lot\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

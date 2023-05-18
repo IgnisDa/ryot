@@ -36,7 +36,7 @@ use tower_http::{
 use crate::{
     background::{
         after_media_seen_job, general_media_cleanup_jobs, general_user_cleanup, import_media,
-        update_metadata_job, user_created_job,
+        recalculate_user_summary_job, update_metadata_job, user_created_job,
     },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
@@ -119,6 +119,7 @@ async fn main() -> Result<()> {
     let import_media_storage = create_storage(pool.clone()).await;
     let user_created_job_storage = create_storage(pool.clone()).await;
     let after_media_seen_job_storage = create_storage(pool.clone()).await;
+    let recalculate_user_summary_job_storage = create_storage(pool.clone()).await;
     let update_metadata_job_storage = create_storage(pool.clone()).await;
 
     let app_services = create_app_services(
@@ -128,6 +129,7 @@ async fn main() -> Result<()> {
         &user_created_job_storage,
         &after_media_seen_job_storage,
         &update_metadata_job_storage,
+        &recalculate_user_summary_job_storage,
     )
     .await;
     let schema = get_schema(&app_services, db.clone(), &config).await;
@@ -168,11 +170,10 @@ async fn main() -> Result<()> {
     let users_service_2 = app_services.users_service.clone();
     let users_service_3 = app_services.users_service.clone();
     let db_1 = db.clone();
-    let db_2 = db.clone();
     let monitor = async {
         let mn = Monitor::new()
             // cron jobs
-            .register_with_count(2, move |c| {
+            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .stream(
                         // every 5 minutes
@@ -185,7 +186,7 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(users_service_1.clone()))
                     .build_fn(general_user_cleanup)
             })
-            .register_with_count(2, move |c| {
+            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
                     .stream(
                         // every day
@@ -199,7 +200,7 @@ async fn main() -> Result<()> {
                     .build_fn(general_media_cleanup_jobs)
             })
             // application jobs
-            .register_with_count(2, move |c| {
+            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_1.clone()))
@@ -207,26 +208,31 @@ async fn main() -> Result<()> {
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })
-            .register_with_count(2, move |c| {
+            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(users_service_2.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
-            .register_with_count(2, move |c| {
-                WorkerBuilder::new(format!("after_media_created_job-{c}"))
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("after_media_seen_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.misc_service.clone()))
-                    .layer(ApalisExtension(users_service_3.clone()))
-                    .layer(ApalisExtension(db_1.clone()))
                     .with_storage(after_media_seen_job_storage.clone())
                     .build_fn(after_media_seen_job)
             })
-            .register_with_count(2, move |c| {
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("recalculate_user_summary_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(users_service_3.clone()))
+                    .with_storage(recalculate_user_summary_job_storage.clone())
+                    .build_fn(recalculate_user_summary_job)
+            })
+            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("update_metadata_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(db_2.clone()))
+                    .layer(ApalisExtension(db_1.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })

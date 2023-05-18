@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics,
-    background::{AfterMediaSeenJob, UpdateMetadataJob},
+    background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
         collection, creator, genre,
@@ -195,15 +195,6 @@ impl MediaQuery {
             .await
     }
 
-    /// Get all the media items which are in progress for the currently logged in user.
-    async fn media_in_progress(&self, gql_ctx: &Context<'_>) -> Result<Vec<MediaSearchItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .media_in_progress(user_id)
-            .await
-    }
-
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
@@ -267,6 +258,7 @@ pub struct MediaService {
     db: DatabaseConnection,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
+    recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
 }
 
 impl MediaService {
@@ -274,11 +266,13 @@ impl MediaService {
         db: &DatabaseConnection,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
+        recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
+            recalculate_user_summary: recalculate_user_summary.clone(),
         }
     }
 }
@@ -447,37 +441,6 @@ impl MediaService {
         Ok(prev_seen)
     }
 
-    pub async fn media_in_progress(&self, user_id: i32) -> Result<Vec<MediaSearchItem>> {
-        let mut seens = Seen::find()
-            .filter(seen::Column::Progress.lt(100))
-            .filter(seen::Column::UserId.eq(user_id))
-            .order_by_desc(seen::Column::LastUpdatedOn)
-            .find_also_related(Metadata)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|(_, m)| {
-                let a = m.unwrap();
-                (
-                    a.clone(),
-                    MediaSearchItem {
-                        identifier: a.id.to_string(),
-                        title: a.title,
-                        lot: a.lot,
-                        poster_images: vec![], // we will assign this later
-                        publish_year: a.publish_year,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-        for (model, media_item) in seens.iter_mut() {
-            let (poster_images, _) = self.metadata_images(model).await?;
-            media_item.poster_images = poster_images;
-        }
-        Ok(seens.into_iter().map(|s| s.1).collect())
-    }
-
     pub async fn media_list(
         &self,
         user_id: i32,
@@ -604,20 +567,28 @@ impl MediaService {
                     seen
                 }
             };
+            let id = seen_item.id.into();
             if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
-                self.deploy_recalculate_summary_job(seen_item.id).await.ok();
+                self.deploy_recalculate_summary_job(user_id).await.ok();
             }
-            Ok(IdObject {
-                id: seen_item.id.into(),
-            })
+            let metadata = self.generic_metadata(input.metadata_id.into()).await?;
+            let mut storage = self.after_media_seen.clone();
+            storage
+                .push(AfterMediaSeenJob {
+                    seen: seen_item,
+                    metadata_lot: metadata.model.lot,
+                })
+                .await
+                .ok();
+            Ok(IdObject { id })
         }
     }
 
-    pub async fn deploy_recalculate_summary_job(&self, seen_id: i32) -> Result<()> {
-        let mut storage = self.after_media_seen.clone();
+    pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
+        let mut storage = self.recalculate_user_summary.clone();
         storage
-            .push(AfterMediaSeenJob {
-                seen_id: seen_id.into(),
+            .push(RecalculateUserSummaryJob {
+                user_id: user_id.into(),
             })
             .await?;
         Ok(())
@@ -633,6 +604,7 @@ impl MediaService {
                 ));
             }
             si.delete(&self.db).await.ok();
+            self.deploy_recalculate_summary_job(user_id).await.ok();
             Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
@@ -781,12 +753,13 @@ impl MediaService {
     }
 
     pub async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
         let mut storage = self.update_metadata.clone();
-        let job_id = storage
-            .push(UpdateMetadataJob {
-                metadata_id: metadata_id.into(),
-            })
-            .await?;
+        let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
     }
 }
