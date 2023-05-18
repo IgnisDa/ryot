@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/frontend/public/ryot-logo.png" width="200">
+  <img src="/apps/frontend/public/ryot-logo.png">
 </p>
 
 <h2 align="center">
@@ -7,7 +7,8 @@
   fitness etc.
 </h2>
 
-![Screenshot](/docs/assets/screenshot.png)
+![Dashboard Screenshot](/docs/assets/dashboard-screenshot.png)
+![Mine Screenshot](/docs/assets/mine-screenshot.png)
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
 only self hosted tracker you will ever need!
@@ -103,7 +104,7 @@ builder.
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                     |
 | `podcasts.listennotes.api_token`      | The access token for the Listennotes API.                                                                                                                                         |
 | `podcasts.listennotes.user_agent`     | The user agent used for the Listennotes API.                                                                                                                                      |
-| `scheduler.database_url`              | URL to the SQLite database where job related data needs to be stored.                                                                                                             |
+| `scheduler.database_url`              | The url to the SQLite database where job related data needs to be stored.                                                                                                         |
 | `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                      |
 | `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                               |
 | `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                    |
