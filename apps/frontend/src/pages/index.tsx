@@ -5,7 +5,6 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
-	Alert,
 	Box,
 	Button,
 	Container,
@@ -21,7 +20,6 @@ import {
 	type RemoveMediaFromCollectionMutationVariables,
 	RemoveMediaFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -165,7 +163,8 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 				</SimpleGrid>
 				<Divider />
-				{collections.data && collections.data.length > 0 ? (
+				<Title>Your Collections</Title>
+				{collections.data &&
 					collections.data.map((collection) => (
 						<Stack key={collection.collectionDetails.id}>
 							<Title order={3} truncate>
@@ -200,13 +199,7 @@ const Page: NextPageWithLayout = () => {
 								<Text>No items in this collection</Text>
 							)}
 						</Stack>
-					))
-				) : (
-					<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
-						You do not have any collections. You can create and add media to
-						collections from a media's details page.
-					</Alert>
-				)}
+					))}
 			</Stack>
 		</Container>
 	) : (
