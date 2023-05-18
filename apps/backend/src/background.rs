@@ -1,46 +1,34 @@
 use apalis::prelude::{Job, JobContext, JobError};
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{prelude::DateTimeUtc, DatabaseConnection, EntityTrait};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     config::AppConfig,
     entities::prelude::Seen,
+    graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
     misc::{resolver::MiscService, WATCHLIST},
     users::resolver::UsersService,
 };
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ImportMedia {
-    pub user_id: i32,
-    pub input: DeployImportInput,
-}
-
-impl Job for ImportMedia {
-    const NAME: &'static str = "apalis::ImportMedia";
-}
-
-pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
-    tracing::info!("Importing media");
-    let config = ctx.data::<AppConfig>().unwrap();
-    ctx.data::<ImporterService>()
-        .unwrap()
-        .import_from_source(information.user_id, information.input, &config.importer)
-        .await
-        .unwrap();
-    Ok(())
-}
+// Cron Jobs
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GeneralMediaCleanJobs;
+pub struct ScheduledJob(DateTimeUtc);
 
-impl Job for GeneralMediaCleanJobs {
-    const NAME: &'static str = "apalis::GeneralMediaCleanupJob";
+impl From<DateTimeUtc> for ScheduledJob {
+    fn from(value: DateTimeUtc) -> Self {
+        Self(value)
+    }
+}
+
+impl Job for ScheduledJob {
+    const NAME: &'static str = "apalis::ScheduledJob";
 }
 
 pub async fn general_media_cleanup_jobs(
-    _information: GeneralMediaCleanJobs,
+    _information: ScheduledJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Invalidating invalid media import jobs");
@@ -58,15 +46,8 @@ pub async fn general_media_cleanup_jobs(
     Ok(())
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct GeneralUserCleanup;
-
-impl Job for GeneralUserCleanup {
-    const NAME: &'static str = "apalis::GeneralUserCleanup";
-}
-
 pub async fn general_user_cleanup(
-    _information: GeneralUserCleanup,
+    _information: ScheduledJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Cleaning up user and metadata association");
@@ -84,9 +65,36 @@ pub async fn general_user_cleanup(
     Ok(())
 }
 
+// Application Jobs
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ImportMedia {
+    pub user_id: Identifier,
+    pub input: DeployImportInput,
+}
+
+impl Job for ImportMedia {
+    const NAME: &'static str = "apalis::ImportMedia";
+}
+
+pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
+    tracing::info!("Importing media");
+    let config = ctx.data::<AppConfig>().unwrap();
+    ctx.data::<ImporterService>()
+        .unwrap()
+        .import_from_source(
+            information.user_id.into(),
+            information.input,
+            &config.importer,
+        )
+        .await
+        .unwrap();
+    Ok(())
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserCreatedJob {
-    pub user_id: i32,
+    pub user_id: Identifier,
 }
 
 impl Job for UserCreatedJob {
@@ -100,11 +108,11 @@ pub async fn user_created_job(
     tracing::info!("Running jobs after user creation");
     let service = ctx.data::<UsersService>().unwrap();
     service
-        .user_created_job(&information.user_id)
+        .user_created_job(&information.user_id.into())
         .await
         .unwrap();
     service
-        .regenerate_user_summary(&information.user_id)
+        .regenerate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())
@@ -112,7 +120,7 @@ pub async fn user_created_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AfterMediaSeenJob {
-    pub seen_id: i32,
+    pub seen_id: Identifier,
 }
 
 impl Job for AfterMediaSeenJob {
@@ -140,5 +148,22 @@ pub async fn after_media_seen_job(
         .regenerate_user_summary(&seen.user_id)
         .await
         .unwrap();
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UpdateMetadataJob {
+    pub metadata_id: Identifier,
+}
+
+impl Job for UpdateMetadataJob {
+    const NAME: &'static str = "apalis::UpdateMetadataJob";
+}
+
+pub async fn update_metadata_job(
+    information: UpdateMetadataJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Updating metadata for {:?}", information.metadata_id);
     Ok(())
 }

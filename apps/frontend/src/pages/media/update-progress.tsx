@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getVerb } from "@/lib/utilities";
@@ -117,6 +118,7 @@ const Page: NextPageWithLayout = () => {
 								value: s.seasonNumber.toString(),
 							}))}
 							onChange={setSelectedShowSeasonNumber}
+							defaultValue={selectedShowSeasonNumber}
 						/>
 						{!onlySeason && selectedShowSeasonNumber ? (
 							<Select
@@ -207,7 +209,9 @@ const Page: NextPageWithLayout = () => {
 				</Group>
 			</Stack>
 		</Container>
-	) : null;
+	) : (
+		<LoadingPage />
+	);
 };
 
 Page.getLayout = (page: ReactElement) => {

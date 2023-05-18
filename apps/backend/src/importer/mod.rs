@@ -15,6 +15,7 @@ use crate::{
     books::resolver::BooksService,
     config::ImporterConfig,
     entities::{media_import_report, prelude::MediaImportReport},
+    graphql::IdObject,
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
     misc::resolver::{MiscService, PostReviewInput},
@@ -102,7 +103,7 @@ pub struct ImportFailedItem {
     lot: MetadataLot,
     step: ImportFailStep,
     identifier: String,
-    error: String,
+    error: Option<String>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
@@ -213,7 +214,13 @@ impl ImporterService {
             Some(s) => s.api_url = s.api_url.trim_end_matches("/").to_owned(),
             None => {}
         };
-        let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
+        let job = storage
+            .push(ImportMedia {
+                user_id: user_id.into(),
+                input,
+            })
+            .await
+            .unwrap();
         Ok(job.to_string())
     }
 
@@ -258,6 +265,7 @@ impl ImporterService {
                 goodreads::import(input.goodreads.unwrap(), &config).await?
             }
         };
+        let mut last_seen_id = None;
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",
@@ -321,17 +329,18 @@ impl ImporterService {
                         lot: item.lot,
                         step: ImportFailStep::MediaDetailsFromProvider,
                         identifier: item.source_id.to_owned(),
-                        error: e.message,
+                        error: Some(e.message),
                     });
                     continue;
                 }
             };
             for seen in item.seen_history.iter() {
-                self.media_service
+                let IdObject { id } = self
+                    .media_service
                     .progress_update(
                         ProgressUpdate {
                             identifier: seen.id.clone(),
-                            metadata_id: metadata.id,
+                            metadata_id: metadata.id.into(),
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
                             date: seen.ended_on.map(|d| d.date_naive()),
@@ -343,6 +352,7 @@ impl ImporterService {
                         user_id.clone(),
                     )
                     .await?;
+                last_seen_id = Some(id);
             }
             for review in item.reviews.iter() {
                 let text = review.review.clone().map(|r| r.text);
@@ -375,6 +385,12 @@ impl ImporterService {
             );
         }
 
+        if let Some(id) = last_seen_id {
+            self.media_service
+                .deploy_recalculate_summary_job(id.into())
+                .await
+                .ok();
+        }
         tracing::info!(
             "Imported {total} media items from {source}",
             total = import.media.len(),

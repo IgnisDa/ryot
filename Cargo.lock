@@ -120,8 +120,8 @@ checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "apalis"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -131,8 +131,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-core"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -154,8 +154,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-cron"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -168,8 +168,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-redis"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -185,8 +185,8 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "0.4.0-alpha.6"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=cdcf52#cdcf5276c2df93dce8c51ab25d99a4d98ca01de7"
+version = "0.4.0-alpha.9"
+source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -2273,17 +2273,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-derive"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3155,7 +3144,7 @@ checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
 
 [[package]]
 name = "ryot"
-version = "0.0.27"
+version = "0.0.28"
 dependencies = [
  "anyhow",
  "apalis",
@@ -3183,10 +3172,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "sqlx",
  "strum",
  "surf",
  "tokio 1.28.1",
- "tokio-cron-scheduler",
  "tower-cookies",
  "tower-http",
  "tracing",
@@ -4138,21 +4127,6 @@ dependencies = [
  "bytes 0.4.12",
  "futures 0.1.31",
  "tokio-io",
-]
-
-[[package]]
-name = "tokio-cron-scheduler"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de2c1fd54a857b29c6cd1846f31903d0ae8e28175615c14a277aed45c58d8e27"
-dependencies = [
- "chrono",
- "cron",
- "num-derive",
- "num-traits",
- "tokio 1.28.1",
- "tracing",
- "uuid",
 ]
 
 [[package]]

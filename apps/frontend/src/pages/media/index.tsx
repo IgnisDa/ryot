@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../_app";
 import useUser from "@/lib/hooks/useUser";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, changeCase, getInitials, getVerb } from "@/lib/utilities";
@@ -18,6 +19,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Indicator,
 	MANTINE_COLORS,
 	type MantineGradient,
 	Modal,
@@ -45,6 +47,8 @@ import {
 	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
+	DeployUpdateMetadataJobDocument,
+	type DeployUpdateMetadataJobMutationVariables,
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
 	type MediaItemReviewsQuery,
@@ -83,7 +87,7 @@ const StatDisplay = (props: { name: string; value: string }) => {
 	);
 };
 
-export function ProgressModal(props: {
+function ProgressModal(props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -137,7 +141,7 @@ export function ProgressModal(props: {
 	);
 }
 
-export function SelectCollectionModal(props: {
+function SelectCollectionModal(props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -222,27 +226,44 @@ export function SelectCollectionModal(props: {
 	);
 }
 
-export const AccordionLabel = ({
+const AccordionLabel = ({
 	name,
 	posterImages,
 	overview,
+	children,
+	displayIndicator,
 }: {
 	name: string;
 	posterImages: string[];
 	overview?: string | null;
+	children: JSX.Element;
+	displayIndicator?: boolean;
 }) => {
 	return (
-		<Group noWrap>
-			<Avatar src={posterImages[0]} radius="xl" size="lg" />
-			<Box>
-				<Text>{name}</Text>
-				{overview ? (
-					<Text size="sm" color="dimmed">
-						{overview}
-					</Text>
-				) : null}
-			</Box>
-		</Group>
+		<Box>
+			<Flex align={"center"} gap="sm">
+				<Indicator
+					disabled={!displayIndicator}
+					label="Seen"
+					offset={7}
+					position="bottom-end"
+					size={16}
+					color="red"
+				>
+					<Avatar src={posterImages[0]} radius="xl" size="lg" />
+				</Indicator>
+				{children}
+			</Flex>
+			<Space h="xs" />
+			<Text>{name}</Text>
+			{overview ? (
+				<Text
+					size="sm"
+					color="dimmed"
+					dangerouslySetInnerHTML={{ __html: overview }}
+				/>
+			) : null}
+		</Box>
 	);
 };
 
@@ -399,6 +420,22 @@ const Page: NextPageWithLayout = () => {
 			details.refetch();
 		},
 	});
+	const deployUpdateMetadataJob = useMutation({
+		mutationFn: async (variables: DeployUpdateMetadataJobMutationVariables) => {
+			const { deployUpdateMetadataJob } = await gqlClient.request(
+				DeployUpdateMetadataJobDocument,
+				variables,
+			);
+			return deployUpdateMetadataJob;
+		},
+		onSuccess: () => {
+			history.refetch();
+			notifications.show({
+				title: "Deployed",
+				message: "This record's metadata will be updated in the background.",
+			});
+		},
+	});
 
 	const badgeGradient: MantineGradient = match(details.data?.type)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
@@ -435,26 +472,45 @@ const Page: NextPageWithLayout = () => {
 						[t.fn.largerThan("md")]: { width: "35%" },
 					})}
 				>
-					{details.data.posterImages.length > 0 ? (
-						<Carousel
-							withIndicators={details.data.posterImages.length > 1}
-							withControls={details.data.posterImages.length > 1}
-							w={300}
+					<Box pos={"relative"}>
+						{details.data.posterImages.length > 0 ? (
+							<Carousel
+								withIndicators={details.data.posterImages.length > 1}
+								withControls={details.data.posterImages.length > 1}
+								w={300}
+							>
+								{[
+									...details.data.posterImages,
+									...details.data.backdropImages,
+								].map((i) => (
+									<Carousel.Slide key={i}>
+										<Image src={i} radius={"lg"} />
+									</Carousel.Slide>
+								))}
+							</Carousel>
+						) : (
+							<Box w={300}>
+								<Image withPlaceholder height={400} radius={"lg"} />
+							</Box>
+						)}
+						<Badge
+							id="data-source"
+							pos={"absolute"}
+							size="lg"
+							top={10}
+							left={10}
+							color="dark"
+							variant="filled"
 						>
-							{[
-								...details.data.posterImages,
-								...details.data.backdropImages,
-							].map((i) => (
-								<Carousel.Slide key={i}>
-									<Image src={i} radius={"lg"} />
-								</Carousel.Slide>
-							))}
-						</Carousel>
-					) : (
-						<Box w={300}>
-							<Image withPlaceholder height={400} radius={"lg"} />
-						</Box>
-					)}
+							{details.data.audioBookSpecifics?.source ||
+								details.data.bookSpecifics?.source ||
+								details.data.movieSpecifics?.source ||
+								details.data.podcastSpecifics?.source ||
+								details.data.showSpecifics?.source ||
+								details.data.videoGameSpecifics?.source ||
+								"UNKNOWN"}
+						</Badge>
+					</Box>
 					<Box>
 						{details.data.type !== MetadataLot.Show &&
 						details.data.creators.length > 0 ? (
@@ -676,6 +732,14 @@ const Page: NextPageWithLayout = () => {
 										/>
 									) : null}
 								</>
+								<Button
+									variant="outline"
+									onClick={() => {
+										deployUpdateMetadataJob.mutate({ metadataId });
+									}}
+								>
+									Update metadata
+								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
@@ -766,52 +830,56 @@ const Page: NextPageWithLayout = () => {
 												key={s.seasonNumber}
 											>
 												<Accordion.Control>
-													<Flex
-														align={"center"}
-														justify={"space-between"}
-														gap={"xs"}
+													<AccordionLabel
+														{...s}
+														name={`${s.seasonNumber}. ${s.name}`}
+														displayIndicator={s.episodes.every((e) =>
+															history.data.some(
+																(h) =>
+																	h.showInformation?.episode ===
+																		e.episodeNumber &&
+																	h.showInformation.season === s.seasonNumber,
+															),
+														)}
 													>
-														<AccordionLabel
-															{...s}
-															name={`${s.seasonNumber}. ${s.name}`}
-														/>
 														<Button
 															variant="outline"
 															onClick={() => {
 																router.push(
-																	`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&onlySeason=1`,
+																	`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
 																);
 															}}
 														>
 															Mark as seen
 														</Button>
-													</Flex>
+													</AccordionLabel>
 												</Accordion.Control>
 												<Accordion.Panel>
 													{s.episodes.map((e) => (
-														<Flex
-															mb={"xs"}
-															ml={"md"}
-															justify={"space-between"}
-															align={"center"}
-															gap={"xs"}
-														>
+														<Box mb={"xs"} ml={"md"} key={e.id}>
 															<AccordionLabel
 																{...e}
 																key={e.episodeNumber}
 																name={`${e.episodeNumber}. ${e.name}`}
-															/>
-															<Button
-																variant="outline"
-																onClick={() => {
-																	router.push(
-																		`/media/update-progress?item=${metadataId}&selectedShowSeason=${s.seasonNumber}&selectedShowEpisode=${e.episodeNumber}`,
-																	);
-																}}
+																displayIndicator={history.data.some(
+																	(h) =>
+																		h.showInformation?.episode ===
+																			e.episodeNumber &&
+																		h.showInformation.season === s.seasonNumber,
+																)}
 															>
-																Mark as seen
-															</Button>
-														</Flex>
+																<Button
+																	variant="outline"
+																	onClick={() => {
+																		router.push(
+																			`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
+																		);
+																	}}
+																>
+																	Mark as seen
+																</Button>
+															</AccordionLabel>
+														</Box>
 													))}
 												</Accordion.Panel>
 											</Accordion.Item>
@@ -823,34 +891,28 @@ const Page: NextPageWithLayout = () => {
 						{details.data.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
 								<ScrollArea.Autosize mah={300}>
-									<Stack>
+									<Stack ml="md">
 										{details.data.podcastSpecifics.episodes.map((e) => (
-											<Box key={e.number}>
-												<Group>
-													<Avatar src={e.thumbnail} radius="xl" size="lg" />
-													<Button
-														variant="outline"
-														onClick={() => {
-															router.push(
-																`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
-															);
-														}}
-													>
-														Mark as seen
-													</Button>
-												</Group>
-												<Space h="xs" />
-												<Text>{e.title}</Text>
-												<Box>
-													{e.overview ? (
-														<Text
-															size="sm"
-															color="dimmed"
-															dangerouslySetInnerHTML={{ __html: e.overview }}
-														/>
-													) : null}
-												</Box>
-											</Box>
+											<AccordionLabel
+												name={e.title}
+												posterImages={[e.thumbnail || ""]}
+												overview={e.overview}
+												key={e.number}
+												displayIndicator={history.data.some(
+													(h) => h.podcastInformation?.episode === e.number,
+												)}
+											>
+												<Button
+													variant="outline"
+													onClick={() => {
+														router.push(
+															`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
+														);
+													}}
+												>
+													Mark as seen
+												</Button>
+											</AccordionLabel>
 										))}
 										{details.data.podcastSpecifics.totalEpisodes >
 										details.data.podcastSpecifics.episodes.length ? (
@@ -886,7 +948,9 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Flex>
 		</Container>
-	) : null;
+	) : (
+		<LoadingPage />
+	);
 };
 
 Page.getLayout = (page: ReactElement) => {

@@ -32,3 +32,8 @@ Shelves are not supported at the time of writing this.
   `https://www.goodreads.com/user/show/<user-id>-<username>`. You need to get the
   `user-id`. It will be a long number.
 - Enter this number in the input.
+
+## Notes
+
+- Imports are very difficult to have 100% success rate. Though we try our best,
+  you might have to manually import some data from your previous provider.

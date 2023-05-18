@@ -93,7 +93,9 @@ impl AudioBooksService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let details = self.audible_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -124,7 +126,9 @@ impl AudioBooksService {
                     source: ActiveValue::Set(AudioBookSource::Audible),
                 };
                 audio_book.insert(&self.db).await.unwrap();
-                Ok(IdObject { id: metadata_id })
+                Ok(IdObject {
+                    id: metadata_id.into(),
+                })
             }
             _ => unreachable!(),
         }

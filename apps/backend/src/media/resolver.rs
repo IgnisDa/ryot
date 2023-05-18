@@ -9,20 +9,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics,
-    background::AfterMediaSeenJob,
+    background::{AfterMediaSeenJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
         collection, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
-            MetadataToCollection, Movie, Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataToCollection, Movie,
+            Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
-    graphql::IdObject,
+    graphql::{IdObject, Identifier},
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
@@ -31,7 +31,7 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, LIMIT};
+use super::{MediaSpecifics, MetadataImage, MetadataImages, LIMIT};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -67,7 +67,7 @@ pub enum ProgressUpdateAction {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdate {
-    pub metadata_id: i32,
+    pub metadata_id: Identifier,
     pub progress: Option<i32>,
     pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
@@ -170,32 +170,32 @@ pub struct MediaQuery;
 
 #[Object]
 impl MediaQuery {
-    /// Get details about a media present in the database
+    /// Get details about a media present in the database.
     async fn media_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: Identifier,
     ) -> Result<DatabaseMediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
-            .media_details(metadata_id)
+            .media_details(metadata_id.into())
             .await
     }
 
-    /// Get the user's seen history for a particular media item
+    /// Get the user's seen history for a particular media item.
     async fn seen_history(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: Identifier,
     ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .seen_history(metadata_id, user_id)
+            .seen_history(metadata_id.into(), user_id)
             .await
     }
 
-    /// Get all the media items which are in progress for the currently logged in user
+    /// Get all the media items which are in progress for the currently logged in user.
     async fn media_in_progress(&self, gql_ctx: &Context<'_>) -> Result<Vec<MediaSearchItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -223,7 +223,7 @@ pub struct MediaMutation;
 
 #[Object]
 impl MediaMutation {
-    /// Mark a user's progress on a specific media item
+    /// Mark a user's progress on a specific media item.
     async fn progress_update(
         &self,
         gql_ctx: &Context<'_>,
@@ -236,12 +236,28 @@ impl MediaMutation {
             .await
     }
 
-    /// Delete a seen item from a user's history
-    async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
+    /// Delete a seen item from a user's history.
+    async fn delete_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        seen_id: Identifier,
+    ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MediaService>()
-            .delete_seen_item(seen_id, user_id)
+            .delete_seen_item(seen_id.into(), user_id)
+            .await
+    }
+
+    /// Deploy a job to update a media item's metadata.
+    async fn deploy_update_metadata_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: Identifier,
+    ) -> Result<String> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .deploy_update_metadata_job(metadata_id.into())
             .await
     }
 }
@@ -250,26 +266,26 @@ impl MediaMutation {
 pub struct MediaService {
     db: DatabaseConnection,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
+    update_metadata: SqliteStorage<UpdateMetadataJob>,
 }
 
 impl MediaService {
-    pub fn new(db: &DatabaseConnection, import_media: &SqliteStorage<AfterMediaSeenJob>) -> Self {
+    pub fn new(
+        db: &DatabaseConnection,
+        after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
+        update_metadata: &SqliteStorage<UpdateMetadataJob>,
+    ) -> Self {
         Self {
             db: db.clone(),
-            after_media_seen: import_media.clone(),
+            after_media_seen: after_media_seen.clone(),
+            update_metadata: update_metadata.clone(),
         }
     }
 }
 
 impl MediaService {
     async fn metadata_images(&self, meta: &MetadataModel) -> Result<(Vec<String>, Vec<String>)> {
-        let images = meta
-            .find_related(MetadataImage)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
+        let images = meta.images.0.clone();
         let poster_images = images
             .iter()
             .filter(|f| f.lot == MetadataImageLot::Poster)
@@ -515,12 +531,14 @@ impl MediaService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let prev_seen = Seen::find()
                 .filter(seen::Column::Progress.lt(100))
                 .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(input.metadata_id))
+                .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .all(&self.db)
                 .await
@@ -561,7 +579,7 @@ impl MediaService {
                     let mut seen_ins = seen::ActiveModel {
                         progress: ActiveValue::Set(progress),
                         user_id: ActiveValue::Set(user_id),
-                        metadata_id: ActiveValue::Set(input.metadata_id),
+                        metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
                         started_on: ActiveValue::Set(started_on),
                         finished_on: ActiveValue::Set(finished_on),
                         last_updated_on: ActiveValue::Set(Utc::now()),
@@ -586,16 +604,23 @@ impl MediaService {
                     seen
                 }
             };
-            if !input.is_bulk_request.unwrap_or(false) {
-                let mut storage = self.after_media_seen.clone();
-                storage
-                    .push(AfterMediaSeenJob {
-                        seen_id: seen_item.id,
-                    })
-                    .await?;
+            if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
+                self.deploy_recalculate_summary_job(seen_item.id).await.ok();
             }
-            Ok(IdObject { id: seen_item.id })
+            Ok(IdObject {
+                id: seen_item.id.into(),
+            })
         }
+    }
+
+    pub async fn deploy_recalculate_summary_job(&self, seen_id: i32) -> Result<()> {
+        let mut storage = self.after_media_seen.clone();
+        storage
+            .push(AfterMediaSeenJob {
+                seen_id: seen_id.into(),
+            })
+            .await?;
+        Ok(())
     }
 
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
@@ -608,7 +633,7 @@ impl MediaService {
                 ));
             }
             si.delete(&self.db).await.ok();
-            Ok(IdObject { id: seen_id })
+            Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }
@@ -672,51 +697,29 @@ impl MediaService {
         creator_names: Vec<String>,
         genres: Vec<String>,
     ) -> Result<i32> {
+        let mut images = vec![];
+        for image in poster_images.into_iter() {
+            images.push(MetadataImage {
+                url: image,
+                lot: MetadataImageLot::Poster,
+            });
+        }
+        for image in backdrop_images.into_iter() {
+            images.push(MetadataImage {
+                url: image,
+                lot: MetadataImageLot::Backdrop,
+            });
+        }
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
             title: ActiveValue::Set(title),
             description: ActiveValue::Set(description),
             publish_year: ActiveValue::Set(publish_year),
             publish_date: ActiveValue::Set(publish_date),
+            images: ActiveValue::Set(MetadataImages(images)),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for image in poster_images.iter() {
-            if let Some(c) = MetadataImage::find()
-                .filter(metadata_image::Column::Url.eq(image))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                drop(c);
-            } else {
-                let c = metadata_image::ActiveModel {
-                    url: ActiveValue::Set(image.to_owned()),
-                    lot: ActiveValue::Set(MetadataImageLot::Poster),
-                    metadata_id: ActiveValue::Set(metadata.id),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.ok();
-            };
-        }
-        for image in backdrop_images.iter() {
-            if let Some(c) = MetadataImage::find()
-                .filter(metadata_image::Column::Url.eq(image))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                drop(c);
-            } else {
-                let c = metadata_image::ActiveModel {
-                    url: ActiveValue::Set(image.to_owned()),
-                    lot: ActiveValue::Set(MetadataImageLot::Backdrop),
-                    metadata_id: ActiveValue::Set(metadata.id),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.ok();
-            };
-        }
         for name in creator_names.iter() {
             let creator = if let Some(c) = Creator::find()
                 .filter(creator::Column::Name.eq(name))
@@ -775,5 +778,15 @@ impl MediaService {
             }
         }
         Ok(())
+    }
+
+    pub async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+        let mut storage = self.update_metadata.clone();
+        let job_id = storage
+            .push(UpdateMetadataJob {
+                metadata_id: metadata_id.into(),
+            })
+            .await?;
+        Ok(job_id.to_string())
     }
 }

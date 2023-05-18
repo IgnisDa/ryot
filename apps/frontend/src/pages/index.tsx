@@ -1,6 +1,7 @@
 import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -57,10 +58,10 @@ const Page: NextPageWithLayout = () => {
 		{ retry: false },
 	);
 
-	return (
+	return mediaInProgress.data && userSummary.data ? (
 		<Container>
 			<Stack>
-				{mediaInProgress.data && mediaInProgress.data.length > 0 ? (
+				{mediaInProgress.data.length > 0 ? (
 					<>
 						<Title>In Progress</Title>
 						<Grid>
@@ -75,93 +76,76 @@ const Page: NextPageWithLayout = () => {
 						</Grid>
 					</>
 				) : null}
-				{userSummary.isLoading ? <Loader /> : null}
-				{userSummary.data ? (
-					<>
-						<Title>Summary</Title>
-						<SimpleGrid
-							cols={2}
-							spacing="lg"
-							breakpoints={[
-								{ minWidth: "sm", cols: 3 },
-								{ minWidth: "lg", cols: 4 },
-							]}
-						>
-							<Box>
-								<StatTitle text="Books" />
-								<Text>
-									You read <StatNumber text={userSummary.data.books.read} />{" "}
-									book(s) totalling{" "}
-									<StatNumber text={userSummary.data.books.pages} /> page(s).
-								</Text>
-							</Box>
-							<Box>
-								<StatTitle text="Movies" />
-								<Text>
-									You watched{" "}
-									<StatNumber text={userSummary.data.movies.watched} /> movie(s)
-									totalling{" "}
-									<StatNumber
-										text={userSummary.data.movies.runtime}
-										isDuration
-									/>
-									.
-								</Text>
-							</Box>
-							<Box>
-								<StatTitle text="Shows" />
-								<Text>
-									You watched{" "}
-									<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
-									show(s) and{" "}
-									<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
-									episode(s) totalling{" "}
-									<StatNumber
-										text={userSummary.data.shows.runtime}
-										isDuration
-									/>
-									.
-								</Text>
-							</Box>
-							<Box>
-								<StatTitle text="Video Games" />
-								<Text>
-									You played{" "}
-									<StatNumber text={userSummary.data.videoGames.played} />{" "}
-									game(s).
-								</Text>
-							</Box>
-							<Box>
-								<StatTitle text="Audio Books" />
-								<Text>
-									You listened to{" "}
-									<StatNumber text={userSummary.data.audioBooks.played} />{" "}
-									audiobook(s) totalling{" "}
-									<StatNumber
-										text={userSummary.data.audioBooks.runtime}
-										isDuration
-									/>
-									.
-								</Text>
-							</Box>
-							<Box>
-								<StatTitle text="Podcasts" />
-								<Text>
-									You listened to{" "}
-									<StatNumber text={userSummary.data.podcasts.watched} />{" "}
-									podcast(s) totalling{" "}
-									<StatNumber
-										text={userSummary.data.podcasts.runtime}
-										isDuration
-									/>
-									.
-								</Text>
-							</Box>
-						</SimpleGrid>
-					</>
-				) : null}
+				<Title>Summary</Title>
+				<SimpleGrid
+					cols={2}
+					spacing="lg"
+					breakpoints={[
+						{ minWidth: "sm", cols: 3 },
+						{ minWidth: "lg", cols: 4 },
+					]}
+				>
+					<Box>
+						<StatTitle text="Books" />
+						<Text>
+							You read <StatNumber text={userSummary.data.books.read} /> book(s)
+							totalling <StatNumber text={userSummary.data.books.pages} />{" "}
+							page(s).
+						</Text>
+					</Box>
+					<Box>
+						<StatTitle text="Movies" />
+						<Text>
+							You watched <StatNumber text={userSummary.data.movies.watched} />{" "}
+							movie(s) totalling{" "}
+							<StatNumber text={userSummary.data.movies.runtime} isDuration />.
+						</Text>
+					</Box>
+					<Box>
+						<StatTitle text="Shows" />
+						<Text>
+							You watched{" "}
+							<StatNumber text={userSummary.data.shows.watchedShows} /> show(s)
+							and <StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
+							episode(s) totalling{" "}
+							<StatNumber text={userSummary.data.shows.runtime} isDuration />.
+						</Text>
+					</Box>
+					<Box>
+						<StatTitle text="Video Games" />
+						<Text>
+							You played{" "}
+							<StatNumber text={userSummary.data.videoGames.played} /> game(s).
+						</Text>
+					</Box>
+					<Box>
+						<StatTitle text="Audio Books" />
+						<Text>
+							You listened to{" "}
+							<StatNumber text={userSummary.data.audioBooks.played} />{" "}
+							audiobook(s) totalling{" "}
+							<StatNumber
+								text={userSummary.data.audioBooks.runtime}
+								isDuration
+							/>
+							.
+						</Text>
+					</Box>
+					<Box>
+						<StatTitle text="Podcasts" />
+						<Text>
+							You listened to{" "}
+							<StatNumber text={userSummary.data.podcasts.watched} /> podcast(s)
+							totalling{" "}
+							<StatNumber text={userSummary.data.podcasts.runtime} isDuration />
+							.
+						</Text>
+					</Box>
+				</SimpleGrid>
 			</Stack>
 		</Container>
+	) : (
+		<LoadingPage />
 	);
 };
 

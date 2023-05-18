@@ -16,7 +16,7 @@ pub enum MetadataImageLot {
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
-enum MetadataImage {
+pub enum MetadataImage {
     Table,
     Id,
     Lot,
@@ -60,6 +60,8 @@ pub enum Metadata {
     PublishYear,
     // the date which this media was released. Should take precedence if present
     PublishDate,
+    // all the images for this media item
+    Images,
 }
 
 impl MigrationName for Migration {

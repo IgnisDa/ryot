@@ -2,7 +2,7 @@
 
 Ryot supports tracking video games via [IGDB](https://www.igdb.com/). However,
 the API is heavily rate limited, so it is not possible to hardcode the API keys
-in the application (unlike other keys which are [hardcoded](../../apps/backend/src/config.rs)).
+in the application (unlike other keys which are [hardcoded](/apps/backend/src/config.rs)).
 
 You can follow the below steps to obtain your own API keys to enable video game
 tracking.
@@ -17,7 +17,7 @@ tracking.
 
 3. Fill up the details.
 
-	![Twitch application](../assets/twitch-application.png)
+	![Twitch application](/docs/assets/twitch-application.png)
 
 	Note that you must use a unique name. Any name will suffice. Click on
 	"Create" when you are done.
@@ -27,8 +27,8 @@ tracking.
 
 5. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 
-6. Set the correct configuration variables in the environment in which the
-	Ryot server is running.
+6. Set the `video_games.*` configuration variables in the environment as
+	described in the [configuration](/README.md#-configuration-options) docs.
 
 ## Important notes
 

@@ -4,6 +4,7 @@
 	"dependencies": {
 		"@emotion/react": "11.10.6",
 		"@emotion/server": "11.10.0",
+		"@imbios/next-pwa": "1.1.1",
 		"@mantine/carousel": "6.0.8",
 		"@mantine/core": "6.0.8",
 		"@mantine/dates": "6.0.8",

@@ -1,4 +1,6 @@
-<h1 align="center">Ryot</h1>
+<p align="center">
+  <img src="apps/frontend/public/ryot-logo.png" width="200">
+</p>
 
 <h2 align="center">
   A self hosted platform for tracking various facets of your life - media,
@@ -46,7 +48,7 @@ a number of guides to make thing easier.
 - [Importing](/docs/guides/importing.md): Import data from various sources
 - [Video Games](/docs/guides/video-games.md): Get video games tracking working
 
-## ⌨️  How to use?
+## ⌨️ How to use?
 
 **NOTE**: There is no default user. The first user you register is automatically
 set as admin of the instance.
@@ -89,25 +91,25 @@ Only the `DATABASE_URL` variable is loaded from the environment.
 builder.
 
 | Key                                   | Description                                                                                                                                                                       |
-|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                                                                                         |
-| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                                     |
-| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                        |
-| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                          |
-| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                                 |
-| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                                   |
-| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                                   |
-| `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                                  |
-| `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                       |
-| `podcasts.listennotes.api_token`      | The access token for the Listennotes API.                                                                                                                                           |
-| `podcasts.listennotes.user_agent`     | The user agent used for the Listennotes API.                                                                                                                                        |
-| `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                             |
-| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                                 |
-| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                      |
-| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                                    |
-| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                               |
-| `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                                 |
-| `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                          |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                                                                                       |
+| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                                   |
+| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                      |
+| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                        |
+| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                               |
+| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                                  |
+| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                                 |
+| `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                                |
+| `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                     |
+| `podcasts.listennotes.api_token`      | The access token for the Listennotes API.                                                                                                                                         |
+| `podcasts.listennotes.user_agent`     | The user agent used for the Listennotes API.                                                                                                                                      |
+| `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                      |
+| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                               |
+| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                    |
+| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                                  |
+| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                             |
+| `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                               |
+| `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                        |
 | `web.insecure_cookie`                 | Setting this to `true` will make auth cookies insecure. This should be set to `true` if you run it on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
 ## 🤓 Developer notes
@@ -115,7 +117,7 @@ builder.
 In production, the frontend is a pre-rendered Nextjs app served statically by the
 Axum backend server.
 
-In development, both servers are started independently running on `:3000` and 
+In development, both servers are started independently running on `:3000` and
 `:8000` respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs),
 and run `mprocs` in the project root. If you do not want to install `mprocs`,
 take a look at [`mproc.yaml`](./mprocs.yaml) to see what all commands are
@@ -125,3 +127,5 @@ needed to get it working.
 
 It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
 Moreover thanks to all those people whose stuff I have used.
+
+The logo is taken from [Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).

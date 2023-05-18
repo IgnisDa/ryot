@@ -1,7 +1,8 @@
 use anyhow::Result;
 use apalis::{
+    cron::{CronStream, Schedule},
     layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
-    prelude::{Job as ApalisJob, *},
+    prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
 use async_graphql::http::GraphiQLSource;
@@ -18,13 +19,14 @@ use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
+use sqlx::SqlitePool;
 use std::{
     env, fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
+    str::FromStr,
 };
-use tokio::{sync::mpsc::channel, try_join};
-use tokio_cron_scheduler::{Job, JobScheduler};
+use tokio::try_join;
 use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
@@ -34,7 +36,7 @@ use tower_http::{
 use crate::{
     background::{
         after_media_seen_job, general_media_cleanup_jobs, general_user_cleanup, import_media,
-        user_created_job, GeneralMediaCleanJobs, GeneralUserCleanup,
+        update_metadata_job, user_created_job,
     },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
@@ -108,70 +110,16 @@ async fn main() -> Result<()> {
         _ => "Unrecognized",
     };
     tracing::info!("Using database backend: {selected_database:?}");
+    drop(selected_database);
 
     Migrator::up(&db, None).await.unwrap();
 
-    let import_media_storage = create_storage(&config.database.url).await;
-    let general_user_cleanup_storage = create_storage(&config.database.url).await;
-    let general_media_cleanup_storage = create_storage(&config.database.url).await;
-    let user_created_job_storage = create_storage(&config.database.url).await;
-    let after_media_seen_job_storage = create_storage(&config.database.url).await;
+    let pool = SqlitePool::connect(&config.database.url).await?;
 
-    let (tx_1, mut rx_1) = channel::<u8>(1);
-    let mut new_general_user_cleanup_storage = general_user_cleanup_storage.clone();
-    tokio::spawn(async move {
-        loop {
-            if (rx_1.recv().await).is_some() {
-                new_general_user_cleanup_storage
-                    .push(GeneralUserCleanup {})
-                    .await
-                    .unwrap();
-            }
-        }
-    });
-
-    let (tx_2, mut rx_2) = channel::<u8>(1);
-    let mut new_general_media_cleanup_storage = general_media_cleanup_storage.clone();
-    tokio::spawn(async move {
-        loop {
-            if (rx_2.recv().await).is_some() {
-                new_general_media_cleanup_storage
-                    .push(GeneralMediaCleanJobs {})
-                    .await
-                    .unwrap();
-            }
-        }
-    });
-
-    let sched = JobScheduler::new().await.unwrap();
-
-    sched
-        .add(
-            // every 5 minutes
-            Job::new_async("0 */5 * * * *", move |_uuid, _l| {
-                let tx_1 = tx_1.clone();
-                Box::pin(async move {
-                    tx_1.send(1).await.unwrap();
-                })
-            })
-            .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    sched
-        .add(
-            // every day
-            Job::new_async("0 0 0 * * *", move |_uuid, _l| {
-                let tx_2 = tx_2.clone();
-                Box::pin(async move {
-                    tx_2.send(1).await.unwrap();
-                })
-            })
-            .unwrap(),
-        )
-        .await
-        .unwrap();
+    let import_media_storage = create_storage(pool.clone()).await;
+    let user_created_job_storage = create_storage(pool.clone()).await;
+    let after_media_seen_job_storage = create_storage(pool.clone()).await;
+    let update_metadata_job_storage = create_storage(pool.clone()).await;
 
     let app_services = create_app_services(
         db.clone(),
@@ -179,6 +127,7 @@ async fn main() -> Result<()> {
         &import_media_storage,
         &user_created_job_storage,
         &after_media_seen_job_storage,
+        &update_metadata_job_storage,
     )
     .await;
     let schema = get_schema(&app_services, db.clone(), &config).await;
@@ -218,16 +167,38 @@ async fn main() -> Result<()> {
     let users_service_1 = app_services.users_service.clone();
     let users_service_2 = app_services.users_service.clone();
     let users_service_3 = app_services.users_service.clone();
+    let db_1 = db.clone();
+    let db_2 = db.clone();
     let monitor = async {
         let mn = Monitor::new()
+            // cron jobs
             .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
+                    .stream(
+                        // every 5 minutes
+                        CronStream::new(Schedule::from_str("0 */5 * * * *").unwrap())
+                            .timer(SleepTimer)
+                            .to_stream(),
+                    )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.media_service.clone()))
                     .layer(ApalisExtension(users_service_1.clone()))
-                    .with_storage(general_user_cleanup_storage.clone())
                     .build_fn(general_user_cleanup)
             })
+            .register_with_count(2, move |c| {
+                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
+                    .stream(
+                        // every day
+                        CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
+                            .timer(SleepTimer)
+                            .to_stream(),
+                    )
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(importer_service_2.clone()))
+                    .layer(ApalisExtension(media_service_1.clone()))
+                    .build_fn(general_media_cleanup_jobs)
+            })
+            // application jobs
             .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
@@ -235,14 +206,6 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(config.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
-            })
-            .register_with_count(2, move |c| {
-                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(importer_service_2.clone()))
-                    .layer(ApalisExtension(media_service_1.clone()))
-                    .with_storage(general_media_cleanup_storage.clone())
-                    .build_fn(general_media_cleanup_jobs)
             })
             .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
@@ -256,9 +219,16 @@ async fn main() -> Result<()> {
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.misc_service.clone()))
                     .layer(ApalisExtension(users_service_3.clone()))
-                    .layer(ApalisExtension(db.clone()))
+                    .layer(ApalisExtension(db_1.clone()))
                     .with_storage(after_media_seen_job_storage.clone())
                     .build_fn(after_media_seen_job)
+            })
+            .register_with_count(2, move |c| {
+                WorkerBuilder::new(format!("update_metadata_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(db_2.clone()))
+                    .with_storage(update_metadata_job_storage.clone())
+                    .build_fn(update_metadata_job)
             })
             .run()
             .await;
@@ -271,9 +241,8 @@ async fn main() -> Result<()> {
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };
-    let scheduler = async { Ok(sched.start().await) };
 
-    let _res = try_join!(monitor, http, scheduler).expect("Could not start services");
+    let _res = try_join!(monitor, http).expect("Could not start services");
 
     Ok(())
 }
@@ -329,10 +298,8 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
-async fn create_storage<T: ApalisJob>(_url: &str) -> SqliteStorage<T> {
-    // it is necessary to initialize it in memory and not connect to the same database
-    // let st = SqliteStorage::connect(_url).await.unwrap();
-    let st = SqliteStorage::connect(":memory:").await.unwrap();
+async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
+    let st = SqliteStorage::new(pool);
     st.setup().await.unwrap();
     st
 }

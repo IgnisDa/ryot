@@ -86,7 +86,9 @@ impl MoviesService {
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
+            Ok(IdObject {
+                id: m.metadata_id.into(),
+            })
         } else {
             let details = self.tmdb_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -117,7 +119,9 @@ impl MoviesService {
                     source: ActiveValue::Set(MovieSource::Tmdb),
                 };
                 movie.insert(&self.db).await.unwrap();
-                Ok(IdObject { id: metadata_id })
+                Ok(IdObject {
+                    id: metadata_id.into(),
+                })
             }
             _ => unreachable!(),
         }

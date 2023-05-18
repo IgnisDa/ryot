@@ -4,7 +4,6 @@ use chrono::Datelike;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
-use surf::Client;
 
 use crate::media::resolver::MediaDetails;
 use crate::media::MediaSpecifics;
@@ -61,24 +60,17 @@ struct IgdbSearchResponse {
 
 #[derive(Debug, Clone)]
 pub struct IgdbService {
-    client: Client,
     image_url: String,
     image_size: String,
+    config: VideoGameConfig,
 }
 
 impl IgdbService {
     pub async fn new(config: &VideoGameConfig) -> Self {
-        let client = igdb::get_client_config(
-            &config.twitch.access_token_url,
-            &config.twitch.client_id,
-            &config.twitch.client_secret,
-            &config.igdb.url,
-        )
-        .await;
         Self {
-            client,
             image_url: config.igdb.image_url.to_owned(),
             image_size: config.igdb.image_size.to_string(),
+            config: config.clone(),
         }
     }
 }
@@ -86,6 +78,7 @@ impl IgdbService {
 #[async_trait]
 impl MediaProvider for IgdbService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+        let client = igdb::get_client(&self.config).await;
         let req_body = format!(
             r#"
 {field}
@@ -94,8 +87,7 @@ where id = {id};
             field = FIELDS,
             id = identifier
         );
-        let mut rsp = self
-            .client
+        let mut rsp = client
             .post("games")
             .body_string(req_body)
             .await
@@ -108,6 +100,7 @@ where id = {id};
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let client = igdb::get_client(&self.config).await;
         let req_body = format!(
             r#"
 {field}
@@ -118,8 +111,7 @@ offset: {offset};
             field = FIELDS,
             offset = (page.unwrap_or_default() - 1) * LIMIT
         );
-        let mut rsp = self
-            .client
+        let mut rsp = client
             .post("games")
             .body_string(req_body)
             .await
