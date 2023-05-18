@@ -331,6 +331,7 @@ pub mod igdb {
         let path = env::temp_dir().join("igdb-credentials.json");
         let access_token = if let Some(mut creds) = read_file_to_json::<Credentials>(&path) {
             if creds.expires_at < get_now_timestamp() {
+                tracing::info!("Access token has expired, refreshing...");
                 creds = get_access_token(config).await;
                 fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
             }
