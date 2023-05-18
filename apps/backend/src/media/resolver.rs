@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::AudioBookSpecifics,
-    background::{AfterMediaSeenJob, UpdateMetadataJob},
+    background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
         collection, creator, genre,
@@ -267,6 +267,7 @@ pub struct MediaService {
     db: DatabaseConnection,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
+    recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
 }
 
 impl MediaService {
@@ -274,11 +275,13 @@ impl MediaService {
         db: &DatabaseConnection,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
+        recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
+            recalculate_user_summary: recalculate_user_summary.clone(),
         }
     }
 }
@@ -605,7 +608,7 @@ impl MediaService {
                 }
             };
             if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
-                self.deploy_recalculate_summary_job(seen_item.id).await.ok();
+                self.deploy_recalculate_summary_job(user_id).await.ok();
             }
             Ok(IdObject {
                 id: seen_item.id.into(),
@@ -613,11 +616,11 @@ impl MediaService {
         }
     }
 
-    pub async fn deploy_recalculate_summary_job(&self, seen_id: i32) -> Result<()> {
-        let mut storage = self.after_media_seen.clone();
+    pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
+        let mut storage = self.recalculate_user_summary.clone();
         storage
-            .push(AfterMediaSeenJob {
-                seen_id: seen_id.into(),
+            .push(RecalculateUserSummaryJob {
+                user_id: user_id.into(),
             })
             .await?;
         Ok(())

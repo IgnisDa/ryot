@@ -147,9 +147,26 @@ pub async fn after_media_seen_job(
         )
         .await
         .unwrap();
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RecalculateUserSummaryJob {
+    pub user_id: Identifier,
+}
+
+impl Job for RecalculateUserSummaryJob {
+    const NAME: &'static str = "apalis::RecalculateUserSummaryJob";
+}
+
+pub async fn recalculate_user_summary_job(
+    information: RecalculateUserSummaryJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Calculating summary for user {:?}", information.user_id);
     ctx.data::<UsersService>()
         .unwrap()
-        .regenerate_user_summary(&seen.user_id)
+        .regenerate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())

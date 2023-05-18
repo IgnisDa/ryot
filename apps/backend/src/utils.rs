@@ -20,7 +20,9 @@ use tokio::task::JoinSet;
 
 use crate::audio_books::audible::AudibleService;
 use crate::audio_books::resolver::AudioBooksService;
-use crate::background::{AfterMediaSeenJob, ImportMedia, UpdateMetadataJob, UserCreatedJob};
+use crate::background::{
+    AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
+};
 use crate::books::openlibrary::OpenlibraryService;
 use crate::books::resolver::BooksService;
 use crate::config::AppConfig;
@@ -67,8 +69,14 @@ pub async fn create_app_services(
     user_created_job: &SqliteStorage<UserCreatedJob>,
     after_media_seen_job: &SqliteStorage<AfterMediaSeenJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
+    recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
-    let media_service = MediaService::new(&db, after_media_seen_job, update_metadata_job);
+    let media_service = MediaService::new(
+        &db,
+        after_media_seen_job,
+        update_metadata_job,
+        recalculate_user_summary_job,
+    );
     let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
     let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
