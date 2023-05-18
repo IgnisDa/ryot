@@ -4,8 +4,7 @@ use sea_orm_migration::prelude::*;
 use super::Metadata;
 use crate::{
     entities::{
-        metadata,
-        prelude::{Metadata as MetadataModel, MetadataImage as MetadataImageModel},
+        metadata, metadata_image::Entity as MetadataImageModel, prelude::Metadata as MetadataModel,
     },
     media::{MetadataImage as MetadataImageEmbedded, MetadataImages as MetadataImagesEmbedded},
 };

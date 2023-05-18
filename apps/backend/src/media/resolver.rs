@@ -14,10 +14,10 @@ use crate::{
     entities::{
         collection, creator, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_image, metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_to_collection, metadata_to_creator, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataImage,
-            MetadataToCollection, Movie, Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataToCollection, Movie,
+            Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
@@ -31,7 +31,7 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, LIMIT};
+use super::{MediaSpecifics, MetadataImage, MetadataImages, LIMIT};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -285,13 +285,7 @@ impl MediaService {
 
 impl MediaService {
     async fn metadata_images(&self, meta: &MetadataModel) -> Result<(Vec<String>, Vec<String>)> {
-        let images = meta
-            .find_related(MetadataImage)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
+        let images = meta.images.0.clone();
         let poster_images = images
             .iter()
             .filter(|f| f.lot == MetadataImageLot::Poster)
@@ -703,51 +697,29 @@ impl MediaService {
         creator_names: Vec<String>,
         genres: Vec<String>,
     ) -> Result<i32> {
+        let mut images = vec![];
+        for image in poster_images.into_iter() {
+            images.push(MetadataImage {
+                url: image,
+                lot: MetadataImageLot::Poster,
+            });
+        }
+        for image in backdrop_images.into_iter() {
+            images.push(MetadataImage {
+                url: image,
+                lot: MetadataImageLot::Backdrop,
+            });
+        }
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
             title: ActiveValue::Set(title),
             description: ActiveValue::Set(description),
             publish_year: ActiveValue::Set(publish_year),
             publish_date: ActiveValue::Set(publish_date),
+            images: ActiveValue::Set(MetadataImages(images)),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for image in poster_images.iter() {
-            if let Some(c) = MetadataImage::find()
-                .filter(metadata_image::Column::Url.eq(image))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                drop(c);
-            } else {
-                let c = metadata_image::ActiveModel {
-                    url: ActiveValue::Set(image.to_owned()),
-                    lot: ActiveValue::Set(MetadataImageLot::Poster),
-                    metadata_id: ActiveValue::Set(metadata.id),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.ok();
-            };
-        }
-        for image in backdrop_images.iter() {
-            if let Some(c) = MetadataImage::find()
-                .filter(metadata_image::Column::Url.eq(image))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                drop(c);
-            } else {
-                let c = metadata_image::ActiveModel {
-                    url: ActiveValue::Set(image.to_owned()),
-                    lot: ActiveValue::Set(MetadataImageLot::Backdrop),
-                    metadata_id: ActiveValue::Set(metadata.id),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.ok();
-            };
-        }
         for name in creator_names.iter() {
             let creator = if let Some(c) = Creator::find()
                 .filter(creator::Column::Name.eq(name))
