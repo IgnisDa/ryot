@@ -103,6 +103,7 @@ builder.
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                     |
 | `podcasts.listennotes.api_token`      | The access token for the Listennotes API.                                                                                                                                         |
 | `podcasts.listennotes.user_agent`     | The user agent used for the Listennotes API.                                                                                                                                      |
+| `scheduler.database_url`              | URL to the SQLite database where job related data needs to be stored.                                                                                                             |
 | `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                      |
 | `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                               |
 | `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                    |
