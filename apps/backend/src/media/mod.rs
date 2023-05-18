@@ -1,8 +1,10 @@
+use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    audio_books::AudioBookSpecifics, books::BookSpecifics, movies::MovieSpecifics,
-    podcasts::PodcastSpecifics, shows::ShowSpecifics, video_games::VideoGameSpecifics,
+    audio_books::AudioBookSpecifics, books::BookSpecifics, migrator::MetadataImageLot,
+    movies::MovieSpecifics, podcasts::PodcastSpecifics, shows::ShowSpecifics,
+    video_games::VideoGameSpecifics,
 };
 
 pub mod resolver;
@@ -18,3 +20,12 @@ pub enum MediaSpecifics {
     VideoGame(VideoGameSpecifics),
     Podcast(PodcastSpecifics),
 }
+
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataImage {
+    pub url: String,
+    pub lot: MetadataImageLot,
+}
+
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataImages(pub Vec<MetadataImage>);
