@@ -170,7 +170,6 @@ async fn main() -> Result<()> {
     let users_service_2 = app_services.users_service.clone();
     let users_service_3 = app_services.users_service.clone();
     let db_1 = db.clone();
-    let db_2 = db.clone();
     let monitor = async {
         let mn = Monitor::new()
             // cron jobs
@@ -220,7 +219,6 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("after_media_seen_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.misc_service.clone()))
-                    .layer(ApalisExtension(db_1.clone()))
                     .with_storage(after_media_seen_job_storage.clone())
                     .build_fn(after_media_seen_job)
             })
@@ -234,7 +232,7 @@ async fn main() -> Result<()> {
             .register_with_count(2, move |c| {
                 WorkerBuilder::new(format!("update_metadata_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(db_2.clone()))
+                    .layer(ApalisExtension(db_1.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })

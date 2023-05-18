@@ -1,10 +1,10 @@
 use apalis::prelude::{Job, JobContext, JobError};
-use sea_orm::{prelude::DateTimeUtc, DatabaseConnection, EntityTrait};
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     config::AppConfig,
-    entities::prelude::Seen,
+    entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
@@ -120,7 +120,7 @@ pub async fn user_created_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AfterMediaSeenJob {
-    pub seen_id: Identifier,
+    pub seen: seen::Model,
 }
 
 impl Job for AfterMediaSeenJob {
@@ -131,18 +131,15 @@ pub async fn after_media_seen_job(
     information: AfterMediaSeenJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Running jobs after media item seen");
-    let db = ctx.data::<DatabaseConnection>().unwrap();
-    let seen = Seen::find_by_id(information.seen_id)
-        .one(db)
-        .await
-        .unwrap()
-        .unwrap();
+    tracing::info!(
+        "Running jobs after media item seen {:?}",
+        information.seen.id
+    );
     let misc_service = ctx.data::<MiscService>().unwrap();
     misc_service
         .remove_media_item_from_collection(
-            &seen.user_id,
-            &seen.metadata_id,
+            &information.seen.user_id,
+            &information.seen.metadata_id,
             &DefaultCollection::Watchlist.to_string(),
         )
         .await
@@ -174,7 +171,7 @@ pub async fn recalculate_user_summary_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateMetadataJob {
-    pub metadata_id: Identifier,
+    pub metadata: metadata::Model,
 }
 
 impl Job for UpdateMetadataJob {
@@ -185,6 +182,6 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Updating metadata for {:?}", information.metadata_id);
+    tracing::info!("Updating metadata for {:?}", information.metadata.id);
     Ok(())
 }

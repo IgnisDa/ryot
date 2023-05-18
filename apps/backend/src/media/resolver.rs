@@ -610,9 +610,13 @@ impl MediaService {
             if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
                 self.deploy_recalculate_summary_job(user_id).await.ok();
             }
-            Ok(IdObject {
-                id: seen_item.id.into(),
-            })
+            let id = seen_item.id.into();
+            let mut storage = self.after_media_seen.clone();
+            storage
+                .push(AfterMediaSeenJob { seen: seen_item })
+                .await
+                .ok();
+            Ok(IdObject { id })
         }
     }
 
@@ -784,12 +788,13 @@ impl MediaService {
     }
 
     pub async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
         let mut storage = self.update_metadata.clone();
-        let job_id = storage
-            .push(UpdateMetadataJob {
-                metadata_id: metadata_id.into(),
-            })
-            .await?;
+        let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
     }
 }
