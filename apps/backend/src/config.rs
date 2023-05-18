@@ -218,8 +218,18 @@ impl IsFeatureEnabled for VideoGameConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
-pub struct SchedulerConfig {}
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct SchedulerConfig {
+    pub database_url: String,
+}
+
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        Self {
+            database_url: format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME),
+        }
+    }
+}
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct WebConfig {

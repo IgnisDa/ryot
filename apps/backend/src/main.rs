@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
 
     Migrator::up(&db, None).await.unwrap();
 
-    let pool = SqlitePool::connect(&config.database.url).await?;
+    let pool = SqlitePool::connect(&config.scheduler.database_url).await?;
 
     let import_media_storage = create_storage(pool.clone()).await;
     let user_created_job_storage = create_storage(pool.clone()).await;
