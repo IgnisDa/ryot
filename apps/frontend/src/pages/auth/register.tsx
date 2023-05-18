@@ -7,6 +7,7 @@ import {
 	type UserInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { z } from "zod";
@@ -53,52 +54,57 @@ export default function Page() {
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	return (
-		<Box
-			component="form"
-			my={"auto"}
-			mx={"auto"}
-			onSubmit={form.onSubmit((values) => {
-				registerUser.mutate({
-					username: values.username,
-					password: values.password,
-				});
-			})}
-			sx={(t) => ({
-				width: "80%",
-				[t.fn.largerThan("sm")]: { width: "60%" },
-				[t.fn.largerThan("md")]: { width: "50%" },
-				[t.fn.largerThan("lg")]: { width: "40%" },
-				[t.fn.largerThan("xl")]: { width: "30%" },
-			})}
-		>
-			<TextInput
-				label="Username"
-				{...form.getInputProps("username")}
-				required
-				autoFocus
-			/>
-			<PasswordInput
-				label="Password"
-				mt="md"
-				{...form.getInputProps("password")}
-				required
-			/>
-			<PasswordInput
-				label="Confirm password"
-				mt="md"
-				{...form.getInputProps("confirm")}
-				required
-			/>
-			<Button mt="md" type="submit" loading={registerUser.isLoading} w="100%">
-				Register
-			</Button>
-			<Box mt="lg" style={{ textAlign: "right" }}>
-				Already a member? Login{" "}
-				<Link href="/auth/login" passHref legacyBehavior>
-					<Anchor>here</Anchor>
-				</Link>
-				.
+		<>
+			<Head>
+				<title>Register | Ryot</title>
+			</Head>
+			<Box
+				component="form"
+				my={"auto"}
+				mx={"auto"}
+				onSubmit={form.onSubmit((values) => {
+					registerUser.mutate({
+						username: values.username,
+						password: values.password,
+					});
+				})}
+				sx={(t) => ({
+					width: "80%",
+					[t.fn.largerThan("sm")]: { width: "60%" },
+					[t.fn.largerThan("md")]: { width: "50%" },
+					[t.fn.largerThan("lg")]: { width: "40%" },
+					[t.fn.largerThan("xl")]: { width: "30%" },
+				})}
+			>
+				<TextInput
+					label="Username"
+					{...form.getInputProps("username")}
+					required
+					autoFocus
+				/>
+				<PasswordInput
+					label="Password"
+					mt="md"
+					{...form.getInputProps("password")}
+					required
+				/>
+				<PasswordInput
+					label="Confirm password"
+					mt="md"
+					{...form.getInputProps("confirm")}
+					required
+				/>
+				<Button mt="md" type="submit" loading={registerUser.isLoading} w="100%">
+					Register
+				</Button>
+				<Box mt="lg" style={{ textAlign: "right" }}>
+					Already a member? Login{" "}
+					<Link href="/auth/login" passHref legacyBehavior>
+						<Anchor>here</Anchor>
+					</Link>
+					.
+				</Box>
 			</Box>
-		</Box>
+		</>
 	);
 }

@@ -24,6 +24,7 @@ import {
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
+import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 
@@ -92,123 +93,128 @@ const Page: NextPageWithLayout = () => {
 	};
 
 	return details.data && title ? (
-		<Container size={"xs"}>
-			<Stack pos={"relative"} p="sm">
-				<LoadingOverlay
-					visible={progressUpdate.isLoading}
-					overlayBlur={2}
-					radius={"md"}
-				/>
-				<Title>{title}</Title>
-				{details.data.showSpecifics ? (
-					<>
-						{onlySeason ? (
-							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
-								This will mark all episodes for Season{" "}
-								{selectedShowSeasonNumber} as seen
-							</Alert>
-						) : null}
-						<Title order={6}>
-							Select season{onlySeason ? "" : " and episode"}
-						</Title>
-						<Select
-							label="Season"
-							data={details.data.showSpecifics.seasons.map((s) => ({
-								label: `${s.seasonNumber}. ${s.name.toString()}`,
-								value: s.seasonNumber.toString(),
-							}))}
-							onChange={setSelectedShowSeasonNumber}
-							defaultValue={selectedShowSeasonNumber}
-						/>
-						{!onlySeason && selectedShowSeasonNumber ? (
-							<Select
-								label="Episode"
-								data={
-									details.data.showSpecifics.seasons
-										.find(
-											(s) =>
-												s.seasonNumber === Number(selectedShowSeasonNumber),
-										)
-										?.episodes.map((e) => ({
-											label: `${e.episodeNumber}. ${e.name.toString()}`,
-											value: e.episodeNumber.toString(),
-										})) || []
-								}
-								onChange={setSelectedShowEpisodeNumber}
-								defaultValue={selectedShowEpisodeNumber}
-							/>
-						) : null}
-					</>
-				) : null}
-				{details.data.podcastSpecifics ? (
-					<>
-						<Title order={6}>Select episode</Title>
-						<Autocomplete
-							label="Episode"
-							data={details.data.podcastSpecifics.episodes.map((se) => ({
-								label: se.title.toString(),
-								value: se.number.toString(),
-							}))}
-							onChange={setSelectedPodcastEpisodeNumber}
-							defaultValue={selectedPodcastEpisodeNumber || undefined}
-						/>
-					</>
-				) : null}
-				<Title order={6}>
-					When did you {getVerb(Verb.Read, details.data.type)} it?
-				</Title>
-				<Button
-					variant="outline"
-					onClick={async () => {
-						await progressUpdate.mutateAsync({
-							input: { action: ProgressUpdateAction.Now, ...mutationInput },
-							onlySeason,
-						});
-					}}
-				>
-					Now
-				</Button>
-				<Button
-					variant="outline"
-					onClick={async () => {
-						await progressUpdate.mutateAsync({
-							input: {
-								action: ProgressUpdateAction.InThePast,
-								...mutationInput,
-							},
-							onlySeason,
-						});
-					}}
-				>
-					I do not remember
-				</Button>
-				<Group grow>
-					<DatePickerInput
-						dropdownType="modal"
-						maxDate={new Date()}
-						onChange={setSelectedDate}
-						clearable
+		<>
+			<Head>
+				<title>Update Progress | Ryot</title>
+			</Head>
+			<Container size={"xs"}>
+				<Stack pos={"relative"} p="sm">
+					<LoadingOverlay
+						visible={progressUpdate.isLoading}
+						overlayBlur={2}
+						radius={"md"}
 					/>
+					<Title>{title}</Title>
+					{details.data.showSpecifics ? (
+						<>
+							{onlySeason ? (
+								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+									This will mark all episodes for Season{" "}
+									{selectedShowSeasonNumber} as seen
+								</Alert>
+							) : null}
+							<Title order={6}>
+								Select season{onlySeason ? "" : " and episode"}
+							</Title>
+							<Select
+								label="Season"
+								data={details.data.showSpecifics.seasons.map((s) => ({
+									label: `${s.seasonNumber}. ${s.name.toString()}`,
+									value: s.seasonNumber.toString(),
+								}))}
+								onChange={setSelectedShowSeasonNumber}
+								defaultValue={selectedShowSeasonNumber}
+							/>
+							{!onlySeason && selectedShowSeasonNumber ? (
+								<Select
+									label="Episode"
+									data={
+										details.data.showSpecifics.seasons
+											.find(
+												(s) =>
+													s.seasonNumber === Number(selectedShowSeasonNumber),
+											)
+											?.episodes.map((e) => ({
+												label: `${e.episodeNumber}. ${e.name.toString()}`,
+												value: e.episodeNumber.toString(),
+											})) || []
+									}
+									onChange={setSelectedShowEpisodeNumber}
+									defaultValue={selectedShowEpisodeNumber}
+								/>
+							) : null}
+						</>
+					) : null}
+					{details.data.podcastSpecifics ? (
+						<>
+							<Title order={6}>Select episode</Title>
+							<Autocomplete
+								label="Episode"
+								data={details.data.podcastSpecifics.episodes.map((se) => ({
+									label: se.title.toString(),
+									value: se.number.toString(),
+								}))}
+								onChange={setSelectedPodcastEpisodeNumber}
+								defaultValue={selectedPodcastEpisodeNumber || undefined}
+							/>
+						</>
+					) : null}
+					<Title order={6}>
+						When did you {getVerb(Verb.Read, details.data.type)} it?
+					</Title>
 					<Button
 						variant="outline"
-						disabled={selectedDate === null}
 						onClick={async () => {
-							if (selectedDate)
-								await progressUpdate.mutateAsync({
-									input: {
-										action: ProgressUpdateAction.InThePast,
-										date: DateTime.fromJSDate(selectedDate).toISODate(),
-										...mutationInput,
-									},
-									onlySeason,
-								});
+							await progressUpdate.mutateAsync({
+								input: { action: ProgressUpdateAction.Now, ...mutationInput },
+								onlySeason,
+							});
 						}}
 					>
-						Custom date
+						Now
 					</Button>
-				</Group>
-			</Stack>
-		</Container>
+					<Button
+						variant="outline"
+						onClick={async () => {
+							await progressUpdate.mutateAsync({
+								input: {
+									action: ProgressUpdateAction.InThePast,
+									...mutationInput,
+								},
+								onlySeason,
+							});
+						}}
+					>
+						I do not remember
+					</Button>
+					<Group grow>
+						<DatePickerInput
+							dropdownType="modal"
+							maxDate={new Date()}
+							onChange={setSelectedDate}
+							clearable
+						/>
+						<Button
+							variant="outline"
+							disabled={selectedDate === null}
+							onClick={async () => {
+								if (selectedDate)
+									await progressUpdate.mutateAsync({
+										input: {
+											action: ProgressUpdateAction.InThePast,
+											date: DateTime.fromJSDate(selectedDate).toISODate(),
+											...mutationInput,
+										},
+										onlySeason,
+									});
+							}}
+						>
+							Custom date
+						</Button>
+					</Group>
+				</Stack>
+			</Container>
+		</>
 	) : (
 		<LoadingPage />
 	);

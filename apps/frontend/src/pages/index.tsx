@@ -16,9 +16,9 @@ import {
 } from "@mantine/core";
 import {
 	CollectionsDocument,
-	UserSummaryDocument,
-	type RemoveMediaFromCollectionMutationVariables,
 	RemoveMediaFromCollectionDocument,
+	type RemoveMediaFromCollectionMutationVariables,
+	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
@@ -26,6 +26,7 @@ import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
+import Head from "next/head";
 import type { ReactElement } from "react";
 
 const service = new HumanizeDurationLanguage();
@@ -78,94 +79,104 @@ const Page: NextPageWithLayout = () => {
 	);
 
 	return collections.data && userSummary.data ? (
-		<Container>
-			<Stack>
-				{inProgressCollection ? (
-					<>
-						<Title>In Progress</Title>
-						<Grid>
-							{inProgressCollection.mediaDetails.map((lm) => (
-								<MediaItemWithoutUpdateModal
-									key={lm.identifier}
-									item={lm}
-									lot={lm.lot}
-									imageOnClick={async () => parseInt(lm.identifier)}
+		<>
+			<Head>
+				<title>Dashboard | Ryot</title>
+			</Head>
+			<Container>
+				<Stack>
+					{inProgressCollection ? (
+						<>
+							<Title>In Progress</Title>
+							<Grid>
+								{inProgressCollection.mediaDetails.map((lm) => (
+									<MediaItemWithoutUpdateModal
+										key={lm.identifier}
+										item={lm}
+										lot={lm.lot}
+										imageOnClick={async () => parseInt(lm.identifier)}
+									/>
+								))}
+							</Grid>
+							<Divider />
+						</>
+					) : null}
+					<Title>Summary</Title>
+					<SimpleGrid
+						cols={2}
+						spacing="lg"
+						breakpoints={[
+							{ minWidth: "sm", cols: 3 },
+							{ minWidth: "lg", cols: 4 },
+						]}
+					>
+						<Box>
+							<StatTitle text="Books" />
+							<Text>
+								You read <StatNumber text={userSummary.data.books.read} />{" "}
+								book(s) totalling{" "}
+								<StatNumber text={userSummary.data.books.pages} /> page(s).
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Movies" />
+							<Text>
+								You watched{" "}
+								<StatNumber text={userSummary.data.movies.watched} /> movie(s)
+								totalling{" "}
+								<StatNumber text={userSummary.data.movies.runtime} isDuration />
+								.
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Shows" />
+							<Text>
+								You watched{" "}
+								<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
+								show(s) and{" "}
+								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
+								episode(s) totalling{" "}
+								<StatNumber text={userSummary.data.shows.runtime} isDuration />.
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Video Games" />
+							<Text>
+								You played{" "}
+								<StatNumber text={userSummary.data.videoGames.played} />{" "}
+								game(s).
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Audio Books" />
+							<Text>
+								You listened to{" "}
+								<StatNumber text={userSummary.data.audioBooks.played} />{" "}
+								audiobook(s) totalling{" "}
+								<StatNumber
+									text={userSummary.data.audioBooks.runtime}
+									isDuration
 								/>
-							))}
-						</Grid>
-						<Divider />
-					</>
-				) : null}
-				<Title>Summary</Title>
-				<SimpleGrid
-					cols={2}
-					spacing="lg"
-					breakpoints={[
-						{ minWidth: "sm", cols: 3 },
-						{ minWidth: "lg", cols: 4 },
-					]}
-				>
-					<Box>
-						<StatTitle text="Books" />
-						<Text>
-							You read <StatNumber text={userSummary.data.books.read} /> book(s)
-							totalling <StatNumber text={userSummary.data.books.pages} />{" "}
-							page(s).
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Movies" />
-						<Text>
-							You watched <StatNumber text={userSummary.data.movies.watched} />{" "}
-							movie(s) totalling{" "}
-							<StatNumber text={userSummary.data.movies.runtime} isDuration />.
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Shows" />
-						<Text>
-							You watched{" "}
-							<StatNumber text={userSummary.data.shows.watchedShows} /> show(s)
-							and <StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
-							episode(s) totalling{" "}
-							<StatNumber text={userSummary.data.shows.runtime} isDuration />.
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Video Games" />
-						<Text>
-							You played{" "}
-							<StatNumber text={userSummary.data.videoGames.played} /> game(s).
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Audio Books" />
-						<Text>
-							You listened to{" "}
-							<StatNumber text={userSummary.data.audioBooks.played} />{" "}
-							audiobook(s) totalling{" "}
-							<StatNumber
-								text={userSummary.data.audioBooks.runtime}
-								isDuration
-							/>
-							.
-						</Text>
-					</Box>
-					<Box>
-						<StatTitle text="Podcasts" />
-						<Text>
-							You listened to{" "}
-							<StatNumber text={userSummary.data.podcasts.watched} /> podcast(s)
-							totalling{" "}
-							<StatNumber text={userSummary.data.podcasts.runtime} isDuration />
-							.
-						</Text>
-					</Box>
-				</SimpleGrid>
-				<Divider />
-				<Title>Your Collections</Title>
-				{collections.data &&
-					collections.data.map((collection) => (
+								.
+							</Text>
+						</Box>
+						<Box>
+							<StatTitle text="Podcasts" />
+							<Text>
+								You listened to{" "}
+								<StatNumber text={userSummary.data.podcasts.watched} />{" "}
+								podcast(s) totalling{" "}
+								<StatNumber
+									text={userSummary.data.podcasts.runtime}
+									isDuration
+								/>
+								.
+							</Text>
+						</Box>
+					</SimpleGrid>
+					<Divider />
+					<Title>Your Collections</Title>
+					{collections.data?.map((collection) => (
 						<Stack key={collection.collectionDetails.id}>
 							<Title order={3} truncate>
 								{collection.collectionDetails.name}
@@ -200,8 +211,9 @@ const Page: NextPageWithLayout = () => {
 							)}
 						</Stack>
 					))}
-			</Stack>
-		</Container>
+				</Stack>
+			</Container>
+		</>
 	) : (
 		<LoadingPage />
 	);

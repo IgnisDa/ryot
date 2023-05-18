@@ -70,6 +70,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
@@ -460,491 +461,505 @@ const Page: NextPageWithLayout = () => {
 		.map((c) => c.collectionDetails.name);
 
 	return details.data && history.data ? (
-		<Container>
-			<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
-				<Stack
-					sx={(t) => ({
-						width: "100%",
-						flex: "none",
-						[t.fn.largerThan("md")]: { width: "35%" },
-					})}
-				>
-					<Box pos={"relative"}>
-						{details.data.posterImages.length > 0 ? (
-							<Carousel
-								withIndicators={details.data.posterImages.length > 1}
-								withControls={details.data.posterImages.length > 1}
-								w={300}
-							>
-								{[
-									...details.data.posterImages,
-									...details.data.backdropImages,
-								].map((i) => (
-									<Carousel.Slide key={i}>
-										<Image src={i} radius={"lg"} />
-									</Carousel.Slide>
-								))}
-							</Carousel>
-						) : (
-							<Box w={300}>
-								<Image withPlaceholder height={400} radius={"lg"} />
-							</Box>
-						)}
-						<Badge
-							id="data-source"
-							pos={"absolute"}
-							size="lg"
-							top={10}
-							left={10}
-							color="dark"
-							variant="filled"
-						>
-							{details.data.audioBookSpecifics?.source ||
-								details.data.bookSpecifics?.source ||
-								details.data.movieSpecifics?.source ||
-								details.data.podcastSpecifics?.source ||
-								details.data.showSpecifics?.source ||
-								details.data.videoGameSpecifics?.source ||
-								"UNKNOWN"}
-						</Badge>
-					</Box>
-					<Box>
-						{details.data.type !== MetadataLot.Show &&
-						details.data.creators.length > 0 ? (
-							<StatDisplay
-								name="Author(s)"
-								value={details.data.creators.join(", ")}
-							/>
-						) : null}
-						{details.data.genres.length > 0 ? (
-							<StatDisplay
-								name="Genre(s)"
-								value={details.data.genres.join(", ")}
-							/>
-						) : null}
-						{details.data.publishDate ? (
-							<StatDisplay
-								name="Published on"
-								value={details.data.publishDate.toString()}
-							/>
-						) : details.data.publishYear ? (
-							<StatDisplay
-								name="Published in"
-								value={details.data.publishYear.toString()}
-							/>
-						) : null}
-						{details.data.bookSpecifics?.pages ? (
-							<StatDisplay
-								name="Number of pages"
-								value={details.data.bookSpecifics.pages?.toString() || ""}
-							/>
-						) : null}
-						{details.data.movieSpecifics?.runtime ? (
-							<StatDisplay
-								name="Runtime"
-								value={
-									`${details.data.movieSpecifics.runtime?.toString()} minutes` ||
-									""
-								}
-							/>
-						) : null}
-						{details.data.podcastSpecifics?.totalEpisodes ? (
-							<StatDisplay
-								name="Total episodes"
-								value={details.data.podcastSpecifics.totalEpisodes?.toString()}
-							/>
-						) : null}
-					</Box>
-				</Stack>
-				<Stack style={{ flexGrow: 1 }}>
-					<Group>
-						<Title underline>{details.data.title}</Title>
-						<Badge variant="gradient" gradient={badgeGradient}>
-							{changeCase(details.data.type)}
-						</Badge>
-					</Group>
-					{mediaCollections && mediaCollections.length > 0 ? (
-						<Group>
-							{mediaCollections.map((c, idx) => (
-								<Badge
-									key={c}
-									color={
-										MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]
-									}
-									onClick={() => {
-										const yes = confirm(
-											`Do you want to remove it from collection: "${c}"?`,
-										);
-										if (yes) {
-											notifications.show({
-												color: "red",
-												title: "Unimplemented",
-												message: "This feature has not been implemented yet",
-											});
-										}
-									}}
-								>
-									<Text truncate>{c}</Text>
-								</Badge>
-							))}
-						</Group>
-					) : null}
-					{inProgressSeenItem ? (
-						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
-							You are currently {getVerb(Verb.Read, details.data.type)}ing this{" "}
-							({inProgressSeenItem.progress}%)
-						</Alert>
-					) : null}
-					<Tabs
-						defaultValue={history.data.length > 0 ? "actions" : "overview"}
-						variant="outline"
+		<>
+			<Head>
+				<title>{details.data.title} | Ryot</title>
+			</Head>
+			<Container>
+				<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
+					<Stack
+						sx={(t) => ({
+							width: "100%",
+							flex: "none",
+							[t.fn.largerThan("md")]: { width: "35%" },
+						})}
 					>
-						<Tabs.List mb={"xs"}>
-							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
-								Overview
-							</Tabs.Tab>
-							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
-								Actions
-							</Tabs.Tab>
-							<Tabs.Tab
-								value="history"
-								icon={<IconRotateClockwise size="1rem" />}
-							>
-								History
-							</Tabs.Tab>
-							{details.data.showSpecifics ? (
-								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
-									Seasons
-								</Tabs.Tab>
-							) : null}
-							{details.data.podcastSpecifics ? (
-								<Tabs.Tab
-									value="episodes"
-									icon={<IconPlayerPlay size="1rem" />}
+						<Box pos={"relative"}>
+							{details.data.posterImages.length > 0 ? (
+								<Carousel
+									withIndicators={details.data.posterImages.length > 1}
+									withControls={details.data.posterImages.length > 1}
+									w={300}
 								>
-									Episodes
-								</Tabs.Tab>
+									{[
+										...details.data.posterImages,
+										...details.data.backdropImages,
+									].map((i) => (
+										<Carousel.Slide key={i}>
+											<Image src={i} radius={"lg"} />
+										</Carousel.Slide>
+									))}
+								</Carousel>
+							) : (
+								<Box w={300}>
+									<Image withPlaceholder height={400} radius={"lg"} />
+								</Box>
+							)}
+							<Badge
+								id="data-source"
+								pos={"absolute"}
+								size="lg"
+								top={10}
+								left={10}
+								color="dark"
+								variant="filled"
+							>
+								{details.data.audioBookSpecifics?.source ||
+									details.data.bookSpecifics?.source ||
+									details.data.movieSpecifics?.source ||
+									details.data.podcastSpecifics?.source ||
+									details.data.showSpecifics?.source ||
+									details.data.videoGameSpecifics?.source ||
+									"UNKNOWN"}
+							</Badge>
+						</Box>
+						<Box>
+							{details.data.type !== MetadataLot.Show &&
+							details.data.creators.length > 0 ? (
+								<StatDisplay
+									name="Author(s)"
+									value={details.data.creators.join(", ")}
+								/>
 							) : null}
-							<Tabs.Tab
-								value="reviews"
-								icon={<IconMessageCircle2 size="1rem" />}
-							>
-								Reviews
-							</Tabs.Tab>
-						</Tabs.List>
-						<Tabs.Panel value="overview">
-							<Box>
-								{details.data.description ? (
-									<ScrollArea.Autosize mah={300}>
-										<Text
-											dangerouslySetInnerHTML={{
-												__html: details.data.description,
-											}}
-										/>
-									</ScrollArea.Autosize>
-								) : (
-									<Text fs="italic">No overview available</Text>
-								)}
-							</Box>
-						</Tabs.Panel>
-						<Tabs.Panel value="actions">
-							<SimpleGrid
-								cols={1}
-								spacing="lg"
-								breakpoints={[{ minWidth: "md", cols: 2 }]}
-							>
-								{inProgressSeenItem ? (
-									<>
-										<Button variant="outline" onClick={progressModalOpen}>
-											Set progress
-										</Button>
-										<ProgressModal
-											progress={inProgressSeenItem.progress}
-											refetch={history.refetch}
-											metadataId={metadataId}
-											onClose={progressModalClose}
-											opened={progressModalOpened}
-										/>
+							{details.data.genres.length > 0 ? (
+								<StatDisplay
+									name="Genre(s)"
+									value={details.data.genres.join(", ")}
+								/>
+							) : null}
+							{details.data.publishDate ? (
+								<StatDisplay
+									name="Published on"
+									value={details.data.publishDate.toString()}
+								/>
+							) : details.data.publishYear ? (
+								<StatDisplay
+									name="Published in"
+									value={details.data.publishYear.toString()}
+								/>
+							) : null}
+							{details.data.bookSpecifics?.pages ? (
+								<StatDisplay
+									name="Number of pages"
+									value={details.data.bookSpecifics.pages?.toString() || ""}
+								/>
+							) : null}
+							{details.data.movieSpecifics?.runtime ? (
+								<StatDisplay
+									name="Runtime"
+									value={
+										`${details.data.movieSpecifics.runtime?.toString()} minutes` ||
+										""
+									}
+								/>
+							) : null}
+							{details.data.podcastSpecifics?.totalEpisodes ? (
+								<StatDisplay
+									name="Total episodes"
+									value={details.data.podcastSpecifics.totalEpisodes?.toString()}
+								/>
+							) : null}
+						</Box>
+					</Stack>
+					<Stack style={{ flexGrow: 1 }}>
+						<Group>
+							<Title underline>{details.data.title}</Title>
+							<Badge variant="gradient" gradient={badgeGradient}>
+								{changeCase(details.data.type)}
+							</Badge>
+						</Group>
+						{mediaCollections && mediaCollections.length > 0 ? (
+							<Group>
+								{mediaCollections.map((c, idx) => (
+									<Badge
+										key={c}
+										color={
+											MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]
+										}
+										onClick={() => {
+											const yes = confirm(
+												`Do you want to remove it from collection: "${c}"?`,
+											);
+											if (yes) {
+												notifications.show({
+													color: "red",
+													title: "Unimplemented",
+													message: "This feature has not been implemented yet",
+												});
+											}
+										}}
+									>
+										<Text truncate>{c}</Text>
+									</Badge>
+								))}
+							</Group>
+						) : null}
+						{inProgressSeenItem ? (
+							<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
+								You are currently {getVerb(Verb.Read, details.data.type)}ing
+								this ({inProgressSeenItem.progress}%)
+							</Alert>
+						) : null}
+						<Tabs
+							defaultValue={history.data.length > 0 ? "actions" : "overview"}
+							variant="outline"
+						>
+							<Tabs.List mb={"xs"}>
+								<Tabs.Tab
+									value="overview"
+									icon={<IconInfoCircle size="1rem" />}
+								>
+									Overview
+								</Tabs.Tab>
+								<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
+									Actions
+								</Tabs.Tab>
+								<Tabs.Tab
+									value="history"
+									icon={<IconRotateClockwise size="1rem" />}
+								>
+									History
+								</Tabs.Tab>
+								{details.data.showSpecifics ? (
+									<Tabs.Tab
+										value="seasons"
+										icon={<IconPlayerPlay size="1rem" />}
+									>
+										Seasons
+									</Tabs.Tab>
+								) : null}
+								{details.data.podcastSpecifics ? (
+									<Tabs.Tab
+										value="episodes"
+										icon={<IconPlayerPlay size="1rem" />}
+									>
+										Episodes
+									</Tabs.Tab>
+								) : null}
+								<Tabs.Tab
+									value="reviews"
+									icon={<IconMessageCircle2 size="1rem" />}
+								>
+									Reviews
+								</Tabs.Tab>
+							</Tabs.List>
+							<Tabs.Panel value="overview">
+								<Box>
+									{details.data.description ? (
+										<ScrollArea.Autosize mah={300}>
+											<Text
+												dangerouslySetInnerHTML={{
+													__html: details.data.description,
+												}}
+											/>
+										</ScrollArea.Autosize>
+									) : (
+										<Text fs="italic">No overview available</Text>
+									)}
+								</Box>
+							</Tabs.Panel>
+							<Tabs.Panel value="actions">
+								<SimpleGrid
+									cols={1}
+									spacing="lg"
+									breakpoints={[{ minWidth: "md", cols: 2 }]}
+								>
+									{inProgressSeenItem ? (
+										<>
+											<Button variant="outline" onClick={progressModalOpen}>
+												Set progress
+											</Button>
+											<ProgressModal
+												progress={inProgressSeenItem.progress}
+												refetch={history.refetch}
+												metadataId={metadataId}
+												onClose={progressModalClose}
+												opened={progressModalOpened}
+											/>
+											<Button
+												variant="outline"
+												onClick={async () => {
+													await progressUpdate.mutateAsync({
+														input: {
+															action: ProgressUpdateAction.Update,
+															progress: 100,
+															metadataId: metadataId,
+														},
+													});
+												}}
+											>
+												I finished {getVerb(Verb.Read, details.data.type)}ing it
+											</Button>
+										</>
+									) : details.data.type === MetadataLot.Show ||
+									  details.data.type === MetadataLot.Podcast ? null : (
 										<Button
 											variant="outline"
 											onClick={async () => {
 												await progressUpdate.mutateAsync({
 													input: {
-														action: ProgressUpdateAction.Update,
-														progress: 100,
+														action: ProgressUpdateAction.JustStarted,
 														metadataId: metadataId,
 													},
 												});
 											}}
 										>
-											I finished {getVerb(Verb.Read, details.data.type)}ing it
+											I'm {getVerb(Verb.Read, details.data.type)}ing it
 										</Button>
-									</>
-								) : details.data.type === MetadataLot.Show ||
-								  details.data.type === MetadataLot.Podcast ? null : (
+									)}
 									<Button
 										variant="outline"
-										onClick={async () => {
-											await progressUpdate.mutateAsync({
-												input: {
-													action: ProgressUpdateAction.JustStarted,
-													metadataId: metadataId,
-												},
-											});
+										onClick={() => {
+											router.push(`/media/update-progress?item=${metadataId}`);
 										}}
 									>
-										I'm {getVerb(Verb.Read, details.data.type)}ing it
+										Add to {getVerb(Verb.Read, details.data.type)} history
 									</Button>
-								)}
-								<Button
-									variant="outline"
-									onClick={() => {
-										router.push(`/media/update-progress?item=${metadataId}`);
-									}}
-								>
-									Add to {getVerb(Verb.Read, details.data.type)} history
-								</Button>
-								<Link
-									href={`/media/post-review?item=${metadataId}`}
-									passHref
-									legacyBehavior
-								>
-									<Anchor>
-										<Button variant="outline" w="100%">
-											Post a review
+									<Link
+										href={`/media/post-review?item=${metadataId}`}
+										passHref
+										legacyBehavior
+									>
+										<Anchor>
+											<Button variant="outline" w="100%">
+												Post a review
+											</Button>
+										</Anchor>
+									</Link>
+									<>
+										<Button variant="outline" onClick={collectionModalOpen}>
+											Add to collection
 										</Button>
-									</Anchor>
-								</Link>
-								<>
-									<Button variant="outline" onClick={collectionModalOpen}>
-										Add to collection
+										{collections.data ? (
+											<SelectCollectionModal
+												onClose={collectionModalClose}
+												opened={collectionModalOpened}
+												metadataId={metadataId}
+												collections={collections.data}
+												refetchCollections={collections.refetch}
+											/>
+										) : null}
+									</>
+									<Button
+										variant="outline"
+										onClick={() => {
+											deployUpdateMetadataJob.mutate({ metadataId });
+										}}
+									>
+										Update metadata
 									</Button>
-									{collections.data ? (
-										<SelectCollectionModal
-											onClose={collectionModalClose}
-											opened={collectionModalOpened}
-											metadataId={metadataId}
-											collections={collections.data}
-											refetchCollections={collections.refetch}
-										/>
-									) : null}
-								</>
-								<Button
-									variant="outline"
-									onClick={() => {
-										deployUpdateMetadataJob.mutate({ metadataId });
-									}}
-								>
-									Update metadata
-								</Button>
-							</SimpleGrid>
-						</Tabs.Panel>
-						<Tabs.Panel value="history">
-							{history.data.length > 0 ? (
-								<ScrollArea.Autosize mah={300}>
-									<Stack>
-										<Text>{history.data.length} elements in history</Text>
-										{history.data.map((h) => (
-											<Flex key={h.id} direction={"column"} ml="md">
-												<Flex gap="xl">
-													{h.progress < 100 ? (
-														<Text fw="bold">Progress {h.progress}%</Text>
-													) : (
-														<Text fw="bold">Completed</Text>
-													)}
-													{h.showInformation ? (
-														<Text color="dimmed">
-															S{h.showInformation.season}-E
-															{h.showInformation.episode}
-														</Text>
-													) : null}
-													{h.podcastInformation ? (
-														<Text color="dimmed">
-															EP-{h.podcastInformation.episode}
-														</Text>
-													) : null}
-												</Flex>
-												<Flex ml="sm" direction={"column"} gap={4}>
+								</SimpleGrid>
+							</Tabs.Panel>
+							<Tabs.Panel value="history">
+								{history.data.length > 0 ? (
+									<ScrollArea.Autosize mah={300}>
+										<Stack>
+											<Text>{history.data.length} elements in history</Text>
+											{history.data.map((h) => (
+												<Flex key={h.id} direction={"column"} ml="md">
 													<Flex gap="xl">
-														<Flex gap={"xs"}>
-															<Text size="sm">Started:</Text>
-															<Text size="sm" fw="bold">
-																{h.startedOn
-																	? DateTime.fromISO(
-																			h.startedOn,
-																	  ).toLocaleString()
-																	: "N/A"}
+														{h.progress < 100 ? (
+															<Text fw="bold">Progress {h.progress}%</Text>
+														) : (
+															<Text fw="bold">Completed</Text>
+														)}
+														{h.showInformation ? (
+															<Text color="dimmed">
+																S{h.showInformation.season}-E
+																{h.showInformation.episode}
 															</Text>
-														</Flex>
-														<Flex gap={"xs"}>
-															<Text size="sm">Ended:</Text>
-															<Text size="sm" fw="bold">
-																{h.finishedOn
-																	? DateTime.fromISO(
-																			h.finishedOn,
-																	  ).toLocaleString()
-																	: "N/A"}
+														) : null}
+														{h.podcastInformation ? (
+															<Text color="dimmed">
+																EP-{h.podcastInformation.episode}
 															</Text>
-														</Flex>
+														) : null}
 													</Flex>
-													<Flex gap={"md"}>
-														<Flex gap={"xs"}>
-															<Text size="sm">Updated:</Text>
-															<Text size="sm" fw="bold">
-																{DateTime.fromJSDate(
-																	h.lastUpdatedOn,
-																).toLocaleString()}
-															</Text>
+													<Flex ml="sm" direction={"column"} gap={4}>
+														<Flex gap="xl">
+															<Flex gap={"xs"}>
+																<Text size="sm">Started:</Text>
+																<Text size="sm" fw="bold">
+																	{h.startedOn
+																		? DateTime.fromISO(
+																				h.startedOn,
+																		  ).toLocaleString()
+																		: "N/A"}
+																</Text>
+															</Flex>
+															<Flex gap={"xs"}>
+																<Text size="sm">Ended:</Text>
+																<Text size="sm" fw="bold">
+																	{h.finishedOn
+																		? DateTime.fromISO(
+																				h.finishedOn,
+																		  ).toLocaleString()
+																		: "N/A"}
+																</Text>
+															</Flex>
 														</Flex>
-														<Button
-															variant="outline"
-															color="red"
-															leftIcon={<IconX size="1.2rem" />}
-															compact
-															onClick={() => {
-																deleteSeenItem.mutate({ seenId: h.id });
-															}}
-														>
-															Delete
-														</Button>
+														<Flex gap={"md"}>
+															<Flex gap={"xs"}>
+																<Text size="sm">Updated:</Text>
+																<Text size="sm" fw="bold">
+																	{DateTime.fromJSDate(
+																		h.lastUpdatedOn,
+																	).toLocaleString()}
+																</Text>
+															</Flex>
+															<Button
+																variant="outline"
+																color="red"
+																leftIcon={<IconX size="1.2rem" />}
+																compact
+																onClick={() => {
+																	deleteSeenItem.mutate({ seenId: h.id });
+																}}
+															>
+																Delete
+															</Button>
+														</Flex>
 													</Flex>
 												</Flex>
-											</Flex>
-										))}
-									</Stack>
-								</ScrollArea.Autosize>
-							) : (
-								<Text fs="italic">You have no history for this item</Text>
-							)}
-						</Tabs.Panel>
-						{details.data.showSpecifics ? (
-							<Tabs.Panel value="seasons">
-								<ScrollArea.Autosize mah={300}>
-									<Accordion chevronPosition="right" variant="contained">
-										{details.data.showSpecifics.seasons.map((s) => (
-											<Accordion.Item
-												value={s.seasonNumber.toString()}
-												key={s.seasonNumber}
-											>
-												<Accordion.Control>
-													<AccordionLabel
-														{...s}
-														name={`${s.seasonNumber}. ${s.name}`}
-														displayIndicator={s.episodes.every((e) =>
-															history.data.some(
-																(h) =>
-																	h.showInformation?.episode ===
-																		e.episodeNumber &&
-																	h.showInformation.season === s.seasonNumber,
-															),
-														)}
-													>
-														<Button
-															variant="outline"
-															onClick={() => {
-																router.push(
-																	`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
-																);
-															}}
-														>
-															Mark as seen
-														</Button>
-													</AccordionLabel>
-												</Accordion.Control>
-												<Accordion.Panel>
-													{s.episodes.map((e) => (
-														<Box mb={"xs"} ml={"md"} key={e.id}>
-															<AccordionLabel
-																{...e}
-																key={e.episodeNumber}
-																name={`${e.episodeNumber}. ${e.name}`}
-																displayIndicator={history.data.some(
+											))}
+										</Stack>
+									</ScrollArea.Autosize>
+								) : (
+									<Text fs="italic">You have no history for this item</Text>
+								)}
+							</Tabs.Panel>
+							{details.data.showSpecifics ? (
+								<Tabs.Panel value="seasons">
+									<ScrollArea.Autosize mah={300}>
+										<Accordion chevronPosition="right" variant="contained">
+											{details.data.showSpecifics.seasons.map((s) => (
+												<Accordion.Item
+													value={s.seasonNumber.toString()}
+													key={s.seasonNumber}
+												>
+													<Accordion.Control>
+														<AccordionLabel
+															{...s}
+															name={`${s.seasonNumber}. ${s.name}`}
+															displayIndicator={s.episodes.every((e) =>
+																history.data.some(
 																	(h) =>
 																		h.showInformation?.episode ===
 																			e.episodeNumber &&
 																		h.showInformation.season === s.seasonNumber,
-																)}
+																),
+															)}
+														>
+															<Button
+																variant="outline"
+																onClick={() => {
+																	router.push(
+																		`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
+																	);
+																}}
 															>
-																<Button
-																	variant="outline"
-																	onClick={() => {
-																		router.push(
-																			`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
-																		);
-																	}}
+																Mark as seen
+															</Button>
+														</AccordionLabel>
+													</Accordion.Control>
+													<Accordion.Panel>
+														{s.episodes.map((e) => (
+															<Box mb={"xs"} ml={"md"} key={e.id}>
+																<AccordionLabel
+																	{...e}
+																	key={e.episodeNumber}
+																	name={`${e.episodeNumber}. ${e.name}`}
+																	displayIndicator={history.data.some(
+																		(h) =>
+																			h.showInformation?.episode ===
+																				e.episodeNumber &&
+																			h.showInformation.season ===
+																				s.seasonNumber,
+																	)}
 																>
-																	Mark as seen
-																</Button>
-															</AccordionLabel>
-														</Box>
-													))}
-												</Accordion.Panel>
-											</Accordion.Item>
-										))}
-									</Accordion>
-								</ScrollArea.Autosize>
-							</Tabs.Panel>
-						) : null}
-						{details.data.podcastSpecifics ? (
-							<Tabs.Panel value="episodes">
-								<ScrollArea.Autosize mah={300}>
-									<Stack ml="md">
-										{details.data.podcastSpecifics.episodes.map((e) => (
-											<AccordionLabel
-												name={e.title}
-												posterImages={[e.thumbnail || ""]}
-												overview={e.overview}
-												key={e.number}
-												displayIndicator={history.data.some(
-													(h) => h.podcastInformation?.episode === e.number,
-												)}
-											>
-												<Button
-													variant="outline"
-													onClick={() => {
-														router.push(
-															`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
-														);
-													}}
+																	<Button
+																		variant="outline"
+																		onClick={() => {
+																			router.push(
+																				`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
+																			);
+																		}}
+																	>
+																		Mark as seen
+																	</Button>
+																</AccordionLabel>
+															</Box>
+														))}
+													</Accordion.Panel>
+												</Accordion.Item>
+											))}
+										</Accordion>
+									</ScrollArea.Autosize>
+								</Tabs.Panel>
+							) : null}
+							{details.data.podcastSpecifics ? (
+								<Tabs.Panel value="episodes">
+									<ScrollArea.Autosize mah={300}>
+										<Stack ml="md">
+											{details.data.podcastSpecifics.episodes.map((e) => (
+												<AccordionLabel
+													name={e.title}
+													posterImages={[e.thumbnail || ""]}
+													overview={e.overview}
+													key={e.number}
+													displayIndicator={history.data.some(
+														(h) => h.podcastInformation?.episode === e.number,
+													)}
 												>
-													Mark as seen
+													<Button
+														variant="outline"
+														onClick={() => {
+															router.push(
+																`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
+															);
+														}}
+													>
+														Mark as seen
+													</Button>
+												</AccordionLabel>
+											))}
+											{details.data.podcastSpecifics.totalEpisodes >
+											details.data.podcastSpecifics.episodes.length ? (
+												<Button
+													onClick={() =>
+														commitNext10Episodes.mutate({
+															podcastId: metadataId,
+														})
+													}
+													loading={
+														commitNext10Episodes.isLoading || details.isLoading
+													}
+												>
+													Load 10 more
 												</Button>
-											</AccordionLabel>
-										))}
-										{details.data.podcastSpecifics.totalEpisodes >
-										details.data.podcastSpecifics.episodes.length ? (
-											<Button
-												onClick={() =>
-													commitNext10Episodes.mutate({ podcastId: metadataId })
-												}
-												loading={
-													commitNext10Episodes.isLoading || details.isLoading
-												}
-											>
-												Load 10 more
-											</Button>
-										) : null}
-									</Stack>
-								</ScrollArea.Autosize>
+											) : null}
+										</Stack>
+									</ScrollArea.Autosize>
+								</Tabs.Panel>
+							) : null}
+							<Tabs.Panel value="reviews">
+								{reviews.data && reviews.data.length > 0 ? (
+									<ScrollArea.Autosize mah={300}>
+										<Stack>
+											{reviews.data.map((r) => (
+												<ReviewItem r={r} key={r.id} metadataId={metadataId} />
+											))}
+										</Stack>
+									</ScrollArea.Autosize>
+								) : (
+									<Text fs="italic">No reviews posted</Text>
+								)}
 							</Tabs.Panel>
-						) : null}
-						<Tabs.Panel value="reviews">
-							{reviews.data && reviews.data.length > 0 ? (
-								<ScrollArea.Autosize mah={300}>
-									<Stack>
-										{reviews.data.map((r) => (
-											<ReviewItem r={r} key={r.id} metadataId={metadataId} />
-										))}
-									</Stack>
-								</ScrollArea.Autosize>
-							) : (
-								<Text fs="italic">No reviews posted</Text>
-							)}
-						</Tabs.Panel>
-					</Tabs>
-				</Stack>
-			</Flex>
-		</Container>
+						</Tabs>
+					</Stack>
+				</Flex>
+			</Container>
+		</>
 	) : (
 		<LoadingPage />
 	);

@@ -3,6 +3,7 @@ import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { changeCase, getLot } from "@/lib/utilities";
@@ -41,6 +42,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
+import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect, useState } from "react";
 import invariant from "tiny-invariant";
@@ -157,133 +159,140 @@ const Page: NextPageWithLayout = () => {
 	}, [query]);
 
 	return lot ? (
-		<Container>
-			<Tabs variant="outline" value={activeTab} onTabChange={setActiveTab}>
-				<Tabs.List mb={"xs"}>
-					<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
-						<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
-					</Tabs.Tab>
-					<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
-						<Text size={"lg"}>Search</Text>
-					</Tabs.Tab>
-					<Box style={{ flexGrow: 1 }}>
-						<ActionIcon
-							size="lg"
-							variant="transparent"
-							ml="auto"
-							mt="xs"
-							loading={searchQuery.isFetching || listMedia.isFetching}
-							onClick={() => {
-								searchQuery.refetch();
-								listMedia.refetch();
-							}}
-						>
-							<IconRefresh size="1.625rem" />
-						</ActionIcon>
-					</Box>
-				</Tabs.List>
-
-				<Tabs.Panel value="mine">
-					<Stack>
-						<Group>
-							<Select
-								size="xs"
-								data={Object.values(MediaSortBy).map((o) => ({
-									value: o.toString(),
-									label: startCase(lowerCase(o)),
-								}))}
-								defaultValue={mineSortBy.toString()}
-								onChange={(v) => {
-									const orderBy = match(v)
-										.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
-										.with("TITLE", () => MediaSortBy.Title)
-										.otherwise(() => MediaSortBy.Title);
-									setMineSortBy(orderBy);
+		<>
+			<Head>
+				<title>List {changeCase(lot).toLowerCase()}s | Ryot</title>
+			</Head>
+			<Container>
+				<Tabs variant="outline" value={activeTab} onTabChange={setActiveTab}>
+					<Tabs.List mb={"xs"}>
+						<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
+							<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
+						</Tabs.Tab>
+						<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
+							<Text size={"lg"}>Search</Text>
+						</Tabs.Tab>
+						<Box style={{ flexGrow: 1 }}>
+							<ActionIcon
+								size="lg"
+								variant="transparent"
+								ml="auto"
+								mt="xs"
+								loading={searchQuery.isFetching || listMedia.isFetching}
+								onClick={() => {
+									searchQuery.refetch();
+									listMedia.refetch();
 								}}
-							/>
-							<ActionIcon onClick={() => toggleMineSortOrder()}>
-								{mineSortOrder === MediaSortOrder.Asc ? (
-									<IconSortAscending />
-								) : (
-									<IconSortDescending />
-								)}
+							>
+								<IconRefresh size="1.625rem" />
 							</ActionIcon>
-						</Group>
-						{listMedia.data && listMedia.data.total > 0 ? (
-							<>
+						</Box>
+					</Tabs.List>
+
+					<Tabs.Panel value="mine">
+						<Stack>
+							<Group>
+								<Select
+									size="xs"
+									data={Object.values(MediaSortBy).map((o) => ({
+										value: o.toString(),
+										label: startCase(lowerCase(o)),
+									}))}
+									defaultValue={mineSortBy.toString()}
+									onChange={(v) => {
+										const orderBy = match(v)
+											.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
+											.with("TITLE", () => MediaSortBy.Title)
+											.otherwise(() => MediaSortBy.Title);
+										setMineSortBy(orderBy);
+									}}
+								/>
+								<ActionIcon onClick={() => toggleMineSortOrder()}>
+									{mineSortOrder === MediaSortOrder.Asc ? (
+										<IconSortAscending />
+									) : (
+										<IconSortDescending />
+									)}
+								</ActionIcon>
+							</Group>
+							{listMedia.data && listMedia.data.total > 0 ? (
+								<>
+									<Grid>
+										{listMedia.data.items.map((lm) => (
+											<MediaItemWithoutUpdateModal
+												key={lm.identifier}
+												item={lm}
+												lot={lot}
+												imageOnClick={async () => parseInt(lm.identifier)}
+											/>
+										))}
+									</Grid>
+								</>
+							) : (
+								<Text>You do not have any saved yet</Text>
+							)}
+							{listMedia.data && (
+								<Center>
+									<Pagination
+										size="sm"
+										value={parseInt(activeMinePage)}
+										onChange={(v) => setMinePage(v.toString())}
+										total={Math.ceil(listMedia.data.total / LIMIT)}
+										boundaries={1}
+										siblings={0}
+									/>
+								</Center>
+							)}
+						</Stack>
+					</Tabs.Panel>
+
+					<Tabs.Panel value="search">
+						<Stack>
+							<TextInput
+								name="query"
+								placeholder={`Search for a ${lot.toLowerCase()}`}
+								icon={<IconSearch />}
+								defaultValue={query}
+								style={{ flexGrow: 1 }}
+								onChange={(e) => setQuery(e.currentTarget.value)}
+							/>
+							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<Grid>
-									{listMedia.data.items.map((lm) => (
-										<MediaItemWithoutUpdateModal
-											key={lm.identifier}
-											item={lm}
+									{searchQuery.data.items.map((b, idx) => (
+										<MediaItem
+											idx={idx}
+											key={b.identifier}
+											item={b}
+											query={query}
+											offset={offset}
 											lot={lot}
-											imageOnClick={async () => parseInt(lm.identifier)}
+											refetch={searchQuery.refetch}
 										/>
 									))}
 								</Grid>
-							</>
-						) : (
-							<Text>You do not have any saved yet</Text>
-						)}
-						{listMedia.data && (
-							<Center>
-								<Pagination
-									size="sm"
-									value={parseInt(activeMinePage)}
-									onChange={(v) => setMinePage(v.toString())}
-									total={Math.ceil(listMedia.data.total / LIMIT)}
-									boundaries={1}
-									siblings={0}
-								/>
-							</Center>
-						)}
-					</Stack>
-				</Tabs.Panel>
-
-				<Tabs.Panel value="search">
-					<Stack>
-						<TextInput
-							name="query"
-							placeholder={`Search for a ${lot.toLowerCase()}`}
-							icon={<IconSearch />}
-							defaultValue={query}
-							style={{ flexGrow: 1 }}
-							onChange={(e) => setQuery(e.currentTarget.value)}
-						/>
-						{searchQuery.data && searchQuery.data.total > 0 ? (
-							<Grid>
-								{searchQuery.data.items.map((b, idx) => (
-									<MediaItem
-										idx={idx}
-										key={b.identifier}
-										item={b}
-										query={query}
-										offset={offset}
-										lot={lot}
-										refetch={searchQuery.refetch}
+							) : (
+								<Text>No media found :(</Text>
+							)}
+							{searchQuery.data && (
+								<Center>
+									<Pagination
+										size="sm"
+										value={parseInt(activeSearchPage)}
+										onChange={(v) => setSearchPage(v.toString())}
+										total={Math.ceil(searchQuery.data.total / LIMIT)}
+										boundaries={1}
+										siblings={0}
 									/>
-								))}
-							</Grid>
-						) : (
-							<Text>No media found :(</Text>
-						)}
-						{searchQuery.data && (
-							<Center>
-								<Pagination
-									size="sm"
-									value={parseInt(activeSearchPage)}
-									onChange={(v) => setSearchPage(v.toString())}
-									total={Math.ceil(searchQuery.data.total / LIMIT)}
-									boundaries={1}
-									siblings={0}
-								/>
-							</Center>
-						)}
-					</Stack>
-				</Tabs.Panel>
-			</Tabs>
-		</Container>
-	) : null;
+								</Center>
+							)}
+						</Stack>
+					</Tabs.Panel>
+				</Tabs>
+			</Container>
+		</>
+	) : (
+		<LoadingPage />
+	);
 };
 
 Page.getLayout = (page: ReactElement) => {

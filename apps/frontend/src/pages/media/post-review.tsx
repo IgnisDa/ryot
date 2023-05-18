@@ -23,6 +23,7 @@ import {
 	ReviewVisibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
@@ -97,59 +98,73 @@ const Page: NextPageWithLayout = () => {
 	const title = mediaDetails.data?.title;
 
 	return mediaDetails.data && title ? (
-		<Container size={"xs"}>
-			<Box
-				component="form"
-				onSubmit={form.onSubmit((values) => {
-					postReview.mutate({
-						input: {
-							metadataId,
-							...values,
-							seasonNumber,
-							episodeNumber,
-							reviewId,
-						},
-					});
-				})}
-			>
-				<Stack>
-					<Title order={3}>
-						Reviewing "{title}
-						{seasonNumber ? ` (S${seasonNumber}` : null}
-						{episodeNumber ? `-E${episodeNumber})` : null}"
-					</Title>
-					<Box>
-						<Input.Label>Rating</Input.Label>
-						<Rating {...form.getInputProps("rating")} fractions={2} />
-					</Box>
-					<Textarea label="Review" {...form.getInputProps("text")} autoFocus />
-					<Box>
-						<Input.Label>Visibility</Input.Label>
-						<SegmentedControl
-							fullWidth
-							data={[
-								{
-									label: ReviewVisibility.Private,
-									value: ReviewVisibility.Private,
-								},
-								{
-									label: ReviewVisibility.Public,
-									value: ReviewVisibility.Public,
-								},
-							]}
-							{...form.getInputProps("visibility")}
+		<>
+			<Head>
+				<title>Post Review | Ryot</title>
+			</Head>
+			<Container size={"xs"}>
+				<Box
+					component="form"
+					onSubmit={form.onSubmit((values) => {
+						postReview.mutate({
+							input: {
+								metadataId,
+								...values,
+								seasonNumber,
+								episodeNumber,
+								reviewId,
+							},
+						});
+					})}
+				>
+					<Stack>
+						<Title order={3}>
+							Reviewing "{title}
+							{seasonNumber ? ` (S${seasonNumber}` : null}
+							{episodeNumber ? `-E${episodeNumber})` : null}"
+						</Title>
+						<Box>
+							<Input.Label>Rating</Input.Label>
+							<Rating {...form.getInputProps("rating")} fractions={2} />
+						</Box>
+						<Textarea
+							label="Review"
+							{...form.getInputProps("text")}
+							autoFocus
 						/>
-					</Box>
-					<Checkbox
-						label="This review is a spoiler"
-						{...form.getInputProps("spoiler")}
-					/>
-					<Button mt="md" type="submit" loading={postReview.isLoading} w="100%">
-						{reviewId ? "Update" : "Submit"}
-					</Button>
-				</Stack>
-			</Box>
-		</Container>
+						<Box>
+							<Input.Label>Visibility</Input.Label>
+							<SegmentedControl
+								fullWidth
+								data={[
+									{
+										label: ReviewVisibility.Private,
+										value: ReviewVisibility.Private,
+									},
+									{
+										label: ReviewVisibility.Public,
+										value: ReviewVisibility.Public,
+									},
+								]}
+								{...form.getInputProps("visibility")}
+							/>
+						</Box>
+						<Checkbox
+							label="This review is a spoiler"
+							{...form.getInputProps("spoiler")}
+						/>
+						<Button
+							mt="md"
+							type="submit"
+							loading={postReview.isLoading}
+							w="100%"
+						>
+							{reviewId ? "Update" : "Submit"}
+						</Button>
+					</Stack>
+				</Box>
+			</Container>
+		</>
 	) : (
 		<LoadingPage />
 	);

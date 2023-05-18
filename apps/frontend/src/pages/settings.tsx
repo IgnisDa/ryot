@@ -2,7 +2,6 @@ import type { NextPageWithLayout } from "./_app";
 import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-
 import {
 	Anchor,
 	Box,
@@ -28,6 +27,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+import Head from "next/head";
 import type { ReactElement } from "react";
 import { z } from "zod";
 
@@ -140,98 +140,106 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	return (
-		<Container size="xs">
-			<Stack>
-				<Tabs defaultValue="profile">
-					<Tabs.List mb={"sm"}>
-						<Tabs.Tab value="profile" icon={<IconUser size="1rem" />}>
-							Profile
-						</Tabs.Tab>
-						<Tabs.Tab value="import" icon={<IconDatabaseImport size="1rem" />}>
-							Imports
-						</Tabs.Tab>
-					</Tabs.List>
-					<Tabs.Panel value="profile">
-						<Box
-							component="form"
-							onSubmit={updateProfileForm.onSubmit((values) => {
-								updateUser.mutate({ input: values });
-							})}
-						>
+		<>
+			<Head>
+				<title>Settings | Ryot</title>
+			</Head>
+			<Container size="xs">
+				<Stack>
+					<Tabs defaultValue="profile">
+						<Tabs.List mb={"sm"}>
+							<Tabs.Tab value="profile" icon={<IconUser size="1rem" />}>
+								Profile
+							</Tabs.Tab>
+							<Tabs.Tab
+								value="import"
+								icon={<IconDatabaseImport size="1rem" />}
+							>
+								Imports
+							</Tabs.Tab>
+						</Tabs.List>
+						<Tabs.Panel value="profile">
+							<Box
+								component="form"
+								onSubmit={updateProfileForm.onSubmit((values) => {
+									updateUser.mutate({ input: values });
+								})}
+							>
+								<Stack>
+									<TextInput
+										label="Username"
+										{...updateProfileForm.getInputProps("username")}
+										autoFocus
+									/>
+									<TextInput
+										label="Email"
+										{...updateProfileForm.getInputProps("email")}
+										autoFocus
+									/>
+									<PasswordInput
+										label="Password"
+										{...updateProfileForm.getInputProps("password")}
+									/>
+									<Button type="submit" loading={updateUser.isLoading} w="100%">
+										Update
+									</Button>
+								</Stack>
+							</Box>
+						</Tabs.Panel>
+						<Tabs.Panel value="import">
 							<Stack>
-								<TextInput
-									label="Username"
-									{...updateProfileForm.getInputProps("username")}
-									autoFocus
-								/>
-								<TextInput
-									label="Email"
-									{...updateProfileForm.getInputProps("email")}
-									autoFocus
-								/>
-								<PasswordInput
-									label="Password"
-									{...updateProfileForm.getInputProps("password")}
-								/>
-								<Button type="submit" loading={updateUser.isLoading} w="100%">
-									Update
-								</Button>
-							</Stack>
-						</Box>
-					</Tabs.Panel>
-					<Tabs.Panel value="import">
-						<Stack>
-							<Flex justify={"end"}>
-								<Anchor
-									size="xs"
-									href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
-									target="_blank"
+								<Flex justify={"end"}>
+									<Anchor
+										size="xs"
+										href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
+										target="_blank"
+									>
+										Docs
+									</Anchor>
+								</Flex>
+								<ImportSource
+									onSubmit={mediaTrackerImportForm.onSubmit((values) => {
+										deployImport.mutate({
+											input: {
+												mediaTracker: values,
+												source: MediaImportSource.MediaTracker,
+											},
+										});
+									})}
+									title="Media Tracker"
 								>
-									Docs
-								</Anchor>
-							</Flex>
-							<ImportSource
-								onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-									deployImport.mutate({
-										input: {
-											mediaTracker: values,
-											source: MediaImportSource.MediaTracker,
-										},
-									});
-								})}
-								title="Media Tracker"
-							>
-								<TextInput
-									label="Instance Url"
-									{...mediaTrackerImportForm.getInputProps("apiUrl")}
-								/>
-								<PasswordInput
-									label="API Key"
-									{...mediaTrackerImportForm.getInputProps("apiKey")}
-								/>
-							</ImportSource>
-							<ImportSource
-								onSubmit={goodreadsImportForm.onSubmit(async (values) => {
-									deployImport.mutate({
-										input: {
-											source: MediaImportSource.Goodreads,
-											goodreads: values,
-										},
-									});
-								})}
-								title="Goodreads"
-							>
-								<NumberInput
-									label="User ID"
-									{...goodreadsImportForm.getInputProps("userId")}
-								/>
-								<></>
-							</ImportSource>
-						</Stack>
-					</Tabs.Panel>
-				</Tabs>
-			</Stack>
-		</Container>
+									<TextInput
+										label="Instance Url"
+										{...mediaTrackerImportForm.getInputProps("apiUrl")}
+									/>
+									<PasswordInput
+										label="API Key"
+										{...mediaTrackerImportForm.getInputProps("apiKey")}
+									/>
+								</ImportSource>
+								<ImportSource
+									onSubmit={goodreadsImportForm.onSubmit(async (values) => {
+										deployImport.mutate({
+											input: {
+												source: MediaImportSource.Goodreads,
+												goodreads: values,
+											},
+										});
+									})}
+									title="Goodreads"
+								>
+									<NumberInput
+										label="User ID"
+										{...goodreadsImportForm.getInputProps("userId")}
+									/>
+									<></>
+								</ImportSource>
+							</Stack>
+						</Tabs.Panel>
+					</Tabs>
+				</Stack>
+			</Container>
+		</>
 	);
 };
 

@@ -8,6 +8,7 @@ import {
 	type UserInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
@@ -54,43 +55,48 @@ export default function Page() {
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	return (
-		<Box
-			component="form"
-			my={"auto"}
-			mx={"auto"}
-			onSubmit={form.onSubmit((values) => {
-				loginUser.mutate(values);
-			})}
-			sx={(t) => ({
-				width: "80%",
-				[t.fn.largerThan("sm")]: { width: "60%" },
-				[t.fn.largerThan("md")]: { width: "50%" },
-				[t.fn.largerThan("lg")]: { width: "40%" },
-				[t.fn.largerThan("xl")]: { width: "30%" },
-			})}
-		>
-			<TextInput
-				label="Username"
-				{...form.getInputProps("username")}
-				required
-				autoFocus
-			/>
-			<PasswordInput
-				label="Password"
-				mt="md"
-				{...form.getInputProps("password")}
-				required
-			/>
-			<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
-				Login
-			</Button>
-			<Box mt="lg" style={{ textAlign: "right" }}>
-				Need an account? Register{" "}
-				<Link href="/auth/register" passHref legacyBehavior>
-					<Anchor>here</Anchor>
-				</Link>
-				.
+		<>
+			<Head>
+				<title>Login | Ryot</title>
+			</Head>
+			<Box
+				component="form"
+				my={"auto"}
+				mx={"auto"}
+				onSubmit={form.onSubmit((values) => {
+					loginUser.mutate(values);
+				})}
+				sx={(t) => ({
+					width: "80%",
+					[t.fn.largerThan("sm")]: { width: "60%" },
+					[t.fn.largerThan("md")]: { width: "50%" },
+					[t.fn.largerThan("lg")]: { width: "40%" },
+					[t.fn.largerThan("xl")]: { width: "30%" },
+				})}
+			>
+				<TextInput
+					label="Username"
+					{...form.getInputProps("username")}
+					required
+					autoFocus
+				/>
+				<PasswordInput
+					label="Password"
+					mt="md"
+					{...form.getInputProps("password")}
+					required
+				/>
+				<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
+					Login
+				</Button>
+				<Box mt="lg" style={{ textAlign: "right" }}>
+					Need an account? Register{" "}
+					<Link href="/auth/register" passHref legacyBehavior>
+						<Anchor>here</Anchor>
+					</Link>
+					.
+				</Box>
 			</Box>
-		</Box>
+		</>
 	);
 }
