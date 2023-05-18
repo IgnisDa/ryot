@@ -193,6 +193,7 @@ export enum MediaImportSource {
 export type MediaListInput = {
   lot: MetadataLot;
   page: Scalars['Int'];
+  query?: InputMaybe<Scalars['String']>;
   sort?: InputMaybe<MediaSortInput>;
 };
 

@@ -2,8 +2,8 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -151,6 +151,7 @@ pub struct MediaListInput {
     pub page: i32,
     pub lot: MetadataLot,
     pub sort: Option<MediaSortInput>,
+    pub query: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -454,7 +455,14 @@ impl MediaService {
         let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
         let condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids));
+            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
+            .apply_if(input.query, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(metadata::Column::Title.contains(&v))
+                        .add(metadata::Column::Description.contains(&v)),
+                )
+            });
         let (sort_by, sort_order) = match input.sort {
             None => (metadata::Column::Id, Order::Asc),
             Some(s) => (

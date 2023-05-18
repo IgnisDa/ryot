@@ -72,7 +72,14 @@ const Page: NextPageWithLayout = () => {
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
 	const listMedia = useQuery({
-		queryKey: ["listMedia", activeMinePage, lot, mineSortBy, mineSortOrder],
+		queryKey: [
+			"listMedia",
+			activeMinePage,
+			lot,
+			mineSortBy,
+			mineSortOrder,
+			debouncedQuery,
+		],
 		queryFn: async () => {
 			invariant(lot, "Lot is not defined");
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
@@ -80,6 +87,7 @@ const Page: NextPageWithLayout = () => {
 					lot,
 					page: parseInt(activeMinePage) || 1,
 					sort: { order: mineSortOrder, by: mineSortBy },
+					query: debouncedQuery || undefined,
 				},
 			});
 			return mediaList;
@@ -192,8 +200,15 @@ const Page: NextPageWithLayout = () => {
 					<Tabs.Panel value="mine">
 						<Stack>
 							<Group>
+								<TextInput
+									name="query"
+									placeholder={`Search for a ${lot.toLowerCase()}`}
+									icon={<IconSearch />}
+									defaultValue={query}
+									style={{ flexGrow: 1 }}
+									onChange={(e) => setQuery(e.currentTarget.value)}
+								/>
 								<Select
-									size="xs"
 									data={Object.values(MediaSortBy).map((o) => ({
 										value: o.toString(),
 										label: startCase(lowerCase(o)),
