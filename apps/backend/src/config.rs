@@ -226,7 +226,7 @@ pub struct SchedulerConfig {
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
-            database_url: format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME),
+            database_url: format!("sqlite::memory:"),
         }
     }
 }

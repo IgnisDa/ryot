@@ -8,6 +8,7 @@ use crate::{
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     media::resolver::MediaService,
+    migrator::MetadataLot,
     misc::{
         resolver::{AddMediaToCollection, MiscService},
         DefaultCollection,
@@ -124,12 +125,17 @@ pub async fn user_created_job(
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AfterMediaSeenJob {
     pub seen: seen::Model,
+    pub metadata_lot: MetadataLot,
 }
 
 impl Job for AfterMediaSeenJob {
     const NAME: &'static str = "apalis::AfterMediaSeenJob";
 }
 
+// Everything except shows and podcasts are automatically removed from "In Progress"
+// and "Watchlist". Podcasts and shows can not be removed from "In Progress" since
+// it is not easy to determine which episode is the last one. That needs to be done
+// manually.
 pub async fn after_media_seen_job(
     information: AfterMediaSeenJob,
     ctx: JobContext,
@@ -139,16 +145,9 @@ pub async fn after_media_seen_job(
         information.seen.id
     );
     let misc_service = ctx.data::<MiscService>().unwrap();
-    if information.seen.progress == 100 {
-        misc_service
-            .remove_media_item_from_collection(
-                &information.seen.user_id,
-                &information.seen.metadata_id,
-                &DefaultCollection::Watchlist.to_string(),
-            )
-            .await
-            .ok();
-    } else {
+    if matches!(information.metadata_lot, MetadataLot::Show,)
+        || matches!(information.metadata_lot, MetadataLot::Podcast)
+    {
         misc_service
             .add_media_to_collection(
                 &information.seen.user_id,
@@ -159,6 +158,36 @@ pub async fn after_media_seen_job(
             )
             .await
             .ok();
+    } else {
+        if information.seen.progress == 100 {
+            misc_service
+                .remove_media_item_from_collection(
+                    &information.seen.user_id,
+                    &information.seen.metadata_id,
+                    &DefaultCollection::Watchlist.to_string(),
+                )
+                .await
+                .ok();
+            misc_service
+                .remove_media_item_from_collection(
+                    &information.seen.user_id,
+                    &information.seen.metadata_id,
+                    &DefaultCollection::InProgress.to_string(),
+                )
+                .await
+                .ok();
+        } else {
+            misc_service
+                .add_media_to_collection(
+                    &information.seen.user_id,
+                    AddMediaToCollection {
+                        collection_name: DefaultCollection::InProgress.to_string(),
+                        media_id: information.seen.metadata_id.into(),
+                    },
+                )
+                .await
+                .ok();
+        }
     }
     Ok(())
 }

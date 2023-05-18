@@ -607,13 +607,17 @@ impl MediaService {
                     seen
                 }
             };
+            let id = seen_item.id.into();
             if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
                 self.deploy_recalculate_summary_job(user_id).await.ok();
             }
-            let id = seen_item.id.into();
+            let metadata = self.generic_metadata(input.metadata_id.into()).await?;
             let mut storage = self.after_media_seen.clone();
             storage
-                .push(AfterMediaSeenJob { seen: seen_item })
+                .push(AfterMediaSeenJob {
+                    seen: seen_item,
+                    metadata_lot: metadata.model.lot,
+                })
                 .await
                 .ok();
             Ok(IdObject { id })
@@ -640,6 +644,7 @@ impl MediaService {
                 ));
             }
             si.delete(&self.db).await.ok();
+            self.deploy_recalculate_summary_job(user_id).await.ok();
             Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
