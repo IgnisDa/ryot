@@ -35,6 +35,6 @@ FROM scratch
 # This is actually a hack to ensure that the `/data` directory exists in the image
 # since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
-ENV RUST_LOG="ryot=info"
+ENV RUST_LOG="ryot=info,sea_orm=info"
 COPY --from=app-builder /app/target/x86_64-unknown-linux-musl/release/ryot /app
 ENTRYPOINT ["/app"]
