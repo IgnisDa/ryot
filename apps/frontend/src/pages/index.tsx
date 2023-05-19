@@ -6,7 +6,6 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Box,
-	Button,
 	Container,
 	Divider,
 	SimpleGrid,
@@ -16,11 +15,9 @@ import {
 } from "@mantine/core";
 import {
 	CollectionsDocument,
-	RemoveMediaFromCollectionDocument,
-	type RemoveMediaFromCollectionMutationVariables,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
@@ -58,20 +55,6 @@ const Page: NextPageWithLayout = () => {
 	const collections = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument);
 		return collections;
-	});
-	const removeMediaFromCollection = useMutation({
-		mutationFn: async (
-			variables: RemoveMediaFromCollectionMutationVariables,
-		) => {
-			const { removeMediaFromCollection } = await gqlClient.request(
-				RemoveMediaFromCollectionDocument,
-				variables,
-			);
-			return removeMediaFromCollection;
-		},
-		onSuccess: () => {
-			collections.refetch();
-		},
 	});
 
 	const inProgressCollection = collections.data?.find(
@@ -174,43 +157,6 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Box>
 					</SimpleGrid>
-					<Divider />
-					<Title>Your Collections</Title>
-					{collections.data?.map((collection) => (
-						<Stack key={collection.collectionDetails.id}>
-							<Title order={3} truncate>
-								{collection.collectionDetails.name}
-							</Title>
-							{collection.mediaDetails.length > 0 ? (
-								<Grid>
-									{collection.mediaDetails.map((mediaItem) => (
-										<MediaItemWithoutUpdateModal
-											key={mediaItem.identifier}
-											item={mediaItem}
-											lot={mediaItem.lot}
-											imageOnClick={async () => parseInt(mediaItem.identifier)}
-										>
-											<Button
-												fullWidth
-												color="red"
-												variant="outline"
-												onClick={() => {
-													removeMediaFromCollection.mutate({
-														collectionName: collection.collectionDetails.name,
-														metadataId: Number(mediaItem.identifier),
-													});
-												}}
-											>
-												Remove
-											</Button>
-										</MediaItemWithoutUpdateModal>
-									))}
-								</Grid>
-							) : (
-								<Text>No items in this collection</Text>
-							)}
-						</Stack>
-					))}
 				</Stack>
 			</Container>
 		</>
