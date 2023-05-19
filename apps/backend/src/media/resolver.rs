@@ -5,6 +5,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
+use sea_query::{Expr, Func};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -459,8 +460,20 @@ impl MediaService {
             .apply_if(input.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(metadata::Column::Title.contains(&v))
-                        .add(metadata::Column::Description.contains(&v)),
+                        .add(
+                            Expr::expr(Func::lower(Expr::col((
+                                metadata::Entity,
+                                metadata::Column::Title,
+                            ))))
+                            .like(format!("%{}%", v)),
+                        )
+                        .add(
+                            Expr::expr(Func::lower(Expr::col((
+                                metadata::Entity,
+                                metadata::Column::Description,
+                            ))))
+                            .like(format!("%{}%", v)),
+                        ),
                 )
             });
         let (sort_by, sort_order) = match input.sort {
