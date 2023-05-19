@@ -24,6 +24,7 @@ use crate::{
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static AUTHOR: &str = "ignisda";
 pub static PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
+pub static REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Identifier(i32);
@@ -52,6 +53,7 @@ pub struct CoreFeatureEnabled {
 pub struct CoreDetails {
     version: String,
     author_name: String,
+    repository_link: String,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -89,6 +91,7 @@ impl CoreQuery {
         CoreDetails {
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
+            repository_link: REPOSITORY_LINK.to_owned(),
         }
     }
 }

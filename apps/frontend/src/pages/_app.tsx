@@ -40,14 +40,26 @@ const Footer = () => {
 					<Box>
 						You are running version{" "}
 						<Text color="red" weight={"bold"} style={{ display: "inline" }}>
-							{coreDetails.data?.version}
+							{coreDetails.data.version}
 						</Text>
 					</Box>
 					<Box>
 						Made with love by{" "}
 						<Anchor href="https://diptesh.me" target="_blank">
 							<Text weight={"bold"} style={{ display: "inline" }}>
-								{coreDetails.data?.authorName}
+								{coreDetails.data.authorName}
+							</Text>
+						</Anchor>
+					</Box>
+					<Box>
+						Source code hosted on{" "}
+						<Anchor href={coreDetails.data.repositoryLink} target="_blank">
+							<Text
+								color="orange"
+								weight={"bold"}
+								style={{ display: "inline" }}
+							>
+								Github
 							</Text>
 						</Anchor>
 					</Box>
