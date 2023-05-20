@@ -180,7 +180,7 @@ pub struct UsersQuery;
 
 #[Object]
 impl UsersQuery {
-    /// Get details about the currently logged in user
+    /// Get details about the currently logged in user.
     pub async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let token = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
@@ -189,7 +189,7 @@ impl UsersQuery {
             .await
     }
 
-    /// Get a summary of all the media items that have beem consumed by this user
+    /// Get a summary of all the media items that have been consumed by this user.
     pub async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -230,7 +230,7 @@ impl UsersMutation {
         Ok(api_key)
     }
 
-    /// Logout a user from the server, deleting their login token
+    /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
         create_cookie(gql_ctx, "", true, cookie_insecure)?;
@@ -241,7 +241,7 @@ impl UsersMutation {
             .await
     }
 
-    /// Generate a summary for the currently logged in user
+    /// Generate a summary for the currently logged in user.
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx

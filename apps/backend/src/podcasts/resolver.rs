@@ -41,7 +41,7 @@ pub struct PodcastsMutation;
 
 #[Object]
 impl PodcastsMutation {
-    /// Fetch details about a podcast and create a media item in the database
+    /// Fetch details about a podcast and create a media item in the database.
     async fn commit_podcast(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<PodcastsService>()
@@ -129,9 +129,9 @@ impl PodcastsService {
         match details.specifics {
             MediaSpecifics::Podcast(ed) => {
                 let mut meta: podcast::ActiveModel = meta.into();
-                let mut dets = meta.details.unwrap();
-                dets.episodes.extend(ed.episodes.into_iter());
-                meta.details = ActiveValue::Set(dets);
+                let mut details_small = meta.details.unwrap();
+                details_small.episodes.extend(ed.episodes.into_iter());
+                meta.details = ActiveValue::Set(details_small);
                 meta.save(&self.db).await.unwrap();
             }
             _ => unreachable!(),

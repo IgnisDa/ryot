@@ -1,5 +1,0 @@
-mutation RegerateUserSummary {
-  regenerateUserSummary {
-    id
-  }
-}

@@ -15,7 +15,7 @@ use crate::{
     },
     migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
-    utils::{get_data_parallely_from_sources, openlibrary},
+    utils::{get_data_parallelly_from_sources, openlibrary},
 };
 
 use super::BookSpecifics;
@@ -142,18 +142,21 @@ impl MediaProvider for OpenlibraryService {
         struct OpenlibraryAuthorPartial {
             name: String,
         }
-        let authors =
-            get_data_parallely_from_sources(&data.authors.unwrap_or_default(), &self.client, |a| {
+        let authors = get_data_parallelly_from_sources(
+            &data.authors.unwrap_or_default(),
+            &self.client,
+            |a| {
                 let key = match a {
                     OpenlibraryAuthorResponse::Flat(s) => s.key.to_owned(),
                     OpenlibraryAuthorResponse::Nested(s) => s.author.key.to_owned(),
                 };
                 format!("{}.json", key)
-            })
-            .await
-            .into_iter()
-            .map(|a: OpenlibraryAuthorPartial| a.name)
-            .collect();
+            },
+        )
+        .await
+        .into_iter()
+        .map(|a: OpenlibraryAuthorPartial| a.name)
+        .collect();
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,

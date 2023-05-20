@@ -41,7 +41,7 @@ pub struct MoviesMutation;
 
 #[Object]
 impl MoviesMutation {
-    /// Fetch details about a movie and create a media item in the database
+    /// Fetch details about a movie and create a media item in the database.
     async fn commit_movie(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<MoviesService>()

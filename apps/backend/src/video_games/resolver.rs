@@ -41,7 +41,7 @@ pub struct VideoGamesMutation;
 
 #[Object]
 impl VideoGamesMutation {
-    /// Fetch details about a game and create a media item in the database
+    /// Fetch details about a game and create a media item in the database.
     async fn commit_video_game(
         &self,
         gql_ctx: &Context<'_>,

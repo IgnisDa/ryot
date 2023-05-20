@@ -41,7 +41,7 @@ pub struct ShowsMutation;
 
 #[Object]
 impl ShowsMutation {
-    /// Fetch details about a show and create a media item in the database
+    /// Fetch details about a show and create a media item in the database.
     async fn commit_show(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<ShowsService>()

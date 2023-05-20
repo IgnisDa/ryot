@@ -41,7 +41,7 @@ pub struct AudioBooksMutation;
 
 #[Object]
 impl AudioBooksMutation {
-    /// Fetch details about a audio book and create a media item in the database
+    /// Fetch details about a audio book and create a media item in the database.
     async fn commit_audio_book(
         &self,
         gql_ctx: &Context<'_>,

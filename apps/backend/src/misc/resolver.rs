@@ -88,7 +88,7 @@ impl MiscQuery {
             .await
     }
 
-    /// Get all collections for the currently logged in user
+    /// Get all collections for the currently logged in user.
     async fn collections(&self, gql_ctx: &Context<'_>) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -103,7 +103,7 @@ pub struct MiscMutation;
 
 #[Object]
 impl MiscMutation {
-    /// Create or update a review
+    /// Create or update a review.
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -112,7 +112,7 @@ impl MiscMutation {
             .await
     }
 
-    /// Create a new collection for the logged in user
+    /// Create a new collection for the logged in user.
     async fn create_collection(
         &self,
         gql_ctx: &Context<'_>,

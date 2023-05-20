@@ -41,7 +41,7 @@ pub struct BooksMutation;
 
 #[Object]
 impl BooksMutation {
-    /// Fetch details about a book and create a media item in the database
+    /// Fetch details about a book and create a media item in the database.
     async fn commit_book(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<BooksService>()

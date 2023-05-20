@@ -493,14 +493,14 @@ impl MediaService {
         let mut items = vec![];
         for m in metas {
             let (poster_images, _) = self.metadata_images(&m).await?;
-            let m_smol = MediaSearchItem {
+            let m_small = MediaSearchItem {
                 identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
                 poster_images,
                 publish_year: m.publish_year,
             };
-            items.push(m_smol);
+            items.push(m_small);
         }
         Ok(MediaSearchResults {
             total: counts as i32,
