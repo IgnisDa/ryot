@@ -99,6 +99,7 @@ impl MoviesService {
         let metadata_id = self
             .media_service
             .commit_media(
+                details.identifier.clone(),
                 MetadataLot::Movie,
                 details.title,
                 details.description,

@@ -106,6 +106,7 @@ impl AudioBooksService {
         let metadata_id = self
             .media_service
             .commit_media(
+                details.identifier.clone(),
                 MetadataLot::AudioBook,
                 details.title,
                 details.description,

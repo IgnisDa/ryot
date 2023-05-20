@@ -14,6 +14,8 @@ pub struct Model {
     pub lot: MetadataLot,
     pub last_updated_on: DateTimeUtc,
     pub title: String,
+    #[sea_orm(indexed)]
+    pub identifier: String,
     pub description: Option<String>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,

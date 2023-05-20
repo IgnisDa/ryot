@@ -7,6 +7,8 @@ use super::Metadata;
 
 pub struct Migration;
 
+pub static INDEX: &str = "audio_book__audibleid__index";
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -62,7 +64,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("audio_book__audibleid__index")
+                    .name(INDEX)
                     .table(AudioBook::Table)
                     .col(AudioBook::Identifier)
                     .to_owned(),

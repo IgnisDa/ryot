@@ -98,6 +98,7 @@ impl BooksService {
         let metadata_id = self
             .media_service
             .commit_media(
+                details.identifier.clone(),
                 MetadataLot::Book,
                 details.title,
                 details.description,
