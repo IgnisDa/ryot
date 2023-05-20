@@ -78,6 +78,17 @@ impl ShowsService {
         Ok(movies)
     }
 
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Show::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.tmdb_service.details(&identifier).await?;
+        Ok(details)
+    }
+
     pub async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
         let meta = Show::find()
             .filter(show::Column::Identifier.eq(identifier))

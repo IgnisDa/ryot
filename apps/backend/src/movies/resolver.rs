@@ -79,6 +79,17 @@ impl MoviesService {
         Ok(movies)
     }
 
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Movie::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.tmdb_service.details(&identifier).await?;
+        Ok(details)
+    }
+
     pub async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
         let meta = Movie::find()
             .filter(movie::Column::Identifier.eq(identifier))

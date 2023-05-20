@@ -86,6 +86,17 @@ impl VideoGamesService {
         Ok(movies)
     }
 
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = VideoGame::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.igdb_service.details(&identifier).await?;
+        Ok(details)
+    }
+
     pub async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
         let meta = VideoGame::find()
             .filter(video_game::Column::Identifier.eq(identifier))

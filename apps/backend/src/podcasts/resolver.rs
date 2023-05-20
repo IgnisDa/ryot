@@ -139,6 +139,17 @@ impl PodcastsService {
         Ok(true)
     }
 
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Podcast::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.listennotes_service.details(&identifier).await?;
+        Ok(details)
+    }
+
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata_id = self
             .media_service

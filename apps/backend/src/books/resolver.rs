@@ -78,6 +78,18 @@ impl BooksService {
         Ok(books)
     }
 
+    // Given a metadata id, this fetches the latest details from it's provider
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Book::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.openlibrary_service.details(&identifier).await?;
+        Ok(details)
+    }
+
     pub async fn commit_book(&self, identifier: &str) -> Result<IdObject> {
         let meta = Book::find()
             .filter(book::Column::Identifier.eq(identifier))
