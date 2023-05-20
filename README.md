@@ -15,11 +15,10 @@ only self hosted tracker you will ever need!
 
 ## 📝 ELI5
 
-Imagine you have a special notebook where you can write down all the books
-you've read, movies and shows you've watched, audiobooks you've listened to, and
-video games you've played. Now, imagine that instead of a physical notebook, you
-have a special tool on your computer or phone that lets you keep track of all
-these things digitally.
+Imagine you have a special notebook where you can write down all the media you
+have consumed. Now, imagine that instead of a physical notebook, you have a
+special tool on your computer or phone that lets you keep track of all these
+media digitally.
 
 ## 🚀 Features
 
@@ -51,8 +50,7 @@ a number of guides to make thing easier.
 
 ## ⌨️ How to use?
 
-**NOTE**: There is no default user. The first user you register is automatically
-set as admin of the instance.
+**NOTE**: The first user you register is automatically set as admin of the instance.
 
 ### 🐳 Option 1: Use Docker
 
@@ -83,12 +81,12 @@ $ cargo run --bin ryot --release
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`). You can see a minimal example in
-[`config/ryot.example.json`](config/ryot.example.json). Ryot writes the
+[`config/ryot.example.json`](/config/ryot.example.json). Ryot writes the
 configuration loaded at runtime to `computed-config.ron` for debugging purposes.
 
 Only the `DATABASE_URL` variable is loaded from the environment.
 
-**Note**: You can see the defaults in the [config](apps/backend/src/config.rs)
+**Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder.
 
 | Key                                   | Description                                                                                                                                                                       |
@@ -122,7 +120,7 @@ Axum backend server.
 In development, both servers are started independently running on `:3000` and
 `:8000` respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs),
 and run `mprocs` in the project root. If you do not want to install `mprocs`,
-take a look at [`mproc.yaml`](./mprocs.yaml) to see what all commands are
+take a look at [`mproc.yaml`](/mprocs.yaml) to see what all commands are
 needed to get it working.
 
 ## 🙏 Acknowledgements
