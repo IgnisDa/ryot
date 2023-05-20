@@ -235,6 +235,7 @@ pub async fn update_metadata_job(
 ) -> Result<(), JobError> {
     let id = information.metadata.id;
     tracing::info!("Updating metadata for {:?}", Identifier::from(id));
+    let media = ctx.data::<MediaService>().unwrap();
     let audiobooks = ctx.data::<AudioBooksService>().unwrap();
     let books = ctx.data::<BooksService>().unwrap();
     let movies = ctx.data::<MoviesService>().unwrap();
@@ -249,6 +250,15 @@ pub async fn update_metadata_job(
         MetadataLot::Show => shows.details_from_provider(id).await.unwrap(),
         MetadataLot::VideoGame => video_games.details_from_provider(id).await.unwrap(),
     };
-    dbg!(&details);
+    media
+        .update_media(
+            id,
+            details.title,
+            details.description,
+            details.poster_images,
+            details.backdrop_images,
+        )
+        .await
+        .ok();
     Ok(())
 }
