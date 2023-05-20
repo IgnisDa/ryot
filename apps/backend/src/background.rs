@@ -3,17 +3,23 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    audio_books::resolver::AudioBooksService,
+    books::resolver::BooksService,
     config::AppConfig,
     entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
-    media::resolver::MediaService,
+    media::{resolver::MediaService, MediaSpecifics},
     migrator::MetadataLot,
     misc::{
         resolver::{AddMediaToCollection, MiscService},
         DefaultCollection,
     },
+    movies::resolver::MoviesService,
+    podcasts::resolver::PodcastsService,
+    shows::resolver::ShowsService,
     users::resolver::UsersService,
+    video_games::resolver::VideoGamesService,
 };
 
 // Cron Jobs
@@ -227,6 +233,38 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Updating metadata for {:?}", information.metadata.id);
+    let id = information.metadata.id;
+    tracing::info!("Updating metadata for {:?}", Identifier::from(id));
+    let media = ctx.data::<MediaService>().unwrap();
+    let audiobooks = ctx.data::<AudioBooksService>().unwrap();
+    let books = ctx.data::<BooksService>().unwrap();
+    let movies = ctx.data::<MoviesService>().unwrap();
+    let podcasts = ctx.data::<PodcastsService>().unwrap();
+    let shows = ctx.data::<ShowsService>().unwrap();
+    let video_games = ctx.data::<VideoGamesService>().unwrap();
+    let details = match information.metadata.lot {
+        MetadataLot::AudioBook => audiobooks.details_from_provider(id).await.unwrap(),
+        MetadataLot::Book => books.details_from_provider(id).await.unwrap(),
+        MetadataLot::Movie => movies.details_from_provider(id).await.unwrap(),
+        MetadataLot::Podcast => podcasts.details_from_provider(id).await.unwrap(),
+        MetadataLot::Show => shows.details_from_provider(id).await.unwrap(),
+        MetadataLot::VideoGame => video_games.details_from_provider(id).await.unwrap(),
+    };
+    media
+        .update_media(
+            id,
+            details.title,
+            details.description,
+            details.poster_images,
+            details.backdrop_images,
+        )
+        .await
+        .ok();
+    match details.specifics {
+        MediaSpecifics::Podcast(p) => podcasts.update_details(id, p).await.unwrap(),
+        MediaSpecifics::Show(s) => shows.update_details(id, s).await.unwrap(),
+        _ => {}
+    };
+
     Ok(())
 }

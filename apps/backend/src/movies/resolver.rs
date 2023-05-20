@@ -41,7 +41,7 @@ pub struct MoviesMutation;
 
 #[Object]
 impl MoviesMutation {
-    /// Fetch details about a movie and create a media item in the database
+    /// Fetch details about a movie and create a media item in the database.
     async fn commit_movie(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<MoviesService>()
@@ -77,6 +77,17 @@ impl MoviesService {
     async fn movies_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let movies = self.tmdb_service.search(query, page).await?;
         Ok(movies)
+    }
+
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Movie::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.tmdb_service.details(&identifier).await?;
+        Ok(details)
     }
 
     pub async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {

@@ -41,7 +41,7 @@ pub struct AudioBooksMutation;
 
 #[Object]
 impl AudioBooksMutation {
-    /// Fetch details about a audio book and create a media item in the database
+    /// Fetch details about a audio book and create a media item in the database.
     async fn commit_audio_book(
         &self,
         gql_ctx: &Context<'_>,
@@ -84,6 +84,17 @@ impl AudioBooksService {
     ) -> Result<MediaSearchResults> {
         let audio_books = self.audible_service.search(query, page).await?;
         Ok(audio_books)
+    }
+
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = AudioBook::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.audible_service.details(&identifier).await?;
+        Ok(details)
     }
 
     pub async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {

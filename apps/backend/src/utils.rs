@@ -177,8 +177,8 @@ pub fn convert_date_to_year(d: &str) -> Option<i32> {
     convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
 }
 
-pub async fn get_data_parallely_from_sources<'a, T, F, R>(
-    iteree: &'a [T],
+pub async fn get_data_parallelly_from_sources<'a, T, F, R>(
+    iterate_over: &'a [T],
     client: &'a Client,
     get_url: F,
 ) -> Vec<R>
@@ -188,7 +188,7 @@ where
     R: Send + Sync + de::DeserializeOwned + 'static,
 {
     let mut set = JoinSet::new();
-    for elm in iteree.iter() {
+    for elm in iterate_over.iter() {
         let client = client.clone();
         let url = get_url(elm);
         set.spawn(async move {
@@ -329,18 +329,19 @@ pub mod igdb {
     // However for the time being we will read and write to a file.
     pub async fn get_client(config: &VideoGameConfig) -> Client {
         let path = env::temp_dir().join("igdb-credentials.json");
-        let access_token = if let Some(mut creds) = read_file_to_json::<Credentials>(&path) {
-            if creds.expires_at < get_now_timestamp() {
-                tracing::info!("Access token has expired, refreshing...");
-                creds = get_access_token(config).await;
+        let access_token =
+            if let Some(mut credential_details) = read_file_to_json::<Credentials>(&path) {
+                if credential_details.expires_at < get_now_timestamp() {
+                    tracing::info!("Access token has expired, refreshing...");
+                    credential_details = get_access_token(config).await;
+                    fs::write(path, serde_json::to_string(&credential_details).unwrap()).ok();
+                }
+                credential_details.access_token
+            } else {
+                let creds = get_access_token(config).await;
                 fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
-            }
-            creds.access_token
-        } else {
-            let creds = get_access_token(config).await;
-            fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
-            creds.access_token
-        };
+                creds.access_token
+            };
         Config::new()
             .add_header("Client-ID", config.twitch.client_id.to_owned())
             .unwrap()

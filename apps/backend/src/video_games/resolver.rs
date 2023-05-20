@@ -41,7 +41,7 @@ pub struct VideoGamesMutation;
 
 #[Object]
 impl VideoGamesMutation {
-    /// Fetch details about a game and create a media item in the database
+    /// Fetch details about a game and create a media item in the database.
     async fn commit_video_game(
         &self,
         gql_ctx: &Context<'_>,
@@ -84,6 +84,17 @@ impl VideoGamesService {
     ) -> Result<MediaSearchResults> {
         let movies = self.igdb_service.search(query, page).await?;
         Ok(movies)
+    }
+
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = VideoGame::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.igdb_service.details(&identifier).await?;
+        Ok(details)
     }
 
     pub async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {

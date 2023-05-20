@@ -493,14 +493,14 @@ impl MediaService {
         let mut items = vec![];
         for m in metas {
             let (poster_images, _) = self.metadata_images(&m).await?;
-            let m_smol = MediaSearchItem {
+            let m_small = MediaSearchItem {
                 identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
                 poster_images,
                 publish_year: m.publish_year,
             };
-            items.push(m_smol);
+            items.push(m_small);
         }
         Ok(MediaSearchResults {
             total: counts as i32,
@@ -675,6 +675,41 @@ impl MediaService {
                 u.delete(&self.db).await.ok();
             }
         }
+        Ok(())
+    }
+
+    pub async fn update_media(
+        &self,
+        metadata_id: i32,
+        title: String,
+        description: Option<String>,
+        poster_images: Vec<String>,
+        backdrop_images: Vec<String>,
+    ) -> Result<()> {
+        let mut images = vec![];
+        for image in poster_images.into_iter() {
+            images.push(MetadataImage {
+                url: image,
+                lot: MetadataImageLot::Poster,
+            });
+        }
+        for image in backdrop_images.into_iter() {
+            images.push(MetadataImage {
+                url: image,
+                lot: MetadataImageLot::Backdrop,
+            });
+        }
+        let meta = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut meta: metadata::ActiveModel = meta.into();
+        meta.title = ActiveValue::Set(title);
+        meta.description = ActiveValue::Set(description);
+        meta.images = ActiveValue::Set(MetadataImages(images));
+        meta.last_updated_on = ActiveValue::Set(Utc::now());
+        meta.save(&self.db).await.ok();
         Ok(())
     }
 

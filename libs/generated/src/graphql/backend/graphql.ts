@@ -252,21 +252,21 @@ export type MoviesSummary = {
 export type MutationRoot = {
   /** Add a media item to a collection if it is not there, otherwise do nothing. */
   addMediaToCollection: Scalars['Boolean'];
-  /** Fetch details about a audio book and create a media item in the database */
+  /** Fetch details about a audio book and create a media item in the database. */
   commitAudioBook: IdObject;
-  /** Fetch details about a book and create a media item in the database */
+  /** Fetch details about a book and create a media item in the database. */
   commitBook: IdObject;
-  /** Fetch details about a movie and create a media item in the database */
+  /** Fetch details about a movie and create a media item in the database. */
   commitMovie: IdObject;
   /** Load next 10 episodes of a podcast if they exist. */
   commitNext10PodcastEpisodes: Scalars['Boolean'];
-  /** Fetch details about a podcast and create a media item in the database */
+  /** Fetch details about a podcast and create a media item in the database. */
   commitPodcast: IdObject;
-  /** Fetch details about a show and create a media item in the database */
+  /** Fetch details about a show and create a media item in the database. */
   commitShow: IdObject;
-  /** Fetch details about a game and create a media item in the database */
+  /** Fetch details about a game and create a media item in the database. */
   commitVideoGame: IdObject;
-  /** Create a new collection for the logged in user */
+  /** Create a new collection for the logged in user. */
   createCollection: IdObject;
   /** Delete a seen item from a user's history. */
   deleteSeenItem: IdObject;
@@ -276,13 +276,13 @@ export type MutationRoot = {
   deployUpdateMetadataJob: Scalars['String'];
   /** Login a user using their username and password and return an API key. */
   loginUser: LoginResult;
-  /** Logout a user from the server, deleting their login token */
+  /** Logout a user from the server, deleting their login token. */
   logoutUser: Scalars['Boolean'];
-  /** Create or update a review */
+  /** Create or update a review. */
   postReview: IdObject;
   /** Mark a user's progress on a specific media item. */
   progressUpdate: IdObject;
-  /** Generate a summary for the currently logged in user */
+  /** Generate a summary for the currently logged in user. */
   regenerateUserSummary: IdObject;
   /**
    * Create a new user for the service. Also set their `lot` as admin if
@@ -455,7 +455,7 @@ export type QueryRoot = {
   audioBooksSearch: MediaSearchResults;
   /** Search for a list of books by a particular search query and an offset. */
   booksSearch: MediaSearchResults;
-  /** Get all collections for the currently logged in user */
+  /** Get all collections for the currently logged in user. */
   collections: Array<CollectionItem>;
   /** Get some primary information about the service */
   coreDetails: CoreDetails;
@@ -477,9 +477,9 @@ export type QueryRoot = {
   seenHistory: Array<Seen>;
   /** Search for a list of show by a particular search query and a given page. */
   showSearch: MediaSearchResults;
-  /** Get details about the currently logged in user */
+  /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
-  /** Get a summary of all the media items that have beem consumed by this user */
+  /** Get a summary of all the media items that have been consumed by this user. */
   userSummary: UserSummary;
   /** Search for a list of games by a particular search query and a given page. */
   videoGamesSearch: MediaSearchResults;
@@ -801,11 +801,6 @@ export type ProgressUpdateMutationVariables = Exact<{
 
 export type ProgressUpdateMutation = { progressUpdate: { id: any } };
 
-export type RegerateUserSummaryMutationVariables = Exact<{ [key: string]: never; }>;
-
-
-export type RegerateUserSummaryMutation = { regenerateUserSummary: { id: any } };
-
 export type RegisterUserMutationVariables = Exact<{
   input: UserInput;
 }>;
@@ -939,7 +934,6 @@ export const LogoutUserDocument = {"kind":"Document","definitions":[{"kind":"Ope
 export const PodcastsSearchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PodcastsSearch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"podcastsSearch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<PodcastsSearchQuery, PodcastsSearchQueryVariables>;
 export const PostReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PostReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PostReviewInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"postReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<PostReviewMutation, PostReviewMutationVariables>;
 export const ProgressUpdateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ProgressUpdate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ProgressUpdate"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"progressUpdate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<ProgressUpdateMutation, ProgressUpdateMutationVariables>;
-export const RegerateUserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegerateUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"regenerateUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RegerateUserSummaryMutation, RegerateUserSummaryMutationVariables>;
 export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegisterUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"registerUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"RegisterError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RegisterUserMutation, RegisterUserMutationVariables>;
 export const RemoveMediaFromCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveMediaFromCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeMediaFromCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}},{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RemoveMediaFromCollectionMutation, RemoveMediaFromCollectionMutationVariables>;
 export const UpdateUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<UpdateUserMutation, UpdateUserMutationVariables>;

@@ -41,7 +41,7 @@ pub struct BooksMutation;
 
 #[Object]
 impl BooksMutation {
-    /// Fetch details about a book and create a media item in the database
+    /// Fetch details about a book and create a media item in the database.
     async fn commit_book(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<BooksService>()
@@ -76,6 +76,18 @@ impl BooksService {
     async fn books_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let books = self.openlibrary_service.search(query, page).await?;
         Ok(books)
+    }
+
+    // Given a metadata id, this fetches the latest details from it's provider
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Book::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.openlibrary_service.details(&identifier).await?;
+        Ok(details)
     }
 
     pub async fn commit_book(&self, identifier: &str) -> Result<IdObject> {

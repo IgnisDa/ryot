@@ -16,7 +16,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::listennotes::ListennotesService;
+use super::{listennotes::ListennotesService, PodcastSpecifics};
 
 #[derive(Default)]
 pub struct PodcastsQuery;
@@ -41,7 +41,7 @@ pub struct PodcastsMutation;
 
 #[Object]
 impl PodcastsMutation {
-    /// Fetch details about a podcast and create a media item in the database
+    /// Fetch details about a podcast and create a media item in the database.
     async fn commit_podcast(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<PodcastsService>()
@@ -129,14 +129,25 @@ impl PodcastsService {
         match details.specifics {
             MediaSpecifics::Podcast(ed) => {
                 let mut meta: podcast::ActiveModel = meta.into();
-                let mut dets = meta.details.unwrap();
-                dets.episodes.extend(ed.episodes.into_iter());
-                meta.details = ActiveValue::Set(dets);
+                let mut details_small = meta.details.unwrap();
+                details_small.episodes.extend(ed.episodes.into_iter());
+                meta.details = ActiveValue::Set(details_small);
                 meta.save(&self.db).await.unwrap();
             }
             _ => unreachable!(),
         }
         Ok(true)
+    }
+
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Podcast::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.listennotes_service.details(&identifier).await?;
+        Ok(details)
     }
 
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
@@ -171,5 +182,18 @@ impl PodcastsService {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub async fn update_details(&self, media_id: i32, details: PodcastSpecifics) -> Result<()> {
+        let media = Podcast::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut media: podcast::ActiveModel = media.into();
+        media.total_episodes = ActiveValue::Set(details.total_episodes);
+        media.details = ActiveValue::Set(details);
+        media.save(&self.db).await.ok();
+        Ok(())
     }
 }

@@ -41,7 +41,7 @@ pub struct ShowsMutation;
 
 #[Object]
 impl ShowsMutation {
-    /// Fetch details about a show and create a media item in the database
+    /// Fetch details about a show and create a media item in the database.
     async fn commit_show(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<ShowsService>()
@@ -76,6 +76,17 @@ impl ShowsService {
     async fn show_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let movies = self.tmdb_service.search(query, page).await?;
         Ok(movies)
+    }
+
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let identifier = Show::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .identifier;
+        let details = self.tmdb_service.details(&identifier).await?;
+        Ok(details)
     }
 
     pub async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
@@ -128,5 +139,17 @@ impl ShowsService {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub async fn update_details(&self, media_id: i32, details: ShowSpecifics) -> Result<()> {
+        let media = Show::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut media: show::ActiveModel = media.into();
+        media.details = ActiveValue::Set(details);
+        media.save(&self.db).await.ok();
+        Ok(())
     }
 }
