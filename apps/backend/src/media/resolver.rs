@@ -680,6 +680,7 @@ impl MediaService {
 
     pub async fn commit_media(
         &self,
+        identifier: String,
         lot: MetadataLot,
         title: String,
         description: Option<String>,
@@ -710,6 +711,7 @@ impl MediaService {
             publish_year: ActiveValue::Set(publish_year),
             publish_date: ActiveValue::Set(publish_date),
             images: ActiveValue::Set(MetadataImages(images)),
+            identifier: ActiveValue::Set(identifier),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();

@@ -7,6 +7,8 @@ use super::Metadata;
 
 pub struct Migration;
 
+pub static INDEX: &str = "podcast__identifier__index";
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -64,7 +66,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("podcast__identifier__index")
+                    .name(INDEX)
                     .table(Podcast::Table)
                     .col(Podcast::Identifier)
                     .to_owned(),

@@ -62,6 +62,8 @@ pub enum Metadata {
     PublishDate,
     // all the images for this media item
     Images,
+    // the unique identifier that is returned by the metadata provider
+    Identifier,
 }
 
 impl MigrationName for Migration {

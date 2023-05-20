@@ -98,6 +98,7 @@ impl ShowsService {
         let show_metadata_id = self
             .media_service
             .commit_media(
+                details.identifier.clone(),
                 MetadataLot::Show,
                 details.title,
                 details.description,

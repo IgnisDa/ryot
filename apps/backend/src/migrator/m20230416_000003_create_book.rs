@@ -7,6 +7,8 @@ use super::Metadata;
 
 pub struct Migration;
 
+pub static INDEX: &str = "book__openlibrary__index";
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -64,7 +66,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("book__openlibrary__index")
+                    .name(INDEX)
                     .table(Book::Table)
                     .col(Book::Identifier)
                     .to_owned(),

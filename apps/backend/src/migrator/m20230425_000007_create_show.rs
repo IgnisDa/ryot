@@ -7,6 +7,8 @@ use super::Metadata;
 
 pub struct Migration;
 
+pub static INDEX: &str = "show__tmdbid__index";
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -62,7 +64,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("show__tmdbid__index")
+                    .name(INDEX)
                     .table(Show::Table)
                     .col(Show::Identifier)
                     .to_owned(),
