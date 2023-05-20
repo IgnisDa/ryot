@@ -140,4 +140,16 @@ impl ShowsService {
             _ => unreachable!(),
         }
     }
+
+    pub async fn update_details(&self, media_id: i32, details: ShowSpecifics) -> Result<()> {
+        let media = Show::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut media: show::ActiveModel = media.into();
+        media.details = ActiveValue::Set(details);
+        media.save(&self.db).await.ok();
+        Ok(())
+    }
 }

@@ -16,7 +16,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::listennotes::ListennotesService;
+use super::{listennotes::ListennotesService, PodcastSpecifics};
 
 #[derive(Default)]
 pub struct PodcastsQuery;
@@ -182,5 +182,18 @@ impl PodcastsService {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub async fn update_details(&self, media_id: i32, details: PodcastSpecifics) -> Result<()> {
+        let media = Podcast::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut media: podcast::ActiveModel = media.into();
+        media.total_episodes = ActiveValue::Set(details.total_episodes);
+        media.details = ActiveValue::Set(details);
+        media.save(&self.db).await.ok();
+        Ok(())
     }
 }

@@ -9,7 +9,7 @@ use crate::{
     entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
-    media::resolver::MediaService,
+    media::{resolver::MediaService, MediaSpecifics},
     migrator::MetadataLot,
     misc::{
         resolver::{AddMediaToCollection, MiscService},
@@ -260,5 +260,11 @@ pub async fn update_metadata_job(
         )
         .await
         .ok();
+    match details.specifics {
+        MediaSpecifics::Podcast(p) => podcasts.update_details(id, p).await.unwrap(),
+        MediaSpecifics::Show(s) => shows.update_details(id, s).await.unwrap(),
+        _ => {}
+    };
+
     Ok(())
 }
