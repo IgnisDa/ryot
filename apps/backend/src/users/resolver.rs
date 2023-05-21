@@ -241,7 +241,7 @@ impl UsersMutation {
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         let service = gql_ctx.data_unchecked::<UsersService>();
-        service.cleanup_summaries_for_user(&user_id).await?;
+        service.cleanup_summaries_for_user(&user_id, None).await?;
         service.regenerate_user_summary(&user_id).await
     }
 
@@ -602,14 +602,18 @@ impl UsersService {
         })
     }
 
-    pub async fn cleanup_summaries_for_user(&self, user_id: &i32) -> Result<()> {
+    pub async fn cleanup_summaries_for_user(
+        &self,
+        user_id: &i32,
+        skip: Option<usize>,
+    ) -> Result<()> {
         let summaries = Summary::find()
             .filter(summary::Column::UserId.eq(user_id.to_owned()))
             .order_by_desc(summary::Column::CreatedOn)
             .all(&self.db)
             .await
             .unwrap();
-        for summary in summaries.into_iter().skip(1) {
+        for summary in summaries.into_iter().skip(skip.unwrap_or_default()) {
             summary.delete(&self.db).await.ok();
         }
         Ok(())
@@ -618,7 +622,7 @@ impl UsersService {
     pub async fn cleanup_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
-            self.cleanup_summaries_for_user(&user.id).await?;
+            self.cleanup_summaries_for_user(&user.id, Some(1)).await?;
         }
         Ok(())
     }
