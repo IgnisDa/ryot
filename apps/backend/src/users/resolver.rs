@@ -603,18 +603,23 @@ impl UsersService {
         })
     }
 
+    pub async fn cleanup_summaries_for_user(&self, user_id: &i32) -> Result<()> {
+        let summaries = Summary::find()
+            .filter(summary::Column::UserId.eq(user_id.to_owned()))
+            .order_by_desc(summary::Column::CreatedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        for summary in summaries.into_iter().skip(1) {
+            summary.delete(&self.db).await.ok();
+        }
+        Ok(())
+    }
+
     pub async fn cleanup_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
-            let summaries = user
-                .find_related(Summary)
-                .order_by_desc(summary::Column::CreatedOn)
-                .all(&self.db)
-                .await
-                .unwrap();
-            for summary in summaries.into_iter().skip(1) {
-                summary.delete(&self.db).await.ok();
-            }
+            self.cleanup_summaries_for_user(&user.id).await?;
         }
         Ok(())
     }
