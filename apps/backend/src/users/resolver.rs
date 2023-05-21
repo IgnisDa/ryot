@@ -237,13 +237,12 @@ impl UsersMutation {
             .await
     }
 
-    /// Generate a summary for the currently logged in user.
+    /// Delete all summaries for the currently logged in user and then generate one from scratch.
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<UsersService>()
-            .regenerate_user_summary(&user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<UsersService>();
+        service.cleanup_summaries_for_user(&user_id).await?;
+        service.regenerate_user_summary(&user_id).await
     }
 
     /// Update a user's profile details.

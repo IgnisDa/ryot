@@ -1,0 +1,5 @@
+mutation RegenerateUserSummary {
+  regenerateUserSummary {
+    id
+  }
+}
