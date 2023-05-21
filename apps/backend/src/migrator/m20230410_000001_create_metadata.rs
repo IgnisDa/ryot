@@ -111,6 +111,15 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .name("metadata_identifier__index")
+                    .table(Metadata::Table)
+                    .col(Metadata::Identifier)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
                     .name("metadata__title__index")
                     .table(Metadata::Table)
                     .col(Metadata::Title)

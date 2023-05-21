@@ -6,7 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{book, prelude::Book},
+    entities::{book, metadata, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -80,7 +80,7 @@ impl BooksService {
 
     // Given a metadata id, this fetches the latest details from it's provider
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Book::find_by_id(metadata_id)
+        let identifier = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -91,15 +91,13 @@ impl BooksService {
     }
 
     pub async fn commit_book(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Book::find()
-            .filter(book::Column::Identifier.eq(identifier))
+        let meta = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject {
-                id: m.metadata_id.into(),
-            })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let details = self.openlibrary_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -126,7 +124,6 @@ impl BooksService {
             MediaSpecifics::Book(s) => {
                 let book = book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    identifier: ActiveValue::Set(details.identifier),
                     num_pages: ActiveValue::Set(s.pages),
                     source: ActiveValue::Set(s.source),
                 };

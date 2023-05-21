@@ -6,7 +6,10 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{podcast, prelude::Podcast},
+    entities::{
+        metadata, podcast,
+        prelude::{Metadata, Podcast},
+    },
     graphql::{IdObject, Identifier},
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -91,15 +94,13 @@ impl PodcastsService {
     }
 
     pub async fn commit_podcast(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Podcast::find()
-            .filter(podcast::Column::Identifier.eq(identifier))
+        let meta = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject {
-                id: m.metadata_id.into(),
-            })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let details = self.listennotes_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -107,15 +108,17 @@ impl PodcastsService {
     }
 
     pub async fn commit_next_10_podcast_episodes(&self, podcast_id: i32) -> Result<bool> {
-        let meta = Podcast::find_by_id(podcast_id)
+        let (podcast, meta) = Podcast::find_by_id(podcast_id)
+            .find_also_related(Metadata)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        if meta.total_episodes == meta.details.episodes.len() as i32 {
+        let meta = meta.unwrap();
+        if podcast.total_episodes == podcast.details.episodes.len() as i32 {
             return Ok(false);
         }
-        let last_episode = meta.details.episodes.last().unwrap();
+        let last_episode = podcast.details.episodes.last().unwrap();
         let next_pub_date = last_episode.publish_date;
         let episode_number = last_episode.number;
         let details = self
@@ -128,7 +131,7 @@ impl PodcastsService {
             .await?;
         match details.specifics {
             MediaSpecifics::Podcast(ed) => {
-                let mut meta: podcast::ActiveModel = meta.into();
+                let mut meta: podcast::ActiveModel = podcast.into();
                 let mut details_small = meta.details.unwrap();
                 details_small.episodes.extend(ed.episodes.into_iter());
                 meta.details = ActiveValue::Set(details_small);
@@ -140,7 +143,7 @@ impl PodcastsService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Podcast::find_by_id(metadata_id)
+        let identifier = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -170,7 +173,6 @@ impl PodcastsService {
             MediaSpecifics::Podcast(s) => {
                 let podcast = podcast::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    identifier: ActiveValue::Set(details.identifier),
                     source: ActiveValue::Set(s.source),
                     total_episodes: ActiveValue::Set(s.total_episodes),
                     details: ActiveValue::Set(s),

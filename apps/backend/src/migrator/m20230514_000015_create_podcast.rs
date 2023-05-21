@@ -7,8 +7,6 @@ use super::Metadata;
 
 pub struct Migration;
 
-pub static INDEX: &str = "podcast__identifier__index";
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -22,7 +20,6 @@ pub enum PodcastSource {
 pub enum Podcast {
     Table,
     MetadataId,
-    Identifier,
     Details,
     Source,
     TotalEpisodes,
@@ -56,19 +53,9 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Podcast::Identifier).string().not_null())
                     .col(ColumnDef::new(Podcast::Details).not_null().json())
                     .col(ColumnDef::new(Podcast::Source).string_len(1).not_null())
                     .col(ColumnDef::new(Podcast::TotalEpisodes).integer().not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(INDEX)
-                    .table(Podcast::Table)
-                    .col(Podcast::Identifier)
                     .to_owned(),
             )
             .await?;

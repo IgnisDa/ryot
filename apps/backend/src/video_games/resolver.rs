@@ -6,7 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{prelude::VideoGame, video_game},
+    entities::{metadata, prelude::Metadata, video_game},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -87,7 +87,7 @@ impl VideoGamesService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = VideoGame::find_by_id(metadata_id)
+        let identifier = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -98,15 +98,13 @@ impl VideoGamesService {
     }
 
     pub async fn commit_video_game(&self, identifier: &str) -> Result<IdObject> {
-        let meta = VideoGame::find()
-            .filter(video_game::Column::Identifier.eq(identifier))
+        let meta = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject {
-                id: m.metadata_id.into(),
-            })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let details = self.igdb_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -133,7 +131,6 @@ impl VideoGamesService {
             MediaSpecifics::VideoGame(s) => {
                 let game = video_game::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    identifier: ActiveValue::Set(details.identifier),
                     source: ActiveValue::Set(s.source),
                 };
                 game.insert(&self.db).await.unwrap();

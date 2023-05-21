@@ -6,7 +6,11 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{prelude::Show, show},
+    entities::{
+        metadata,
+        prelude::{Metadata, Show},
+        show,
+    },
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -79,7 +83,7 @@ impl ShowsService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Show::find_by_id(metadata_id)
+        let identifier = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -90,15 +94,13 @@ impl ShowsService {
     }
 
     pub async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Show::find()
-            .filter(show::Column::Identifier.eq(identifier))
+        let meta = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject {
-                id: m.metadata_id.into(),
-            })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let details = self.tmdb_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -125,7 +127,6 @@ impl ShowsService {
             MediaSpecifics::Show(s) => {
                 let show = show::ActiveModel {
                     metadata_id: ActiveValue::Set(show_metadata_id),
-                    identifier: ActiveValue::Set(details.identifier),
                     details: ActiveValue::Set(ShowSpecifics {
                         seasons: s.seasons,
                         source: s.source,

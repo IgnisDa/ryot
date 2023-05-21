@@ -7,8 +7,6 @@ use super::Metadata;
 
 pub struct Migration;
 
-pub static INDEX: &str = "show__tmdbid__index";
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -21,7 +19,6 @@ pub enum ShowSource {
 #[derive(Iden)]
 pub enum Show {
     Table,
-    Identifier,
     MetadataId,
     Details,
     Source,
@@ -40,7 +37,6 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Show::Table)
-                    .col(ColumnDef::new(Show::Identifier).string().not_null())
                     .col(
                         ColumnDef::new(Show::MetadataId)
                             .integer()
@@ -58,15 +54,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(INDEX)
-                    .table(Show::Table)
-                    .col(Show::Identifier)
                     .to_owned(),
             )
             .await?;

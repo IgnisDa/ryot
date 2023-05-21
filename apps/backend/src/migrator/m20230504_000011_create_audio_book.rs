@@ -7,8 +7,6 @@ use super::Metadata;
 
 pub struct Migration;
 
-pub static INDEX: &str = "audio_book__audibleid__index";
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -22,7 +20,6 @@ pub enum AudioBookSource {
 pub enum AudioBook {
     Table,
     MetadataId,
-    Identifier,
     Runtime,
     Source,
 }
@@ -55,18 +52,8 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(AudioBook::Identifier).string().not_null())
                     .col(ColumnDef::new(AudioBook::Runtime).integer())
                     .col(ColumnDef::new(AudioBook::Source).string_len(1).not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(INDEX)
-                    .table(AudioBook::Table)
-                    .col(AudioBook::Identifier)
                     .to_owned(),
             )
             .await?;

@@ -7,8 +7,6 @@ use super::Metadata;
 
 pub struct Migration;
 
-pub static INDEX: &str = "video_game__imdb__index";
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -22,7 +20,6 @@ pub enum VideoGameSource {
 pub enum VideoGame {
     Table,
     MetadataId,
-    Identifier,
     Source,
 }
 
@@ -54,17 +51,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(VideoGame::Identifier).string().not_null())
                     .col(ColumnDef::new(VideoGame::Source).string_len(1).not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(INDEX)
-                    .table(VideoGame::Table)
-                    .col(VideoGame::Identifier)
                     .to_owned(),
             )
             .await?;

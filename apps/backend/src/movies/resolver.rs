@@ -6,7 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{movie, prelude::Movie},
+    entities::{metadata, movie, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -80,7 +80,7 @@ impl MoviesService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Movie::find_by_id(metadata_id)
+        let identifier = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -91,15 +91,13 @@ impl MoviesService {
     }
 
     pub async fn commit_movie(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Movie::find()
-            .filter(movie::Column::Identifier.eq(identifier))
+        let meta = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject {
-                id: m.metadata_id.into(),
-            })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let details = self.tmdb_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -126,7 +124,6 @@ impl MoviesService {
             MediaSpecifics::Movie(s) => {
                 let movie = movie::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    identifier: ActiveValue::Set(details.identifier),
                     runtime: ActiveValue::Set(s.runtime),
                     source: ActiveValue::Set(MovieSource::Tmdb),
                 };

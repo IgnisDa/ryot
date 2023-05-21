@@ -10,7 +10,6 @@ use crate::{migrator::PodcastSource, podcasts::PodcastSpecifics};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
-    pub identifier: String,
     pub details: PodcastSpecifics,
     pub source: PodcastSource,
     pub total_episodes: i32,

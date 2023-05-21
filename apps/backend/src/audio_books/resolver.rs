@@ -6,7 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{audio_book, prelude::AudioBook},
+    entities::{audio_book, metadata, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -87,7 +87,7 @@ impl AudioBooksService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = AudioBook::find_by_id(metadata_id)
+        let identifier = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -98,15 +98,13 @@ impl AudioBooksService {
     }
 
     pub async fn commit_audio_book(&self, identifier: &str) -> Result<IdObject> {
-        let meta = AudioBook::find()
-            .filter(audio_book::Column::Identifier.eq(identifier))
+        let meta = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await
             .unwrap();
         if let Some(m) = meta {
-            Ok(IdObject {
-                id: m.metadata_id.into(),
-            })
+            Ok(IdObject { id: m.id.into() })
         } else {
             let details = self.audible_service.details(identifier).await?;
             self.save_to_db(details).await
@@ -133,7 +131,6 @@ impl AudioBooksService {
             MediaSpecifics::AudioBook(s) => {
                 let audio_book = audio_book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    identifier: ActiveValue::Set(details.identifier),
                     runtime: ActiveValue::Set(s.runtime),
                     source: ActiveValue::Set(AudioBookSource::Audible),
                 };

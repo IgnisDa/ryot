@@ -7,8 +7,6 @@ use super::Metadata;
 
 pub struct Migration;
 
-pub static INDEX: &str = "movie__tmdbid__index";
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -22,7 +20,6 @@ pub enum MovieSource {
 pub enum Movie {
     Table,
     MetadataId,
-    Identifier,
     // the total time of the movie in minutes
     Runtime,
     Source,
@@ -56,18 +53,8 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Movie::Identifier).string().not_null())
                     .col(ColumnDef::new(Movie::Runtime).integer())
                     .col(ColumnDef::new(Movie::Source).string_len(1).not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(INDEX)
-                    .table(Movie::Table)
-                    .col(Movie::Identifier)
                     .to_owned(),
             )
             .await?;
