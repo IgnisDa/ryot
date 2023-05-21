@@ -115,7 +115,8 @@ const Page: NextPageWithLayout = () => {
 						<Box>
 							<StatTitle text="Shows" />
 							<Text>
-								You watched{" "}
+								You watched <StatNumber text={userSummary.data.shows.watched} />{" "}
+								show(s) and{" "}
 								<StatNumber text={userSummary.data.shows.watchedSeasons} />{" "}
 								season(s) and{" "}
 								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}

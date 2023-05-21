@@ -24,7 +24,7 @@ use crate::{
     config::AppConfig,
     entities::{
         prelude::{AudioBook, Book, Metadata, Movie, Podcast, Seen, Show, Summary, Token, User},
-        seen, summary, token, user,
+        seen, show, summary, token, user,
         user::Model as UserModel,
         utils::SeenExtraInformation,
     },
@@ -337,7 +337,7 @@ impl UsersService {
             .await
             .unwrap();
 
-        let mut unique_shows = HashSet::new();
+        let mut metadata_ids = vec![];
         let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
         let mut unique_podcast_episodes = HashSet::new();
@@ -412,8 +412,7 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
-                    // FIXME: This does not work
-                    unique_shows.insert(item.details.seasons.clone());
+                    metadata_ids.push(item.metadata_id);
                     for season in item.details.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
@@ -443,10 +442,17 @@ impl UsersService {
             ls.data.podcasts.played + i32::try_from(unique_podcasts.len()).unwrap();
         ls.data.podcasts.played_episodes = ls.data.podcasts.played_episodes
             + i32::try_from(unique_podcast_episodes.len()).unwrap();
-        ls.data.shows.watched = ls.data.shows.watched + i32::try_from(unique_shows.len()).unwrap();
+
+        ls.data.shows.watched = i32::try_from(
+            Show::find()
+                .filter(show::Column::MetadataId.is_in(metadata_ids.clone()))
+                .count(&self.db)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
         ls.data.shows.watched_seasons =
             ls.data.shows.watched_seasons + i32::try_from(unique_show_seasons.len()).unwrap();
-        ls.data.shows.watched = ls.data.shows.watched + i32::try_from(unique_shows.len()).unwrap();
 
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
