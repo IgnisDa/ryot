@@ -66,7 +66,6 @@ const Page: NextPageWithLayout = () => {
 						input: {
 							...variables.input,
 							showEpisodeNumber: episode.episodeNumber,
-							isBulkRequest: onlySeason,
 						},
 					});
 				}

@@ -343,7 +343,6 @@ impl ImporterService {
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
-                            is_bulk_request: Some(true),
                             podcast_episode_number: seen.podcast_episode_number,
                         },
                         user_id.clone(),

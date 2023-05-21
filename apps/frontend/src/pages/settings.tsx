@@ -13,6 +13,7 @@ import {
 	PasswordInput,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Title,
 } from "@mantine/core";
@@ -22,10 +23,12 @@ import {
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
+	RegenerateUserSummaryDocument,
+	type RegenerateUserSummaryMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconDatabaseImport, IconUser } from "@tabler/icons-react";
+import { IconAnalyze, IconDatabaseImport, IconUser } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import type { ReactElement } from "react";
@@ -139,6 +142,15 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const regenerateUserSummary = useMutation({
+		mutationFn: async (_variables: RegenerateUserSummaryMutationVariables) => {
+			const { regenerateUserSummary } = await gqlClient.request(
+				RegenerateUserSummaryDocument,
+			);
+			return regenerateUserSummary;
+		},
+	});
+
 	return (
 		<>
 			<Head>
@@ -156,6 +168,9 @@ const Page: NextPageWithLayout = () => {
 								icon={<IconDatabaseImport size="1rem" />}
 							>
 								Imports
+							</Tabs.Tab>
+							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
+								Miscellaneous
 							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="profile">
@@ -234,6 +249,25 @@ const Page: NextPageWithLayout = () => {
 									/>
 									<></>
 								</ImportSource>
+							</Stack>
+						</Tabs.Panel>
+						<Tabs.Panel value="misc">
+							<Stack>
+								<Box>
+									<Title order={4}>Regenerate Summaries</Title>
+									<Text>
+										Regenerate all pre-computed summaries from the beginning.
+										This may be useful if, for some reason, summaries are faulty
+										or preconditions have changed. This may take some time.
+									</Text>
+								</Box>
+								<Button
+									color="red"
+									onClick={() => regenerateUserSummary.mutate({})}
+									loading={regenerateUserSummary.isLoading}
+								>
+									Clean and regenerate
+								</Button>
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>

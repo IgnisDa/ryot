@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{
     password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
 };
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
 use cookie::{
     time::{ext::NumericalDuration, OffsetDateTime},
@@ -22,14 +22,10 @@ use crate::{
     background::UserCreatedJob,
     config::AppConfig,
     entities::{
-        audio_book, book, movie, podcast,
-        prelude::{
-            AudioBook, Book, Metadata, Movie, Podcast, Seen, Show, Summary, Token, User, VideoGame,
-        },
-        seen, show, summary, token, user,
+        prelude::{AudioBook, Book, Metadata, Movie, Podcast, Seen, Show, Summary, Token, User},
+        seen, summary, token, user,
         user::Model as UserModel,
         utils::SeenExtraInformation,
-        video_game,
     },
     graphql::IdObject,
     migrator::{MetadataLot, TokenLot, UserLot},
@@ -129,43 +125,43 @@ fn get_hasher() -> Argon2<'static> {
     Argon2::default()
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct AudioBooksSummary {
     runtime: i32,
     played: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct VideoGamesSummary {
     played: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct BooksSummary {
     pages: i32,
     read: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct MoviesSummary {
     runtime: i32,
     watched: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct PodcastsSummary {
     runtime: i32,
     watched: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct ShowsSummary {
     runtime: i32,
     watched_shows: i32,
     watched_episodes: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct UserSummary {
     books: BooksSummary,
     movies: MoviesSummary,
@@ -241,13 +237,12 @@ impl UsersMutation {
             .await
     }
 
-    /// Generate a summary for the currently logged in user.
+    /// Delete all summaries for the currently logged in user and then generate one from scratch.
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<UsersService>()
-            .regenerate_user_summary(&user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<UsersService>();
+        service.cleanup_summaries_for_user(&user_id, None).await?;
+        service.regenerate_user_summary(&user_id).await
     }
 
     /// Update a user's profile details.
@@ -297,58 +292,71 @@ impl UsersService {
         }
     }
 
-    async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
-        let latest_summary = Summary::find()
+    async fn latest_user_summary(&self, user_id: &i32) -> Result<summary::Model> {
+        let ls = Summary::find()
             .filter(summary::Column::UserId.eq(user_id.to_owned()))
             .order_by_desc(summary::Column::CreatedOn)
             .one(&self.db)
             .await
-            .unwrap();
-        match latest_summary {
-            Some(ls) => Ok(UserSummary {
-                books: BooksSummary {
-                    pages: ls.books_pages,
-                    read: ls.books_read,
-                },
-                movies: MoviesSummary {
-                    runtime: ls.movies_runtime,
-                    watched: ls.movies_watched,
-                },
-                podcasts: PodcastsSummary {
-                    runtime: ls.podcasts_runtime,
-                    watched: ls.podcasts_played,
-                },
-                shows: ShowsSummary {
-                    runtime: ls.shows_runtime,
-                    watched_shows: ls.shows_watched,
-                    watched_episodes: ls.episodes_watched,
-                },
-                video_games: VideoGamesSummary {
-                    played: ls.video_games_played,
-                },
-                audio_books: AudioBooksSummary {
-                    runtime: ls.audio_books_runtime,
-                    played: ls.audio_books_played,
-                },
-            }),
-            None => Err(Error::new("You do not have any summaries".to_owned())),
-        }
+            .unwrap()
+            .unwrap_or_default();
+        Ok(ls)
+    }
+
+    async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
+        let ls = self.latest_user_summary(user_id).await?;
+        Ok(UserSummary {
+            books: BooksSummary {
+                pages: ls.books_pages,
+                read: ls.books_read,
+            },
+            movies: MoviesSummary {
+                runtime: ls.movies_runtime,
+                watched: ls.movies_watched,
+            },
+            podcasts: PodcastsSummary {
+                runtime: ls.podcasts_runtime,
+                watched: ls.podcasts_played,
+            },
+            shows: ShowsSummary {
+                runtime: ls.shows_runtime,
+                watched_shows: ls.shows_watched,
+                watched_episodes: ls.episodes_watched,
+            },
+            video_games: VideoGamesSummary {
+                played: ls.video_games_played,
+            },
+            audio_books: AudioBooksSummary {
+                runtime: ls.audio_books_runtime,
+                played: ls.audio_books_played,
+            },
+        })
     }
 
     pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
+        let ls = self.latest_user_summary(user_id).await?;
         let seen_items = Seen::find()
+            .filter(seen::Column::LastUpdatedOn.gte(ls.created_on))
+            .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::Progress.eq(100))
             .find_also_related(Metadata)
             .all(&self.db)
             .await
             .unwrap();
-        let mut books_total = vec![];
-        let mut movies_total = vec![];
-        let mut audio_books_total = vec![];
-        let mut shows_total = vec![];
-        let mut episodes_total = vec![];
-        let mut podcasts_total = vec![];
+        let mut audio_books_total = ls.audio_books_played;
+        let mut audio_books_runtime = ls.audio_books_runtime;
+        let mut books_total = ls.books_read;
+        let mut books_pages = ls.books_pages;
+        let mut movies_total = ls.movies_watched;
+        let mut movies_runtime = ls.movies_runtime;
+        let mut podcasts_runtime = ls.podcasts_runtime;
+        let mut shows_runtime = ls.shows_runtime;
+        let mut episodes_total = ls.episodes_watched;
+        let mut video_games_total = ls.video_games_played;
+
+        let mut unique_shows = HashSet::new();
+        let mut unique_podcasts = HashSet::new();
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
@@ -359,8 +367,9 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    audio_books_total += 1;
                     if let Some(r) = item.runtime {
-                        audio_books_total.push(r);
+                        audio_books_runtime += r;
                     }
                 }
                 MetadataLot::Book => {
@@ -370,8 +379,9 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    books_total += 1;
                     if let Some(pg) = item.num_pages {
-                        books_total.push(pg);
+                        books_pages += pg;
                     }
                 }
                 MetadataLot::Podcast => {
@@ -381,6 +391,7 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    unique_podcasts.insert(seen.metadata_id);
                     for episode in item.details.episodes {
                         match seen.extra_information.to_owned() {
                             None => continue,
@@ -389,7 +400,7 @@ impl UsersService {
                                 SeenExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
-                                            podcasts_total.push(r);
+                                            podcasts_runtime += r;
                                         }
                                     }
                                 }
@@ -404,8 +415,9 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    movies_total += 1;
                     if let Some(r) = item.runtime {
-                        movies_total.push(r);
+                        movies_runtime += r;
                     }
                 }
                 MetadataLot::Show => {
@@ -415,6 +427,7 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    unique_shows.insert(seen.metadata_id);
                     for season in item.details.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
@@ -424,9 +437,9 @@ impl UsersService {
                                         && s.episode == episode.episode_number
                                     {
                                         if let Some(r) = episode.runtime {
-                                            shows_total.push(r);
+                                            shows_runtime += r;
                                         }
-                                        episodes_total.push(episode);
+                                        episodes_total += 1;
                                     }
                                 }
                             }
@@ -434,61 +447,30 @@ impl UsersService {
                     }
                 }
                 MetadataLot::VideoGame => {
-                    // nothing to calculate
-                    continue;
+                    video_games_total += 1;
                 }
             }
         }
-        let metadata_ids = seen_items
-            .iter()
-            .map(|s| s.0.metadata_id)
-            .collect::<Vec<_>>();
-        let books_count = Book::find()
-            .filter(book::Column::MetadataId.is_in(metadata_ids.clone()))
-            .count(&self.db)
-            .await
-            .unwrap();
-        let movies_count = Movie::find()
-            .filter(movie::Column::MetadataId.is_in(metadata_ids.clone()))
-            .count(&self.db)
-            .await
-            .unwrap();
-        let shows_count = Show::find()
-            .filter(show::Column::MetadataId.is_in(metadata_ids.clone()))
-            .count(&self.db)
-            .await
-            .unwrap();
-        let video_games_count = VideoGame::find()
-            .filter(video_game::Column::MetadataId.is_in(metadata_ids.clone()))
-            .count(&self.db)
-            .await
-            .unwrap();
-        let audio_books_count = AudioBook::find()
-            .filter(audio_book::Column::MetadataId.is_in(metadata_ids.clone()))
-            .count(&self.db)
-            .await
-            .unwrap();
-        let podcasts_count = Podcast::find()
-            .filter(podcast::Column::MetadataId.is_in(metadata_ids.clone()))
-            .count(&self.db)
-            .await
-            .unwrap();
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
             created_on: ActiveValue::NotSet,
             user_id: ActiveValue::Set(user_id.to_owned()),
-            books_pages: ActiveValue::Set(books_total.iter().sum()),
-            books_read: ActiveValue::Set(books_count.try_into().unwrap()),
-            movies_runtime: ActiveValue::Set(movies_total.iter().sum()),
-            movies_watched: ActiveValue::Set(movies_count as i32),
-            shows_runtime: ActiveValue::Set(shows_total.iter().sum()),
-            shows_watched: ActiveValue::Set(shows_count.try_into().unwrap()),
-            episodes_watched: ActiveValue::Set(episodes_total.len().try_into().unwrap()),
-            video_games_played: ActiveValue::Set(video_games_count.try_into().unwrap()),
-            audio_books_runtime: ActiveValue::Set(audio_books_total.iter().sum()),
-            audio_books_played: ActiveValue::Set(audio_books_count.try_into().unwrap()),
-            podcasts_runtime: ActiveValue::Set(podcasts_total.iter().sum()),
-            podcasts_played: ActiveValue::Set(podcasts_count.try_into().unwrap()),
+            audio_books_runtime: ActiveValue::Set(audio_books_runtime.try_into().unwrap()),
+            audio_books_played: ActiveValue::Set(audio_books_total.try_into().unwrap()),
+            books_pages: ActiveValue::Set(books_pages.try_into().unwrap()),
+            books_read: ActiveValue::Set(books_total.try_into().unwrap()),
+            movies_runtime: ActiveValue::Set(movies_runtime.try_into().unwrap()),
+            movies_watched: ActiveValue::Set(movies_total.try_into().unwrap()),
+            shows_runtime: ActiveValue::Set(shows_runtime.try_into().unwrap()),
+            shows_watched: ActiveValue::Set(
+                ls.shows_watched + i32::try_from(unique_shows.len()).unwrap(),
+            ),
+            episodes_watched: ActiveValue::Set(episodes_total.try_into().unwrap()),
+            video_games_played: ActiveValue::Set(video_games_total.try_into().unwrap()),
+            podcasts_runtime: ActiveValue::Set(podcasts_runtime.try_into().unwrap()),
+            podcasts_played: ActiveValue::Set(
+                ls.podcasts_played + i32::try_from(unique_podcasts.len()).unwrap(),
+            ),
         };
         let obj = summary_obj.insert(&self.db).await.unwrap();
         Ok(IdObject { id: obj.id.into() })
@@ -625,18 +607,27 @@ impl UsersService {
         })
     }
 
+    pub async fn cleanup_summaries_for_user(
+        &self,
+        user_id: &i32,
+        skip: Option<usize>,
+    ) -> Result<()> {
+        let summaries = Summary::find()
+            .filter(summary::Column::UserId.eq(user_id.to_owned()))
+            .order_by_desc(summary::Column::CreatedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        for summary in summaries.into_iter().skip(skip.unwrap_or_default()) {
+            summary.delete(&self.db).await.ok();
+        }
+        Ok(())
+    }
+
     pub async fn cleanup_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
-            let summaries = user
-                .find_related(Summary)
-                .order_by_desc(summary::Column::CreatedOn)
-                .all(&self.db)
-                .await
-                .unwrap();
-            for summary in summaries.into_iter().skip(1) {
-                summary.delete(&self.db).await.ok();
-            }
+            self.cleanup_summaries_for_user(&user.id, Some(1)).await?;
         }
         Ok(())
     }

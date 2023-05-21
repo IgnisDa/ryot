@@ -77,7 +77,6 @@ pub struct ProgressUpdate {
     pub podcast_episode_number: Option<i32>,
     /// If this update comes from a different source, this should be set
     pub identifier: Option<String>,
-    pub is_bulk_request: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -589,7 +588,7 @@ impl MediaService {
                 }
             };
             let id = seen_item.id.into();
-            if !input.is_bulk_request.unwrap_or(false) && seen_item.progress == 100 {
+            if seen_item.progress == 100 {
                 self.deploy_recalculate_summary_job(user_id).await.ok();
             }
             let metadata = self.generic_metadata(input.metadata_id.into()).await?;
