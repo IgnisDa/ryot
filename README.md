@@ -16,9 +16,10 @@ only self hosted tracker you will ever need!
 ## 📝 ELI5
 
 Imagine you have a special notebook where you can write down all the media you
-have consumed. Now, imagine that instead of a physical notebook, you have a
-special tool on your computer or phone that lets you keep track of all these
-media digitally.
+have consumed, like books you've read, shows you have watched, video games you
+have played or workouts you have done. Now, imagine that instead of a physical
+notebook, you have a special tool on your computer or phone that lets you keep
+track of all these digitally.
 
 ## 🚀 Features
 
