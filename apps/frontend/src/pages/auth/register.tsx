@@ -15,7 +15,13 @@ import { z } from "zod";
 const formSchema = z
 	.object({
 		username: z.string(),
-		password: z.string(),
+		password: z
+			.string()
+			.min(8, "Password should be at least 8 characters long")
+			.regex(
+				/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).*$/,
+				"Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character",
+			),
 		confirm: z.string(),
 	})
 	.refine((data) => data.password === data.confirm, {
