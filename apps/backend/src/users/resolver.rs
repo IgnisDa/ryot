@@ -408,7 +408,7 @@ impl UsersService {
                                         if let Some(r) = episode.runtime {
                                             podcasts_runtime += r;
                                         }
-                                        unique_podcast_episodes.insert(s.episode);
+                                        unique_podcast_episodes.insert((s.episode, episode.id));
                                     }
                                 }
                             },
@@ -447,7 +447,7 @@ impl UsersService {
                                             shows_runtime += r;
                                         }
                                         show_episodes_total += 1;
-                                        unique_show_seasons.insert(s.season);
+                                        unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
                             }
