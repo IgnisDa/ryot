@@ -23,6 +23,7 @@ pub struct Model {
     pub audio_books_played: i32,
     pub podcasts_runtime: i32,
     pub podcasts_played: i32,
+    pub podcast_episodes_played: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

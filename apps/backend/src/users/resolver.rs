@@ -358,6 +358,7 @@ impl UsersService {
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
+        let mut unique_podcast_episodes = HashSet::new();
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
@@ -403,6 +404,7 @@ impl UsersService {
                                         if let Some(r) = episode.runtime {
                                             podcasts_runtime += r;
                                         }
+                                        unique_podcast_episodes.insert(s.episode);
                                     }
                                 }
                             },
@@ -475,6 +477,9 @@ impl UsersService {
             podcasts_runtime: ActiveValue::Set(podcasts_runtime.try_into().unwrap()),
             podcasts_played: ActiveValue::Set(
                 ls.podcasts_played + i32::try_from(unique_podcasts.len()).unwrap(),
+            ),
+            podcast_episodes_played: ActiveValue::Set(
+                ls.podcast_episodes_played + i32::try_from(unique_podcast_episodes.len()).unwrap(),
             ),
         };
         let obj = summary_obj.insert(&self.db).await.unwrap();
