@@ -18,7 +18,7 @@ pub struct ShowSpecifics {
 }
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult,
+    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult, Hash,
 )]
 pub struct ShowSeason {
     pub id: i32,
@@ -32,7 +32,7 @@ pub struct ShowSeason {
 }
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult,
+    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult, Hash,
 )]
 pub struct ShowEpisode {
     pub id: i32,

@@ -412,7 +412,8 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
-                    unique_shows.insert(seen.metadata_id);
+                    // FIXME: This does not work
+                    unique_shows.insert(item.details.seasons.clone());
                     for season in item.details.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
@@ -424,7 +425,7 @@ impl UsersService {
                                         if let Some(r) = episode.runtime {
                                             ls.data.shows.runtime += r;
                                         }
-                                        ls.data.shows.watched += 1;
+                                        ls.data.shows.watched_episodes += 1;
                                         unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
@@ -437,6 +438,7 @@ impl UsersService {
                 }
             }
         }
+
         ls.data.podcasts.played =
             ls.data.podcasts.played + i32::try_from(unique_podcasts.len()).unwrap();
         ls.data.podcasts.played_episodes = ls.data.podcasts.played_episodes
@@ -444,6 +446,7 @@ impl UsersService {
         ls.data.shows.watched = ls.data.shows.watched + i32::try_from(unique_shows.len()).unwrap();
         ls.data.shows.watched_seasons =
             ls.data.shows.watched_seasons + i32::try_from(unique_show_seasons.len()).unwrap();
+        ls.data.shows.watched = ls.data.shows.watched + i32::try_from(unique_shows.len()).unwrap();
 
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
