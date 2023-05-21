@@ -68,7 +68,8 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection ? (
+					{inProgressCollection &&
+					inProgressCollection.mediaDetails.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
 							<Grid>
