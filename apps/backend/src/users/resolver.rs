@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{
@@ -352,10 +352,11 @@ impl UsersService {
         let mut movies_runtime = ls.movies_runtime;
         let mut podcasts_total = ls.podcasts_played;
         let mut podcasts_runtime = ls.podcasts_runtime;
-        let mut shows_total = ls.shows_watched;
         let mut shows_runtime = ls.shows_runtime;
         let mut episodes_total = ls.episodes_watched;
         let mut video_games_total = ls.video_games_played;
+
+        let mut unique_shows = HashSet::new();
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
@@ -426,6 +427,7 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    unique_shows.insert(seen.metadata_id);
                     for season in item.details.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
@@ -437,7 +439,6 @@ impl UsersService {
                                         if let Some(r) = episode.runtime {
                                             shows_runtime += r;
                                         }
-                                        shows_total += 1;
                                         episodes_total += 1;
                                     }
                                 }
@@ -461,7 +462,9 @@ impl UsersService {
             movies_runtime: ActiveValue::Set(movies_runtime.try_into().unwrap()),
             movies_watched: ActiveValue::Set(movies_total.try_into().unwrap()),
             shows_runtime: ActiveValue::Set(shows_runtime.try_into().unwrap()),
-            shows_watched: ActiveValue::Set(shows_total.try_into().unwrap()),
+            shows_watched: ActiveValue::Set(
+                ls.shows_watched + i32::try_from(unique_shows.len()).unwrap(),
+            ),
             episodes_watched: ActiveValue::Set(episodes_total.try_into().unwrap()),
             video_games_played: ActiveValue::Set(video_games_total.try_into().unwrap()),
             podcasts_runtime: ActiveValue::Set(podcasts_runtime.try_into().unwrap()),
