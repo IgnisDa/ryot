@@ -13,9 +13,10 @@ use cookie::{
 };
 use http::header::SET_COOKIE;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
+    FromJsonQueryResult, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
 };
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -125,45 +126,59 @@ fn get_hasher() -> Argon2<'static> {
     Argon2::default()
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct AudioBooksSummary {
     runtime: i32,
     played: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct VideoGamesSummary {
     played: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct BooksSummary {
     pages: i32,
     read: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct MoviesSummary {
     runtime: i32,
     watched: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct PodcastsSummary {
     runtime: i32,
     played: i32,
     played_episodes: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct ShowsSummary {
     runtime: i32,
-    watched_shows: i32,
+    watched: i32,
     watched_episodes: i32,
     watched_seasons: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct UserSummary {
     books: BooksSummary,
     movies: MoviesSummary,
@@ -307,38 +322,11 @@ impl UsersService {
 
     async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
         let ls = self.latest_user_summary(user_id).await?;
-        Ok(UserSummary {
-            books: BooksSummary {
-                pages: ls.books_pages,
-                read: ls.books_read,
-            },
-            movies: MoviesSummary {
-                runtime: ls.movies_runtime,
-                watched: ls.movies_watched,
-            },
-            podcasts: PodcastsSummary {
-                runtime: ls.podcasts_runtime,
-                played: ls.podcasts_played,
-                played_episodes: ls.podcast_episodes_played,
-            },
-            shows: ShowsSummary {
-                runtime: ls.shows_runtime,
-                watched_shows: ls.shows_watched,
-                watched_episodes: ls.shows_episodes_watched,
-                watched_seasons: ls.shows_seasons_watched,
-            },
-            video_games: VideoGamesSummary {
-                played: ls.video_games_played,
-            },
-            audio_books: AudioBooksSummary {
-                runtime: ls.audio_books_runtime,
-                played: ls.audio_books_played,
-            },
-        })
+        Ok(ls.data)
     }
 
     pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
-        let ls = self.latest_user_summary(user_id).await?;
+        let mut ls = self.latest_user_summary(user_id).await?;
         let seen_items = Seen::find()
             .filter(seen::Column::LastUpdatedOn.gte(ls.created_on))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -348,16 +336,6 @@ impl UsersService {
             .all(&self.db)
             .await
             .unwrap();
-        let mut audio_books_total = ls.audio_books_played;
-        let mut audio_books_runtime = ls.audio_books_runtime;
-        let mut books_total = ls.books_read;
-        let mut books_pages = ls.books_pages;
-        let mut movies_total = ls.movies_watched;
-        let mut movies_runtime = ls.movies_runtime;
-        let mut podcasts_runtime = ls.podcasts_runtime;
-        let mut shows_runtime = ls.shows_runtime;
-        let mut show_episodes_total = ls.shows_episodes_watched;
-        let mut video_games_total = ls.video_games_played;
 
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
@@ -373,9 +351,9 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
-                    audio_books_total += 1;
+                    ls.data.audio_books.played += 1;
                     if let Some(r) = item.runtime {
-                        audio_books_runtime += r;
+                        ls.data.audio_books.runtime += r;
                     }
                 }
                 MetadataLot::Book => {
@@ -385,9 +363,9 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
-                    books_total += 1;
+                    ls.data.books.read += 1;
                     if let Some(pg) = item.num_pages {
-                        books_pages += pg;
+                        ls.data.books.pages += pg;
                     }
                 }
                 MetadataLot::Podcast => {
@@ -406,7 +384,7 @@ impl UsersService {
                                 SeenExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
-                                            podcasts_runtime += r;
+                                            ls.data.podcasts.runtime += r;
                                         }
                                         unique_podcast_episodes.insert((s.episode, episode.id));
                                     }
@@ -422,9 +400,9 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
-                    movies_total += 1;
+                    ls.data.movies.watched += 1;
                     if let Some(r) = item.runtime {
-                        movies_runtime += r;
+                        ls.data.movies.runtime += r;
                     }
                 }
                 MetadataLot::Show => {
@@ -444,9 +422,9 @@ impl UsersService {
                                         && s.episode == episode.episode_number
                                     {
                                         if let Some(r) = episode.runtime {
-                                            shows_runtime += r;
+                                            ls.data.shows.runtime += r;
                                         }
-                                        show_episodes_total += 1;
+                                        ls.data.shows.watched += 1;
                                         unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
@@ -455,36 +433,23 @@ impl UsersService {
                     }
                 }
                 MetadataLot::VideoGame => {
-                    video_games_total += 1;
+                    ls.data.video_games.played += 1;
                 }
             }
         }
+        ls.data.podcasts.played =
+            ls.data.podcasts.played + i32::try_from(unique_podcasts.len()).unwrap();
+        ls.data.podcasts.played_episodes = ls.data.podcasts.played_episodes
+            + i32::try_from(unique_podcast_episodes.len()).unwrap();
+        ls.data.shows.watched = ls.data.shows.watched + i32::try_from(unique_shows.len()).unwrap();
+        ls.data.shows.watched_seasons =
+            ls.data.shows.watched_seasons + i32::try_from(unique_show_seasons.len()).unwrap();
+
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
             created_on: ActiveValue::NotSet,
             user_id: ActiveValue::Set(user_id.to_owned()),
-            audio_books_runtime: ActiveValue::Set(audio_books_runtime.try_into().unwrap()),
-            audio_books_played: ActiveValue::Set(audio_books_total.try_into().unwrap()),
-            books_pages: ActiveValue::Set(books_pages.try_into().unwrap()),
-            books_read: ActiveValue::Set(books_total.try_into().unwrap()),
-            movies_runtime: ActiveValue::Set(movies_runtime.try_into().unwrap()),
-            movies_watched: ActiveValue::Set(movies_total.try_into().unwrap()),
-            shows_runtime: ActiveValue::Set(shows_runtime.try_into().unwrap()),
-            shows_watched: ActiveValue::Set(
-                ls.shows_watched + i32::try_from(unique_shows.len()).unwrap(),
-            ),
-            shows_episodes_watched: ActiveValue::Set(show_episodes_total.try_into().unwrap()),
-            shows_seasons_watched: ActiveValue::Set(
-                ls.shows_seasons_watched + i32::try_from(unique_show_seasons.len()).unwrap(),
-            ),
-            video_games_played: ActiveValue::Set(video_games_total.try_into().unwrap()),
-            podcasts_runtime: ActiveValue::Set(podcasts_runtime.try_into().unwrap()),
-            podcasts_played: ActiveValue::Set(
-                ls.podcasts_played + i32::try_from(unique_podcasts.len()).unwrap(),
-            ),
-            podcast_episodes_played: ActiveValue::Set(
-                ls.podcast_episodes_played + i32::try_from(unique_podcast_episodes.len()).unwrap(),
-            ),
+            data: ActiveValue::Set(ls.data),
         };
         let obj = summary_obj.insert(&self.db).await.unwrap();
         Ok(IdObject { id: obj.id.into() })

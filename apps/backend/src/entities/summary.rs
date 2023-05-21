@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::users::resolver::UserSummary;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "summary")]
 pub struct Model {
@@ -10,20 +12,7 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub created_on: DateTimeUtc,
-    pub books_pages: i32,
-    pub books_read: i32,
-    pub movies_runtime: i32,
-    pub movies_watched: i32,
-    pub shows_runtime: i32,
-    pub shows_watched: i32,
-    pub shows_episodes_watched: i32,
-    pub shows_seasons_watched: i32,
-    pub video_games_played: i32,
-    pub audio_books_runtime: i32,
-    pub audio_books_played: i32,
-    pub podcasts_runtime: i32,
-    pub podcasts_played: i32,
-    pub podcast_episodes_played: i32,
+    pub data: UserSummary,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

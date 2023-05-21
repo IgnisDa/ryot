@@ -20,7 +20,7 @@ query UserSummary {
       runtime
       watchedEpisodes
       watchedSeasons
-			watchedShows
+			watched
     }
     audioBooks {
       runtime

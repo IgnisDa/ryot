@@ -1,5 +1,5 @@
 use sea_orm::{entity::prelude::*, TryGetError};
-use sea_orm_migration::prelude::{ColumnDef, *};
+use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
 mod m20230410_000001_create_metadata;
@@ -53,12 +53,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20230514_000015_create_podcast::Migration),
         ]
     }
-}
-
-fn get_integer_col(def: impl Iden + 'static) -> ColumnDef {
-    let mut binding = ColumnDef::new(def);
-    let col = binding.integer().not_null().default(0);
-    col.take()
 }
 
 mod custom_columns {

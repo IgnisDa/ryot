@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::{get_integer_col, m20230417_000004_create_user::User};
+use super::m20230417_000004_create_user::User;
 
 pub struct Migration;
 
@@ -10,20 +10,7 @@ pub enum Summary {
     Id,
     UserId,
     CreatedOn,
-    BooksPages,
-    BooksRead,
-    MoviesRuntime,
-    MoviesWatched,
-    ShowsRuntime,
-    ShowsWatched,
-    ShowsEpisodesWatched,
-    ShowsSeasonsWatched,
-    VideoGamesPlayed,
-    AudioBooksRuntime,
-    AudioBooksPlayed,
-    PodcastsRuntime,
-    PodcastsPlayed,
-    PodcastEpisodesPlayed,
+    Data,
 }
 
 impl MigrationName for Migration {
@@ -53,20 +40,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(&mut get_integer_col(Summary::BooksPages))
-                    .col(&mut get_integer_col(Summary::BooksRead))
-                    .col(&mut get_integer_col(Summary::MoviesRuntime))
-                    .col(&mut get_integer_col(Summary::MoviesWatched))
-                    .col(&mut get_integer_col(Summary::ShowsRuntime))
-                    .col(&mut get_integer_col(Summary::ShowsWatched))
-                    .col(&mut get_integer_col(Summary::ShowsEpisodesWatched))
-                    .col(&mut get_integer_col(Summary::ShowsSeasonsWatched))
-                    .col(&mut get_integer_col(Summary::VideoGamesPlayed))
-                    .col(&mut get_integer_col(Summary::AudioBooksRuntime))
-                    .col(&mut get_integer_col(Summary::AudioBooksPlayed))
-                    .col(&mut get_integer_col(Summary::PodcastsRuntime))
-                    .col(&mut get_integer_col(Summary::PodcastsPlayed))
-                    .col(&mut get_integer_col(Summary::PodcastEpisodesPlayed))
+                    .col(ColumnDef::new(Summary::Data).not_null().json())
                     .foreign_key(
                         ForeignKey::create()
                             .name("summary_to_user_foreign_key")
