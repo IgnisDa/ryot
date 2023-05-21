@@ -16,7 +16,8 @@ pub enum Summary {
     MoviesWatched,
     ShowsRuntime,
     ShowsWatched,
-    EpisodesWatched,
+    ShowsEpisodesWatched,
+    ShowsSeasonsWatched,
     VideoGamesPlayed,
     AudioBooksRuntime,
     AudioBooksPlayed,
@@ -57,7 +58,8 @@ impl MigrationTrait for Migration {
                     .col(&mut get_integer_col(Summary::MoviesWatched))
                     .col(&mut get_integer_col(Summary::ShowsRuntime))
                     .col(&mut get_integer_col(Summary::ShowsWatched))
-                    .col(&mut get_integer_col(Summary::EpisodesWatched))
+                    .col(&mut get_integer_col(Summary::ShowsEpisodesWatched))
+                    .col(&mut get_integer_col(Summary::ShowsSeasonsWatched))
                     .col(&mut get_integer_col(Summary::VideoGamesPlayed))
                     .col(&mut get_integer_col(Summary::AudioBooksRuntime))
                     .col(&mut get_integer_col(Summary::AudioBooksPlayed))

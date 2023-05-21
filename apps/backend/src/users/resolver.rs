@@ -321,7 +321,7 @@ impl UsersService {
             shows: ShowsSummary {
                 runtime: ls.shows_runtime,
                 watched_shows: ls.shows_watched,
-                watched_episodes: ls.episodes_watched,
+                watched_episodes: ls.shows_episodes_watched,
             },
             video_games: VideoGamesSummary {
                 played: ls.video_games_played,
@@ -352,10 +352,11 @@ impl UsersService {
         let mut movies_runtime = ls.movies_runtime;
         let mut podcasts_runtime = ls.podcasts_runtime;
         let mut shows_runtime = ls.shows_runtime;
-        let mut episodes_total = ls.episodes_watched;
+        let mut show_episodes_total = ls.shows_episodes_watched;
         let mut video_games_total = ls.video_games_played;
 
         let mut unique_shows = HashSet::new();
+        let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
@@ -439,7 +440,8 @@ impl UsersService {
                                         if let Some(r) = episode.runtime {
                                             shows_runtime += r;
                                         }
-                                        episodes_total += 1;
+                                        show_episodes_total += 1;
+                                        unique_show_seasons.insert(s.season);
                                     }
                                 }
                             }
@@ -465,7 +467,10 @@ impl UsersService {
             shows_watched: ActiveValue::Set(
                 ls.shows_watched + i32::try_from(unique_shows.len()).unwrap(),
             ),
-            episodes_watched: ActiveValue::Set(episodes_total.try_into().unwrap()),
+            shows_episodes_watched: ActiveValue::Set(show_episodes_total.try_into().unwrap()),
+            shows_seasons_watched: ActiveValue::Set(
+                ls.shows_seasons_watched + i32::try_from(unique_show_seasons.len()).unwrap(),
+            ),
             video_games_played: ActiveValue::Set(video_games_total.try_into().unwrap()),
             podcasts_runtime: ActiveValue::Set(podcasts_runtime.try_into().unwrap()),
             podcasts_played: ActiveValue::Set(
