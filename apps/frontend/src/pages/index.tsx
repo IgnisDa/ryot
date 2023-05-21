@@ -118,6 +118,8 @@ const Page: NextPageWithLayout = () => {
 								You watched{" "}
 								<StatNumber text={userSummary.data.shows.watchedShows} />{" "}
 								show(s) and{" "}
+								<StatNumber text={userSummary.data.shows.watchedSeasons} />{" "}
+								season(s) and{" "}
 								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
 								episode(s) totalling{" "}
 								<StatNumber text={userSummary.data.shows.runtime} isDuration />.
@@ -148,8 +150,10 @@ const Page: NextPageWithLayout = () => {
 							<StatTitle text="Podcasts" />
 							<Text>
 								You listened to{" "}
-								<StatNumber text={userSummary.data.podcasts.watched} />{" "}
-								podcast(s) totalling{" "}
+								<StatNumber text={userSummary.data.podcasts.played} />{" "}
+								podcast(s) and{" "}
+								<StatNumber text={userSummary.data.podcasts.playedEpisodes} />{" "}
+								episode(s) totalling{" "}
 								<StatNumber
 									text={userSummary.data.podcasts.runtime}
 									isDuration

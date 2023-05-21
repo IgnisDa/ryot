@@ -151,7 +151,8 @@ pub struct MoviesSummary {
 #[derive(SimpleObject, Debug)]
 pub struct PodcastsSummary {
     runtime: i32,
-    watched: i32,
+    played: i32,
+    played_episodes: i32,
 }
 
 #[derive(SimpleObject, Debug)]
@@ -159,6 +160,7 @@ pub struct ShowsSummary {
     runtime: i32,
     watched_shows: i32,
     watched_episodes: i32,
+    watched_seasons: i32,
 }
 
 #[derive(SimpleObject, Debug)]
@@ -316,12 +318,14 @@ impl UsersService {
             },
             podcasts: PodcastsSummary {
                 runtime: ls.podcasts_runtime,
-                watched: ls.podcasts_played,
+                played: ls.podcasts_played,
+                played_episodes: ls.podcast_episodes_played,
             },
             shows: ShowsSummary {
                 runtime: ls.shows_runtime,
                 watched_shows: ls.shows_watched,
                 watched_episodes: ls.shows_episodes_watched,
+                watched_seasons: ls.shows_seasons_watched,
             },
             video_games: VideoGamesSummary {
                 played: ls.video_games_played,
