@@ -350,13 +350,13 @@ impl UsersService {
         let mut books_pages = ls.books_pages;
         let mut movies_total = ls.movies_watched;
         let mut movies_runtime = ls.movies_runtime;
-        let mut podcasts_total = ls.podcasts_played;
         let mut podcasts_runtime = ls.podcasts_runtime;
         let mut shows_runtime = ls.shows_runtime;
         let mut episodes_total = ls.episodes_watched;
         let mut video_games_total = ls.video_games_played;
 
         let mut unique_shows = HashSet::new();
+        let mut unique_podcasts = HashSet::new();
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
             match meta.lot {
@@ -391,6 +391,7 @@ impl UsersService {
                         .await
                         .unwrap()
                         .unwrap();
+                    unique_podcasts.insert(seen.metadata_id);
                     for episode in item.details.episodes {
                         match seen.extra_information.to_owned() {
                             None => continue,
@@ -398,7 +399,6 @@ impl UsersService {
                                 SeenExtraInformation::Show(_) => unreachable!(),
                                 SeenExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
-                                        podcasts_total += 1;
                                         if let Some(r) = episode.runtime {
                                             podcasts_runtime += r;
                                         }
@@ -468,7 +468,9 @@ impl UsersService {
             episodes_watched: ActiveValue::Set(episodes_total.try_into().unwrap()),
             video_games_played: ActiveValue::Set(video_games_total.try_into().unwrap()),
             podcasts_runtime: ActiveValue::Set(podcasts_runtime.try_into().unwrap()),
-            podcasts_played: ActiveValue::Set(podcasts_total.try_into().unwrap()),
+            podcasts_played: ActiveValue::Set(
+                ls.podcasts_played + i32::try_from(unique_podcasts.len()).unwrap(),
+            ),
         };
         let obj = summary_obj.insert(&self.db).await.unwrap();
         Ok(IdObject { id: obj.id.into() })
