@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "0.0.43"
+version = "0.0.44"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
