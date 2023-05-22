@@ -20,7 +20,6 @@ import {
 	Group,
 	Image,
 	Indicator,
-	MANTINE_COLORS,
 	type MantineGradient,
 	Modal,
 	Rating,
@@ -33,6 +32,7 @@ import {
 	Tabs,
 	Text,
 	Title,
+	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -69,6 +69,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { sample } from "lodash";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
@@ -336,6 +337,8 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
 
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -570,13 +573,8 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 						{mediaCollections && mediaCollections.length > 0 ? (
 							<Group>
-								{mediaCollections.map((c, idx) => (
-									<Badge
-										key={c}
-										color={
-											MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]
-										}
-									>
+								{mediaCollections.map((c) => (
+									<Badge key={c} color={sample(colors)}>
 										<Text truncate>{c}</Text>
 									</Badge>
 								))}
