@@ -235,14 +235,14 @@ const AccordionLabel = ({
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
-	displayIndicator?: boolean;
+	displayIndicator: number;
 }) => {
 	return (
 		<Box>
 			<Flex align={"center"} gap="sm">
 				<Indicator
-					disabled={!displayIndicator}
-					label="Seen"
+					disabled={displayIndicator === 0}
+					label={displayIndicator === 1 ? "Seen" : `Seen X${displayIndicator}`}
 					offset={7}
 					position="bottom-end"
 					size={16}
@@ -829,14 +829,19 @@ const Page: NextPageWithLayout = () => {
 														<AccordionLabel
 															{...s}
 															name={`${s.seasonNumber}. ${s.name}`}
-															displayIndicator={s.episodes.every((e) =>
-																history.data.some(
-																	(h) =>
-																		h.showInformation?.episode ===
-																			e.episodeNumber &&
-																		h.showInformation.season === s.seasonNumber,
-																),
-															)}
+															displayIndicator={
+																s.episodes.every((e) =>
+																	history.data.some(
+																		(h) =>
+																			h.showInformation?.episode ===
+																				e.episodeNumber &&
+																			h.showInformation.season ===
+																				s.seasonNumber,
+																	),
+																)
+																	? 1
+																	: 0
+															}
 														>
 															<Button
 																variant="outline"
@@ -857,13 +862,15 @@ const Page: NextPageWithLayout = () => {
 																	{...e}
 																	key={e.episodeNumber}
 																	name={`${e.episodeNumber}. ${e.name}`}
-																	displayIndicator={history.data.some(
-																		(h) =>
-																			h.showInformation?.episode ===
-																				e.episodeNumber &&
-																			h.showInformation.season ===
-																				s.seasonNumber,
-																	)}
+																	displayIndicator={
+																		history.data.filter(
+																			(h) =>
+																				h.showInformation?.episode ===
+																					e.episodeNumber &&
+																				h.showInformation.season ===
+																					s.seasonNumber,
+																		).length
+																	}
 																>
 																	<Button
 																		variant="outline"
@@ -895,9 +902,11 @@ const Page: NextPageWithLayout = () => {
 													posterImages={[e.thumbnail || ""]}
 													overview={e.overview}
 													key={e.number}
-													displayIndicator={history.data.some(
-														(h) => h.podcastInformation?.episode === e.number,
-													)}
+													displayIndicator={
+														history.data.filter(
+															(h) => h.podcastInformation?.episode === e.number,
+														).length
+													}
 												>
 													<Button
 														variant="outline"
