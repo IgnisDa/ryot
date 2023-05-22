@@ -221,12 +221,14 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct SchedulerConfig {
     pub database_url: String,
+    pub user_cleanup_every: i32,
 }
 
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
             database_url: format!("sqlite::memory:"),
+            user_cleanup_every: 10,
         }
     }
 }

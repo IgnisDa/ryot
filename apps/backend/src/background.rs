@@ -66,10 +66,10 @@ pub async fn general_user_cleanup(
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
-    tracing::info!("Removing old user summaries");
+    tracing::info!("Removing old user summaries and regenerating them");
     ctx.data::<UsersService>()
         .unwrap()
-        .cleanup_user_summaries()
+        .regenerate_user_summaries()
         .await
         .unwrap();
     Ok(())

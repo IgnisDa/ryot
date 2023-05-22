@@ -588,9 +588,6 @@ impl MediaService {
                 }
             };
             let id = seen_item.id.into();
-            if seen_item.progress == 100 {
-                self.deploy_recalculate_summary_job(user_id).await.ok();
-            }
             let metadata = self.generic_metadata(input.metadata_id.into()).await?;
             let mut storage = self.after_media_seen.clone();
             storage
