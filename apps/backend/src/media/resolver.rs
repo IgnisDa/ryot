@@ -146,12 +146,20 @@ pub struct MediaSortInput {
     pub by: MediaSortBy,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
+pub enum MediaFilter {
+    All,
+    Rated,
+    Unrated,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct MediaListInput {
     pub page: i32,
     pub lot: MetadataLot,
     pub sort: Option<MediaSortInput>,
     pub query: Option<String>,
+    pub filter: Option<MediaFilter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -453,7 +461,7 @@ impl MediaService {
             .await
             .unwrap();
         let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
-        let condition = Metadata::find()
+        let mut condition = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Id.is_in(distinct_meta_ids))
             .apply_if(input.query, |query, v| {
@@ -485,7 +493,34 @@ impl MediaService {
                 Order::from(s.order),
             ),
         };
-        let condition = condition.order_by(sort_by, sort_order);
+        match input.filter {
+            None => {}
+            Some(s) => {
+                let reviews = if matches!(s, MediaFilter::All) {
+                    vec![]
+                } else {
+                    Review::find()
+                        .filter(review::Column::UserId.eq(user_id))
+                        .all(&self.db)
+                        .await?
+                        .into_iter()
+                        .map(|r| r.metadata_id)
+                        .collect::<Vec<_>>()
+                };
+                match s {
+                    MediaFilter::All => {}
+                    MediaFilter::Rated => {
+                        condition = condition.filter(metadata::Column::Id.is_in(reviews));
+                    }
+                    MediaFilter::Unrated => {
+                        condition = condition.filter(metadata::Column::Id.is_not_in(reviews));
+                    }
+                }
+            }
+        };
+
+        condition = condition.order_by(sort_by, sort_order);
+
         let counts = condition.clone().count(&self.db).await.unwrap();
         let paginator = condition.paginate(&self.db, LIMIT as u64);
         let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();

@@ -176,6 +176,12 @@ export type LoginResponse = {
 
 export type LoginResult = LoginError | LoginResponse;
 
+export enum MediaFilter {
+  All = 'ALL',
+  Rated = 'RATED',
+  Unrated = 'UNRATED'
+}
+
 export type MediaImportReport = {
   details?: Maybe<ImportResultResponse>;
   finishedOn?: Maybe<Scalars['DateTime']>;
@@ -192,6 +198,7 @@ export enum MediaImportSource {
 }
 
 export type MediaListInput = {
+  filter?: InputMaybe<MediaFilter>;
   lot: MetadataLot;
   page: Scalars['Int'];
   query?: InputMaybe<Scalars['String']>;
