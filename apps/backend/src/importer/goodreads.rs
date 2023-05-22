@@ -61,43 +61,59 @@ pub async fn import(
     Ok(ImportResult {
         media: books
             .into_iter()
-            .map(|d| ImportItem {
-                source_id: d.book_id.to_string(),
-                lot: MetadataLot::Book,
-                identifier: ImportItemIdentifier::AlreadyFilled(MediaDetails {
-                    identifier: d.book_id.to_string(),
-                    title: d.title,
-                    description: Some(d.book_description),
-                    lot: MetadataLot::Book,
-                    creators: vec![d.author_name],
-                    genres: vec![],
-                    poster_images: vec![d.book_large_image_url],
-                    backdrop_images: vec![],
-                    publish_year: d.book_published.parse().ok(),
-                    publish_date: None,
-                    specifics: MediaSpecifics::Book(BookSpecifics {
-                        pages: d.book.num_pages.parse().ok(),
-                        source: BookSource::Goodreads,
-                    }),
-                }),
-                seen_history: vec![ImportItemSeen {
+            .map(|d| {
+                let mut reviews = vec![];
+                let mut single_review = ImportItemRating {
                     id: None,
-                    ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
-                        .ok()
-                        .map(|d| d.with_timezone(&Utc)),
-                    show_season_number: None,
-                    show_episode_number: None,
-                    podcast_episode_number: None,
-                }],
-                reviews: vec![ImportItemRating {
-                    id: None,
-                    review: Some(ImportItemReview {
+                    review: None,
+                    rating: None,
+                };
+                if !d.user_review.is_empty() {
+                    single_review.review = Some(ImportItemReview {
                         date: None,
                         spoiler: false,
                         text: d.user_review,
+                    });
+                };
+                if !d.user_rating.is_empty() {
+                    let rating = d.user_rating.parse().unwrap();
+                    if rating != 0 {
+                        single_review.rating = Some(rating)
+                    }
+                };
+                if single_review.review.is_some() || single_review.rating.is_some() {
+                    reviews.push(single_review);
+                }
+                ImportItem {
+                    source_id: d.book_id.to_string(),
+                    lot: MetadataLot::Book,
+                    identifier: ImportItemIdentifier::AlreadyFilled(MediaDetails {
+                        identifier: d.book_id.to_string(),
+                        title: d.title,
+                        description: Some(d.book_description),
+                        lot: MetadataLot::Book,
+                        creators: vec![d.author_name],
+                        genres: vec![],
+                        poster_images: vec![d.book_large_image_url],
+                        backdrop_images: vec![],
+                        publish_year: d.book_published.parse().ok(),
+                        publish_date: None,
+                        specifics: MediaSpecifics::Book(BookSpecifics {
+                            pages: d.book.num_pages.parse().ok(),
+                            source: BookSource::Goodreads,
+                        }),
                     }),
-                    rating: None,
-                }],
+                    seen_history: vec![ImportItemSeen {
+                        id: None,
+                        ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
+                            .ok()
+                            .map(|d| d.with_timezone(&Utc)),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
+                    }],
+                    reviews,
+                }
             })
             .collect(),
         failed_items: vec![],
