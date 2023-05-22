@@ -20,7 +20,6 @@ import {
 	Group,
 	Image,
 	Indicator,
-	MANTINE_COLORS,
 	type MantineGradient,
 	Modal,
 	Rating,
@@ -33,6 +32,7 @@ import {
 	Tabs,
 	Text,
 	Title,
+	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -69,6 +69,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { sample } from "lodash";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
@@ -235,14 +236,14 @@ const AccordionLabel = ({
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
-	displayIndicator?: boolean;
+	displayIndicator: number;
 }) => {
 	return (
 		<Box>
 			<Flex align={"center"} gap="sm">
 				<Indicator
-					disabled={!displayIndicator}
-					label="Seen"
+					disabled={displayIndicator === 0}
+					label={displayIndicator === 1 ? "Seen" : `Seen X${displayIndicator}`}
 					offset={7}
 					position="bottom-end"
 					size={16}
@@ -336,6 +337,8 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
 
 	const details = useQuery({
 		queryKey: ["details", metadataId],
@@ -570,13 +573,8 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 						{mediaCollections && mediaCollections.length > 0 ? (
 							<Group>
-								{mediaCollections.map((c, idx) => (
-									<Badge
-										key={c}
-										color={
-											MANTINE_COLORS.slice(2)[MANTINE_COLORS.length % (idx + 1)]
-										}
-									>
+								{mediaCollections.map((c) => (
+									<Badge key={c} color={sample(colors)}>
 										<Text truncate>{c}</Text>
 									</Badge>
 								))}
@@ -829,14 +827,19 @@ const Page: NextPageWithLayout = () => {
 														<AccordionLabel
 															{...s}
 															name={`${s.seasonNumber}. ${s.name}`}
-															displayIndicator={s.episodes.every((e) =>
-																history.data.some(
-																	(h) =>
-																		h.showInformation?.episode ===
-																			e.episodeNumber &&
-																		h.showInformation.season === s.seasonNumber,
-																),
-															)}
+															displayIndicator={
+																s.episodes.every((e) =>
+																	history.data.some(
+																		(h) =>
+																			h.showInformation?.episode ===
+																				e.episodeNumber &&
+																			h.showInformation.season ===
+																				s.seasonNumber,
+																	),
+																)
+																	? 1
+																	: 0
+															}
 														>
 															<Button
 																variant="outline"
@@ -857,13 +860,15 @@ const Page: NextPageWithLayout = () => {
 																	{...e}
 																	key={e.episodeNumber}
 																	name={`${e.episodeNumber}. ${e.name}`}
-																	displayIndicator={history.data.some(
-																		(h) =>
-																			h.showInformation?.episode ===
-																				e.episodeNumber &&
-																			h.showInformation.season ===
-																				s.seasonNumber,
-																	)}
+																	displayIndicator={
+																		history.data.filter(
+																			(h) =>
+																				h.showInformation?.episode ===
+																					e.episodeNumber &&
+																				h.showInformation.season ===
+																					s.seasonNumber,
+																		).length
+																	}
 																>
 																	<Button
 																		variant="outline"
@@ -895,9 +900,11 @@ const Page: NextPageWithLayout = () => {
 													posterImages={[e.thumbnail || ""]}
 													overview={e.overview}
 													key={e.number}
-													displayIndicator={history.data.some(
-														(h) => h.podcastInformation?.episode === e.number,
-													)}
+													displayIndicator={
+														history.data.filter(
+															(h) => h.podcastInformation?.episode === e.number,
+														).length
+													}
 												>
 													<Button
 														variant="outline"

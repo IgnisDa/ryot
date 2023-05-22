@@ -90,28 +90,29 @@ Only the `DATABASE_URL` variable is loaded from the environment.
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder.
 
-| Key                                   | Description                                                                                                                                                                       |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                                                                                       |
-| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                                   |
-| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                      |
-| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                        |
-| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                               |
-| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                                  |
-| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                                 |
-| `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                                |
-| `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                     |
-| `podcasts.listennotes.api_token`      | The access token for the Listennotes API.                                                                                                                                         |
-| `podcasts.listennotes.user_agent`     | The user agent used for the Listennotes API.                                                                                                                                      |
-| `scheduler.database_url`              | The url to the SQLite database where job related data needs to be stored.                                                                                                         |
-| `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                      |
-| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                               |
-| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                    |
-| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                                  |
-| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                             |
-| `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                               |
-| `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                        |
-| `web.insecure_cookie`                 | Setting this to `true` will make auth cookies insecure. This should be set to `true` if you run it on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
+| Key                                   | Description                                                                                                                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                                                                                   |
+| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                               |
+| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
+| `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
+| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                           |
+| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                              |
+| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
+| `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
+| `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |
+| `podcasts.listennotes.api_token`      | The access token for the Listennotes API.                                                                                                                                     |
+| `podcasts.listennotes.user_agent`     | The user agent used for the Listennotes API.                                                                                                                                  |
+| `scheduler.database_url`              | The url to the SQLite database where job related data needs to be stored.                                                                                                     |
+| `scheduler.user_cleanup_every`        | Deploy a job every x minutes that performs user cleanup and summary calculation.                                                                                              |
+| `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
+| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                           |
+| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                |
+| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                              |
+| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |
+| `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                           |
+| `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                    |
+| `web.insecure_cookie`                 | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
 ## 🤓 Developer notes
 

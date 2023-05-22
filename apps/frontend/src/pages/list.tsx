@@ -12,7 +12,7 @@ import {
 	Box,
 	Center,
 	Container,
-	Group,
+	Flex,
 	Pagination,
 	Select,
 	Stack,
@@ -24,6 +24,7 @@ import { useDebouncedState, useLocalStorage, useToggle } from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
+	MediaFilter,
 	MediaListDocument,
 	MediaSortBy,
 	MediaSortOrder,
@@ -56,6 +57,7 @@ const Page: NextPageWithLayout = () => {
 		Object.values(MediaSortOrder),
 	);
 	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.ReleaseDate);
+	const [mineFilter, setMineFilter] = useState(MediaFilter.All);
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
@@ -78,6 +80,7 @@ const Page: NextPageWithLayout = () => {
 			lot,
 			mineSortBy,
 			mineSortOrder,
+			mineFilter,
 			debouncedQuery,
 		],
 		queryFn: async () => {
@@ -88,6 +91,7 @@ const Page: NextPageWithLayout = () => {
 					page: parseInt(activeMinePage) || 1,
 					sort: { order: mineSortOrder, by: mineSortBy },
 					query: debouncedQuery || undefined,
+					filter: mineFilter,
 				},
 			});
 			return mediaList;
@@ -199,14 +203,28 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="mine">
 						<Stack>
-							<Group>
+							<Flex gap="xs">
 								<TextInput
 									name="query"
 									placeholder={`Search for a ${lot.toLowerCase()}`}
 									icon={<IconSearch />}
 									defaultValue={query}
-									style={{ flexGrow: 1 }}
 									onChange={(e) => setQuery(e.currentTarget.value)}
+								/>
+								<Select
+									data={Object.values(MediaFilter).map((o) => ({
+										value: o.toString(),
+										label: startCase(lowerCase(o)),
+									}))}
+									defaultValue={mineFilter.toString()}
+									onChange={(v) => {
+										const filter = match(v)
+											.with("ALL", () => MediaFilter.All)
+											.with("RATED", () => MediaFilter.Rated)
+											.with("UNRATED", () => MediaFilter.Unrated)
+											.otherwise(() => MediaFilter.All);
+										setMineFilter(filter);
+									}}
 								/>
 								<Select
 									data={Object.values(MediaSortBy).map((o) => ({
@@ -229,7 +247,7 @@ const Page: NextPageWithLayout = () => {
 										<IconSortDescending />
 									)}
 								</ActionIcon>
-							</Group>
+							</Flex>
 							{listMedia.data && listMedia.data.total > 0 ? (
 								<>
 									<Grid>
