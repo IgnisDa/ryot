@@ -19,6 +19,7 @@ import {
 	Tabs,
 	Text,
 	TextInput,
+	Grid as MantineGrid,
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage, useToggle } from "@mantine/hooks";
 import {
@@ -203,51 +204,60 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="mine">
 						<Stack>
-							<Flex gap="xs">
-								<TextInput
-									name="query"
-									placeholder={`Search for a ${lot.toLowerCase()}`}
-									icon={<IconSearch />}
-									defaultValue={query}
-									onChange={(e) => setQuery(e.currentTarget.value)}
-								/>
-								<Select
-									data={Object.values(MediaFilter).map((o) => ({
-										value: o.toString(),
-										label: startCase(lowerCase(o)),
-									}))}
-									defaultValue={mineFilter.toString()}
-									onChange={(v) => {
-										const filter = match(v)
-											.with("ALL", () => MediaFilter.All)
-											.with("RATED", () => MediaFilter.Rated)
-											.with("UNRATED", () => MediaFilter.Unrated)
-											.otherwise(() => MediaFilter.All);
-										setMineFilter(filter);
-									}}
-								/>
-								<Select
-									data={Object.values(MediaSortBy).map((o) => ({
-										value: o.toString(),
-										label: startCase(lowerCase(o)),
-									}))}
-									defaultValue={mineSortBy.toString()}
-									onChange={(v) => {
-										const orderBy = match(v)
-											.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
-											.with("TITLE", () => MediaSortBy.Title)
-											.otherwise(() => MediaSortBy.Title);
-										setMineSortBy(orderBy);
-									}}
-								/>
-								<ActionIcon onClick={() => toggleMineSortOrder()}>
-									{mineSortOrder === MediaSortOrder.Asc ? (
-										<IconSortAscending />
-									) : (
-										<IconSortDescending />
-									)}
-								</ActionIcon>
-							</Flex>
+							<MantineGrid grow>
+								<MantineGrid.Col span={12}>
+									<TextInput
+										name="query"
+										placeholder={`Search for a ${lot.toLowerCase()}`}
+										icon={<IconSearch />}
+										defaultValue={query}
+										onChange={(e) => setQuery(e.currentTarget.value)}
+									/>
+								</MantineGrid.Col>
+								<MantineGrid.Col span={6}>
+									<Select
+										data={Object.values(MediaFilter).map((o) => ({
+											value: o.toString(),
+											label: startCase(lowerCase(o)),
+										}))}
+										defaultValue={mineFilter.toString()}
+										onChange={(v) => {
+											const filter = match(v)
+												.with("ALL", () => MediaFilter.All)
+												.with("RATED", () => MediaFilter.Rated)
+												.with("UNRATED", () => MediaFilter.Unrated)
+												.otherwise(() => MediaFilter.All);
+											setMineFilter(filter);
+										}}
+									/>
+								</MantineGrid.Col>
+								<MantineGrid.Col span={6}>
+									<Flex gap={"xs"} align={"center"}>
+										<Select
+											w="100%"
+											data={Object.values(MediaSortBy).map((o) => ({
+												value: o.toString(),
+												label: startCase(lowerCase(o)),
+											}))}
+											defaultValue={mineSortBy.toString()}
+											onChange={(v) => {
+												const orderBy = match(v)
+													.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
+													.with("TITLE", () => MediaSortBy.Title)
+													.otherwise(() => MediaSortBy.Title);
+												setMineSortBy(orderBy);
+											}}
+										/>
+										<ActionIcon onClick={() => toggleMineSortOrder()}>
+											{mineSortOrder === MediaSortOrder.Asc ? (
+												<IconSortAscending />
+											) : (
+												<IconSortDescending />
+											)}
+										</ActionIcon>
+									</Flex>
+								</MantineGrid.Col>
+							</MantineGrid>
 							{listMedia.data && listMedia.data.total > 0 ? (
 								<>
 									<Grid>
