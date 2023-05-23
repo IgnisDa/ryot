@@ -21,7 +21,7 @@ import {
 	TextInput,
 	Grid as MantineGrid,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage, useToggle } from "@mantine/hooks";
+import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
@@ -55,11 +55,21 @@ const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
 	const [activeTab, setActiveTab] = useState<string | null>("mine");
-	const [mineSortOrder, toggleMineSortOrder] = useToggle(
-		Object.values(MediaSortOrder),
-	);
-	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.ReleaseDate);
-	const [mineFilter, setMineFilter] = useState(MediaFilter.All);
+	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
+		key: "mineSortOrder",
+		defaultValue: MediaSortOrder.Asc,
+		getInitialValueInEffect: false,
+	});
+	const [mineSortBy, setMineSortBy] = useLocalStorage({
+		key: "mineSortBy",
+		defaultValue: MediaSortBy.ReleaseDate,
+		getInitialValueInEffect: false,
+	});
+	const [mineFilter, setMineFilter] = useLocalStorage({
+		key: "mineFilter",
+		defaultValue: MediaFilter.All,
+		getInitialValueInEffect: false,
+	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
@@ -257,7 +267,13 @@ const Page: NextPageWithLayout = () => {
 												setMineSortBy(orderBy);
 											}}
 										/>
-										<ActionIcon onClick={() => toggleMineSortOrder()}>
+										<ActionIcon
+											onClick={() => {
+												if (mineSortOrder === MediaSortOrder.Asc)
+													setMineSortOrder(MediaSortOrder.Desc);
+												else setMineSortOrder(MediaSortOrder.Asc);
+											}}
+										>
 											{mineSortOrder === MediaSortOrder.Asc ? (
 												<IconSortAscending />
 											) : (
