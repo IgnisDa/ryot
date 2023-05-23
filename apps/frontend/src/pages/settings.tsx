@@ -18,6 +18,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
 	DeployImportDocument,
@@ -151,6 +152,19 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const openProfileUpdateModal = () =>
+		modals.openConfirmModal({
+			title: "Confirmation",
+			children: (
+				<Text size="sm">Are you sure you want to update your profile? </Text>
+			),
+			centered: true,
+			labels: { confirm: "Confirm", cancel: "Cancel" },
+			onConfirm: () => {
+				updateUser.mutate({ input: updateProfileForm.values });
+			},
+		});
+
 	return (
 		<>
 			<Head>
@@ -176,8 +190,8 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="profile">
 							<Box
 								component="form"
-								onSubmit={updateProfileForm.onSubmit((values) => {
-									updateUser.mutate({ input: values });
+								onSubmit={updateProfileForm.onSubmit((_values) => {
+									openProfileUpdateModal();
 								})}
 							>
 								<Stack>
