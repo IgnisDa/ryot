@@ -244,6 +244,7 @@ const Page: NextPageWithLayout = () => {
 												const orderBy = match(v)
 													.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
 													.with("TITLE", () => MediaSortBy.Title)
+													.with("LAST_SEEN", () => MediaSortBy.LastSeen)
 													.otherwise(() => MediaSortBy.Title);
 												setMineSortBy(orderBy);
 											}}
