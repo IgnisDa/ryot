@@ -54,7 +54,6 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
-	const [activeTab, setActiveTab] = useState<string | null>("mine");
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
 		key: "mineSortOrder",
 		defaultValue: MediaSortOrder.Asc,
@@ -113,6 +112,9 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: lot !== undefined,
 	});
+	const [activeTab, setActiveTab] = useState<string | null>(
+		listMedia.data?.total === 0 ? "search" : "mine",
+	);
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
