@@ -41,6 +41,7 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
+	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
@@ -171,6 +172,13 @@ const Page: NextPageWithLayout = () => {
 		setDebouncedQuery(query);
 	}, [query]);
 
+	const ClearButton = () =>
+		query ? (
+			<ActionIcon onClick={() => setQuery("")}>
+				<IconX size="1rem" />
+			</ActionIcon>
+		) : null;
+
 	return lot ? (
 		<>
 			<Head>
@@ -210,8 +218,9 @@ const Page: NextPageWithLayout = () => {
 										name="query"
 										placeholder={`Search for a ${lot.toLowerCase()}`}
 										icon={<IconSearch />}
-										defaultValue={query}
 										onChange={(e) => setQuery(e.currentTarget.value)}
+										value={query}
+										rightSection={<ClearButton />}
 									/>
 								</MantineGrid.Col>
 								<MantineGrid.Col span={6}>
@@ -295,9 +304,10 @@ const Page: NextPageWithLayout = () => {
 								name="query"
 								placeholder={`Search for a ${lot.toLowerCase()}`}
 								icon={<IconSearch />}
-								defaultValue={query}
 								style={{ flexGrow: 1 }}
 								onChange={(e) => setQuery(e.currentTarget.value)}
+								value={query}
+								rightSection={<ClearButton />}
 							/>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<Grid>
