@@ -740,7 +740,10 @@ const Page: NextPageWithLayout = () => {
 								{history.data.length > 0 ? (
 									<ScrollArea.Autosize mah={300}>
 										<Stack>
-											<Text>{history.data.length} elements in history</Text>
+											<Text>
+												{history.data.length} element
+												{history.data.length > 1 ? "s" : ""} in history
+											</Text>
 											{history.data.map((h) => (
 												<Flex key={h.id} direction={"column"} ml="md">
 													<Flex gap="xl">
