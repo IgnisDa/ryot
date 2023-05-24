@@ -175,6 +175,7 @@ function SelectCollectionModal(props: {
 			return addMediaToCollection;
 		},
 		onSuccess: () => {
+			props.refetchCollections();
 			props.onClose();
 		},
 	});
