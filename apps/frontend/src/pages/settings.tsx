@@ -154,10 +154,46 @@ const Page: NextPageWithLayout = () => {
 	const openProfileUpdateModal = () =>
 		modals.openConfirmModal({
 			children: (
-				<Text size="sm">Are you sure you want to update your profile? </Text>
+				<Text size="sm">Are you sure you want to update your profile?</Text>
 			),
 			onConfirm: () => {
 				updateUser.mutate({ input: updateProfileForm.values });
+			},
+		});
+
+	const openGoodreadsImportModal = () =>
+		modals.openConfirmModal({
+			children: (
+				<Text size="sm">
+					Are you sure you want to import from Goodreads? This action is
+					irreversible.
+				</Text>
+			),
+			onConfirm: () => {
+				deployImport.mutate({
+					input: {
+						goodreads: goodreadsImportForm.values,
+						source: MediaImportSource.Goodreads,
+					},
+				});
+			},
+		});
+
+	const openMediaTrackerImportModal = () =>
+		modals.openConfirmModal({
+			children: (
+				<Text size="sm">
+					Are you sure you want to import from Media Tracker? This action is
+					irreversible.
+				</Text>
+			),
+			onConfirm: () => {
+				deployImport.mutate({
+					input: {
+						mediaTracker: mediaTrackerImportForm.values,
+						source: MediaImportSource.MediaTracker,
+					},
+				});
 			},
 		});
 
@@ -223,38 +259,32 @@ const Page: NextPageWithLayout = () => {
 									</Anchor>
 								</Flex>
 								<ImportSource
-									onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-										deployImport.mutate({
-											input: {
-												mediaTracker: values,
-												source: MediaImportSource.MediaTracker,
-											},
-										});
+									onSubmit={mediaTrackerImportForm.onSubmit((_values) => {
+										openMediaTrackerImportModal();
 									})}
 									title="Media Tracker"
 								>
 									<TextInput
 										label="Instance Url"
+										required
 										{...mediaTrackerImportForm.getInputProps("apiUrl")}
 									/>
 									<PasswordInput
+										mt="sm"
 										label="API Key"
+										required
 										{...mediaTrackerImportForm.getInputProps("apiKey")}
 									/>
 								</ImportSource>
 								<ImportSource
-									onSubmit={goodreadsImportForm.onSubmit(async (values) => {
-										deployImport.mutate({
-											input: {
-												source: MediaImportSource.Goodreads,
-												goodreads: values,
-											},
-										});
+									onSubmit={goodreadsImportForm.onSubmit((_values) => {
+										openGoodreadsImportModal();
 									})}
 									title="Goodreads"
 								>
 									<TextInput
 										label="Profile URL"
+										required
 										{...goodreadsImportForm.getInputProps("profileUrl")}
 									/>
 									<></>
