@@ -153,12 +153,9 @@ const Page: NextPageWithLayout = () => {
 
 	const openProfileUpdateModal = () =>
 		modals.openConfirmModal({
-			title: "Confirmation",
 			children: (
 				<Text size="sm">Are you sure you want to update your profile? </Text>
 			),
-			centered: true,
-			labels: { confirm: "Confirm", cancel: "Cancel" },
 			onConfirm: () => {
 				updateUser.mutate({ input: updateProfileForm.values });
 			},

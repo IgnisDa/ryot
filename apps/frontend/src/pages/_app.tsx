@@ -88,7 +88,10 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 					withNormalizeCSS
 					theme={{ colorScheme: "dark", fontFamily: "Poppins" }}
 				>
-					<ModalsProvider>
+					<ModalsProvider
+						labels={{ confirm: "Confirm", cancel: "Cancel" }}
+						modalProps={{ centered: true, title: "Confirmation" }}
+					>
 						<Notifications />
 						<Flex direction={"column"} style={{ minHeight: "100vh" }}>
 							<Flex style={{ flexGrow: 1 }}>
