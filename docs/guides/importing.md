@@ -28,10 +28,9 @@ Shelves are not supported at the time of writing this.
 ### Steps
 
 - Login to your Goodreads account and go to your profile.
-- Find your account ID. The link in the browser will be in the format
-  `https://www.goodreads.com/user/show/<user-id>-<username>`. You need to get the
-  `user-id`. It will be a long number.
-- Enter this number in the input.
+- Find your profile URL. The link in the browser will be in the format
+  `https://www.goodreads.com/user/show/<user-id>-<username>`.
+- Enter this URL in the input.
 
 ## Notes
 
