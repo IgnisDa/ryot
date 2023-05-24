@@ -1572,6 +1572,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/modals@npm:6.0.8":
+  version: 6.0.8
+  resolution: "@mantine/modals@npm:6.0.8"
+  dependencies:
+    "@mantine/utils": 6.0.8
+  peerDependencies:
+    "@mantine/core": 6.0.8
+    "@mantine/hooks": 6.0.8
+    react: ">=16.8.0"
+    react-dom: ">=16.8.0"
+  checksum: bda96c9562ab9172d13e567a87216e53e94ecd1a1f9aca3b70faa13290afde1d7db4d93f00bd2fbce795873c1dc036f73afad52c100523f4c9380d49024c50a0
+  languageName: node
+  linkType: hard
+
 "@mantine/next@npm:6.0.8":
   version: 6.0.8
   resolution: "@mantine/next@npm:6.0.8"
@@ -1995,6 +2009,7 @@ __metadata:
     "@mantine/dates": 6.0.8
     "@mantine/form": 6.0.8
     "@mantine/hooks": 6.0.8
+    "@mantine/modals": 6.0.8
     "@mantine/next": 6.0.8
     "@mantine/notifications": 6.0.8
     "@ryot/generated": "workspace:*"

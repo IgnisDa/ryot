@@ -4,17 +4,24 @@ import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
 	Box,
+	Center,
 	Container,
 	Divider,
+	Flex,
+	Paper,
+	RingProgress,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
+	useMantineTheme,
 } from "@mantine/core";
 import {
 	CollectionsDocument,
+	MetadataLot,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
@@ -24,22 +31,47 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import Head from "next/head";
-import type { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
 
-const StatTitle = (props: { text: string }) => {
-	return <Title order={5}>{props.text}</Title>;
-};
-
-const StatNumber = (props: { text: number; isDuration?: boolean }) => {
+const DisplayStatForMediaType = (props: {
+	lot: MetadataLot;
+	data: { type: "duration" | "number"; label: string; value: number }[];
+}) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+	const Icon = getMetadataIcon(props.lot);
+	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return (
-		<Text fw="bold" style={{ display: "inline" }}>
-			{props.isDuration
-				? humaizer.humanize(props.text * 1000 * 60)
-				: humanFormat(props.text)}
-		</Text>
+		<Paper component={Flex} align={"center"}>
+			<RingProgress
+				size={60}
+				thickness={4}
+				sections={[]}
+				label={<Center>{icon}</Center>}
+				rootColor={
+					colors[
+						(getStringAsciiValue(props.lot) + colors.length) % colors.length
+					]
+				}
+			/>
+			<Flex wrap={"wrap"} ml="xs">
+				{props.data.map((d, idx) => (
+					<Box key={idx.toString()} mx={"xs"}>
+						<Text fw="bold" display={"inline"}>
+							{d.type === "duration"
+								? humaizer.humanize(d.value * 1000 * 60)
+								: humanFormat(d.value)}
+						</Text>
+						<Text display={"inline"} ml="4px">
+							{d.label === "Runtime" ? "" : d.label}
+						</Text>
+					</Box>
+				))}
+			</Flex>
+		</Paper>
 	);
 };
 
@@ -87,79 +119,113 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<SimpleGrid
-						cols={2}
+						cols={1}
 						spacing="lg"
 						breakpoints={[
-							{ minWidth: "sm", cols: 3 },
-							{ minWidth: "lg", cols: 4 },
+							{ minWidth: "sm", cols: 2 },
+							{ minWidth: "md", cols: 3 },
 						]}
 					>
-						<Box>
-							<StatTitle text="Books" />
-							<Text>
-								You read <StatNumber text={userSummary.data.books.read} />{" "}
-								book(s) totalling{" "}
-								<StatNumber text={userSummary.data.books.pages} /> page(s).
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Movies" />
-							<Text>
-								You watched{" "}
-								<StatNumber text={userSummary.data.movies.watched} /> movie(s)
-								totalling{" "}
-								<StatNumber text={userSummary.data.movies.runtime} isDuration />
-								.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Shows" />
-							<Text>
-								You watched <StatNumber text={userSummary.data.shows.watched} />{" "}
-								show(s) and{" "}
-								<StatNumber text={userSummary.data.shows.watchedSeasons} />{" "}
-								season(s) and{" "}
-								<StatNumber text={userSummary.data.shows.watchedEpisodes} />{" "}
-								episode(s) totalling{" "}
-								<StatNumber text={userSummary.data.shows.runtime} isDuration />.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Video Games" />
-							<Text>
-								You played{" "}
-								<StatNumber text={userSummary.data.videoGames.played} />{" "}
-								game(s).
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Audio Books" />
-							<Text>
-								You listened to{" "}
-								<StatNumber text={userSummary.data.audioBooks.played} />{" "}
-								audiobook(s) totalling{" "}
-								<StatNumber
-									text={userSummary.data.audioBooks.runtime}
-									isDuration
-								/>
-								.
-							</Text>
-						</Box>
-						<Box>
-							<StatTitle text="Podcasts" />
-							<Text>
-								You listened to{" "}
-								<StatNumber text={userSummary.data.podcasts.played} />{" "}
-								podcast(s) and{" "}
-								<StatNumber text={userSummary.data.podcasts.playedEpisodes} />{" "}
-								episode(s) totalling{" "}
-								<StatNumber
-									text={userSummary.data.podcasts.runtime}
-									isDuration
-								/>
-								.
-							</Text>
-						</Box>
+						<DisplayStatForMediaType
+							lot={MetadataLot.Movie}
+							data={[
+								{
+									label: "Movies",
+									value: userSummary.data.movies.watched,
+									type: "number",
+								},
+								{
+									label: "Runtime",
+									value: userSummary.data.movies.runtime,
+									type: "duration",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.Show}
+							data={[
+								{
+									label: "Shows",
+									value: userSummary.data.shows.watched,
+									type: "number",
+								},
+								{
+									label: "Seasons",
+									value: userSummary.data.shows.watchedSeasons,
+									type: "number",
+								},
+								{
+									label: "Episodes",
+									value: userSummary.data.shows.watchedEpisodes,
+									type: "number",
+								},
+								{
+									label: "Runtime",
+									value: userSummary.data.shows.runtime,
+									type: "duration",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.VideoGame}
+							data={[
+								{
+									label: "Video games",
+									value: userSummary.data.videoGames.played,
+									type: "number",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.AudioBook}
+							data={[
+								{
+									label: "Audiobooks",
+									value: userSummary.data.audioBooks.played,
+									type: "number",
+								},
+								{
+									label: "Runtime",
+									value: userSummary.data.audioBooks.runtime,
+									type: "duration",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.Book}
+							data={[
+								{
+									label: "Books",
+									value: userSummary.data.books.read,
+									type: "number",
+								},
+								{
+									label: "Pages",
+									value: userSummary.data.books.pages,
+									type: "number",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.Podcast}
+							data={[
+								{
+									label: "Podcasts",
+									value: userSummary.data.podcasts.played,
+									type: "number",
+								},
+								{
+									label: "Episodes",
+									value: userSummary.data.podcasts.playedEpisodes,
+									type: "number",
+								},
+								{
+									label: "Runtime",
+									value: userSummary.data.podcasts.runtime,
+									type: "duration",
+								},
+							]}
+						/>
 					</SimpleGrid>
 				</Stack>
 			</Container>

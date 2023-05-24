@@ -7,6 +7,7 @@ import {
 	MantineProvider,
 	Text,
 } from "@mantine/core";
+import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -87,13 +88,18 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 					withNormalizeCSS
 					theme={{ colorScheme: "dark", fontFamily: "Poppins" }}
 				>
-					<Notifications />
-					<Flex direction={"column"} style={{ minHeight: "100vh" }}>
-						<Flex style={{ flexGrow: 1 }}>
-							{getLayout(<Component {...pageProps} />)}
+					<ModalsProvider
+						labels={{ confirm: "Confirm", cancel: "Cancel" }}
+						modalProps={{ centered: true, title: "Confirmation" }}
+					>
+						<Notifications />
+						<Flex direction={"column"} style={{ minHeight: "100vh" }}>
+							<Flex style={{ flexGrow: 1 }}>
+								{getLayout(<Component {...pageProps} />)}
+							</Flex>
+							<Footer />
 						</Flex>
-						<Footer />
-					</Flex>
+					</ModalsProvider>
 				</MantineProvider>
 			</QueryClientProvider>
 		</>

@@ -13,15 +13,15 @@ import {
 	Center,
 	Container,
 	Flex,
+	Grid as MantineGrid,
 	Pagination,
 	Select,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
-	Grid as MantineGrid,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage, useToggle } from "@mantine/hooks";
+import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
@@ -54,12 +54,21 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
-	const [activeTab, setActiveTab] = useState<string | null>("mine");
-	const [mineSortOrder, toggleMineSortOrder] = useToggle(
-		Object.values(MediaSortOrder),
-	);
-	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.ReleaseDate);
-	const [mineFilter, setMineFilter] = useState(MediaFilter.All);
+	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
+		key: "mineSortOrder",
+		defaultValue: MediaSortOrder.Asc,
+		getInitialValueInEffect: false,
+	});
+	const [mineSortBy, setMineSortBy] = useLocalStorage({
+		key: "mineSortBy",
+		defaultValue: MediaSortBy.ReleaseDate,
+		getInitialValueInEffect: false,
+	});
+	const [mineFilter, setMineFilter] = useLocalStorage({
+		key: "mineFilter",
+		defaultValue: MediaFilter.All,
+		getInitialValueInEffect: false,
+	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
@@ -103,6 +112,9 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: lot !== undefined,
 	});
+	const [activeTab, setActiveTab] = useState<string | null>(
+		listMedia.data?.total === 0 ? "search" : "mine",
+	);
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
@@ -169,7 +181,7 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	useEffect(() => {
-		setDebouncedQuery(query);
+		setDebouncedQuery(query.trim());
 	}, [query]);
 
 	const ClearButton = () =>
@@ -257,7 +269,13 @@ const Page: NextPageWithLayout = () => {
 												setMineSortBy(orderBy);
 											}}
 										/>
-										<ActionIcon onClick={() => toggleMineSortOrder()}>
+										<ActionIcon
+											onClick={() => {
+												if (mineSortOrder === MediaSortOrder.Asc)
+													setMineSortOrder(MediaSortOrder.Desc);
+												else setMineSortOrder(MediaSortOrder.Asc);
+											}}
+										>
 											{mineSortOrder === MediaSortOrder.Asc ? (
 												<IconSortAscending />
 											) : (

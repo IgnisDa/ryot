@@ -52,8 +52,8 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
-    // The ID of the user from which the RSS url will be constructed
-    user_id: i32,
+    // The profile URL of the user from which the RSS url will be constructed
+    profile_url: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -89,9 +89,12 @@ pub struct ImportItem {
     reviews: Vec<ImportItemRating>,
 }
 
+/// The various steps in which media importing can fail
 #[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
+    /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
     ItemDetailsFromSource,
+    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
 }
 
@@ -211,6 +214,10 @@ impl ImporterService {
         let mut storage = self.import_media.clone();
         match input.media_tracker.as_mut() {
             Some(s) => s.api_url = s.api_url.trim_end_matches("/").to_owned(),
+            None => {}
+        };
+        match input.goodreads.as_mut() {
+            Some(s) => s.profile_url = goodreads::utils::extract_user_id(&s.profile_url).unwrap(),
             None => {}
         };
         let job = storage

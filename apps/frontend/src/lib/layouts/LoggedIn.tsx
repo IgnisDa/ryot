@@ -1,5 +1,5 @@
 import { gqlClient } from "../services/api";
-import { changeCase } from "@/lib//utilities";
+import { changeCase, getMetadataIcon } from "@/lib//utilities";
 import {
 	Box,
 	Flex,
@@ -12,19 +12,12 @@ import { notifications } from "@mantine/notifications";
 import {
 	CoreEnabledFeaturesDocument,
 	LogoutUserDocument,
-	MetadataLot,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	IconBook,
-	IconBrandAppleArcade,
-	IconDeviceDesktop,
-	IconDeviceTv,
-	IconHeadphones,
 	IconHome2,
 	IconListDetails,
 	IconLogout,
-	IconMicrophone,
 	IconSettings,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -32,7 +25,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
-import { match } from "ts-pattern";
 
 const useStyles = createStyles((theme) => ({
 	link: {
@@ -77,17 +69,6 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
-const getIcon = (lot: MetadataLot) => {
-	return match(lot)
-		.with(MetadataLot.Book, () => IconBook)
-		.with(MetadataLot.Movie, () => IconDeviceTv)
-		.with(MetadataLot.Show, () => IconDeviceDesktop)
-		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
-		.with(MetadataLot.AudioBook, () => IconHeadphones)
-		.with(MetadataLot.Podcast, () => IconMicrophone)
-		.exhaustive();
-};
-
 export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
 	const router = useRouter();
@@ -127,7 +108,7 @@ export default function ({ children }: { children: ReactElement }) {
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				icon: getIcon(f.name),
+				icon: getMetadataIcon(f.name),
 				href: undefined,
 			})) || []),
 		{ icon: IconListDetails, label: "Collections", href: "/collections" },
