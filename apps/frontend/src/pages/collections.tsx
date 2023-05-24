@@ -63,10 +63,15 @@ const Page: NextPageWithLayout = () => {
 													color="red"
 													variant="outline"
 													onClick={() => {
-														removeMediaFromCollection.mutate({
-															collectionName: collection.collectionDetails.name,
-															metadataId: Number(mediaItem.identifier),
-														});
+														const yes = confirm(
+															"Are you sure you want to remove this media from this collection?",
+														);
+														if (yes)
+															removeMediaFromCollection.mutate({
+																collectionName:
+																	collection.collectionDetails.name,
+																metadataId: Number(mediaItem.identifier),
+															});
 													}}
 												>
 													Remove
