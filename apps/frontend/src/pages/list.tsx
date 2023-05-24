@@ -13,13 +13,13 @@ import {
 	Center,
 	Container,
 	Flex,
+	Grid as MantineGrid,
 	Pagination,
 	Select,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
-	Grid as MantineGrid,
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import {

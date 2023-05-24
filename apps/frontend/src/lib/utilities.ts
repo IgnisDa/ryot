@@ -83,12 +83,12 @@ export const fileToText = (file: File): Promise<string> =>
  * Taken from https://stackoverflow.com/a/8134122/11667450
  */
 export const generateColor = (seed: number) => {
-	let color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
+	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
 	let newColor = color.toString(16);
 	while (newColor.length < 6) {
-		newColor = "0" + color;
+		newColor = `0${color}`;
 	}
-	return "#" + newColor;
+	return `#${newColor}`;
 };
 
 /**
