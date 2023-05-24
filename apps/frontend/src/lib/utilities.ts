@@ -1,4 +1,12 @@
 import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	IconBook,
+	IconBrandAppleArcade,
+	IconDeviceDesktop,
+	IconDeviceTv,
+	IconHeadphones,
+	IconMicrophone,
+} from "@tabler/icons-react";
 import { camelCase, startCase } from "lodash";
 import { match } from "ts-pattern";
 
@@ -92,4 +100,15 @@ export const getStringAsciiValue = (input: string) => {
 		total += input.charCodeAt(i);
 	}
 	return total;
+};
+
+export const getMetadataIcon = (lot: MetadataLot) => {
+	return match(lot)
+		.with(MetadataLot.Book, () => IconBook)
+		.with(MetadataLot.Movie, () => IconDeviceTv)
+		.with(MetadataLot.Show, () => IconDeviceDesktop)
+		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
+		.with(MetadataLot.AudioBook, () => IconHeadphones)
+		.with(MetadataLot.Podcast, () => IconMicrophone)
+		.exhaustive();
 };
