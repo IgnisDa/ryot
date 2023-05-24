@@ -50,12 +50,15 @@ pub async fn import(
     input: DeployGoodreadsImportInput,
     config: &ImporterConfig,
 ) -> Result<ImportResult> {
-    let content = surf::get(format!("{}/{}", config.goodreads_rss_url, input.user_id))
-        .await
-        .unwrap()
-        .body_string()
-        .await
-        .unwrap();
+    let content = surf::get(format!(
+        "{}/{}",
+        config.goodreads_rss_url, input.profile_url
+    ))
+    .await
+    .unwrap()
+    .body_string()
+    .await
+    .unwrap();
     let books: RssDetail = quick_xml::de::from_str(&content).unwrap();
     let books = books.channel.item.into_iter().collect::<Vec<_>>();
     Ok(ImportResult {
@@ -118,4 +121,37 @@ pub async fn import(
             .collect(),
         failed_items: vec![],
     })
+}
+
+pub mod utils {
+    use regex::Regex;
+
+    // Written with the help of ChatGPT.
+    pub fn extract_user_id(url: &str) -> Option<String> {
+        let re = Regex::new(r"/(\d+)-").unwrap();
+        if let Some(captures) = re.captures(url) {
+            if let Some(user_id) = captures.get(1) {
+                return Some(user_id.as_str().to_string());
+            }
+        }
+        None
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use rstest::rstest;
+
+        #[rstest]
+        #[case(
+            "https://www.goodreads.com/user/show/143396636-ignisda",
+            Some("143396636")
+        )]
+        #[case("https://www.goodreads.com/user/show/1234-example", Some("1234"))]
+        #[case("https://www.goodreads.com/user/show/invalid-url", None)]
+        fn test_extract_user_id(#[case] url: &str, #[case] expected_user_id: Option<&str>) {
+            let user_id = extract_user_id(url);
+            assert_eq!(user_id, expected_user_id.map(String::from));
+        }
+    }
 }

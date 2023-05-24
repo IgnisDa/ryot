@@ -242,7 +242,7 @@ pub mod utils {
 
     use crate::importer::ImportItemReview;
 
-    // Wrote with the help of ChatGPT.
+    // Written with the help of ChatGPT.
     pub fn extract_review_information(input: &str) -> Option<ImportItemReview> {
         let regex_str =
             r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILERS\])?\n\n(?P<text>[\s\S]*)$";

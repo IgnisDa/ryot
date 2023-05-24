@@ -119,7 +119,7 @@ export type DatabaseMediaDetails = {
 };
 
 export type DeployGoodreadsImportInput = {
-  userId: Scalars['Int'];
+  profileUrl: Scalars['String'];
 };
 
 export type DeployImportInput = {
