@@ -110,16 +110,12 @@ export default function ({ children }: { children: ReactElement }) {
 		},
 		staleTime: Infinity,
 	});
-	const enabledFeatures = useQuery(
-		["enabledFeatures"],
-		async () => {
-			const { coreEnabledFeatures } = await gqlClient.request(
-				CoreEnabledFeaturesDocument,
-			);
-			return coreEnabledFeatures;
-		},
-		{ staleTime: Infinity },
-	);
+	const enabledFeatures = useQuery(["enabledFeatures"], async () => {
+		const { coreEnabledFeatures } = await gqlClient.request(
+			CoreEnabledFeaturesDocument,
+		);
+		return coreEnabledFeatures;
+	});
 
 	const links = [
 		{ icon: IconHome2, label: "Home", href: "/" },

@@ -25,14 +25,10 @@ type AppPropsWithLayout = AppProps & {
 };
 
 const Footer = () => {
-	const coreDetails = useQuery(
-		["coreDetails"],
-		async () => {
-			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
-			return coreDetails;
-		},
-		{ staleTime: Infinity },
-	);
+	const coreDetails = useQuery(["coreDetails"], async () => {
+		const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
+		return coreDetails;
+	});
 
 	return (
 		<Container p={"md"} style={{ textAlign: "center" }}>

@@ -5,5 +5,9 @@ const baseUrl =
 	process.env.NEXT_PUBLIC_BASE_URL ||
 	(typeof window !== "undefined" ? window.location.origin : "");
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: { staleTime: Infinity },
+	},
+});
 export const gqlClient = createGqlClient(baseUrl);
