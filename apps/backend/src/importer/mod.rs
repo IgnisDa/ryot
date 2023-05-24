@@ -89,9 +89,12 @@ pub struct ImportItem {
     reviews: Vec<ImportItemRating>,
 }
 
+/// The various steps in which media importing can fail
 #[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
+    /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
     ItemDetailsFromSource,
+    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
 }
 
