@@ -81,6 +81,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 const StatDisplay = (props: { name: string; value: string }) => {
@@ -469,15 +470,52 @@ const Page: NextPageWithLayout = () => {
 		)
 		.map((c) => c.collectionDetails.name);
 
+	// the next episode if it is a show or podcast
+	const nextEpisode = match(seenHistory.data?.at(0))
+		.with(undefined, () => undefined)
+		.otherwise((value) => {
+			return match(mediaDetails.data?.type)
+				.with(MetadataLot.Show, () => {
+					const allEpisodes =
+						mediaDetails.data?.showSpecifics?.seasons.flatMap((s) =>
+							s.episodes.map((e) => ({
+								seasonNumber: s.seasonNumber,
+								...e,
+							})),
+						) || [];
+					const current = allEpisodes.findIndex(
+						(p) =>
+							p.episodeNumber === value.showInformation?.episode &&
+							p.seasonNumber === value.showInformation?.season,
+					);
+					invariant(typeof current === "number");
+					if (current === -1) return undefined;
+					const ep = allEpisodes.at(current + 1);
+					if (!ep) return undefined;
+					return { episode: ep.episodeNumber, season: ep.seasonNumber };
+				})
+				.with(MetadataLot.Podcast, () => {
+					const current =
+						mediaDetails.data?.podcastSpecifics?.episodes.findIndex(
+							(p) => p.number === value.podcastInformation?.episode,
+						);
+					invariant(typeof current === "number");
+					if (current === -1) return undefined;
+					const ep = mediaDetails.data?.podcastSpecifics?.episodes.at(
+						current + 1,
+					);
+					if (!ep) return undefined;
+					return { episode: ep.number, season: null };
+				})
+				.otherwise(() => undefined);
+		});
+
 	return mediaDetails.data && seenHistory.data ? (
 		<>
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
 			</Head>
 			<Container>
-				{JSON.stringify(seenHistory.data)}
-				{JSON.stringify(lastSeenItem)}
-				{JSON.stringify(nextEpisode)}
 				<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 					<Stack
 						sx={(t) => ({
@@ -701,18 +739,28 @@ const Page: NextPageWithLayout = () => {
 										</>
 									) : mediaDetails.data.type === MetadataLot.Show ||
 									  mediaDetails.data.type === MetadataLot.Podcast ? (
-										<Button
-											variant="outline"
-											onClick={async () => {
-												await progressUpdate.mutateAsync({
-													input: {
-														action: ProgressUpdateAction.JustStarted,
-														metadataId: metadataId,
-													},
-												});
-											}}
-										>
-											Mark{" "}
+										nextEpisode ? (
+											<Button
+												variant="outline"
+												onClick={async () => {
+													if (mediaDetails.data.type === MetadataLot.Podcast)
+														router.push(
+															`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
+														);
+													else
+														router.push(
+															`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${nextEpisode.season}&selectedShowEpisodeNumber=${nextEpisode.episode}`,
+														);
+												}}
+											>
+												Mark{" "}
+												{mediaDetails.data.type === MetadataLot.Show
+													? `S${nextEpisode.season}-E${nextEpisode.episode}`
+													: `EP-${nextEpisode.episode}`}{" "}
+												as seen
+											</Button>
+										) : null
+									) : (
 										<Button
 											variant="outline"
 											onClick={async () => {
