@@ -341,7 +341,7 @@ impl MiscService {
         collection_name: &str,
     ) -> Result<IdObject> {
         let collect = Collection::find()
-            .filter(collection::Column::Name.eq(collection_name.clone()))
+            .filter(collection::Column::Name.eq(collection_name.to_owned()))
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await
@@ -370,12 +370,9 @@ impl MiscService {
             .unwrap();
         let col = metadata_to_collection::ActiveModel {
             metadata_id: ActiveValue::Set(i32::from(input.media_id)),
-            collection_id: ActiveValue::Set(i32::from(collection.id)),
+            collection_id: ActiveValue::Set(collection.id),
         };
-        Ok(match col.clone().insert(&self.db).await {
-            Ok(_) => true,
-            Err(_) => false,
-        })
+        Ok(col.clone().insert(&self.db).await.is_ok())
     }
 
     pub async fn start_import_job(

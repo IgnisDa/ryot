@@ -164,36 +164,34 @@ pub async fn after_media_seen_job(
             )
             .await
             .ok();
+    } else if information.seen.progress == 100 {
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::Watchlist.to_string(),
+            )
+            .await
+            .ok();
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::InProgress.to_string(),
+            )
+            .await
+            .ok();
     } else {
-        if information.seen.progress == 100 {
-            misc_service
-                .remove_media_item_from_collection(
-                    &information.seen.user_id,
-                    &information.seen.metadata_id,
-                    &DefaultCollection::Watchlist.to_string(),
-                )
-                .await
-                .ok();
-            misc_service
-                .remove_media_item_from_collection(
-                    &information.seen.user_id,
-                    &information.seen.metadata_id,
-                    &DefaultCollection::InProgress.to_string(),
-                )
-                .await
-                .ok();
-        } else {
-            misc_service
-                .add_media_to_collection(
-                    &information.seen.user_id,
-                    AddMediaToCollection {
-                        collection_name: DefaultCollection::InProgress.to_string(),
-                        media_id: information.seen.metadata_id.into(),
-                    },
-                )
-                .await
-                .ok();
-        }
+        misc_service
+            .add_media_to_collection(
+                &information.seen.user_id,
+                AddMediaToCollection {
+                    collection_name: DefaultCollection::InProgress.to_string(),
+                    media_id: information.seen.metadata_id.into(),
+                },
+            )
+            .await
+            .ok();
     }
     Ok(())
 }

@@ -437,14 +437,11 @@ impl UsersService {
             }
         }
 
-        ls.data.podcasts.played =
-            ls.data.podcasts.played + i32::try_from(unique_podcasts.len()).unwrap();
-        ls.data.podcasts.played_episodes = ls.data.podcasts.played_episodes
-            + i32::try_from(unique_podcast_episodes.len()).unwrap();
+        ls.data.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
+        ls.data.podcasts.played_episodes += i32::try_from(unique_podcast_episodes.len()).unwrap();
 
         ls.data.shows.watched = i32::try_from(unique_shows.len()).unwrap();
-        ls.data.shows.watched_seasons =
-            ls.data.shows.watched_seasons + i32::try_from(unique_show_seasons.len()).unwrap();
+        ls.data.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
 
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
@@ -483,7 +480,7 @@ impl UsersService {
         let user = user.insert(&self.db).await.unwrap();
         storage
             .push(UserCreatedJob {
-                user_id: user.id.clone().into(),
+                user_id: user.id.into(),
             })
             .await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id.into() }))

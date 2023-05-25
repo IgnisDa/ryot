@@ -605,8 +605,8 @@ impl MediaService {
                             }),
                         ))
                     }
-                    let seen = seen_ins.insert(&self.db).await.unwrap();
-                    seen
+                    
+                    seen_ins.insert(&self.db).await.unwrap()
                 }
             };
             let id = seen_item.id.into();

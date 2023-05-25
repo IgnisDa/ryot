@@ -212,14 +212,12 @@ impl ImporterService {
         mut input: DeployImportInput,
     ) -> Result<String> {
         let mut storage = self.import_media.clone();
-        match input.media_tracker.as_mut() {
-            Some(s) => s.api_url = s.api_url.trim_end_matches("/").to_owned(),
-            None => {}
-        };
-        match input.goodreads.as_mut() {
-            Some(s) => s.profile_url = goodreads::utils::extract_user_id(&s.profile_url).unwrap(),
-            None => {}
-        };
+        if let Some(s) = input.media_tracker.as_mut() {
+            s.api_url = s.api_url.trim_end_matches('/').to_owned()
+        }
+        if let Some(s) = input.goodreads.as_mut() {
+            s.profile_url = goodreads::utils::extract_user_id(&s.profile_url).unwrap()
+        }
         let job = storage
             .push(ImportMedia {
                 user_id: user_id.into(),
@@ -268,7 +266,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             MediaImportSource::Goodreads => {
-                goodreads::import(input.goodreads.unwrap(), &config).await?
+                goodreads::import(input.goodreads.unwrap(), config).await?
             }
         };
         for (idx, item) in import.media.iter().enumerate() {
@@ -344,7 +342,7 @@ impl ImporterService {
                     .progress_update(
                         ProgressUpdate {
                             identifier: seen.id.clone(),
-                            metadata_id: metadata.id.into(),
+                            metadata_id: metadata.id,
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
                             date: seen.ended_on.map(|d| d.date_naive()),
@@ -352,7 +350,7 @@ impl ImporterService {
                             show_episode_number: seen.show_episode_number,
                             podcast_episode_number: seen.podcast_episode_number,
                         },
-                        user_id.clone(),
+                        user_id,
                     )
                     .await?;
             }

@@ -227,26 +227,20 @@ pub struct SchedulerConfig {
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
-            database_url: format!("sqlite::memory:"),
+            database_url: "sqlite::memory:".to_string(),
             user_cleanup_every: 10,
         }
     }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Default)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
 }
 
-impl Default for WebConfig {
-    fn default() -> Self {
-        Self {
-            cors_origins: vec![],
-            insecure_cookie: false,
-        }
-    }
-}
+
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {

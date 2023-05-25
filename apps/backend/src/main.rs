@@ -110,7 +110,6 @@ async fn main() -> Result<()> {
         _ => "Unrecognized",
     };
     tracing::info!("Using database backend: {selected_database:?}");
-    drop(selected_database);
 
     Migrator::up(&db, None).await.unwrap();
 

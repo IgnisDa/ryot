@@ -320,7 +320,7 @@ pub mod igdb {
         let expires_at = get_now_timestamp() + (access.expires_in * 1000);
         let access_token = format!("{} {}", access.token_type, access.access_token);
         Credentials {
-            access_token: access_token.clone(),
+            access_token,
             expires_at,
         }
     }
