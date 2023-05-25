@@ -30,12 +30,6 @@ tracking.
 6. Set the `video_games.*` configuration variables in the environment as
 	described in the [configuration](/README.md#-configuration-options) docs.
 
-## Important notes
-
-- The Twitch Access Token is only active for **60 days**. Please create a new
-	client secret using the above steps when your token has expired. More
-	information [here](https://api-docs.igdb.com/#4-my-accesstoken-stopped-working-why).
-	
 ## Conclusion
 
 After following these steps, you should have video game integration working
