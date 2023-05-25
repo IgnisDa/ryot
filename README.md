@@ -97,7 +97,6 @@ builder.
 | `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
 | `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
 | `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                           |
-| `importer.goodreads_rss_url`          | The url prefix to get the RSS feed from Goodreads. [More information](/docs/guides/importing.md)                                                                              |
 | `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
 | `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |
