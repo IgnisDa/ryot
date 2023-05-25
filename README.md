@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/apps/frontend/public/ryot-logo.png">
+  <img src="/apps/frontend/public/ryot-logo.png" alt="Ryot Logo">
 </p>
 
 <h2 align="center">
@@ -12,6 +12,11 @@
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
 only self hosted tracker you will ever need!
+
+## Demo
+
+You can use the demo instance hosted on [Fly](https://ryot.fly.dev). The username
+is `demo` and password is `demo-password`.
 
 ## 📝 ELI5
 
