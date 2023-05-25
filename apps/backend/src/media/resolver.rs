@@ -656,7 +656,6 @@ impl MediaService {
                 ));
             }
             si.delete(&self.db).await.ok();
-            self.deploy_recalculate_summary_job(user_id).await.ok();
             Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
