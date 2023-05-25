@@ -144,7 +144,7 @@ pub mod utils {
 
         #[rstest]
         #[case(
-            "https://www.goodreads.com/user/show/143396636-ignisda",
+            "https://www.goodreads.com/user/show/1235116436-ignisda",
             Some("143396636")
         )]
         #[case("https://www.goodreads.com/user/show/1234-example", Some("1234"))]
