@@ -60,7 +60,10 @@ const DisplayStatForMediaType = (props: {
 			<Flex wrap={"wrap"} ml="xs">
 				{props.data.map((d, idx) => (
 					<Box key={idx.toString()} mx={"xs"}>
-						<Text fw="bold" display={"inline"}>
+						<Text
+							fw={d.label !== "Runtime" ? "bold" : undefined}
+							display={"inline"}
+						>
 							{d.type === "duration"
 								? humaizer.humanize(d.value * 1000 * 60)
 								: humanFormat(d.value)}
