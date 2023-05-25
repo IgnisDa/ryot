@@ -5,13 +5,13 @@ use chrono::Utc;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, QueryFilter, QueryOrder,
+    EntityTrait, ModelTrait, QueryFilter, QueryOrder,
 };
 
 use crate::{
     entities::{
         collection, media_import_report, metadata_to_collection,
-        prelude::{Collection, MediaImportReport, Metadata, Review, User},
+        prelude::{Collection, MediaImportReport, Metadata, Review, Seen, User},
         review,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
@@ -21,6 +21,8 @@ use crate::{
     migrator::{MediaImportSource, ReviewVisibility},
     utils::{user_id_from_ctx, NamedObject},
 };
+
+use super::DefaultCollection;
 
 #[derive(Debug, SimpleObject)]
 struct ReviewPostedBy {
@@ -149,6 +151,19 @@ impl MiscMutation {
         gql_ctx
             .data_unchecked::<MiscService>()
             .remove_media_item_from_collection(&user_id, &metadata_id.into(), &collection_name)
+            .await
+    }
+
+    /// Delete a seen item from a user's history.
+    async fn delete_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        seen_id: Identifier,
+    ) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .delete_seen_item(seen_id.into(), user_id)
             .await
     }
 }
@@ -401,5 +416,32 @@ impl MiscService {
             .await
             .unwrap();
         Ok(reports)
+    }
+
+    pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
+        let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
+        if let Some(si) = seen_item {
+            let seen_id = si.id;
+            let progress = si.progress;
+            let metadata_id = si.metadata_id;
+            if si.user_id != user_id {
+                return Err(Error::new(
+                    "This seen item does not belong to this user".to_owned(),
+                ));
+            }
+            si.delete(&self.db).await.ok();
+            if progress < 100 {
+                self.remove_media_item_from_collection(
+                    &user_id,
+                    &metadata_id,
+                    &DefaultCollection::InProgress.to_string(),
+                )
+                .await
+                .ok();
+            }
+            Ok(IdObject { id: seen_id.into() })
+        } else {
+            Err(Error::new("This seen item does not exist".to_owned()))
+        }
     }
 }

@@ -236,19 +236,6 @@ impl MediaMutation {
             .await
     }
 
-    /// Delete a seen item from a user's history.
-    async fn delete_seen_item(
-        &self,
-        gql_ctx: &Context<'_>,
-        seen_id: Identifier,
-    ) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .delete_seen_item(seen_id.into(), user_id)
-            .await
-    }
-
     /// Deploy a job to update a media item's metadata.
     async fn deploy_update_metadata_job(
         &self,
@@ -644,22 +631,6 @@ impl MediaService {
             })
             .await?;
         Ok(())
-    }
-
-    pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
-        let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
-        if let Some(si) = seen_item {
-            let seen_id = si.id;
-            if si.user_id != user_id {
-                return Err(Error::new(
-                    "This seen item does not belong to this user".to_owned(),
-                ));
-            }
-            si.delete(&self.db).await.ok();
-            Ok(IdObject { id: seen_id.into() })
-        } else {
-            Err(Error::new("This seen item does not exist".to_owned()))
-        }
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
