@@ -87,6 +87,19 @@ pub async fn import(
                 if single_review.review.is_some() || single_review.rating.is_some() {
                     reviews.push(single_review);
                 }
+
+                let mut seen_history = vec![];
+                if !d.user_read_at.is_empty() {
+                    seen_history.push(ImportItemSeen {
+                        id: None,
+                        ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
+                            .ok()
+                            .map(|d| d.with_timezone(&Utc)),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
+                    });
+                }
                 ImportItem {
                     source_id: d.book_id.to_string(),
                     lot: MetadataLot::Book,
@@ -106,15 +119,7 @@ pub async fn import(
                             source: BookSource::Goodreads,
                         }),
                     }),
-                    seen_history: vec![ImportItemSeen {
-                        id: None,
-                        ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
-                            .ok()
-                            .map(|d| d.with_timezone(&Utc)),
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
-                    }],
+                    seen_history,
                     reviews,
                 }
             })
