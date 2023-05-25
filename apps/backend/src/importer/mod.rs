@@ -17,7 +17,10 @@ use crate::{
     entities::{media_import_report, prelude::MediaImportReport},
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
-    misc::resolver::{MiscService, PostReviewInput},
+    misc::{
+        resolver::{AddMediaToCollection, MiscService, PostReviewInput},
+        DefaultCollection,
+    },
     movies::resolver::MoviesService,
     podcasts::resolver::PodcastsService,
     shows::resolver::ShowsService,
@@ -52,8 +55,8 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
-    // The profile URL of the user from which the RSS url will be constructed
-    profile_url: String,
+    // The RSS url that can be found from the user's profile
+    rss_url: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -87,6 +90,7 @@ pub struct ImportItem {
     identifier: ImportItemIdentifier,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
+    default_collections: Vec<DefaultCollection>,
 }
 
 /// The various steps in which media importing can fail
@@ -214,9 +218,6 @@ impl ImporterService {
         let mut storage = self.import_media.clone();
         if let Some(s) = input.media_tracker.as_mut() {
             s.api_url = s.api_url.trim_end_matches('/').to_owned()
-        }
-        if let Some(s) = input.goodreads.as_mut() {
-            s.profile_url = goodreads::utils::extract_user_id(&s.profile_url).unwrap()
         }
         let job = storage
             .push(ImportMedia {
@@ -375,6 +376,18 @@ impl ImporterService {
                         },
                     )
                     .await?;
+            }
+            for col in item.default_collections.iter() {
+                self.misc_service
+                    .add_media_to_collection(
+                        &user_id,
+                        AddMediaToCollection {
+                            collection_name: col.to_string(),
+                            media_id: metadata.id,
+                        },
+                    )
+                    .await
+                    .ok();
             }
             tracing::trace!(
                 "Imported item: {idx}, lot: {lot}, history count: {hist}, reviews count: {rev}",

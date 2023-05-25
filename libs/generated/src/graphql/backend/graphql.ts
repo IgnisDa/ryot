@@ -119,7 +119,7 @@ export type DatabaseMediaDetails = {
 };
 
 export type DeployGoodreadsImportInput = {
-  profileUrl: Scalars['String'];
+  rssUrl: Scalars['String'];
 };
 
 export type DeployImportInput = {
@@ -143,8 +143,11 @@ export type ImportDetails = {
   total: Scalars['Int'];
 };
 
+/** The various steps in which media importing can fail */
 export enum ImportFailStep {
+  /** Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.) */
   ItemDetailsFromSource = 'ITEM_DETAILS_FROM_SOURCE',
+  /** Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.) */
   MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER'
 }
 

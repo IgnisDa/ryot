@@ -88,15 +88,11 @@ impl Default for DatabaseConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct ImporterConfig {
-    pub goodreads_rss_url: String,
-}
+pub struct ImporterConfig {}
 
 impl Default for ImporterConfig {
     fn default() -> Self {
-        Self {
-            goodreads_rss_url: "https://www.goodreads.com/review/list_rss".to_owned(),
-        }
+        Self {}
     }
 }
 
@@ -233,14 +229,11 @@ impl Default for SchedulerConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
-#[derive(Default)]
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
 }
-
-
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct AppConfig {

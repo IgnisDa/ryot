@@ -55,7 +55,7 @@ type MediaTrackerImportFormSchema = z.infer<
 >;
 
 const goodreadsImportFormSchema = z.object({
-	profileUrl: z.string().url(),
+	rssUrl: z.string().url(),
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
@@ -283,9 +283,9 @@ const Page: NextPageWithLayout = () => {
 									title="Goodreads"
 								>
 									<TextInput
-										label="Profile URL"
+										label="RSS URL"
 										required
-										{...goodreadsImportForm.getInputProps("profileUrl")}
+										{...goodreadsImportForm.getInputProps("rssUrl")}
 									/>
 									<></>
 								</ImportSource>
