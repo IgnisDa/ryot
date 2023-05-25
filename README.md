@@ -68,7 +68,7 @@ $ docker run --detach \
 
 ### 🧑‍💻Option 2: Compile and run from source
 
-- Install [moonrepo](https://moonrepo.dev/https://moonrepo.dev/)
+- Install [moonrepo](https://moonrepo.dev/)
 
 ```bash
 # Build the frontend
