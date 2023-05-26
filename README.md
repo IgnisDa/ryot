@@ -93,7 +93,9 @@ You can specify configuration options via files (loaded from `config/ryot.json`,
 [`config/ryot.example.json`](/config/ryot.example.json). Ryot writes the
 configuration loaded at runtime to `computed-config.ron` for debugging purposes.
 
-Only the `DATABASE_URL` variable is loaded from the environment.
+Only the `DATABASE_URL` variable is loaded from the environment. The rest of the
+configuration variables are split by `__`. For example, `audio_books.audible.url`
+corresponds to `AUDIO_BOOKS__AUDIBLE__URL`.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder.
