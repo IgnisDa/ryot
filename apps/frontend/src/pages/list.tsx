@@ -14,7 +14,6 @@ import {
 	Container,
 	Flex,
 	Grid as MantineGrid,
-	Group,
 	Modal,
 	Pagination,
 	Select,
@@ -238,7 +237,7 @@ const Page: NextPageWithLayout = () => {
 						<Stack>
 							<MantineGrid grow>
 								<MantineGrid.Col span={12}>
-									<Group>
+									<Flex align={"center"} gap="xs">
 										<TextInput
 											name="query"
 											placeholder={`Search for a ${lot.toLowerCase()}`}
@@ -311,7 +310,7 @@ const Page: NextPageWithLayout = () => {
 												</Flex>
 											</Stack>
 										</Modal>
-									</Group>
+									</Flex>
 								</MantineGrid.Col>
 							</MantineGrid>
 							{listMedia.data && listMedia.data.total > 0 ? (
