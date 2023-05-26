@@ -87,9 +87,11 @@ $ cargo run --bin ryot --release
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`). or via environment variables.
+
 Environment config variables are split by the `__` delimiter. For example,
 the key `audio_books.audible.url` corresponds to the environment variable
-`AUDIO_BOOKS__AUDIBLE__URL`.
+`AUDIO_BOOKS__AUDIBLE__URL`. The only exception to the `__` delimiter rule is
+the `DATABASE_URL` environment variable which will be loaded directly.
 
 Ryot writes the final configuration loaded at runtime to `computed-config.ron`
 for debugging purposes.
@@ -104,7 +106,7 @@ builder. You can see a minimal example configuration in
 | `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                               |
 | `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
 | `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
-| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                           |
+| `database.url`                        | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
 | `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
 | `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |
@@ -113,7 +115,7 @@ builder. You can see a minimal example configuration in
 | `scheduler.database_url`              | The url to the SQLite database where job related data needs to be stored.                                                                                                     |
 | `scheduler.user_cleanup_every`        | Deploy a job every x minutes that performs user cleanup and summary calculation.                                                                                              |
 | `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
-| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                           |
+| `video_games.twitch.client_secret`    | The client secret issued by Twitch.                                                                                                                                           |
 | `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                |
 | `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                              |
 | `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |
