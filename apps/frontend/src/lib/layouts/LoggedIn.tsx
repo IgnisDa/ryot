@@ -25,6 +25,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
+import { ROUTES } from "../constants";
 
 const useStyles = createStyles((theme) => ({
 	link: {
@@ -86,7 +87,7 @@ export default function ({ children }: { children: ReactElement }) {
 					title: "Authentication error",
 					message: "Your auth token is invalid. Please login again.",
 				});
-				router.push("/auth/login");
+				router.push(ROUTES.auth.login);
 			}
 		},
 		staleTime: Infinity,
@@ -103,7 +104,7 @@ export default function ({ children }: { children: ReactElement }) {
 	);
 
 	const links = [
-		{ icon: IconHome2, label: "Home", href: "/" },
+		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -111,13 +112,15 @@ export default function ({ children }: { children: ReactElement }) {
 				icon: getMetadataIcon(f.name),
 				href: undefined,
 			})) || []),
-		{ icon: IconListDetails, label: "Collections", href: "/collections" },
-		{ icon: IconSettings, label: "Settings", href: "/settings" },
+		{ icon: IconListDetails, label: "Collections", href: ROUTES.collections },
+		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
 			key={link.label}
-			href={link.href ? link.href : `/list?lot=${link.label.toLowerCase()}`}
+			href={
+				link.href ? link.href : `${ROUTES.list}?lot=${link.label.toLowerCase()}`
+			}
 		/>
 	));
 	const logoutUser = useMutation({
@@ -139,7 +142,7 @@ export default function ({ children }: { children: ReactElement }) {
 					color: "red",
 				});
 			}
-			router.push("/auth/login");
+			router.push(ROUTES.auth.login);
 		},
 	});
 
@@ -152,7 +155,7 @@ export default function ({ children }: { children: ReactElement }) {
 				message: "You are not logged in",
 				color: "violet",
 			});
-			router.push("/auth/login");
+			router.push(ROUTES.auth.login);
 		}
 	}, []);
 

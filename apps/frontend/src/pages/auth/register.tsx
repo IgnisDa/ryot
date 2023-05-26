@@ -1,3 +1,4 @@
+import { ROUTES } from "@/lib/constants";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
@@ -48,7 +49,7 @@ export default function Page() {
 					message: "Please login with your new credentials",
 					color: "green",
 				});
-				router.push("/auth/login");
+				router.push(ROUTES.auth.login);
 			}
 		},
 	});
@@ -101,7 +102,7 @@ export default function Page() {
 				</Button>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Already a member? Login{" "}
-					<Link href="/auth/login" passHref legacyBehavior>
+					<Link href={ROUTES.auth.login} passHref legacyBehavior>
 						<Anchor>here</Anchor>
 					</Link>
 					.

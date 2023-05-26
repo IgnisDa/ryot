@@ -22,6 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/router";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { ROUTES } from "../constants";
 
 type Item = BooksSearchQuery["booksSearch"]["items"][number];
 
@@ -50,7 +51,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 				alt={`Image for ${props.item.title}`}
 				onClick={async () => {
 					const id = await props.imageOnClick();
-					router.push(`/media?item=${id}`);
+					router.push(`${ROUTES.media.details}?item=${id}`);
 				}}
 				sx={(_t) => ({
 					":hover": { transform: "scale(1.02)" },
@@ -153,7 +154,7 @@ export default function (props: {
 					loading={commitMedia.isLoading}
 					onClick={async () => {
 						const id = await commitFunction();
-						router.push(`/media/update-progress?item=${id}`);
+						router.push(`${ROUTES.media.updateProgress}?item=${id}`);
 					}}
 				>
 					Mark as {getVerb(Verb.Read, props.lot)}
@@ -167,7 +168,7 @@ export default function (props: {
 						loading={commitMedia.isLoading}
 						onClick={async () => {
 							const id = await commitFunction();
-							router.push(`/media?item=${id}`);
+							router.push(`${ROUTES.media.details}?item=${id}`);
 						}}
 					>
 						Show details

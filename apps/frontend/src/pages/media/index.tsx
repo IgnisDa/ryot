@@ -1,3 +1,4 @@
+import { ROUTES } from "@/lib/constants";
 import type { NextPageWithLayout } from "../_app";
 import useUser from "@/lib/hooks/useUser";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -311,7 +312,7 @@ const ReviewItem = ({
 				</Box>
 				{user && user.id === r.postedBy.id ? (
 					<Link
-						href={`/media/post-review?item=${metadataId}&reviewId=${r.id}`}
+						href={`${ROUTES.media.updateProgress}?item=${metadataId}&reviewId=${r.id}`}
 						passHref
 						legacyBehavior
 					>
@@ -761,11 +762,11 @@ const Page: NextPageWithLayout = () => {
 												onClick={async () => {
 													if (mediaDetails.data.type === MetadataLot.Podcast)
 														router.push(
-															`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
+															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
 														);
 													else
 														router.push(
-															`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${nextEpisode.season}&selectedShowEpisodeNumber=${nextEpisode.episode}`,
+															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${nextEpisode.season}&selectedShowEpisodeNumber=${nextEpisode.episode}`,
 														);
 												}}
 											>
@@ -794,13 +795,15 @@ const Page: NextPageWithLayout = () => {
 									<Button
 										variant="outline"
 										onClick={() => {
-											router.push(`/media/update-progress?item=${metadataId}`);
+											router.push(
+												`${ROUTES.media.updateProgress}?item=${metadataId}`,
+											);
 										}}
 									>
 										Add to {getVerb(Verb.Read, mediaDetails.data.type)} history
 									</Button>
 									<Link
-										href={`/media/post-review?item=${metadataId}`}
+										href={`${ROUTES.media.postReview}?item=${metadataId}`}
 										passHref
 										legacyBehavior
 									>
@@ -946,7 +949,7 @@ const Page: NextPageWithLayout = () => {
 																variant="outline"
 																onClick={() => {
 																	router.push(
-																		`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
+																		`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
 																	);
 																}}
 															>
@@ -975,7 +978,7 @@ const Page: NextPageWithLayout = () => {
 																		variant="outline"
 																		onClick={() => {
 																			router.push(
-																				`/media/update-progress?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
+																				`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
 																			);
 																		}}
 																	>
@@ -1011,7 +1014,7 @@ const Page: NextPageWithLayout = () => {
 														variant="outline"
 														onClick={() => {
 															router.push(
-																`/media/update-progress?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
+																`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
 															);
 														}}
 													>
