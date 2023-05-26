@@ -65,7 +65,8 @@ a number of guides to make thing easier.
 To get a demo server running, use the docker image:
 
 ```bash
-$ docker run --detach \
+$ docker run --pull always \
+  --detach \
   --publish 8000:8000 \
   --volume ./ryot-data:/data \
   --volume ./config/ryot.example.json:/data/config/ryot.json \
