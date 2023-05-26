@@ -315,6 +315,12 @@ const Page: NextPageWithLayout = () => {
 							</MantineGrid>
 							{listMedia.data && listMedia.data.total > 0 ? (
 								<>
+									<Box>
+										<Text display={"inline"} fw="bold">
+											{listMedia.data.total}
+										</Text>{" "}
+										items found
+									</Box>
 									<Grid>
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
@@ -356,19 +362,27 @@ const Page: NextPageWithLayout = () => {
 								rightSection={<ClearButton />}
 							/>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
-								<Grid>
-									{searchQuery.data.items.map((b, idx) => (
-										<MediaItem
-											idx={idx}
-											key={b.identifier}
-											item={b}
-											query={query}
-											offset={offset}
-											lot={lot}
-											refetch={searchQuery.refetch}
-										/>
-									))}
-								</Grid>
+								<>
+									<Box>
+										<Text display={"inline"} fw="bold">
+											{searchQuery.data.total}
+										</Text>{" "}
+										items found
+									</Box>
+									<Grid>
+										{searchQuery.data.items.map((b, idx) => (
+											<MediaItem
+												idx={idx}
+												key={b.identifier}
+												item={b}
+												query={query}
+												offset={offset}
+												lot={lot}
+												refetch={searchQuery.refetch}
+											/>
+										))}
+									</Grid>
+								</>
 							) : (
 								<Text>No media found :(</Text>
 							)}
