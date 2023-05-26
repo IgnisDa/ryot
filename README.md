@@ -86,16 +86,17 @@ $ cargo run --bin ryot --release
 ## 🔧 Configuration options
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
-`config/ryot.toml`, `config/ryot.yaml`). You can see a minimal example in
-[`config/ryot.example.json`](/config/ryot.example.json) or via environment variables. configuration variables are split by `__`. For example, `audio_books.audible.url`
-corresponds to `AUDIO_BOOKS__AUDIBLE__URL`. Ryot writes the
-configuration loaded at runtime to `computed-config.ron` for debugging purposes.
+`config/ryot.toml`, `config/ryot.yaml`). or via environment variables.
+Environment config variables are split by the `__` delimiter. For example,
+the key `audio_books.audible.url` corresponds to the environment variable
+`AUDIO_BOOKS__AUDIBLE__URL`.
 
-
-
+Ryot writes the final configuration loaded at runtime to `computed-config.ron`
+for debugging purposes.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
-builder.
+builder. You can see a minimal example configuration in 
+[`ryot.example.json`](/config/ryot.example.json).
 
 | Key                                   | Description                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
