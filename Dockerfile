@@ -31,7 +31,13 @@ COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
 RUN cargo build --release --bin ryot --target x86_64-unknown-linux-musl
 
+# taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
+FROM ubuntu:latest as user-creator
+RUN useradd -u 1001 ryot
+
 FROM scratch
+COPY --from=user-creator /etc/passwd /etc/passwd
+USER ryot
 # This is actually a hack to ensure that the `/data` directory exists in the image
 # since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
