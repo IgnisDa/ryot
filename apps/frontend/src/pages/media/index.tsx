@@ -28,6 +28,7 @@ import {
 	Indicator,
 	type MantineGradient,
 	Modal,
+	NumberInput,
 	Rating,
 	ScrollArea,
 	Select,
@@ -126,7 +127,22 @@ function ProgressModal(props: {
 		>
 			<Stack>
 				<Title order={3}>Set progress</Title>
-				<Slider showLabelOnHover={false} value={value} onChange={setValue} />
+				<Group>
+					<Slider
+						showLabelOnHover={false}
+						value={value}
+						onChange={setValue}
+						style={{ flexGrow: 1 }}
+					/>
+					<NumberInput
+						value={value}
+						onChange={(v) => setValue(Number(v))}
+						max={100}
+						min={0}
+						step={1}
+						w={"20%"}
+					/>
+				</Group>
 				<Button
 					variant="outline"
 					onClick={async () => {
