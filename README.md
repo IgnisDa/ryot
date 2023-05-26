@@ -7,9 +7,6 @@
   fitness etc.
 </h2>
 
-![Dashboard Screenshot](/docs/assets/dashboard-screenshot.png)
-![Mine Screenshot](/docs/assets/mine-screenshot.png)
-
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
 only self hosted tracker you will ever need!
 
