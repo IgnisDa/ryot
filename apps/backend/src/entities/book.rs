@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::migrator::BookSource;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "book")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]

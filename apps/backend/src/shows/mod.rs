@@ -10,7 +10,7 @@ pub mod resolver;
 pub mod tmdb;
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult,
+    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, Default, FromJsonQueryResult,
 )]
 pub struct ShowSpecifics {
     pub seasons: Vec<ShowSeason>,
@@ -18,7 +18,16 @@ pub struct ShowSpecifics {
 }
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult, Hash,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    Hash,
 )]
 pub struct ShowSeason {
     pub id: i32,
@@ -32,7 +41,16 @@ pub struct ShowSeason {
 }
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult, Hash,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    Hash,
 )]
 pub struct ShowEpisode {
     pub id: i32,

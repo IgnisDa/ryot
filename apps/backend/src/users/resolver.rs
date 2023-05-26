@@ -349,7 +349,7 @@ impl UsersService {
                         .one(&self.db)
                         .await
                         .unwrap()
-                        .unwrap();
+                        .unwrap_or_default();
                     ls.data.audio_books.played += 1;
                     if let Some(r) = item.runtime {
                         ls.data.audio_books.runtime += r;
@@ -361,7 +361,7 @@ impl UsersService {
                         .one(&self.db)
                         .await
                         .unwrap()
-                        .unwrap();
+                        .unwrap_or_default();
                     ls.data.books.read += 1;
                     if let Some(pg) = item.num_pages {
                         ls.data.books.pages += pg;
@@ -373,7 +373,7 @@ impl UsersService {
                         .one(&self.db)
                         .await
                         .unwrap()
-                        .unwrap();
+                        .unwrap_or_default();
                     unique_podcasts.insert(seen.metadata_id);
                     for episode in item.details.episodes {
                         match seen.extra_information.to_owned() {
@@ -398,7 +398,7 @@ impl UsersService {
                         .one(&self.db)
                         .await
                         .unwrap()
-                        .unwrap();
+                        .unwrap_or_default();
                     ls.data.movies.watched += 1;
                     if let Some(r) = item.runtime {
                         ls.data.movies.runtime += r;
@@ -410,7 +410,7 @@ impl UsersService {
                         .one(&self.db)
                         .await
                         .unwrap()
-                        .unwrap();
+                        .unwrap_or_default();
                     unique_shows.insert(item.metadata_id);
                     for season in item.details.seasons {
                         for episode in season.episodes {
