@@ -1,6 +1,7 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
+use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
@@ -59,7 +60,7 @@ struct Item {
 #[serde(rename_all = "camelCase")]
 struct ItemReview {
     id: i32,
-    rating: Option<i32>,
+    rating: Option<Decimal>,
     review: Option<String>,
 }
 

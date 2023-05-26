@@ -3045,6 +3045,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_decimal_macros"
+version = "1.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e773fd3da1ed42472fdf3cfdb4972948a555bc3d73f5e0bdb99d17e7b54c687"
+dependencies = [
+ "quote",
+ "rust_decimal",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3139,6 +3149,7 @@ dependencies = [
  "rstest",
  "rust-embed",
  "rust_decimal",
+ "rust_decimal_macros",
  "sea-orm",
  "sea-orm-migration",
  "sea-query",
