@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
+use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -42,7 +43,7 @@ pub struct ImportItemReview {
 pub struct ImportItemRating {
     id: Option<String>,
     review: Option<ImportItemReview>,
-    rating: Option<i32>,
+    rating: Option<Decimal>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -364,7 +365,7 @@ impl ImporterService {
                         &user_id,
                         PostReviewInput {
                             identifier: review.id.clone(),
-                            rating: review.rating.map(Into::into),
+                            rating: review.rating,
                             text,
                             spoiler,
                             date: date.flatten(),

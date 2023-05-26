@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.0.0-beta.9"
+version = "1.0.0-beta.10"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -33,6 +33,7 @@ regex = "1.8.1"
 ron = "0.8.0"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
+rust_decimal_macros = "1.29.1"
 sea-orm = { version = "0.11.1", features = [
     "sqlx-mysql",
     "sqlx-postgres",

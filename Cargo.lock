@@ -3045,6 +3045,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_decimal_macros"
+version = "1.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e773fd3da1ed42472fdf3cfdb4972948a555bc3d73f5e0bdb99d17e7b54c687"
+dependencies = [
+ "quote",
+ "rust_decimal",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3118,7 +3128,7 @@ checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
 
 [[package]]
 name = "ryot"
-version = "1.0.0-beta.9"
+version = "1.0.0-beta.10"
 dependencies = [
  "anyhow",
  "apalis",
@@ -3139,6 +3149,7 @@ dependencies = [
  "rstest",
  "rust-embed",
  "rust_decimal",
+ "rust_decimal_macros",
  "sea-orm",
  "sea-orm-migration",
  "sea-query",

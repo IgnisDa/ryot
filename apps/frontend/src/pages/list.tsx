@@ -14,14 +14,21 @@ import {
 	Container,
 	Flex,
 	Grid as MantineGrid,
+	Group,
+	Modal,
 	Pagination,
 	Select,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
+	Title,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
+import {
+	useDebouncedState,
+	useDisclosure,
+	useLocalStorage,
+} from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
@@ -36,6 +43,7 @@ import {
 	VideoGamesSearchDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	IconFilter,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
@@ -54,6 +62,10 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
 		key: "mineSortOrder",
 		defaultValue: MediaSortOrder.Asc,
@@ -226,63 +238,80 @@ const Page: NextPageWithLayout = () => {
 						<Stack>
 							<MantineGrid grow>
 								<MantineGrid.Col span={12}>
-									<TextInput
-										name="query"
-										placeholder={`Search for a ${lot.toLowerCase()}`}
-										icon={<IconSearch />}
-										onChange={(e) => setQuery(e.currentTarget.value)}
-										value={query}
-										rightSection={<ClearButton />}
-									/>
-								</MantineGrid.Col>
-								<MantineGrid.Col span={6}>
-									<Select
-										data={Object.values(MediaFilter).map((o) => ({
-											value: o.toString(),
-											label: startCase(lowerCase(o)),
-										}))}
-										defaultValue={mineFilter.toString()}
-										onChange={(v) => {
-											const filter = match(v)
-												.with("ALL", () => MediaFilter.All)
-												.with("RATED", () => MediaFilter.Rated)
-												.with("UNRATED", () => MediaFilter.Unrated)
-												.otherwise(() => MediaFilter.All);
-											setMineFilter(filter);
-										}}
-									/>
-								</MantineGrid.Col>
-								<MantineGrid.Col span={6}>
-									<Flex gap={"xs"} align={"center"}>
-										<Select
-											w="100%"
-											data={Object.values(MediaSortBy).map((o) => ({
-												value: o.toString(),
-												label: startCase(lowerCase(o)),
-											}))}
-											defaultValue={mineSortBy.toString()}
-											onChange={(v) => {
-												const orderBy = match(v)
-													.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
-													.with("TITLE", () => MediaSortBy.Title)
-													.otherwise(() => MediaSortBy.Title);
-												setMineSortBy(orderBy);
-											}}
+									<Group>
+										<TextInput
+											name="query"
+											placeholder={`Search for a ${lot.toLowerCase()}`}
+											icon={<IconSearch />}
+											onChange={(e) => setQuery(e.currentTarget.value)}
+											value={query}
+											rightSection={<ClearButton />}
+											style={{ flexGrow: 1 }}
 										/>
-										<ActionIcon
-											onClick={() => {
-												if (mineSortOrder === MediaSortOrder.Asc)
-													setMineSortOrder(MediaSortOrder.Desc);
-												else setMineSortOrder(MediaSortOrder.Asc);
-											}}
-										>
-											{mineSortOrder === MediaSortOrder.Asc ? (
-												<IconSortAscending />
-											) : (
-												<IconSortDescending />
-											)}
+										<ActionIcon onClick={openFiltersModal}>
+											<IconFilter size="1.5rem" />
 										</ActionIcon>
-									</Flex>
+										<Modal
+											opened={filtersModalOpened}
+											onClose={closeFiltersModal}
+											centered
+											withCloseButton={false}
+										>
+											<Stack>
+												<Title order={3}>Filters</Title>
+												<Select
+													withinPortal
+													data={Object.values(MediaFilter).map((o) => ({
+														value: o.toString(),
+														label: startCase(lowerCase(o)),
+													}))}
+													defaultValue={mineFilter.toString()}
+													onChange={(v) => {
+														const filter = match(v)
+															.with("ALL", () => MediaFilter.All)
+															.with("RATED", () => MediaFilter.Rated)
+															.with("UNRATED", () => MediaFilter.Unrated)
+															.otherwise(() => MediaFilter.All);
+														setMineFilter(filter);
+													}}
+												/>
+												<Flex gap={"xs"} align={"center"}>
+													<Select
+														withinPortal
+														w="100%"
+														data={Object.values(MediaSortBy).map((o) => ({
+															value: o.toString(),
+															label: startCase(lowerCase(o)),
+														}))}
+														defaultValue={mineSortBy.toString()}
+														onChange={(v) => {
+															const orderBy = match(v)
+																.with(
+																	"RELEASE_DATE",
+																	() => MediaSortBy.ReleaseDate,
+																)
+																.with("TITLE", () => MediaSortBy.Title)
+																.otherwise(() => MediaSortBy.Title);
+															setMineSortBy(orderBy);
+														}}
+													/>
+													<ActionIcon
+														onClick={() => {
+															if (mineSortOrder === MediaSortOrder.Asc)
+																setMineSortOrder(MediaSortOrder.Desc);
+															else setMineSortOrder(MediaSortOrder.Asc);
+														}}
+													>
+														{mineSortOrder === MediaSortOrder.Asc ? (
+															<IconSortAscending />
+														) : (
+															<IconSortDescending />
+														)}
+													</ActionIcon>
+												</Flex>
+											</Stack>
+										</Modal>
+									</Group>
 								</MantineGrid.Col>
 							</MantineGrid>
 							{listMedia.data && listMedia.data.total > 0 ? (

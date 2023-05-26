@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -78,7 +79,7 @@ pub async fn import(
                 };
                 if !d.user_rating.is_empty() {
                     let rating = d.user_rating.parse().unwrap();
-                    if rating != 0 {
+                    if rating != dec!(0) {
                         single_review.rating = Some(rating)
                     }
                 };

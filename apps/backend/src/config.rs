@@ -1,4 +1,6 @@
-use anyhow::{anyhow, Result};
+use std::path::PathBuf;
+
+use anyhow::{Context, Result};
 use figment::{
     providers::{Env, Format, Json, Serialized, Toml, Yaml},
     Figment,
@@ -262,12 +264,20 @@ pub struct AppConfig {
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
+
     Figment::new()
         .merge(Serialized::defaults(AppConfig::default()))
+        .merge(Json::file(
+            PathBuf::from(config).join(format!("{app}.json")),
+        ))
+        .merge(Toml::file(
+            PathBuf::from(config).join(format!("{app}.toml")),
+        ))
+        .merge(Yaml::file(
+            PathBuf::from(config).join(format!("{app}.yaml")),
+        ))
         .merge(Env::raw().split("_").only(&["database.url"]))
-        .merge(Json::file(format!("{config}/{app}.json")))
-        .merge(Toml::file(format!("{config}/{app}.toml")))
-        .merge(Yaml::file(format!("{config}/{app}.yaml")))
+        .merge(Env::raw().split("__").ignore(&["database.url"]))
         .extract()
-        .map_err(|e| anyhow!(e))
+        .context("Unable to construct application configuration")
 }

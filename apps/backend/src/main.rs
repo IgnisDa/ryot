@@ -159,7 +159,7 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "8000".to_owned())
         .parse()
         .unwrap();
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
     let importer_service_1 = app_services.importer_service.clone();

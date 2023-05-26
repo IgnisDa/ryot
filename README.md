@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/apps/frontend/public/ryot-logo.png">
+  <img src="/apps/frontend/public/ryot-logo.png" alt="Ryot Logo">
 </p>
 
 <h2 align="center">
@@ -13,6 +13,12 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
 only self hosted tracker you will ever need!
 
+## 💻 Demo
+
+You can use the demo instance hosted on [Fly](https://ryot.fly.dev). Login and
+register with the username `demo` and password `demo-password`. Please note
+that the data in this instance can be deleted randomly.
+
 ## 📝 ELI5
 
 Imagine you have a special notebook where you can write down all the media you
@@ -20,6 +26,14 @@ have consumed, like books you've read, shows you have watched, video games you
 have played or workouts you have done. Now, imagine that instead of a physical
 notebook, you have a special tool on your computer or phone that lets you keep
 track of all these digitally.
+
+## 🧪 Why?
+
+- Existing solutions do not have very good UI.
+- Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
+- There is a lack of a good selfhosted fitness and health tracking solution.
+- Ryot consumes very little memory (around 8MB idle eyeballing `docker stats`),
+  something that is significantly useful when working in limited RAM environments.
 
 ## 🚀 Features
 
@@ -32,13 +46,6 @@ track of all these digitally.
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
-
-## 🧪 Project Status
-
-This project is still very much a WIP. Until it hits `1.0.0`, consider the project
-to have breaking changes without any warning, for example backwards incompatible
-schema changes. You can see the latest release
-[here](https://github.com/IgnisDa/ryot/releases).
 
 ## 📖 Guides
 
@@ -58,7 +65,8 @@ a number of guides to make thing easier.
 To get a demo server running, use the docker image:
 
 ```bash
-$ docker run --detach \
+$ docker run --pull always \
+  --detach \
   --publish 8000:8000 \
   --volume ./ryot-data:/data \
   --volume ./config/ryot.example.json:/data/config/ryot.json \
@@ -85,7 +93,9 @@ You can specify configuration options via files (loaded from `config/ryot.json`,
 [`config/ryot.example.json`](/config/ryot.example.json). Ryot writes the
 configuration loaded at runtime to `computed-config.ron` for debugging purposes.
 
-Only the `DATABASE_URL` variable is loaded from the environment.
+Only the `DATABASE_URL` variable is loaded from the environment. The rest of the
+configuration variables are split by `__`. For example, `audio_books.audible.url`
+corresponds to `AUDIO_BOOKS__AUDIBLE__URL`.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder.
