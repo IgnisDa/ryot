@@ -50,6 +50,6 @@ jobs:
           tags: ${{ steps.image_name.outputs.image_names }}
 
       - name: Deploy to fly
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --remote-only --detach
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
