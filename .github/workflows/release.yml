@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -38,9 +41,14 @@ jobs:
           image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
 
-      - name: Build and push
+      - name: Build and push to ghcr
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
           tags: ${{ steps.image_name.outputs.image_names }}
+
+      - run: flyctl deploy --remote-only
+        name: Deploy to fly
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
