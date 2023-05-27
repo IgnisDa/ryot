@@ -10,6 +10,6 @@ export const ROUTES = {
 		updateProgress: "/media/update-progress",
 		postReview: "/media/post-review",
 	},
-	collections: "/list",
-	settings: "/list",
+	collections: "/collections",
+	settings: "/settings",
 } as const;
