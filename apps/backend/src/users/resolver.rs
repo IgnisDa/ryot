@@ -266,9 +266,10 @@ impl UsersMutation {
     /// Delete all summaries for the currently logged in user and then generate one from scratch.
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
-        let service = gql_ctx.data_unchecked::<UsersService>();
-        service.cleanup_summaries_for_user(&user_id).await?;
-        service.regenerate_user_summary(&user_id).await
+        gql_ctx
+            .data_unchecked::<UsersService>()
+            .regenerate_user_summary(&user_id)
+            .await
     }
 }
 
@@ -325,11 +326,12 @@ impl UsersService {
         Ok(ls.data)
     }
 
-    pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
-        let mut ls = summary::Model::default();
+    pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
+        let mut ls = self.latest_user_summary(user_id).await?;
         let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
+            .filter(seen::Column::LastUpdatedOn.gte(ls.created_on))
             .filter(seen::Column::Progress.eq(100))
             .find_also_related(Metadata)
             .all(&self.db)
@@ -584,25 +586,21 @@ impl UsersService {
         })
     }
 
-    pub async fn cleanup_summaries_for_user(&self, user_id: &i32) -> Result<()> {
-        let summaries = Summary::find()
-            .filter(summary::Column::UserId.eq(user_id.to_owned()))
-            .order_by_desc(summary::Column::CreatedOn)
-            .all(&self.db)
-            .await
-            .unwrap();
-        for summary in summaries.into_iter() {
-            summary.delete(&self.db).await.ok();
+    pub async fn regenerate_user_summaries(&self) -> Result<()> {
+        let all_users = User::find().all(&self.db).await.unwrap();
+        for user in all_users {
+            self.misc_service
+                .cleanup_summaries_for_user(&user.id)
+                .await?;
+            self.calculate_user_summary(&user.id).await?;
         }
         Ok(())
     }
 
-    pub async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = User::find().all(&self.db).await.unwrap();
-        for user in all_users {
-            self.cleanup_summaries_for_user(&user.id).await?;
-            self.regenerate_user_summary(&user.id).await?;
-        }
-        Ok(())
+    pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
+        self.misc_service
+            .cleanup_summaries_for_user(user_id)
+            .await?;
+        self.calculate_user_summary(user_id).await
     }
 }

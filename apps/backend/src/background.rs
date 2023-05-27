@@ -122,7 +122,7 @@ pub async fn user_created_job(
         .await
         .unwrap();
     service
-        .regenerate_user_summary(&information.user_id.into())
+        .calculate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())
@@ -212,7 +212,7 @@ pub async fn recalculate_user_summary_job(
     tracing::info!("Calculating summary for user {:?}", information.user_id);
     ctx.data::<UsersService>()
         .unwrap()
-        .regenerate_user_summary(&information.user_id.into())
+        .calculate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())
