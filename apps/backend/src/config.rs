@@ -225,7 +225,7 @@ pub struct SchedulerConfig {
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
-            database_url: "sqlite:memory:".to_string(),
+            database_url: "sqlite::memory:".to_string(),
             user_cleanup_every: 10,
         }
     }
