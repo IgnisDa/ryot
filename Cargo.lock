@@ -120,8 +120,9 @@ checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "apalis"
-version = "0.4.0-alpha.9"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bf81f6607179ed401d4b80bcd1a03a4d075edb396471965d1827f8b4f3f8a89"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -131,8 +132,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-core"
-version = "0.4.0-alpha.9"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba338f182ed760d6f558f22907aeba4ea18c5e00234ce9e7045d3c323a7c32ad"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -154,8 +156,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-cron"
-version = "0.4.0-alpha.9"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f40b4be5b1a0771c94b40a38be9ff0f9808d93bc652527db0462547ca5c1534e"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -168,8 +171,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-redis"
-version = "0.4.0-alpha.9"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff1af9bf3113b350947be967c6cedb818f3d8f1dd58ab439353536d3281aaf4d"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -185,8 +189,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "0.4.0-alpha.9"
-source = "git+https://github.com/geofmureithi/apalis.git?rev=008068#008068415b75010740c43cd4a58ccca1dea5d5a6"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b71a7caa0c93661376c394b32bd9dee8090ccf4223583e7ba93d76cdf30f5968"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -3128,7 +3133,7 @@ checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
 
 [[package]]
 name = "ryot"
-version = "1.0.0-beta.16"
+version = "1.0.0-beta.17"
 dependencies = [
  "anyhow",
  "apalis",
