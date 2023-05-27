@@ -64,9 +64,15 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 
 	return (
-		<Tooltip label={label} position="bottom" transitionProps={{ duration: 0 }}>
-			{element}
-		</Tooltip>
+		<Box w={50}>
+			<Tooltip
+				label={label}
+				position="bottom"
+				transitionProps={{ duration: 0 }}
+			>
+				{element}
+			</Tooltip>
+		</Box>
 	);
 }
 
@@ -161,7 +167,13 @@ export default function ({ children }: { children: ReactElement }) {
 
 	return enabledFeatures ? (
 		<Flex direction={"column"} w={"100%"}>
-			<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
+			<Flex
+				p="sm"
+				align={"center"}
+				justify={"center"}
+				wrap={"nowrap"}
+				style={{ overflowX: "auto" }}
+			>
 				{links}
 				<NavbarButton
 					icon={IconLogout}
