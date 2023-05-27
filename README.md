@@ -12,9 +12,10 @@ only self hosted tracker you will ever need!
 
 ## 💻 Demo
 
-You can use the demo instance hosted on [Fly](https://ryot.fly.dev). Login and
-register with the username `demo` and password `demo-password`. Please note
-that the data in this instance can be deleted randomly.
+You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login
+and register with the username `demo` and password `demo-password`. 
+
+**NOTE**: The data in this instance can be deleted randomly.
 
 ## 📝 ELI5
 
@@ -30,11 +31,12 @@ track of all these digitally.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
 - There is a lack of a good selfhosted fitness and health tracking solution.
 - Ryot consumes very little memory (around 8MB idle eyeballing `docker stats`),
-  something that is significantly useful when working in limited RAM environments.
+  something that is significantly useful in RAM constrained environments.
 
 ## 🚀 Features
 
-- ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media and fitness.
+- ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
+  and fitness.
 - ✅ Import data
   - Goodreads
   - MediaTracker
