@@ -11,8 +11,8 @@ use sea_orm::{
 use crate::{
     entities::{
         collection, media_import_report, metadata_to_collection,
-        prelude::{Collection, MediaImportReport, Metadata, Review, Seen, User},
-        review,
+        prelude::{Collection, MediaImportReport, Metadata, Review, Seen, Summary, User},
+        review, summary,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::{IdObject, Identifier},
@@ -436,9 +436,26 @@ impl MiscService {
                 .await
                 .ok();
             }
+            self.cleanup_summaries_for_user(&user_id).await.ok();
+            self.media_service
+                .deploy_recalculate_summary_job(user_id)
+                .await
+                .ok();
             Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }
+    }
+
+    pub async fn cleanup_summaries_for_user(&self, user_id: &i32) -> Result<()> {
+        let summaries = Summary::find()
+            .filter(summary::Column::UserId.eq(user_id.to_owned()))
+            .all(&self.db)
+            .await
+            .unwrap();
+        for summary in summaries.into_iter() {
+            summary.delete(&self.db).await.ok();
+        }
+        Ok(())
     }
 }

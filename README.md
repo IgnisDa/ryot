@@ -12,9 +12,10 @@ only self hosted tracker you will ever need!
 
 ## 💻 Demo
 
-You can use the demo instance hosted on [Fly](https://ryot.fly.dev). Login and
-register with the username `demo` and password `demo-password`. Please note
-that the data in this instance can be deleted randomly.
+You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login
+and register with the username `demo` and password `demo-password`. 
+
+**NOTE**: The data in this instance can be deleted randomly.
 
 ## 📝 ELI5
 
@@ -30,11 +31,12 @@ track of all these digitally.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
 - There is a lack of a good selfhosted fitness and health tracking solution.
 - Ryot consumes very little memory (around 8MB idle eyeballing `docker stats`),
-  something that is significantly useful when working in limited RAM environments.
+  something that is significantly useful in RAM constrained environments.
 
 ## 🚀 Features
 
-- ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media and fitness.
+- ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
+  and fitness.
 - ✅ Import data
   - Goodreads
   - MediaTracker
@@ -86,16 +88,19 @@ $ cargo run --bin ryot --release
 ## 🔧 Configuration options
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
-`config/ryot.toml`, `config/ryot.yaml`). You can see a minimal example in
-[`config/ryot.example.json`](/config/ryot.example.json). Ryot writes the
-configuration loaded at runtime to `computed-config.ron` for debugging purposes.
+`config/ryot.toml`, `config/ryot.yaml`). or via environment variables.
 
-Only the `DATABASE_URL` variable is loaded from the environment. The rest of the
-configuration variables are split by `__`. For example, `audio_books.audible.url`
-corresponds to `AUDIO_BOOKS__AUDIBLE__URL`.
+Environment config variables are split by the `__` delimiter. For example,
+the key `audio_books.audible.url` corresponds to the environment variable
+`AUDIO_BOOKS__AUDIBLE__URL`. The only exception to the `__` delimiter rule is
+the `DATABASE_URL` environment variable which will be loaded directly.
+
+Ryot writes the final configuration loaded at runtime to `computed-config.ron`
+for debugging purposes.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
-builder.
+builder. You can see a minimal example configuration in 
+[`ryot.example.json`](/config/ryot.example.json).
 
 | Key                                   | Description                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -103,7 +108,7 @@ builder.
 | `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                               |
 | `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
 | `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
-| `database.url`                        | The database connection string. Support SQLite, MySQL and Postgres.                                                                                                           |
+| `database.url`                        | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
 | `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
 | `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |
@@ -112,7 +117,7 @@ builder.
 | `scheduler.database_url`              | The url to the SQLite database where job related data needs to be stored.                                                                                                     |
 | `scheduler.user_cleanup_every`        | Deploy a job every x minutes that performs user cleanup and summary calculation.                                                                                              |
 | `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
-| `video_games.twitch.client_secret`    | The client secret issues by Twitch.                                                                                                                                           |
+| `video_games.twitch.client_secret`    | The client secret issued by Twitch.                                                                                                                                           |
 | `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                |
 | `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                              |
 | `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |

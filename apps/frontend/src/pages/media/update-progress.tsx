@@ -1,3 +1,4 @@
+import { ROUTES } from "@/lib/constants";
 import type { NextPageWithLayout } from "../_app";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -78,7 +79,7 @@ const Page: NextPageWithLayout = () => {
 			return progressUpdate;
 		},
 		onSuccess: () => {
-			router.push(`/media?item=${metadataId}`);
+			router.push(`${ROUTES.media.details}?item=${metadataId}`);
 		},
 	});
 

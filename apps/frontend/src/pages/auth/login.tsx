@@ -1,3 +1,4 @@
+import { ROUTES } from "@/lib/constants";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
@@ -31,7 +32,7 @@ export default function Page() {
 		},
 		onSuccess: (data) => {
 			if (data.__typename === "LoginResponse") {
-				router.push("/");
+				router.push(ROUTES.dashboard);
 				return;
 			} else {
 				const message = match(data.error)
@@ -91,7 +92,7 @@ export default function Page() {
 				</Button>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Need an account? Register{" "}
-					<Link href="/auth/register" passHref legacyBehavior>
+					<Link href={ROUTES.auth.register} passHref legacyBehavior>
 						<Anchor>here</Anchor>
 					</Link>
 					.
