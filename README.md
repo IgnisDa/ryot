@@ -85,6 +85,11 @@ $ moon run frontend:build
 $ cargo run --bin ryot --release
 ```
 
+### 📦 Option 3: Quick-run a release
+
+Each release has an installation script that can be used to install the `ryot`
+binary. Follow the instructions in the release to use this script. 
+
 ## 🔧 Configuration options
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
