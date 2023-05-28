@@ -26,10 +26,10 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS app-builder 
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --profile dist --recipe-path recipe.json
 COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
-RUN cargo build --release --bin ryot --target x86_64-unknown-linux-musl
+RUN cargo build --profile dist --bin ryot --target x86_64-unknown-linux-musl
 
 # taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
 FROM ubuntu:latest as user-creator
@@ -42,5 +42,5 @@ USER ryot
 # since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
 ENV RUST_LOG="ryot=info,sea_orm=info"
-COPY --from=app-builder --chown=ryot:ryot /app/target/x86_64-unknown-linux-musl/release/ryot /app
+COPY --from=app-builder --chown=ryot:ryot /app/target/x86_64-unknown-linux-musl/dist/ryot /app
 ENTRYPOINT ["/app"]
