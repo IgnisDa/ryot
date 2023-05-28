@@ -3,6 +3,7 @@ name = "ryot"
 version = "1.0.0-beta.21"
 edition = "2021"
 repository = "https://github.com/ignisda/ryot.git"
+license-file = "../../LICENSE"
 
 [dependencies]
 anyhow = "1.0.70"
