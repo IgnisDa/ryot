@@ -1,9 +1,15 @@
 
+<a name="v1.0.0-beta.21"></a>
+# Version 1.0.0-beta.21 (2023-05-28)
+
+## Build
+
+* **backend:** bump dependencies
+
+
 <a name="v1.0.0-beta.20"></a>
 # Version 1.0.0-beta.20 (2023-05-28)
 
-This change is mostly related to CI and does not make any changes to the code itself.
-After this, we will able to release binaries.
 
 <a name="v1.0.0-beta.19"></a>
 # Version 1.0.0-beta.19 (2023-05-27)
@@ -11,6 +17,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **frontend:** use correct path for routes
+
+## Build
+
+* **backend:** bump version
 
 
 <a name="v1.0.0-beta.18"></a>
@@ -20,9 +30,17 @@ After this, we will able to release binaries.
 
 * **backend:** use correct connection string
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v1.0.0-beta.17"></a>
 # Version 1.0.0-beta.17 (2023-05-27)
+
+## Build
+
+* **backend:** bump version
 
 ## CI
 
@@ -31,6 +49,10 @@ After this, we will able to release binaries.
 
 <a name="v1.0.0-beta.16"></a>
 # Version 1.0.0-beta.16 (2023-05-27)
+
+## Build
+
+* **backend:** bump dependencies
 
 ## CI
 
@@ -56,6 +78,10 @@ After this, we will able to release binaries.
 
 * **backend:** unwrap with default
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v1.0.0-beta.12"></a>
 # Version 1.0.0-beta.12 (2023-05-26)
@@ -68,6 +94,10 @@ After this, we will able to release binaries.
 <a name="v1.0.0-beta.11"></a>
 # Version 1.0.0-beta.11 (2023-05-26)
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v1.0.0-beta.10"></a>
 # Version 1.0.0-beta.10 (2023-05-25)
@@ -79,6 +109,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **frontend:** client side error when trimming query
+
+## Build
+
+* **backend:** bump version
 
 ## Documentation
 
@@ -93,6 +127,10 @@ After this, we will able to release binaries.
 
 * **backend:** wrong history for goodreads books
 
+## Build
+
+* **backend:** bump version
+
 ## Features
 
 * accept RSS url for goodreads
@@ -105,9 +143,17 @@ After this, we will able to release binaries.
 
 * **frontend:** do not highlight time in summary
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v1.0.0-beta.6"></a>
 # Version 1.0.0-beta.6 (2023-05-25)
+
+## Build
+
+* **backend:** bump version
 
 
 <a name="v1.0.0-beta.5"></a>
@@ -116,6 +162,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **backend:** do not deploy summary job when seen deleted
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
@@ -129,6 +179,10 @@ After this, we will able to release binaries.
 <a name="v1.0.0-beta.3"></a>
 # Version 1.0.0-beta.3 (2023-05-23)
 
+## Build
+
+* **backend:** bump version
+
 ## Features
 
 * **frontend:** allow clearing search input
@@ -140,6 +194,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **frontend:** layout issues for mine tab in list page
+
+## Build
+
+* **backend:** bump version
 
 
 <a name="v1.0.0-beta.1"></a>
@@ -157,6 +215,10 @@ After this, we will able to release binaries.
 
 * display correct num of shows
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.44"></a>
 # Version 0.0.44 (2023-05-21)
@@ -165,6 +227,10 @@ After this, we will able to release binaries.
 
 * **backend:** correct calculation for shows and episodes summary
 * **frontend:** remove useless click operation
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
@@ -182,6 +248,10 @@ After this, we will able to release binaries.
 <a name="v0.0.42"></a>
 # Version 0.0.42 (2023-05-21)
 
+## Build
+
+* **backend:** bump version
+
 ## Features
 
 * **frontend:** make password validation stronger
@@ -193,6 +263,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **frontend:** do not display "In Progress" if empty
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
@@ -206,6 +280,10 @@ After this, we will able to release binaries.
 
 * **frontend:** add title tag to collections page
 
+## Build
+
+* **backend:** bump version
+
 ## Features
 
 * **backend:** remove useless migrations
@@ -217,6 +295,10 @@ After this, we will able to release binaries.
 
 <a name="v0.0.38"></a>
 # Version 0.0.38 (2023-05-20)
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
@@ -230,9 +312,17 @@ After this, we will able to release binaries.
 
 * **backend:** use correct query for full text search
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.36"></a>
 # Version 0.0.36 (2023-05-19)
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
@@ -242,6 +332,10 @@ After this, we will able to release binaries.
 <a name="v0.0.35"></a>
 # Version 0.0.35 (2023-05-19)
 
+## Build
+
+* **backend:** bump version
+
 ## Features
 
 * **frontend:** add separate collections page
@@ -249,6 +343,10 @@ After this, we will able to release binaries.
 
 <a name="v0.0.34"></a>
 # Version 0.0.34 (2023-05-18)
+
+## Build
+
+* **backend:** bump version
 
 ## Documentation
 
@@ -266,6 +364,10 @@ After this, we will able to release binaries.
 <a name="v0.0.32"></a>
 # Version 0.0.32 (2023-05-18)
 
+## Build
+
+* **backend:** bump version
+
 ## Features
 
 * **frontend:** add page title
@@ -274,9 +376,18 @@ After this, we will able to release binaries.
 <a name="v0.0.31"></a>
 # Version 0.0.31 (2023-05-18)
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.30"></a>
 # Version 0.0.30 (2023-05-18)
+
+## Build
+
+* **backend:** bump version
+* **backend:** remove useless dependency
 
 ## Features
 
@@ -302,6 +413,10 @@ After this, we will able to release binaries.
 
 * **backend:** store import error string in database
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.26"></a>
 # Version 0.0.26 (2023-05-15)
@@ -310,6 +425,10 @@ After this, we will able to release binaries.
 
 * **backend:** allow listennotes init to fail
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.25"></a>
 # Version 0.0.25 (2023-05-15)
@@ -317,6 +436,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **backend:** deploy summary job only when import complete
+
+## Build
+
+* **backend:** bump version
 
 
 <a name="v0.0.24"></a>
@@ -330,6 +453,10 @@ After this, we will able to release binaries.
 
 * **backend:** import Goodreads books from MediaTracker
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.22"></a>
 # Version 0.0.22 (2023-05-14)
@@ -338,6 +465,10 @@ After this, we will able to release binaries.
 
 * **backend:** parse correct date from media tracker
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.21"></a>
 # Version 0.0.21 (2023-05-14)
@@ -345,6 +476,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **backend:** do not bail out when getting details
+
+## Build
+
+* **backend:** bump version
 
 ## Documentation
 
@@ -357,6 +492,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * **backend:** add expires token to cookie created
+
+## Build
+
+* **backend:** bump version
 
 ## Documentation
 
@@ -382,6 +521,10 @@ After this, we will able to release binaries.
 
 * **backend:** use redirects in openlibrary http client
 
+## Build
+
+* **backend:** update dependencies
+
 ## Documentation
 
 * make features clearer
@@ -394,6 +537,10 @@ After this, we will able to release binaries.
 
 * **backend:** remove useless dbg stmt
 * **backend:** log when a import job starts up
+
+## Build
+
+* **backend:** bump version
 
 ## Documentation
 
@@ -427,6 +574,10 @@ After this, we will able to release binaries.
 
 * **frontend:** make rating text optional
 
+## Build
+
+* **backend:** bump version
+
 ## CI
 
 * **gh-actions:** disable docker caching
@@ -454,6 +605,10 @@ After this, we will able to release binaries.
 ## Bug Fixes
 
 * finish renaming project
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
@@ -508,6 +663,10 @@ After this, we will able to release binaries.
 <a name="v0.0.4"></a>
 # Version 0.0.4 (2023-05-01)
 
+## Build
+
+* **backend:** bump version
+
 
 <a name="v0.0.3"></a>
 # Version 0.0.3 (2023-04-25)
@@ -544,6 +703,11 @@ After this, we will able to release binaries.
 * **ci:** use correct tag name
 * **frontend:** use correct package name
 
+## Build
+
+* ensure static linking
+* **app:** update tailwindcss
+
 ## CI
 
 * add configuration for deployment
@@ -567,3 +731,4 @@ After this, we will able to release binaries.
 * **backend:** handle outputs from nextjs export
 * **frontend:** add basic project
 * **frontend:** add basic about page
+

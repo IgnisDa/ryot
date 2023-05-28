@@ -8,6 +8,7 @@ options:
     filters:
       Type:
         - feat
+        - build
         - fix
         - perf
         - refactor
@@ -16,6 +17,7 @@ options:
   commit_groups:
     title_maps:
       feat: Features
+      build: Build
       fix: Bug Fixes
       perf: Performance Improvements
       refactor: Code Refactoring
