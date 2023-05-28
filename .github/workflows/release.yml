@@ -135,7 +135,7 @@ jobs:
       - name: Get docker image name
         id: image_name
         run: |
-          image_name="${{ env.REGISTRY }}/${{ github.actor }}/ryot"
+          image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
           image_names="$image_name:${{ github.ref_name }},$image_name:latest"
           # lowercase the name
           image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
