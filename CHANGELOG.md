@@ -1,5 +1,24 @@
 
+# Version 1.0.0-beta.23 (2023-05-28)
+
+## Bug Fixes
+
+* **frontend:** 6 col layout only on large screens
+
+## Build
+
+* **backend:** bump dependencies
+
+## Documentation
+
+* add info about quick release
+
+
 # Version 1.0.0-beta.22 (2023-05-28)
+
+## CI
+
+* update changelog template
 
 
 # Version 1.0.0-beta.21 (2023-05-28)

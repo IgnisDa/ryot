@@ -86,7 +86,13 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 				<MantineProvider
 					withGlobalStyles
 					withNormalizeCSS
-					theme={{ colorScheme: "dark", fontFamily: "Poppins" }}
+					theme={{
+						colorScheme: "dark",
+						fontFamily: "Poppins",
+						breakpoints: {
+							"3xl": "112em",
+						},
+					}}
 				>
 					<ModalsProvider
 						labels={{ confirm: "Confirm", cancel: "Cancel" }}
