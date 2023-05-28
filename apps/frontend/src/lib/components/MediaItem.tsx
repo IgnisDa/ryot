@@ -79,6 +79,7 @@ export default function (props: {
 	offset: number;
 	lot: MetadataLot;
 	refetch: () => void;
+	children?: JSX.Element;
 }) {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -175,6 +176,7 @@ export default function (props: {
 					</Button>
 				</>
 			)}
+			{props.children}
 		</MediaItemWithoutUpdateModal>
 	);
 }

@@ -379,7 +379,9 @@ const Page: NextPageWithLayout = () => {
 												offset={offset}
 												lot={lot}
 												refetch={searchQuery.refetch}
-											/>
+											>
+												<>Hello</>
+											</MediaItem>
 										))}
 									</Grid>
 								</>
