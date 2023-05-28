@@ -252,11 +252,11 @@ pub struct AppConfig {
     #[serde(default)]
     pub podcasts: PodcastConfig,
     #[serde(default)]
+    pub scheduler: SchedulerConfig,
+    #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]
     pub video_games: VideoGameConfig,
-    #[serde(default)]
-    pub scheduler: SchedulerConfig,
     #[serde(default)]
     pub web: WebConfig,
 }
