@@ -1,5 +1,4 @@
 {{ range .Versions }}
-<a name="{{ .Tag.Name }}"></a>
 # Version {{ replace .Tag.Name "v" "" 1 }} ({{ datetime "2006-01-02" .Tag.Date }})
 
 {{ range .CommitGroups -}}

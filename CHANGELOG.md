@@ -1,17 +1,21 @@
 
-<a name="v1.0.0-beta.21"></a>
+# Version 1.0.0-beta.22 (2023-05-28)
+
+
 # Version 1.0.0-beta.21 (2023-05-28)
 
 ## Build
 
 * **backend:** bump dependencies
 
+## CI
 
-<a name="v1.0.0-beta.20"></a>
+* update changelog
+
+
 # Version 1.0.0-beta.20 (2023-05-28)
 
 
-<a name="v1.0.0-beta.19"></a>
 # Version 1.0.0-beta.19 (2023-05-27)
 
 ## Bug Fixes
@@ -23,7 +27,6 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.18"></a>
 # Version 1.0.0-beta.18 (2023-05-27)
 
 ## Bug Fixes
@@ -35,7 +38,6 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.17"></a>
 # Version 1.0.0-beta.17 (2023-05-27)
 
 ## Build
@@ -47,7 +49,6 @@
 * **gh-actions:** detach from monitoring fly commands
 
 
-<a name="v1.0.0-beta.16"></a>
 # Version 1.0.0-beta.16 (2023-05-27)
 
 ## Build
@@ -59,7 +60,6 @@
 * **gh-actions:** name steps
 
 
-<a name="v1.0.0-beta.15"></a>
 # Version 1.0.0-beta.15 (2023-05-27)
 
 ## CI
@@ -67,11 +67,9 @@
 * **gh-actions:** automatically deploy to fly on release
 
 
-<a name="v1.0.0-beta.14"></a>
 # Version 1.0.0-beta.14 (2023-05-27)
 
 
-<a name="v1.0.0-beta.13"></a>
 # Version 1.0.0-beta.13 (2023-05-27)
 
 ## Bug Fixes
@@ -83,7 +81,6 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.12"></a>
 # Version 1.0.0-beta.12 (2023-05-26)
 
 ## Documentation
@@ -91,7 +88,6 @@
 * remove screenshots
 
 
-<a name="v1.0.0-beta.11"></a>
 # Version 1.0.0-beta.11 (2023-05-26)
 
 ## Build
@@ -99,11 +95,9 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.10"></a>
 # Version 1.0.0-beta.10 (2023-05-25)
 
 
-<a name="v1.0.0-beta.9"></a>
 # Version 1.0.0-beta.9 (2023-05-25)
 
 ## Bug Fixes
@@ -120,7 +114,6 @@
 * remove ref to goodreads rss url
 
 
-<a name="v1.0.0-beta.8"></a>
 # Version 1.0.0-beta.8 (2023-05-25)
 
 ## Bug Fixes
@@ -136,7 +129,6 @@
 * accept RSS url for goodreads
 
 
-<a name="v1.0.0-beta.7"></a>
 # Version 1.0.0-beta.7 (2023-05-25)
 
 ## Bug Fixes
@@ -148,7 +140,6 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.6"></a>
 # Version 1.0.0-beta.6 (2023-05-25)
 
 ## Build
@@ -156,7 +147,6 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.5"></a>
 # Version 1.0.0-beta.5 (2023-05-25)
 
 ## Bug Fixes
@@ -172,11 +162,9 @@
 * **backend:** delete media from "In Progress" when it's seen item is deleted
 
 
-<a name="v1.0.0-beta.4"></a>
 # Version 1.0.0-beta.4 (2023-05-24)
 
 
-<a name="v1.0.0-beta.3"></a>
 # Version 1.0.0-beta.3 (2023-05-23)
 
 ## Build
@@ -188,7 +176,6 @@
 * **frontend:** allow clearing search input
 
 
-<a name="v1.0.0-beta-2"></a>
 # Version 1.0.0-beta-2 (2023-05-22)
 
 ## Bug Fixes
@@ -200,7 +187,6 @@
 * **backend:** bump version
 
 
-<a name="v1.0.0-beta.1"></a>
 # Version 1.0.0-beta.1 (2023-05-22)
 
 ## Bug Fixes
@@ -208,7 +194,6 @@
 * **backend:** calculate watched shows efficiently
 
 
-<a name="v0.0.45"></a>
 # Version 0.0.45 (2023-05-21)
 
 ## Bug Fixes
@@ -220,7 +205,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.44"></a>
 # Version 0.0.44 (2023-05-21)
 
 ## Bug Fixes
@@ -241,11 +225,9 @@
 * **backend:** make season summary more explicit
 
 
-<a name="v0.0.43"></a>
 # Version 0.0.43 (2023-05-21)
 
 
-<a name="v0.0.42"></a>
 # Version 0.0.42 (2023-05-21)
 
 ## Build
@@ -257,7 +239,6 @@
 * **frontend:** make password validation stronger
 
 
-<a name="v0.0.41"></a>
 # Version 0.0.41 (2023-05-21)
 
 ## Bug Fixes
@@ -273,7 +254,6 @@
 * **backend:** remove `identifier` field from models
 
 
-<a name="v0.0.40"></a>
 # Version 0.0.40 (2023-05-21)
 
 ## Bug Fixes
@@ -289,11 +269,9 @@
 * **backend:** remove useless migrations
 
 
-<a name="v0.0.39"></a>
 # Version 0.0.39 (2023-05-20)
 
 
-<a name="v0.0.38"></a>
 # Version 0.0.38 (2023-05-20)
 
 ## Build
@@ -305,7 +283,6 @@
 * **backend:** store identifier in metadata tbl
 
 
-<a name="v0.0.37"></a>
 # Version 0.0.37 (2023-05-19)
 
 ## Bug Fixes
@@ -317,7 +294,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.36"></a>
 # Version 0.0.36 (2023-05-19)
 
 ## Build
@@ -329,7 +305,6 @@
 * display repo link on footer
 
 
-<a name="v0.0.35"></a>
 # Version 0.0.35 (2023-05-19)
 
 ## Build
@@ -341,7 +316,6 @@
 * **frontend:** add separate collections page
 
 
-<a name="v0.0.34"></a>
 # Version 0.0.34 (2023-05-18)
 
 ## Build
@@ -357,11 +331,9 @@
 * **frontend:** remove PWA related stuff
 
 
-<a name="v0.0.33"></a>
 # Version 0.0.33 (2023-05-18)
 
 
-<a name="v0.0.32"></a>
 # Version 0.0.32 (2023-05-18)
 
 ## Build
@@ -373,7 +345,6 @@
 * **frontend:** add page title
 
 
-<a name="v0.0.31"></a>
 # Version 0.0.31 (2023-05-18)
 
 ## Build
@@ -381,7 +352,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.30"></a>
 # Version 0.0.30 (2023-05-18)
 
 ## Build
@@ -394,7 +364,6 @@
 * **backend:** use correct database for scheduler
 
 
-<a name="v0.0.29"></a>
 # Version 0.0.29 (2023-05-18)
 
 ## Features
@@ -402,11 +371,9 @@
 * **ci:** enable sea orm info logs in prod build
 
 
-<a name="v0.0.28"></a>
 # Version 0.0.28 (2023-05-18)
 
 
-<a name="v0.0.27"></a>
 # Version 0.0.27 (2023-05-15)
 
 ## Bug Fixes
@@ -418,7 +385,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.26"></a>
 # Version 0.0.26 (2023-05-15)
 
 ## Bug Fixes
@@ -430,7 +396,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.25"></a>
 # Version 0.0.25 (2023-05-15)
 
 ## Bug Fixes
@@ -442,11 +407,9 @@
 * **backend:** bump version
 
 
-<a name="v0.0.24"></a>
 # Version 0.0.24 (2023-05-15)
 
 
-<a name="v0.0.23"></a>
 # Version 0.0.23 (2023-05-15)
 
 ## Bug Fixes
@@ -458,7 +421,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.22"></a>
 # Version 0.0.22 (2023-05-14)
 
 ## Bug Fixes
@@ -470,7 +432,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.21"></a>
 # Version 0.0.21 (2023-05-14)
 
 ## Bug Fixes
@@ -486,7 +447,6 @@
 * add example for insecure cookie
 
 
-<a name="v0.0.20"></a>
 # Version 0.0.20 (2023-05-13)
 
 ## Bug Fixes
@@ -506,7 +466,6 @@
 * **backend:** allow setting insecure cookies
 
 
-<a name="v0.0.19"></a>
 # Version 0.0.19 (2023-05-13)
 
 ## Bug Fixes
@@ -514,7 +473,6 @@
 * **backend:** use redirects in openlibrary http client
 
 
-<a name="v0.0.18"></a>
 # Version 0.0.18 (2023-05-12)
 
 ## Bug Fixes
@@ -530,7 +488,6 @@
 * make features clearer
 
 
-<a name="v0.0.17"></a>
 # Version 0.0.17 (2023-05-12)
 
 ## Bug Fixes
@@ -555,19 +512,15 @@
 * **frontend:** use correct default values for form
 
 
-<a name="v0.0.16"></a>
 # Version 0.0.16 (2023-05-11)
 
 
-<a name="v0.0.15"></a>
 # Version 0.0.15 (2023-05-10)
 
 
-<a name="v0.0.14"></a>
 # Version 0.0.14 (2023-05-10)
 
 
-<a name="v0.0.13"></a>
 # Version 0.0.13 (2023-05-07)
 
 ## Bug Fixes
@@ -587,7 +540,6 @@
 * **frontend:** increase scale on hover
 
 
-<a name="v0.0.12"></a>
 # Version 0.0.12 (2023-05-07)
 
 ## CI
@@ -595,11 +547,9 @@
 * general changes
 
 
-<a name="v0.0.11"></a>
 # Version 0.0.11 (2023-05-07)
 
 
-<a name="v0.0.10"></a>
 # Version 0.0.10 (2023-05-05)
 
 ## Bug Fixes
@@ -615,15 +565,12 @@
 * rename project
 
 
-<a name="v0.0.9"></a>
 # Version 0.0.9 (2023-05-05)
 
 
-<a name="v0.0.8"></a>
 # Version 0.0.8 (2023-05-04)
 
 
-<a name="v0.0.7"></a>
 # Version 0.0.7 (2023-05-03)
 
 ## Bug Fixes
@@ -644,7 +591,6 @@
 * **frontend:** show overlay when loading
 
 
-<a name="v0.0.6"></a>
 # Version 0.0.6 (2023-05-03)
 
 ## Bug Fixes
@@ -656,11 +602,9 @@
 * **frontend:** add link to self website
 
 
-<a name="v0.0.5"></a>
 # Version 0.0.5 (2023-05-02)
 
 
-<a name="v0.0.4"></a>
 # Version 0.0.4 (2023-05-01)
 
 ## Build
@@ -668,7 +612,6 @@
 * **backend:** bump version
 
 
-<a name="v0.0.3"></a>
 # Version 0.0.3 (2023-04-25)
 
 ## Bug Fixes
@@ -682,7 +625,6 @@
 * general updates
 
 
-<a name="v0.0.2"></a>
 # Version 0.0.2 (2023-04-25)
 
 ## CI
@@ -695,7 +637,6 @@
 * mention project status
 
 
-<a name="v0.0.1"></a>
 # Version 0.0.1 (2023-04-25)
 
 ## Bug Fixes
