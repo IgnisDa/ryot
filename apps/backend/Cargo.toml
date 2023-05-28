@@ -1,9 +1,9 @@
 [package]
 name = "ryot"
-version = "1.0.0-beta.19"
+version = "1.0.0-beta.20"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/IgnisDa/ryot"
+license = "GPLv3"
 
 [dependencies]
 anyhow = "1.0.70"
