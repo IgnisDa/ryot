@@ -9,7 +9,7 @@ export default function (props: { children: JSX.Element[] }) {
 				{ minWidth: "sm", cols: 3 },
 				{ minWidth: "md", cols: 4 },
 				{ minWidth: "lg", cols: 5 },
-				{ minWidth: "xl", cols: 6 },
+				{ minWidth: "3xl", cols: 6 },
 			]}
 		>
 			{props.children}
