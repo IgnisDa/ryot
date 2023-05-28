@@ -73,7 +73,17 @@ $ docker run --pull always \
   ghcr.io/ignisda/ryot:latest
 ```
 
-### 🧑‍💻Option 2: Compile and run from source
+### 📦 Option 2: Quick-run a release
+
+Each release has an installation script that can be used to install the `ryot`
+binary. Follow the instructions in the release to use this script. 
+
+**Alternatively** using [eget](https://github.com/zyedidia/eget):
+```bash
+$ eget ignisda/ryot
+```
+
+### 🧑‍💻Option 3: Compile and run from source
 
 - Install [moonrepo](https://moonrepo.dev/)
 
@@ -85,27 +95,21 @@ $ moon run frontend:build
 $ cargo run --bin ryot --release
 ```
 
-### 📦 Option 3: Quick-run a release
-
-Each release has an installation script that can be used to install the `ryot`
-binary. Follow the instructions in the release to use this script. 
-
 ## 🔧 Configuration options
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
-`config/ryot.toml`, `config/ryot.yaml`). or via environment variables.
+`config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
-Environment config variables are split by the `__` delimiter. For example,
-the key `audio_books.audible.url` corresponds to the environment variable
-`AUDIO_BOOKS__AUDIBLE__URL`. The only exception to the `__` delimiter rule is
-the `DATABASE_URL` environment variable which will be loaded directly.
+Environment variables are split by the `__` delimiter. For example, the key
+`audio_books.audible.url` corresponds to the variable `AUDIO_BOOKS__AUDIBLE__URL`.
+The only exception to the `__` delimiter rule is the `DATABASE_URL` environment
+variable which will be loaded directly.
 
 Ryot writes the final configuration loaded at runtime to `computed-config.ron`
 for debugging purposes.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
-builder. You can see a minimal example configuration in 
-[`ryot.example.json`](/config/ryot.example.json).
+builder. A minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
 
 | Key                                   | Description                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
