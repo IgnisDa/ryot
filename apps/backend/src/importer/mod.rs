@@ -185,6 +185,7 @@ pub struct ImporterService {
 }
 
 impl ImporterService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
         audio_books_service: &AudioBooksService,

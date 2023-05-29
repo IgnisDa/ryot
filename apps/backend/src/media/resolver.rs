@@ -605,7 +605,7 @@ impl MediaService {
                             }),
                         ))
                     }
-                    
+
                     seen_ins.insert(&self.db).await.unwrap()
                 }
             };
@@ -714,6 +714,7 @@ impl MediaService {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn commit_media(
         &self,
         identifier: String,
