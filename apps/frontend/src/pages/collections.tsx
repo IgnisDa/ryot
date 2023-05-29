@@ -81,9 +81,13 @@ const Page: NextPageWithLayout = () => {
 									</Title>
 									<ActionIcon
 										onClick={() => {
-											deleteCollection.mutate({
-												collectionName: collection.collectionDetails.name,
-											});
+											const yes = confirm(
+												"Are you sure you want to delete this collection?",
+											);
+											if (yes)
+												deleteCollection.mutate({
+													collectionName: collection.collectionDetails.name,
+												});
 										}}
 										color="red"
 									>
