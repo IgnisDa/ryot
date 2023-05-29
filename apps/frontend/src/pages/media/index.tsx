@@ -68,6 +68,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
+	IconBook,
+	IconClock,
 	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
@@ -122,12 +124,18 @@ function ProgressModal(props: {
 		},
 	});
 
+	const [updateIcon, text] = match(props.lot)
+		.with(MetadataLot.Book, () => [<IconBook size="1.5rem" />, "Pages"])
+		.with(MetadataLot.Movie, () => [<IconClock size="1.5rem" />, "Minutes"])
+		.run();
+
 	return (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
+			size={"sm"}
 		>
 			<Stack>
 				<Title order={3}>Set progress</Title>
@@ -154,6 +162,21 @@ function ProgressModal(props: {
 						<Text align="center" fw={"bold"}>
 							OR
 						</Text>
+						<Flex align={"center"} gap="xs">
+							<NumberInput
+								value={Math.ceil(((props.total || 1) * value) / 100)}
+								onChange={(v) => {
+									const newVal = (Number(v) / (props.total || 1)) * 100;
+									setValue(Math.ceil(newVal));
+								}}
+								max={props.total}
+								min={0}
+								step={1}
+								hideControls
+								icon={updateIcon}
+							/>
+							<Text>{text}</Text>
+						</Flex>
 					</>
 				) : null}
 				<Button
