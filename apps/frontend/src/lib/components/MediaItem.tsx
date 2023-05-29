@@ -52,6 +52,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					style={{ zIndex: 999 }}
 					top={10}
 					left={10}
+					color="red"
 					variant="bars"
 					size="sm"
 				/>
@@ -183,7 +184,6 @@ export default function (props: {
 						variant="outline"
 						w="100%"
 						compact
-						loading={commitMedia.isLoading}
 						onClick={async () => {
 							const id = await commitFunction();
 							router.push(`${ROUTES.media.updateProgress}?item=${id}`);
