@@ -1,5 +1,16 @@
 
-# Version 1.0.0-beta.26 (2023-05-29)
+# Version 1.0.0-beta.28 (2023-05-29)
+
+## Bug Fixes
+
+* **frontend:** incorrect layout with navbar
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.0.0-beta.27 (2023-05-29)
 
 ## Build
 
@@ -7,8 +18,10 @@
 
 ## Features
 
-* **backend:** allow deleting collection
-* **frontend:** allow deleting collection
+* **frontend:** ask for confirmation before deleting collection
+
+
+# Version 1.0.0-beta.26 (2023-05-29)
 
 
 # Version 1.0.0-beta.25 (2023-05-29)
