@@ -149,6 +149,13 @@ function ProgressModal(props: {
 						rightSection={<IconPercentage size="1rem" />}
 					/>
 				</Group>
+				{props.total ? (
+					<>
+						<Text align="center" fw={"bold"}>
+							OR
+						</Text>
+					</>
+				) : null}
 				<Button
 					variant="outline"
 					onClick={async () => {
@@ -161,7 +168,7 @@ function ProgressModal(props: {
 						});
 					}}
 				>
-					Set
+					Update
 				</Button>
 				<Button variant="outline" color="red" onClick={props.onClose}>
 					Cancel
