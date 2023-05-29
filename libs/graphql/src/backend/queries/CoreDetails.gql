@@ -3,5 +3,6 @@ query CoreDetails {
     version
     authorName
     repositoryLink
+    usernameChangeAllowed
   }
 }
