@@ -1,3 +1,0 @@
-query MediaExistsInDatabase($identifier: String!, $lot: MetadataLot!) {
-  mediaExistsInDatabase(identifier: $identifier, lot: $lot)
-}
