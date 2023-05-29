@@ -154,6 +154,15 @@ and run `mprocs` in the project root. If you do not want to install `mprocs`,
 take a look at [`mproc.yaml`](/mprocs.yaml) to see what all commands are
 needed to get it working.
 
+Unless it is a very small change, I prefer creating a separate branch and merging
+it via an MR when it is done. The changelog is generated using
+[git-chglog](https://github.com/git-chglog/git-chglog). Once all changes are
+done, run the following command to update the changelog.
+
+```bash
+$ git-chglog --next-tag <tag-name> -o CHANGELOG.md
+```
+
 ## 🙏 Acknowledgements
 
 It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
