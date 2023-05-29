@@ -176,7 +176,7 @@ fn convert_item(
         lot,
         default_collections: vec![],
         identifier: match need_details {
-            false => ImportItemIdentifier::AlreadyFilled(MediaDetails {
+            false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                 identifier,
                 title: details.title,
                 description: details.overview,
@@ -191,7 +191,7 @@ fn convert_item(
                     pages: details.number_of_pages,
                     source: BookSource::Goodreads,
                 }),
-            }),
+            })),
             true => ImportItemIdentifier::NeedsDetails(identifier),
         },
         reviews: Vec::from_iter(details.user_rating.map(|r| {
