@@ -1,5 +1,5 @@
 
-# Version 1.0.0-beta.29 (2023-05-29)
+# Version 1.0.0-beta.30 (2023-05-29)
 
 ## Build
 
@@ -7,15 +7,14 @@
 
 ## Documentation
 
-* add information about changing username
+* add information about changelog
 
-## Features
+## Performance Improvements
 
-* **backend:** return data about username change
-* **backend:** only change username if config allows
-* **backend:** add config param to disallow changing username
-* **frontend:** inform user if username change is disabled
-* **frontend:** reset profile form on profile update
+* **backend:** box bigger enum variant
+
+
+# Version 1.0.0-beta.29 (2023-05-29)
 
 
 # Version 1.0.0-beta.28 (2023-05-29)
