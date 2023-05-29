@@ -92,6 +92,7 @@ impl Default for DatabaseConfig {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct ImporterConfig {}
 
+#[allow(clippy::derivable_impls)]
 impl Default for ImporterConfig {
     fn default() -> Self {
         Self {}

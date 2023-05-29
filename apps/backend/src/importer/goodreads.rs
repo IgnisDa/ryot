@@ -108,7 +108,7 @@ pub async fn import(
                 ImportItem {
                     source_id: d.book_id.to_string(),
                     lot: MetadataLot::Book,
-                    identifier: ImportItemIdentifier::AlreadyFilled(MediaDetails {
+                    identifier: ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                         identifier: d.book_id.to_string(),
                         title: d.title,
                         description: Some(d.book_description),
@@ -123,7 +123,7 @@ pub async fn import(
                             pages: d.book.num_pages.parse().ok(),
                             source: BookSource::Goodreads,
                         }),
-                    }),
+                    })),
                     seen_history,
                     default_collections,
                     reviews,

@@ -81,7 +81,7 @@ pub enum ImportItemIdentifier {
     // the identifier in case we need to fetch details
     NeedsDetails(String),
     // details are already filled and just need to be comitted to database
-    AlreadyFilled(MediaDetails),
+    AlreadyFilled(Box<MediaDetails>),
 }
 
 #[derive(Debug)]
@@ -185,6 +185,7 @@ pub struct ImporterService {
 }
 
 impl ImporterService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
         audio_books_service: &AudioBooksService,
@@ -282,7 +283,7 @@ impl ImporterService {
                         self.audio_books_service.commit_audio_book(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.audio_books_service.save_to_db(a.clone()).await
+                        self.audio_books_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Book => match &item.identifier {
@@ -290,7 +291,7 @@ impl ImporterService {
                         self.books_service.commit_book(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.books_service.save_to_db(a.clone()).await
+                        self.books_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Podcast => match &item.identifier {
@@ -298,7 +299,7 @@ impl ImporterService {
                         self.podcasts_service.commit_podcast(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.podcasts_service.save_to_db(a.clone()).await
+                        self.podcasts_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Movie => match &item.identifier {
@@ -306,7 +307,7 @@ impl ImporterService {
                         self.movies_service.commit_movie(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.movies_service.save_to_db(a.clone()).await
+                        self.movies_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Show => match &item.identifier {
@@ -314,7 +315,7 @@ impl ImporterService {
                         self.shows_service.commit_show(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.shows_service.save_to_db(a.clone()).await
+                        self.shows_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::VideoGame => match &item.identifier {
@@ -322,7 +323,7 @@ impl ImporterService {
                         self.video_games_service.commit_video_game(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.video_games_service.save_to_db(a.clone()).await
+                        self.video_games_service.save_to_db(*a.clone()).await
                     }
                 },
             };
