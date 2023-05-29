@@ -7,6 +7,7 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, QueryFilter, QueryOrder,
 };
+use strum::IntoEnumIterator;
 
 use crate::{
     entities::{
@@ -151,6 +152,19 @@ impl MiscMutation {
         gql_ctx
             .data_unchecked::<MiscService>()
             .remove_media_item_from_collection(&user_id, &metadata_id.into(), &collection_name)
+            .await
+    }
+
+    /// Delete a collection.
+    async fn delete_collection(
+        &self,
+        gql_ctx: &Context<'_>,
+        collection_name: String,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .delete_collection(&user_id, &collection_name)
             .await
     }
 
@@ -332,6 +346,23 @@ impl MiscService {
                 id: inserted.id.into(),
             })
         }
+    }
+
+    pub async fn delete_collection(&self, user_id: &i32, name: &str) -> Result<bool> {
+        if DefaultCollection::iter().any(|n| n.to_string() == name) {
+            return Err(Error::new("Can not delete a default collection".to_owned()));
+        }
+        let collection = Collection::find()
+            .filter(collection::Column::Name.eq(name))
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .one(&self.db)
+            .await?;
+        let resp = if let Some(c) = collection {
+            Collection::delete_by_id(c.id).exec(&self.db).await.is_ok()
+        } else {
+            false
+        };
+        Ok(resp)
     }
 
     pub async fn remove_media_item_from_collection(
