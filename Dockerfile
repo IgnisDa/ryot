@@ -35,7 +35,7 @@ FROM alpine:3.18
 RUN addgroup -g 1001 ryot \
     && adduser -u 1001 -G ryot -D -H ryot \
     && mkdir /data \
-    && chown -R ryot:ryot /data \
+    && chown -R ryot:ryot /data
 USER ryot
 WORKDIR /data
 ENV RUST_LOG="ryot=info,sea_orm=info"
