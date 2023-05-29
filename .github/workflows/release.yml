@@ -145,6 +145,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker-release
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Set up flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
