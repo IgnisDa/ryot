@@ -1,5 +1,5 @@
 
-# Version 1.0.0-beta.25 (2023-05-29)
+# Version 1.0.0-beta.26 (2023-05-29)
 
 ## Build
 
@@ -7,9 +7,11 @@
 
 ## Features
 
-* **frontend:** allow setting exact numbers
-* **frontend:** add additional section for precise progress update
-* **frontend:** send more media details to progress update modal
+* **backend:** allow deleting collection
+* **frontend:** allow deleting collection
+
+
+# Version 1.0.0-beta.25 (2023-05-29)
 
 
 # Version 1.0.0-beta.24 (2023-05-29)
