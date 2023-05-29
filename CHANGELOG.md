@@ -1,25 +1,18 @@
 
-# Version 1.0.0-beta.24 (2023-05-29)
-
-## Bug Fixes
-
-* **frontend:** do not show loading buttons
+# Version 1.0.0-beta.25 (2023-05-29)
 
 ## Build
 
 * **backend:** bump version
 
-## Documentation
-
-* add info about demo instance deployment
-* add project status section
-* add `eget` instructions
-
 ## Features
 
-* **backend:** add resolver to get media id
-* **frontend:** allow adding media to watchlist
-* **frontend:** allow adding children to media component
+* **frontend:** allow setting exact numbers
+* **frontend:** add additional section for precise progress update
+* **frontend:** send more media details to progress update modal
+
+
+# Version 1.0.0-beta.24 (2023-05-29)
 
 
 # Version 1.0.0-beta.23 (2023-05-28)
