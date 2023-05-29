@@ -1,5 +1,4 @@
 import type { NextPageWithLayout } from "./_app";
-import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -20,6 +19,7 @@ import { useForm, zodResolver } from "@mantine/form";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
+	CoreDetailsDocument,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
@@ -27,9 +27,10 @@ import {
 	type RegenerateUserSummaryMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconAnalyze, IconDatabaseImport, IconUser } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import type { ReactElement } from "react";
 import { z } from "zod";
@@ -104,13 +105,30 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(goodreadsImportFormSchema),
 	});
 
-	useUser((data) => {
-		updateProfileForm.setValues({
-			email: data.email || undefined,
-			username: data.name,
-		});
-		updateProfileForm.resetDirty();
+	const userDetails = useQuery({
+		queryKey: ["userDetails"],
+		queryFn: async () => {
+			const { userDetails } = await gqlClient.request(UserDetailsDocument);
+			return userDetails;
+		},
+		onSuccess: (data) => {
+			if (data.__typename === "User") {
+				updateProfileForm.setValues({
+					email: data.email || undefined,
+					username: data.name,
+				});
+				updateProfileForm.resetDirty();
+			}
+		},
 	});
+	const coreDetails = useQuery(
+		["coreDetails"],
+		async () => {
+			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
+			return coreDetails;
+		},
+		{ staleTime: Infinity },
+	);
 
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
@@ -121,6 +139,7 @@ const Page: NextPageWithLayout = () => {
 			return updateUser;
 		},
 		onSuccess: () => {
+			userDetails.refetch();
 			notifications.show({
 				title: "Success",
 				message: "Profile details updated",
@@ -230,6 +249,11 @@ const Page: NextPageWithLayout = () => {
 									<TextInput
 										label="Username"
 										{...updateProfileForm.getInputProps("username")}
+										disabled={!coreDetails.data?.usernameChangeAllowed}
+										description={
+											!coreDetails.data?.usernameChangeAllowed &&
+											"Username can not be changed on this instance"
+										}
 										autoFocus
 									/>
 									<TextInput

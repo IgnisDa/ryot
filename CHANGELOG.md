@@ -1,13 +1,24 @@
 
-# Version 1.0.0-beta.28 (2023-05-29)
-
-## Bug Fixes
-
-* **frontend:** incorrect layout with navbar
+# Version 1.0.0-beta.29 (2023-05-29)
 
 ## Build
 
 * **backend:** bump version
+
+## Documentation
+
+* add information about changing username
+
+## Features
+
+* **backend:** return data about username change
+* **backend:** only change username if config allows
+* **backend:** add config param to disallow changing username
+* **frontend:** inform user if username change is disabled
+* **frontend:** reset profile form on profile update
+
+
+# Version 1.0.0-beta.28 (2023-05-29)
 
 
 # Version 1.0.0-beta.27 (2023-05-29)

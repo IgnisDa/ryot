@@ -231,6 +231,19 @@ impl Default for SchedulerConfig {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct UsersConfig {
+    pub allow_changing_username: bool,
+}
+
+impl Default for UsersConfig {
+    fn default() -> Self {
+        Self {
+            allow_changing_username: true,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
@@ -257,6 +270,8 @@ pub struct AppConfig {
     pub shows: ShowConfig,
     #[serde(default)]
     pub video_games: VideoGameConfig,
+    #[serde(default)]
+    pub users: UsersConfig,
     #[serde(default)]
     pub web: WebConfig,
 }

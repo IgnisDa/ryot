@@ -54,6 +54,7 @@ pub struct CoreDetails {
     version: String,
     author_name: String,
     repository_link: String,
+    username_change_allowed: bool,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -87,11 +88,13 @@ impl CoreQuery {
     }
 
     /// Get some primary information about the service
-    async fn core_details(&self, _gql_ctx: &Context<'_>) -> CoreDetails {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         CoreDetails {
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
+            username_change_allowed: config.users.allow_changing_username,
         }
     }
 }
