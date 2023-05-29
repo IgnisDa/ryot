@@ -1,5 +1,5 @@
-import { ROUTES } from "@/lib/constants";
 import type { NextPageWithLayout } from "../_app";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";

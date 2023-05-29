@@ -1,3 +1,4 @@
+import { ROUTES } from "../constants";
 import { gqlClient } from "../services/api";
 import { changeCase, getMetadataIcon } from "@/lib//utilities";
 import {
@@ -25,7 +26,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
-import { ROUTES } from "../constants";
 
 const useStyles = createStyles((theme) => ({
 	link: {
