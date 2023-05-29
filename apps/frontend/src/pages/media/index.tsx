@@ -68,9 +68,12 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAlertCircle,
+	IconBook,
+	IconClock,
 	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
+	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
 	IconUser,
@@ -102,6 +105,8 @@ function ProgressModal(props: {
 	onClose: () => void;
 	metadataId: number;
 	progress: number;
+	total?: number | null;
+	lot: MetadataLot;
 	refetch: () => void;
 }) {
 	const [value, setValue] = useState(props.progress);
@@ -119,12 +124,18 @@ function ProgressModal(props: {
 		},
 	});
 
+	const [updateIcon, text] = match(props.lot)
+		.with(MetadataLot.Book, () => [<IconBook size="1.5rem" />, "Pages"])
+		.with(MetadataLot.Movie, () => [<IconClock size="1.5rem" />, "Minutes"])
+		.run();
+
 	return (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
+			size={"sm"}
 		>
 			<Stack>
 				<Title order={3}>Set progress</Title>
@@ -142,8 +153,32 @@ function ProgressModal(props: {
 						min={0}
 						step={1}
 						w={"20%"}
+						hideControls
+						rightSection={<IconPercentage size="1rem" />}
 					/>
 				</Group>
+				{props.total ? (
+					<>
+						<Text align="center" fw={"bold"}>
+							OR
+						</Text>
+						<Flex align={"center"} gap="xs">
+							<NumberInput
+								value={Math.ceil(((props.total || 1) * value) / 100)}
+								onChange={(v) => {
+									const newVal = (Number(v) / (props.total || 1)) * 100;
+									setValue(Math.ceil(newVal));
+								}}
+								max={props.total}
+								min={0}
+								step={1}
+								hideControls
+								icon={updateIcon}
+							/>
+							<Text>{text}</Text>
+						</Flex>
+					</>
+				) : null}
 				<Button
 					variant="outline"
 					onClick={async () => {
@@ -156,7 +191,7 @@ function ProgressModal(props: {
 						});
 					}}
 				>
-					Set
+					Update
 				</Button>
 				<Button variant="outline" color="red" onClick={props.onClose}>
 					Cancel
@@ -737,6 +772,11 @@ const Page: NextPageWithLayout = () => {
 												metadataId={metadataId}
 												onClose={progressModalClose}
 												opened={progressModalOpened}
+												lot={mediaDetails.data.type}
+												total={
+													mediaDetails.data.bookSpecifics?.pages ||
+													mediaDetails.data.movieSpecifics?.runtime
+												}
 											/>
 											<Button
 												variant="outline"
