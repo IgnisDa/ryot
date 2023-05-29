@@ -19,6 +19,7 @@ import { useForm, zodResolver } from "@mantine/form";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
+	CoreDetailsDocument,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
@@ -120,6 +121,14 @@ const Page: NextPageWithLayout = () => {
 			}
 		},
 	});
+	const coreDetails = useQuery(
+		["coreDetails"],
+		async () => {
+			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
+			return coreDetails;
+		},
+		{ staleTime: Infinity },
+	);
 
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
@@ -240,6 +249,11 @@ const Page: NextPageWithLayout = () => {
 									<TextInput
 										label="Username"
 										{...updateProfileForm.getInputProps("username")}
+										disabled={!coreDetails.data?.usernameChangeAllowed}
+										description={
+											!coreDetails.data?.usernameChangeAllowed &&
+											"Username can not be changed on this instance"
+										}
 										autoFocus
 									/>
 									<TextInput
