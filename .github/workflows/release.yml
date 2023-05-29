@@ -21,8 +21,6 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-        run: rustup update 1.68.2 --no-self-update && rustup default 1.68.2
       - name: Install cargo-dist
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
       - id: create-release
@@ -75,8 +73,6 @@ jobs:
           fetch-depth: 0
       - name: Setup Moon
         uses: moonrepo/setup-moon-action@v1.1.1
-      - name: Install Rust
-        run: rustup update 1.68.2 --no-self-update && rustup default 1.68.2
       - name: Install cargo-dist
         run: ${{ matrix.install-dist }}
       - name: Build the frontend
