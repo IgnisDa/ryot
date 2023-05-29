@@ -31,15 +31,12 @@ COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
 RUN cargo build --profile dist --bin ryot --target x86_64-unknown-linux-musl
 
-# taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
-FROM ubuntu:latest as user-creator
-RUN useradd -u 1001 ryot
-
-FROM scratch
-COPY --from=user-creator /etc/passwd /etc/passwd
+FROM alpine:3.18
+RUN addgroup -g 1001 ryot \
+    && adduser -u 1001 -G ryot -D -H ryot \
+    && mkdir /data \
+    && chown -R ryot:ryot /data \
 USER ryot
-# This is actually a hack to ensure that the `/data` directory exists in the image
-# since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
 ENV RUST_LOG="ryot=info,sea_orm=info"
 COPY --from=app-builder --chown=ryot:ryot /app/target/x86_64-unknown-linux-musl/dist/ryot /app
