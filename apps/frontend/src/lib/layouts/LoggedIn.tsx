@@ -167,13 +167,7 @@ export default function ({ children }: { children: ReactElement }) {
 
 	return enabledFeatures ? (
 		<Flex direction={"column"} w={"100%"}>
-			<Flex
-				p="sm"
-				align={"center"}
-				justify={"center"}
-				wrap={"nowrap"}
-				style={{ overflowX: "auto" }}
-			>
+			<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
 				{links}
 				<NavbarButton
 					icon={IconLogout}
