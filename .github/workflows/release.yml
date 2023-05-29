@@ -127,8 +127,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get docker image name
-        id: image_name
+      - name: Get docker image name and build args
+        id: required_args
         run: |
           image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
           image_names="$image_name:${{ github.ref_name }},$image_name:latest"
@@ -136,12 +136,16 @@ jobs:
           image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
 
+          toolchain=$(cat rust-toolchain)
+          echo "toolchain=$toolchain" >> $GITHUB_OUTPUT
+
       - name: Build and push to ghcr
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          tags: ${{ steps.image_name.outputs.image_names }}
+          tags: ${{ steps.required_args.outputs.image_names }}
+          build-args: 'TOOLCHAIN=${{ steps.required_args.outputs.toolchain }}'
 
       - name: Deploy to fly
         run: flyctl deploy --remote-only --detach

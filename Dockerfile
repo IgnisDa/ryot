@@ -16,7 +16,6 @@ RUN moon run frontend:build
 
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 RUN apt-get update && apt-get install -y musl-tools musl-dev
-RUN rustup target add x86_64-unknown-linux-musl
 RUN update-ca-certificates
 WORKDIR app
 
@@ -29,6 +28,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --profile dist --recipe-path recipe.json
 COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
+RUN rustup target add x86_64-unknown-linux-musl
 RUN cargo build --profile dist --bin ryot --target x86_64-unknown-linux-musl
 
 # taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
