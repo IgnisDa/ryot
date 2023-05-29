@@ -1,13 +1,28 @@
 
-# Version 1.0.0-beta.23 (2023-05-28)
+# Version 1.0.0-beta.24 (2023-05-29)
 
 ## Bug Fixes
 
-* **frontend:** 6 col layout only on large screens
+* **frontend:** do not show loading buttons
 
 ## Build
 
-* **backend:** bump dependencies
+* **backend:** bump version
+
+## Documentation
+
+* add info about demo instance deployment
+* add project status section
+* add `eget` instructions
+
+## Features
+
+* **backend:** add resolver to get media id
+* **frontend:** allow adding media to watchlist
+* **frontend:** allow adding children to media component
+
+
+# Version 1.0.0-beta.23 (2023-05-28)
 
 ## Documentation
 
@@ -16,20 +31,12 @@
 
 # Version 1.0.0-beta.22 (2023-05-28)
 
-## CI
-
-* update changelog template
-
 
 # Version 1.0.0-beta.21 (2023-05-28)
 
 ## Build
 
 * **backend:** bump dependencies
-
-## CI
-
-* update changelog
 
 
 # Version 1.0.0-beta.20 (2023-05-28)
@@ -63,10 +70,6 @@
 
 * **backend:** bump version
 
-## CI
-
-* **gh-actions:** detach from monitoring fly commands
-
 
 # Version 1.0.0-beta.16 (2023-05-27)
 
@@ -74,16 +77,8 @@
 
 * **backend:** bump dependencies
 
-## CI
-
-* **gh-actions:** name steps
-
 
 # Version 1.0.0-beta.15 (2023-05-27)
-
-## CI
-
-* **gh-actions:** automatically deploy to fly on release
 
 
 # Version 1.0.0-beta.14 (2023-05-27)
@@ -550,20 +545,12 @@
 
 * **backend:** bump version
 
-## CI
-
-* **gh-actions:** disable docker caching
-
 ## Features
 
 * **frontend:** increase scale on hover
 
 
 # Version 0.0.12 (2023-05-07)
-
-## CI
-
-* general changes
 
 
 # Version 0.0.11 (2023-05-07)
@@ -639,17 +626,8 @@
 * **backend:** load port from env var
 * **frontend:** allow dynamic hostname
 
-## CI
-
-* general updates
-
 
 # Version 0.0.2 (2023-04-25)
-
-## CI
-
-* do not install tini
-* decrease docker size
 
 ## Documentation
 
@@ -667,12 +645,6 @@
 
 * ensure static linking
 * **app:** update tailwindcss
-
-## CI
-
-* add configuration for deployment
-* configure config files
-* do not install stuff thats already installed
 
 ## Features
 
