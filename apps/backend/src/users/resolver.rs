@@ -257,9 +257,10 @@ impl UsersMutation {
     /// Update a user's profile details.
     async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<UsersService>()
-            .update_user(&user_id, input)
+            .update_user(&user_id, input, config)
             .await
     }
 
@@ -564,7 +565,12 @@ impl UsersService {
         Ok(())
     }
 
-    async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
+    async fn update_user(
+        &self,
+        user_id: &i32,
+        input: UpdateUserInput,
+        config: &AppConfig,
+    ) -> Result<IdObject> {
         let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
             .one(&self.db)
             .await
@@ -572,7 +578,9 @@ impl UsersService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            user_obj.name = ActiveValue::Set(n);
+            if config.users.allow_changing_username {
+                user_obj.name = ActiveValue::Set(n);
+            }
         }
         if let Some(e) = input.email {
             user_obj.email = ActiveValue::Set(Some(e));
