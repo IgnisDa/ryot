@@ -71,6 +71,7 @@ import {
 	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
+	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
 	IconUser,
@@ -102,6 +103,8 @@ function ProgressModal(props: {
 	onClose: () => void;
 	metadataId: number;
 	progress: number;
+	total?: number | null;
+	lot: MetadataLot;
 	refetch: () => void;
 }) {
 	const [value, setValue] = useState(props.progress);
@@ -142,6 +145,8 @@ function ProgressModal(props: {
 						min={0}
 						step={1}
 						w={"20%"}
+						hideControls
+						rightSection={<IconPercentage size="1rem" />}
 					/>
 				</Group>
 				<Button
@@ -737,6 +742,11 @@ const Page: NextPageWithLayout = () => {
 												metadataId={metadataId}
 												onClose={progressModalClose}
 												opened={progressModalOpened}
+												lot={mediaDetails.data.type}
+												total={
+													mediaDetails.data.bookSpecifics?.pages ||
+													mediaDetails.data.movieSpecifics?.runtime
+												}
 											/>
 											<Button
 												variant="outline"
