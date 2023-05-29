@@ -11,8 +11,6 @@ options:
         - build
         - fix
         - perf
-        - refactor
-        - ci
         - docs
   commit_groups:
     title_maps:
@@ -20,8 +18,6 @@ options:
       build: Build
       fix: Bug Fixes
       perf: Performance Improvements
-      refactor: Code Refactoring
-      ci: CI
       docs: Documentation
   header:
     pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
