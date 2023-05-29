@@ -1,6 +1,10 @@
 
 # Version 1.0.0-beta.24 (2023-05-29)
 
+## Bug Fixes
+
+* **frontend:** do not show loading buttons
+
 ## Build
 
 * **backend:** bump version
