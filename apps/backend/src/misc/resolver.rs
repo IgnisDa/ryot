@@ -529,44 +529,58 @@ impl MiscService {
     }
 
     pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
-        let id = metadata.id;
-        let details = match metadata.lot {
-            MetadataLot::AudioBook => self
-                .audio_books_service
-                .details_from_provider(id)
-                .await
-                .unwrap(),
-            MetadataLot::Book => self.books_service.details_from_provider(id).await.unwrap(),
-            MetadataLot::Movie => self.movies_service.details_from_provider(id).await.unwrap(),
-            MetadataLot::Podcast => self
-                .podcasts_service
-                .details_from_provider(id)
-                .await
-                .unwrap(),
-            MetadataLot::Show => self.shows_service.details_from_provider(id).await.unwrap(),
-            MetadataLot::VideoGame => self
-                .video_games_service
-                .details_from_provider(id)
-                .await
-                .unwrap(),
-        };
-        self.media_service
-            .update_media(
-                id,
-                details.title,
-                details.description,
-                details.poster_images,
-                details.backdrop_images,
-            )
-            .await
-            .ok();
-        match details.specifics {
-            MediaSpecifics::Podcast(p) => {
-                self.podcasts_service.update_details(id, p).await.unwrap()
+        let metadata_id = metadata.id;
+        tracing::info!("Updating metadata for {:?}", Identifier::from(metadata_id));
+        let maybe_details = match metadata.lot {
+            MetadataLot::AudioBook => {
+                self.audio_books_service
+                    .details_from_provider(metadata_id)
+                    .await
             }
-            MediaSpecifics::Show(s) => self.shows_service.update_details(id, s).await.unwrap(),
-            _ => {}
+            MetadataLot::Book => self.books_service.details_from_provider(metadata_id).await,
+            MetadataLot::Movie => self.movies_service.details_from_provider(metadata_id).await,
+            MetadataLot::Podcast => {
+                self.podcasts_service
+                    .details_from_provider(metadata_id)
+                    .await
+            }
+            MetadataLot::Show => self.shows_service.details_from_provider(metadata_id).await,
+            MetadataLot::VideoGame => {
+                self.video_games_service
+                    .details_from_provider(metadata_id)
+                    .await
+            }
         };
+        match maybe_details {
+            Ok(details) => {
+                self.media_service
+                    .update_media(
+                        metadata_id,
+                        details.title,
+                        details.description,
+                        details.poster_images,
+                        details.backdrop_images,
+                    )
+                    .await
+                    .ok();
+                match details.specifics {
+                    MediaSpecifics::Podcast(p) => self
+                        .podcasts_service
+                        .update_details(metadata_id, p)
+                        .await
+                        .unwrap(),
+                    MediaSpecifics::Show(s) => self
+                        .shows_service
+                        .update_details(metadata_id, s)
+                        .await
+                        .unwrap(),
+                    _ => {}
+                };
+            }
+            Err(e) => {
+                tracing::error!("Error while updating: {:?}", e);
+            }
+        }
 
         Ok(())
     }

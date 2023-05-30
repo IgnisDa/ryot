@@ -225,10 +225,6 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!(
-        "Updating metadata for {:?}",
-        Identifier::from(information.metadata.id)
-    );
     let misc = ctx.data::<MiscService>().unwrap();
     misc.update_metadata(information.metadata).await.unwrap();
     Ok(())
