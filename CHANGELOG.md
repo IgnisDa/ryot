@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.33 (2023-05-30)
+
+## Bug Fixes
+
+* **frontend:** redirect to correct page for review edit
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.32 (2023-05-30)
 
 ## Build
