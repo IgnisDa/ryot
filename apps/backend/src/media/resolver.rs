@@ -98,6 +98,7 @@ pub struct MediaDetails {
 pub struct DatabaseMediaDetails {
     pub id: i32,
     pub title: String,
+    pub identifier: String,
     pub description: Option<String>,
     #[graphql(name = "type")]
     pub lot: MetadataLot,
@@ -335,6 +336,7 @@ impl MediaService {
         let mut resp = DatabaseMediaDetails {
             id: model.id,
             title: model.title,
+            identifier: model.identifier,
             description: model.description,
             publish_year: model.publish_year,
             publish_date: model.publish_date,

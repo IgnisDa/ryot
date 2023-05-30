@@ -2,6 +2,7 @@ query MediaDetails($metadataId: Identifier!) {
   mediaDetails(metadataId: $metadataId) {
     title
     description
+    identifier
     type
     creators
     type
