@@ -8,6 +8,7 @@ import {
 	Verb,
 	changeCase,
 	getInitials,
+	getSourceUrl,
 	getStringAsciiValue,
 	getVerb,
 } from "@/lib/utilities";
@@ -761,6 +762,17 @@ const Page: NextPageWithLayout = () => {
 									) : (
 										<Text fs="italic">No overview available</Text>
 									)}
+									<Anchor
+										href={getSourceUrl(
+											mediaDetails.data.type,
+											mediaDetails.data.identifier,
+											mediaDetails.data.title,
+											mediaDetails.data.bookSpecifics?.source,
+										)}
+										target="_blank"
+									>
+										Source
+									</Anchor>
 								</Box>
 							</Tabs.Panel>
 							<Tabs.Panel value="actions">
