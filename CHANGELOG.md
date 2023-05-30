@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.34 (2023-05-30)
+
+## Bug Fixes
+
+* **frontend:** handle edge cases for progress modal
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.33 (2023-05-30)
 
 ## Bug Fixes
