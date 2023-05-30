@@ -1,17 +1,20 @@
 
-# Version 1.0.0-beta.30 (2023-05-29)
+# Version 1.0.0-beta.32 (2023-05-30)
 
 ## Build
 
 * **backend:** bump version
+* **backend:** update dependencies
+
+
+# Version 1.0.0-beta.31 (2023-05-30)
+
+
+# Version 1.0.0-beta.30 (2023-05-29)
 
 ## Documentation
 
 * add information about changelog
-
-## Performance Improvements
-
-* **backend:** box bigger enum variant
 
 
 # Version 1.0.0-beta.29 (2023-05-29)
