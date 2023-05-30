@@ -588,7 +588,9 @@ impl MiscService {
     pub async fn update_all_metadata(&self) -> Result<bool> {
         let metadatas = Metadata::find().all(&self.db).await.unwrap();
         for metadata in metadatas {
-            self.update_metadata(metadata).await?;
+            self.media_service
+                .deploy_update_metadata_job(metadata.id)
+                .await?;
         }
         Ok(true)
     }
