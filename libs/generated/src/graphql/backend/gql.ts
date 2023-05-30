@@ -25,6 +25,7 @@ const documents = {
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
     "mutation DeleteSeenItem($seenId: Identifier!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
     "mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}": types.DeployImportDocument,
+    "mutation DeployUpdateAllMetadataJobs {\n  deployUpdateAllMetadataJobs\n}": types.DeployUpdateAllMetadataJobsDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Identifier!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
     "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
     "mutation LogoutUser {\n  logoutUser\n}": types.LogoutUserDocument,
@@ -114,6 +115,10 @@ export function graphql(source: "mutation DeleteSeenItem($seenId: Identifier!) {
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}"): (typeof documents)["mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeployUpdateAllMetadataJobs {\n  deployUpdateAllMetadataJobs\n}"): (typeof documents)["mutation DeployUpdateAllMetadataJobs {\n  deployUpdateAllMetadataJobs\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
