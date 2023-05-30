@@ -1,4 +1,7 @@
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	BookSource,
+	MetadataLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
 	IconBrandAppleArcade,
@@ -8,6 +11,8 @@ import {
 	IconMicrophone,
 } from "@tabler/icons-react";
 import { camelCase, startCase } from "lodash";
+import slugify from "slugify";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 /**
@@ -111,4 +116,38 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.AudioBook, () => IconHeadphones)
 		.with(MetadataLot.Podcast, () => IconMicrophone)
 		.exhaustive();
+};
+
+export const getSourceUrl = (
+	lot: MetadataLot,
+	identifier: string,
+	title: string,
+	from?: BookSource,
+) => {
+	const slug = slugify(title, { lower: true });
+	switch (lot) {
+		case MetadataLot.AudioBook:
+			return `https://www.audible.com/pd/${slug}/${identifier}`;
+		case MetadataLot.Book: {
+			invariant(from, "from should be defined");
+			return match(from)
+				.with(
+					BookSource.OpenLibrary,
+					() => `https://openlibrary.org/works/${identifier}/${slug}`,
+				)
+				.with(
+					BookSource.Goodreads,
+					() => `https://www.goodreads.com/book/show/${identifier}-${slug}`,
+				)
+				.exhaustive();
+		}
+		case MetadataLot.Movie:
+			return `https://www.themoviedb.org/movie/${identifier}-${slug}`;
+		case MetadataLot.Podcast:
+			return `https://www.listennotes.com/podcasts/${slug}-${identifier}`;
+		case MetadataLot.Show:
+			return `https://www.themoviedb.org/tv/${identifier}-${slug}`;
+		case MetadataLot.VideoGame:
+			return `https://www.igdb.com/games/${slug}`;
+	}
 };

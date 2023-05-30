@@ -240,7 +240,9 @@ const Page: NextPageWithLayout = () => {
 									<Flex align={"center"} gap="xs">
 										<TextInput
 											name="query"
-											placeholder={`Search for a ${lot.toLowerCase()}`}
+											placeholder={`Sift through your ${changeCase(
+												lot.toLowerCase(),
+											).toLowerCase()}s`}
 											icon={<IconSearch />}
 											onChange={(e) => setQuery(e.currentTarget.value)}
 											value={query}
@@ -354,7 +356,9 @@ const Page: NextPageWithLayout = () => {
 						<Stack>
 							<TextInput
 								name="query"
-								placeholder={`Search for a ${lot.toLowerCase()}`}
+								placeholder={`Search for a ${changeCase(
+									lot.toLowerCase(),
+								).toLowerCase()}`}
 								icon={<IconSearch />}
 								style={{ flexGrow: 1 }}
 								onChange={(e) => setQuery(e.currentTarget.value)}
