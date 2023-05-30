@@ -225,7 +225,10 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    let misc = ctx.data::<MiscService>().unwrap();
-    misc.update_metadata(information.metadata).await.unwrap();
+    ctx.data::<MiscService>()
+        .unwrap()
+        .update_metadata(information.metadata)
+        .await
+        .unwrap();
     Ok(())
 }
