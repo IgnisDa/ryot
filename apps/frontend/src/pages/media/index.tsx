@@ -72,6 +72,7 @@ import {
 	IconBook,
 	IconClock,
 	IconEdit,
+	IconExternalLink,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
@@ -615,13 +616,28 @@ const Page: NextPageWithLayout = () => {
 								color="dark"
 								variant="filled"
 							>
-								{mediaDetails.data.audioBookSpecifics?.source ||
-									mediaDetails.data.bookSpecifics?.source ||
-									mediaDetails.data.movieSpecifics?.source ||
-									mediaDetails.data.podcastSpecifics?.source ||
-									mediaDetails.data.showSpecifics?.source ||
-									mediaDetails.data.videoGameSpecifics?.source ||
-									"UNKNOWN"}
+								<Flex gap={4}>
+									<Text>
+										{mediaDetails.data.audioBookSpecifics?.source ||
+											mediaDetails.data.bookSpecifics?.source ||
+											mediaDetails.data.movieSpecifics?.source ||
+											mediaDetails.data.podcastSpecifics?.source ||
+											mediaDetails.data.showSpecifics?.source ||
+											mediaDetails.data.videoGameSpecifics?.source ||
+											"UNKNOWN"}
+									</Text>
+									<Anchor
+										href={getSourceUrl(
+											mediaDetails.data.type,
+											mediaDetails.data.identifier,
+											mediaDetails.data.title,
+											mediaDetails.data.bookSpecifics?.source,
+										)}
+										target="_blank"
+									>
+										<IconExternalLink size="1rem" />
+									</Anchor>
+								</Flex>
 							</Badge>
 						</Box>
 						<Box>
@@ -762,17 +778,6 @@ const Page: NextPageWithLayout = () => {
 									) : (
 										<Text fs="italic">No overview available</Text>
 									)}
-									<Anchor
-										href={getSourceUrl(
-											mediaDetails.data.type,
-											mediaDetails.data.identifier,
-											mediaDetails.data.title,
-											mediaDetails.data.bookSpecifics?.source,
-										)}
-										target="_blank"
-									>
-										Source
-									</Anchor>
 								</Box>
 							</Tabs.Panel>
 							<Tabs.Panel value="actions">
