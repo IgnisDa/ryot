@@ -325,6 +325,14 @@ const AccordionLabel = ({
 	);
 };
 
+const MediaScrollArea = ({
+	children,
+}: {
+	children: JSX.Element;
+}) => {
+	return <ScrollArea.Autosize mah={300}>{children}</ScrollArea.Autosize>;
+};
+
 const ReviewItem = ({
 	r,
 	metadataId,
@@ -743,13 +751,13 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Panel value="overview">
 								<Box>
 									{mediaDetails.data.description ? (
-										<ScrollArea.Autosize mah={300}>
+										<MediaScrollArea>
 											<Text
 												dangerouslySetInnerHTML={{
 													__html: mediaDetails.data.description,
 												}}
 											/>
-										</ScrollArea.Autosize>
+										</MediaScrollArea>
 									) : (
 										<Text fs="italic">No overview available</Text>
 									)}
@@ -879,7 +887,7 @@ const Page: NextPageWithLayout = () => {
 							</Tabs.Panel>
 							<Tabs.Panel value="history">
 								{seenHistory.data.length > 0 ? (
-									<ScrollArea.Autosize mah={300}>
+									<MediaScrollArea>
 										<Stack>
 											<Text>
 												{seenHistory.data.length} element
@@ -953,14 +961,14 @@ const Page: NextPageWithLayout = () => {
 												</Flex>
 											))}
 										</Stack>
-									</ScrollArea.Autosize>
+									</MediaScrollArea>
 								) : (
 									<Text fs="italic">You have no history for this item</Text>
 								)}
 							</Tabs.Panel>
 							{mediaDetails.data.showSpecifics ? (
 								<Tabs.Panel value="seasons">
-									<ScrollArea.Autosize mah={300}>
+									<MediaScrollArea>
 										<Accordion chevronPosition="right" variant="contained">
 											{mediaDetails.data.showSpecifics.seasons.map((s) => (
 												<Accordion.Item
@@ -1031,12 +1039,12 @@ const Page: NextPageWithLayout = () => {
 												</Accordion.Item>
 											))}
 										</Accordion>
-									</ScrollArea.Autosize>
+									</MediaScrollArea>
 								</Tabs.Panel>
 							) : null}
 							{mediaDetails.data.podcastSpecifics ? (
 								<Tabs.Panel value="episodes">
-									<ScrollArea.Autosize mah={300}>
+									<MediaScrollArea>
 										<Stack ml="md">
 											{mediaDetails.data.podcastSpecifics.episodes.map((e) => (
 												<AccordionLabel
@@ -1079,18 +1087,18 @@ const Page: NextPageWithLayout = () => {
 												</Button>
 											) : null}
 										</Stack>
-									</ScrollArea.Autosize>
+									</MediaScrollArea>
 								</Tabs.Panel>
 							) : null}
 							<Tabs.Panel value="reviews">
 								{reviews.data && reviews.data.length > 0 ? (
-									<ScrollArea.Autosize mah={300}>
+									<MediaScrollArea>
 										<Stack>
 											{reviews.data.map((r) => (
 												<ReviewItem r={r} key={r.id} metadataId={metadataId} />
 											))}
 										</Stack>
-									</ScrollArea.Autosize>
+									</MediaScrollArea>
 								) : (
 									<Text fs="italic">No reviews posted</Text>
 								)}
