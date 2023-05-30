@@ -124,7 +124,10 @@ export const getSourceUrl = (
 	title: string,
 	from?: BookSource,
 ) => {
-	const slug = slugify(title, { lower: true });
+	const slug = slugify(title, {
+		lower: true,
+		strict: true,
+	});
 	switch (lot) {
 		case MetadataLot.AudioBook:
 			return `https://www.audible.com/pd/${slug}/${identifier}`;
