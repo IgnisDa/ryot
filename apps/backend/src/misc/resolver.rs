@@ -10,17 +10,26 @@ use sea_orm::{
 use strum::IntoEnumIterator;
 
 use crate::{
+    audio_books::resolver::AudioBooksService,
+    books::resolver::BooksService,
     entities::{
-        collection, media_import_report, metadata_to_collection,
+        collection, media_import_report, metadata, metadata_to_collection,
         prelude::{Collection, MediaImportReport, Metadata, Review, Seen, Summary, User},
         review, summary,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
-    media::resolver::{MediaSearchItem, MediaService},
-    migrator::{MediaImportSource, ReviewVisibility},
+    media::{
+        resolver::{MediaSearchItem, MediaService},
+        MediaSpecifics,
+    },
+    migrator::{MediaImportSource, MetadataLot, ReviewVisibility},
+    movies::resolver::MoviesService,
+    podcasts::resolver::PodcastsService,
+    shows::resolver::ShowsService,
     utils::{user_id_from_ctx, NamedObject},
+    video_games::resolver::VideoGamesService,
 };
 
 use super::DefaultCollection;
@@ -180,19 +189,48 @@ impl MiscMutation {
             .delete_seen_item(seen_id.into(), user_id)
             .await
     }
+
+    /// Deploy jobs to update all media item's metadata.
+    async fn update_all_metadata(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .update_all_metadata()
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
     media_service: Arc<MediaService>,
+    audio_books_service: Arc<AudioBooksService>,
+    books_service: Arc<BooksService>,
+    movies_service: Arc<MoviesService>,
+    podcasts_service: Arc<PodcastsService>,
+    shows_service: Arc<ShowsService>,
+    video_games_service: Arc<VideoGamesService>,
 }
 
 impl MiscService {
-    pub fn new(db: &DatabaseConnection, media_service: &MediaService) -> Self {
+    pub fn new(
+        db: &DatabaseConnection,
+        media_service: &MediaService,
+        audio_books_service: &AudioBooksService,
+        books_service: &BooksService,
+        movies_service: &MoviesService,
+        podcasts_service: &PodcastsService,
+        shows_service: &ShowsService,
+        video_games_service: &VideoGamesService,
+    ) -> Self {
         Self {
             db: db.clone(),
             media_service: Arc::new(media_service.clone()),
+            audio_books_service: Arc::new(audio_books_service.clone()),
+            books_service: Arc::new(books_service.clone()),
+            movies_service: Arc::new(movies_service.clone()),
+            podcasts_service: Arc::new(podcasts_service.clone()),
+            shows_service: Arc::new(shows_service.clone()),
+            video_games_service: Arc::new(video_games_service.clone()),
         }
     }
 }
@@ -488,5 +526,56 @@ impl MiscService {
             summary.delete(&self.db).await.ok();
         }
         Ok(())
+    }
+
+    pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
+        let id = metadata.id;
+        let details = match metadata.lot {
+            MetadataLot::AudioBook => self
+                .audio_books_service
+                .details_from_provider(id)
+                .await
+                .unwrap(),
+            MetadataLot::Book => self.books_service.details_from_provider(id).await.unwrap(),
+            MetadataLot::Movie => self.movies_service.details_from_provider(id).await.unwrap(),
+            MetadataLot::Podcast => self
+                .podcasts_service
+                .details_from_provider(id)
+                .await
+                .unwrap(),
+            MetadataLot::Show => self.shows_service.details_from_provider(id).await.unwrap(),
+            MetadataLot::VideoGame => self
+                .video_games_service
+                .details_from_provider(id)
+                .await
+                .unwrap(),
+        };
+        self.media_service
+            .update_media(
+                id,
+                details.title,
+                details.description,
+                details.poster_images,
+                details.backdrop_images,
+            )
+            .await
+            .ok();
+        match details.specifics {
+            MediaSpecifics::Podcast(p) => {
+                self.podcasts_service.update_details(id, p).await.unwrap()
+            }
+            MediaSpecifics::Show(s) => self.shows_service.update_details(id, s).await.unwrap(),
+            _ => {}
+        };
+
+        Ok(())
+    }
+
+    pub async fn update_all_metadata(&self) -> Result<bool> {
+        let metadatas = Metadata::find().all(&self.db).await.unwrap();
+        for metadata in metadatas {
+            self.update_metadata(metadata).await?;
+        }
+        Ok(true)
     }
 }

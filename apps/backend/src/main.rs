@@ -165,10 +165,10 @@ async fn main() -> Result<()> {
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
     let media_service_1 = app_services.media_service.clone();
-    let media_service_2 = app_services.media_service.clone();
     let users_service_1 = app_services.users_service.clone();
     let users_service_2 = app_services.users_service.clone();
     let users_service_3 = app_services.users_service.clone();
+    let misc_service_1 = app_services.misc_service.clone();
     let monitor = async {
         let mn = Monitor::new()
             // cron jobs
@@ -237,13 +237,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("update_metadata_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_2.clone()))
-                    .layer(ApalisExtension(app_services.audio_books_service.clone()))
-                    .layer(ApalisExtension(app_services.books_service.clone()))
-                    .layer(ApalisExtension(app_services.movies_service.clone()))
-                    .layer(ApalisExtension(app_services.podcasts_service.clone()))
-                    .layer(ApalisExtension(app_services.shows_service.clone()))
-                    .layer(ApalisExtension(app_services.video_games_service.clone()))
+                    .layer(ApalisExtension(misc_service_1.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })

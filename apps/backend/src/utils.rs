@@ -89,7 +89,16 @@ pub async fn create_app_services(
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let listennotes_service = ListennotesService::new(&config.podcasts).await;
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
-    let misc_service = MiscService::new(&db, &media_service);
+    let misc_service = MiscService::new(
+        &db,
+        &media_service,
+        &audio_books_service,
+        &books_service,
+        &movies_service,
+        &podcasts_service,
+        &shows_service,
+        &video_games_service,
+    );
     let users_service = UsersService::new(&db, &misc_service, user_created_job);
     let importer_service = ImporterService::new(
         &db,

@@ -23,11 +23,11 @@ import {
 	CoreDetailsDocument,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
-	DeployUpdateAllMetadataJobsDocument,
-	type DeployUpdateAllMetadataJobsMutationVariables,
 	MediaImportSource,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
+	UpdateAllMetadataDocument,
+	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
@@ -165,13 +165,11 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const deployUpdateAllMetadataJobs = useMutation({
-		mutationFn: async (
-			_variables: DeployUpdateAllMetadataJobsMutationVariables,
-		) => {
-			const { deployUpdateAllMetadataJobs } = await gqlClient.request(
-				DeployUpdateAllMetadataJobsDocument,
+		mutationFn: async (_variables: UpdateAllMetadataMutationVariables) => {
+			const { updateAllMetadata } = await gqlClient.request(
+				UpdateAllMetadataDocument,
 			);
-			return deployUpdateAllMetadataJobs;
+			return updateAllMetadata;
 		},
 	});
 

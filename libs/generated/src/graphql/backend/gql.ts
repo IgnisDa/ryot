@@ -25,7 +25,6 @@ const documents = {
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
     "mutation DeleteSeenItem($seenId: Identifier!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
     "mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}": types.DeployImportDocument,
-    "mutation DeployUpdateAllMetadataJobs {\n  deployUpdateAllMetadataJobs\n}": types.DeployUpdateAllMetadataJobsDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Identifier!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
     "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
     "mutation LogoutUser {\n  logoutUser\n}": types.LogoutUserDocument,
@@ -35,6 +34,7 @@ const documents = {
     "mutation RegenerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
     "mutation RemoveMediaFromCollection($metadataId: Identifier!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}": types.RemoveMediaFromCollectionDocument,
+    "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "query AudioBooksSearch($input: SearchInput!) {\n  audioBooksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.AudioBooksSearchDocument,
     "query BooksSearch($input: SearchInput!) {\n  booksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      posterImages\n      publishYear\n    }\n  }\n}": types.BooksSearchDocument,
@@ -118,10 +118,6 @@ export function graphql(source: "mutation DeployImport($input: DeployImportInput
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation DeployUpdateAllMetadataJobs {\n  deployUpdateAllMetadataJobs\n}"): (typeof documents)["mutation DeployUpdateAllMetadataJobs {\n  deployUpdateAllMetadataJobs\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "mutation DeployUpdateMetadataJob($metadataId: Identifier!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}"): (typeof documents)["mutation DeployUpdateMetadataJob($metadataId: Identifier!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -155,6 +151,10 @@ export function graphql(source: "mutation RegisterUser($input: UserInput!) {\n  
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation RemoveMediaFromCollection($metadataId: Identifier!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}"): (typeof documents)["mutation RemoveMediaFromCollection($metadataId: Identifier!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation UpdateAllMetadata {\n  updateAllMetadata\n}"): (typeof documents)["mutation UpdateAllMetadata {\n  updateAllMetadata\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

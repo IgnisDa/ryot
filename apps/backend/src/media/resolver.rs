@@ -248,14 +248,6 @@ impl MediaMutation {
             .deploy_update_metadata_job(metadata_id.into())
             .await
     }
-
-    /// Deploy jobs to update all media item's metadata.
-    async fn deploy_update_all_metadata_jobs(&self, gql_ctx: &Context<'_>) -> Result<Vec<String>> {
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .deploy_update_all_metadata_jobs()
-            .await
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -831,16 +823,5 @@ impl MediaService {
         let mut storage = self.update_metadata.clone();
         let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
-    }
-
-    pub async fn deploy_update_all_metadata_jobs(&self) -> Result<Vec<String>> {
-        let mut job_ids = vec![];
-        let mut storage = self.update_metadata.clone();
-        let metadatas = Metadata::find().all(&self.db).await.unwrap();
-        for metadata in metadatas {
-            let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
-            job_ids.push(job_id.to_string());
-        }
-        Ok(job_ids)
     }
 }
