@@ -1,7 +1,10 @@
 use anyhow::Result;
 use apalis::{
     cron::{CronStream, Schedule},
-    layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
+    layers::{
+        Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
+        TraceLayer as ApalisTraceLayer,
+    },
     prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
@@ -25,6 +28,7 @@ use std::{
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     str::FromStr,
+    time::Duration,
 };
 use tokio::try_join;
 use tower_cookies::{CookieManagerLayer, Cookies};
@@ -237,6 +241,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("update_metadata_job-{c}"))
                     .layer(ApalisTraceLayer::new())
+                    .layer(ApalisRateLimitLayer::new(3, Duration::new(5, 0)))
                     .layer(ApalisExtension(misc_service_1.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
