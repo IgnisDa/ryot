@@ -292,15 +292,17 @@ const AccordionLabel = ({
 	overview,
 	children,
 	displayIndicator,
+	runtime,
 }: {
 	name: string;
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
 	displayIndicator: number;
+	runtime?: number | null;
 }) => {
 	return (
-		<Box>
+		<Stack>
 			<Flex align={"center"} gap="sm">
 				<Indicator
 					disabled={displayIndicator === 0}
@@ -314,8 +316,14 @@ const AccordionLabel = ({
 				</Indicator>
 				{children}
 			</Flex>
-			<Space h="xs" />
-			<Text>{name}</Text>
+			<Group spacing={6}>
+				<Text>{name}</Text>
+				{runtime ? (
+					<Text size={"xs"} color="dimmed">
+						({runtime} minutes)
+					</Text>
+				) : null}
+			</Group>
 			{overview ? (
 				<Text
 					size="sm"
@@ -323,7 +331,7 @@ const AccordionLabel = ({
 					dangerouslySetInnerHTML={{ __html: overview }}
 				/>
 			) : null}
-		</Box>
+		</Stack>
 	);
 };
 
@@ -1009,6 +1017,9 @@ const Page: NextPageWithLayout = () => {
 																	? 1
 																	: 0
 															}
+															runtime={s.episodes
+																.map((e) => e.runtime || 0)
+																.reduce((i, a) => i + a, 0)}
 														>
 															<Button
 																variant="outline"
@@ -1065,9 +1076,9 @@ const Page: NextPageWithLayout = () => {
 										<Stack ml="md">
 											{mediaDetails.data.podcastSpecifics.episodes.map((e) => (
 												<AccordionLabel
+													{...e}
 													name={e.title}
 													posterImages={[e.thumbnail || ""]}
-													overview={e.overview}
 													key={e.number}
 													displayIndicator={
 														seenHistory.data.filter(
