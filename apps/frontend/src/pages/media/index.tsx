@@ -82,6 +82,10 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
@@ -90,6 +94,9 @@ import { type ReactElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+
+const service = new HumanizeDurationLanguage();
+const humaizer = new HumanizeDuration(service);
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -320,7 +327,7 @@ const AccordionLabel = ({
 				<Text>{name}</Text>
 				{runtime ? (
 					<Text size={"xs"} color="dimmed">
-						({runtime} minutes)
+						({humaizer.humanize(runtime * 1000 * 60)})
 					</Text>
 				) : null}
 			</Group>
