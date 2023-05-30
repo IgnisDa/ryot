@@ -4412,6 +4412,7 @@ dependencies = [
  "pin-project",
  "pin-project-lite",
  "tokio 1.28.2",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",
