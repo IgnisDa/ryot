@@ -129,7 +129,7 @@ function ProgressModal(props: {
 	const [updateIcon, text] = match(props.lot)
 		.with(MetadataLot.Book, () => [<IconBook size="1.5rem" />, "Pages"])
 		.with(MetadataLot.Movie, () => [<IconClock size="1.5rem" />, "Minutes"])
-		.run();
+		.otherwise(() => [null, null]);
 
 	return (
 		<Modal
