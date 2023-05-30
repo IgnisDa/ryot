@@ -357,7 +357,7 @@ const ReviewItem = ({
 				</Box>
 				{user && user.id === r.postedBy.id ? (
 					<Link
-						href={`${ROUTES.media.updateProgress}?item=${metadataId}&reviewId=${r.id}`}
+						href={`${ROUTES.media.postReview}?item=${metadataId}&reviewId=${r.id}`}
 						passHref
 						legacyBehavior
 					>
