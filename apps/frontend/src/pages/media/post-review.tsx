@@ -17,6 +17,8 @@ import {
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import {
+	DeleteReviewDocument,
+	type DeleteReviewMutationVariables,
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
 	PostReviewDocument,
@@ -95,6 +97,18 @@ const Page: NextPageWithLayout = () => {
 			router.push(`${ROUTES.media.details}?item=${metadataId}`);
 		},
 	});
+	const deleteReview = useMutation({
+		mutationFn: async (variables: DeleteReviewMutationVariables) => {
+			const { deleteReview } = await gqlClient.request(
+				DeleteReviewDocument,
+				variables,
+			);
+			return deleteReview;
+		},
+		onSuccess: () => {
+			router.push(`${ROUTES.media.details}?item=${metadataId}`);
+		},
+	});
 
 	const title = mediaDetails.data?.title;
 
@@ -163,6 +177,21 @@ const Page: NextPageWithLayout = () => {
 						>
 							{reviewId ? "Update" : "Submit"}
 						</Button>
+						{reviewId ? (
+							<Button
+								loading={deleteReview.isLoading}
+								w="100%"
+								color="red"
+								onClick={() => {
+									const yes = confirm(
+										"Are you sure you want to delete this review?",
+									);
+									if (yes) deleteReview.mutate({ reviewId });
+								}}
+							>
+								Delete
+							</Button>
+						) : null}
 					</Stack>
 				</Box>
 			</Container>

@@ -90,7 +90,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useState, useMemo } from "react";
+import { type ReactElement, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -512,7 +512,7 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const creators = useMemo(() => {
-		let creators: Record<string, { name: string }[]> = {};
+		const creators: Record<string, { name: string }[]> = {};
 		for (const c of mediaDetails.data?.creators || []) {
 			if (c.role in creators) {
 				creators[c.role].push({ name: c.name });
@@ -687,22 +687,19 @@ const Page: NextPageWithLayout = () => {
 									{mediaDetails.data.genres.slice(0, 3).join(", ")}
 								</Text>
 							) : null}
-							{mediaDetails.data.bookSpecifics &&
-							mediaDetails.data.bookSpecifics.pages ? (
+							{mediaDetails.data.bookSpecifics?.pages ? (
 								<Text color="dimmed">
 									{" "}
 									• {mediaDetails.data.bookSpecifics.pages} pages
 								</Text>
 							) : null}
-							{mediaDetails.data.podcastSpecifics &&
-							mediaDetails.data.podcastSpecifics.totalEpisodes ? (
+							{mediaDetails.data.podcastSpecifics?.totalEpisodes ? (
 								<Text color="dimmed">
 									{" "}
 									• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
 								</Text>
 							) : null}
-							{mediaDetails.data.movieSpecifics &&
-							mediaDetails.data.movieSpecifics.runtime ? (
+							{mediaDetails.data.movieSpecifics?.runtime ? (
 								<Text color="dimmed">
 									{" "}
 									•{" "}
