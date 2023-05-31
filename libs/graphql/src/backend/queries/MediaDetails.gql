@@ -3,12 +3,11 @@ query MediaDetails($metadataId: Identifier!) {
     title
     description
     identifier
-    type
+    lot
     creators {
       name
       role
     }
-    type
     posterImages
     backdropImages
     publishYear

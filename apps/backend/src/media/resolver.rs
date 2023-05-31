@@ -102,7 +102,6 @@ pub struct DatabaseMediaDetails {
     pub title: String,
     pub identifier: String,
     pub description: Option<String>,
-    #[graphql(name = "type")]
     pub lot: MetadataLot,
     pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
