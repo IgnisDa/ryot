@@ -69,13 +69,6 @@ a number of guides to make thing easier.
 
 ### 🐳 Option 1: Use Docker
 
-First, create `ryot.json` and populate it with the contents from [ryot.example.json](https://github.com/IgnisDa/ryot/blob/main/config/ryot.example.json):
-
-```
-$ mkdir -p ./ryot/config 
-$ touch ./ryot/config/ryot.json
-```
-
 To get a demo server running, use the docker image:
 
 ```bash
