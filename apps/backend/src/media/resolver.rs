@@ -676,6 +676,7 @@ impl MediaService {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_media(
         &self,
         metadata_id: i32,
@@ -683,7 +684,7 @@ impl MediaService {
         description: Option<String>,
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
-        // FIXME: Add creators here too
+        creators: Vec<MetadataCreator>,
     ) -> Result<()> {
         let mut images = vec![];
         for image in poster_images.into_iter() {
@@ -708,6 +709,7 @@ impl MediaService {
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
+        meta.creators = ActiveValue::Set(MetadataCreators(creators));
         meta.save(&self.db).await.ok();
         Ok(())
     }

@@ -560,6 +560,7 @@ impl MiscService {
                         details.description,
                         details.poster_images,
                         details.backdrop_images,
+                        details.creators,
                     )
                     .await
                     .ok();
