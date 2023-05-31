@@ -9,7 +9,7 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, LIMIT,
+        MediaSpecifics, MetadataCreator, PAGE_LIMIT,
     },
     migrator::{AudioBookSource, MetadataLot},
     traits::MediaProvider,
@@ -106,7 +106,7 @@ impl MediaProvider for AudibleService {
             .get("")
             .query(&SearchQuery {
                 title: query.to_owned(),
-                num_results: LIMIT,
+                num_results: PAGE_LIMIT,
                 page: page.unwrap_or(1) - 1,
                 products_sort_by: "Relevance".to_owned(),
                 primary: PrimaryQuery::default(),
