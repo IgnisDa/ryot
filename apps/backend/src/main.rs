@@ -91,7 +91,7 @@ async fn graphql_playground() -> impl IntoResponse {
 }
 
 async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
-    Json(config)
+    Json(config.masked_value())
 }
 
 #[tokio::main]
