@@ -310,6 +310,15 @@ impl MiscMutation {
             .await
     }
 
+    /// Delete a review if it belongs to the user.
+    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .delete_review(&user_id, review_id)
+            .await
+    }
+
     /// Create a new collection for the logged in user.
     async fn create_collection(
         &self,
@@ -613,6 +622,25 @@ impl MiscService {
             Ok(IdObject {
                 id: insert.id.unwrap().into(),
             })
+        }
+    }
+
+    pub async fn delete_review(&self, user_id: &i32, review_id: i32) -> Result<bool> {
+        let review = Review::find()
+            .filter(review::Column::Id.eq(review_id))
+            .one(&self.db)
+            .await
+            .unwrap();
+        match review {
+            Some(r) => {
+                if r.user_id == *user_id {
+                    r.delete(&self.db).await?;
+                    Ok(true)
+                } else {
+                    Err(Error::new("This review does not belong to you".to_owned()))
+                }
+            }
+            None => Ok(false),
         }
     }
 
