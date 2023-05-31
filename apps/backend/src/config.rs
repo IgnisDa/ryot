@@ -79,12 +79,14 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
     pub url: String,
+    pub scdb_url: String,
 }
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
             url: format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME),
+            scdb_url: format!("/data/{}-scdb.db", PROJECT_NAME),
         }
     }
 }
