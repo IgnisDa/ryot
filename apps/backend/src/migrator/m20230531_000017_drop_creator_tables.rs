@@ -14,10 +14,15 @@ impl MigrationName for Migration {
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(MetadataToCreator::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(MetadataToCreator::Table)
+                    .cascade()
+                    .to_owned(),
+            )
             .await?;
         manager
-            .drop_table(Table::drop().table(Creator::Table).to_owned())
+            .drop_table(Table::drop().table(Creator::Table).cascade().to_owned())
             .await?;
         Ok(())
     }
