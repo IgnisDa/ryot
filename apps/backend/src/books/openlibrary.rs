@@ -11,7 +11,7 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, LIMIT,
+        MediaSpecifics, MetadataCreator, LIMIT,
     },
     migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
@@ -158,7 +158,12 @@ impl MediaProvider for OpenlibraryService {
         )
         .await
         .into_iter()
-        .map(|a: OpenlibraryAuthorPartial| a.name)
+        .map(|a: OpenlibraryAuthorPartial| MetadataCreator {
+            name: a.name,
+            // FIXME: Use correct role
+            role: "Author".to_owned(),
+            image_urls: vec![],
+        })
         .collect();
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,

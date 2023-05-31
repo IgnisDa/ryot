@@ -232,6 +232,13 @@ pub mod tmdb {
 
     use super::*;
 
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbCredit {
+        pub name: String,
+        pub known_for_department: String,
+        pub profile_path: Option<String>,
+    }
+
     // FIXME: Write credentials to file and load it from there
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let client: Client = Config::new()

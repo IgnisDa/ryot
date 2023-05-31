@@ -683,6 +683,7 @@ impl MediaService {
         description: Option<String>,
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
+        // FIXME: Add creators here too
     ) -> Result<()> {
         let mut images = vec![];
         for image in poster_images.into_iter() {

@@ -14,7 +14,7 @@ use crate::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
     },
-    media::{resolver::MediaDetails, MediaSpecifics},
+    media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{BookSource, MetadataLot},
     utils::openlibrary,
 };
@@ -181,7 +181,16 @@ fn convert_item(
                 title: details.title,
                 description: details.overview,
                 lot,
-                creators: details.authors.unwrap_or_default(),
+                creators: details
+                    .authors
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|a| MetadataCreator {
+                        name: a,
+                        role: "Author".to_owned(),
+                        image_urls: vec![],
+                    })
+                    .collect(),
                 genres: vec![],
                 poster_images: vec![],
                 backdrop_images: vec![],
