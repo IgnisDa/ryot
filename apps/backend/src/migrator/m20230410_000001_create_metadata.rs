@@ -107,6 +107,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json().default("[]"))
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
+                    .col(ColumnDef::new(Metadata::Creators).json().default("[]"))
                     .to_owned(),
             )
             .await?;
