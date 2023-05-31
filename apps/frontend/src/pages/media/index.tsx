@@ -659,32 +659,29 @@ const Page: NextPageWithLayout = () => {
 					</Stack>
 					<Stack style={{ flexGrow: 1 }}>
 						<Group>
-							<Title>{mediaDetails.data.title}</Title>
+							<Title id="media-title">{mediaDetails.data.title}</Title>
 							<Badge variant="gradient" gradient={badgeGradient}>
 								{changeCase(mediaDetails.data.type)}
 							</Badge>
 						</Group>
-						<Box>
-							{mediaCollections && mediaCollections.length > 0 ? (
-								<Group>
-									{mediaCollections.map((c) => (
-										<Badge
-											key={c}
-											color={
-												colors[
-													// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-													(getStringAsciiValue(c) + colors.length) %
-														colors.length
-												]
-											}
-										>
-											<Text truncate>{c}</Text>
-										</Badge>
-									))}
-								</Group>
-							) : null}
-						</Box>
-						<Flex wrap={"wrap"} gap={4}>
+						{mediaCollections && mediaCollections.length > 0 ? (
+							<Group id="media-collections">
+								{mediaCollections.map((c) => (
+									<Badge
+										key={c}
+										color={
+											colors[
+												// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+												(getStringAsciiValue(c) + colors.length) % colors.length
+											]
+										}
+									>
+										<Text truncate>{c}</Text>
+									</Badge>
+								))}
+							</Group>
+						) : null}
+						<Flex id="media-details" wrap={"wrap"} gap={4}>
 							{mediaDetails.data.genres.length > 0 ? (
 								<Text color="dimmed">
 									{mediaDetails.data.genres.slice(0, 3).join(", ")}
