@@ -35,7 +35,6 @@ use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbServi
 use crate::podcasts::listennotes::ListennotesService;
 use crate::podcasts::resolver::PodcastsService;
 use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
-use crate::users::resolver::UsersService;
 use crate::video_games::igdb::IgdbService;
 use crate::video_games::resolver::VideoGamesService;
 use crate::{
@@ -56,7 +55,6 @@ pub struct AppServices {
     pub audio_books_service: AudioBooksService,
     pub igdb_service: IgdbService,
     pub video_games_service: VideoGamesService,
-    pub users_service: UsersService,
     pub misc_service: MiscService,
     pub importer_service: ImporterService,
     pub podcasts_service: PodcastsService,
@@ -98,8 +96,8 @@ pub async fn create_app_services(
         &podcasts_service,
         &shows_service,
         &video_games_service,
+        user_created_job,
     );
-    let users_service = UsersService::new(&db, &misc_service, user_created_job);
     let importer_service = ImporterService::new(
         &db,
         &audio_books_service,
@@ -124,7 +122,6 @@ pub async fn create_app_services(
         audio_books_service,
         igdb_service,
         video_games_service,
-        users_service,
         misc_service,
         importer_service,
         podcasts_service,

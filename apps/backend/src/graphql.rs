@@ -16,7 +16,6 @@ use crate::{
     movies::resolver::{MoviesMutation, MoviesQuery},
     podcasts::resolver::{PodcastsMutation, PodcastsQuery},
     shows::resolver::{ShowsMutation, ShowsQuery},
-    users::resolver::{UsersMutation, UsersQuery},
     utils::AppServices,
     video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
 };
@@ -107,7 +106,6 @@ pub struct QueryRoot(
     MoviesQuery,
     ShowsQuery,
     VideoGamesQuery,
-    UsersQuery,
     AudioBooksQuery,
     MiscQuery,
     ImporterQuery,
@@ -116,7 +114,6 @@ pub struct QueryRoot(
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    UsersMutation,
     BooksMutation,
     MediaMutation,
     MoviesMutation,
@@ -146,7 +143,6 @@ pub async fn get_schema(
     .data(app_services.media_service.clone())
     .data(app_services.movies_service.clone())
     .data(app_services.shows_service.clone())
-    .data(app_services.users_service.clone())
     .data(app_services.video_games_service.clone())
     .data(app_services.audio_books_service.clone())
     .data(app_services.misc_service.clone())
