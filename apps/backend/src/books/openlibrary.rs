@@ -73,6 +73,8 @@ impl MediaProvider for OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
+            #[serde(rename = "type")]
+            role: Option<OpenlibraryKey>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         #[serde(untagged)]
@@ -122,6 +124,7 @@ impl MediaProvider for OpenlibraryService {
             .map_err(|e| anyhow!(e))?;
         let editions: OpenlibraryEditionsResponse =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
         let entries = editions.entries.unwrap_or_default();
         let all_pages = entries
             .iter()
