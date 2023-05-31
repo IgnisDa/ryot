@@ -98,17 +98,6 @@ import { match } from "ts-pattern";
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
 
-const StatDisplay = (props: { name: string; value: string }) => {
-	return (
-		<Flex>
-			<Text fw="bold">{props.name}:</Text>
-			<Text truncate ml={"xs"}>
-				{props.value}
-			</Text>
-		</Flex>
-	);
-};
-
 function ProgressModal(props: {
 	opened: boolean;
 	onClose: () => void;
@@ -675,7 +664,7 @@ const Page: NextPageWithLayout = () => {
 								{changeCase(mediaDetails.data.type)}
 							</Badge>
 						</Group>
-						<Flex gap={3} wrap={"wrap"}>
+						<Box>
 							{mediaCollections && mediaCollections.length > 0 ? (
 								<Group>
 									{mediaCollections.map((c) => (
@@ -694,10 +683,13 @@ const Page: NextPageWithLayout = () => {
 									))}
 								</Group>
 							) : null}
-							<Text color="dimmed">
-								{" "}
-								• {mediaDetails.data.genres.slice(0, 3).join(", ")}
-							</Text>
+						</Box>
+						<Flex wrap={"wrap"} gap={4}>
+							{mediaDetails.data.genres.length > 0 ? (
+								<Text color="dimmed">
+									{mediaDetails.data.genres.slice(0, 3).join(", ")}
+								</Text>
+							) : null}
 							{mediaDetails.data.bookSpecifics &&
 							mediaDetails.data.bookSpecifics.pages ? (
 								<Text color="dimmed">
@@ -716,7 +708,7 @@ const Page: NextPageWithLayout = () => {
 							mediaDetails.data.movieSpecifics.runtime ? (
 								<Text color="dimmed">
 									{" "}
-									•
+									•{" "}
 									{humaizer.humanize(
 										mediaDetails.data.movieSpecifics.runtime * 1000 * 60,
 									)}
