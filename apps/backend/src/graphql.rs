@@ -18,9 +18,9 @@ use crate::{
     shows::resolver::{ShowsMutation, ShowsQuery},
     utils::AppServices,
     video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
+    VERSION,
 };
 
-pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static AUTHOR: &str = "ignisda";
 pub static PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub static REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";

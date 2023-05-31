@@ -67,6 +67,8 @@ mod traits;
 mod utils;
 mod video_games;
 
+pub static VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Debug)]
 pub struct GqlCtx {
     auth_token: Option<String>,
@@ -100,6 +102,9 @@ async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoRes
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
+
+    tracing::info!("Running version {}", VERSION);
+
     dotenv().ok();
     let config = get_app_config()?;
 
