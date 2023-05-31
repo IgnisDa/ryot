@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     config::ImporterConfig,
-    media::{resolver::MediaDetails, MediaSpecifics},
+    media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{BookSource, MetadataLot},
     misc::DefaultCollection,
 };
@@ -113,7 +113,11 @@ pub async fn import(
                         title: d.title,
                         description: Some(d.book_description),
                         lot: MetadataLot::Book,
-                        creators: vec![d.author_name],
+                        creators: vec![MetadataCreator {
+                            name: d.author_name,
+                            role: "Author".to_owned(),
+                            image_urls: vec![],
+                        }],
                         genres: vec![],
                         poster_images: vec![d.book_large_image_url],
                         backdrop_images: vec![],

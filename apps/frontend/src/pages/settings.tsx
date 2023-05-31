@@ -7,6 +7,7 @@ import {
 	Button,
 	Card,
 	Container,
+	Divider,
 	Flex,
 	PasswordInput,
 	Stack,
@@ -25,6 +26,8 @@ import {
 	MediaImportSource,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
+	UpdateAllMetadataDocument,
+	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
@@ -158,6 +161,15 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: () => {
 			notifications.show(message);
+		},
+	});
+
+	const deployUpdateAllMetadataJobs = useMutation({
+		mutationFn: async (_variables: UpdateAllMetadataMutationVariables) => {
+			const { updateAllMetadata } = await gqlClient.request(
+				UpdateAllMetadataDocument,
+			);
+			return updateAllMetadata;
 		},
 	});
 
@@ -331,6 +343,22 @@ const Page: NextPageWithLayout = () => {
 									loading={regenerateUserSummary.isLoading}
 								>
 									Clean and regenerate
+								</Button>
+								<Divider />
+								<Box>
+									<Title order={4}>Update all metadata</Title>
+									<Text>
+										Fetch and update the metadata for all the media items that
+										are stored. The more media you have, the longer this will
+										take.
+									</Text>
+								</Box>
+								<Button
+									color="red"
+									onClick={() => deployUpdateAllMetadataJobs.mutate({})}
+									loading={deployUpdateAllMetadataJobs.isLoading}
+								>
+									Update All
 								</Button>
 							</Stack>
 						</Tabs.Panel>

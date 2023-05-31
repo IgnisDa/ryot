@@ -78,7 +78,7 @@ const Page: NextPageWithLayout = () => {
 				rating: data?.rating || 0,
 				text: data?.text || "",
 				visibility: data?.visibility,
-				spoiler: data?.spoiler !== undefined ? data?.spoiler : false,
+				spoiler: data?.spoiler,
 			});
 			form.resetDirty();
 		},
@@ -153,6 +153,7 @@ const Page: NextPageWithLayout = () => {
 						<Checkbox
 							label="This review is a spoiler"
 							{...form.getInputProps("spoiler")}
+							checked={form.values.spoiler}
 						/>
 						<Button
 							mt="md"

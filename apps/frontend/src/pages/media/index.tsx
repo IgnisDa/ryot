@@ -82,25 +82,21 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
-const StatDisplay = (props: { name: string; value: string }) => {
-	return (
-		<Flex>
-			<Text fw="bold">{props.name}:</Text>
-			<Text truncate ml={"xs"}>
-				{props.value}
-			</Text>
-		</Flex>
-	);
-};
+const service = new HumanizeDurationLanguage();
+const humaizer = new HumanizeDuration(service);
 
 function ProgressModal(props: {
 	opened: boolean;
@@ -292,15 +288,17 @@ const AccordionLabel = ({
 	overview,
 	children,
 	displayIndicator,
+	runtime,
 }: {
 	name: string;
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
 	displayIndicator: number;
+	runtime?: number | null;
 }) => {
 	return (
-		<Box>
+		<Stack>
 			<Flex align={"center"} gap="sm">
 				<Indicator
 					disabled={displayIndicator === 0}
@@ -314,8 +312,14 @@ const AccordionLabel = ({
 				</Indicator>
 				{children}
 			</Flex>
-			<Space h="xs" />
-			<Text>{name}</Text>
+			<Group spacing={6}>
+				<Text>{name}</Text>
+				{runtime ? (
+					<Text size={"xs"} color="dimmed">
+						({humaizer.humanize(runtime * 1000 * 60)})
+					</Text>
+				) : null}
+			</Group>
 			{overview ? (
 				<Text
 					size="sm"
@@ -323,7 +327,7 @@ const AccordionLabel = ({
 					dangerouslySetInnerHTML={{ __html: overview }}
 				/>
 			) : null}
-		</Box>
+		</Stack>
 	);
 };
 
@@ -507,6 +511,18 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const creators = useMemo(() => {
+		let creators: Record<string, { name: string }[]> = {};
+		for (const c of mediaDetails.data?.creators || []) {
+			if (c.role in creators) {
+				creators[c.role].push({ name: c.name });
+			} else {
+				creators[c.role] = [{ name: c.name }];
+			}
+		}
+		return creators;
+	}, [mediaDetails.data]);
+
 	const badgeGradient: MantineGradient = match(mediaDetails.data?.type)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
@@ -640,80 +656,68 @@ const Page: NextPageWithLayout = () => {
 								</Flex>
 							</Badge>
 						</Box>
-						<Box>
-							{mediaDetails.data.type !== MetadataLot.Show &&
-							mediaDetails.data.creators.length > 0 ? (
-								<StatDisplay
-									name="Author(s)"
-									value={mediaDetails.data.creators.join(", ")}
-								/>
-							) : null}
-							{mediaDetails.data.genres.length > 0 ? (
-								<StatDisplay
-									name="Genre(s)"
-									value={mediaDetails.data.genres.join(", ")}
-								/>
-							) : null}
-							{mediaDetails.data.publishDate ? (
-								<StatDisplay
-									name="Published on"
-									value={mediaDetails.data.publishDate.toString()}
-								/>
-							) : mediaDetails.data.publishYear ? (
-								<StatDisplay
-									name="Published in"
-									value={mediaDetails.data.publishYear.toString()}
-								/>
-							) : null}
-							{mediaDetails.data.bookSpecifics?.pages ? (
-								<StatDisplay
-									name="Number of pages"
-									value={
-										mediaDetails.data.bookSpecifics.pages?.toString() || ""
-									}
-								/>
-							) : null}
-							{mediaDetails.data.movieSpecifics?.runtime ? (
-								<StatDisplay
-									name="Runtime"
-									value={
-										`${mediaDetails.data.movieSpecifics.runtime?.toString()} minutes` ||
-										""
-									}
-								/>
-							) : null}
-							{mediaDetails.data.podcastSpecifics?.totalEpisodes ? (
-								<StatDisplay
-									name="Total episodes"
-									value={mediaDetails.data.podcastSpecifics.totalEpisodes?.toString()}
-								/>
-							) : null}
-						</Box>
 					</Stack>
 					<Stack style={{ flexGrow: 1 }}>
 						<Group>
-							<Title underline>{mediaDetails.data.title}</Title>
+							<Title>{mediaDetails.data.title}</Title>
 							<Badge variant="gradient" gradient={badgeGradient}>
 								{changeCase(mediaDetails.data.type)}
 							</Badge>
 						</Group>
-						{mediaCollections && mediaCollections.length > 0 ? (
-							<Group>
-								{mediaCollections.map((c) => (
-									<Badge
-										key={c}
-										color={
-											colors[
-												// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-												(getStringAsciiValue(c) + colors.length) % colors.length
-											]
-										}
-									>
-										<Text truncate>{c}</Text>
-									</Badge>
-								))}
-							</Group>
-						) : null}
+						<Box>
+							{mediaCollections && mediaCollections.length > 0 ? (
+								<Group>
+									{mediaCollections.map((c) => (
+										<Badge
+											key={c}
+											color={
+												colors[
+													// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+													(getStringAsciiValue(c) + colors.length) %
+														colors.length
+												]
+											}
+										>
+											<Text truncate>{c}</Text>
+										</Badge>
+									))}
+								</Group>
+							) : null}
+						</Box>
+						<Flex wrap={"wrap"} gap={4}>
+							{mediaDetails.data.genres.length > 0 ? (
+								<Text color="dimmed">
+									{mediaDetails.data.genres.slice(0, 3).join(", ")}
+								</Text>
+							) : null}
+							{mediaDetails.data.bookSpecifics &&
+							mediaDetails.data.bookSpecifics.pages ? (
+								<Text color="dimmed">
+									{" "}
+									• {mediaDetails.data.bookSpecifics.pages} pages
+								</Text>
+							) : null}
+							{mediaDetails.data.podcastSpecifics &&
+							mediaDetails.data.podcastSpecifics.totalEpisodes ? (
+								<Text color="dimmed">
+									{" "}
+									• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
+								</Text>
+							) : null}
+							{mediaDetails.data.movieSpecifics &&
+							mediaDetails.data.movieSpecifics.runtime ? (
+								<Text color="dimmed">
+									{" "}
+									•{" "}
+									{humaizer.humanize(
+										mediaDetails.data.movieSpecifics.runtime * 1000 * 60,
+									)}
+								</Text>
+							) : null}
+							{mediaDetails.data.publishYear ? (
+								<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
+							) : null}
+						</Flex>
 						{inProgressSeenItem ? (
 							<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 								You are currently {getVerb(Verb.Read, mediaDetails.data.type)}
@@ -766,19 +770,35 @@ const Page: NextPageWithLayout = () => {
 								</Tabs.Tab>
 							</Tabs.List>
 							<Tabs.Panel value="overview">
-								<Box>
-									{mediaDetails.data.description ? (
-										<MediaScrollArea>
+								<MediaScrollArea>
+									<>
+										{mediaDetails.data.description ? (
 											<Text
 												dangerouslySetInnerHTML={{
 													__html: mediaDetails.data.description,
 												}}
 											/>
-										</MediaScrollArea>
-									) : (
-										<Text fs="italic">No overview available</Text>
-									)}
-								</Box>
+										) : (
+											<Text fs="italic">No overview available</Text>
+										)}
+										<Box mt="xl">
+											{Object.keys(creators).map((c) => (
+												<Flex key={c}>
+													<Text span>
+														<Text fw="bold" span>
+															{c}
+														</Text>
+														:{" "}
+														{creators[c]
+															.slice(0, 5)
+															.map((a) => a.name)
+															.join(", ")}
+													</Text>
+												</Flex>
+											))}
+										</Box>
+									</>
+								</MediaScrollArea>
 							</Tabs.Panel>
 							<Tabs.Panel value="actions">
 								<SimpleGrid
@@ -1009,6 +1029,9 @@ const Page: NextPageWithLayout = () => {
 																	? 1
 																	: 0
 															}
+															runtime={s.episodes
+																.map((e) => e.runtime || 0)
+																.reduce((i, a) => i + a, 0)}
 														>
 															<Button
 																variant="outline"
@@ -1065,9 +1088,9 @@ const Page: NextPageWithLayout = () => {
 										<Stack ml="md">
 											{mediaDetails.data.podcastSpecifics.episodes.map((e) => (
 												<AccordionLabel
+													{...e}
 													name={e.title}
 													posterImages={[e.thumbnail || ""]}
-													overview={e.overview}
 													key={e.number}
 													displayIndicator={
 														seenHistory.data.filter(

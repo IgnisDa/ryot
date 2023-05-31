@@ -1,24 +1,49 @@
 
-# Version 1.0.0-beta.35 (2023-05-31)
+# Version 1.0.0-beta.36 (2023-05-31)
+
+## Bug Fixes
+
+* **backend:** mask database url
+* **backend:** handle error while updating metadata
+* **frontend:** spoiler check-box initial value in review
+* **frontend:** display genres correctly
+* **frontend:** update creators for metadata
+* **frontend:** enable strict mode in slugify
 
 ## Build
 
 * **backend:** bump version
-* **backend:** remove useless deps
+* **backend:** add rate limiting deps
+* **backend:** bump version
+
+## Features
+
+* **backend:** write tmdb config to file
+* **backend:** get creator information from sources
+* **backend:** migration to delete creator tables
+* **backend:** embed creators in metadata
+* **backend:** get author role from response
+* **backend:** deploy jobs to update all metadata
+* **backend:** handle getting details from goodreads
+* **backend:** add mutation to deploy a job to update all metadata
+* **frontend:** new UI for media details
+* **frontend:** humanize duration
+* **frontend:** display runtime for episodes
+* **frontend:** add btn to deploy jobs to update all metadata
+
+## Performance Improvements
+
+* **backend:** rate limit update metadata jobs
+
+
+# Version 1.0.0-beta.35 (2023-05-31)
 
 ## Documentation
 
-* add info about config endpoint
 * fix incorrect docker command
 * change example config
 * remove docker-compose example
 * remove data about example file
-
-## Features
-
-* **backend:** mask sensitive values
-* **backend:** do not write config to file
-* **backend:** add endpoint to get configuration
 
 
 # Version 1.0.0-beta.34 (2023-05-30)

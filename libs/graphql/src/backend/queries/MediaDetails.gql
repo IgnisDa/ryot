@@ -4,7 +4,10 @@ query MediaDetails($metadataId: Identifier!) {
     description
     identifier
     type
-    creators
+    creators {
+      name
+      role
+    }
     type
     posterImages
     backdropImages
@@ -28,6 +31,7 @@ query MediaDetails($metadataId: Identifier!) {
         overview
         thumbnail
         number
+        runtime
       }
       source
       totalEpisodes
@@ -48,6 +52,7 @@ query MediaDetails($metadataId: Identifier!) {
           publishDate
           name
           overview
+          runtime
         }
       }
     }

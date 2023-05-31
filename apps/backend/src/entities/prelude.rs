@@ -3,12 +3,10 @@
 pub use super::audio_book::Entity as AudioBook;
 pub use super::book::Entity as Book;
 pub use super::collection::Entity as Collection;
-pub use super::creator::Entity as Creator;
 pub use super::genre::Entity as Genre;
 pub use super::media_import_report::Entity as MediaImportReport;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_to_collection::Entity as MetadataToCollection;
-pub use super::metadata_to_creator::Entity as MetadataToCreator;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::movie::Entity as Movie;
 pub use super::podcast::Entity as Podcast;

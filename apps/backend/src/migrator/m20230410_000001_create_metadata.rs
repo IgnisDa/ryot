@@ -64,6 +64,8 @@ pub enum Metadata {
     Images,
     // the unique identifier that is returned by the metadata provider
     Identifier,
+    // the creators and their roles embedded as json
+    Creators,
 }
 
 impl MigrationName for Migration {
