@@ -1,39 +1,28 @@
 
-# Version 1.0.0-beta.36 (2023-05-31)
+# Version 1.0.0-beta.38 (2023-05-31)
 
 ## Bug Fixes
 
-* **backend:** mask database url
-* **backend:** handle error while updating metadata
-* **frontend:** spoiler check-box initial value in review
-* **frontend:** display genres correctly
-* **frontend:** update creators for metadata
-* **frontend:** enable strict mode in slugify
+* **backend:** add column in initial migration
+* **backend:** drop database with cascade
+
+## Features
+
+* **frontend:** add ID to sections
+
+
+# Version 1.0.0-beta.37 (2023-05-31)
+
+## Bug Fixes
+
+* **backend:** drop dependent tables before
 
 ## Build
 
 * **backend:** bump version
-* **backend:** add rate limiting deps
-* **backend:** bump version
 
-## Features
 
-* **backend:** write tmdb config to file
-* **backend:** get creator information from sources
-* **backend:** migration to delete creator tables
-* **backend:** embed creators in metadata
-* **backend:** get author role from response
-* **backend:** deploy jobs to update all metadata
-* **backend:** handle getting details from goodreads
-* **backend:** add mutation to deploy a job to update all metadata
-* **frontend:** new UI for media details
-* **frontend:** humanize duration
-* **frontend:** display runtime for episodes
-* **frontend:** add btn to deploy jobs to update all metadata
-
-## Performance Improvements
-
-* **backend:** rate limit update metadata jobs
+# Version 1.0.0-beta.36 (2023-05-31)
 
 
 # Version 1.0.0-beta.35 (2023-05-31)
