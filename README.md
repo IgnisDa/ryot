@@ -82,22 +82,6 @@ $ docker run --pull always \
   ghcr.io/ignisda/ryot:latest
 ```
 
-Or use `docker-compose`:
-
-```
-version: '3.1'
-services:
-  ryot:
-    image: ghcr.io/ignisda/ryot:latest
-    container_name: ryot
-    restart: always
-    ports:
-      - 8000:8000
-    volumes:
-      - ./ryot/data:/data
-      - ./ryot/config/ryot.json:/data/config/ryot.json:ro
-```
-
 ### 📦 Option 2: Quick-run a release
 
 Each release has an installation script that can be used to install the `ryot`
