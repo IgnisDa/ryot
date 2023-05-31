@@ -97,9 +97,6 @@ pub async fn create_app_services(
         &shows_service,
         &video_games_service,
         user_created_job,
-        after_media_seen_job,
-        update_metadata_job,
-        recalculate_user_summary_job,
     );
     let importer_service = ImporterService::new(
         &db,

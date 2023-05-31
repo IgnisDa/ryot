@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use crate::{
     audio_books::resolver::AudioBooksService,
-    background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
+    background::UserCreatedJob,
     books::resolver::BooksService,
     config::AppConfig,
     entities::{
@@ -461,9 +461,6 @@ pub struct MiscService {
     shows_service: Arc<ShowsService>,
     video_games_service: Arc<VideoGamesService>,
     user_created: SqliteStorage<UserCreatedJob>,
-    after_media_seen: SqliteStorage<AfterMediaSeenJob>,
-    update_metadata: SqliteStorage<UpdateMetadataJob>,
-    recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
 }
 
 impl MiscService {
@@ -478,9 +475,6 @@ impl MiscService {
         shows_service: &ShowsService,
         video_games_service: &VideoGamesService,
         user_created: &SqliteStorage<UserCreatedJob>,
-        after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
-        update_metadata: &SqliteStorage<UpdateMetadataJob>,
-        recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
     ) -> Self {
         Self {
             db: db.clone(),
@@ -492,9 +486,6 @@ impl MiscService {
             shows_service: Arc::new(shows_service.clone()),
             video_games_service: Arc::new(video_games_service.clone()),
             user_created: user_created.clone(),
-            after_media_seen: after_media_seen.clone(),
-            update_metadata: update_metadata.clone(),
-            recalculate_user_summary: recalculate_user_summary.clone(),
         }
     }
 }
