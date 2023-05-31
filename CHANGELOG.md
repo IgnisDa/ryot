@@ -1,4 +1,26 @@
 
+# Version 1.0.0-beta.35 (2023-05-31)
+
+## Build
+
+* **backend:** bump version
+* **backend:** remove useless deps
+
+## Documentation
+
+* add info about config endpoint
+* fix incorrect docker command
+* change example config
+* remove docker-compose example
+* remove data about example file
+
+## Features
+
+* **backend:** mask sensitive values
+* **backend:** do not write config to file
+* **backend:** add endpoint to get configuration
+
+
 # Version 1.0.0-beta.34 (2023-05-30)
 
 ## Bug Fixes

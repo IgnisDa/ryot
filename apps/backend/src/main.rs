@@ -12,8 +12,9 @@ use axum::{
     http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, Router},
-    Extension, Server,
+    Extension, Json, Server,
 };
+use config::AppConfig;
 use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
@@ -21,7 +22,7 @@ use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use sqlx::SqlitePool;
 use std::{
-    env, fs,
+    env,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     str::FromStr,
@@ -89,15 +90,15 @@ async fn graphql_playground() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
+async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
+    Json(config.masked_value())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config = get_app_config()?;
-    fs::write(
-        "computed-config.ron",
-        ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap(),
-    )?;
 
     let db = Database::connect(&config.database.url)
         .await
@@ -147,8 +148,10 @@ async fn main() -> Result<()> {
         .allow_credentials(true);
 
     let app = Router::new()
+        .route("/config", get(config_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .layer(Extension(schema))
+        .layer(Extension(config.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())

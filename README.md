@@ -115,8 +115,7 @@ Environment variables are split by the `__` delimiter. For example, the key
 The only exception to the `__` delimiter rule is the `DATABASE_URL` environment
 variable which will be loaded directly.
 
-Ryot writes the final configuration loaded at runtime to `computed-config.ron`
-for debugging purposes.
+Ryot serves the final configuration loaded at the `/config` endpoint as JSON.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder. A minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
