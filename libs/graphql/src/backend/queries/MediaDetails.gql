@@ -4,7 +4,10 @@ query MediaDetails($metadataId: Identifier!) {
     description
     identifier
     type
-    creators
+    creators {
+      name
+      role
+    }
     type
     posterImages
     backdropImages
