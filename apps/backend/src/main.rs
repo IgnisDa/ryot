@@ -22,7 +22,7 @@ use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use sqlx::SqlitePool;
 use std::{
-    env, fs,
+    env,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     str::FromStr,
@@ -99,10 +99,6 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config = get_app_config()?;
-    fs::write(
-        "computed-config.ron",
-        ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap(),
-    )?;
 
     let db = Database::connect(&config.database.url)
         .await
