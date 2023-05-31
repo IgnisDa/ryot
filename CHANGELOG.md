@@ -1,10 +1,17 @@
 
+# Version 1.0.0-beta.39 (2023-05-31)
+
+
 # Version 1.0.0-beta.38 (2023-05-31)
 
 ## Bug Fixes
 
 * **backend:** add column in initial migration
 * **backend:** drop database with cascade
+
+## Build
+
+* **backend:** bump version
 
 ## Features
 
