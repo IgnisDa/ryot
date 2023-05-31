@@ -69,21 +69,15 @@ a number of guides to make thing easier.
 
 ### 🐳 Option 1: Use Docker
 
-First, create `ryot.json` and populate it with the contents from [ryot.example.json](https://github.com/IgnisDa/ryot/blob/main/config/ryot.example.json):
-
-```
-$ mkdir -p ./ryot/config 
-$ touch ./ryot/config/ryot.json
-```
-
 To get a demo server running, use the docker image:
 
 ```bash
 $ docker run --pull always \
   --detach \
   --publish 8000:8000 \
+  # this is only required if you are not running HTTPs
+  --env WEB__INSECURE_COOKIE=true \ 
   --volume ./ryot/data:/data \
-  --volume ./ryot/config/ryot.json:/data/config/ryot.json \
   --name ryot \
   ghcr.io/ignisda/ryot:latest
 ```
