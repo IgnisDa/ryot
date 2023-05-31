@@ -13,12 +13,12 @@ use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
-        collection, creator, genre,
+        collection, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_to_collection, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataToCollection, Movie,
-            Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Genre, Metadata, MetadataToCollection, Movie, Podcast,
+            Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
@@ -32,7 +32,9 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, LIMIT};
+use super::{
+    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages, LIMIT,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -720,7 +722,7 @@ impl MediaService {
         publish_date: Option<NaiveDate>,
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
-        creator_names: Vec<String>,
+        creators: Vec<MetadataCreator>,
         genres: Vec<String>,
     ) -> Result<i32> {
         let mut images = vec![];
@@ -744,30 +746,10 @@ impl MediaService {
             publish_date: ActiveValue::Set(publish_date),
             images: ActiveValue::Set(MetadataImages(images)),
             identifier: ActiveValue::Set(identifier),
+            creators: ActiveValue::Set(MetadataCreators(creators)),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for name in creator_names.iter() {
-            let creator = if let Some(c) = Creator::find()
-                .filter(creator::Column::Name.eq(name))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                c
-            } else {
-                let c = creator::ActiveModel {
-                    name: ActiveValue::Set(name.to_owned()),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.unwrap()
-            };
-            let metadata_creator = metadata_to_creator::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata.id),
-                creator_id: ActiveValue::Set(creator.id),
-            };
-            metadata_creator.insert(&self.db).await.ok();
-        }
         for genre in genres {
             let db_genre = if let Some(c) = Genre::find()
                 .filter(genre::Column::Name.eq(&genre))

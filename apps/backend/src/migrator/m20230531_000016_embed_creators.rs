@@ -1,8 +1,5 @@
 use crate::{
-    entities::{
-        metadata,
-        prelude::{Creator, Metadata},
-    },
+    entities::{creator::Entity as Creator, metadata, prelude::Metadata},
     media::{MetadataCreator, MetadataCreators},
 };
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
