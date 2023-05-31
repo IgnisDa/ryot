@@ -32,12 +32,12 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, MetadataImage, MetadataImages, LIMIT};
+use super::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, LIMIT};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
     pub model: MetadataModel,
-    pub creators: Vec<String>,
+    pub creators: Vec<MetadataCreator>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub genres: Vec<String>,
@@ -85,7 +85,7 @@ pub struct MediaDetails {
     pub title: String,
     pub description: Option<String>,
     pub lot: MetadataLot,
-    pub creators: Vec<String>,
+    pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
@@ -102,7 +102,7 @@ pub struct DatabaseMediaDetails {
     pub description: Option<String>,
     #[graphql(name = "type")]
     pub lot: MetadataLot,
-    pub creators: Vec<String>,
+    pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
@@ -307,14 +307,7 @@ impl MediaService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let creators = meta
-            .find_related(Creator)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|c| c.name)
-            .collect();
+        let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         Ok(MediaBaseData {
             model: meta,

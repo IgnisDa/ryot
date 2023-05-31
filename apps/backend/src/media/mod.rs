@@ -1,3 +1,4 @@
+use async_graphql::SimpleObject;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +31,9 @@ pub struct MetadataImage {
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataImages(pub Vec<MetadataImage>);
 
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+)]
 pub struct MetadataCreator {
     pub name: String,
     pub role: String,
