@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.40 (2023-05-31)
+
+## Bug Fixes
+
+* **backend:** do not create column before hand
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.39 (2023-05-31)
 
 
