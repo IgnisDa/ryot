@@ -270,9 +270,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub shows: ShowConfig,
     #[serde(default)]
-    pub video_games: VideoGameConfig,
-    #[serde(default)]
     pub users: UsersConfig,
+    #[serde(default)]
+    pub video_games: VideoGameConfig,
     #[serde(default)]
     pub web: WebConfig,
 }
