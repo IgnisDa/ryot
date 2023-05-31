@@ -311,11 +311,11 @@ impl MiscMutation {
     }
 
     /// Delete a review if it belongs to the user.
-    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
+    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: Identifier) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .delete_review(&user_id, review_id)
+            .delete_review(&user_id, review_id.into())
             .await
     }
 
