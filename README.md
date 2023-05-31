@@ -72,15 +72,16 @@ a number of guides to make thing easier.
 To get a demo server running, use the docker image:
 
 ```bash
-$ docker run --pull always \
-  --detach \
-  --publish 8000:8000 \
-  # this is only required if you are not running HTTPs
-  --env WEB__INSECURE_COOKIE=true \ 
-  --volume ./ryot/data:/data \
+$ docker run --detach \
   --name ryot \
+  --pull always \
+  --publish 8000:8000 \
+  --env "WEB__INSECURE_COOKIE=true" \ 
+  --volume ./ryot/data:/data \
   ghcr.io/ignisda/ryot:latest
 ```
+
+**NOTE**: The `WEB__INSECURE_COOKIE` is only required if you are not running HTTPs.
 
 ### 📦 Option 2: Quick-run a release
 
