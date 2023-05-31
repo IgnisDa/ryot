@@ -5,7 +5,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::Utc;
 use cookie::{
-    time::{ext::NumericalDuration, OffsetDateTime},
+    time::{Duration, OffsetDateTime},
     Cookie,
 };
 use http::header::SET_COOKIE;
@@ -124,12 +124,14 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
+    token_valid_till: i32,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
     cookie = if expires {
         cookie.expires(OffsetDateTime::now_utc())
     } else {
-        cookie.expires(OffsetDateTime::now_utc().checked_add(90.days()))
+        cookie
+            .expires(OffsetDateTime::now_utc().checked_add(Duration::days(token_valid_till.into())))
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -412,17 +414,29 @@ impl MiscMutation {
             .data_unchecked::<MiscService>()
             .login_user(&input.username, &input.password)
             .await?;
-        let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         if let LoginResult::Ok(LoginResponse { api_key }) = api_key {
-            create_cookie(gql_ctx, &api_key.to_string(), false, cookie_insecure)?;
+            create_cookie(
+                gql_ctx,
+                &api_key.to_string(),
+                false,
+                config.web.insecure_cookie,
+                config.users.token_valid_for_days,
+            )?;
         };
         Ok(api_key)
     }
 
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
-        create_cookie(gql_ctx, "", true, cookie_insecure)?;
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        create_cookie(
+            gql_ctx,
+            "",
+            true,
+            config.web.insecure_cookie,
+            config.users.token_valid_for_days,
+        )?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<MiscService>()

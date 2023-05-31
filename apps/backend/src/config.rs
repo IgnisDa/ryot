@@ -235,12 +235,14 @@ impl Default for SchedulerConfig {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct UsersConfig {
     pub allow_changing_username: bool,
+    pub token_valid_for_days: i32,
 }
 
 impl Default for UsersConfig {
     fn default() -> Self {
         Self {
             allow_changing_username: true,
+            token_valid_for_days: 90,
         }
     }
 }

@@ -141,6 +141,7 @@ builder. A minimal example configuration is in [`ryot.example.json`](/config/ryo
 | `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |
 | `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                           |
 | `users.allow_changing_username`       | Whether users will be allowed to change their username in their profile settings.                                                                                             |
+| `users.token_valid_for_days`          | The number of days till login auth token is valid.                                                                                                                            |
 | `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                    |
 | `web.insecure_cookie`                 | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
