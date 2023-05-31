@@ -29,3 +29,13 @@ pub struct MetadataImage {
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataImages(pub Vec<MetadataImage>);
+
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataCreator {
+    pub name: String,
+    pub role: String,
+    pub image_urls: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataCreators(pub Vec<MetadataCreator>);
