@@ -13,7 +13,6 @@ use crate::{
         resolver::{AddMediaToCollection, MiscService},
         DefaultCollection,
     },
-    users::resolver::UsersService,
 };
 
 // Cron Jobs
@@ -61,7 +60,7 @@ pub async fn general_user_cleanup(
         .await
         .unwrap();
     tracing::info!("Removing old user summaries and regenerating them");
-    ctx.data::<UsersService>()
+    ctx.data::<MiscService>()
         .unwrap()
         .regenerate_user_summaries()
         .await
@@ -110,7 +109,7 @@ pub async fn user_created_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Running jobs after user creation");
-    let service = ctx.data::<UsersService>().unwrap();
+    let service = ctx.data::<MiscService>().unwrap();
     service
         .user_created_job(&information.user_id.into())
         .await
@@ -204,7 +203,7 @@ pub async fn recalculate_user_summary_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Calculating summary for user {:?}", information.user_id);
-    ctx.data::<UsersService>()
+    ctx.data::<MiscService>()
         .unwrap()
         .calculate_user_summary(&information.user_id.into())
         .await

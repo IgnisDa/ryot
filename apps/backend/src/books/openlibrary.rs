@@ -11,7 +11,7 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, LIMIT,
+        MediaSpecifics, MetadataCreator, PAGE_LIMIT,
     },
     migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
@@ -223,8 +223,8 @@ impl MediaProvider for OpenlibraryService {
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,
-                "offset": (page.unwrap_or_default() - 1) * LIMIT,
-                "limit": LIMIT,
+                "offset": (page.unwrap_or_default() - 1) * PAGE_LIMIT,
+                "limit": PAGE_LIMIT,
                 "type": "work".to_owned(),
             }))
             .unwrap()

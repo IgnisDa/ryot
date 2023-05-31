@@ -160,7 +160,7 @@ const Page: NextPageWithLayout = () => {
 						</>
 					) : null}
 					<Title order={6}>
-						When did you {getVerb(Verb.Read, details.data.type)} it?
+						When did you {getVerb(Verb.Read, details.data.lot)} it?
 					</Title>
 					<Button
 						variant="outline"

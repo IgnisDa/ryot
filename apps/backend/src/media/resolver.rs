@@ -33,7 +33,7 @@ use crate::{
 };
 
 use super::{
-    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages, LIMIT,
+    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages, PAGE_LIMIT,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -102,7 +102,6 @@ pub struct DatabaseMediaDetails {
     pub title: String,
     pub identifier: String,
     pub description: Option<String>,
-    #[graphql(name = "type")]
     pub lot: MetadataLot,
     pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
@@ -506,7 +505,7 @@ impl MediaService {
         condition = condition.order_by(sort_by, sort_order);
 
         let counts = condition.clone().count(&self.db).await.unwrap();
-        let paginator = condition.paginate(&self.db, LIMIT as u64);
+        let paginator = condition.paginate(&self.db, PAGE_LIMIT as u64);
         let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
         let mut items = vec![];
         for m in metas {

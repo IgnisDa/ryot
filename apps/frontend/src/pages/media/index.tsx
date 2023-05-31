@@ -90,7 +90,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useState, useMemo } from "react";
+import { type ReactElement, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -423,11 +423,11 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const seenHistory = useQuery({
-		queryKey: ["history", metadataId, mediaDetails.data?.type],
+		queryKey: ["history", metadataId, mediaDetails.data?.lot],
 		queryFn: async () => {
 			const { seenHistory } = await gqlClient.request(SeenHistoryDocument, {
 				metadataId: metadataId,
-				isShow: mediaDetails.data?.type === MetadataLot.Show,
+				isShow: mediaDetails.data?.lot === MetadataLot.Show,
 			});
 			return seenHistory;
 		},
@@ -512,7 +512,7 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const creators = useMemo(() => {
-		let creators: Record<string, { name: string }[]> = {};
+		const creators: Record<string, { name: string }[]> = {};
 		for (const c of mediaDetails.data?.creators || []) {
 			if (c.role in creators) {
 				creators[c.role].push({ name: c.name });
@@ -523,7 +523,7 @@ const Page: NextPageWithLayout = () => {
 		return creators;
 	}, [mediaDetails.data]);
 
-	const badgeGradient: MantineGradient = match(mediaDetails.data?.type)
+	const badgeGradient: MantineGradient = match(mediaDetails.data?.lot)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
 		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
@@ -552,7 +552,7 @@ const Page: NextPageWithLayout = () => {
 	const nextEpisode = match(seenHistory.data?.at(0))
 		.with(undefined, () => undefined)
 		.otherwise((value) => {
-			return match(mediaDetails.data?.type)
+			return match(mediaDetails.data?.lot)
 				.with(MetadataLot.Show, () => {
 					const allEpisodes =
 						mediaDetails.data?.showSpecifics?.seasons.flatMap((s) =>
@@ -644,7 +644,7 @@ const Page: NextPageWithLayout = () => {
 									</Text>
 									<Anchor
 										href={getSourceUrl(
-											mediaDetails.data.type,
+											mediaDetails.data.lot,
 											mediaDetails.data.identifier,
 											mediaDetails.data.title,
 											mediaDetails.data.bookSpecifics?.source,
@@ -661,7 +661,7 @@ const Page: NextPageWithLayout = () => {
 						<Group>
 							<Title id="media-title">{mediaDetails.data.title}</Title>
 							<Badge variant="gradient" gradient={badgeGradient}>
-								{changeCase(mediaDetails.data.type)}
+								{changeCase(mediaDetails.data.lot)}
 							</Badge>
 						</Group>
 						{mediaCollections && mediaCollections.length > 0 ? (
@@ -687,22 +687,19 @@ const Page: NextPageWithLayout = () => {
 									{mediaDetails.data.genres.slice(0, 3).join(", ")}
 								</Text>
 							) : null}
-							{mediaDetails.data.bookSpecifics &&
-							mediaDetails.data.bookSpecifics.pages ? (
+							{mediaDetails.data.bookSpecifics?.pages ? (
 								<Text color="dimmed">
 									{" "}
 									• {mediaDetails.data.bookSpecifics.pages} pages
 								</Text>
 							) : null}
-							{mediaDetails.data.podcastSpecifics &&
-							mediaDetails.data.podcastSpecifics.totalEpisodes ? (
+							{mediaDetails.data.podcastSpecifics?.totalEpisodes ? (
 								<Text color="dimmed">
 									{" "}
 									• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
 								</Text>
 							) : null}
-							{mediaDetails.data.movieSpecifics &&
-							mediaDetails.data.movieSpecifics.runtime ? (
+							{mediaDetails.data.movieSpecifics?.runtime ? (
 								<Text color="dimmed">
 									{" "}
 									•{" "}
@@ -717,7 +714,7 @@ const Page: NextPageWithLayout = () => {
 						</Flex>
 						{inProgressSeenItem ? (
 							<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
-								You are currently {getVerb(Verb.Read, mediaDetails.data.type)}
+								You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 								ing this ({inProgressSeenItem.progress}%)
 							</Alert>
 						) : null}
@@ -814,7 +811,7 @@ const Page: NextPageWithLayout = () => {
 												metadataId={metadataId}
 												onClose={progressModalClose}
 												opened={progressModalOpened}
-												lot={mediaDetails.data.type}
+												lot={mediaDetails.data.lot}
 												total={
 													mediaDetails.data.bookSpecifics?.pages ||
 													mediaDetails.data.movieSpecifics?.runtime
@@ -832,17 +829,17 @@ const Page: NextPageWithLayout = () => {
 													});
 												}}
 											>
-												I finished {getVerb(Verb.Read, mediaDetails.data.type)}
+												I finished {getVerb(Verb.Read, mediaDetails.data.lot)}
 												ing it
 											</Button>
 										</>
-									) : mediaDetails.data.type === MetadataLot.Show ||
-									  mediaDetails.data.type === MetadataLot.Podcast ? (
+									) : mediaDetails.data.lot === MetadataLot.Show ||
+									  mediaDetails.data.lot === MetadataLot.Podcast ? (
 										nextEpisode ? (
 											<Button
 												variant="outline"
 												onClick={async () => {
-													if (mediaDetails.data.type === MetadataLot.Podcast)
+													if (mediaDetails.data.lot === MetadataLot.Podcast)
 														router.push(
 															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
 														);
@@ -853,7 +850,7 @@ const Page: NextPageWithLayout = () => {
 												}}
 											>
 												Mark{" "}
-												{mediaDetails.data.type === MetadataLot.Show
+												{mediaDetails.data.lot === MetadataLot.Show
 													? `S${nextEpisode.season}-E${nextEpisode.episode}`
 													: `EP-${nextEpisode.episode}`}{" "}
 												as seen
@@ -871,7 +868,7 @@ const Page: NextPageWithLayout = () => {
 												});
 											}}
 										>
-											I'm {getVerb(Verb.Read, mediaDetails.data.type)}ing it
+											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}ing it
 										</Button>
 									)}
 									<Button
@@ -882,7 +879,7 @@ const Page: NextPageWithLayout = () => {
 											);
 										}}
 									>
-										Add to {getVerb(Verb.Read, mediaDetails.data.type)} history
+										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
 									</Button>
 									<Link
 										href={`${ROUTES.media.postReview}?item=${metadataId}`}

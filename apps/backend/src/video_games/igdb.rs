@@ -13,7 +13,7 @@ use crate::{
     config::VideoGameConfig,
     media::{
         resolver::{MediaSearchItem, MediaSearchResults},
-        LIMIT,
+        PAGE_LIMIT,
     },
     utils::igdb,
 };
@@ -105,11 +105,12 @@ where id = {id};
             r#"
 {field}
 search "{query}"; 
-limit {LIMIT};
+limit {limit};
 offset: {offset};
             "#,
             field = FIELDS,
-            offset = (page.unwrap_or_default() - 1) * LIMIT
+            limit = PAGE_LIMIT,
+            offset = (page.unwrap_or_default() - 1) * PAGE_LIMIT
         );
         let mut rsp = client
             .post("games")

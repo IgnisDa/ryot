@@ -14,7 +14,7 @@ use crate::media::resolver::MediaDetails;
 use crate::media::MediaSpecifics;
 use crate::media::{
     resolver::{MediaSearchItem, MediaSearchResults},
-    LIMIT,
+    PAGE_LIMIT,
 };
 use crate::migrator::{MetadataLot, PodcastSource};
 use crate::podcasts::{PodcastEpisode, PodcastSpecifics};
@@ -67,7 +67,7 @@ impl MediaProvider for ListennotesService {
             .get("search")
             .query(&json!({
                 "q": query.to_owned(),
-                "offset": (page.unwrap_or_default() - 1) * LIMIT,
+                "offset": (page.unwrap_or_default() - 1) * PAGE_LIMIT,
                 "type": "podcast"
             }))
             .unwrap()
