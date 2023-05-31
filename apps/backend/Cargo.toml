@@ -26,7 +26,6 @@ http = "0.2.9"
 mime_guess = "2.0.4"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
 regex = "1.8.1"
-ron = "0.8.0"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"

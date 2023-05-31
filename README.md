@@ -72,14 +72,16 @@ a number of guides to make thing easier.
 To get a demo server running, use the docker image:
 
 ```bash
-$ docker run --pull always \
-  --detach \
-  --publish 8000:8000 \
-  --volume ./ryot-data:/data \
-  --volume ./config/ryot.example.json:/data/config/ryot.json \
+$ docker run --detach \
   --name ryot \
+  --pull always \
+  --publish 8000:8000 \
+  --env "WEB__INSECURE_COOKIE=true" \ 
+  --volume ./ryot/data:/data \
   ghcr.io/ignisda/ryot:latest
 ```
+
+**NOTE**: The `WEB__INSECURE_COOKIE` is only required if you are not running HTTPs.
 
 ### 📦 Option 2: Quick-run a release
 
@@ -113,8 +115,7 @@ Environment variables are split by the `__` delimiter. For example, the key
 The only exception to the `__` delimiter rule is the `DATABASE_URL` environment
 variable which will be loaded directly.
 
-Ryot writes the final configuration loaded at runtime to `computed-config.ron`
-for debugging purposes.
+Ryot serves the final configuration loaded at the `/config` endpoint as JSON.
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder. A minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
