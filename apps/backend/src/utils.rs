@@ -232,6 +232,7 @@ pub mod tmdb {
 
     use super::*;
 
+    // FIXME: Write credentials to file and load it from there
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
