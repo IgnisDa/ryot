@@ -228,6 +228,8 @@ fn get_now_timestamp() -> u128 {
 }
 
 pub mod tmdb {
+    use std::{env, fs};
+
     use crate::graphql::PROJECT_NAME;
 
     use super::*;
@@ -239,8 +241,8 @@ pub mod tmdb {
         pub profile_path: Option<String>,
     }
 
-    // FIXME: Write credentials to file and load it from there
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
+        let path = env::temp_dir().join("tmdb-config.json");
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
@@ -257,9 +259,15 @@ pub mod tmdb {
         struct TmdbConfiguration {
             images: TmdbImageConfiguration,
         }
-        let mut rsp = client.get("configuration").await.unwrap();
-        let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-        (client, data.images.secure_base_url)
+        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
+            details.images.secure_base_url
+        } else {
+            let mut rsp = client.get("configuration").await.unwrap();
+            let data: TmdbConfiguration = rsp.body_json().await.unwrap();
+            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
+            data.images.secure_base_url
+        };
+        (client, image_url)
     }
 }
 
