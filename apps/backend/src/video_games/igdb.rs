@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
 use crate::media::resolver::MediaDetails;
-use crate::media::MediaSpecifics;
+use crate::media::{MediaSpecifics, MetadataCreator};
 use crate::migrator::{MetadataLot, VideoGameSource};
 use crate::traits::MediaProvider;
+use crate::utils::NamedObject;
 use crate::{
     config::VideoGameConfig,
     media::{
@@ -27,15 +28,27 @@ fields
     summary,
     cover.*, 
     first_release_date,
+    involved_companies.company.name,
+    involved_companies.company.logo.*,
+    involved_companies.*,
     artworks.*,
-    rating,
     genres.*;
 where version_parent = null; 
 ";
 
 #[derive(Serialize, Deserialize, Debug)]
-struct IgdbGenre {
+struct IgdbCompany {
     name: String,
+    logo: Option<IgdbImage>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct IgdbInvolvedCompany {
+    company: IgdbCompany,
+    developer: bool,
+    publisher: bool,
+    porting: bool,
+    supporting: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -53,9 +66,9 @@ struct IgdbSearchResponse {
     cover: Option<IgdbImage>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTimeUtc>,
-    rating: Option<f32>,
+    involved_companies: Option<Vec<IgdbInvolvedCompany>>,
     artworks: Option<Vec<IgdbImage>>,
-    genres: Option<Vec<IgdbGenre>>,
+    genres: Option<Vec<NamedObject>>,
 }
 
 #[derive(Debug, Clone)]
@@ -150,12 +163,39 @@ impl IgdbService {
             .into_iter()
             .map(|a| self.get_cover_image_url(a.image_id));
         poster_images.extend(additional_images);
+        let creators = item
+            .involved_companies
+            .into_iter()
+            .flatten()
+            .map(|ic| {
+                let role = if ic.developer {
+                    "Development"
+                } else if ic.publisher {
+                    "Publishing"
+                } else if ic.porting {
+                    "Porting"
+                } else if ic.supporting {
+                    "Supporting"
+                } else {
+                    "Unknown"
+                };
+                MetadataCreator {
+                    name: ic.company.name,
+                    image_urls: Vec::from_iter(
+                        ic.company
+                            .logo
+                            .map(|u| self.get_cover_image_url(u.image_id)),
+                    ),
+                    role: role.to_owned(),
+                }
+            })
+            .collect();
         MediaDetails {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
             title: item.name,
             description: item.summary,
-            creators: vec![],
+            creators,
             poster_images,
             backdrop_images: vec![],
             publish_date: item.first_release_date.map(|d| d.date_naive()),
