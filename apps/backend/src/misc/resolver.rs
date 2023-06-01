@@ -10,6 +10,7 @@ use cookie::{
 };
 use http::header::SET_COOKIE;
 use rust_decimal::Decimal;
+use scdb::Store;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
@@ -464,9 +465,14 @@ impl MiscMutation {
     }
 }
 
+fn get_scdb(url: String) -> Store {
+    Store::new(&url, None, None, None, None, false).unwrap()
+}
+
 #[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
+    scdb_url: String,
     media_service: Arc<MediaService>,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
@@ -481,6 +487,7 @@ impl MiscService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
+        config: &AppConfig,
         media_service: &MediaService,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
@@ -492,6 +499,7 @@ impl MiscService {
     ) -> Self {
         Self {
             db: db.clone(),
+            scdb_url: config.database.scdb_url.to_owned(),
             media_service: Arc::new(media_service.clone()),
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),

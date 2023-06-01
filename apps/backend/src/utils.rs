@@ -89,6 +89,7 @@ pub async fn create_app_services(
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(
         &db,
+        config,
         &media_service,
         &audio_books_service,
         &books_service,
