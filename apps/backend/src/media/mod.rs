@@ -32,7 +32,7 @@ pub struct MetadataImage {
 pub struct MetadataImages(pub Vec<MetadataImage>);
 
 #[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject, Hash,
 )]
 pub struct MetadataCreator {
     pub name: String,
