@@ -607,7 +607,7 @@ impl MediaService {
             .db
             .query_one(stmt)
             .await?
-            .map(|qr| qr.try_get_by_index::<i32>(0).unwrap())
+            .map(|qr| qr.try_get_by_index::<i64>(0).unwrap())
             .unwrap();
 
         let main_select = main_select
@@ -647,7 +647,10 @@ impl MediaService {
             };
             items.push(m_small);
         }
-        Ok(MediaSearchResults { total, items })
+        Ok(MediaSearchResults {
+            total: total.try_into().unwrap(),
+            items,
+        })
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
