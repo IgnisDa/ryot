@@ -2,10 +2,10 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait, Iden,
+    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
-use sea_query::{Expr, Func};
+use sea_query::{Expr, Func, Query};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,9 +13,7 @@ use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
-        collection, genre,
-        metadata::{self, Model as MetadataModel},
-        metadata_to_collection, metadata_to_genre,
+        collection, genre, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
             AudioBook, Book, Collection, Genre, Metadata, MetadataToCollection, Movie, Podcast,
             Review, Seen, Show, UserToMetadata, VideoGame,
@@ -38,7 +36,7 @@ use super::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
-    pub model: MetadataModel,
+    pub model: metadata::Model,
     pub creators: Vec<MetadataCreator>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
@@ -276,7 +274,7 @@ impl MediaService {
 }
 
 impl MediaService {
-    async fn metadata_images(&self, meta: &MetadataModel) -> Result<(Vec<String>, Vec<String>)> {
+    async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let images = meta.images.0.clone();
         let poster_images = images
             .iter()
@@ -438,6 +436,46 @@ impl MediaService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<MediaSearchResults> {
+        #[derive(Iden)]
+        enum TempMetadata {
+            Table,
+            #[iden = "m"]
+            Alias,
+            Id,
+            MetadataId,
+        }
+        #[derive(Iden)]
+        enum TempSeen {
+            Table,
+            #[iden = "s"]
+            Alias,
+            MetadataId,
+            LastUpdatedOn,
+            LastSeen,
+        }
+        let sub_select = Query::select()
+            .column(TempSeen::MetadataId)
+            .expr_as(
+                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
+                TempSeen::LastSeen,
+            )
+            .from(TempSeen::Table)
+            .group_by_col(TempSeen::MetadataId)
+            .to_owned();
+
+        let select = Query::select()
+            .column([TempMetadata::Alias, Expr::asterisk()])
+            .from_as(TempMetadata::Table, TempMetadata::Alias)
+            .join_subquery(
+                JoinType::Join,
+                sub_select,
+                TempSeen::Alias,
+                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                    .equals((TempSeen::Alias, TempMetadata::MetadataId)),
+            )
+            .order_by((TempSeen::Alias, TempSeen::LastSeen), Order::Desc)
+            .to_owned();
+
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
