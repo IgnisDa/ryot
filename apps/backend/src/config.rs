@@ -1,4 +1,6 @@
-use anyhow::{anyhow, Result};
+use std::path::PathBuf;
+
+use anyhow::{Context, Result};
 use figment::{
     providers::{Env, Format, Json, Serialized, Toml, Yaml},
     Figment,
@@ -88,15 +90,12 @@ impl Default for DatabaseConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct ImporterConfig {
-    pub goodreads_rss_url: String,
-}
+pub struct ImporterConfig {}
 
+#[allow(clippy::derivable_impls)]
 impl Default for ImporterConfig {
     fn default() -> Self {
-        Self {
-            goodreads_rss_url: "https://www.goodreads.com/review/list_rss".to_owned(),
-        }
+        Self {}
     }
 }
 
@@ -227,25 +226,29 @@ pub struct SchedulerConfig {
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
-            database_url: format!("sqlite::memory:"),
+            database_url: "sqlite::memory:".to_string(),
             user_cleanup_every: 10,
         }
     }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
+pub struct UsersConfig {
+    pub allow_changing_username: bool,
+}
+
+impl Default for UsersConfig {
+    fn default() -> Self {
+        Self {
+            allow_changing_username: true,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Serialize, Default)]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
-}
-
-impl Default for WebConfig {
-    fn default() -> Self {
-        Self {
-            cors_origins: vec![],
-            insecure_cookie: false,
-        }
-    }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Default)]
@@ -263,24 +266,49 @@ pub struct AppConfig {
     #[serde(default)]
     pub podcasts: PodcastConfig,
     #[serde(default)]
+    pub scheduler: SchedulerConfig,
+    #[serde(default)]
     pub shows: ShowConfig,
+    #[serde(default)]
+    pub users: UsersConfig,
     #[serde(default)]
     pub video_games: VideoGameConfig,
     #[serde(default)]
-    pub scheduler: SchedulerConfig,
-    #[serde(default)]
     pub web: WebConfig,
+}
+
+impl AppConfig {
+    // TODO: Denote masked values via attribute
+    pub fn masked_value(&self) -> Self {
+        let gt = || "****".to_owned();
+        let mut cl = self.clone();
+        cl.database.url = gt();
+        cl.movies.tmdb.access_token = gt();
+        cl.podcasts.listennotes.api_token = gt();
+        cl.shows.tmdb.access_token = gt();
+        cl.video_games.twitch.client_id = gt();
+        cl.video_games.twitch.client_secret = gt();
+        cl
+    }
 }
 
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
+
     Figment::new()
         .merge(Serialized::defaults(AppConfig::default()))
+        .merge(Json::file(
+            PathBuf::from(config).join(format!("{app}.json")),
+        ))
+        .merge(Toml::file(
+            PathBuf::from(config).join(format!("{app}.toml")),
+        ))
+        .merge(Yaml::file(
+            PathBuf::from(config).join(format!("{app}.yaml")),
+        ))
         .merge(Env::raw().split("_").only(&["database.url"]))
-        .merge(Json::file(format!("{config}/{app}.json")))
-        .merge(Toml::file(format!("{config}/{app}.toml")))
-        .merge(Yaml::file(format!("{config}/{app}.yaml")))
+        .merge(Env::raw().split("__").ignore(&["database.url"]))
         .extract()
-        .map_err(|e| anyhow!(e))
+        .context("Unable to construct application configuration")
 }

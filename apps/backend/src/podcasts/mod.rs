@@ -8,7 +8,7 @@ pub mod listennotes;
 pub mod resolver;
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult, Eq, PartialEq,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Default, FromJsonQueryResult, Eq, PartialEq,
 )]
 pub struct PodcastSpecifics {
     pub episodes: Vec<PodcastEpisode>,
@@ -17,7 +17,7 @@ pub struct PodcastSpecifics {
 }
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromJsonQueryResult,
+    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, Default, FromJsonQueryResult,
 )]
 pub struct PodcastEpisode {
     #[serde(default)]

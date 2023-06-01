@@ -3,23 +3,16 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    audio_books::resolver::AudioBooksService,
-    books::resolver::BooksService,
     config::AppConfig,
     entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
-    media::{resolver::MediaService, MediaSpecifics},
+    media::resolver::MediaService,
     migrator::MetadataLot,
     misc::{
         resolver::{AddMediaToCollection, MiscService},
         DefaultCollection,
     },
-    movies::resolver::MoviesService,
-    podcasts::resolver::PodcastsService,
-    shows::resolver::ShowsService,
-    users::resolver::UsersService,
-    video_games::resolver::VideoGamesService,
 };
 
 // Cron Jobs
@@ -67,7 +60,7 @@ pub async fn general_user_cleanup(
         .await
         .unwrap();
     tracing::info!("Removing old user summaries and regenerating them");
-    ctx.data::<UsersService>()
+    ctx.data::<MiscService>()
         .unwrap()
         .regenerate_user_summaries()
         .await
@@ -116,13 +109,13 @@ pub async fn user_created_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Running jobs after user creation");
-    let service = ctx.data::<UsersService>().unwrap();
+    let service = ctx.data::<MiscService>().unwrap();
     service
         .user_created_job(&information.user_id.into())
         .await
         .unwrap();
     service
-        .regenerate_user_summary(&information.user_id.into())
+        .calculate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())
@@ -164,36 +157,34 @@ pub async fn after_media_seen_job(
             )
             .await
             .ok();
+    } else if information.seen.progress == 100 {
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::Watchlist.to_string(),
+            )
+            .await
+            .ok();
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::InProgress.to_string(),
+            )
+            .await
+            .ok();
     } else {
-        if information.seen.progress == 100 {
-            misc_service
-                .remove_media_item_from_collection(
-                    &information.seen.user_id,
-                    &information.seen.metadata_id,
-                    &DefaultCollection::Watchlist.to_string(),
-                )
-                .await
-                .ok();
-            misc_service
-                .remove_media_item_from_collection(
-                    &information.seen.user_id,
-                    &information.seen.metadata_id,
-                    &DefaultCollection::InProgress.to_string(),
-                )
-                .await
-                .ok();
-        } else {
-            misc_service
-                .add_media_to_collection(
-                    &information.seen.user_id,
-                    AddMediaToCollection {
-                        collection_name: DefaultCollection::InProgress.to_string(),
-                        media_id: information.seen.metadata_id.into(),
-                    },
-                )
-                .await
-                .ok();
-        }
+        misc_service
+            .add_media_to_collection(
+                &information.seen.user_id,
+                AddMediaToCollection {
+                    collection_name: DefaultCollection::InProgress.to_string(),
+                    media_id: information.seen.metadata_id.into(),
+                },
+            )
+            .await
+            .ok();
     }
     Ok(())
 }
@@ -212,9 +203,9 @@ pub async fn recalculate_user_summary_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Calculating summary for user {:?}", information.user_id);
-    ctx.data::<UsersService>()
+    ctx.data::<MiscService>()
         .unwrap()
-        .regenerate_user_summary(&information.user_id.into())
+        .calculate_user_summary(&information.user_id.into())
         .await
         .unwrap();
     Ok(())
@@ -233,38 +224,10 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    let id = information.metadata.id;
-    tracing::info!("Updating metadata for {:?}", Identifier::from(id));
-    let media = ctx.data::<MediaService>().unwrap();
-    let audiobooks = ctx.data::<AudioBooksService>().unwrap();
-    let books = ctx.data::<BooksService>().unwrap();
-    let movies = ctx.data::<MoviesService>().unwrap();
-    let podcasts = ctx.data::<PodcastsService>().unwrap();
-    let shows = ctx.data::<ShowsService>().unwrap();
-    let video_games = ctx.data::<VideoGamesService>().unwrap();
-    let details = match information.metadata.lot {
-        MetadataLot::AudioBook => audiobooks.details_from_provider(id).await.unwrap(),
-        MetadataLot::Book => books.details_from_provider(id).await.unwrap(),
-        MetadataLot::Movie => movies.details_from_provider(id).await.unwrap(),
-        MetadataLot::Podcast => podcasts.details_from_provider(id).await.unwrap(),
-        MetadataLot::Show => shows.details_from_provider(id).await.unwrap(),
-        MetadataLot::VideoGame => video_games.details_from_provider(id).await.unwrap(),
-    };
-    media
-        .update_media(
-            id,
-            details.title,
-            details.description,
-            details.poster_images,
-            details.backdrop_images,
-        )
+    ctx.data::<MiscService>()
+        .unwrap()
+        .update_metadata(information.metadata)
         .await
-        .ok();
-    match details.specifics {
-        MediaSpecifics::Podcast(p) => podcasts.update_details(id, p).await.unwrap(),
-        MediaSpecifics::Show(s) => shows.update_details(id, s).await.unwrap(),
-        _ => {}
-    };
-
+        .unwrap();
     Ok(())
 }

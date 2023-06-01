@@ -16,7 +16,6 @@ use crate::{
     movies::resolver::{MoviesMutation, MoviesQuery},
     podcasts::resolver::{PodcastsMutation, PodcastsQuery},
     shows::resolver::{ShowsMutation, ShowsQuery},
-    users::resolver::{UsersMutation, UsersQuery},
     utils::AppServices,
     video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
 };
@@ -54,6 +53,7 @@ pub struct CoreDetails {
     version: String,
     author_name: String,
     repository_link: String,
+    username_change_allowed: bool,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -87,11 +87,13 @@ impl CoreQuery {
     }
 
     /// Get some primary information about the service
-    async fn core_details(&self, _gql_ctx: &Context<'_>) -> CoreDetails {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         CoreDetails {
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
+            username_change_allowed: config.users.allow_changing_username,
         }
     }
 }
@@ -104,7 +106,6 @@ pub struct QueryRoot(
     MoviesQuery,
     ShowsQuery,
     VideoGamesQuery,
-    UsersQuery,
     AudioBooksQuery,
     MiscQuery,
     ImporterQuery,
@@ -113,7 +114,6 @@ pub struct QueryRoot(
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    UsersMutation,
     BooksMutation,
     MediaMutation,
     MoviesMutation,
@@ -143,7 +143,6 @@ pub async fn get_schema(
     .data(app_services.media_service.clone())
     .data(app_services.movies_service.clone())
     .data(app_services.shows_service.clone())
-    .data(app_services.users_service.clone())
     .data(app_services.video_games_service.clone())
     .data(app_services.audio_books_service.clone())
     .data(app_services.misc_service.clone())

@@ -13,12 +13,12 @@ use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
-        collection, creator, genre,
+        collection, genre,
         metadata::{self, Model as MetadataModel},
-        metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_to_collection, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Creator, Genre, Metadata, MetadataToCollection, Movie,
-            Podcast, Review, Seen, Show, UserToMetadata, VideoGame,
+            AudioBook, Book, Collection, Genre, Metadata, MetadataToCollection, Movie, Podcast,
+            Review, Seen, Show, UserToMetadata, VideoGame,
         },
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
@@ -32,12 +32,14 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, MetadataImage, MetadataImages, LIMIT};
+use super::{
+    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages, PAGE_LIMIT,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
     pub model: MetadataModel,
-    pub creators: Vec<String>,
+    pub creators: Vec<MetadataCreator>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
     pub genres: Vec<String>,
@@ -85,7 +87,7 @@ pub struct MediaDetails {
     pub title: String,
     pub description: Option<String>,
     pub lot: MetadataLot,
-    pub creators: Vec<String>,
+    pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
@@ -98,10 +100,10 @@ pub struct MediaDetails {
 pub struct DatabaseMediaDetails {
     pub id: i32,
     pub title: String,
+    pub identifier: String,
     pub description: Option<String>,
-    #[graphql(name = "type")]
     pub lot: MetadataLot,
-    pub creators: Vec<String>,
+    pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
@@ -236,19 +238,6 @@ impl MediaMutation {
             .await
     }
 
-    /// Delete a seen item from a user's history.
-    async fn delete_seen_item(
-        &self,
-        gql_ctx: &Context<'_>,
-        seen_id: Identifier,
-    ) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .delete_seen_item(seen_id.into(), user_id)
-            .await
-    }
-
     /// Deploy a job to update a media item's metadata.
     async fn deploy_update_metadata_job(
         &self,
@@ -319,14 +308,7 @@ impl MediaService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let creators = meta
-            .find_related(Creator)
-            .all(&self.db)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|c| c.name)
-            .collect();
+        let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         Ok(MediaBaseData {
             model: meta,
@@ -348,6 +330,7 @@ impl MediaService {
         let mut resp = DatabaseMediaDetails {
             id: model.id,
             title: model.title,
+            identifier: model.identifier,
             description: model.description,
             publish_year: model.publish_year,
             publish_date: model.publish_date,
@@ -522,7 +505,7 @@ impl MediaService {
         condition = condition.order_by(sort_by, sort_order);
 
         let counts = condition.clone().count(&self.db).await.unwrap();
-        let paginator = condition.paginate(&self.db, LIMIT as u64);
+        let paginator = condition.paginate(&self.db, PAGE_LIMIT as u64);
         let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
         let mut items = vec![];
         for m in metas {
@@ -618,8 +601,8 @@ impl MediaService {
                             }),
                         ))
                     }
-                    let seen = seen_ins.insert(&self.db).await.unwrap();
-                    seen
+
+                    seen_ins.insert(&self.db).await.unwrap()
                 }
             };
             let id = seen_item.id.into();
@@ -644,23 +627,6 @@ impl MediaService {
             })
             .await?;
         Ok(())
-    }
-
-    pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
-        let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
-        if let Some(si) = seen_item {
-            let seen_id = si.id;
-            if si.user_id != user_id {
-                return Err(Error::new(
-                    "This seen item does not belong to this user".to_owned(),
-                ));
-            }
-            si.delete(&self.db).await.ok();
-            self.deploy_recalculate_summary_job(user_id).await.ok();
-            Ok(IdObject { id: seen_id.into() })
-        } else {
-            Err(Error::new("This seen item does not exist".to_owned()))
-        }
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
@@ -709,6 +675,7 @@ impl MediaService {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_media(
         &self,
         metadata_id: i32,
@@ -716,6 +683,7 @@ impl MediaService {
         description: Option<String>,
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
+        creators: Vec<MetadataCreator>,
     ) -> Result<()> {
         let mut images = vec![];
         for image in poster_images.into_iter() {
@@ -740,10 +708,12 @@ impl MediaService {
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
+        meta.creators = ActiveValue::Set(MetadataCreators(creators));
         meta.save(&self.db).await.ok();
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn commit_media(
         &self,
         identifier: String,
@@ -754,7 +724,7 @@ impl MediaService {
         publish_date: Option<NaiveDate>,
         poster_images: Vec<String>,
         backdrop_images: Vec<String>,
-        creator_names: Vec<String>,
+        creators: Vec<MetadataCreator>,
         genres: Vec<String>,
     ) -> Result<i32> {
         let mut images = vec![];
@@ -778,30 +748,10 @@ impl MediaService {
             publish_date: ActiveValue::Set(publish_date),
             images: ActiveValue::Set(MetadataImages(images)),
             identifier: ActiveValue::Set(identifier),
+            creators: ActiveValue::Set(MetadataCreators(creators)),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for name in creator_names.iter() {
-            let creator = if let Some(c) = Creator::find()
-                .filter(creator::Column::Name.eq(name))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                c
-            } else {
-                let c = creator::ActiveModel {
-                    name: ActiveValue::Set(name.to_owned()),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.unwrap()
-            };
-            let metadata_creator = metadata_to_creator::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata.id),
-                creator_id: ActiveValue::Set(creator.id),
-            };
-            metadata_creator.insert(&self.db).await.ok();
-        }
         for genre in genres {
             let db_genre = if let Some(c) = Genre::find()
                 .filter(genre::Column::Name.eq(&genre))

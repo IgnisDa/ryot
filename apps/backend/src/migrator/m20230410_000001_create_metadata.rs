@@ -64,6 +64,8 @@ pub enum Metadata {
     Images,
     // the unique identifier that is returned by the metadata provider
     Identifier,
+    // the creators and their roles embedded as json
+    Creators,
 }
 
 impl MigrationName for Migration {
@@ -168,13 +170,7 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
-            .await?;
-        manager
-            .drop_table(Table::drop().table(Metadata::Table).to_owned())
-            .await?;
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
 }

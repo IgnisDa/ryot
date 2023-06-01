@@ -1,20 +1,116 @@
 name: Release
 
-on:
-  release:
-    types: [published]
+permissions:
+  contents: write
+  packages: write
 
 env:
   REGISTRY: ghcr.io
 
+on:
+  push:
+    tags:
+      - '*-?v[0-9]+*'
+
 jobs:
-  main:
+  create-release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      has-releases: ${{ steps.create-release.outputs.has-releases }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
+      - name: Install cargo-dist
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+      - id: create-release
+        run: |
+          cargo dist plan --tag=${{ github.ref_name }} --output-format=json > dist-manifest.json
+          echo "dist plan ran successfully"
+          cat dist-manifest.json
+
+          # Create the Github Release™ based on what cargo-dist thinks it should be
+          ANNOUNCEMENT_TITLE=$(jq --raw-output ".announcement_title" dist-manifest.json)
+          IS_PRERELEASE=$(jq --raw-output ".announcement_is_prerelease" dist-manifest.json)
+          jq --raw-output ".announcement_github_body" dist-manifest.json > new_dist_announcement.md
+          gh release create ${{ github.ref_name }} --draft --prerelease="$IS_PRERELEASE" --title="$ANNOUNCEMENT_TITLE" --notes-file=new_dist_announcement.md
+          echo "created announcement!"
+
+          # Upload the manifest to the Github Release™
+          gh release upload ${{ github.ref_name }} dist-manifest.json
+          echo "uploaded manifest!"
+
+          # Disable all the upload-artifacts tasks if we have no actual releases
+          HAS_RELEASES=$(jq --raw-output ".releases != null" dist-manifest.json)
+          echo "has-releases=$HAS_RELEASES" >> "$GITHUB_OUTPUT"
+
+  upload-artifacts:
+    needs: create-release
+    if: ${{ needs.create-release.outputs.has-releases == 'true' }}
+    strategy:
+      matrix:
+        include:
+        - os: ubuntu-20.04
+          dist-args: --artifacts=global
+          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+        - os: macos-11
+          dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
+          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+        - os: ubuntu-20.04
+          dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
+          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+        - os: windows-2019
+          dist-args: --artifacts=local --target=x86_64-pc-windows-msvc
+          install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.ps1 | iex
+
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Moon
+        uses: moonrepo/setup-moon-action@v1.1.1
+      - name: Install cargo-dist
+        run: ${{ matrix.install-dist }}
+      - name: Build the frontend
+        run: moon run frontend:build
+      - name: Run cargo-dist
+        run: |
+          # Actually do builds and make zips and whatnot
+          cargo dist build --tag=${{ github.ref_name }} --output-format=json ${{ matrix.dist-args }} > dist-manifest.json
+          echo "dist ran successfully"
+          cat dist-manifest.json
+
+          # Parse out what we just built and upload it to the Github Release™
+          jq --raw-output ".artifacts[]?.path | select( . != null )" dist-manifest.json > uploads.txt
+          echo "uploading..."
+          cat uploads.txt
+          gh release upload ${{ github.ref_name }} $(cat uploads.txt)
+          echo "uploaded!"
+
+  # Mark the Github Release™ as a non-draft now that everything has succeeded!
+  publish-release:
+    # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
+    needs: [create-release, upload-artifacts]
+    if: ${{ always() && needs.create-release.result == 'success' && (needs.upload-artifacts.result == 'skipped' || needs.upload-artifacts.result == 'success') }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: mark release as non-draft
+        run: |
+          gh release edit ${{ github.ref_name }} --draft=false
+
+  docker-release:
+    runs-on: ubuntu-latest
+    needs: create-release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -29,18 +125,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get docker image name
-        id: image_name
+      - name: Get docker image name and build args
+        id: required_args
         run: |
-          image_name="${{ env.REGISTRY }}/${{ github.actor }}/ryot"
+          image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
           image_names="$image_name:${{ github.ref_name }},$image_name:latest"
           # lowercase the name
           image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
 
-      - name: Build and push
+      - name: Build and push to ghcr
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          tags: ${{ steps.image_name.outputs.image_names }}
+          tags: ${{ steps.required_args.outputs.image_names }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker-release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to fly
+        run: flyctl deploy --remote-only --detach
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

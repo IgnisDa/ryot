@@ -1,6 +1,7 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
+use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
@@ -13,7 +14,7 @@ use crate::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
     },
-    media::{resolver::MediaDetails, MediaSpecifics},
+    media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{BookSource, MetadataLot},
     utils::openlibrary,
 };
@@ -59,7 +60,7 @@ struct Item {
 #[serde(rename_all = "camelCase")]
 struct ItemReview {
     id: i32,
-    rating: Option<i32>,
+    rating: Option<Decimal>,
     review: Option<String>,
 }
 
@@ -173,13 +174,23 @@ fn convert_item(
     ImportItem {
         source_id: d.id.to_string(),
         lot,
+        default_collections: vec![],
         identifier: match need_details {
-            false => ImportItemIdentifier::AlreadyFilled(MediaDetails {
+            false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                 identifier,
                 title: details.title,
                 description: details.overview,
                 lot,
-                creators: details.authors.unwrap_or_default(),
+                creators: details
+                    .authors
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|a| MetadataCreator {
+                        name: a,
+                        role: "Author".to_owned(),
+                        image_urls: vec![],
+                    })
+                    .collect(),
                 genres: vec![],
                 poster_images: vec![],
                 backdrop_images: vec![],
@@ -189,7 +200,7 @@ fn convert_item(
                     pages: details.number_of_pages,
                     source: BookSource::Goodreads,
                 }),
-            }),
+            })),
             true => ImportItemIdentifier::NeedsDetails(identifier),
         },
         reviews: Vec::from_iter(details.user_rating.map(|r| {
@@ -242,7 +253,7 @@ pub mod utils {
 
     use crate::importer::ImportItemReview;
 
-    // Wrote with the help of ChatGPT.
+    // Written with the help of ChatGPT.
     pub fn extract_review_information(input: &str) -> Option<ImportItemReview> {
         let regex_str =
             r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILERS\])?\n\n(?P<text>[\s\S]*)$";

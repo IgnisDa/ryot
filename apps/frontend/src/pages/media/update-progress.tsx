@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -78,7 +79,7 @@ const Page: NextPageWithLayout = () => {
 			return progressUpdate;
 		},
 		onSuccess: () => {
-			router.push(`/media?item=${metadataId}`);
+			router.push(`${ROUTES.media.details}?item=${metadataId}`);
 		},
 	});
 
@@ -159,7 +160,7 @@ const Page: NextPageWithLayout = () => {
 						</>
 					) : null}
 					<Title order={6}>
-						When did you {getVerb(Verb.Read, details.data.type)} it?
+						When did you {getVerb(Verb.Read, details.data.lot)} it?
 					</Title>
 					<Button
 						variant="outline"

@@ -8,10 +8,21 @@ use super::Metadata;
 pub struct Migration;
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Default,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum PodcastSource {
+    #[default]
     #[sea_orm(string_value = "L")]
     Listennotes,
 }
@@ -62,10 +73,7 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table(Podcast::Table).to_owned())
-            .await?;
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
 }

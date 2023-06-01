@@ -1,5 +1,6 @@
+import { ROUTES } from "../constants";
 import { gqlClient } from "../services/api";
-import { changeCase } from "@/lib//utilities";
+import { changeCase, getMetadataIcon } from "@/lib//utilities";
 import {
 	Box,
 	Flex,
@@ -12,19 +13,12 @@ import { notifications } from "@mantine/notifications";
 import {
 	CoreEnabledFeaturesDocument,
 	LogoutUserDocument,
-	MetadataLot,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	IconBook,
-	IconBrandAppleArcade,
-	IconDeviceDesktop,
-	IconDeviceTv,
-	IconHeadphones,
 	IconHome2,
 	IconListDetails,
 	IconLogout,
-	IconMicrophone,
 	IconSettings,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -32,7 +26,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
-import { match } from "ts-pattern";
 
 const useStyles = createStyles((theme) => ({
 	link: {
@@ -71,22 +64,17 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 
 	return (
-		<Tooltip label={label} position="bottom" transitionProps={{ duration: 0 }}>
-			{element}
-		</Tooltip>
+		<Box w={50}>
+			<Tooltip
+				label={label}
+				position="bottom"
+				transitionProps={{ duration: 0 }}
+			>
+				{element}
+			</Tooltip>
+		</Box>
 	);
 }
-
-const getIcon = (lot: MetadataLot) => {
-	return match(lot)
-		.with(MetadataLot.Book, () => IconBook)
-		.with(MetadataLot.Movie, () => IconDeviceTv)
-		.with(MetadataLot.Show, () => IconDeviceDesktop)
-		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
-		.with(MetadataLot.AudioBook, () => IconHeadphones)
-		.with(MetadataLot.Podcast, () => IconMicrophone)
-		.exhaustive();
-};
 
 export default function ({ children }: { children: ReactElement }) {
 	const [{ auth }] = useCookies(["auth"]);
@@ -105,7 +93,7 @@ export default function ({ children }: { children: ReactElement }) {
 					title: "Authentication error",
 					message: "Your auth token is invalid. Please login again.",
 				});
-				router.push("/auth/login");
+				router.push(ROUTES.auth.login);
 			}
 		},
 		staleTime: Infinity,
@@ -122,21 +110,23 @@ export default function ({ children }: { children: ReactElement }) {
 	);
 
 	const links = [
-		{ icon: IconHome2, label: "Home", href: "/" },
+		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
 		...(enabledFeatures.data
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				icon: getIcon(f.name),
+				icon: getMetadataIcon(f.name),
 				href: undefined,
 			})) || []),
-		{ icon: IconListDetails, label: "Collections", href: "/collections" },
-		{ icon: IconSettings, label: "Settings", href: "/settings" },
+		{ icon: IconListDetails, label: "Collections", href: ROUTES.collections },
+		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
 			key={link.label}
-			href={link.href ? link.href : `/list?lot=${link.label.toLowerCase()}`}
+			href={
+				link.href ? link.href : `${ROUTES.list}?lot=${link.label.toLowerCase()}`
+			}
 		/>
 	));
 	const logoutUser = useMutation({
@@ -158,7 +148,7 @@ export default function ({ children }: { children: ReactElement }) {
 					color: "red",
 				});
 			}
-			router.push("/auth/login");
+			router.push(ROUTES.auth.login);
 		},
 	});
 
@@ -171,7 +161,7 @@ export default function ({ children }: { children: ReactElement }) {
 				message: "You are not logged in",
 				color: "violet",
 			});
-			router.push("/auth/login");
+			router.push(ROUTES.auth.login);
 		}
 	}, []);
 

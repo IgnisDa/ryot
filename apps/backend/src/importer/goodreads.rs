@@ -1,12 +1,14 @@
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     books::BookSpecifics,
     config::ImporterConfig,
-    media::{resolver::MediaDetails, MediaSpecifics},
+    media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{BookSource, MetadataLot},
+    misc::DefaultCollection,
 };
 
 use super::{
@@ -48,9 +50,9 @@ struct RssDetail {
 
 pub async fn import(
     input: DeployGoodreadsImportInput,
-    config: &ImporterConfig,
+    _config: &ImporterConfig,
 ) -> Result<ImportResult> {
-    let content = surf::get(format!("{}/{}", config.goodreads_rss_url, input.user_id))
+    let content = surf::get(input.rss_url)
         .await
         .unwrap()
         .body_string()
@@ -77,22 +79,45 @@ pub async fn import(
                 };
                 if !d.user_rating.is_empty() {
                     let rating = d.user_rating.parse().unwrap();
-                    if rating != 0 {
+                    if rating != dec!(0) {
                         single_review.rating = Some(rating)
                     }
                 };
                 if single_review.review.is_some() || single_review.rating.is_some() {
                     reviews.push(single_review);
                 }
+
+                let mut seen_history = vec![];
+                if !d.user_read_at.is_empty() {
+                    seen_history.push(ImportItemSeen {
+                        id: None,
+                        ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
+                            .ok()
+                            .map(|d| d.with_timezone(&Utc)),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
+                    });
+                }
+
+                let mut default_collections = vec![];
+                if d.user_shelves == "to-read" {
+                    default_collections.push(DefaultCollection::Watchlist);
+                }
+
                 ImportItem {
                     source_id: d.book_id.to_string(),
                     lot: MetadataLot::Book,
-                    identifier: ImportItemIdentifier::AlreadyFilled(MediaDetails {
+                    identifier: ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                         identifier: d.book_id.to_string(),
                         title: d.title,
                         description: Some(d.book_description),
                         lot: MetadataLot::Book,
-                        creators: vec![d.author_name],
+                        creators: vec![MetadataCreator {
+                            name: d.author_name,
+                            role: "Author".to_owned(),
+                            image_urls: vec![],
+                        }],
                         genres: vec![],
                         poster_images: vec![d.book_large_image_url],
                         backdrop_images: vec![],
@@ -102,16 +127,9 @@ pub async fn import(
                             pages: d.book.num_pages.parse().ok(),
                             source: BookSource::Goodreads,
                         }),
-                    }),
-                    seen_history: vec![ImportItemSeen {
-                        id: None,
-                        ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
-                            .ok()
-                            .map(|d| d.with_timezone(&Utc)),
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
-                    }],
+                    })),
+                    seen_history,
+                    default_collections,
                     reviews,
                 }
             })

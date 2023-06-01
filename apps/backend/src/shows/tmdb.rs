@@ -9,12 +9,16 @@ use crate::{
     config::TmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics,
+        MediaSpecifics, MetadataCreator,
     },
     migrator::{MetadataLot, ShowSource},
     shows::{ShowEpisode, ShowSeason},
     traits::MediaProvider,
-    utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
+    utils::{
+        convert_date_to_year, convert_string_to_date,
+        tmdb::{self, TmdbCredit},
+        NamedObject,
+    },
 };
 
 use super::ShowSpecifics;
@@ -69,7 +73,7 @@ impl MediaProvider for TmdbService {
             overview: Option<String>,
             air_date: Option<String>,
             runtime: Option<i32>,
-            guest_stars: Vec<NamedObject>,
+            guest_stars: Vec<TmdbCredit>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -104,7 +108,13 @@ impl MediaProvider for TmdbService {
                     .flat_map(|e| {
                         e.guest_stars
                             .iter()
-                            .map(|g| g.name.clone())
+                            .map(|g| MetadataCreator {
+                                name: g.name.clone(),
+                                role: g.known_for_department.clone(),
+                                image_urls: Vec::from_iter(
+                                    g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
+                                ),
+                            })
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>()

@@ -1,5 +1,4 @@
 import type { NextPageWithLayout } from "./_app";
-import useUser from "@/lib/hooks/useUser";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -8,8 +7,8 @@ import {
 	Button,
 	Card,
 	Container,
+	Divider,
 	Flex,
-	NumberInput,
 	PasswordInput,
 	Stack,
 	Tabs,
@@ -18,18 +17,23 @@ import {
 	Title,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
+	CoreDetailsDocument,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
+	UpdateAllMetadataDocument,
+	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconAnalyze, IconDatabaseImport, IconUser } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import type { ReactElement } from "react";
 import { z } from "zod";
@@ -55,7 +59,7 @@ type MediaTrackerImportFormSchema = z.infer<
 >;
 
 const goodreadsImportFormSchema = z.object({
-	userId: z.number(),
+	rssUrl: z.string().url(),
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
@@ -104,13 +108,30 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(goodreadsImportFormSchema),
 	});
 
-	useUser((data) => {
-		updateProfileForm.setValues({
-			email: data.email || undefined,
-			username: data.name,
-		});
-		updateProfileForm.resetDirty();
+	const userDetails = useQuery({
+		queryKey: ["userDetails"],
+		queryFn: async () => {
+			const { userDetails } = await gqlClient.request(UserDetailsDocument);
+			return userDetails;
+		},
+		onSuccess: (data) => {
+			if (data.__typename === "User") {
+				updateProfileForm.setValues({
+					email: data.email || undefined,
+					username: data.name,
+				});
+				updateProfileForm.resetDirty();
+			}
+		},
 	});
+	const coreDetails = useQuery(
+		["coreDetails"],
+		async () => {
+			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
+			return coreDetails;
+		},
+		{ staleTime: Infinity },
+	);
 
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
@@ -121,6 +142,7 @@ const Page: NextPageWithLayout = () => {
 			return updateUser;
 		},
 		onSuccess: () => {
+			userDetails.refetch();
 			notifications.show({
 				title: "Success",
 				message: "Profile details updated",
@@ -142,6 +164,15 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const deployUpdateAllMetadataJobs = useMutation({
+		mutationFn: async (_variables: UpdateAllMetadataMutationVariables) => {
+			const { updateAllMetadata } = await gqlClient.request(
+				UpdateAllMetadataDocument,
+			);
+			return updateAllMetadata;
+		},
+	});
+
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (_variables: RegenerateUserSummaryMutationVariables) => {
 			const { regenerateUserSummary } = await gqlClient.request(
@@ -150,6 +181,52 @@ const Page: NextPageWithLayout = () => {
 			return regenerateUserSummary;
 		},
 	});
+
+	const openProfileUpdateModal = () =>
+		modals.openConfirmModal({
+			children: (
+				<Text size="sm">Are you sure you want to update your profile?</Text>
+			),
+			onConfirm: () => {
+				updateUser.mutate({ input: updateProfileForm.values });
+			},
+		});
+
+	const openGoodreadsImportModal = () =>
+		modals.openConfirmModal({
+			children: (
+				<Text size="sm">
+					Are you sure you want to import from Goodreads? This action is
+					irreversible.
+				</Text>
+			),
+			onConfirm: () => {
+				deployImport.mutate({
+					input: {
+						goodreads: goodreadsImportForm.values,
+						source: MediaImportSource.Goodreads,
+					},
+				});
+			},
+		});
+
+	const openMediaTrackerImportModal = () =>
+		modals.openConfirmModal({
+			children: (
+				<Text size="sm">
+					Are you sure you want to import from Media Tracker? This action is
+					irreversible.
+				</Text>
+			),
+			onConfirm: () => {
+				deployImport.mutate({
+					input: {
+						mediaTracker: mediaTrackerImportForm.values,
+						source: MediaImportSource.MediaTracker,
+					},
+				});
+			},
+		});
 
 	return (
 		<>
@@ -176,14 +253,19 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="profile">
 							<Box
 								component="form"
-								onSubmit={updateProfileForm.onSubmit((values) => {
-									updateUser.mutate({ input: values });
+								onSubmit={updateProfileForm.onSubmit((_values) => {
+									openProfileUpdateModal();
 								})}
 							>
 								<Stack>
 									<TextInput
 										label="Username"
 										{...updateProfileForm.getInputProps("username")}
+										disabled={!coreDetails.data?.usernameChangeAllowed}
+										description={
+											!coreDetails.data?.usernameChangeAllowed &&
+											"Username can not be changed on this instance"
+										}
 										autoFocus
 									/>
 									<TextInput
@@ -213,39 +295,33 @@ const Page: NextPageWithLayout = () => {
 									</Anchor>
 								</Flex>
 								<ImportSource
-									onSubmit={mediaTrackerImportForm.onSubmit((values) => {
-										deployImport.mutate({
-											input: {
-												mediaTracker: values,
-												source: MediaImportSource.MediaTracker,
-											},
-										});
+									onSubmit={mediaTrackerImportForm.onSubmit((_values) => {
+										openMediaTrackerImportModal();
 									})}
 									title="Media Tracker"
 								>
 									<TextInput
 										label="Instance Url"
+										required
 										{...mediaTrackerImportForm.getInputProps("apiUrl")}
 									/>
 									<PasswordInput
+										mt="sm"
 										label="API Key"
+										required
 										{...mediaTrackerImportForm.getInputProps("apiKey")}
 									/>
 								</ImportSource>
 								<ImportSource
-									onSubmit={goodreadsImportForm.onSubmit(async (values) => {
-										deployImport.mutate({
-											input: {
-												source: MediaImportSource.Goodreads,
-												goodreads: values,
-											},
-										});
+									onSubmit={goodreadsImportForm.onSubmit((_values) => {
+										openGoodreadsImportModal();
 									})}
 									title="Goodreads"
 								>
-									<NumberInput
-										label="User ID"
-										{...goodreadsImportForm.getInputProps("userId")}
+									<TextInput
+										label="RSS URL"
+										required
+										{...goodreadsImportForm.getInputProps("rssUrl")}
 									/>
 									<></>
 								</ImportSource>
@@ -267,6 +343,22 @@ const Page: NextPageWithLayout = () => {
 									loading={regenerateUserSummary.isLoading}
 								>
 									Clean and regenerate
+								</Button>
+								<Divider />
+								<Box>
+									<Title order={4}>Update all metadata</Title>
+									<Text>
+										Fetch and update the metadata for all the media items that
+										are stored. The more media you have, the longer this will
+										take.
+									</Text>
+								</Box>
+								<Button
+									color="red"
+									onClick={() => deployUpdateAllMetadataJobs.mutate({})}
+									loading={deployUpdateAllMetadataJobs.isLoading}
+								>
+									Update All
 								</Button>
 							</Stack>
 						</Tabs.Panel>

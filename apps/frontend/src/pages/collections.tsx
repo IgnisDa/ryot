@@ -3,13 +3,25 @@ import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Alert, Button, Container, Stack, Text, Title } from "@mantine/core";
+import {
+	ActionIcon,
+	Alert,
+	Button,
+	Container,
+	Group,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionsDocument,
+	DeleteCollectionDocument,
+	type DeleteCollectionMutationVariables,
 	RemoveMediaFromCollectionDocument,
 	type RemoveMediaFromCollectionMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { IconAlertCircle, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import type { ReactElement } from "react";
@@ -18,6 +30,25 @@ const Page: NextPageWithLayout = () => {
 	const collections = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument);
 		return collections;
+	});
+	const deleteCollection = useMutation({
+		mutationFn: async (variables: DeleteCollectionMutationVariables) => {
+			const { deleteCollection } = await gqlClient.request(
+				DeleteCollectionDocument,
+				variables,
+			);
+			return deleteCollection;
+		},
+		onSuccess: () => {
+			collections.refetch();
+		},
+		onError: (err: any) => {
+			notifications.show({
+				title: "Error",
+				color: "red",
+				message: err.response.errors[0].message,
+			});
+		},
 	});
 	const removeMediaFromCollection = useMutation({
 		mutationFn: async (
@@ -44,9 +75,25 @@ const Page: NextPageWithLayout = () => {
 					{collections.data && collections.data.length > 0 ? (
 						collections.data.map((collection) => (
 							<Stack key={collection.collectionDetails.id}>
-								<Title order={3} truncate>
-									{collection.collectionDetails.name}
-								</Title>
+								<Group>
+									<Title order={3} truncate>
+										{collection.collectionDetails.name}
+									</Title>
+									<ActionIcon
+										onClick={() => {
+											const yes = confirm(
+												"Are you sure you want to delete this collection?",
+											);
+											if (yes)
+												deleteCollection.mutate({
+													collectionName: collection.collectionDetails.name,
+												});
+										}}
+										color="red"
+									>
+										<IconTrash size="1.3rem" />
+									</ActionIcon>
+								</Group>
 								{collection.mediaDetails.length > 0 ? (
 									<Grid>
 										{collection.mediaDetails.map((mediaItem) => (
@@ -63,10 +110,15 @@ const Page: NextPageWithLayout = () => {
 													color="red"
 													variant="outline"
 													onClick={() => {
-														removeMediaFromCollection.mutate({
-															collectionName: collection.collectionDetails.name,
-															metadataId: Number(mediaItem.identifier),
-														});
+														const yes = confirm(
+															"Are you sure you want to remove this media from this collection?",
+														);
+														if (yes)
+															removeMediaFromCollection.mutate({
+																collectionName:
+																	collection.collectionDetails.name,
+																metadataId: Number(mediaItem.identifier),
+															});
 													}}
 												>
 													Remove

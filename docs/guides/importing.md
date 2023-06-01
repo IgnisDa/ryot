@@ -23,17 +23,28 @@ primitive and as a result the following things can not be imported.
 
 ## Goodreads
 
-Shelves are not supported at the time of writing this.
+Ryot translates Goodreads shelves in the following manner:
+
+- Want To Read -> Watchlist
 
 ### Steps
 
-- Login to your Goodreads account and go to your profile.
-- Find your account ID. The link in the browser will be in the format
-  `https://www.goodreads.com/user/show/<user-id>-<username>`. You need to get the
-  `user-id`. It will be a long number.
-- Enter this number in the input.
+- Login to your Goodreads account and go to the "My Books" section.
+- Right click on the RSS Link on the bottom right of the screen and copy it.
+
+  ![RSS URL image](/docs/assets/goodreads-rss-url.png)
+
+- Enter this URL in the input.
 
 ## Notes
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
+- Ryot creates a report when an import is complete, but does not provide a UI
+  to view this information ((yet)[https://github.com/IgnisDa/ryot/issues/27]).
+  Once an import is complete, you can run the following SQL query in the connected
+  database to get more information about which items failed and why.
+
+  ```sql
+  SELECT * FROM media_import_report;
+  ```

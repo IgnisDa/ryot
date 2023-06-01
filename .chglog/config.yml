@@ -1,0 +1,30 @@
+style: github
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://github.com/IgnisDa/ryot
+options:
+  commits:
+    filters:
+      Type:
+        - feat
+        - build
+        - fix
+        - perf
+        - docs
+  commit_groups:
+    title_maps:
+      feat: Features
+      build: Build
+      fix: Bug Fixes
+      perf: Performance Improvements
+      docs: Documentation
+  header:
+    pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
+    pattern_maps:
+      - Type
+      - Scope
+      - Subject
+  notes:
+    keywords:
+      - BREAKING CHANGE

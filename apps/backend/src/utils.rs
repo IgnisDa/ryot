@@ -35,7 +35,6 @@ use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbServi
 use crate::podcasts::listennotes::ListennotesService;
 use crate::podcasts::resolver::PodcastsService;
 use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
-use crate::users::resolver::UsersService;
 use crate::video_games::igdb::IgdbService;
 use crate::video_games::resolver::VideoGamesService;
 use crate::{
@@ -56,7 +55,6 @@ pub struct AppServices {
     pub audio_books_service: AudioBooksService,
     pub igdb_service: IgdbService,
     pub video_games_service: VideoGamesService,
-    pub users_service: UsersService,
     pub misc_service: MiscService,
     pub importer_service: ImporterService,
     pub podcasts_service: PodcastsService,
@@ -89,8 +87,17 @@ pub async fn create_app_services(
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let listennotes_service = ListennotesService::new(&config.podcasts).await;
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
-    let misc_service = MiscService::new(&db, &media_service);
-    let users_service = UsersService::new(&db, &misc_service, user_created_job);
+    let misc_service = MiscService::new(
+        &db,
+        &media_service,
+        &audio_books_service,
+        &books_service,
+        &movies_service,
+        &podcasts_service,
+        &shows_service,
+        &video_games_service,
+        user_created_job,
+    );
     let importer_service = ImporterService::new(
         &db,
         &audio_books_service,
@@ -115,7 +122,6 @@ pub async fn create_app_services(
         audio_books_service,
         igdb_service,
         video_games_service,
-        users_service,
         misc_service,
         importer_service,
         podcasts_service,
@@ -219,11 +225,21 @@ fn get_now_timestamp() -> u128 {
 }
 
 pub mod tmdb {
+    use std::{env, fs};
+
     use crate::graphql::PROJECT_NAME;
 
     use super::*;
 
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbCredit {
+        pub name: String,
+        pub known_for_department: String,
+        pub profile_path: Option<String>,
+    }
+
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
+        let path = env::temp_dir().join("tmdb-config.json");
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
@@ -240,9 +256,15 @@ pub mod tmdb {
         struct TmdbConfiguration {
             images: TmdbImageConfiguration,
         }
-        let mut rsp = client.get("configuration").await.unwrap();
-        let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-        (client, data.images.secure_base_url)
+        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
+            details.images.secure_base_url
+        } else {
+            let mut rsp = client.get("configuration").await.unwrap();
+            let data: TmdbConfiguration = rsp.body_json().await.unwrap();
+            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
+            data.images.secure_base_url
+        };
+        (client, image_url)
     }
 }
 
@@ -320,7 +342,7 @@ pub mod igdb {
         let expires_at = get_now_timestamp() + (access.expires_in * 1000);
         let access_token = format!("{} {}", access.token_type, access.access_token);
         Credentials {
-            access_token: access_token.clone(),
+            access_token,
             expires_at,
         }
     }

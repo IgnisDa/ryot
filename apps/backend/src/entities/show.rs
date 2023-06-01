@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{migrator::ShowSource, shows::ShowSpecifics};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "show")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]

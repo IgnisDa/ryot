@@ -1,3 +1,4 @@
+import { ROUTES } from "@/lib/constants";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
@@ -17,11 +18,7 @@ const formSchema = z
 		username: z.string(),
 		password: z
 			.string()
-			.min(8, "Password should be at least 8 characters long")
-			.regex(
-				/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).*$/,
-				"Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character",
-			),
+			.min(8, "Password should be at least 8 characters long"),
 		confirm: z.string(),
 	})
 	.refine((data) => data.password === data.confirm, {
@@ -52,7 +49,7 @@ export default function Page() {
 					message: "Please login with your new credentials",
 					color: "green",
 				});
-				router.push("/auth/login");
+				router.push(ROUTES.auth.login);
 			}
 		},
 	});
@@ -105,7 +102,7 @@ export default function Page() {
 				</Button>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Already a member? Login{" "}
-					<Link href="/auth/login" passHref legacyBehavior>
+					<Link href={ROUTES.auth.login} passHref legacyBehavior>
 						<Anchor>here</Anchor>
 					</Link>
 					.

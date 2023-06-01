@@ -9,11 +9,15 @@ use crate::{
     config::TmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics,
+        MediaSpecifics, MetadataCreator,
     },
     migrator::{MetadataLot, MovieSource},
     traits::MediaProvider,
-    utils::{convert_date_to_year, convert_string_to_date, tmdb, NamedObject},
+    utils::{
+        convert_date_to_year, convert_string_to_date,
+        tmdb::{self, TmdbCredit},
+        NamedObject,
+    },
 };
 
 use super::MovieSpecifics;
@@ -53,7 +57,7 @@ impl MediaProvider for TmdbService {
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCreditsResponse {
-            cast: Vec<NamedObject>,
+            cast: Vec<TmdbCredit>,
         }
         let mut rsp = self
             .client
@@ -69,7 +73,17 @@ impl MediaProvider for TmdbService {
             lot: MetadataLot::Movie,
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
-            creators: credits.cast.into_iter().map(|c| c.name).collect(),
+            creators: credits
+                .cast
+                .into_iter()
+                .map(|c| MetadataCreator {
+                    name: c.name,
+                    role: c.known_for_department,
+                    image_urls: Vec::from_iter(
+                        c.profile_path.map(|p| self.get_cover_image_url(&p)),
+                    ),
+                })
+                .collect(),
             poster_images,
             backdrop_images,
             publish_year: convert_date_to_year(&data.release_date),

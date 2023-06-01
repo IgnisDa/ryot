@@ -2,9 +2,12 @@ query MediaDetails($metadataId: Identifier!) {
   mediaDetails(metadataId: $metadataId) {
     title
     description
-    type
-    creators
-    type
+    identifier
+    lot
+    creators {
+      name
+      role
+    }
     posterImages
     backdropImages
     publishYear
@@ -27,6 +30,7 @@ query MediaDetails($metadataId: Identifier!) {
         overview
         thumbnail
         number
+        runtime
       }
       source
       totalEpisodes
@@ -47,6 +51,7 @@ query MediaDetails($metadataId: Identifier!) {
           publishDate
           name
           overview
+          runtime
         }
       }
     }

@@ -1,18 +1,21 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
 use crate::{
-    entities::{book, metadata, prelude::Metadata},
+    entities::{
+        book, metadata,
+        prelude::{Book, Metadata},
+    },
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::MetadataLot,
+    migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
 };
 
@@ -80,13 +83,25 @@ impl BooksService {
 
     // Given a metadata id, this fetches the latest details from it's provider
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Metadata::find_by_id(metadata_id)
+        let (metadata, book) = Metadata::find_by_id(metadata_id)
+            .find_also_related(Book)
             .one(&self.db)
             .await
             .unwrap()
-            .unwrap()
-            .identifier;
-        let details = self.openlibrary_service.details(&identifier).await?;
+            .unwrap();
+        let book = book.unwrap();
+        let details = match book.source {
+            BookSource::OpenLibrary => {
+                self.openlibrary_service
+                    .details(&metadata.identifier)
+                    .await?
+            }
+            BookSource::Goodreads => {
+                return Err(Error::new(
+                    "Getting details from Goodreads is not supported".to_owned(),
+                ))
+            }
+        };
         Ok(details)
     }
 

@@ -1,3 +1,4 @@
+use async_graphql::SimpleObject;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,7 @@ use crate::{
 
 pub mod resolver;
 
-pub static LIMIT: i32 = 20;
+pub static PAGE_LIMIT: i32 = 20;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum MediaSpecifics {
@@ -29,3 +30,15 @@ pub struct MetadataImage {
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataImages(pub Vec<MetadataImage>);
+
+#[derive(
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+)]
+pub struct MetadataCreator {
+    pub name: String,
+    pub role: String,
+    pub image_urls: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataCreators(pub Vec<MetadataCreator>);

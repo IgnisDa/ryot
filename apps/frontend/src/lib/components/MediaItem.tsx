@@ -1,3 +1,4 @@
+import { ROUTES } from "../constants";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Verb,
@@ -6,8 +7,11 @@ import {
 	getLot,
 	getVerb,
 } from "@/lib/utilities";
-import { Button, Flex, Image, Text } from "@mantine/core";
+import { Button, Flex, Image, Loader, Text } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
+	AddMediaToCollectionDocument,
+	type AddMediaToCollectionMutationVariables,
 	type BooksSearchQuery,
 	CommitAudioBookDocument,
 	CommitBookDocument,
@@ -30,6 +34,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	lot: MetadataLot;
 	imageOnClick: () => Promise<number>;
 	children?: JSX.Element;
+	imageIsLoading?: boolean;
 }) => {
 	const router = useRouter();
 
@@ -39,7 +44,19 @@ export const MediaItemWithoutUpdateModal = (props: {
 			align={"center"}
 			justify={"center"}
 			direction={"column"}
+			pos={"relative"}
 		>
+			{props.imageIsLoading ? (
+				<Loader
+					pos={"absolute"}
+					style={{ zIndex: 999 }}
+					top={10}
+					left={10}
+					color="red"
+					variant="bars"
+					size="sm"
+				/>
+			) : null}
 			<Image
 				src={props.item.posterImages.at(0)}
 				radius={"md"}
@@ -50,7 +67,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 				alt={`Image for ${props.item.title}`}
 				onClick={async () => {
 					const id = await props.imageOnClick();
-					router.push(`/media?item=${id}`);
+					router.push(`${ROUTES.media.details}?item=${id}`);
 				}}
 				sx={(_t) => ({
 					":hover": { transform: "scale(1.02)" },
@@ -131,6 +148,21 @@ export default function (props: {
 				.exhaustive();
 		},
 	);
+	const addMediaToCollection = useMutation({
+		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
+			const { addMediaToCollection } = await gqlClient.request(
+				AddMediaToCollectionDocument,
+				variables,
+			);
+			return addMediaToCollection;
+		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "Media added to watchlist successfully",
+			});
+		},
+	});
 
 	const commitFunction = async () => {
 		const { id } = await commitMedia.mutateAsync({
@@ -144,36 +176,51 @@ export default function (props: {
 			item={props.item}
 			lot={props.lot}
 			imageOnClick={async () => await commitFunction()}
+			imageIsLoading={commitMedia.isLoading}
 		>
-			{props.lot !== MetadataLot.Show ? (
-				<Button
-					variant="outline"
-					w="100%"
-					compact
-					loading={commitMedia.isLoading}
-					onClick={async () => {
-						const id = await commitFunction();
-						router.push(`/media/update-progress?item=${id}`);
-					}}
-				>
-					Mark as {getVerb(Verb.Read, props.lot)}
-				</Button>
-			) : (
-				<>
+			<>
+				{props.lot !== MetadataLot.Show ? (
 					<Button
 						variant="outline"
 						w="100%"
 						compact
-						loading={commitMedia.isLoading}
 						onClick={async () => {
 							const id = await commitFunction();
-							router.push(`/media?item=${id}`);
+							router.push(`${ROUTES.media.updateProgress}?item=${id}`);
 						}}
 					>
-						Show details
+						Mark as {getVerb(Verb.Read, props.lot)}
 					</Button>
-				</>
-			)}
+				) : (
+					<>
+						<Button
+							variant="outline"
+							w="100%"
+							compact
+							onClick={async () => {
+								const id = await commitFunction();
+								router.push(`${ROUTES.media.details}?item=${id}`);
+							}}
+						>
+							Show details
+						</Button>
+					</>
+				)}
+				<Button
+					mt="xs"
+					variant="outline"
+					w="100%"
+					compact
+					onClick={async () => {
+						const id = await commitFunction();
+						addMediaToCollection.mutate({
+							input: { collectionName: "Watchlist", mediaId: id },
+						});
+					}}
+				>
+					Add to Watchlist
+				</Button>
+			</>
 		</MediaItemWithoutUpdateModal>
 	);
 }

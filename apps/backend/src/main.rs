@@ -1,7 +1,10 @@
 use anyhow::Result;
 use apalis::{
     cron::{CronStream, Schedule},
-    layers::{Extension as ApalisExtension, TraceLayer as ApalisTraceLayer},
+    layers::{
+        Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
+        TraceLayer as ApalisTraceLayer,
+    },
     prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
@@ -12,19 +15,22 @@ use axum::{
     http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, Router},
-    Extension, Server,
+    Extension, Json, Server,
 };
+use config::AppConfig;
 use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
+use misc::resolver::COOKIE_NAME;
 use rust_embed::RustEmbed;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use sqlx::SqlitePool;
 use std::{
-    env, fs,
+    env,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     str::FromStr,
+    time::Duration,
 };
 use tokio::try_join;
 use tower_cookies::{CookieManagerLayer, Cookies};
@@ -41,7 +47,6 @@ use crate::{
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
-    users::resolver::COOKIE_NAME,
     utils::create_app_services,
 };
 
@@ -59,7 +64,6 @@ mod movies;
 mod podcasts;
 mod shows;
 mod traits;
-mod users;
 mod utils;
 mod video_games;
 
@@ -89,15 +93,15 @@ async fn graphql_playground() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
+async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
+    Json(config.masked_value())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     dotenv().ok();
     let config = get_app_config()?;
-    fs::write(
-        "computed-config.ron",
-        ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap(),
-    )?;
 
     let db = Database::connect(&config.database.url)
         .await
@@ -110,7 +114,6 @@ async fn main() -> Result<()> {
         _ => "Unrecognized",
     };
     tracing::info!("Using database backend: {selected_database:?}");
-    drop(selected_database);
 
     Migrator::up(&db, None).await.unwrap();
 
@@ -148,8 +151,10 @@ async fn main() -> Result<()> {
         .allow_credentials(true);
 
     let app = Router::new()
+        .route("/config", get(config_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .layer(Extension(schema))
+        .layer(Extension(config.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -160,16 +165,16 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "8000".to_owned())
         .parse()
         .unwrap();
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
     let media_service_1 = app_services.media_service.clone();
-    let media_service_2 = app_services.media_service.clone();
-    let users_service_1 = app_services.users_service.clone();
-    let users_service_2 = app_services.users_service.clone();
-    let users_service_3 = app_services.users_service.clone();
+    let misc_service_1 = app_services.misc_service.clone();
+    let misc_service_2 = app_services.misc_service.clone();
+    let misc_service_3 = app_services.misc_service.clone();
+    let misc_service_4 = app_services.misc_service.clone();
     let monitor = async {
         let mn = Monitor::new()
             // cron jobs
@@ -189,7 +194,7 @@ async fn main() -> Result<()> {
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(app_services.media_service.clone()))
-                    .layer(ApalisExtension(users_service_1.clone()))
+                    .layer(ApalisExtension(misc_service_1.clone()))
                     .build_fn(general_user_cleanup)
             })
             .register_with_count(1, move |c| {
@@ -217,7 +222,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(users_service_2.clone()))
+                    .layer(ApalisExtension(misc_service_2.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
@@ -231,20 +236,15 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("recalculate_user_summary_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(users_service_3.clone()))
+                    .layer(ApalisExtension(misc_service_3.clone()))
                     .with_storage(recalculate_user_summary_job_storage.clone())
                     .build_fn(recalculate_user_summary_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("update_metadata_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_2.clone()))
-                    .layer(ApalisExtension(app_services.audio_books_service.clone()))
-                    .layer(ApalisExtension(app_services.books_service.clone()))
-                    .layer(ApalisExtension(app_services.movies_service.clone()))
-                    .layer(ApalisExtension(app_services.podcasts_service.clone()))
-                    .layer(ApalisExtension(app_services.shows_service.clone()))
-                    .layer(ApalisExtension(app_services.video_games_service.clone()))
+                    .layer(ApalisRateLimitLayer::new(3, Duration::new(5, 0)))
+                    .layer(ApalisExtension(misc_service_4.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })

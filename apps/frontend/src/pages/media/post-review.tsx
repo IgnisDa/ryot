@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -16,6 +17,8 @@ import {
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import {
+	DeleteReviewDocument,
+	type DeleteReviewMutationVariables,
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
 	PostReviewDocument,
@@ -77,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 				rating: data?.rating || 0,
 				text: data?.text || "",
 				visibility: data?.visibility,
-				spoiler: data?.spoiler !== undefined ? data?.spoiler : false,
+				spoiler: data?.spoiler,
 			});
 			form.resetDirty();
 		},
@@ -91,7 +94,19 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess: () => {
-			router.push(`/media?item=${metadataId}`);
+			router.push(`${ROUTES.media.details}?item=${metadataId}`);
+		},
+	});
+	const deleteReview = useMutation({
+		mutationFn: async (variables: DeleteReviewMutationVariables) => {
+			const { deleteReview } = await gqlClient.request(
+				DeleteReviewDocument,
+				variables,
+			);
+			return deleteReview;
+		},
+		onSuccess: () => {
+			router.push(`${ROUTES.media.details}?item=${metadataId}`);
 		},
 	});
 
@@ -152,6 +167,7 @@ const Page: NextPageWithLayout = () => {
 						<Checkbox
 							label="This review is a spoiler"
 							{...form.getInputProps("spoiler")}
+							checked={form.values.spoiler}
 						/>
 						<Button
 							mt="md"
@@ -161,6 +177,21 @@ const Page: NextPageWithLayout = () => {
 						>
 							{reviewId ? "Update" : "Submit"}
 						</Button>
+						{reviewId ? (
+							<Button
+								loading={deleteReview.isLoading}
+								w="100%"
+								color="red"
+								onClick={() => {
+									const yes = confirm(
+										"Are you sure you want to delete this review?",
+									);
+									if (yes) deleteReview.mutate({ reviewId });
+								}}
+							>
+								Delete
+							</Button>
+						) : null}
 					</Stack>
 				</Box>
 			</Container>

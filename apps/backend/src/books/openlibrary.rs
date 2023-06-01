@@ -11,7 +11,7 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, LIMIT,
+        MediaSpecifics, MetadataCreator, PAGE_LIMIT,
     },
     migrator::{BookSource, MetadataLot},
     traits::MediaProvider,
@@ -73,6 +73,8 @@ impl MediaProvider for OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
+            #[serde(rename = "type")]
+            role: Option<OpenlibraryKey>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         #[serde(untagged)]
@@ -122,6 +124,7 @@ impl MediaProvider for OpenlibraryService {
             .map_err(|e| anyhow!(e))?;
         let editions: OpenlibraryEditionsResponse =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
         let entries = editions.entries.unwrap_or_default();
         let all_pages = entries
             .iter()
@@ -155,7 +158,12 @@ impl MediaProvider for OpenlibraryService {
         )
         .await
         .into_iter()
-        .map(|a: OpenlibraryAuthorPartial| a.name)
+        .map(|a: OpenlibraryAuthorPartial| MetadataCreator {
+            name: a.name,
+            // FIXME: Use correct role
+            role: "Author".to_owned(),
+            image_urls: vec![],
+        })
         .collect();
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -215,8 +223,8 @@ impl MediaProvider for OpenlibraryService {
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,
-                "offset": (page.unwrap_or_default() - 1) * LIMIT,
-                "limit": LIMIT,
+                "offset": (page.unwrap_or_default() - 1) * PAGE_LIMIT,
+                "limit": PAGE_LIMIT,
                 "type": "work".to_owned(),
             }))
             .unwrap()

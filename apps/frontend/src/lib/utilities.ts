@@ -1,5 +1,18 @@
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	BookSource,
+	MetadataLot,
+} from "@ryot/generated/graphql/backend/graphql";
+import {
+	IconBook,
+	IconBrandAppleArcade,
+	IconDeviceDesktop,
+	IconDeviceTv,
+	IconHeadphones,
+	IconMicrophone,
+} from "@tabler/icons-react";
 import { camelCase, startCase } from "lodash";
+import slugify from "slugify";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 /**
@@ -69,3 +82,75 @@ export const fileToText = (file: File): Promise<string> =>
 		reader.onload = () => resolve(reader.result?.toString() || "");
 		reader.onerror = reject;
 	});
+
+/**
+ * Generate a random color based on a seed.
+ * Taken from https://stackoverflow.com/a/8134122/11667450
+ */
+export const generateColor = (seed: number) => {
+	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
+	let newColor = color.toString(16);
+	while (newColor.length < 6) {
+		newColor = `0${color}`;
+	}
+	return `#${newColor}`;
+};
+
+/**
+ * Convert a string to a number by adding the ascii values of the characters.
+ */
+export const getStringAsciiValue = (input: string) => {
+	let total = 0;
+	for (let i = 0; i < input.length; i++) {
+		total += input.charCodeAt(i);
+	}
+	return total;
+};
+
+export const getMetadataIcon = (lot: MetadataLot) => {
+	return match(lot)
+		.with(MetadataLot.Book, () => IconBook)
+		.with(MetadataLot.Movie, () => IconDeviceTv)
+		.with(MetadataLot.Show, () => IconDeviceDesktop)
+		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
+		.with(MetadataLot.AudioBook, () => IconHeadphones)
+		.with(MetadataLot.Podcast, () => IconMicrophone)
+		.exhaustive();
+};
+
+export const getSourceUrl = (
+	lot: MetadataLot,
+	identifier: string,
+	title: string,
+	from?: BookSource,
+) => {
+	const slug = slugify(title, {
+		lower: true,
+		strict: true,
+	});
+	switch (lot) {
+		case MetadataLot.AudioBook:
+			return `https://www.audible.com/pd/${slug}/${identifier}`;
+		case MetadataLot.Book: {
+			invariant(from, "from should be defined");
+			return match(from)
+				.with(
+					BookSource.OpenLibrary,
+					() => `https://openlibrary.org/works/${identifier}/${slug}`,
+				)
+				.with(
+					BookSource.Goodreads,
+					() => `https://www.goodreads.com/book/show/${identifier}-${slug}`,
+				)
+				.exhaustive();
+		}
+		case MetadataLot.Movie:
+			return `https://www.themoviedb.org/movie/${identifier}-${slug}`;
+		case MetadataLot.Podcast:
+			return `https://www.listennotes.com/podcasts/${slug}-${identifier}`;
+		case MetadataLot.Show:
+			return `https://www.themoviedb.org/tv/${identifier}-${slug}`;
+		case MetadataLot.VideoGame:
+			return `https://www.igdb.com/games/${slug}`;
+	}
+};

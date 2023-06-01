@@ -13,15 +13,21 @@ import {
 	Center,
 	Container,
 	Flex,
+	Grid as MantineGrid,
+	Modal,
 	Pagination,
 	Select,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
-	Grid as MantineGrid,
+	Title,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage, useToggle } from "@mantine/hooks";
+import {
+	useDebouncedState,
+	useDisclosure,
+	useLocalStorage,
+} from "@mantine/hooks";
 import {
 	AudioBooksSearchDocument,
 	BooksSearchDocument,
@@ -36,11 +42,13 @@ import {
 	VideoGamesSearchDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	IconFilter,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
+	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
@@ -53,12 +61,25 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const Page: NextPageWithLayout = () => {
-	const [activeTab, setActiveTab] = useState<string | null>("mine");
-	const [mineSortOrder, toggleMineSortOrder] = useToggle(
-		Object.values(MediaSortOrder),
-	);
-	const [mineSortBy, setMineSortBy] = useState(MediaSortBy.ReleaseDate);
-	const [mineFilter, setMineFilter] = useState(MediaFilter.All);
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
+	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
+		key: "mineSortOrder",
+		defaultValue: MediaSortOrder.Asc,
+		getInitialValueInEffect: false,
+	});
+	const [mineSortBy, setMineSortBy] = useLocalStorage({
+		key: "mineSortBy",
+		defaultValue: MediaSortBy.ReleaseDate,
+		getInitialValueInEffect: false,
+	});
+	const [mineFilter, setMineFilter] = useLocalStorage({
+		key: "mineFilter",
+		defaultValue: MediaFilter.All,
+		getInitialValueInEffect: false,
+	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",
 	});
@@ -102,6 +123,9 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: lot !== undefined,
 	});
+	const [activeTab, setActiveTab] = useState<string | null>(
+		listMedia.data?.total === 0 ? "search" : "mine",
+	);
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
@@ -168,8 +192,15 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	useEffect(() => {
-		setDebouncedQuery(query);
+		setDebouncedQuery(query?.trim());
 	}, [query]);
+
+	const ClearButton = () =>
+		query ? (
+			<ActionIcon onClick={() => setQuery("")}>
+				<IconX size="1rem" />
+			</ActionIcon>
+		) : null;
 
 	return lot ? (
 		<>
@@ -206,60 +237,92 @@ const Page: NextPageWithLayout = () => {
 						<Stack>
 							<MantineGrid grow>
 								<MantineGrid.Col span={12}>
-									<TextInput
-										name="query"
-										placeholder={`Search for a ${lot.toLowerCase()}`}
-										icon={<IconSearch />}
-										defaultValue={query}
-										onChange={(e) => setQuery(e.currentTarget.value)}
-									/>
-								</MantineGrid.Col>
-								<MantineGrid.Col span={6}>
-									<Select
-										data={Object.values(MediaFilter).map((o) => ({
-											value: o.toString(),
-											label: startCase(lowerCase(o)),
-										}))}
-										defaultValue={mineFilter.toString()}
-										onChange={(v) => {
-											const filter = match(v)
-												.with("ALL", () => MediaFilter.All)
-												.with("RATED", () => MediaFilter.Rated)
-												.with("UNRATED", () => MediaFilter.Unrated)
-												.otherwise(() => MediaFilter.All);
-											setMineFilter(filter);
-										}}
-									/>
-								</MantineGrid.Col>
-								<MantineGrid.Col span={6}>
-									<Flex gap={"xs"} align={"center"}>
-										<Select
-											w="100%"
-											data={Object.values(MediaSortBy).map((o) => ({
-												value: o.toString(),
-												label: startCase(lowerCase(o)),
-											}))}
-											defaultValue={mineSortBy.toString()}
-											onChange={(v) => {
-												const orderBy = match(v)
-													.with("RELEASE_DATE", () => MediaSortBy.ReleaseDate)
-													.with("TITLE", () => MediaSortBy.Title)
-													.otherwise(() => MediaSortBy.Title);
-												setMineSortBy(orderBy);
-											}}
+									<Flex align={"center"} gap="xs">
+										<TextInput
+											name="query"
+											placeholder={`Sift through your ${changeCase(
+												lot.toLowerCase(),
+											).toLowerCase()}s`}
+											icon={<IconSearch />}
+											onChange={(e) => setQuery(e.currentTarget.value)}
+											value={query}
+											rightSection={<ClearButton />}
+											style={{ flexGrow: 1 }}
 										/>
-										<ActionIcon onClick={() => toggleMineSortOrder()}>
-											{mineSortOrder === MediaSortOrder.Asc ? (
-												<IconSortAscending />
-											) : (
-												<IconSortDescending />
-											)}
+										<ActionIcon onClick={openFiltersModal}>
+											<IconFilter size="1.5rem" />
 										</ActionIcon>
+										<Modal
+											opened={filtersModalOpened}
+											onClose={closeFiltersModal}
+											centered
+											withCloseButton={false}
+										>
+											<Stack>
+												<Title order={3}>Filters</Title>
+												<Select
+													withinPortal
+													data={Object.values(MediaFilter).map((o) => ({
+														value: o.toString(),
+														label: startCase(lowerCase(o)),
+													}))}
+													defaultValue={mineFilter.toString()}
+													onChange={(v) => {
+														const filter = match(v)
+															.with("ALL", () => MediaFilter.All)
+															.with("RATED", () => MediaFilter.Rated)
+															.with("UNRATED", () => MediaFilter.Unrated)
+															.otherwise(() => MediaFilter.All);
+														setMineFilter(filter);
+													}}
+												/>
+												<Flex gap={"xs"} align={"center"}>
+													<Select
+														withinPortal
+														w="100%"
+														data={Object.values(MediaSortBy).map((o) => ({
+															value: o.toString(),
+															label: startCase(lowerCase(o)),
+														}))}
+														defaultValue={mineSortBy.toString()}
+														onChange={(v) => {
+															const orderBy = match(v)
+																.with(
+																	"RELEASE_DATE",
+																	() => MediaSortBy.ReleaseDate,
+																)
+																.with("TITLE", () => MediaSortBy.Title)
+																.otherwise(() => MediaSortBy.Title);
+															setMineSortBy(orderBy);
+														}}
+													/>
+													<ActionIcon
+														onClick={() => {
+															if (mineSortOrder === MediaSortOrder.Asc)
+																setMineSortOrder(MediaSortOrder.Desc);
+															else setMineSortOrder(MediaSortOrder.Asc);
+														}}
+													>
+														{mineSortOrder === MediaSortOrder.Asc ? (
+															<IconSortAscending />
+														) : (
+															<IconSortDescending />
+														)}
+													</ActionIcon>
+												</Flex>
+											</Stack>
+										</Modal>
 									</Flex>
 								</MantineGrid.Col>
 							</MantineGrid>
 							{listMedia.data && listMedia.data.total > 0 ? (
 								<>
+									<Box>
+										<Text display={"inline"} fw="bold">
+											{listMedia.data.total}
+										</Text>{" "}
+										items found
+									</Box>
 									<Grid>
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
@@ -293,26 +356,37 @@ const Page: NextPageWithLayout = () => {
 						<Stack>
 							<TextInput
 								name="query"
-								placeholder={`Search for a ${lot.toLowerCase()}`}
+								placeholder={`Search for a ${changeCase(
+									lot.toLowerCase(),
+								).toLowerCase()}`}
 								icon={<IconSearch />}
-								defaultValue={query}
 								style={{ flexGrow: 1 }}
 								onChange={(e) => setQuery(e.currentTarget.value)}
+								value={query}
+								rightSection={<ClearButton />}
 							/>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
-								<Grid>
-									{searchQuery.data.items.map((b, idx) => (
-										<MediaItem
-											idx={idx}
-											key={b.identifier}
-											item={b}
-											query={query}
-											offset={offset}
-											lot={lot}
-											refetch={searchQuery.refetch}
-										/>
-									))}
-								</Grid>
+								<>
+									<Box>
+										<Text display={"inline"} fw="bold">
+											{searchQuery.data.total}
+										</Text>{" "}
+										items found
+									</Box>
+									<Grid>
+										{searchQuery.data.items.map((b, idx) => (
+											<MediaItem
+												idx={idx}
+												key={b.identifier}
+												item={b}
+												query={query}
+												offset={offset}
+												lot={lot}
+												refetch={searchQuery.refetch}
+											/>
+										))}
+									</Grid>
+								</>
 							) : (
 								<Text>No media found :(</Text>
 							)}

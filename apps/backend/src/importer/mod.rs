@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
+use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -17,7 +18,10 @@ use crate::{
     entities::{media_import_report, prelude::MediaImportReport},
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
-    misc::resolver::{MiscService, PostReviewInput},
+    misc::{
+        resolver::{AddMediaToCollection, MiscService, PostReviewInput},
+        DefaultCollection,
+    },
     movies::resolver::MoviesService,
     podcasts::resolver::PodcastsService,
     shows::resolver::ShowsService,
@@ -39,7 +43,7 @@ pub struct ImportItemReview {
 pub struct ImportItemRating {
     id: Option<String>,
     review: Option<ImportItemReview>,
-    rating: Option<i32>,
+    rating: Option<Decimal>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -52,8 +56,8 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
-    // The ID of the user from which the RSS url will be constructed
-    user_id: i32,
+    // The RSS url that can be found from the user's profile
+    rss_url: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -77,7 +81,7 @@ pub enum ImportItemIdentifier {
     // the identifier in case we need to fetch details
     NeedsDetails(String),
     // details are already filled and just need to be comitted to database
-    AlreadyFilled(MediaDetails),
+    AlreadyFilled(Box<MediaDetails>),
 }
 
 #[derive(Debug)]
@@ -87,11 +91,15 @@ pub struct ImportItem {
     identifier: ImportItemIdentifier,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
+    default_collections: Vec<DefaultCollection>,
 }
 
+/// The various steps in which media importing can fail
 #[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
+    /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
     ItemDetailsFromSource,
+    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
 }
 
@@ -177,6 +185,7 @@ pub struct ImporterService {
 }
 
 impl ImporterService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
         audio_books_service: &AudioBooksService,
@@ -209,10 +218,9 @@ impl ImporterService {
         mut input: DeployImportInput,
     ) -> Result<String> {
         let mut storage = self.import_media.clone();
-        match input.media_tracker.as_mut() {
-            Some(s) => s.api_url = s.api_url.trim_end_matches("/").to_owned(),
-            None => {}
-        };
+        if let Some(s) = input.media_tracker.as_mut() {
+            s.api_url = s.api_url.trim_end_matches('/').to_owned()
+        }
         let job = storage
             .push(ImportMedia {
                 user_id: user_id.into(),
@@ -261,7 +269,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             MediaImportSource::Goodreads => {
-                goodreads::import(input.goodreads.unwrap(), &config).await?
+                goodreads::import(input.goodreads.unwrap(), config).await?
             }
         };
         for (idx, item) in import.media.iter().enumerate() {
@@ -275,7 +283,7 @@ impl ImporterService {
                         self.audio_books_service.commit_audio_book(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.audio_books_service.save_to_db(a.clone()).await
+                        self.audio_books_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Book => match &item.identifier {
@@ -283,7 +291,7 @@ impl ImporterService {
                         self.books_service.commit_book(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.books_service.save_to_db(a.clone()).await
+                        self.books_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Podcast => match &item.identifier {
@@ -291,7 +299,7 @@ impl ImporterService {
                         self.podcasts_service.commit_podcast(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.podcasts_service.save_to_db(a.clone()).await
+                        self.podcasts_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Movie => match &item.identifier {
@@ -299,7 +307,7 @@ impl ImporterService {
                         self.movies_service.commit_movie(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.movies_service.save_to_db(a.clone()).await
+                        self.movies_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::Show => match &item.identifier {
@@ -307,7 +315,7 @@ impl ImporterService {
                         self.shows_service.commit_show(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.shows_service.save_to_db(a.clone()).await
+                        self.shows_service.save_to_db(*a.clone()).await
                     }
                 },
                 MetadataLot::VideoGame => match &item.identifier {
@@ -315,7 +323,7 @@ impl ImporterService {
                         self.video_games_service.commit_video_game(i).await
                     }
                     ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.video_games_service.save_to_db(a.clone()).await
+                        self.video_games_service.save_to_db(*a.clone()).await
                     }
                 },
             };
@@ -337,7 +345,7 @@ impl ImporterService {
                     .progress_update(
                         ProgressUpdate {
                             identifier: seen.id.clone(),
-                            metadata_id: metadata.id.into(),
+                            metadata_id: metadata.id,
                             progress: None,
                             action: ProgressUpdateAction::InThePast,
                             date: seen.ended_on.map(|d| d.date_naive()),
@@ -345,7 +353,7 @@ impl ImporterService {
                             show_episode_number: seen.show_episode_number,
                             podcast_episode_number: seen.podcast_episode_number,
                         },
-                        user_id.clone(),
+                        user_id,
                     )
                     .await?;
             }
@@ -358,7 +366,7 @@ impl ImporterService {
                         &user_id,
                         PostReviewInput {
                             identifier: review.id.clone(),
-                            rating: review.rating.map(Into::into),
+                            rating: review.rating,
                             text,
                             spoiler,
                             date: date.flatten(),
@@ -370,6 +378,18 @@ impl ImporterService {
                         },
                     )
                     .await?;
+            }
+            for col in item.default_collections.iter() {
+                self.misc_service
+                    .add_media_to_collection(
+                        &user_id,
+                        AddMediaToCollection {
+                            collection_name: col.to_string(),
+                            media_id: metadata.id,
+                        },
+                    )
+                    .await
+                    .ok();
             }
             tracing::trace!(
                 "Imported item: {idx}, lot: {lot}, history count: {hist}, reviews count: {rev}",
