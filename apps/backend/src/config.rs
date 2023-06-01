@@ -8,7 +8,7 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use crate::graphql::{AUTHOR, PROJECT_NAME};
+use crate::graphql::PROJECT_NAME;
 
 static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
 
@@ -127,7 +127,6 @@ impl IsFeatureEnabled for MovieConfig {}
 pub struct ListenNotesConfig {
     pub url: String,
     pub api_token: String,
-    pub user_agent: String,
 }
 
 impl Default for ListenNotesConfig {
@@ -135,7 +134,6 @@ impl Default for ListenNotesConfig {
         Self {
             url: "https://listen-api.listennotes.com/api/v2/".to_owned(),
             api_token: "".to_owned(),
-            user_agent: format!("{}/{}", AUTHOR, PROJECT_NAME),
         }
     }
 }

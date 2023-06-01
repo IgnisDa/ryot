@@ -271,17 +271,15 @@ pub mod tmdb {
 pub mod listennotes {
     use std::collections::HashMap;
 
+    use crate::graphql::PROJECT_NAME;
+
     use super::*;
 
-    pub async fn get_client_config(
-        url: &str,
-        api_token: &str,
-        user_agent: &str,
-    ) -> (Client, HashMap<i32, String>) {
+    pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
         let client: Client = Config::new()
             .add_header("X-ListenAPI-Key", api_token)
             .unwrap()
-            .add_header(USER_AGENT, user_agent)
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()
