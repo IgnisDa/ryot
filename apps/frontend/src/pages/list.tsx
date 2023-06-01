@@ -291,6 +291,7 @@ const Page: NextPageWithLayout = () => {
 																	"RELEASE_DATE",
 																	() => MediaSortBy.ReleaseDate,
 																)
+																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
 																.with("TITLE", () => MediaSortBy.Title)
 																.otherwise(() => MediaSortBy.Title);
 															setMineSortBy(orderBy);
