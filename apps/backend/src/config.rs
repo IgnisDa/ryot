@@ -287,6 +287,7 @@ impl AppConfig {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
         cl.database.url = gt();
+        cl.database.scdb_url = gt();
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();
