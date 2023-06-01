@@ -3,8 +3,7 @@ use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObj
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    RelationTrait,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use sea_query::{Expr, Func};
 use serde::{Deserialize, Serialize};
@@ -137,7 +136,6 @@ pub enum MediaSortBy {
     Title,
     #[default]
     ReleaseDate,
-    LastSeen,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -491,32 +489,6 @@ impl MediaService {
                 match s.by {
                     MediaSortBy::Title => metadata::Column::Title,
                     MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
-                    MediaSortBy::LastSeen => {
-                        // let a = Metadata::find()
-                        //     .join(
-                        //         JoinType::Join,
-                        //         metadata::Relation::Seen
-                        //             .def()
-                        //             .on_condition(|left, right| {
-                        //                 Expr::cust_with_expr(, )
-                        //             }),
-                        //     )
-                        let a = Metadata::find()
-                            .inner_join(
-                                Seen::find()
-                                    .columns(vec![
-                                        seen::Column::MetadataId,
-                                        seen::Column::LastUpdatedOn.max().alias("last_seen"),
-                                    ])
-                                    .group_by(seen::Column::LastUpdatedOn),
-                            )
-                            .order_by_desc(Seen::last_seen)
-                            .build(sea_orm::DbBackend::Postgres)
-                            .to_string();
-                        dbg!(a);
-
-                        metadata::Column::Title
-                    }
                 },
                 Order::from(s.order),
             ),
@@ -554,18 +526,6 @@ impl MediaService {
         let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
         let mut items = vec![];
         for m in metas {
-            // if let Some(f) = input.filter {
-            //     if matches!(f, MediaFilter::LastSeen) {
-            //         let seen = m
-            //             .find_related(Seen)
-            //             .filter(seen::Column::UserId.eq(user_id))
-            //             .order_by_desc(seen::Column::LastUpdatedOn)
-            //             .one(&self.db)
-            //             .await?;
-            //         dbg!(seen);
-            //     }
-            // }
-
             let (poster_images, _) = self.metadata_images(&m).await?;
             let m_small = MediaSearchItem {
                 identifier: m.id.to_string(),
