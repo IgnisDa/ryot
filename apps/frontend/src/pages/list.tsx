@@ -87,7 +87,7 @@ const Page: NextPageWithLayout = () => {
 		key: "savedQuery",
 		getInitialValueInEffect: false,
 	});
-	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 500);
+	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
