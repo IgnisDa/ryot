@@ -7,7 +7,7 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
+    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +25,7 @@ use crate::{
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
     graphql::{IdObject, Identifier},
+    media::PAGE_LIMIT,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
@@ -579,12 +580,40 @@ impl MediaService {
 
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
-            pub identifier: String,
-            pub lot: MetadataLot,
-            pub title: String,
-            pub publish_year: Option<i32>,
-            pub images: String,
+            id: i32,
+            lot: MetadataLot,
+            title: String,
+            publish_year: Option<i32>,
+            images: String,
         }
+
+        let count_select = Query::select()
+            .expr(Func::count(Expr::asterisk()))
+            .from_subquery(main_select.clone(), Alias::new("subquery"))
+            .to_owned();
+
+        let (count_sql, count_values) = match self.db.get_database_backend() {
+            DatabaseBackend::MySql => count_select.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => count_select.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => count_select.build(SqliteQueryBuilder {}),
+        };
+
+        let stmt = Statement::from_sql_and_values(
+            self.db.get_database_backend(),
+            &count_sql,
+            count_values,
+        );
+        let total = self
+            .db
+            .query_one(stmt)
+            .await?
+            .map(|qr| qr.try_get_by_index::<i32>(0).unwrap())
+            .unwrap();
+
+        let main_select = main_select
+            .limit(PAGE_LIMIT as u64)
+            .offset((input.page - 1) as u64)
+            .to_owned();
 
         let (sql, values) = match self.db.get_database_backend() {
             DatabaseBackend::MySql => main_select.build(MySqlQueryBuilder {}),
@@ -592,39 +621,33 @@ impl MediaService {
             DatabaseBackend::Sqlite => main_select.build(SqliteQueryBuilder {}),
         };
 
-        println!("{}", sql);
-
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
-        let data: Vec<InnerMediaSearchItem> = self
+        let metas: Vec<InnerMediaSearchItem> = self
             .db
             .query_all(stmt)
             .await?
             .into_iter()
             .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
             .collect();
-
-        dbg!(&data);
-        todo!();
-
-        // let counts = condition.clone().count(&self.db).await.unwrap();
-        // let paginator = condition.paginate(&self.db, PAGE_LIMIT as u64);
-        // let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
-        // let mut items = vec![];
-        // for m in metas {
-        //     let (poster_images, _) = self.metadata_images(&m).await?;
-        //     let m_small = MediaSearchItem {
-        //         identifier: m.id.to_string(),
-        //         lot: m.lot,
-        //         title: m.title,
-        //         poster_images,
-        //         publish_year: m.publish_year,
-        //     };
-        //     items.push(m_small);
-        // }
-        // Ok(MediaSearchResults {
-        //     total: counts as i32,
-        //     items,
-        // })
+        let mut items = vec![];
+        for m in metas {
+            let images = serde_json::from_str(&m.images).unwrap();
+            let (poster_images, _) = self
+                .metadata_images(&metadata::Model {
+                    images,
+                    ..Default::default()
+                })
+                .await?;
+            let m_small = MediaSearchItem {
+                identifier: m.id.to_string(),
+                lot: m.lot,
+                title: m.title,
+                poster_images,
+                publish_year: m.publish_year,
+            };
+            items.push(m_small);
+        }
+        Ok(MediaSearchResults { total, items })
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
