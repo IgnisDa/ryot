@@ -2,10 +2,13 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait, Iden,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
-use sea_query::{Expr, Func, Query};
+use sea_query::{
+    Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -30,9 +33,7 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{
-    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages, PAGE_LIMIT,
-};
+use super::{MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -136,6 +137,7 @@ pub enum MediaSortBy {
     Title,
     #[default]
     ReleaseDate,
+    LastSeen,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -436,15 +438,25 @@ impl MediaService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<MediaSearchResults> {
+        let meta = UserToMetadata::find()
+            .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
+
         #[derive(Iden)]
+        #[iden = "metadata"]
         enum TempMetadata {
             Table,
             #[iden = "m"]
             Alias,
             Id,
             MetadataId,
+            Lot,
         }
         #[derive(Iden)]
+        #[iden = "seen"]
         enum TempSeen {
             Table,
             #[iden = "s"]
@@ -463,57 +475,78 @@ impl MediaService {
             .group_by_col(TempSeen::MetadataId)
             .to_owned();
 
-        let select = Query::select()
-            .column([TempMetadata::Alias, Expr::asterisk()])
+        let mut main_select = Query::select()
+            .expr(Expr::table_asterisk(TempMetadata::Alias))
             .from_as(TempMetadata::Table, TempMetadata::Alias)
-            .join_subquery(
-                JoinType::Join,
-                sub_select,
-                TempSeen::Alias,
-                Expr::col((TempMetadata::Alias, TempMetadata::Id))
-                    .equals((TempSeen::Alias, TempMetadata::MetadataId)),
-            )
-            .order_by((TempSeen::Alias, TempSeen::LastSeen), Order::Desc)
+            .and_where(Expr::col(TempMetadata::Lot).eq(input.lot))
+            .and_where(Expr::col(TempMetadata::Id).is_in(distinct_meta_ids.clone()))
             .to_owned();
 
-        let meta = UserToMetadata::find()
-            .filter(user_to_metadata::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await
-            .unwrap();
-        let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
-        let mut condition = Metadata::find()
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
-            .apply_if(input.query, |query, v| {
-                query.filter(
-                    Condition::any()
+        if let Some(v) = input.query.clone() {
+            main_select = main_select
+                .cond_where(
+                    Cond::any()
                         .add(
                             Expr::expr(Func::lower(Expr::col((
-                                metadata::Entity,
+                                TempMetadata::Alias,
                                 metadata::Column::Title,
                             ))))
                             .like(format!("%{}%", v)),
                         )
                         .add(
                             Expr::expr(Func::lower(Expr::col((
-                                metadata::Entity,
+                                TempMetadata::Alias,
                                 metadata::Column::Description,
                             ))))
                             .like(format!("%{}%", v)),
                         ),
                 )
-            });
-        let (sort_by, sort_order) = match input.sort {
-            None => (metadata::Column::Id, Order::Asc),
-            Some(s) => (
-                match s.by {
-                    MediaSortBy::Title => metadata::Column::Title,
-                    MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
-                },
-                Order::from(s.order),
-            ),
+                .to_owned();
         };
+
+        let order_by = input
+            .sort
+            .clone()
+            .map(|a| Order::from(a.order))
+            .unwrap_or(Order::Asc);
+
+        match input.sort.clone() {
+            None => {
+                main_select = main_select
+                    .order_by((TempMetadata::Alias, metadata::Column::Title), order_by)
+                    .to_owned();
+            }
+            Some(s) => {
+                match s.by {
+                    MediaSortBy::Title => {
+                        main_select = main_select
+                            .order_by((TempMetadata::Alias, metadata::Column::Title), order_by)
+                            .to_owned();
+                    }
+                    MediaSortBy::ReleaseDate => {
+                        main_select = main_select
+                            .order_by(
+                                (TempMetadata::Alias, metadata::Column::PublishYear),
+                                order_by,
+                            )
+                            .to_owned();
+                    }
+                    MediaSortBy::LastSeen => {
+                        main_select = main_select
+                            .join_subquery(
+                                JoinType::Join,
+                                sub_select,
+                                TempSeen::Alias,
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((TempSeen::Alias, TempMetadata::MetadataId)),
+                            )
+                            .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
+                            .to_owned();
+                    }
+                };
+            }
+        };
+
         match input.filter {
             None => {}
             Some(s) => {
@@ -521,7 +554,7 @@ impl MediaService {
                     vec![]
                 } else {
                     Review::find()
-                        .filter(review::Column::UserId.eq(user_id))
+                        .filter(review::Column::UserId.eq(user_id.clone()))
                         .all(&self.db)
                         .await?
                         .into_iter()
@@ -531,36 +564,67 @@ impl MediaService {
                 match s {
                     MediaFilter::All => {}
                     MediaFilter::Rated => {
-                        condition = condition.filter(metadata::Column::Id.is_in(reviews));
+                        main_select = main_select
+                            .and_where(Expr::col(TempMetadata::Id).is_in(reviews))
+                            .to_owned();
                     }
                     MediaFilter::Unrated => {
-                        condition = condition.filter(metadata::Column::Id.is_not_in(reviews));
+                        main_select = main_select
+                            .and_where(Expr::col(TempMetadata::Id).is_not_in(reviews))
+                            .to_owned();
                     }
                 }
             }
         };
 
-        condition = condition.order_by(sort_by, sort_order);
-
-        let counts = condition.clone().count(&self.db).await.unwrap();
-        let paginator = condition.paginate(&self.db, PAGE_LIMIT as u64);
-        let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
-        let mut items = vec![];
-        for m in metas {
-            let (poster_images, _) = self.metadata_images(&m).await?;
-            let m_small = MediaSearchItem {
-                identifier: m.id.to_string(),
-                lot: m.lot,
-                title: m.title,
-                poster_images,
-                publish_year: m.publish_year,
-            };
-            items.push(m_small);
+        #[derive(Debug, FromQueryResult)]
+        struct InnerMediaSearchItem {
+            pub identifier: String,
+            pub lot: MetadataLot,
+            pub title: String,
+            pub publish_year: Option<i32>,
+            pub images: String,
         }
-        Ok(MediaSearchResults {
-            total: counts as i32,
-            items,
-        })
+
+        let (sql, values) = match self.db.get_database_backend() {
+            DatabaseBackend::MySql => main_select.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => main_select.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => main_select.build(SqliteQueryBuilder {}),
+        };
+
+        println!("{}", sql);
+
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
+        let data: Vec<InnerMediaSearchItem> = self
+            .db
+            .query_all(stmt)
+            .await?
+            .into_iter()
+            .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
+            .collect();
+
+        dbg!(&data);
+        todo!();
+
+        // let counts = condition.clone().count(&self.db).await.unwrap();
+        // let paginator = condition.paginate(&self.db, PAGE_LIMIT as u64);
+        // let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
+        // let mut items = vec![];
+        // for m in metas {
+        //     let (poster_images, _) = self.metadata_images(&m).await?;
+        //     let m_small = MediaSearchItem {
+        //         identifier: m.id.to_string(),
+        //         lot: m.lot,
+        //         title: m.title,
+        //         poster_images,
+        //         publish_year: m.publish_year,
+        //     };
+        //     items.push(m_small);
+        // }
+        // Ok(MediaSearchResults {
+        //     total: counts as i32,
+        //     items,
+        // })
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
