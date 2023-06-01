@@ -217,21 +217,6 @@ pub struct AppConfig {
     pub web: WebConfig,
 }
 
-impl AppConfig {
-    // TODO: Denote masked values via attribute
-    pub fn masked_value(&self) -> Self {
-        let gt = || "****".to_owned();
-        let mut cl = self.clone();
-        cl.database.url = gt();
-        cl.movies.tmdb.access_token = gt();
-        cl.podcasts.listennotes.api_token = gt();
-        cl.shows.tmdb.access_token = gt();
-        cl.video_games.twitch.client_id = gt();
-        cl.video_games.twitch.client_secret = gt();
-        cl
-    }
-}
-
 pub fn get_app_config_scheme() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
