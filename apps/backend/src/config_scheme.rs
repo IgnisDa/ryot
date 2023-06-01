@@ -5,7 +5,7 @@ use figment::{
     providers::{Env, Format, Json, Serialized, Toml, Yaml},
     Figment,
 };
-use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum};
+use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
 
 use crate::graphql::PROJECT_NAME;
@@ -183,45 +183,26 @@ pub struct WebConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct AppConfig {
-    #[serde(default)]
     #[setting(nested)]
     pub audio_books: AudioBookConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub books: BookConfig,
-
-    #[setting(nested)]
-    #[serde(default)]
     #[setting(nested)]
     pub database: DatabaseConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub movies: MovieConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub podcasts: PodcastConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub scheduler: SchedulerConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub shows: ShowConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub users: UsersConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub video_games: VideoGameConfig,
-
-    #[serde(default)]
     #[setting(nested)]
     pub web: WebConfig,
 }
@@ -241,9 +222,14 @@ impl AppConfig {
     }
 }
 
-pub fn get_app_config() -> Result<AppConfig> {
+pub fn get_app_config_scheme() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
+
+    let result = ConfigLoader::<AppConfig>::json()
+        .file_optional(PathBuf::from(config).join(format!("{app}.json")))?
+        .load()?;
+    dbg!(result.config);
 
     Figment::new()
         .merge(Serialized::defaults(AppConfig::default()))
