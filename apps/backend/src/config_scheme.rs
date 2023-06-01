@@ -18,6 +18,7 @@ pub trait IsFeatureEnabled {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct AudibleConfig {
     #[setting(validate = url_secure, default = "https://api.audible.com/1.0/catalog/products/")]
     pub url: String,
@@ -45,6 +46,7 @@ derive_enum!(
 );
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct OpenlibraryConfig {
     #[setting(validate = url_secure, default = "https://openlibrary.org")]
     pub url: String,
@@ -62,12 +64,14 @@ pub struct BookConfig {
 impl IsFeatureEnabled for BookConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config, PartialEq, Eq)]
+#[config(rename_all = "snake_case")]
 pub struct DatabaseConfig {
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
     pub url: String,
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct TmdbConfig {
     #[setting(validate = url_secure, default = "https://api.themoviedb.org/3/")]
     pub url: String,
@@ -86,6 +90,7 @@ pub struct MovieConfig {
 impl IsFeatureEnabled for MovieConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct ListenNotesConfig {
     #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
     pub url: String,
@@ -118,6 +123,7 @@ pub struct ShowConfig {
 impl IsFeatureEnabled for ShowConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct TwitchConfig {
     pub client_id: String,
     pub client_secret: String,
@@ -136,6 +142,7 @@ derive_enum!(
 );
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct IgdbConfig {
     #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
     pub url: String,
@@ -163,6 +170,7 @@ impl IsFeatureEnabled for VideoGameConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct SchedulerConfig {
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
@@ -171,12 +179,14 @@ pub struct SchedulerConfig {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct UsersConfig {
     #[setting(default = true)]
     pub allow_changing_username: bool,
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[config(rename_all = "snake_case")]
 pub struct WebConfig {
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
