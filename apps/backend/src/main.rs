@@ -54,6 +54,7 @@ mod audio_books;
 mod background;
 mod books;
 mod config;
+mod config_scheme;
 mod entities;
 mod graphql;
 mod importer;
