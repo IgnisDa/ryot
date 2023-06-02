@@ -1,3 +1,12 @@
+use std::{
+    env,
+    io::{Error as IoError, ErrorKind as IoErrorKind},
+    net::SocketAddr,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+
 use anyhow::Result;
 use apalis::{
     cron::{CronStream, Schedule},
@@ -22,16 +31,10 @@ use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
 use misc::resolver::COOKIE_NAME;
 use rust_embed::RustEmbed;
+use scdb::Store;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use sqlx::SqlitePool;
-use std::{
-    env,
-    io::{Error as IoError, ErrorKind as IoErrorKind},
-    net::SocketAddr,
-    str::FromStr,
-    time::Duration,
-};
 use tokio::try_join;
 use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::{
@@ -69,6 +72,8 @@ mod traits;
 mod utils;
 mod video_games;
 
+pub static VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Debug)]
 pub struct GqlCtx {
     auth_token: Option<String>,
@@ -102,6 +107,9 @@ async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoRes
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
+
+    tracing::info!("Running version {}", VERSION);
+
     dotenv().ok();
     let config = get_app_config()?;
     get_app_config_scheme()?;
@@ -109,6 +117,9 @@ async fn main() -> Result<()> {
     let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
+    let scdb = Arc::new(Mutex::new(
+        Store::new(&config.database.scdb_url, None, None, None, None, false).unwrap(),
+    ));
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -130,6 +141,7 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
+        scdb.clone(),
         &config,
         &import_media_storage,
         &user_created_job_storage,
@@ -138,7 +150,7 @@ async fn main() -> Result<()> {
         &recalculate_user_summary_job_storage,
     )
     .await;
-    let schema = get_schema(&app_services, db.clone(), &config).await;
+    let schema = get_schema(&app_services, db.clone(), scdb.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])

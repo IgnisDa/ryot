@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
@@ -74,6 +76,7 @@ impl MediaProvider for TmdbService {
             air_date: Option<String>,
             runtime: Option<i32>,
             guest_stars: Vec<TmdbCredit>,
+            crew: Vec<TmdbCredit>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -106,7 +109,8 @@ impl MediaProvider for TmdbService {
                 s.episodes
                     .iter()
                     .flat_map(|e| {
-                        e.guest_stars
+                        let mut gs = e
+                            .guest_stars
                             .iter()
                             .map(|g| MetadataCreator {
                                 name: g.name.clone(),
@@ -115,7 +119,20 @@ impl MediaProvider for TmdbService {
                                     g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
                                 ),
                             })
-                            .collect::<Vec<_>>()
+                            .collect::<HashSet<_>>();
+                        let crew = e
+                            .crew
+                            .iter()
+                            .map(|g| MetadataCreator {
+                                name: g.name.clone(),
+                                role: g.known_for_department.clone(),
+                                image_urls: Vec::from_iter(
+                                    g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
+                                ),
+                            })
+                            .collect::<HashSet<_>>();
+                        gs.extend(crew);
+                        Vec::from_iter(gs)
                     })
                     .collect::<Vec<_>>()
             })

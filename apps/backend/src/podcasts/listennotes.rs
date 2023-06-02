@@ -11,11 +11,11 @@ use surf::Client;
 
 use crate::config::PodcastConfig;
 use crate::media::resolver::MediaDetails;
-use crate::media::MediaSpecifics;
 use crate::media::{
     resolver::{MediaSearchItem, MediaSearchResults},
     PAGE_LIMIT,
 };
+use crate::media::{MediaSpecifics, MetadataCreator};
 use crate::migrator::{MetadataLot, PodcastSource};
 use crate::podcasts::{PodcastEpisode, PodcastSpecifics};
 use crate::traits::MediaProvider;
@@ -29,12 +29,9 @@ pub struct ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig) -> Self {
-        let (client, genres) = listennotes::get_client_config(
-            &config.listennotes.url,
-            &config.listennotes.api_token,
-            &config.listennotes.user_agent,
-        )
-        .await;
+        let (client, genres) =
+            listennotes::get_client_config(&config.listennotes.url, &config.listennotes.api_token)
+                .await;
         Self { client, genres }
     }
 }
@@ -111,6 +108,7 @@ impl ListennotesService {
             #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
             #[serde(rename = "earliest_pub_date_ms")]
             publish_date: Option<DateTimeUtc>,
+            publisher: Option<String>,
             image: Option<String>,
             episodes: Vec<PodcastEpisode>,
             genre_ids: Vec<i32>,
@@ -132,7 +130,11 @@ impl ListennotesService {
             title: d.title,
             description: d.description,
             lot: MetadataLot::Podcast,
-            creators: vec![],
+            creators: Vec::from_iter(d.publisher.map(|p| MetadataCreator {
+                name: p,
+                role: "Publishing".to_owned(),
+                image_urls: vec![],
+            })),
             genres: d
                 .genre_ids
                 .into_iter()
