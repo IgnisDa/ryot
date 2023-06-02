@@ -643,14 +643,8 @@ impl MediaService {
             .expr(Func::count(Expr::asterisk()))
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
-
-        let (count_sql, count_values) = get_sql_and_values(count_select);
-
-        let stmt = Statement::from_sql_and_values(
-            self.db.get_database_backend(),
-            &count_sql,
-            count_values,
-        );
+        let (sql, values) = get_sql_and_values(count_select);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
         let total = self
             .db
             .query_one(stmt)
@@ -660,11 +654,9 @@ impl MediaService {
 
         let main_select = main_select
             .limit(PAGE_LIMIT as u64)
-            .offset((input.page - 1) as u64)
+            .offset((((input.page - 1) * PAGE_LIMIT) + 1) as u64)
             .to_owned();
-
         let (sql, values) = get_sql_and_values(main_select);
-
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
         let metas: Vec<InnerMediaSearchItem> = self
             .db
