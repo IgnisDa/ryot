@@ -12,3 +12,15 @@ services:
       - '8000:8000'
       - '3000:3000'
     user: archlinux
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    command: server --console-address ":9001" /data
+
+volumes:
+  minio_storage:
