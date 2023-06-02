@@ -21,8 +21,9 @@ import {
 	CommitShowDocument,
 	CommitVideoGameDocument,
 	MetadataLot,
+    MediaExistsInDatabaseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/router";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -98,6 +99,17 @@ export default function (props: {
 }) {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
+
+	const mediaExistsInDatbase= useQuery({
+		queryKey: ["mediaExistsInDatabase"],
+		queryFn: async () => {
+			const { mediaExistsInDatabase} = await gqlClient.request(MediaExistsInDatabaseDocument, {
+				identifier: props.item.identifier,
+				lot: props.lot
+			});
+			return mediaExistsInDatabase
+		},
+	});
 
 	const commitMedia = useMutation(
 		async (variables: CommitBookMutationVariables) => {
