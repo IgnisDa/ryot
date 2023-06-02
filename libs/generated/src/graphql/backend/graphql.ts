@@ -225,6 +225,7 @@ export type MediaSearchResults = {
 
 export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
+  Rating = 'RATING',
   ReleaseDate = 'RELEASE_DATE',
   Title = 'TITLE'
 }
