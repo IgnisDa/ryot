@@ -202,6 +202,11 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : null;
 
+	const isFilterChanged =
+		mineFilter !== MediaFilter.All ||
+		mineSortOrder !== MediaSortOrder.Asc ||
+		mineSortBy !== MediaSortBy.ReleaseDate;
+
 	return lot ? (
 		<>
 			<Head>
@@ -249,7 +254,10 @@ const Page: NextPageWithLayout = () => {
 											rightSection={<ClearButton />}
 											style={{ flexGrow: 1 }}
 										/>
-										<ActionIcon onClick={openFiltersModal}>
+										<ActionIcon
+											onClick={openFiltersModal}
+											color={isFilterChanged ? "blue" : undefined}
+										>
 											<IconFilter size="1.5rem" />
 										</ActionIcon>
 										<Modal
@@ -291,6 +299,8 @@ const Page: NextPageWithLayout = () => {
 																	"RELEASE_DATE",
 																	() => MediaSortBy.ReleaseDate,
 																)
+																.with("RATING", () => MediaSortBy.Rating)
+																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
 																.with("TITLE", () => MediaSortBy.Title)
 																.otherwise(() => MediaSortBy.Title);
 															setMineSortBy(orderBy);
