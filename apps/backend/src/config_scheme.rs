@@ -44,6 +44,7 @@ derive_enum!(
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     #[setting(validate = url_secure, default = "https://openlibrary.org")]
     pub url: String,
@@ -62,13 +63,18 @@ impl IsFeatureEnabled for BookConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
     pub url: String,
+    #[setting(default = format!("/data/{}-scdb.db", PROJECT_NAME))]
+    pub scdb_url: String,
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "MOVIES_TMDB_")]
+// #[config(env_prefix = "SHOWS_TMDB_")]
 pub struct TmdbConfig {
     #[setting(validate = url_secure, default = "https://api.themoviedb.org/3/")]
     pub url: String,
@@ -88,6 +94,7 @@ impl IsFeatureEnabled for MovieConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
     #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
     pub url: String,
@@ -121,6 +128,7 @@ impl IsFeatureEnabled for ShowConfig {}
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
     pub client_id: String,
     pub client_secret: String,
@@ -140,6 +148,7 @@ derive_enum!(
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
     #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
     pub url: String,
@@ -168,6 +177,7 @@ impl IsFeatureEnabled for VideoGameConfig {
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
@@ -177,14 +187,19 @@ pub struct SchedulerConfig {
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "USERS_")]
 pub struct UsersConfig {
     #[setting(default = true)]
     pub allow_changing_username: bool,
+    #[setting(default = 90)]
+    pub token_valid_for_days: i32,
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "WEB_")]
 pub struct WebConfig {
+    #[setting(default = vec![])]
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
 }
@@ -224,6 +239,8 @@ pub fn get_app_config_scheme() -> Result<AppConfig> {
         .file_optional(path.join(format!("{app}.toml")))?
         .file_optional(path.join(format!("{app}.yaml")))?
         .load()?;
+
+    dbg!(&result.config);
 
     Ok(result.config)
 }
