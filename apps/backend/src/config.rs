@@ -221,6 +221,7 @@ impl IsFeatureEnabled for VideoGameConfig {
 pub struct SchedulerConfig {
     pub database_url: String,
     pub user_cleanup_every: i32,
+    pub rate_limit_num: i32,
 }
 
 impl Default for SchedulerConfig {
@@ -228,6 +229,7 @@ impl Default for SchedulerConfig {
         Self {
             database_url: "sqlite::memory:".to_string(),
             user_cleanup_every: 10,
+            rate_limit_num: 5,
         }
     }
 }

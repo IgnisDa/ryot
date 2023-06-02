@@ -187,6 +187,9 @@ async fn main() -> Result<()> {
     let misc_service_2 = app_services.misc_service.clone();
     let misc_service_3 = app_services.misc_service.clone();
     let misc_service_4 = app_services.misc_service.clone();
+
+    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
+
     let monitor = async {
         let mn = Monitor::new()
             // cron jobs
@@ -255,7 +258,10 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("update_metadata_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisRateLimitLayer::new(3, Duration::new(5, 0)))
+                    .layer(ApalisRateLimitLayer::new(
+                        rate_limit_num,
+                        Duration::new(5, 0),
+                    ))
                     .layer(ApalisExtension(misc_service_4.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
