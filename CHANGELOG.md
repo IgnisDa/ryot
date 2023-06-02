@@ -1,4 +1,11 @@
 
+# Version 1.0.0-beta.49 (2023-06-02)
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.48 (2023-06-02)
 
 
