@@ -22,17 +22,17 @@ pub enum MediaSpecifics {
     Podcast(PodcastSpecifics),
 }
 
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
 pub struct MetadataImage {
     pub url: String,
     pub lot: MetadataImageLot,
 }
 
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
 pub struct MetadataImages(pub Vec<MetadataImage>);
 
 #[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject, Default,
 )]
 pub struct MetadataCreator {
     pub name: String,
@@ -40,5 +40,5 @@ pub struct MetadataCreator {
     pub image_urls: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
 pub struct MetadataCreators(pub Vec<MetadataCreator>);

@@ -1,4 +1,43 @@
 
+# Version 1.0.0-beta.45 (2023-06-02)
+
+## Bug Fixes
+
+* **backend:** ambiguous column reference
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.0.0-beta.44 (2023-06-02)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** color btn if filter modified
+
+
+# Version 1.0.0-beta.43 (2023-06-02)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** allow sorting by rating
+
+
+# Version 1.0.0-beta.42 (2023-06-02)
+
+
+# Version 1.0.0-beta.41 (2023-06-01)
+
+
 # Version 1.0.0-beta.40 (2023-05-31)
 
 ## Bug Fixes

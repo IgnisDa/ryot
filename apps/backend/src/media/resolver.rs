@@ -2,10 +2,14 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
-use sea_query::{Expr, Func};
+use sea_query::{
+    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SelectStatement,
+    SqliteQueryBuilder,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,9 +17,7 @@ use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
     entities::{
-        collection, genre,
-        metadata::{self, Model as MetadataModel},
-        metadata_to_collection, metadata_to_genre,
+        collection, genre, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
             AudioBook, Book, Collection, Genre, Metadata, MetadataToCollection, Movie, Podcast,
             Review, Seen, Show, UserToMetadata, VideoGame,
@@ -24,6 +26,7 @@ use crate::{
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
     graphql::{IdObject, Identifier},
+    media::PAGE_LIMIT,
     migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
@@ -32,13 +35,11 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{
-    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages, PAGE_LIMIT,
-};
+use super::{MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
-    pub model: MetadataModel,
+    pub model: metadata::Model,
     pub creators: Vec<MetadataCreator>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
@@ -138,6 +139,8 @@ pub enum MediaSortBy {
     Title,
     #[default]
     ReleaseDate,
+    LastSeen,
+    Rating,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -276,7 +279,7 @@ impl MediaService {
 }
 
 impl MediaService {
-    async fn metadata_images(&self, meta: &MetadataModel) -> Result<(Vec<String>, Vec<String>)> {
+    async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let images = meta.images.0.clone();
         let poster_images = images
             .iter()
@@ -444,38 +447,148 @@ impl MediaService {
             .await
             .unwrap();
         let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
-        let mut condition = Metadata::find()
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
-            .apply_if(input.query, |query, v| {
-                query.filter(
-                    Condition::any()
+
+        #[derive(Iden)]
+        #[iden = "metadata"]
+        enum TempMetadata {
+            Table,
+            #[iden = "m"]
+            Alias,
+            Id,
+            MetadataId,
+            Lot,
+        }
+        #[derive(Iden)]
+        #[iden = "seen"]
+        enum TempSeen {
+            Table,
+            #[iden = "s"]
+            Alias,
+            MetadataId,
+            LastUpdatedOn,
+            LastSeen,
+            UserId,
+        }
+        #[derive(Iden)]
+        #[iden = "review"]
+        enum TempReview {
+            Table,
+            #[iden = "r"]
+            Alias,
+            MetadataId,
+            UserId,
+            Rating,
+        }
+
+        let mut main_select = Query::select()
+            .expr(Expr::table_asterisk(TempMetadata::Alias))
+            .from_as(TempMetadata::Table, TempMetadata::Alias)
+            .and_where(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(input.lot))
+            .and_where(
+                Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(distinct_meta_ids.clone()),
+            )
+            .to_owned();
+
+        if let Some(v) = input.query.clone() {
+            main_select = main_select
+                .cond_where(
+                    Cond::any()
                         .add(
                             Expr::expr(Func::lower(Expr::col((
-                                metadata::Entity,
+                                TempMetadata::Alias,
                                 metadata::Column::Title,
                             ))))
                             .like(format!("%{}%", v)),
                         )
                         .add(
                             Expr::expr(Func::lower(Expr::col((
-                                metadata::Entity,
+                                TempMetadata::Alias,
                                 metadata::Column::Description,
                             ))))
                             .like(format!("%{}%", v)),
                         ),
                 )
-            });
-        let (sort_by, sort_order) = match input.sort {
-            None => (metadata::Column::Id, Order::Asc),
-            Some(s) => (
-                match s.by {
-                    MediaSortBy::Title => metadata::Column::Title,
-                    MediaSortBy::ReleaseDate => metadata::Column::PublishYear,
-                },
-                Order::from(s.order),
-            ),
+                .to_owned();
         };
+
+        let order_by = input
+            .sort
+            .clone()
+            .map(|a| Order::from(a.order))
+            .unwrap_or(Order::Asc);
+
+        match input.sort.clone() {
+            None => {
+                main_select = main_select
+                    .order_by((TempMetadata::Alias, metadata::Column::Title), order_by)
+                    .to_owned();
+            }
+            Some(s) => {
+                match s.by {
+                    MediaSortBy::Title => {
+                        main_select = main_select
+                            .order_by((TempMetadata::Alias, metadata::Column::Title), order_by)
+                            .to_owned();
+                    }
+                    MediaSortBy::ReleaseDate => {
+                        main_select = main_select
+                            .order_by(
+                                (TempMetadata::Alias, metadata::Column::PublishYear),
+                                order_by,
+                            )
+                            .to_owned();
+                    }
+                    MediaSortBy::LastSeen => {
+                        let sub_select = Query::select()
+                            .column(TempSeen::MetadataId)
+                            .expr_as(
+                                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
+                                TempSeen::LastSeen,
+                            )
+                            .from(TempSeen::Table)
+                            .and_where(Expr::col(TempSeen::UserId).eq(user_id))
+                            .group_by_col(TempSeen::MetadataId)
+                            .to_owned();
+                        main_select = main_select
+                            .join_subquery(
+                                JoinType::Join,
+                                sub_select,
+                                TempSeen::Alias,
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((TempSeen::Alias, TempMetadata::MetadataId)),
+                            )
+                            .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
+                            .to_owned();
+                    }
+                    MediaSortBy::Rating => {
+                        main_select = main_select
+                            .expr_as(
+                                Func::coalesce([
+                                    Func::avg(Expr::col((TempReview::Alias, TempReview::Rating)))
+                                        .into(),
+                                    Expr::value(0).into(),
+                                ]),
+                                Alias::new("average_rating"),
+                            )
+                            .join_as(
+                                JoinType::LeftJoin,
+                                TempReview::Table,
+                                Alias::new("r"),
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((TempReview::Alias, TempReview::MetadataId))
+                                    .and(
+                                        Expr::col((TempReview::Alias, TempReview::UserId))
+                                            .eq(user_id),
+                                    ),
+                            )
+                            .group_by_col((TempMetadata::Alias, TempMetadata::Id))
+                            .order_by_expr(Expr::cust("average_rating").into(), order_by)
+                            .to_owned();
+                    }
+                };
+            }
+        };
+
         match input.filter {
             None => {}
             Some(s) => {
@@ -483,7 +596,7 @@ impl MediaService {
                     vec![]
                 } else {
                     Review::find()
-                        .filter(review::Column::UserId.eq(user_id))
+                        .filter(review::Column::UserId.eq(user_id.clone()))
                         .all(&self.db)
                         .await?
                         .into_iter()
@@ -493,23 +606,84 @@ impl MediaService {
                 match s {
                     MediaFilter::All => {}
                     MediaFilter::Rated => {
-                        condition = condition.filter(metadata::Column::Id.is_in(reviews));
+                        main_select = main_select
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(reviews),
+                            )
+                            .to_owned();
                     }
                     MediaFilter::Unrated => {
-                        condition = condition.filter(metadata::Column::Id.is_not_in(reviews));
+                        main_select = main_select
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .is_not_in(reviews),
+                            )
+                            .to_owned();
                     }
                 }
             }
         };
 
-        condition = condition.order_by(sort_by, sort_order);
+        let get_sql_and_values = |stmt: SelectStatement| match self.db.get_database_backend() {
+            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
+        };
 
-        let counts = condition.clone().count(&self.db).await.unwrap();
-        let paginator = condition.paginate(&self.db, PAGE_LIMIT as u64);
-        let metas = paginator.fetch_page((input.page - 1) as u64).await.unwrap();
+        #[derive(Debug, FromQueryResult)]
+        struct InnerMediaSearchItem {
+            id: i32,
+            lot: MetadataLot,
+            title: String,
+            publish_year: Option<i32>,
+            images: serde_json::Value,
+        }
+
+        let count_select = Query::select()
+            .expr(Func::count(Expr::asterisk()))
+            .from_subquery(main_select.clone(), Alias::new("subquery"))
+            .to_owned();
+
+        let (count_sql, count_values) = get_sql_and_values(count_select);
+
+        println!("{}", count_sql);
+
+        let stmt = Statement::from_sql_and_values(
+            self.db.get_database_backend(),
+            &count_sql,
+            count_values,
+        );
+        let total = self
+            .db
+            .query_one(stmt)
+            .await?
+            .map(|qr| qr.try_get_by_index::<i64>(0).unwrap())
+            .unwrap();
+
+        let main_select = main_select
+            .limit(PAGE_LIMIT as u64)
+            .offset((input.page - 1) as u64)
+            .to_owned();
+
+        let (sql, values) = get_sql_and_values(main_select);
+
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
+        let metas: Vec<InnerMediaSearchItem> = self
+            .db
+            .query_all(stmt)
+            .await?
+            .into_iter()
+            .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
+            .collect();
         let mut items = vec![];
         for m in metas {
-            let (poster_images, _) = self.metadata_images(&m).await?;
+            let images = serde_json::from_value(m.images).unwrap();
+            let (poster_images, _) = self
+                .metadata_images(&metadata::Model {
+                    images,
+                    ..Default::default()
+                })
+                .await?;
             let m_small = MediaSearchItem {
                 identifier: m.id.to_string(),
                 lot: m.lot,
@@ -520,7 +694,7 @@ impl MediaService {
             items.push(m_small);
         }
         Ok(MediaSearchResults {
-            total: counts as i32,
+            total: total.try_into().unwrap(),
             items,
         })
     }
