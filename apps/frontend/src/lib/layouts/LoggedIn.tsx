@@ -79,7 +79,7 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 const AUTH_COOKIE = "auth";
 
 export default function ({ children }: { children: ReactElement }) {
-	const [{ auth }, _, removeAuthCookie] = useCookies([AUTH_COOKIE]);
+	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
 	useQuery({
 		queryKey: ["userDetails"],
@@ -89,7 +89,6 @@ export default function ({ children }: { children: ReactElement }) {
 		},
 		onSuccess: async (data) => {
 			if (data.__typename === "UserDetailsError") {
-				removeAuthCookie(AUTH_COOKIE);
 				await logoutUser.mutateAsync();
 				notifications.show({
 					color: "red",
