@@ -15,6 +15,7 @@ pub trait IsFeatureEnabled {
 
 #[derive(Deserialize, Debug, Clone, Serialize, Config)]
 #[config(rename_all = "snake_case")]
+#[config(env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
     #[setting(validate = url_secure, default = "https://api.audible.com/1.0/catalog/products/")]
     pub url: String,
@@ -223,8 +224,6 @@ pub fn get_app_config_scheme() -> Result<AppConfig> {
         .file_optional(path.join(format!("{app}.toml")))?
         .file_optional(path.join(format!("{app}.yaml")))?
         .load()?;
-
-    dbg!(&result.config);
 
     Ok(result.config)
 }
