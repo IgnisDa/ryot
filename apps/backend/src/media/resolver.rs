@@ -607,12 +607,17 @@ impl MediaService {
                     MediaFilter::All => {}
                     MediaFilter::Rated => {
                         main_select = main_select
-                            .and_where(Expr::col(TempMetadata::Id).is_in(reviews))
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(reviews),
+                            )
                             .to_owned();
                     }
                     MediaFilter::Unrated => {
                         main_select = main_select
-                            .and_where(Expr::col(TempMetadata::Id).is_not_in(reviews))
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .is_not_in(reviews),
+                            )
                             .to_owned();
                     }
                 }
@@ -631,7 +636,7 @@ impl MediaService {
             lot: MetadataLot,
             title: String,
             publish_year: Option<i32>,
-            images: String,
+            images: serde_json::Value,
         }
 
         let count_select = Query::select()
@@ -670,7 +675,7 @@ impl MediaService {
             .collect();
         let mut items = vec![];
         for m in metas {
-            let images = serde_json::from_str(&m.images).unwrap();
+            let images = serde_json::from_value(m.images).unwrap();
             let (poster_images, _) = self
                 .metadata_images(&metadata::Model {
                     images,
