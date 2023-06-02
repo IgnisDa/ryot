@@ -2,13 +2,13 @@ import { gqlClient } from "../services/api";
 import {
 	CommitAudioBookDocument,
 	CommitBookDocument,
+	type CommitBookMutationVariables,
 	CommitMovieDocument,
 	CommitPodcastDocument,
 	CommitShowDocument,
 	CommitVideoGameDocument,
 	MetadataLot,
 	UserDetailsDocument,
-	type CommitBookMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
@@ -25,7 +25,10 @@ export function useUser() {
 	return userDetails.data?.__typename === "User" ? userDetails.data : undefined;
 }
 
-export function useCommitMedia(lot?: MetadataLot, onSuccess?: (id: any)=> void) {
+export function useCommitMedia(
+	lot?: MetadataLot,
+	onSuccess?: (id: any) => void,
+) {
 	const commitMedia = useMutation({
 		mutationFn: async (variables: CommitBookMutationVariables) => {
 			invariant(lot, "Lot must be defined");
@@ -74,10 +77,9 @@ export function useCommitMedia(lot?: MetadataLot, onSuccess?: (id: any)=> void) 
 				})
 				.exhaustive();
 		},
-		onSuccess:(data, )=> {
-        if (onSuccess) 
-			onSuccess(data.id)
-    },
+		onSuccess: (data) => {
+			if (onSuccess) onSuccess(data.id);
+		},
 	});
 	return commitMedia;
 }

@@ -1,4 +1,5 @@
 import { ROUTES } from "../constants";
+import { useCommitMedia } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Verb,
@@ -19,7 +20,6 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useCommitMedia } from "@/lib/hooks/graphql";
 
 type Item = BooksSearchQuery["booksSearch"]["items"][number];
 
@@ -91,7 +91,7 @@ export default function (props: {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
-	const commitMedia = useCommitMedia(lot)
+	const commitMedia = useCommitMedia(lot);
 	const mediaExistsInDatabase = useQuery({
 		queryKey: ["mediaExistsInDatabase", props.idx],
 		queryFn: async () => {
