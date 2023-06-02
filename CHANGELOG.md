@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.50 (2023-06-02)
+
+## Bug Fixes
+
+* **frontend:** remove auth token correctly
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.49 (2023-06-02)
 
 ## Build
