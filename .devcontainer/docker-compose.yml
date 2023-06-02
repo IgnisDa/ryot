@@ -22,5 +22,16 @@ services:
       - minio_storage:/data
     command: server --console-address ":9001" /data
 
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+
 volumes:
   minio_storage:
+  postgres_storage:
