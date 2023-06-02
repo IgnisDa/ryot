@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     books::BookSpecifics,
-    config::ImporterConfig,
     media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{BookSource, MetadataLot},
     misc::DefaultCollection,
@@ -48,10 +47,7 @@ struct RssDetail {
     channel: RssChannel,
 }
 
-pub async fn import(
-    input: DeployGoodreadsImportInput,
-    _config: &ImporterConfig,
-) -> Result<ImportResult> {
+pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
     let content = surf::get(input.rss_url)
         .await
         .unwrap()
