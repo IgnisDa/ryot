@@ -8,10 +8,7 @@ use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
 use scdb::Store;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    FromQueryResult, QueryFilter, QuerySelect,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Serialize};
 use surf::{
@@ -39,10 +36,7 @@ use crate::podcasts::resolver::PodcastsService;
 use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
 use crate::video_games::igdb::IgdbService;
 use crate::video_games::resolver::VideoGamesService;
-use crate::{
-    entities::{prelude::Token, token},
-    GqlCtx,
-};
+use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;
 
@@ -161,22 +155,13 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 }
 
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let db = ctx.data_unchecked::<DatabaseConnection>();
+    let scdb = ctx.data_unchecked::<MemoryDb>();
+
     let token = user_auth_token_from_ctx(ctx)?;
-    #[derive(FromQueryResult)]
-    struct Model {
-        user_id: i32,
-    }
-    let found_token = Token::find()
-        .select_only()
-        .column(token::Column::UserId)
-        .filter(token::Column::Value.eq(token))
-        .into_model::<Model>()
-        .one(db)
-        .await
-        .unwrap();
+    let found_token = scdb.lock().unwrap().get(&token.as_bytes()[..]).unwrap();
+
     match found_token {
-        Some(t) => Ok(t.user_id),
+        Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
         None => Err(Error::new("The auth token was incorrect")),
     }
 }

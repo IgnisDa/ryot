@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::Utc;
+use chrono::{Duration as ChronoDuration, Utc};
 use cookie::{
     time::{Duration, OffsetDateTime},
     Cookie,
@@ -1111,6 +1111,15 @@ impl MiscService {
             ..Default::default()
         };
         token.insert(&self.db).await.unwrap();
+
+        let api_key_new = api_key.to_string();
+
+        self.scdb.lock().unwrap().set(
+            &api_key_new.as_bytes()[..],
+            &user.id.to_string().as_bytes()[..],
+            Some(ChronoDuration::days(90).num_seconds().try_into().unwrap()),
+        )?;
+
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
