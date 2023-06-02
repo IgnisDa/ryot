@@ -5,6 +5,14 @@ use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum, ConfigLoa
 
 use crate::graphql::PROJECT_NAME;
 
+fn default_tmdb_url(_ctx: &()) -> Option<String> {
+    Some("https://api.themoviedb.org/3/".to_owned())
+}
+
+fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
+    Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
+}
+
 /// Determine whether a feature is enabled
 pub trait IsFeatureEnabled {
     fn is_enabled(&self) -> bool {
@@ -71,22 +79,18 @@ pub struct DatabaseConfig {
 }
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "MOVIES_TMDB_")]
-// #[config(env_prefix = "SHOWS_TMDB_")]
-pub struct TmdbConfig {
-    #[setting(validate = url_secure, default = "https://api.themoviedb.org/3/")]
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
+pub struct MoviesTmdbConfig {
+    #[setting(validate = url_secure, default = default_tmdb_url)]
     pub url: String,
-    #[setting(
-        default = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4"
-    )]
+    #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
 }
 
 #[derive(Debug, Clone, Config)]
 pub struct MovieConfig {
     #[setting(nested)]
-    pub tmdb: TmdbConfig,
+    pub tmdb: MoviesTmdbConfig,
 }
 
 impl IsFeatureEnabled for MovieConfig {}
@@ -118,9 +122,18 @@ impl IsFeatureEnabled for PodcastConfig {
 }
 
 #[derive(Debug, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
+pub struct ShowsTmdbConfig {
+    #[setting(validate = url_secure, default = default_tmdb_url)]
+    pub url: String,
+    #[setting(default = default_tmdb_access_token)]
+    pub access_token: String,
+}
+
+#[derive(Debug, Clone, Config)]
 pub struct ShowConfig {
     #[setting(nested)]
-    pub tmdb: TmdbConfig,
+    pub tmdb: ShowsTmdbConfig,
 }
 
 impl IsFeatureEnabled for ShowConfig {}
