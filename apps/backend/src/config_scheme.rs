@@ -21,8 +21,7 @@ pub trait IsFeatureEnabled {
 }
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
+#[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
     #[setting(validate = url_secure, default = "https://api.audible.com/1.0/catalog/products/")]
     pub url: String,
@@ -50,8 +49,7 @@ derive_enum!(
 );
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "BOOKS_OPENLIBRARY_")]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     #[setting(validate = url_secure, default = "https://openlibrary.org")]
     pub url: String,
@@ -69,8 +67,7 @@ pub struct BookConfig {
 impl IsFeatureEnabled for BookConfig {}
 
 #[derive(Debug, Clone, Config, PartialEq, Eq)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "DATABASE_")]
+#[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
     pub url: String,
@@ -96,8 +93,7 @@ pub struct MovieConfig {
 impl IsFeatureEnabled for MovieConfig {}
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "PODCASTS_LISTENNOTES_")]
+#[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
     #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
     pub url: String,
@@ -139,8 +135,7 @@ pub struct ShowConfig {
 impl IsFeatureEnabled for ShowConfig {}
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "VIDEO_GAMES_TWITCH_")]
+#[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
     pub client_id: String,
     pub client_secret: String,
@@ -159,8 +154,7 @@ derive_enum!(
 );
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "VIDEO_GAMES_IGDB_")]
+#[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
     #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
     pub url: String,
@@ -188,8 +182,7 @@ impl IsFeatureEnabled for VideoGameConfig {
 }
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "SCHEDULER_")]
+#[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
@@ -198,8 +191,7 @@ pub struct SchedulerConfig {
 }
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "USERS_")]
+#[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
     #[setting(default = true)]
     pub allow_changing_username: bool,
@@ -208,8 +200,7 @@ pub struct UsersConfig {
 }
 
 #[derive(Debug, Clone, Config)]
-#[config(rename_all = "snake_case")]
-#[config(env_prefix = "WEB_")]
+#[config(rename_all = "snake_case", env_prefix = "WEB_")]
 pub struct WebConfig {
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
