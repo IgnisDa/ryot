@@ -199,7 +199,7 @@ pub struct UsersConfig {
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "WEB_")]
 pub struct WebConfig {
-    #[setting(default = vec![])]
+    #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
 }
