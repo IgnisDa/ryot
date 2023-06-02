@@ -29,7 +29,7 @@ pub enum TokenLot {
 }
 
 #[derive(Iden)]
-enum Token {
+pub enum Token {
     Table,
     Id,
     UserId,
