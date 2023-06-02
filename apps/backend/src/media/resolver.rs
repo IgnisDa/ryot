@@ -1,5 +1,7 @@
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use async_graphql::{
+    indexmap::map::Values, Context, Enum, Error, InputObject, Object, Result, SimpleObject,
+};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
@@ -7,7 +9,8 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
+    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SelectStatement,
+    SqliteQueryBuilder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -573,10 +576,10 @@ impl MediaService {
                                     ),
                             )
                             .group_by_col((TempMetadata::Table, TempMetadata::Id))
-                            .order_by_expr(
-                                Expr::expr(Alias::new("average_rating")).into(), // FIXME
-                                order_by,
-                            )
+                            // .order_by_expr(
+                            //     Expr::expr(Alias::new("average_rating")).into(), // FIXME
+                            //     order_by,
+                            // )
                             .to_owned();
                     }
                 };
@@ -627,11 +630,13 @@ impl MediaService {
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
 
-        let (count_sql, count_values) = match self.db.get_database_backend() {
-            DatabaseBackend::MySql => count_select.build(MySqlQueryBuilder {}),
-            DatabaseBackend::Postgres => count_select.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => count_select.build(SqliteQueryBuilder {}),
+        let get_sql_and_values = |stmt: SelectStatement| match self.db.get_database_backend() {
+            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
         };
+
+        let (count_sql, count_values) = get_sql_and_values(count_select);
 
         println!("{}", count_sql);
 
@@ -652,11 +657,7 @@ impl MediaService {
             .offset((input.page - 1) as u64)
             .to_owned();
 
-        let (sql, values) = match self.db.get_database_backend() {
-            DatabaseBackend::MySql => main_select.build(MySqlQueryBuilder {}),
-            DatabaseBackend::Postgres => main_select.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => main_select.build(SqliteQueryBuilder {}),
-        };
+        let (sql, values) = get_sql_and_values(main_select);
 
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
         let metas: Vec<InnerMediaSearchItem> = self
