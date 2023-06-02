@@ -1,4 +1,5 @@
 import { ROUTES } from "../constants";
+import { useCommitMedia } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Verb,
@@ -7,37 +8,28 @@ import {
 	getLot,
 	getVerb,
 } from "@/lib/utilities";
-import { Button, Flex, Image, Loader, Text } from "@mantine/core";
+import { Anchor, Button, Flex, Image, Loader, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
 	type BooksSearchQuery,
-	CommitAudioBookDocument,
-	CommitBookDocument,
-	type CommitBookMutationVariables,
-	CommitMovieDocument,
-	CommitPodcastDocument,
-	CommitShowDocument,
-	CommitVideoGameDocument,
+	MediaExistsInDatabaseDocument,
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/router";
-import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
 
 type Item = BooksSearchQuery["booksSearch"]["items"][number];
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
 	lot: MetadataLot;
-	imageOnClick: () => Promise<number>;
 	children?: JSX.Element;
-	imageIsLoading?: boolean;
+	imageOverlayForLoadingIndicator?: boolean;
+	href: string;
 }) => {
-	const router = useRouter();
-
 	return (
 		<Flex
 			key={props.item.identifier}
@@ -46,7 +38,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			direction={"column"}
 			pos={"relative"}
 		>
-			{props.imageIsLoading ? (
+			{props.imageOverlayForLoadingIndicator ? (
 				<Loader
 					pos={"absolute"}
 					style={{ zIndex: 999 }}
@@ -57,25 +49,25 @@ export const MediaItemWithoutUpdateModal = (props: {
 					size="sm"
 				/>
 			) : null}
-			<Image
-				src={props.item.posterImages.at(0)}
-				radius={"md"}
-				height={250}
-				withPlaceholder
-				placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
-				style={{ cursor: "pointer" }}
-				alt={`Image for ${props.item.title}`}
-				onClick={async () => {
-					const id = await props.imageOnClick();
-					router.push(`${ROUTES.media.details}?item=${id}`);
-				}}
-				sx={(_t) => ({
-					":hover": { transform: "scale(1.02)" },
-					transitionProperty: "transform",
-					transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-					transitionDuration: "150ms",
-				})}
-			/>
+			<Link passHref legacyBehavior href={props.href}>
+				<Anchor>
+					<Image
+						src={props.item.posterImages.at(0)}
+						radius={"md"}
+						height={250}
+						withPlaceholder
+						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
+						style={{ cursor: "pointer" }}
+						alt={`Image for ${props.item.title}`}
+						sx={(_t) => ({
+							":hover": { transform: "scale(1.02)" },
+							transitionProperty: "transform",
+							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+							transitionDuration: "150ms",
+						})}
+					/>
+				</Anchor>
+			</Link>
 			<Flex justify={"space-between"} w="100%">
 				<Text c="dimmed">{props.item.publishYear}</Text>
 				<Text c="dimmed">{changeCase(props.lot)}</Text>
@@ -99,55 +91,20 @@ export default function (props: {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
-	const commitMedia = useMutation(
-		async (variables: CommitBookMutationVariables) => {
-			invariant(lot, "Lot must be defined");
-			return await match(lot)
-				.with(MetadataLot.AudioBook, async () => {
-					const { commitAudioBook } = await gqlClient.request(
-						CommitAudioBookDocument,
-						variables,
-					);
-					return commitAudioBook;
-				})
-				.with(MetadataLot.Book, async () => {
-					const { commitBook } = await gqlClient.request(
-						CommitBookDocument,
-						variables,
-					);
-					return commitBook;
-				})
-				.with(MetadataLot.Movie, async () => {
-					const { commitMovie } = await gqlClient.request(
-						CommitMovieDocument,
-						variables,
-					);
-					return commitMovie;
-				})
-				.with(MetadataLot.Podcast, async () => {
-					const { commitPodcast } = await gqlClient.request(
-						CommitPodcastDocument,
-						variables,
-					);
-					return commitPodcast;
-				})
-				.with(MetadataLot.Show, async () => {
-					const { commitShow } = await gqlClient.request(
-						CommitShowDocument,
-						variables,
-					);
-					return commitShow;
-				})
-				.with(MetadataLot.VideoGame, async () => {
-					const { commitVideoGame } = await gqlClient.request(
-						CommitVideoGameDocument,
-						variables,
-					);
-					return commitVideoGame;
-				})
-				.exhaustive();
+	const commitMedia = useCommitMedia(lot);
+	const mediaExistsInDatabase = useQuery({
+		queryKey: ["mediaExistsInDatabase", props.idx],
+		queryFn: async () => {
+			const { mediaExistsInDatabase } = await gqlClient.request(
+				MediaExistsInDatabaseDocument,
+				{
+					identifier: props.item.identifier,
+					lot: props.lot,
+				},
+			);
+			return mediaExistsInDatabase;
 		},
-	);
+	});
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
 			const { addMediaToCollection } = await gqlClient.request(
@@ -175,8 +132,14 @@ export default function (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			imageOnClick={async () => await commitFunction()}
-			imageIsLoading={commitMedia.isLoading}
+			imageOverlayForLoadingIndicator={
+				commitMedia.isLoading || mediaExistsInDatabase.isLoading
+			}
+			href={
+				mediaExistsInDatabase.data
+					? `${ROUTES.media.details}?item=${mediaExistsInDatabase.data}`
+					: `${ROUTES.media.commit}?identifier=${props.item.identifier}&lot=${props.lot}`
+			}
 		>
 			<>
 				{props.lot !== MetadataLot.Show ? (

@@ -1,6 +1,7 @@
 import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -113,7 +114,7 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										imageOnClick={async () => parseInt(lm.identifier)}
+										href={`${ROUTES.media.details}?item=${lm.identifier}`}
 									/>
 								))}
 							</Grid>

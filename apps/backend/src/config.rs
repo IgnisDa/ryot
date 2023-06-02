@@ -189,6 +189,8 @@ pub struct SchedulerConfig {
     pub database_url: String,
     #[setting(default = 10)]
     pub user_cleanup_every: i32,
+    #[setting(default = 5)]
+    pub rate_limit_num: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

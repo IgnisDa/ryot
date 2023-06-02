@@ -196,6 +196,19 @@ impl MediaQuery {
             .await
     }
 
+    /// Get the ID of a media with the given identifier if it exists in the database
+    async fn media_exists_in_database(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<i32>> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .media_exists_in_database(identifier, lot)
+            .await
+    }
+
     /// Get the user's seen history for a particular media item.
     async fn seen_history(
         &self,
@@ -320,6 +333,20 @@ impl MediaService {
             backdrop_images,
             genres,
         })
+    }
+
+    async fn media_exists_in_database(
+        &self,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<i32>> {
+        Ok(Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .filter(metadata::Column::Lot.eq(lot))
+            .one(&self.db)
+            .await
+            .unwrap()
+            .map(|f| f.id))
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
@@ -643,16 +670,8 @@ impl MediaService {
             .expr(Func::count(Expr::asterisk()))
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
-
-        let (count_sql, count_values) = get_sql_and_values(count_select);
-
-        println!("{}", count_sql);
-
-        let stmt = Statement::from_sql_and_values(
-            self.db.get_database_backend(),
-            &count_sql,
-            count_values,
-        );
+        let (sql, values) = get_sql_and_values(count_select);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
         let total = self
             .db
             .query_one(stmt)
@@ -662,11 +681,9 @@ impl MediaService {
 
         let main_select = main_select
             .limit(PAGE_LIMIT as u64)
-            .offset((input.page - 1) as u64)
+            .offset((((input.page - 1) * PAGE_LIMIT) + 1) as u64)
             .to_owned();
-
         let (sql, values) = get_sql_and_values(main_select);
-
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
         let metas: Vec<InnerMediaSearchItem> = self
             .db

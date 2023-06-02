@@ -1,15 +1,16 @@
 export const ROUTES = {
 	auth: {
-		register: "/auth/register",
 		login: "/auth/login",
+		register: "/auth/register",
 	},
+	collections: "/collections",
 	dashboard: "/",
 	list: "/list",
 	media: {
+		commit: "/media/commit",
 		details: "/media",
-		updateProgress: "/media/update-progress",
 		postReview: "/media/post-review",
+		updateProgress: "/media/update-progress",
 	},
-	collections: "/collections",
 	settings: "/settings",
 } as const;

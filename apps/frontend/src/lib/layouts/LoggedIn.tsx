@@ -76,8 +76,10 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 	);
 }
 
+const AUTH_COOKIE = "auth";
+
 export default function ({ children }: { children: ReactElement }) {
-	const [{ auth }] = useCookies(["auth"]);
+	const [{ auth }, _, removeAuthCookie] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
 	useQuery({
 		queryKey: ["userDetails"],
@@ -135,6 +137,7 @@ export default function ({ children }: { children: ReactElement }) {
 			return logoutUser;
 		},
 		onSuccess: (data) => {
+			removeAuthCookie(AUTH_COOKIE);
 			if (data) {
 				notifications.show({
 					title: "Success",

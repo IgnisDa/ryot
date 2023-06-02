@@ -3,6 +3,7 @@ import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -14,6 +15,7 @@ import {
 	Container,
 	Flex,
 	Grid as MantineGrid,
+	Group,
 	Modal,
 	Pagination,
 	Select,
@@ -43,6 +45,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconFilter,
+	IconFilterOff,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
@@ -60,6 +63,12 @@ import { match } from "ts-pattern";
 
 const LIMIT = 20;
 
+const defaultFilters = {
+	mineFilter: MediaFilter.All,
+	mineSortOrder: MediaSortOrder.Asc,
+	mineSortBy: MediaSortBy.ReleaseDate,
+};
+
 const Page: NextPageWithLayout = () => {
 	const [
 		filtersModalOpened,
@@ -67,17 +76,17 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
 		key: "mineSortOrder",
-		defaultValue: MediaSortOrder.Asc,
+		defaultValue: defaultFilters.mineSortOrder,
 		getInitialValueInEffect: false,
 	});
 	const [mineSortBy, setMineSortBy] = useLocalStorage({
 		key: "mineSortBy",
-		defaultValue: MediaSortBy.ReleaseDate,
+		defaultValue: defaultFilters.mineSortBy,
 		getInitialValueInEffect: false,
 	});
 	const [mineFilter, setMineFilter] = useLocalStorage({
 		key: "mineFilter",
-		defaultValue: MediaFilter.All,
+		defaultValue: defaultFilters.mineFilter,
 		getInitialValueInEffect: false,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
@@ -203,9 +212,15 @@ const Page: NextPageWithLayout = () => {
 		) : null;
 
 	const isFilterChanged =
-		mineFilter !== MediaFilter.All ||
-		mineSortOrder !== MediaSortOrder.Asc ||
-		mineSortBy !== MediaSortBy.ReleaseDate;
+		mineFilter !== defaultFilters.mineFilter ||
+		mineSortOrder !== defaultFilters.mineSortOrder ||
+		mineSortBy !== defaultFilters.mineSortBy;
+
+	const resetFilters = () => {
+		setMineFilter(defaultFilters.mineFilter);
+		setMineSortOrder(defaultFilters.mineSortOrder);
+		setMineSortBy(defaultFilters.mineSortBy);
+	};
 
 	return lot ? (
 		<>
@@ -267,14 +282,19 @@ const Page: NextPageWithLayout = () => {
 											withCloseButton={false}
 										>
 											<Stack>
-												<Title order={3}>Filters</Title>
+												<Group>
+													<Title order={3}>Filters</Title>
+													<ActionIcon onClick={resetFilters}>
+														<IconFilterOff size="1.5rem" />
+													</ActionIcon>
+												</Group>
 												<Select
 													withinPortal
+													value={mineFilter.toString()}
 													data={Object.values(MediaFilter).map((o) => ({
 														value: o.toString(),
 														label: startCase(lowerCase(o)),
 													}))}
-													defaultValue={mineFilter.toString()}
 													onChange={(v) => {
 														const filter = match(v)
 															.with("ALL", () => MediaFilter.All)
@@ -292,7 +312,7 @@ const Page: NextPageWithLayout = () => {
 															value: o.toString(),
 															label: startCase(lowerCase(o)),
 														}))}
-														defaultValue={mineSortBy.toString()}
+														value={mineSortBy.toString()}
 														onChange={(v) => {
 															const orderBy = match(v)
 																.with(
@@ -339,7 +359,7 @@ const Page: NextPageWithLayout = () => {
 												key={lm.identifier}
 												item={lm}
 												lot={lot}
-												imageOnClick={async () => parseInt(lm.identifier)}
+												href={`${ROUTES.media.details}?item=${lm.identifier}`}
 											/>
 										))}
 									</Grid>
