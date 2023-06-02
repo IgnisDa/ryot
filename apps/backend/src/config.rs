@@ -260,7 +260,5 @@ pub fn get_app_config() -> Result<AppConfig> {
         .file_optional(path.join(format!("{app}.yaml")))?
         .load()?;
 
-    dbg!(&result.config);
-
     Ok(result.config)
 }
