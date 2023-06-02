@@ -1,10 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use figment::{
-    providers::{Env, Format, Json, Serialized, Toml, Yaml},
-    Figment,
-};
+use anyhow::Result;
 use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
 
@@ -220,25 +216,15 @@ pub struct AppConfig {
 pub fn get_app_config_scheme() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
+    let path = PathBuf::from(config);
 
-    let result = ConfigLoader::<AppConfig>::json()
-        .file_optional(PathBuf::from(config).join(format!("{app}.json")))?
+    let result = ConfigLoader::<AppConfig>::new()
+        .file_optional(path.join(format!("{app}.json")))?
+        .file_optional(path.join(format!("{app}.toml")))?
+        .file_optional(path.join(format!("{app}.yaml")))?
         .load()?;
-    dbg!(result.config);
 
-    Figment::new()
-        .merge(Serialized::defaults(AppConfig::default()))
-        .merge(Json::file(
-            PathBuf::from(config).join(format!("{app}.json")),
-        ))
-        .merge(Toml::file(
-            PathBuf::from(config).join(format!("{app}.toml")),
-        ))
-        .merge(Yaml::file(
-            PathBuf::from(config).join(format!("{app}.yaml")),
-        ))
-        .merge(Env::raw().split("_").only(&["database.url"]))
-        .merge(Env::raw().split("__").ignore(&["database.url"]))
-        .extract()
-        .context("Unable to construct application configuration")
+    dbg!(&result.config);
+
+    Ok(result.config)
 }
