@@ -3,9 +3,9 @@ use std::{collections::HashSet, sync::Arc};
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::Utc;
+use chrono::{Duration as ChronoDuration, Utc};
 use cookie::{
-    time::{ext::NumericalDuration, OffsetDateTime},
+    time::{Duration, OffsetDateTime},
     Cookie,
 };
 use http::header::SET_COOKIE;
@@ -27,9 +27,9 @@ use crate::{
         collection, media_import_report, metadata, metadata_to_collection,
         prelude::{
             AudioBook, Book, Collection, MediaImportReport, Metadata, Movie, Podcast, Review, Seen,
-            Show, Summary, Token, User,
+            Show, Summary, User,
         },
-        review, seen, summary, token, user,
+        review, seen, summary, user,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::{IdObject, Identifier},
@@ -38,11 +38,11 @@ use crate::{
         resolver::{MediaSearchItem, MediaService},
         MediaSpecifics,
     },
-    migrator::{MediaImportSource, MetadataLot, ReviewVisibility, TokenLot, UserLot},
+    migrator::{MediaImportSource, MetadataLot, ReviewVisibility, UserLot},
     movies::resolver::MoviesService,
     podcasts::resolver::PodcastsService,
     shows::resolver::ShowsService,
-    utils::{user_auth_token_from_ctx, user_id_from_ctx, NamedObject},
+    utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
     video_games::resolver::VideoGamesService,
 };
 
@@ -102,7 +102,7 @@ struct LoginError {
 
 #[derive(Debug, SimpleObject)]
 struct LoginResponse {
-    api_key: Uuid,
+    api_key: String,
 }
 
 #[derive(Union)]
@@ -124,12 +124,14 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
+    token_valid_till: i32,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
     cookie = if expires {
         cookie.expires(OffsetDateTime::now_utc())
     } else {
-        cookie.expires(OffsetDateTime::now_utc().checked_add(90.days()))
+        cookie
+            .expires(OffsetDateTime::now_utc().checked_add(Duration::days(token_valid_till.into())))
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -408,21 +410,41 @@ impl MiscMutation {
 
     /// Login a user using their username and password and return an API key.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        let api_key = gql_ctx
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        let maybe_api_key = gql_ctx
             .data_unchecked::<MiscService>()
-            .login_user(&input.username, &input.password)
+            .login_user(
+                &input.username,
+                &input.password,
+                config.users.token_valid_for_days,
+            )
             .await?;
-        let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
-        if let LoginResult::Ok(LoginResponse { api_key }) = api_key {
-            create_cookie(gql_ctx, &api_key.to_string(), false, cookie_insecure)?;
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        match &maybe_api_key {
+            LoginResult::Ok(LoginResponse { api_key }) => {
+                create_cookie(
+                    gql_ctx,
+                    api_key,
+                    false,
+                    config.web.insecure_cookie,
+                    config.users.token_valid_for_days,
+                )?;
+            }
+            _ => (),
         };
-        Ok(api_key)
+        Ok(maybe_api_key)
     }
 
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let cookie_insecure = gql_ctx.data_unchecked::<AppConfig>().web.insecure_cookie;
-        create_cookie(gql_ctx, "", true, cookie_insecure)?;
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        create_cookie(
+            gql_ctx,
+            "",
+            true,
+            config.web.insecure_cookie,
+            config.users.token_valid_for_days,
+        )?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<MiscService>()
@@ -453,6 +475,7 @@ impl MiscMutation {
 #[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
+    scdb: MemoryDb,
     media_service: Arc<MediaService>,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
@@ -467,6 +490,7 @@ impl MiscService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
+        scdb: &MemoryDb,
         media_service: &MediaService,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
@@ -478,6 +502,7 @@ impl MiscService {
     ) -> Self {
         Self {
             db: db.clone(),
+            scdb: scdb.clone(),
             media_service: Arc::new(media_service.clone()),
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),
@@ -871,12 +896,14 @@ impl MiscService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let token = Token::find()
-            .filter(token::Column::Value.eq(token))
-            .one(&self.db)
-            .await?;
-        if let Some(t) = token {
-            let user = t.find_related(User).one(&self.db).await.unwrap().unwrap();
+        let found_token = self.scdb.lock().unwrap().get(token.as_bytes()).unwrap();
+        if let Some(t) = found_token {
+            let user_id = std::str::from_utf8(&t).unwrap().parse::<i32>().unwrap();
+            let user = User::find_by_id(user_id)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
             Ok(UserDetailsResult::Ok(user))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
@@ -1063,7 +1090,12 @@ impl MiscService {
         Ok(RegisterResult::Ok(IdObject { id: user.id.into() }))
     }
 
-    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
+    async fn login_user(
+        &self,
+        username: &str,
+        password: &str,
+        valid_for_days: i32,
+    ) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -1084,26 +1116,26 @@ impl MiscService {
                 error: LoginErrorVariant::CredentialsMismatch,
             }));
         }
-        let api_key = Uuid::new_v4();
+        let api_key = Uuid::new_v4().to_string();
 
-        let token = token::ActiveModel {
-            value: ActiveValue::Set(api_key.to_string()),
-            lot: ActiveValue::Set(TokenLot::Login),
-            user_id: ActiveValue::Set(user.id),
-            last_used: ActiveValue::Set(Some(Utc::now())),
-            ..Default::default()
-        };
-        token.insert(&self.db).await.unwrap();
+        self.scdb.lock().unwrap().set(
+            api_key.as_bytes(),
+            user.id.to_string().as_bytes(),
+            Some(
+                ChronoDuration::days(valid_for_days.into())
+                    .num_seconds()
+                    .try_into()
+                    .unwrap(),
+            ),
+        )?;
+
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
     async fn logout_user(&self, token: &str) -> Result<bool> {
-        let token = Token::find()
-            .filter(token::Column::Value.eq(token))
-            .one(&self.db)
-            .await?;
-        if let Some(t) = token {
-            t.delete(&self.db).await?;
+        let found_token = self.scdb.lock().unwrap().get(token.as_bytes()).unwrap();
+        if let Some(t) = found_token {
+            self.scdb.lock().unwrap().delete(&t)?;
             Ok(true)
         } else {
             Ok(false)
@@ -1168,7 +1200,6 @@ impl MiscService {
     pub async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
-            self.cleanup_summaries_for_user(&user.id).await?;
             self.calculate_user_summary(&user.id).await?;
         }
         Ok(())

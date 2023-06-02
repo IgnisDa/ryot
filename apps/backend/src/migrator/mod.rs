@@ -19,6 +19,7 @@ mod m20230509_000014_create_media_import_report;
 mod m20230514_000015_create_podcast;
 mod m20230531_000016_embed_creators;
 mod m20230531_000017_drop_creator_tables;
+mod m20230602_000018_drop_token_tables;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230514_000015_create_podcast::Migration),
             Box::new(m20230531_000016_embed_creators::Migration),
             Box::new(m20230531_000017_drop_creator_tables::Migration),
+            Box::new(m20230602_000018_drop_token_tables::Migration),
         ]
     }
 }

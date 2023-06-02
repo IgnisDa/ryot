@@ -16,11 +16,11 @@ use crate::{
     movies::resolver::{MoviesMutation, MoviesQuery},
     podcasts::resolver::{PodcastsMutation, PodcastsQuery},
     shows::resolver::{ShowsMutation, ShowsQuery},
-    utils::AppServices,
+    utils::{AppServices, MemoryDb},
     video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
+    VERSION,
 };
 
-pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static AUTHOR: &str = "ignisda";
 pub static PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub static REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
@@ -130,6 +130,7 @@ pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 pub async fn get_schema(
     app_services: &AppServices,
     db: DatabaseConnection,
+    scdb: MemoryDb,
     config: &AppConfig,
 ) -> GraphqlSchema {
     Schema::build(
@@ -139,6 +140,7 @@ pub async fn get_schema(
     )
     .data(config.to_owned())
     .data(db)
+    .data(scdb)
     .data(app_services.books_service.clone())
     .data(app_services.media_service.clone())
     .data(app_services.movies_service.clone())
