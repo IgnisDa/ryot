@@ -1,4 +1,19 @@
 
+# Version 1.0.0-beta.51 (2023-06-02)
+
+## Bug Fixes
+
+* **frontend:** remove useless logout
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* better explanation for config vars
+
+
 # Version 1.0.0-beta.50 (2023-06-02)
 
 ## Bug Fixes
