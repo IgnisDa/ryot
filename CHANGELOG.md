@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.44 (2023-06-02)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** color btn if filter modified
+
+
 # Version 1.0.0-beta.43 (2023-06-02)
 
 ## Build
