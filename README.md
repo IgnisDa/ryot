@@ -76,12 +76,12 @@ $ docker run --detach \
   --name ryot \
   --pull always \
   --publish 8000:8000 \
-  --env "WEB__INSECURE_COOKIE=true" \ 
+  --env "WEB_INSECURE_COOKIE=true" \ 
   --volume ./ryot/data:/data \
   ghcr.io/ignisda/ryot:latest
 ```
 
-**NOTE**: The `WEB__INSECURE_COOKIE` is only required if you are not running HTTPs.
+**NOTE**: The `WEB_INSECURE_COOKIE` is only required if you are not running HTTPs.
 
 ### 📦 Option 2: Quick-run a release
 
@@ -111,8 +111,9 @@ $ cargo run --bin ryot --release
 You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
-Environment variables are split by the `_` delimiter. For example, the key
-`audio_books.audible.url` corresponds to the variable `AUDIO_BOOKS_AUDIBLE_URL`.
+To set the equivalent environment variables, join keys by `_` (underscore) and
+uppercase the keys. For example, the key `audio_books.audible.url` corresponds
+to the environment variable `AUDIO_BOOKS_AUDIBLE_URL`.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON.
 
