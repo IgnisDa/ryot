@@ -99,7 +99,7 @@ export default function (props: {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
-	const mediaExistsInDatbase = useQuery({
+	const mediaExistsInDatabase = useQuery({
 		queryKey: ["mediaExistsInDatabase", props.idx],
 		queryFn: async () => {
 			const { mediaExistsInDatabase } = await gqlClient.request(
@@ -190,12 +190,12 @@ export default function (props: {
 			item={props.item}
 			lot={props.lot}
 			imageOverlayForLoadingIndicator={
-				commitMedia.isLoading || mediaExistsInDatbase.isLoading
+				commitMedia.isLoading || mediaExistsInDatabase.isLoading
 			}
 			href={
-				mediaExistsInDatbase.data
-					? `${ROUTES.media.details}?item=${mediaExistsInDatbase.data}`
-					: "/hello" // FIXME: create new page for this
+				mediaExistsInDatabase.data
+					? `${ROUTES.media.details}?item=${mediaExistsInDatabase.data}`
+					: `${ROUTES.media.commit}?identifier=${props.item.identifier}&lot=${props.lot}`
 			}
 		>
 			<>
