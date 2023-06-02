@@ -3,6 +3,7 @@ import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -13,8 +14,8 @@ import {
 	Center,
 	Container,
 	Flex,
-	Group,
 	Grid as MantineGrid,
+	Group,
 	Modal,
 	Pagination,
 	Select,
@@ -358,7 +359,7 @@ const Page: NextPageWithLayout = () => {
 												key={lm.identifier}
 												item={lm}
 												lot={lot}
-												imageOnClick={async () => parseInt(lm.identifier)}
+												href={`${ROUTES.media.details}?item=${lm.identifier}`}
 											/>
 										))}
 									</Grid>

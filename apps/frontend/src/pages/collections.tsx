@@ -1,6 +1,7 @@
 import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
+import { ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -101,9 +102,7 @@ const Page: NextPageWithLayout = () => {
 												key={mediaItem.identifier}
 												item={mediaItem}
 												lot={mediaItem.lot}
-												imageOnClick={async () =>
-													parseInt(mediaItem.identifier)
-												}
+												href={`${ROUTES.media.details}?item=${mediaItem.identifier}`}
 											>
 												<Button
 													fullWidth
