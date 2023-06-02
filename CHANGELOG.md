@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.45 (2023-06-02)
+
+## Bug Fixes
+
+* **backend:** ambiguous column reference
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.44 (2023-06-02)
 
 ## Build
