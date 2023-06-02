@@ -5,7 +5,6 @@ pub mod prelude;
 pub mod audio_book;
 pub mod book;
 pub mod collection;
-pub mod creator;
 pub mod genre;
 pub mod media_import_report;
 pub mod metadata;
@@ -19,10 +18,13 @@ pub mod review;
 pub mod seen;
 pub mod show;
 pub mod summary;
-pub mod token;
 pub mod user;
 pub mod user_to_metadata;
 pub mod video_game;
+
+// these models are now dropped, so should not be exposed
+pub mod creator;
+pub mod token;
 
 pub mod utils {
     use async_graphql::SimpleObject;
