@@ -641,8 +641,6 @@ impl MediaService {
 
         let (count_sql, count_values) = get_sql_and_values(count_select);
 
-        println!("{}", count_sql);
-
         let stmt = Statement::from_sql_and_values(
             self.db.get_database_backend(),
             &count_sql,
