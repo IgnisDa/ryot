@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
@@ -58,6 +60,7 @@ impl MediaProvider for TmdbService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCreditsResponse {
             cast: Vec<TmdbCredit>,
+            crew: Vec<TmdbCredit>,
         }
         let mut rsp = self
             .client
@@ -65,6 +68,21 @@ impl MediaProvider for TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut all_creators = credits
+            .cast
+            .clone()
+            .into_iter()
+            .map(|c| MetadataCreator {
+                name: c.name,
+                role: c.known_for_department,
+                image_urls: Vec::from_iter(c.profile_path.map(|p| self.get_cover_image_url(&p))),
+            })
+            .collect::<HashSet<_>>();
+        all_creators.extend(credits.crew.into_iter().map(|c| MetadataCreator {
+            name: c.name,
+            role: c.known_for_department,
+            image_urls: Vec::from_iter(c.profile_path.map(|p| self.get_cover_image_url(&p))),
+        }));
         let poster_images = Vec::from_iter(data.poster_path.map(|p| self.get_cover_image_url(&p)));
         let backdrop_images =
             Vec::from_iter(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
@@ -73,17 +91,7 @@ impl MediaProvider for TmdbService {
             lot: MetadataLot::Movie,
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
-            creators: credits
-                .cast
-                .into_iter()
-                .map(|c| MetadataCreator {
-                    name: c.name,
-                    role: c.known_for_department,
-                    image_urls: Vec::from_iter(
-                        c.profile_path.map(|p| self.get_cover_image_url(&p)),
-                    ),
-                })
-                .collect(),
+            creators: Vec::from_iter(all_creators),
             poster_images,
             backdrop_images,
             publish_year: convert_date_to_year(&data.release_date),
