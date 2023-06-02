@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum, ConfigLoader};
-use serde::{Deserialize, Serialize};
 
 use crate::graphql::PROJECT_NAME;
 
@@ -13,7 +12,7 @@ pub trait IsFeatureEnabled {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
@@ -21,7 +20,7 @@ pub struct AudibleConfig {
     pub url: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 pub struct AudioBookConfig {
     #[setting(nested)]
     pub audible: AudibleConfig,
@@ -42,7 +41,7 @@ derive_enum!(
     }
 );
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
@@ -53,7 +52,7 @@ pub struct OpenlibraryConfig {
     pub cover_image_size: OpenlibraryCoverImageSize,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 pub struct BookConfig {
     #[setting(nested)]
     pub openlibrary: OpenlibraryConfig,
@@ -61,7 +60,7 @@ pub struct BookConfig {
 
 impl IsFeatureEnabled for BookConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config, PartialEq, Eq)]
+#[derive(Debug, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
@@ -71,7 +70,7 @@ pub struct DatabaseConfig {
     pub scdb_url: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "MOVIES_TMDB_")]
 // #[config(env_prefix = "SHOWS_TMDB_")]
@@ -84,7 +83,7 @@ pub struct TmdbConfig {
     pub access_token: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 pub struct MovieConfig {
     #[setting(nested)]
     pub tmdb: TmdbConfig,
@@ -92,7 +91,7 @@ pub struct MovieConfig {
 
 impl IsFeatureEnabled for MovieConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
@@ -102,7 +101,7 @@ pub struct ListenNotesConfig {
     pub user_agent: String,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 pub struct PodcastConfig {
     #[setting(nested)]
     pub listennotes: ListenNotesConfig,
@@ -118,7 +117,7 @@ impl IsFeatureEnabled for PodcastConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 pub struct ShowConfig {
     #[setting(nested)]
     pub tmdb: TmdbConfig,
@@ -126,7 +125,7 @@ pub struct ShowConfig {
 
 impl IsFeatureEnabled for ShowConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
@@ -146,7 +145,7 @@ derive_enum!(
     }
 );
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
@@ -157,7 +156,7 @@ pub struct IgdbConfig {
     pub image_size: IgdbImageSize,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 pub struct VideoGameConfig {
     #[setting(nested)]
     pub twitch: TwitchConfig,
@@ -175,7 +174,7 @@ impl IsFeatureEnabled for VideoGameConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
@@ -185,7 +184,7 @@ pub struct SchedulerConfig {
     pub user_cleanup_every: i32,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "USERS_")]
 pub struct UsersConfig {
@@ -195,7 +194,7 @@ pub struct UsersConfig {
     pub token_valid_for_days: i32,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 #[config(env_prefix = "WEB_")]
 pub struct WebConfig {
@@ -204,7 +203,7 @@ pub struct WebConfig {
     pub insecure_cookie: bool,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Config)]
+#[derive(Debug, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
     #[setting(nested)]
