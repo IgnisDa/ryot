@@ -465,16 +465,8 @@ impl MediaService {
             MetadataId,
             LastUpdatedOn,
             LastSeen,
+            UserId,
         }
-        let sub_select = Query::select()
-            .column(TempSeen::MetadataId)
-            .expr_as(
-                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
-                TempSeen::LastSeen,
-            )
-            .from(TempSeen::Table)
-            .group_by_col(TempSeen::MetadataId)
-            .to_owned();
 
         let mut main_select = Query::select()
             .expr(Expr::table_asterisk(TempMetadata::Alias))
@@ -533,6 +525,16 @@ impl MediaService {
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
+                        let sub_select = Query::select()
+                            .column(TempSeen::MetadataId)
+                            .expr_as(
+                                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
+                                TempSeen::LastSeen,
+                            )
+                            .from(TempSeen::Table)
+                            .and_where(Expr::col(TempSeen::UserId).eq(user_id))
+                            .group_by_col(TempSeen::MetadataId)
+                            .to_owned();
                         main_select = main_select
                             .join_subquery(
                                 JoinType::Join,
