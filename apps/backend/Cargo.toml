@@ -21,7 +21,6 @@ axum = { version = "0.6.12", features = ["macros"] }
 chrono = "0.4.24"
 cookie = "0.17.0"
 dotenvy = "0.15.7"
-figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 http = "0.2.9"
 mime_guess = "2.0.4"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
