@@ -582,11 +582,7 @@ impl MediaService {
                                     ),
                             )
                             .group_by_col((TempMetadata::Alias, TempMetadata::Id))
-                            // TODO: `ORDER BY "average_rating"`
-                            // .order_by_expr(
-                            //     Expr::expr(Alias::new("average_rating")).into(),
-                            //     order_by,
-                            // )
+                            .order_by_expr(Expr::cust("average_rating").into(), order_by)
                             .to_owned();
                     }
                 };
