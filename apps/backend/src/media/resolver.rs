@@ -7,7 +7,8 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SqliteQueryBuilder,
+    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SelectStatement,
+    SqliteQueryBuilder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -139,6 +140,7 @@ pub enum MediaSortBy {
     #[default]
     ReleaseDate,
     LastSeen,
+    Rating,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -465,22 +467,26 @@ impl MediaService {
             MetadataId,
             LastUpdatedOn,
             LastSeen,
+            UserId,
         }
-        let sub_select = Query::select()
-            .column(TempSeen::MetadataId)
-            .expr_as(
-                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
-                TempSeen::LastSeen,
-            )
-            .from(TempSeen::Table)
-            .group_by_col(TempSeen::MetadataId)
-            .to_owned();
+        #[derive(Iden)]
+        #[iden = "review"]
+        enum TempReview {
+            Table,
+            #[iden = "r"]
+            Alias,
+            MetadataId,
+            UserId,
+            Rating,
+        }
 
         let mut main_select = Query::select()
             .expr(Expr::table_asterisk(TempMetadata::Alias))
             .from_as(TempMetadata::Table, TempMetadata::Alias)
-            .and_where(Expr::col(TempMetadata::Lot).eq(input.lot))
-            .and_where(Expr::col(TempMetadata::Id).is_in(distinct_meta_ids.clone()))
+            .and_where(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(input.lot))
+            .and_where(
+                Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(distinct_meta_ids.clone()),
+            )
             .to_owned();
 
         if let Some(v) = input.query.clone() {
@@ -533,6 +539,16 @@ impl MediaService {
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
+                        let sub_select = Query::select()
+                            .column(TempSeen::MetadataId)
+                            .expr_as(
+                                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
+                                TempSeen::LastSeen,
+                            )
+                            .from(TempSeen::Table)
+                            .and_where(Expr::col(TempSeen::UserId).eq(user_id))
+                            .group_by_col(TempSeen::MetadataId)
+                            .to_owned();
                         main_select = main_select
                             .join_subquery(
                                 JoinType::Join,
@@ -542,6 +558,31 @@ impl MediaService {
                                     .equals((TempSeen::Alias, TempMetadata::MetadataId)),
                             )
                             .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
+                            .to_owned();
+                    }
+                    MediaSortBy::Rating => {
+                        main_select = main_select
+                            .expr_as(
+                                Func::coalesce([
+                                    Func::avg(Expr::col((TempReview::Alias, TempReview::Rating)))
+                                        .into(),
+                                    Expr::value(0).into(),
+                                ]),
+                                Alias::new("average_rating"),
+                            )
+                            .join_as(
+                                JoinType::LeftJoin,
+                                TempReview::Table,
+                                Alias::new("r"),
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((TempReview::Alias, TempReview::MetadataId))
+                                    .and(
+                                        Expr::col((TempReview::Alias, TempReview::UserId))
+                                            .eq(user_id),
+                                    ),
+                            )
+                            .group_by_col((TempMetadata::Alias, TempMetadata::Id))
+                            .order_by_expr(Expr::cust("average_rating").into(), order_by)
                             .to_owned();
                     }
                 };
@@ -578,6 +619,12 @@ impl MediaService {
             }
         };
 
+        let get_sql_and_values = |stmt: SelectStatement| match self.db.get_database_backend() {
+            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
+        };
+
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
             id: i32,
@@ -592,11 +639,9 @@ impl MediaService {
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
 
-        let (count_sql, count_values) = match self.db.get_database_backend() {
-            DatabaseBackend::MySql => count_select.build(MySqlQueryBuilder {}),
-            DatabaseBackend::Postgres => count_select.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => count_select.build(SqliteQueryBuilder {}),
-        };
+        let (count_sql, count_values) = get_sql_and_values(count_select);
+
+        println!("{}", count_sql);
 
         let stmt = Statement::from_sql_and_values(
             self.db.get_database_backend(),
@@ -607,7 +652,7 @@ impl MediaService {
             .db
             .query_one(stmt)
             .await?
-            .map(|qr| qr.try_get_by_index::<i32>(0).unwrap())
+            .map(|qr| qr.try_get_by_index::<i64>(0).unwrap())
             .unwrap();
 
         let main_select = main_select
@@ -615,11 +660,7 @@ impl MediaService {
             .offset((input.page - 1) as u64)
             .to_owned();
 
-        let (sql, values) = match self.db.get_database_backend() {
-            DatabaseBackend::MySql => main_select.build(MySqlQueryBuilder {}),
-            DatabaseBackend::Postgres => main_select.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => main_select.build(SqliteQueryBuilder {}),
-        };
+        let (sql, values) = get_sql_and_values(main_select);
 
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
         let metas: Vec<InnerMediaSearchItem> = self
@@ -647,7 +688,10 @@ impl MediaService {
             };
             items.push(m_small);
         }
-        Ok(MediaSearchResults { total, items })
+        Ok(MediaSearchResults {
+            total: total.try_into().unwrap(),
+            items,
+        })
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
