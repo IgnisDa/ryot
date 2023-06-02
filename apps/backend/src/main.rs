@@ -147,7 +147,7 @@ async fn main() -> Result<()> {
         &recalculate_user_summary_job_storage,
     )
     .await;
-    let schema = get_schema(&app_services, db.clone(), &config).await;
+    let schema = get_schema(&app_services, db.clone(), scdb.clone(), &config).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])

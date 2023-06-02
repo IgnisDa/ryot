@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashSet, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -13,7 +10,6 @@ use cookie::{
 };
 use http::header::SET_COOKIE;
 use rust_decimal::Decimal;
-use scdb::Store;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
@@ -46,7 +42,7 @@ use crate::{
     movies::resolver::MoviesService,
     podcasts::resolver::PodcastsService,
     shows::resolver::ShowsService,
-    utils::{user_auth_token_from_ctx, user_id_from_ctx, NamedObject},
+    utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
     video_games::resolver::VideoGamesService,
 };
 
@@ -471,7 +467,7 @@ impl MiscMutation {
 #[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
-    scdb: Arc<Mutex<Store>>,
+    scdb: MemoryDb,
     media_service: Arc<MediaService>,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
@@ -486,7 +482,7 @@ impl MiscService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
-        scdb: &Arc<Mutex<Store>>,
+        scdb: &MemoryDb,
         media_service: &MediaService,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,

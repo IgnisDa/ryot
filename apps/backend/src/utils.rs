@@ -44,6 +44,8 @@ use crate::{
     GqlCtx,
 };
 
+pub type MemoryDb = Arc<Mutex<Store>>;
+
 /// All the services that are used by the app
 pub struct AppServices {
     pub media_service: MediaService,
@@ -64,7 +66,7 @@ pub struct AppServices {
 
 pub async fn create_app_services(
     db: DatabaseConnection,
-    scdb: Arc<Mutex<Store>>,
+    scdb: MemoryDb,
     config: &AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
