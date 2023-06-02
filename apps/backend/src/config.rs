@@ -245,6 +245,7 @@ impl AppConfig {
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();
+        cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
         cl
