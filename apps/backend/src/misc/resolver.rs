@@ -410,9 +410,14 @@ impl MiscMutation {
 
     /// Login a user using their username and password and return an API key.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         let maybe_api_key = gql_ctx
             .data_unchecked::<MiscService>()
-            .login_user(&input.username, &input.password)
+            .login_user(
+                &input.username,
+                &input.password,
+                config.users.token_valid_for_days,
+            )
             .await?;
         let config = gql_ctx.data_unchecked::<AppConfig>();
         match &maybe_api_key {
@@ -1085,7 +1090,12 @@ impl MiscService {
         Ok(RegisterResult::Ok(IdObject { id: user.id.into() }))
     }
 
-    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
+    async fn login_user(
+        &self,
+        username: &str,
+        password: &str,
+        valid_for_days: i32,
+    ) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -1111,7 +1121,12 @@ impl MiscService {
         self.scdb.lock().unwrap().set(
             api_key.as_bytes(),
             user.id.to_string().as_bytes(),
-            Some(ChronoDuration::days(90).num_seconds().try_into().unwrap()),
+            Some(
+                ChronoDuration::days(valid_for_days.into())
+                    .num_seconds()
+                    .try_into()
+                    .unwrap(),
+            ),
         )?;
 
         Ok(LoginResult::Ok(LoginResponse { api_key }))
