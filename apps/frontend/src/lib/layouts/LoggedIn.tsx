@@ -89,6 +89,7 @@ export default function ({ children }: { children: ReactElement }) {
 		},
 		onSuccess: async (data) => {
 			if (data.__typename === "UserDetailsError") {
+				removeAuthCookie(AUTH_COOKIE);
 				await logoutUser.mutateAsync();
 				notifications.show({
 					color: "red",
@@ -133,22 +134,19 @@ export default function ({ children }: { children: ReactElement }) {
 	));
 	const logoutUser = useMutation({
 		mutationFn: async () => {
-			const { logoutUser } = await gqlClient.request(LogoutUserDocument);
-			return logoutUser;
+			try {
+				const { logoutUser } = await gqlClient.request(LogoutUserDocument);
+				return logoutUser;
+			} catch {
+				return null;
+			}
 		},
 		onSuccess: (data) => {
-			removeAuthCookie(AUTH_COOKIE);
 			if (data) {
 				notifications.show({
 					title: "Success",
 					message: "You were logged out successfully",
 					color: "green",
-				});
-			} else {
-				notifications.show({
-					title: "Error",
-					message: "There was a problem logging out",
-					color: "red",
 				});
 			}
 			router.push(ROUTES.auth.login);
