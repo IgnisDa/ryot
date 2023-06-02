@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.0.0-beta.41"
+version = "1.0.0-beta.46"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -29,6 +29,7 @@ regex = "1.8.1"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
+scdb = "0.2.1"
 sea-orm = { version = "0.11.1", features = [
     "sqlx-mysql",
     "sqlx-postgres",

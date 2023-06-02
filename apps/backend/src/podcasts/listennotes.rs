@@ -29,12 +29,9 @@ pub struct ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig) -> Self {
-        let (client, genres) = listennotes::get_client_config(
-            &config.listennotes.url,
-            &config.listennotes.api_token,
-            &config.listennotes.user_agent,
-        )
-        .await;
+        let (client, genres) =
+            listennotes::get_client_config(&config.listennotes.url, &config.listennotes.api_token)
+                .await;
         Self { client, genres }
     }
 }

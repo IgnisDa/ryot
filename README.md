@@ -127,6 +127,7 @@ builder. A minimal example configuration is in [`ryot.example.json`](/config/ryo
 | `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
 | `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
 | `database.url`                        | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
+| `database.scdb_url`                   | The path where [SCDB](https://docs.rs/scdb) will persist its storage.                                                                                                         |
 | `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
 | `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |
@@ -141,6 +142,7 @@ builder. A minimal example configuration is in [`ryot.example.json`](/config/ryo
 | `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |
 | `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                           |
 | `users.allow_changing_username`       | Whether users will be allowed to change their username in their profile settings.                                                                                             |
+| `users.token_valid_for_days`          | The number of days till login auth token is valid.                                                                                                                            |
 | `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                    |
 | `web.insecure_cookie`                 | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 

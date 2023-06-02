@@ -8,7 +8,7 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use crate::graphql::{AUTHOR, PROJECT_NAME};
+use crate::graphql::PROJECT_NAME;
 
 static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
 
@@ -79,12 +79,14 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct DatabaseConfig {
     pub url: String,
+    pub scdb_url: String,
 }
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
             url: format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME),
+            scdb_url: format!("/data/{}-scdb.db", PROJECT_NAME),
         }
     }
 }
@@ -125,7 +127,6 @@ impl IsFeatureEnabled for MovieConfig {}
 pub struct ListenNotesConfig {
     pub url: String,
     pub api_token: String,
-    pub user_agent: String,
 }
 
 impl Default for ListenNotesConfig {
@@ -133,7 +134,6 @@ impl Default for ListenNotesConfig {
         Self {
             url: "https://listen-api.listennotes.com/api/v2/".to_owned(),
             api_token: "".to_owned(),
-            user_agent: format!("{}/{}", AUTHOR, PROJECT_NAME),
         }
     }
 }
@@ -235,12 +235,14 @@ impl Default for SchedulerConfig {
 #[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct UsersConfig {
     pub allow_changing_username: bool,
+    pub token_valid_for_days: i32,
 }
 
 impl Default for UsersConfig {
     fn default() -> Self {
         Self {
             allow_changing_username: true,
+            token_valid_for_days: 90,
         }
     }
 }
@@ -283,6 +285,7 @@ impl AppConfig {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
         cl.database.url = gt();
+        cl.database.scdb_url = gt();
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();
