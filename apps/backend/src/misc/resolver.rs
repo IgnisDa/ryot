@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -465,14 +468,10 @@ impl MiscMutation {
     }
 }
 
-fn get_scdb(url: String) -> Store {
-    Store::new(&url, None, None, None, None, false).unwrap()
-}
-
 #[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
-    scdb_url: String,
+    scdb: Arc<Mutex<Store>>,
     media_service: Arc<MediaService>,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
@@ -487,7 +486,7 @@ impl MiscService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
-        config: &AppConfig,
+        scdb: &Arc<Mutex<Store>>,
         media_service: &MediaService,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
@@ -499,7 +498,7 @@ impl MiscService {
     ) -> Self {
         Self {
             db: db.clone(),
-            scdb_url: config.database.scdb_url.to_owned(),
+            scdb: scdb.clone(),
             media_service: Arc::new(media_service.clone()),
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),

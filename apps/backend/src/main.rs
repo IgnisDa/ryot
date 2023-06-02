@@ -1,3 +1,12 @@
+use std::{
+    env,
+    io::{Error as IoError, ErrorKind as IoErrorKind},
+    net::SocketAddr,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+
 use anyhow::Result;
 use apalis::{
     cron::{CronStream, Schedule},
@@ -22,16 +31,10 @@ use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
 use misc::resolver::COOKIE_NAME;
 use rust_embed::RustEmbed;
+use scdb::Store;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use sqlx::SqlitePool;
-use std::{
-    env,
-    io::{Error as IoError, ErrorKind as IoErrorKind},
-    net::SocketAddr,
-    str::FromStr,
-    time::Duration,
-};
 use tokio::try_join;
 use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::{
@@ -111,6 +114,9 @@ async fn main() -> Result<()> {
     let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
+    let scdb = Arc::new(Mutex::new(
+        Store::new(&config.database.scdb_url, None, None, None, None, false).unwrap(),
+    ));
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -132,6 +138,7 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
+        scdb.clone(),
         &config,
         &import_media_storage,
         &user_created_job_storage,

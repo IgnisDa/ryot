@@ -1,11 +1,13 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
+use scdb::Store;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     FromQueryResult, QueryFilter, QuerySelect,
@@ -62,6 +64,7 @@ pub struct AppServices {
 
 pub async fn create_app_services(
     db: DatabaseConnection,
+    scdb: Arc<Mutex<Store>>,
     config: &AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
@@ -89,7 +92,7 @@ pub async fn create_app_services(
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(
         &db,
-        config,
+        &scdb,
         &media_service,
         &audio_books_service,
         &books_service,
