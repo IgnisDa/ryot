@@ -483,8 +483,10 @@ impl MediaService {
         let mut main_select = Query::select()
             .expr(Expr::table_asterisk(TempMetadata::Alias))
             .from_as(TempMetadata::Table, TempMetadata::Alias)
-            .and_where(Expr::col(TempMetadata::Lot).eq(input.lot))
-            .and_where(Expr::col(TempMetadata::Id).is_in(distinct_meta_ids.clone()))
+            .and_where(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(input.lot))
+            .and_where(
+                Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(distinct_meta_ids.clone()),
+            )
             .to_owned();
 
         if let Some(v) = input.query.clone() {
@@ -561,19 +563,25 @@ impl MediaService {
                     MediaSortBy::Rating => {
                         main_select = main_select
                             .expr_as(
-                                Func::avg(Expr::col((TempReview::Alias, TempReview::Rating))),
+                                Func::coalesce([
+                                    Func::avg(Expr::col((TempReview::Alias, TempReview::Rating)))
+                                        .into(),
+                                    Expr::value(0).into(),
+                                ]),
                                 Alias::new("average_rating"),
                             )
-                            .left_join(
-                                TempReview::Table, // FIXME: need to add `as r` here
-                                Expr::col((TempMetadata::Table, TempMetadata::Id))
-                                    .equals((TempReview::Table, TempReview::MetadataId))
+                            .join_as(
+                                JoinType::LeftJoin,
+                                TempReview::Table,
+                                Alias::new("r"),
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((TempReview::Alias, TempReview::MetadataId))
                                     .and(
-                                        Expr::col((TempReview::Table, TempReview::UserId))
+                                        Expr::col((TempReview::Alias, TempReview::UserId))
                                             .eq(user_id),
                                     ),
                             )
-                            .group_by_col((TempMetadata::Table, TempMetadata::Id))
+                            .group_by_col((TempMetadata::Alias, TempMetadata::Id))
                             // .order_by_expr(
                             //     Expr::expr(Alias::new("average_rating")).into(), // FIXME
                             //     order_by,
@@ -614,6 +622,12 @@ impl MediaService {
             }
         };
 
+        let get_sql_and_values = |stmt: SelectStatement| match self.db.get_database_backend() {
+            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
+        };
+
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
             id: i32,
@@ -627,12 +641,6 @@ impl MediaService {
             .expr(Func::count(Expr::asterisk()))
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
-
-        let get_sql_and_values = |stmt: SelectStatement| match self.db.get_database_backend() {
-            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
-            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
-        };
 
         let (count_sql, count_values) = get_sql_and_values(count_select);
 
