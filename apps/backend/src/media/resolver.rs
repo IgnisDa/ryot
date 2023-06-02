@@ -139,6 +139,7 @@ pub enum MediaSortBy {
     #[default]
     ReleaseDate,
     LastSeen,
+    Rating,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -467,6 +468,16 @@ impl MediaService {
             LastSeen,
             UserId,
         }
+        #[derive(Iden)]
+        #[iden = "review"]
+        enum TempReview {
+            Table,
+            #[iden = "r"]
+            Alias,
+            MetadataId,
+            UserId,
+            Rating,
+        }
 
         let mut main_select = Query::select()
             .expr(Expr::table_asterisk(TempMetadata::Alias))
@@ -546,6 +557,28 @@ impl MediaService {
                             .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
                             .to_owned();
                     }
+                    MediaSortBy::Rating => {
+                        main_select = main_select
+                            .expr_as(
+                                Func::avg(Expr::col((TempReview::Alias, TempReview::Rating))),
+                                Alias::new("average_rating"),
+                            )
+                            .left_join(
+                                TempReview::Table, // FIXME: need to add `as r` here
+                                Expr::col((TempMetadata::Table, TempMetadata::Id))
+                                    .equals((TempReview::Table, TempReview::MetadataId))
+                                    .and(
+                                        Expr::col((TempReview::Table, TempReview::UserId))
+                                            .eq(user_id),
+                                    ),
+                            )
+                            .group_by_col((TempMetadata::Table, TempMetadata::Id))
+                            .order_by_expr(
+                                Expr::expr(Alias::new("average_rating")).into(), // FIXME
+                                order_by,
+                            )
+                            .to_owned();
+                    }
                 };
             }
         };
@@ -599,6 +632,8 @@ impl MediaService {
             DatabaseBackend::Postgres => count_select.build(PostgresQueryBuilder {}),
             DatabaseBackend::Sqlite => count_select.build(SqliteQueryBuilder {}),
         };
+
+        println!("{}", count_sql);
 
         let stmt = Statement::from_sql_and_values(
             self.db.get_database_backend(),
