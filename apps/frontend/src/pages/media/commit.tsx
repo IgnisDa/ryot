@@ -1,9 +1,9 @@
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import type { NextPageWithLayout } from "../_app";
 import { ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
-import { Box, Container, Title } from "@mantine/core";
 import {
 	CommitAudioBookDocument,
 	CommitBookDocument,
@@ -89,11 +89,7 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Loading | Ryot</title>
 			</Head>
-			<Container>
-				<Box>
-					<Title>Loading media details...</Title>
-				</Box>
-			</Container>
+			<LoadingPage />
 		</>
 	);
 };
