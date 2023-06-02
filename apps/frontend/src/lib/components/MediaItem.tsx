@@ -13,21 +13,13 @@ import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
 	type BooksSearchQuery,
-	CommitAudioBookDocument,
-	CommitBookDocument,
-	type CommitBookMutationVariables,
-	CommitMovieDocument,
-	CommitPodcastDocument,
-	CommitShowDocument,
-	CommitVideoGameDocument,
 	MediaExistsInDatabaseDocument,
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
+import { useCommitMedia } from "@/lib/hooks/graphql";
 
 type Item = BooksSearchQuery["booksSearch"]["items"][number];
 
@@ -99,6 +91,7 @@ export default function (props: {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
+	const commitMedia = useCommitMedia(lot)
 	const mediaExistsInDatabase = useQuery({
 		queryKey: ["mediaExistsInDatabase", props.idx],
 		queryFn: async () => {
@@ -112,56 +105,6 @@ export default function (props: {
 			return mediaExistsInDatabase;
 		},
 	});
-
-	const commitMedia = useMutation(
-		async (variables: CommitBookMutationVariables) => {
-			invariant(lot, "Lot must be defined");
-			return await match(lot)
-				.with(MetadataLot.AudioBook, async () => {
-					const { commitAudioBook } = await gqlClient.request(
-						CommitAudioBookDocument,
-						variables,
-					);
-					return commitAudioBook;
-				})
-				.with(MetadataLot.Book, async () => {
-					const { commitBook } = await gqlClient.request(
-						CommitBookDocument,
-						variables,
-					);
-					return commitBook;
-				})
-				.with(MetadataLot.Movie, async () => {
-					const { commitMovie } = await gqlClient.request(
-						CommitMovieDocument,
-						variables,
-					);
-					return commitMovie;
-				})
-				.with(MetadataLot.Podcast, async () => {
-					const { commitPodcast } = await gqlClient.request(
-						CommitPodcastDocument,
-						variables,
-					);
-					return commitPodcast;
-				})
-				.with(MetadataLot.Show, async () => {
-					const { commitShow } = await gqlClient.request(
-						CommitShowDocument,
-						variables,
-					);
-					return commitShow;
-				})
-				.with(MetadataLot.VideoGame, async () => {
-					const { commitVideoGame } = await gqlClient.request(
-						CommitVideoGameDocument,
-						variables,
-					);
-					return commitVideoGame;
-				})
-				.exhaustive();
-		},
-	);
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
 			const { addMediaToCollection } = await gqlClient.request(
