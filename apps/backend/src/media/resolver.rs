@@ -593,7 +593,7 @@ impl MediaService {
                                 Func::coalesce([
                                     Func::avg(Expr::col((TempReview::Alias, TempReview::Rating)))
                                         .into(),
-                                    Expr::value(0).into(),
+                                    Expr::value(0),
                                 ]),
                                 Alias::new("average_rating"),
                             )
@@ -609,7 +609,7 @@ impl MediaService {
                                     ),
                             )
                             .group_by_col((TempMetadata::Alias, TempMetadata::Id))
-                            .order_by_expr(Expr::cust("average_rating").into(), order_by)
+                            .order_by_expr(Expr::cust("average_rating"), order_by)
                             .to_owned();
                     }
                 };
@@ -623,7 +623,7 @@ impl MediaService {
                     vec![]
                 } else {
                     Review::find()
-                        .filter(review::Column::UserId.eq(user_id.clone()))
+                        .filter(review::Column::UserId.eq(user_id))
                         .all(&self.db)
                         .await?
                         .into_iter()

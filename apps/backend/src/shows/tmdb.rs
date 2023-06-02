@@ -8,7 +8,7 @@ use serde_json::json;
 use surf::Client;
 
 use crate::{
-    config::TmdbConfig,
+    config::ShowsTmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator,
@@ -32,7 +32,7 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    pub async fn new(config: &TmdbConfig) -> Self {
+    pub async fn new(config: &ShowsTmdbConfig) -> Self {
         let (client, image_url) = tmdb::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
     }

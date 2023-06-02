@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.0.0-beta.47"
+version = "1.0.0-beta.48"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -21,7 +21,6 @@ axum = { version = "0.6.12", features = ["macros"] }
 chrono = "0.4.24"
 cookie = "0.17.0"
 dotenvy = "0.15.7"
-figment = { version = "0.10.8", features = ["env", "json", "toml", "yaml"] }
 http = "0.2.9"
 mime_guess = "2.0.4"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
@@ -29,6 +28,7 @@ regex = "1.8.1"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
+schematic = { version = "0.7.0", features = ["toml", "yaml", "valid_url"] }
 scdb = "0.2.1"
 sea-orm = { version = "0.11.1", features = [
     "sqlx-mysql",

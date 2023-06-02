@@ -89,6 +89,7 @@ Each release has an installation script that can be used to install the `ryot`
 binary. Follow the instructions in the release to use this script. 
 
 **Alternatively** using [eget](https://github.com/zyedidia/eget):
+
 ```bash
 $ eget ignisda/ryot
 ```
@@ -110,10 +111,8 @@ $ cargo run --bin ryot --release
 You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
-Environment variables are split by the `__` delimiter. For example, the key
-`audio_books.audible.url` corresponds to the variable `AUDIO_BOOKS__AUDIBLE__URL`.
-The only exception to the `__` delimiter rule is the `DATABASE_URL` environment
-variable which will be loaded directly.
+Environment variables are split by the `_` delimiter. For example, the key
+`audio_books.audible.url` corresponds to the variable `AUDIO_BOOKS_AUDIBLE_URL`.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON.
 
