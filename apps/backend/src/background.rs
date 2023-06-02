@@ -3,7 +3,6 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::AppConfig,
     entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
@@ -82,14 +81,9 @@ impl Job for ImportMedia {
 
 pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
     tracing::info!("Importing media");
-    let config = ctx.data::<AppConfig>().unwrap();
     ctx.data::<ImporterService>()
         .unwrap()
-        .import_from_source(
-            information.user_id.into(),
-            information.input,
-            &config.importer,
-        )
+        .import_from_source(information.user_id.into(), information.input)
         .await
         .unwrap();
     Ok(())

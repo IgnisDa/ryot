@@ -48,7 +48,6 @@ use crate::{
         recalculate_user_summary_job, update_metadata_job, user_created_job,
     },
     config::get_app_config,
-    config_scheme::get_app_config_scheme,
     graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
     utils::create_app_services,
@@ -58,7 +57,6 @@ mod audio_books;
 mod background;
 mod books;
 mod config;
-mod config_scheme;
 mod entities;
 mod graphql;
 mod importer;
@@ -112,7 +110,6 @@ async fn main() -> Result<()> {
 
     dotenv().ok();
     let config = get_app_config()?;
-    get_app_config_scheme()?;
 
     let db = Database::connect(&config.database.url)
         .await

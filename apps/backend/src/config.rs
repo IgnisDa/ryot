@@ -1,19 +1,18 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use figment::{
-    providers::{Env, Format, Json, Serialized, Toml, Yaml},
-    Figment,
-};
+use anyhow::Result;
+use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
-use strum::Display;
 
 use crate::graphql::PROJECT_NAME;
 
-static TMDB_BASE_URL: &str = "https://api.themoviedb.org/3/";
+fn default_tmdb_url(_ctx: &()) -> Option<String> {
+    Some("https://api.themoviedb.org/3/".to_owned())
+}
 
-static TMDB_ACCESS_KEY: &str =
-"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4";
+fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
+    Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
+}
 
 /// Determine whether a feature is enabled
 pub trait IsFeatureEnabled {
@@ -22,124 +21,90 @@ pub trait IsFeatureEnabled {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
+    #[setting(validate = url_secure, default = "https://api.audible.com/1.0/catalog/products/")]
     pub url: String,
 }
 
-impl Default for AudibleConfig {
-    fn default() -> Self {
-        Self {
-            url: "https://api.audible.com/1.0/catalog/products/".to_owned(),
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct AudioBookConfig {
+    #[setting(nested)]
     pub audible: AudibleConfig,
 }
 
 impl IsFeatureEnabled for AudioBookConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize, Display)]
-pub enum OpenlibraryCoverImageSize {
-    #[strum(serialize = "S")]
-    Small,
-    #[strum(serialize = "M")]
-    Medium,
-    #[strum(serialize = "L")]
-    Large,
-}
+derive_enum!(
+    #[derive(ConfigEnum, Default)]
+    pub enum OpenlibraryCoverImageSize {
+        #[serde(rename = "S")]
+        Small,
+        #[default]
+        #[serde(rename = "M")]
+        Medium,
+        #[serde(rename = "L")]
+        Large,
+    }
+);
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
+    #[setting(validate = url_secure, default = "https://openlibrary.org")]
     pub url: String,
+    #[setting(validate = url_secure, default = "https://covers.openlibrary.org/b")]
     pub cover_image_url: String,
     pub cover_image_size: OpenlibraryCoverImageSize,
 }
 
-impl Default for OpenlibraryConfig {
-    fn default() -> Self {
-        Self {
-            url: "https://openlibrary.org".to_owned(),
-            cover_image_url: "https://covers.openlibrary.org/b".to_owned(),
-            cover_image_size: OpenlibraryCoverImageSize::Medium,
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct BookConfig {
+    #[setting(nested)]
     pub openlibrary: OpenlibraryConfig,
 }
 
 impl IsFeatureEnabled for BookConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
+#[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
+    #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
     pub url: String,
+    #[setting(default = format!("/data/{}-scdb.db", PROJECT_NAME))]
     pub scdb_url: String,
 }
 
-impl Default for DatabaseConfig {
-    fn default() -> Self {
-        Self {
-            url: format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME),
-            scdb_url: format!("/data/{}-scdb.db", PROJECT_NAME),
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct ImporterConfig {}
-
-#[allow(clippy::derivable_impls)]
-impl Default for ImporterConfig {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize)]
-pub struct TmdbConfig {
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
+pub struct MoviesTmdbConfig {
+    #[setting(validate = url_secure, default = default_tmdb_url)]
     pub url: String,
+    #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
 }
 
-impl Default for TmdbConfig {
-    fn default() -> Self {
-        Self {
-            url: TMDB_BASE_URL.to_owned(),
-            access_token: TMDB_ACCESS_KEY.to_owned(),
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MovieConfig {
-    pub tmdb: TmdbConfig,
+    #[setting(nested)]
+    pub tmdb: MoviesTmdbConfig,
 }
 
 impl IsFeatureEnabled for MovieConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
+    #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
     pub url: String,
     pub api_token: String,
+    pub user_agent: String,
 }
 
-impl Default for ListenNotesConfig {
-    fn default() -> Self {
-        Self {
-            url: "https://listen-api.listennotes.com/api/v2/".to_owned(),
-            api_token: "".to_owned(),
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct PodcastConfig {
+    #[setting(nested)]
     pub listennotes: ListenNotesConfig,
 }
 
@@ -153,57 +118,57 @@ impl IsFeatureEnabled for PodcastConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
+pub struct ShowsTmdbConfig {
+    #[setting(validate = url_secure, default = default_tmdb_url)]
+    pub url: String,
+    #[setting(default = default_tmdb_access_token)]
+    pub access_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct ShowConfig {
-    pub tmdb: TmdbConfig,
+    #[setting(nested)]
+    pub tmdb: ShowsTmdbConfig,
 }
 
 impl IsFeatureEnabled for ShowConfig {}
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
     pub client_id: String,
     pub client_secret: String,
     // Endpoint used to get access tokens which will be used by IGDB
+    #[setting(validate = url_secure, default = "https://id.twitch.tv/oauth2/token")]
     pub access_token_url: String,
 }
 
-impl Default for TwitchConfig {
-    fn default() -> Self {
-        Self {
-            client_id: "".to_owned(),
-            client_secret: "".to_owned(),
-            access_token_url: "https://id.twitch.tv/oauth2/token".to_owned(),
-        }
+derive_enum!(
+    #[derive(ConfigEnum, Default)]
+    pub enum IgdbImageSize {
+        #[default]
+        #[serde(rename = "t_original")]
+        Original,
     }
-}
+);
 
-#[derive(Deserialize, Debug, Clone, Serialize, Display)]
-pub enum IgdbImageSize {
-    #[strum(serialize = "t_original")]
-    Original,
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
+    #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
     pub url: String,
+    #[setting(validate = url_secure, default = "https://images.igdb.com/igdb/image/upload/")]
     pub image_url: String,
     pub image_size: IgdbImageSize,
 }
 
-impl Default for IgdbConfig {
-    fn default() -> Self {
-        Self {
-            url: "https://api.igdb.com/v4/".to_owned(),
-            image_url: "https://images.igdb.com/igdb/image/upload/".to_owned(),
-            image_size: IgdbImageSize::Original,
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct VideoGameConfig {
+    #[setting(nested)]
     pub twitch: TwitchConfig,
+    #[setting(nested)]
     pub igdb: IgdbConfig,
 }
 
@@ -217,65 +182,54 @@ impl IsFeatureEnabled for VideoGameConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
+    #[setting(default = "sqlite::memory:")]
     pub database_url: String,
+    #[setting(default = 10)]
     pub user_cleanup_every: i32,
 }
 
-impl Default for SchedulerConfig {
-    fn default() -> Self {
-        Self {
-            database_url: "sqlite::memory:".to_string(),
-            user_cleanup_every: 10,
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
+    #[setting(default = true)]
     pub allow_changing_username: bool,
+    #[setting(default = 90)]
     pub token_valid_for_days: i32,
 }
 
-impl Default for UsersConfig {
-    fn default() -> Self {
-        Self {
-            allow_changing_username: true,
-            token_valid_for_days: 90,
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "WEB_")]
 pub struct WebConfig {
+    #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
     pub insecure_cookie: bool,
 }
 
-#[derive(Deserialize, Debug, Clone, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct AppConfig {
-    #[serde(default)]
+    #[setting(nested)]
     pub audio_books: AudioBookConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub books: BookConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub database: DatabaseConfig,
-    #[serde(default)]
-    pub importer: ImporterConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub movies: MovieConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub podcasts: PodcastConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub scheduler: SchedulerConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub shows: ShowConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub users: UsersConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub video_games: VideoGameConfig,
-    #[serde(default)]
+    #[setting(nested)]
     pub web: WebConfig,
 }
 
@@ -298,20 +252,15 @@ impl AppConfig {
 pub fn get_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
+    let path = PathBuf::from(config);
 
-    Figment::new()
-        .merge(Serialized::defaults(AppConfig::default()))
-        .merge(Json::file(
-            PathBuf::from(config).join(format!("{app}.json")),
-        ))
-        .merge(Toml::file(
-            PathBuf::from(config).join(format!("{app}.toml")),
-        ))
-        .merge(Yaml::file(
-            PathBuf::from(config).join(format!("{app}.yaml")),
-        ))
-        .merge(Env::raw().split("_").only(&["database.url"]))
-        .merge(Env::raw().split("__").ignore(&["database.url"]))
-        .extract()
-        .context("Unable to construct application configuration")
+    let result = ConfigLoader::<AppConfig>::new()
+        .file_optional(path.join(format!("{app}.json")))?
+        .file_optional(path.join(format!("{app}.toml")))?
+        .file_optional(path.join(format!("{app}.yaml")))?
+        .load()?;
+
+    dbg!(&result.config);
+
+    Ok(result.config)
 }
