@@ -940,6 +940,10 @@ impl MiscService {
             .await
             .unwrap();
 
+        if seen_items.is_empty() {
+            return Ok(IdObject { id: ls.id.into() });
+        }
+
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
