@@ -129,8 +129,7 @@ impl BooksService {
                 details.description,
                 details.publish_year,
                 None,
-                details.poster_images,
-                details.backdrop_images,
+                details.images,
                 details.creators,
                 details.genres,
             )

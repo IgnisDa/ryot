@@ -9,9 +9,9 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, PAGE_LIMIT,
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    migrator::{AudioBookSource, MetadataLot},
+    migrator::{AudioBookSource, MetadataImageLot, MetadataLot},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
@@ -124,7 +124,14 @@ impl MediaProvider for AudibleService {
                     identifier: a.identifier,
                     lot: MetadataLot::AudioBook,
                     title: a.title,
-                    poster_images: a.poster_images,
+                    images: a
+                        .images
+                        .into_iter()
+                        .map(|i| match i.url {
+                            MetadataImageUrl::S3(_u) => unreachable!(),
+                            MetadataImageUrl::Url(u) => u,
+                        })
+                        .collect(),
                     publish_year: a.publish_year,
                 }
             })
@@ -138,7 +145,10 @@ impl MediaProvider for AudibleService {
 
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
-        let poster_images = Vec::from_iter(item.product_images.image);
+        let images = Vec::from_iter(item.product_images.image.map(|a| MetadataImage {
+            url: MetadataImageUrl::Url(a),
+            lot: MetadataImageLot::Poster,
+        }));
         let release_date = item.release_date.unwrap_or_default();
         MediaDetails {
             identifier: item.asin,
@@ -161,8 +171,7 @@ impl AudibleService {
                 runtime: item.runtime_length_min,
                 source: AudioBookSource::Audible,
             }),
-            poster_images,
-            backdrop_images: vec![],
+            images,
         }
     }
 }

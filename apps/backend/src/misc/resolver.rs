@@ -578,7 +578,7 @@ impl MiscService {
                     identifier: m.model.id.to_string(),
                     lot: m.model.lot,
                     title: m.model.title,
-                    poster_images: m.poster_images,
+                    images: m.poster_images,
                     publish_year: m.model.publish_year,
                 })
             }
@@ -854,8 +854,7 @@ impl MiscService {
                         metadata_id,
                         details.title,
                         details.description,
-                        details.poster_images,
-                        details.backdrop_images,
+                        details.images,
                         details.creators,
                     )
                     .await

@@ -9,7 +9,7 @@ query Collections {
       identifier
       lot
       title
-      posterImages
+      images
       publishYear
     }
   }

@@ -35,7 +35,10 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages};
+use super::{
+    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImageUrl,
+    MetadataImages,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -51,7 +54,7 @@ pub struct MediaSearchItem {
     pub identifier: String,
     pub lot: MetadataLot,
     pub title: String,
-    pub poster_images: Vec<String>,
+    pub images: Vec<String>,
     pub publish_year: Option<i32>,
 }
 
@@ -90,8 +93,7 @@ pub struct MediaDetails {
     pub lot: MetadataLot,
     pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
+    pub images: Vec<MetadataImage>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub specifics: MediaSpecifics,
@@ -293,16 +295,23 @@ impl MediaService {
 
 impl MediaService {
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
+        // FIXME: Generate presigned images for aws
         let images = meta.images.0.clone();
         let poster_images = images
             .iter()
             .filter(|f| f.lot == MetadataImageLot::Poster)
-            .map(|i| i.url.clone())
+            .map(|i| match i.url.clone() {
+                MetadataImageUrl::Url(u) => u,
+                MetadataImageUrl::S3(_u) => todo!(),
+            })
             .collect();
         let backdrop_images = images
             .iter()
             .filter(|f| f.lot == MetadataImageLot::Backdrop)
-            .map(|i| i.url.clone())
+            .map(|i| match i.url.clone() {
+                MetadataImageUrl::Url(u) => u,
+                MetadataImageUrl::S3(_u) => todo!(),
+            })
             .collect();
         Ok((poster_images, backdrop_images))
     }
@@ -705,7 +714,7 @@ impl MediaService {
                 identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
-                poster_images,
+                images: poster_images,
                 publish_year: m.publish_year,
             };
             items.push(m_small);
@@ -872,23 +881,9 @@ impl MediaService {
         metadata_id: i32,
         title: String,
         description: Option<String>,
-        poster_images: Vec<String>,
-        backdrop_images: Vec<String>,
+        images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
     ) -> Result<()> {
-        let mut images = vec![];
-        for image in poster_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Poster,
-            });
-        }
-        for image in backdrop_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Backdrop,
-            });
-        }
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -913,24 +908,10 @@ impl MediaService {
         description: Option<String>,
         publish_year: Option<i32>,
         publish_date: Option<NaiveDate>,
-        poster_images: Vec<String>,
-        backdrop_images: Vec<String>,
+        images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
     ) -> Result<i32> {
-        let mut images = vec![];
-        for image in poster_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Poster,
-            });
-        }
-        for image in backdrop_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Backdrop,
-            });
-        }
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
             title: ActiveValue::Set(title),

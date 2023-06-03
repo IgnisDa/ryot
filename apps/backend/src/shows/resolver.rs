@@ -117,8 +117,7 @@ impl ShowsService {
                 details.description,
                 details.publish_year,
                 details.publish_date,
-                details.poster_images,
-                details.backdrop_images,
+                details.images,
                 details.creators,
                 details.genres,
             )

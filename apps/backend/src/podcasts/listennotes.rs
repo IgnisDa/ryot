@@ -15,8 +15,8 @@ use crate::media::{
     resolver::{MediaSearchItem, MediaSearchResults},
     PAGE_LIMIT,
 };
-use crate::media::{MediaSpecifics, MetadataCreator};
-use crate::migrator::{MetadataLot, PodcastSource};
+use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
+use crate::migrator::{MetadataImageLot, MetadataLot, PodcastSource};
 use crate::podcasts::{PodcastEpisode, PodcastSpecifics};
 use crate::traits::MediaProvider;
 use crate::utils::listennotes;
@@ -81,7 +81,7 @@ impl MediaProvider for ListennotesService {
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
                 title: r.title_original,
-                poster_images: Vec::from_iter(r.image),
+                images: Vec::from_iter(r.image),
                 publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect::<Vec<_>>();
@@ -140,8 +140,10 @@ impl ListennotesService {
                 .into_iter()
                 .filter_map(|g| self.genres.get(&g).cloned())
                 .collect(),
-            poster_images: Vec::from_iter(d.image),
-            backdrop_images: vec![],
+            images: Vec::from_iter(d.image.map(|a| MetadataImage {
+                url: MetadataImageUrl::Url(a),
+                lot: MetadataImageLot::Poster,
+            })),
             publish_year: d.publish_date.map(|r| r.year()),
             publish_date: d.publish_date.map(|d| d.date_naive()),
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {

@@ -4,7 +4,7 @@ query MediaList($input: MediaListInput!) {
     items {
       identifier
       title
-      posterImages
+      images
       publishYear
     }
   }

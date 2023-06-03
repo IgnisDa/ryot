@@ -11,9 +11,9 @@ use crate::{
     config::ShowsTmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator,
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{MetadataLot, ShowSource},
+    migrator::{MetadataImageLot, MetadataLot, ShowSource},
     shows::{ShowEpisode, ShowSeason},
     traits::MediaProvider,
     utils::{
@@ -63,9 +63,16 @@ impl MediaProvider for TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let poster_images = Vec::from_iter(data.poster_path.map(|p| self.get_cover_image_url(&p)));
-        let backdrop_images =
-            Vec::from_iter(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+        let mut images = Vec::from_iter(data.poster_path.map(|p| MetadataImage {
+            url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+            lot: MetadataImageLot::Poster,
+        }));
+        if let Some(u) = data.backdrop_path {
+            images.push(MetadataImage {
+                url: MetadataImageUrl::Url(self.get_cover_image_url(&u)),
+                lot: MetadataImageLot::Backdrop,
+            });
+        }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
             id: i32,
@@ -187,8 +194,7 @@ impl MediaProvider for TmdbService {
                     })
                     .collect(),
             }),
-            poster_images,
-            backdrop_images,
+            images,
         })
     }
 
@@ -224,14 +230,13 @@ impl MediaProvider for TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let poster_images =
-                    Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                let images = Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Show,
                     title: d.name,
                     publish_year: convert_date_to_year(&d.first_air_date),
-                    poster_images,
+                    images,
                 }
             })
             .collect::<Vec<_>>();

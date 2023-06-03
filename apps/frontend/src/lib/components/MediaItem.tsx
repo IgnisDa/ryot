@@ -52,7 +52,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			<Link passHref legacyBehavior href={props.href}>
 				<Anchor>
 					<Image
-						src={props.item.posterImages.at(0)}
+						src={props.item.images.at(0)}
 						radius={"md"}
 						height={250}
 						withPlaceholder

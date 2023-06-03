@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
 use crate::media::resolver::MediaDetails;
-use crate::media::{MediaSpecifics, MetadataCreator};
-use crate::migrator::{MetadataLot, VideoGameSource};
+use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
+use crate::migrator::{MetadataImageLot, MetadataLot, VideoGameSource};
 use crate::traits::MediaProvider;
 use crate::utils::NamedObject;
 use crate::{
@@ -144,7 +144,14 @@ offset: {offset};
                     identifier: a.identifier,
                     lot: MetadataLot::VideoGame,
                     title: a.title,
-                    poster_images: a.poster_images,
+                    images: a
+                        .images
+                        .into_iter()
+                        .map(|i| match i.url {
+                            MetadataImageUrl::S3(_u) => unreachable!(),
+                            MetadataImageUrl::Url(u) => u,
+                        })
+                        .collect(),
                     publish_year: a.publish_year,
                 }
             })
@@ -155,14 +162,19 @@ offset: {offset};
 
 impl IgdbService {
     fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
-        let mut poster_images =
-            Vec::from_iter(item.cover.map(|p| self.get_cover_image_url(p.image_id)));
-        let additional_images = item
-            .artworks
-            .unwrap_or_default()
-            .into_iter()
-            .map(|a| self.get_cover_image_url(a.image_id));
-        poster_images.extend(additional_images);
+        let mut images = Vec::from_iter(item.cover.map(|a| MetadataImage {
+            url: MetadataImageUrl::Url(self.get_cover_image_url(a.image_id)),
+            lot: MetadataImageLot::Poster,
+        }));
+        let additional_images =
+            item.artworks
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| MetadataImage {
+                    url: MetadataImageUrl::Url(self.get_cover_image_url(a.image_id)),
+                    lot: MetadataImageLot::Poster,
+                });
+        images.extend(additional_images);
         let creators = item
             .involved_companies
             .into_iter()
@@ -196,8 +208,7 @@ impl IgdbService {
             title: item.name,
             description: item.summary,
             creators,
-            poster_images,
-            backdrop_images: vec![],
+            images,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
             genres: item
