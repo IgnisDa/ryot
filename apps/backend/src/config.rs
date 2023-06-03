@@ -52,11 +52,11 @@ derive_enum!(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
-    #[setting(validate = url_secure, default = "https://openlibrary.org")]
-    pub url: String,
+    pub cover_image_size: OpenlibraryCoverImageSize,
     #[setting(validate = url_secure, default = "https://covers.openlibrary.org/b")]
     pub cover_image_url: String,
-    pub cover_image_size: OpenlibraryCoverImageSize,
+    #[setting(validate = url_secure, default = "https://openlibrary.org")]
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -70,19 +70,19 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
-    #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
-    pub url: String,
     #[setting(default = format!("/data/{}-scdb.db", PROJECT_NAME))]
     pub scdb_url: String,
+    #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct MoviesTmdbConfig {
-    #[setting(validate = url_secure, default = default_tmdb_url)]
-    pub url: String,
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
+    #[setting(validate = url_secure, default = default_tmdb_url)]
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -96,9 +96,9 @@ impl IsFeatureEnabled for MovieConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
+    pub api_token: String,
     #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
     pub url: String,
-    pub api_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -120,10 +120,10 @@ impl IsFeatureEnabled for PodcastConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct ShowsTmdbConfig {
-    #[setting(validate = url_secure, default = default_tmdb_url)]
-    pub url: String,
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
+    #[setting(validate = url_secure, default = default_tmdb_url)]
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -137,11 +137,11 @@ impl IsFeatureEnabled for ShowConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
-    pub client_id: String,
-    pub client_secret: String,
     // Endpoint used to get access tokens which will be used by IGDB
     #[setting(validate = url_secure, default = "https://id.twitch.tv/oauth2/token")]
     pub access_token_url: String,
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 derive_enum!(
@@ -156,19 +156,19 @@ derive_enum!(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
-    #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
-    pub url: String,
+    pub image_size: IgdbImageSize,
     #[setting(validate = url_secure, default = "https://images.igdb.com/igdb/image/upload/")]
     pub image_url: String,
-    pub image_size: IgdbImageSize,
+    #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct VideoGameConfig {
     #[setting(nested)]
-    pub twitch: TwitchConfig,
-    #[setting(nested)]
     pub igdb: IgdbConfig,
+    #[setting(nested)]
+    pub twitch: TwitchConfig,
 }
 
 impl IsFeatureEnabled for VideoGameConfig {
@@ -184,9 +184,9 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
+    pub aws_access_key_id: String,
     #[setting(default = "us-east-1")]
     pub aws_region: String,
-    pub aws_access_key_id: String,
     pub aws_secret_access_key: String,
     pub aws_url: String,
 }
@@ -196,10 +196,10 @@ pub struct FileStorageConfig {
 pub struct SchedulerConfig {
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
-    #[setting(default = 600)]
-    pub user_cleanup_every: i32,
     #[setting(default = 5)]
     pub rate_limit_num: i32,
+    #[setting(default = 600)]
+    pub user_cleanup_every: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
