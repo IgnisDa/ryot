@@ -10,7 +10,9 @@ use crate::{
     media::{MetadataImage, MetadataImageUrl, MetadataImages},
 };
 
-use super::MetadataImageLot;
+use super::{
+    m20230410_000001_create_metadata::MetadataImage as MetadataImageEnum, MetadataImageLot,
+};
 
 pub struct Migration;
 
@@ -63,6 +65,14 @@ impl MigrationTrait for Migration {
             };
             new_metadata.save(db).await?;
         }
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(MetadataImageEnum::Table)
+                    .cascade()
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 

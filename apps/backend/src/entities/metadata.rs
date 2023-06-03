@@ -32,8 +32,6 @@ pub enum Relation {
     AudioBook,
     #[sea_orm(has_one = "super::book::Entity")]
     Book,
-    #[sea_orm(has_many = "super::metadata_image::Entity")]
-    MetadataImage,
     #[sea_orm(has_one = "super::movie::Entity")]
     Movie,
     #[sea_orm(has_one = "super::podcast::Entity")]
@@ -57,12 +55,6 @@ impl Related<super::audio_book::Entity> for Entity {
 impl Related<super::book::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Book.def()
-    }
-}
-
-impl Related<super::metadata_image::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MetadataImage.def()
     }
 }
 
