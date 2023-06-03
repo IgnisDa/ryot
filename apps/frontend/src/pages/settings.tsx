@@ -171,6 +171,13 @@ const Page: NextPageWithLayout = () => {
 			);
 			return updateAllMetadata;
 		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "All metadata will be updated in the background",
+				color: "green",
+			});
+		},
 	});
 
 	const regenerateUserSummary = useMutation({
