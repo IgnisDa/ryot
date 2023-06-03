@@ -926,20 +926,15 @@ impl MiscService {
     }
 
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
-        let mut ls = self.latest_user_summary(user_id).await?;
+        let mut ls = summary::Model::default();
         let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
-            .filter(seen::Column::LastUpdatedOn.gte(ls.created_on))
             .filter(seen::Column::Progress.eq(100))
             .find_also_related(Metadata)
             .all(&self.db)
             .await
             .unwrap();
-
-        if seen_items.is_empty() {
-            return Ok(IdObject { id: ls.id.into() });
-        }
 
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
