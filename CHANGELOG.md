@@ -1,4 +1,19 @@
 
+# Version 1.0.0-beta.52 (2023-06-03)
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* change explanation for config key
+
+## Features
+
+* **backend:** do not calculate summary if no new items
+
+
 # Version 1.0.0-beta.51 (2023-06-02)
 
 ## Bug Fixes
