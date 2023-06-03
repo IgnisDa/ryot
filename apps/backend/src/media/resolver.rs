@@ -98,7 +98,7 @@ pub struct MediaDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct DatabaseMediaDetails {
+pub struct GraphqlMediaDetails {
     pub id: i32,
     pub title: String,
     pub identifier: String,
@@ -189,7 +189,7 @@ impl MediaQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: Identifier,
-    ) -> Result<DatabaseMediaDetails> {
+    ) -> Result<GraphqlMediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .media_details(metadata_id.into())
@@ -349,7 +349,7 @@ impl MediaService {
             .map(|f| f.id))
     }
 
-    async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
+    async fn media_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
         let MediaBaseData {
             model,
             creators,
@@ -357,7 +357,7 @@ impl MediaService {
             backdrop_images,
             genres,
         } = self.generic_metadata(metadata_id).await?;
-        let mut resp = DatabaseMediaDetails {
+        let mut resp = GraphqlMediaDetails {
             id: model.id,
             title: model.title,
             identifier: model.identifier,
