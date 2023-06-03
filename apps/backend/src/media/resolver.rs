@@ -690,7 +690,7 @@ impl MediaService {
 
         let main_select = main_select
             .limit(PAGE_LIMIT as u64)
-            .offset((((input.page - 1) * PAGE_LIMIT) + 1) as u64)
+            .offset(((input.page - 1) * PAGE_LIMIT) as u64)
             .to_owned();
         let (sql, values) = get_sql_and_values(main_select);
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
