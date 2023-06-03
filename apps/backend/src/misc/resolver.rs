@@ -420,17 +420,14 @@ impl MiscMutation {
             )
             .await?;
         let config = gql_ctx.data_unchecked::<AppConfig>();
-        match &maybe_api_key {
-            LoginResult::Ok(LoginResponse { api_key }) => {
-                create_cookie(
-                    gql_ctx,
-                    api_key,
-                    false,
-                    config.web.insecure_cookie,
-                    config.users.token_valid_for_days,
-                )?;
-            }
-            _ => (),
+        if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
+            create_cookie(
+                gql_ctx,
+                api_key,
+                false,
+                config.web.insecure_cookie,
+                config.users.token_valid_for_days,
+            )?;
         };
         Ok(maybe_api_key)
     }

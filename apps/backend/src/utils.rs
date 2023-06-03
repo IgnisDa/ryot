@@ -58,6 +58,7 @@ pub struct AppServices {
     pub podcasts_service: PodcastsService,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
     scdb: MemoryDb,
