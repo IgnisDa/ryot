@@ -188,7 +188,6 @@ pub struct FileStorageConfig {
     pub aws_region: String,
     pub aws_access_key_id: String,
     pub aws_secret_access_key: String,
-    #[setting(validate = url_secure, default = "https://amazonaws.com")]
     pub aws_url: String,
 }
 

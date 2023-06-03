@@ -19,6 +19,7 @@ use apalis::{
 };
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use aws_sdk_s3::config::Region;
 use axum::{
     body::{boxed, Full},
     http::{header, HeaderMap, Method, StatusCode, Uri},
@@ -48,7 +49,7 @@ use crate::{
         recalculate_user_summary_job, update_metadata_job, user_created_job,
     },
     config::get_app_config,
-    graphql::{get_schema, GraphqlSchema},
+    graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     utils::create_app_services,
 };
@@ -110,6 +111,25 @@ async fn main() -> Result<()> {
 
     dotenv().ok();
     let config = get_app_config()?;
+
+    let mut aws_conf = aws_config::ConfigLoader::default()
+        .region(Region::new(config.file_storage.aws_region.clone()));
+    if !config.file_storage.aws_url.is_empty() {
+        aws_conf = aws_conf.endpoint_url(&config.file_storage.aws_url);
+    }
+    if !config.file_storage.aws_access_key_id.is_empty()
+        && !config.file_storage.aws_secret_access_key.is_empty()
+    {
+        aws_conf = aws_conf.credentials_provider(aws_sdk_s3::config::Credentials::new(
+            &config.file_storage.aws_access_key_id,
+            &config.file_storage.aws_secret_access_key,
+            None,
+            None,
+            PROJECT_NAME,
+        ));
+    }
+    let aws_conf = aws_conf.load().await;
+    let s3_client = aws_sdk_s3::Client::new(&aws_conf);
 
     let db = Database::connect(&config.database.url)
         .await
