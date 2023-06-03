@@ -115,7 +115,8 @@ To set the equivalent environment variables, join keys by `_` (underscore) and
 uppercase the keys. For example, the key `audio_books.audible.url` corresponds
 to the environment variable `AUDIO_BOOKS_AUDIBLE_URL`.
 
-Ryot serves the final configuration loaded at the `/config` endpoint as JSON.
+Ryot serves the final configuration loaded at the `/config` endpoint as JSON
+([example](https://ryot.fly.dev/config)).
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder. A minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
