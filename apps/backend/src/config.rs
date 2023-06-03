@@ -99,7 +99,6 @@ pub struct ListenNotesConfig {
     #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
     pub url: String,
     pub api_token: String,
-    pub user_agent: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
