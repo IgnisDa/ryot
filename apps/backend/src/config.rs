@@ -186,7 +186,7 @@ impl IsFeatureEnabled for VideoGameConfig {
 pub struct SchedulerConfig {
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
-    #[setting(default = 10)]
+    #[setting(default = 600)]
     pub user_cleanup_every: i32,
     #[setting(default = 5)]
     pub rate_limit_num: i32,
