@@ -182,6 +182,17 @@ impl IsFeatureEnabled for VideoGameConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
+pub struct FileStorageConfig {
+    #[setting(default = "us-east-1")]
+    pub aws_region: String,
+    pub aws_access_key_id: String,
+    pub aws_secret_access_key: String,
+    #[setting(validate = url_secure, default = "https://amazonaws.com")]
+    pub aws_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
     #[setting(default = "sqlite::memory:")]
@@ -219,6 +230,8 @@ pub struct AppConfig {
     #[setting(nested)]
     pub database: DatabaseConfig,
     #[setting(nested)]
+    pub file_storage: FileStorageConfig,
+    #[setting(nested)]
     pub movies: MovieConfig,
     #[setting(nested)]
     pub podcasts: PodcastConfig,
@@ -241,6 +254,10 @@ impl AppConfig {
         let mut cl = self.clone();
         cl.database.url = gt();
         cl.database.scdb_url = gt();
+        cl.file_storage.aws_region = gt();
+        cl.file_storage.aws_access_key_id = gt();
+        cl.file_storage.aws_secret_access_key = gt();
+        cl.file_storage.aws_url = gt();
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();
