@@ -146,6 +146,7 @@ const Page: NextPageWithLayout = () => {
 							label="Review"
 							{...form.getInputProps("text")}
 							autoFocus
+							minRows={10}
 						/>
 						<Box>
 							<Input.Label>Visibility</Input.Label>
