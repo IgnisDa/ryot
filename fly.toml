@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for ryot on 2023-05-25T23:52:34+05:30
+# fly.toml app configuration file generated for ryot on 2023-06-03T10:08:53+05:30
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -13,6 +13,10 @@ kill_timeout = "5s"
 
 [env]
   PORT = "8080"
+
+[[mounts]]
+  source = "ryot_data"
+  destination = "/data"
 
 [[services]]
   protocol = "tcp"
