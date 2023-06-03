@@ -17,6 +17,8 @@ async-graphql = { version = "5.0.7", features = [
 ] }
 async-graphql-axum = "5.0.7"
 async-trait = "0.1.68"
+aws-config = "0.55.3"
+aws-sdk-s3 = "0.28.0"
 axum = { version = "0.6.12", features = ["macros"] }
 chrono = "0.4.24"
 cookie = "0.17.0"
