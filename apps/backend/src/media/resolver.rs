@@ -1,5 +1,5 @@
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use aws_sdk_s3::Client;
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
@@ -28,10 +28,7 @@ use crate::{
     },
     graphql::{IdObject, Identifier},
     media::PAGE_LIMIT,
-    migrator::{
-        AudioBookSource, BookSource, MetadataImageLot, MetadataLot, MovieSource, PodcastSource,
-        ShowSource, VideoGameSource,
-    },
+    migrator::{MetadataImageLot, MetadataLot},
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
     shows::ShowSpecifics,
@@ -122,39 +119,6 @@ pub struct GraphqlMediaDetails {
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateCustomMediaInput {
-    pub title: String,
-    pub lot: MetadataLot,
-    pub description: Option<String>,
-    pub creators: Vec<String>,
-    pub genres: Vec<String>,
-    pub images: Vec<String>,
-    pub publish_year: Option<i32>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum CreateCustomMediaErrorVariant {
-    LotDoesNotMatchSpecifics,
-}
-
-#[derive(Debug, SimpleObject)]
-struct CreateCustomMediaError {
-    error: CreateCustomMediaErrorVariant,
-}
-
-#[derive(Union)]
-enum CreateCustomMediaResult {
-    Ok(IdObject),
-    Error(CreateCustomMediaError),
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -304,24 +268,11 @@ impl MediaMutation {
             .deploy_update_metadata_job(metadata_id.into())
             .await
     }
-
-    /// Create a custom media item.
-    async fn create_custom_media(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateCustomMediaInput,
-    ) -> Result<CreateCustomMediaResult> {
-        gql_ctx
-            .data_unchecked::<MediaService>()
-            .create_custom_media(input)
-            .await
-    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
-    s3_client: Client,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -330,7 +281,6 @@ pub struct MediaService {
 impl MediaService {
     pub fn new(
         db: &DatabaseConnection,
-        s3_client: &Client,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -340,7 +290,6 @@ impl MediaService {
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
-            s3_client: s3_client.clone(),
         }
     }
 }
@@ -1029,56 +978,5 @@ impl MediaService {
         let mut storage = self.update_metadata.clone();
         let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
-    }
-
-    async fn create_custom_media(
-        &self,
-        input: CreateCustomMediaInput,
-    ) -> Result<CreateCustomMediaResult> {
-        let mut input = input;
-        let err = || {
-            Ok(CreateCustomMediaResult::Error(CreateCustomMediaError {
-                error: CreateCustomMediaErrorVariant::LotDoesNotMatchSpecifics,
-            }))
-        };
-        match input.lot {
-            MetadataLot::AudioBook => match input.audio_book_specifics {
-                None => return err(),
-                Some(ref mut s) => {
-                    s.source = AudioBookSource::Custom;
-                }
-            },
-            MetadataLot::Book => match input.book_specifics {
-                None => return err(),
-                Some(ref mut s) => {
-                    s.source = BookSource::Custom;
-                }
-            },
-            MetadataLot::Movie => match input.movie_specifics {
-                None => return err(),
-                Some(ref mut s) => {
-                    s.source = MovieSource::Custom;
-                }
-            },
-            MetadataLot::Podcast => match input.podcast_specifics {
-                None => return err(),
-                Some(ref mut s) => {
-                    s.source = PodcastSource::Custom;
-                }
-            },
-            MetadataLot::Show => match input.show_specifics {
-                None => return err(),
-                Some(ref mut s) => {
-                    s.source = ShowSource::Custom;
-                }
-            },
-            MetadataLot::VideoGame => match input.video_game_specifics {
-                None => return err(),
-                Some(ref mut s) => {
-                    s.source = VideoGameSource::Custom;
-                }
-            },
-        };
-        todo!()
     }
 }

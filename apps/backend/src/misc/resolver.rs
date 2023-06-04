@@ -19,9 +19,9 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::resolver::AudioBooksService,
+    audio_books::{resolver::AudioBooksService, AudioBookSpecifics},
     background::UserCreatedJob,
-    books::resolver::BooksService,
+    books::{resolver::BooksService, BookSpecifics},
     config::AppConfig,
     entities::{
         collection, media_import_report, metadata, metadata_to_collection,
@@ -38,17 +38,53 @@ use crate::{
         resolver::{MediaSearchItem, MediaService},
         MediaSpecifics,
     },
-    migrator::{MediaImportSource, MetadataLot, ReviewVisibility, UserLot},
-    movies::resolver::MoviesService,
-    podcasts::resolver::PodcastsService,
-    shows::resolver::ShowsService,
+    migrator::{
+        AudioBookSource, BookSource, MediaImportSource, MetadataLot, MovieSource, PodcastSource,
+        ReviewVisibility, ShowSource, UserLot, VideoGameSource,
+    },
+    movies::{resolver::MoviesService, MovieSpecifics},
+    podcasts::{resolver::PodcastsService, PodcastSpecifics},
+    shows::{resolver::ShowsService, ShowSpecifics},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::resolver::VideoGamesService,
+    video_games::{resolver::VideoGamesService, VideoGameSpecifics},
 };
 
 use super::DefaultCollection;
 
 pub static COOKIE_NAME: &str = "auth";
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMediaInput {
+    pub title: String,
+    pub lot: MetadataLot,
+    pub description: Option<String>,
+    pub creators: Vec<String>,
+    pub genres: Vec<String>,
+    pub images: Vec<String>,
+    pub publish_year: Option<i32>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum CreateCustomMediaErrorVariant {
+    LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CreateCustomMediaError {
+    error: CreateCustomMediaErrorVariant,
+}
+
+#[derive(Union)]
+enum CreateCustomMediaResult {
+    Ok(IdObject),
+    Error(CreateCustomMediaError),
+}
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum UserDetailsErrorVariant {
@@ -467,12 +503,25 @@ impl MiscMutation {
             .regenerate_user_summary(&user_id)
             .await
     }
+
+    /// Create a custom media item.
+    async fn create_custom_media(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateCustomMediaInput,
+    ) -> Result<CreateCustomMediaResult> {
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .create_custom_media(input)
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MiscService {
     db: DatabaseConnection,
     scdb: MemoryDb,
+    s3_client: aws_sdk_s3::Client,
     media_service: Arc<MediaService>,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
@@ -488,6 +537,7 @@ impl MiscService {
     pub fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
+        s3_client: &aws_sdk_s3::Client,
         media_service: &MediaService,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
@@ -500,6 +550,7 @@ impl MiscService {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
+            s3_client: s3_client.clone(),
             media_service: Arc::new(media_service.clone()),
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),
@@ -1203,5 +1254,56 @@ impl MiscService {
     pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         self.cleanup_summaries_for_user(user_id).await?;
         self.calculate_user_summary(user_id).await
+    }
+
+    async fn create_custom_media(
+        &self,
+        input: CreateCustomMediaInput,
+    ) -> Result<CreateCustomMediaResult> {
+        let mut input = input;
+        let err = || {
+            Ok(CreateCustomMediaResult::Error(CreateCustomMediaError {
+                error: CreateCustomMediaErrorVariant::LotDoesNotMatchSpecifics,
+            }))
+        };
+        match input.lot {
+            MetadataLot::AudioBook => match input.audio_book_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = AudioBookSource::Custom;
+                }
+            },
+            MetadataLot::Book => match input.book_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = BookSource::Custom;
+                }
+            },
+            MetadataLot::Movie => match input.movie_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = MovieSource::Custom;
+                }
+            },
+            MetadataLot::Podcast => match input.podcast_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = PodcastSource::Custom;
+                }
+            },
+            MetadataLot::Show => match input.show_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = ShowSource::Custom;
+                }
+            },
+            MetadataLot::VideoGame => match input.video_game_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = VideoGameSource::Custom;
+                }
+            },
+        };
+        todo!()
     }
 }

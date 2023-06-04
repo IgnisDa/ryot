@@ -72,7 +72,6 @@ pub async fn create_app_services(
 ) -> AppServices {
     let media_service = MediaService::new(
         &db,
-        &s3_client,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
@@ -92,6 +91,7 @@ pub async fn create_app_services(
     let misc_service = MiscService::new(
         &db,
         &scdb,
+        &s3_client,
         &media_service,
         &audio_books_service,
         &books_service,
