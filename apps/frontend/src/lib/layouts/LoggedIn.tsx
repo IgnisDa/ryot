@@ -1,5 +1,6 @@
 import { ROUTES } from "../constants";
 import { gqlClient } from "../services/api";
+import Basic from "./Basic";
 import { changeCase, getMetadataIcon } from "@/lib//utilities";
 import {
 	Box,
@@ -165,17 +166,21 @@ export default function ({ children }: { children: ReactElement }) {
 		}
 	}, []);
 
-	return enabledFeatures ? (
-		<Flex direction={"column"} w={"100%"}>
-			<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
-				{links}
-				<NavbarButton
-					icon={IconLogout}
-					label="Logout"
-					onClick={logoutUser.mutate}
-				/>
-			</Flex>
-			<Box my={"lg"}>{children}</Box>
-		</Flex>
-	) : null;
+	return (
+		<Basic
+			header={
+				enabledFeatures ? (
+					<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
+						{links}
+						<NavbarButton
+							icon={IconLogout}
+							label="Logout"
+							onClick={logoutUser.mutate}
+						/>
+					</Flex>
+				) : undefined
+			}
+			children={<Box my={"lg"}>{children}</Box>}
+		/>
+	);
 }

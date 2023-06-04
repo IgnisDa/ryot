@@ -16,6 +16,7 @@ export default function ({
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
 			<Box
+				id="images-container"
 				pos={"relative"}
 				sx={(t) => ({
 					width: "100%",
@@ -59,7 +60,7 @@ export default function ({
 					</Flex>
 				</Badge>
 			</Box>
-			<Stack style={{ flexGrow: 1 }}>{children}</Stack>
+			<Stack id="details-container">{children}</Stack>
 		</Flex>
 	);
 }
