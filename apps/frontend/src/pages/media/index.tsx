@@ -450,7 +450,6 @@ const Page: NextPageWithLayout = () => {
 			);
 			return mediaItemReviews;
 		},
-		staleTime: Infinity,
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
