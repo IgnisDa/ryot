@@ -1,5 +1,5 @@
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use aws_sdk_s3::Client;
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
@@ -28,7 +28,10 @@ use crate::{
     },
     graphql::{IdObject, Identifier},
     media::PAGE_LIMIT,
-    migrator::{MetadataImageLot, MetadataLot},
+    migrator::{
+        AudioBookSource, BookSource, MetadataImageLot, MetadataLot, MovieSource, PodcastSource,
+        ShowSource, VideoGameSource,
+    },
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
     shows::ShowSpecifics,
@@ -124,6 +127,7 @@ pub struct GraphqlMediaDetails {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateCustomMediaInput {
     pub title: String,
+    pub lot: MetadataLot,
     pub description: Option<String>,
     pub creators: Vec<String>,
     pub genres: Vec<String>,
@@ -135,6 +139,22 @@ pub struct CreateCustomMediaInput {
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum CreateCustomMediaErrorVariant {
+    LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CreateCustomMediaError {
+    error: CreateCustomMediaErrorVariant,
+}
+
+#[derive(Union)]
+enum CreateCustomMediaResult {
+    Ok(IdObject),
+    Error(CreateCustomMediaError),
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -290,7 +310,7 @@ impl MediaMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateCustomMediaInput,
-    ) -> Result<IdObject> {
+    ) -> Result<CreateCustomMediaResult> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .create_custom_media(input)
@@ -1011,7 +1031,54 @@ impl MediaService {
         Ok(job_id.to_string())
     }
 
-    pub async fn create_custom_media(&self, input: CreateCustomMediaInput) -> Result<IdObject> {
+    async fn create_custom_media(
+        &self,
+        input: CreateCustomMediaInput,
+    ) -> Result<CreateCustomMediaResult> {
+        let mut input = input;
+        let err = || {
+            Ok(CreateCustomMediaResult::Error(CreateCustomMediaError {
+                error: CreateCustomMediaErrorVariant::LotDoesNotMatchSpecifics,
+            }))
+        };
+        match input.lot {
+            MetadataLot::AudioBook => match input.audio_book_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = AudioBookSource::Custom;
+                }
+            },
+            MetadataLot::Book => match input.book_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = BookSource::Custom;
+                }
+            },
+            MetadataLot::Movie => match input.movie_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = MovieSource::Custom;
+                }
+            },
+            MetadataLot::Podcast => match input.podcast_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = PodcastSource::Custom;
+                }
+            },
+            MetadataLot::Show => match input.show_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = ShowSource::Custom;
+                }
+            },
+            MetadataLot::VideoGame => match input.video_game_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = VideoGameSource::Custom;
+                }
+            },
+        };
         todo!()
     }
 }
