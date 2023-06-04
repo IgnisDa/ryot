@@ -1,14 +1,14 @@
 import { ROUTES } from "@/lib/constants";
 import {
+	Box,
 	Button,
-	Text,
 	Container,
 	Group,
+	Text,
 	Title,
 	createStyles,
-	useMantineTheme,
 	rem,
-    Box,
+	useMantineTheme,
 } from "@mantine/core";
 import Head from "next/head";
 

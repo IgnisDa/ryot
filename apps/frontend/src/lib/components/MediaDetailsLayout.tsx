@@ -1,5 +1,5 @@
 import { Carousel } from "@mantine/carousel";
-import { Text, Image, Box, Flex, Badge, Anchor, Stack } from "@mantine/core";
+import { Anchor, Badge, Box, Flex, Image, Stack, Text } from "@mantine/core";
 import { IconExternalLink } from "@tabler/icons-react";
 
 export default function ({

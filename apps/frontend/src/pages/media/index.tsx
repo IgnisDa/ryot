@@ -1,5 +1,5 @@
-import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import type { NextPageWithLayout } from "../_app";
+import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { ROUTES } from "@/lib/constants";
 import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
