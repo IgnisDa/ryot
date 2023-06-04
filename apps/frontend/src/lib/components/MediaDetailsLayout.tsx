@@ -11,7 +11,7 @@ export default function ({
 	children: (JSX.Element | null)[];
 	posterImages: string[];
 	backdropImages: string[];
-	externalLink: { source: string; href: string };
+	externalLink: { source: string; href?: string };
 }) {
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
@@ -51,9 +51,11 @@ export default function ({
 				>
 					<Flex gap={4}>
 						<Text>{externalLink.source}</Text>
-						<Anchor href={externalLink.href} target="_blank">
-							<IconExternalLink size="1rem" />
-						</Anchor>
+						{externalLink.href ? (
+							<Anchor href={externalLink.href} target="_blank">
+								<IconExternalLink size="1rem" />
+							</Anchor>
+						) : null}
 					</Flex>
 				</Badge>
 			</Box>
