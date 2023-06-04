@@ -7,8 +7,8 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SelectStatement,
-    SqliteQueryBuilder,
+    Alias, Cond, Expr, Func, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -126,15 +126,6 @@ pub enum MediaSortOrder {
     Desc,
     #[default]
     Asc,
-}
-
-impl MediaSortOrder {
-    fn flip(&self) -> Self {
-        match self {
-            Self::Desc => Self::Asc,
-            Self::Asc => Self::Desc,
-        }
-    }
 }
 
 impl From<MediaSortOrder> for Order {
@@ -585,17 +576,10 @@ impl MediaService {
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
-                        let cmd_str = match s.order {
-                            MediaSortOrder::Desc => "9999-12-31",
-                            MediaSortOrder::Asc => "0000-01-91",
-                        };
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
                             .expr_as(
-                                Func::coalesce([
-                                    Func::max(Expr::col(TempSeen::FinishedOn)).into(),
-                                    Expr::val(cmd_str).into(),
-                                ]),
+                                Func::max(Expr::col(TempSeen::FinishedOn)),
                                 TempSeen::LastSeen,
                             )
                             .from(TempSeen::Table)
@@ -604,29 +588,17 @@ impl MediaService {
                             .to_owned();
                         main_select = main_select
                             .join_subquery(
-                                JoinType::Join,
+                                JoinType::LeftJoin,
                                 sub_select,
                                 TempSeen::Alias,
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .equals((TempSeen::Alias, TempMetadata::MetadataId)),
                             )
-                            // .order_by_expr(
-                            //     Expr::case(
-                            //         Expr::col((TempSeen::Alias, TempSeen::LastSeen)).is_null(),
-                            //         1,
-                            //     )
-                            //     .finally(0)
-                            //     .into(),
-                            // s.order.flip().into(),
-                            // match order_by {
-                            //     Order::Asc => Order::Desc,
-                            //     Order::Desc => Order::Asc,
-                            //     Order::Field(_) => unreachable!(),
-                            // },
-                            // order_by.clone(),
-                            // Order::Asc,
-                            // )
-                            .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
+                            .order_by_with_nulls(
+                                (TempSeen::Alias, TempSeen::LastSeen),
+                                order_by,
+                                NullOrdering::Last,
+                            )
                             .to_owned();
                     }
                     MediaSortBy::Rating => {
