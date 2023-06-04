@@ -65,8 +65,8 @@ const LIMIT = 20;
 
 const defaultFilters = {
 	mineFilter: MediaFilter.All,
-	mineSortOrder: MediaSortOrder.Asc,
-	mineSortBy: MediaSortBy.ReleaseDate,
+	mineSortOrder: MediaSortOrder.Desc,
+	mineSortBy: MediaSortBy.LastSeen,
 };
 
 const Page: NextPageWithLayout = () => {
