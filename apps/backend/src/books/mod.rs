@@ -1,4 +1,4 @@
-use async_graphql::SimpleObject;
+use async_graphql::{InputObject, SimpleObject};
 use serde::{Deserialize, Serialize};
 
 use crate::migrator::BookSource;
@@ -6,7 +6,8 @@ use crate::migrator::BookSource;
 pub mod openlibrary;
 pub mod resolver;
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject)]
+#[graphql(input_name = "BookSpecificsInput")]
 pub struct BookSpecifics {
     pub pages: Option<i32>,
     pub source: BookSource,

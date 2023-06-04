@@ -121,6 +121,21 @@ pub struct GraphqlMediaDetails {
     pub podcast_specifics: Option<PodcastSpecifics>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMediaInput {
+    pub title: String,
+    pub description: Option<String>,
+    pub creators: Vec<String>,
+    pub genres: Vec<String>,
+    pub images: Vec<String>,
+    pub publish_year: Option<i32>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortOrder {
@@ -267,6 +282,18 @@ impl MediaMutation {
         gql_ctx
             .data_unchecked::<MediaService>()
             .deploy_update_metadata_job(metadata_id.into())
+            .await
+    }
+
+    /// Create a custom media item.
+    async fn create_custom_media(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateCustomMediaInput,
+    ) -> Result<IdObject> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .create_custom_media(input)
             .await
     }
 }
@@ -982,5 +1009,9 @@ impl MediaService {
         let mut storage = self.update_metadata.clone();
         let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
+    }
+
+    pub async fn create_custom_media(&self, input: CreateCustomMediaInput) -> Result<IdObject> {
+        todo!()
     }
 }
