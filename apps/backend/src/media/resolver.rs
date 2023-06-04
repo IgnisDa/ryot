@@ -602,6 +602,7 @@ impl MediaService {
                             .to_owned();
                     }
                     MediaSortBy::Rating => {
+                        let alias_name = "average_rating";
                         main_select = main_select
                             .expr_as(
                                 Func::coalesce([
@@ -609,12 +610,12 @@ impl MediaService {
                                         .into(),
                                     Expr::value(0),
                                 ]),
-                                Alias::new("average_rating"),
+                                Alias::new(alias_name),
                             )
                             .join_as(
                                 JoinType::LeftJoin,
                                 TempReview::Table,
-                                Alias::new("r"),
+                                TempReview::Alias,
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .equals((TempReview::Alias, TempReview::MetadataId))
                                     .and(
@@ -623,7 +624,7 @@ impl MediaService {
                                     ),
                             )
                             .group_by_col((TempMetadata::Alias, TempMetadata::Id))
-                            .order_by_expr(Expr::cust("average_rating"), order_by)
+                            .order_by_expr(Expr::cust(alias_name), order_by)
                             .to_owned();
                     }
                 };
