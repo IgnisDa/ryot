@@ -273,6 +273,7 @@ impl MediaMutation {
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
+    s3_client: aws_sdk_s3::Client,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -281,12 +282,14 @@ pub struct MediaService {
 impl MediaService {
     pub fn new(
         db: &DatabaseConnection,
+        s3_client: &aws_sdk_s3::Client,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
     ) -> Self {
         Self {
             db: db.clone(),
+            s3_client: s3_client.clone(),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),

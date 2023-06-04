@@ -35,12 +35,12 @@ use crate::{
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
     media::{
-        resolver::{MediaSearchItem, MediaService},
-        MediaSpecifics,
+        resolver::{MediaDetails, MediaSearchItem, MediaService},
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     migrator::{
-        AudioBookSource, BookSource, MediaImportSource, MetadataLot, MovieSource, PodcastSource,
-        ReviewVisibility, ShowSource, UserLot, VideoGameSource,
+        AudioBookSource, BookSource, MediaImportSource, MetadataImageLot, MetadataLot, MovieSource,
+        PodcastSource, ReviewVisibility, ShowSource, UserLot, VideoGameSource,
     },
     movies::{resolver::MoviesService, MovieSpecifics},
     podcasts::{resolver::PodcastsService, PodcastSpecifics},
@@ -521,7 +521,6 @@ impl MiscMutation {
 pub struct MiscService {
     db: DatabaseConnection,
     scdb: MemoryDb,
-    s3_client: aws_sdk_s3::Client,
     media_service: Arc<MediaService>,
     audio_books_service: Arc<AudioBooksService>,
     books_service: Arc<BooksService>,
@@ -537,7 +536,6 @@ impl MiscService {
     pub fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
-        s3_client: &aws_sdk_s3::Client,
         media_service: &MediaService,
         audio_books_service: &AudioBooksService,
         books_service: &BooksService,
@@ -550,7 +548,6 @@ impl MiscService {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
-            s3_client: s3_client.clone(),
             media_service: Arc::new(media_service.clone()),
             audio_books_service: Arc::new(audio_books_service.clone()),
             books_service: Arc::new(books_service.clone()),
@@ -1266,44 +1263,88 @@ impl MiscService {
                 error: CreateCustomMediaErrorVariant::LotDoesNotMatchSpecifics,
             }))
         };
-        match input.lot {
+        let specifics = match input.lot {
             MetadataLot::AudioBook => match input.audio_book_specifics {
                 None => return err(),
                 Some(ref mut s) => {
                     s.source = AudioBookSource::Custom;
+                    MediaSpecifics::AudioBook(s.clone())
                 }
             },
             MetadataLot::Book => match input.book_specifics {
                 None => return err(),
                 Some(ref mut s) => {
                     s.source = BookSource::Custom;
+                    MediaSpecifics::Book(s.clone())
                 }
             },
             MetadataLot::Movie => match input.movie_specifics {
                 None => return err(),
                 Some(ref mut s) => {
                     s.source = MovieSource::Custom;
+                    MediaSpecifics::Movie(s.clone())
                 }
             },
             MetadataLot::Podcast => match input.podcast_specifics {
                 None => return err(),
                 Some(ref mut s) => {
                     s.source = PodcastSource::Custom;
+                    MediaSpecifics::Podcast(s.clone())
                 }
             },
             MetadataLot::Show => match input.show_specifics {
                 None => return err(),
                 Some(ref mut s) => {
                     s.source = ShowSource::Custom;
+                    MediaSpecifics::Show(s.clone())
                 }
             },
             MetadataLot::VideoGame => match input.video_game_specifics {
                 None => return err(),
                 Some(ref mut s) => {
                     s.source = VideoGameSource::Custom;
+                    MediaSpecifics::VideoGame(s.clone())
                 }
             },
         };
-        todo!()
+        let identifier = Uuid::new_v4().to_string();
+        let images = input
+            .images
+            .into_iter()
+            .map(|i| MetadataImage {
+                url: MetadataImageUrl::S3(i),
+                lot: MetadataImageLot::Poster,
+            })
+            .collect();
+        let creators = input
+            .creators
+            .into_iter()
+            .map(|c| MetadataCreator {
+                name: c,
+                role: "Creator".to_string(),
+                image_urls: vec![],
+            })
+            .collect();
+        let details = MediaDetails {
+            identifier,
+            title: input.title,
+            description: input.description,
+            lot: input.lot,
+            creators,
+            genres: input.genres,
+            images,
+            publish_year: input.publish_year,
+            publish_date: None,
+            specifics,
+        };
+        let media = match input.lot {
+            MetadataLot::AudioBook => self.audio_books_service.save_to_db(details).await?,
+            MetadataLot::Book => self.books_service.save_to_db(details).await?,
+            MetadataLot::Movie => self.movies_service.save_to_db(details).await?,
+            MetadataLot::Podcast => self.podcasts_service.save_to_db(details).await?,
+            MetadataLot::Show => self.shows_service.save_to_db(details).await?,
+            MetadataLot::VideoGame => self.video_games_service.save_to_db(details).await?,
+        };
+        Ok(CreateCustomMediaResult::Ok(media))
     }
 }
