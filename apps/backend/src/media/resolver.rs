@@ -120,11 +120,21 @@ pub struct GraphqlMediaDetails {
     pub podcast_specifics: Option<PodcastSpecifics>,
 }
 
+
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortOrder {
     Desc,
     #[default]
     Asc,
+}
+
+impl MediaSortOrder {
+    fn flip(&self) -> Self {
+        match self {
+            Self::Desc => Self::Asc,
+            Self::Asc => Self::Desc,
+        }
+    }
 }
 
 impl From<MediaSortOrder> for Order {
@@ -575,10 +585,17 @@ impl MediaService {
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
+                        let cmd_str = match s.order {
+                            MediaSortOrder::Desc => "9999-12-31",
+                            MediaSortOrder::Asc => "0000-01-91",
+                        };
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
                             .expr_as(
-                                Func::max(Expr::col(TempSeen::FinishedOn)),
+                                Func::coalesce([
+                                    Func::max(Expr::col(TempSeen::FinishedOn)).into(),
+                                    Expr::val(cmd_str).into(),
+                                ]),
                                 TempSeen::LastSeen,
                             )
                             .from(TempSeen::Table)
@@ -593,6 +610,22 @@ impl MediaService {
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .equals((TempSeen::Alias, TempMetadata::MetadataId)),
                             )
+                            // .order_by_expr(
+                            //     Expr::case(
+                            //         Expr::col((TempSeen::Alias, TempSeen::LastSeen)).is_null(),
+                            //         1,
+                            //     )
+                            //     .finally(0)
+                            //     .into(),
+                            // s.order.flip().into(),
+                            // match order_by {
+                            //     Order::Asc => Order::Desc,
+                            //     Order::Desc => Order::Asc,
+                            //     Order::Field(_) => unreachable!(),
+                            // },
+                            // order_by.clone(),
+                            // Order::Asc,
+                            // )
                             .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
                             .to_owned();
                     }
