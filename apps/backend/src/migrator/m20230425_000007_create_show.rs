@@ -25,6 +25,8 @@ pub enum ShowSource {
     #[default]
     #[sea_orm(string_value = "T")]
     Tmdb,
+    #[sea_orm(string_value = "C")]
+    Custom,
 }
 
 #[derive(Iden)]

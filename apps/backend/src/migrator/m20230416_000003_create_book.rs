@@ -27,6 +27,8 @@ pub enum BookSource {
     OpenLibrary,
     #[sea_orm(string_value = "G")]
     Goodreads,
+    #[sea_orm(string_value = "C")]
+    Custom,
 }
 
 #[derive(Iden)]

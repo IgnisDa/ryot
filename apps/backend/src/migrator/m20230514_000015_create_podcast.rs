@@ -25,6 +25,8 @@ pub enum PodcastSource {
     #[default]
     #[sea_orm(string_value = "L")]
     Listennotes,
+    #[sea_orm(string_value = "C")]
+    Custom,
 }
 
 #[derive(Iden)]

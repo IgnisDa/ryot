@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
 use crate::{
-    entities::{audio_book, metadata, prelude::Metadata},
+    entities::{
+        audio_book, metadata,
+        prelude::{AudioBook, Metadata},
+    },
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -87,13 +90,21 @@ impl AudioBooksService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Metadata::find_by_id(metadata_id)
+        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
+            .find_also_related(AudioBook)
             .one(&self.db)
             .await
             .unwrap()
-            .unwrap()
-            .identifier;
-        let details = self.audible_service.details(&identifier).await?;
+            .unwrap();
+        let additional_details = additional_details.unwrap();
+        let details = match additional_details.source {
+            AudioBookSource::Audible => self.audible_service.details(&metadata.identifier).await?,
+            AudioBookSource::Custom => {
+                return Err(Error::new(
+                    "Getting details for custom provider is not supported".to_owned(),
+                ))
+            }
+        };
         Ok(details)
     }
 
