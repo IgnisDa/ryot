@@ -142,6 +142,7 @@ export const getSourceUrl = (
 					BookSource.Goodreads,
 					() => `https://www.goodreads.com/book/show/${identifier}-${slug}`,
 				)
+				.with(BookSource.Custom, () => ``)
 				.exhaustive();
 		}
 		case MetadataLot.Movie:
