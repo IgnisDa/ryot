@@ -501,7 +501,7 @@ impl MediaService {
             #[iden = "s"]
             Alias,
             MetadataId,
-            LastUpdatedOn,
+            FinishedOn,
             LastSeen,
             UserId,
         }
@@ -578,7 +578,7 @@ impl MediaService {
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
                             .expr_as(
-                                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
+                                Func::max(Expr::col(TempSeen::FinishedOn)),
                                 TempSeen::LastSeen,
                             )
                             .from(TempSeen::Table)
