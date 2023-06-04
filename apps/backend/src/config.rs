@@ -185,6 +185,7 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
     pub aws_access_key_id: String,
+    pub aws_bucket_name: String,
     #[setting(default = "us-east-1")]
     pub aws_region: String,
     pub aws_secret_access_key: String,
