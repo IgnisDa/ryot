@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
-use aws_sdk_s3::Client;
+use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
@@ -274,6 +276,7 @@ impl MediaMutation {
 pub struct MediaService {
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
+    bucket_name: String,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -283,6 +286,7 @@ impl MediaService {
     pub fn new(
         db: &DatabaseConnection,
         s3_client: &aws_sdk_s3::Client,
+        bucket_name: &str,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -290,6 +294,7 @@ impl MediaService {
         Self {
             db: db.clone(),
             s3_client: s3_client.clone(),
+            bucket_name: bucket_name.to_owned(),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -299,24 +304,45 @@ impl MediaService {
 
 impl MediaService {
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
-        // FIXME: Generate presigned images for aws
-        let images = meta.images.0.clone();
-        let poster_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Poster)
-            .map(|i| match i.url.clone() {
-                MetadataImageUrl::Url(u) => u,
-                MetadataImageUrl::S3(_u) => todo!(),
-            })
-            .collect();
-        let backdrop_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Backdrop)
-            .map(|i| match i.url.clone() {
-                MetadataImageUrl::Url(u) => u,
-                MetadataImageUrl::S3(_u) => todo!(),
-            })
-            .collect();
+        let mut poster_images = vec![];
+        let mut backdrop_images = vec![];
+        async fn get_presigned_url(
+            u: String,
+            client: &aws_sdk_s3::Client,
+            bucket_name: &str,
+        ) -> String {
+            client
+                .get_object()
+                .bucket(bucket_name)
+                .key(u)
+                .presigned(PresigningConfig::expires_in(Duration::from_secs(90)).unwrap())
+                .await
+                .unwrap()
+                .uri()
+                .to_string()
+        }
+        for i in meta.images.0.clone() {
+            match i.lot {
+                MetadataImageLot::Backdrop => {
+                    let img = match i.url.clone() {
+                        MetadataImageUrl::Url(u) => u,
+                        MetadataImageUrl::S3(u) => {
+                            get_presigned_url(u, &self.s3_client, &self.bucket_name).await
+                        }
+                    };
+                    backdrop_images.push(img);
+                }
+                MetadataImageLot::Poster => {
+                    let img = match i.url.clone() {
+                        MetadataImageUrl::Url(u) => u,
+                        MetadataImageUrl::S3(u) => {
+                            get_presigned_url(u, &self.s3_client, &self.bucket_name).await
+                        }
+                    };
+                    poster_images.push(img);
+                }
+            };
+        }
         Ok((poster_images, backdrop_images))
     }
 
