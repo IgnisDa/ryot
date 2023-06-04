@@ -184,12 +184,12 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
-    pub aws_access_key_id: String,
-    pub aws_bucket_name: String,
+    pub s3_access_key_id: String,
+    pub s3_bucket_name: String,
     #[setting(default = "us-east-1")]
-    pub aws_region: String,
-    pub aws_secret_access_key: String,
-    pub aws_url: String,
+    pub s3_region: String,
+    pub s3_secret_access_key: String,
+    pub s3_url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -254,10 +254,10 @@ impl AppConfig {
         let mut cl = self.clone();
         cl.database.url = gt();
         cl.database.scdb_url = gt();
-        cl.file_storage.aws_region = gt();
-        cl.file_storage.aws_access_key_id = gt();
-        cl.file_storage.aws_secret_access_key = gt();
-        cl.file_storage.aws_url = gt();
+        cl.file_storage.s3_region = gt();
+        cl.file_storage.s3_access_key_id = gt();
+        cl.file_storage.s3_secret_access_key = gt();
+        cl.file_storage.s3_url = gt();
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();

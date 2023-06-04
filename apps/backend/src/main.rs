@@ -112,17 +112,17 @@ async fn main() -> Result<()> {
     let config = get_app_config()?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
-        .region(Region::new(config.file_storage.aws_region.clone()))
+        .region(Region::new(config.file_storage.s3_region.clone()))
         .force_path_style(true);
-    if !config.file_storage.aws_url.is_empty() {
-        aws_conf = aws_conf.endpoint_url(&config.file_storage.aws_url);
+    if !config.file_storage.s3_url.is_empty() {
+        aws_conf = aws_conf.endpoint_url(&config.file_storage.s3_url);
     }
-    if !config.file_storage.aws_access_key_id.is_empty()
-        && !config.file_storage.aws_secret_access_key.is_empty()
+    if !config.file_storage.s3_access_key_id.is_empty()
+        && !config.file_storage.s3_secret_access_key.is_empty()
     {
         aws_conf = aws_conf.credentials_provider(aws_sdk_s3::config::Credentials::new(
-            &config.file_storage.aws_access_key_id,
-            &config.file_storage.aws_secret_access_key,
+            &config.file_storage.s3_access_key_id,
+            &config.file_storage.s3_secret_access_key,
             None,
             None,
             PROJECT_NAME,
@@ -375,7 +375,7 @@ async fn upload_handler(
         let key = format!("uploads/{}-{}", Uuid::new_v4(), name);
         let _resp = s3_client
             .put_object()
-            .bucket(&config.file_storage.aws_bucket_name)
+            .bucket(&config.file_storage.s3_bucket_name)
             .key(&key)
             .body(data.into())
             .send()
