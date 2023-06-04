@@ -239,6 +239,14 @@ impl MediaQuery {
             .media_list(user_id, input)
             .await
     }
+
+    /// Get a presigned URL (valid for 90 minutes) for a given key.
+    async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .get_presigned_url(key)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -303,41 +311,34 @@ impl MediaService {
 }
 
 impl MediaService {
+    async fn get_presigned_url(&self, key: String) -> String {
+        self.s3_client
+            .get_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .presigned(PresigningConfig::expires_in(Duration::from_secs(90 * 60)).unwrap())
+            .await
+            .unwrap()
+            .uri()
+            .to_string()
+    }
+
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
-        async fn get_presigned_url(
-            u: String,
-            client: &aws_sdk_s3::Client,
-            bucket_name: &str,
-        ) -> String {
-            client
-                .get_object()
-                .bucket(bucket_name)
-                .key(u)
-                .presigned(PresigningConfig::expires_in(Duration::from_secs(90)).unwrap())
-                .await
-                .unwrap()
-                .uri()
-                .to_string()
-        }
         for i in meta.images.0.clone() {
             match i.lot {
                 MetadataImageLot::Backdrop => {
                     let img = match i.url.clone() {
                         MetadataImageUrl::Url(u) => u,
-                        MetadataImageUrl::S3(u) => {
-                            get_presigned_url(u, &self.s3_client, &self.bucket_name).await
-                        }
+                        MetadataImageUrl::S3(u) => self.get_presigned_url(u).await,
                     };
                     backdrop_images.push(img);
                 }
                 MetadataImageLot::Poster => {
                     let img = match i.url.clone() {
                         MetadataImageUrl::Url(u) => u,
-                        MetadataImageUrl::S3(u) => {
-                            get_presigned_url(u, &self.s3_client, &self.bucket_name).await
-                        }
+                        MetadataImageUrl::S3(u) => self.get_presigned_url(u).await,
                     };
                     poster_images.push(img);
                 }
