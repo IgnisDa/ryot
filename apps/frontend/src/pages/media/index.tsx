@@ -461,6 +461,7 @@ const Page: NextPageWithLayout = () => {
 			return progressUpdate;
 		},
 		onSuccess: () => {
+			collections.refetch();
 			seenHistory.refetch();
 		},
 	});
