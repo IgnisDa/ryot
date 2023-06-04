@@ -8,6 +8,7 @@ export const ROUTES = {
 	list: "/list",
 	media: {
 		commit: "/media/commit",
+		create: "/media/create",
 		details: "/media",
 		postReview: "/media/post-review",
 		updateProgress: "/media/update-progress",

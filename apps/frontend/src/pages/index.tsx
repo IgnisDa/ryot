@@ -8,6 +8,7 @@ import { gqlClient } from "@/lib/services/api";
 import { getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
 	Box,
+	Button,
 	Center,
 	Container,
 	Divider,
@@ -25,6 +26,7 @@ import {
 	MetadataLot,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -32,6 +34,7 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import Head from "next/head";
+import Link from "next/link";
 import { type ReactElement } from "react";
 
 const service = new HumanizeDurationLanguage();
@@ -231,6 +234,19 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 					</SimpleGrid>
+					<Divider />
+					<Title>Actions</Title>
+					<Box>
+						<Link passHref legacyBehavior href={ROUTES.media.create}>
+							<Button
+								variant="outline"
+								component="a"
+								leftIcon={<IconPhotoPlus />}
+							>
+								Create a media item
+							</Button>
+						</Link>
+					</Box>
 				</Stack>
 			</Container>
 		</>
