@@ -159,6 +159,7 @@ async fn main() -> Result<()> {
     let app_services = create_app_services(
         db.clone(),
         scdb.clone(),
+        s3_client.clone(),
         &config,
         &import_media_storage,
         &user_created_job_storage,

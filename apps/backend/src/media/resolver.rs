@@ -1,5 +1,6 @@
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use aws_sdk_s3::Client;
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
@@ -273,6 +274,7 @@ impl MediaMutation {
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
+    s3_client: Client,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -281,6 +283,7 @@ pub struct MediaService {
 impl MediaService {
     pub fn new(
         db: &DatabaseConnection,
+        s3_client: &Client,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -290,6 +293,7 @@ impl MediaService {
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
+            s3_client: s3_client.clone(),
         }
     }
 }
