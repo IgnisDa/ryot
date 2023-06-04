@@ -38,11 +38,17 @@ export type AddMediaToCollection = {
 };
 
 export enum AudioBookSource {
-  Audible = 'AUDIBLE'
+  Audible = 'AUDIBLE',
+  Custom = 'CUSTOM'
 }
 
 export type AudioBookSpecifics = {
   runtime?: Maybe<Scalars['Int']>;
+  source: AudioBookSource;
+};
+
+export type AudioBookSpecificsInput = {
+  runtime?: InputMaybe<Scalars['Int']>;
   source: AudioBookSource;
 };
 
@@ -52,12 +58,18 @@ export type AudioBooksSummary = {
 };
 
 export enum BookSource {
+  Custom = 'CUSTOM',
   Goodreads = 'GOODREADS',
   OpenLibrary = 'OPEN_LIBRARY'
 }
 
 export type BookSpecifics = {
   pages?: Maybe<Scalars['Int']>;
+  source: BookSource;
+};
+
+export type BookSpecificsInput = {
+  pages?: InputMaybe<Scalars['Int']>;
   source: BookSource;
 };
 
@@ -88,6 +100,32 @@ export type CoreFeatureEnabled = {
   enabled: Scalars['Boolean'];
   name: MetadataLot;
 };
+
+export type CreateCustomMediaError = {
+  error: CreateCustomMediaErrorVariant;
+};
+
+export enum CreateCustomMediaErrorVariant {
+  LotDoesNotMatchSpecifics = 'LOT_DOES_NOT_MATCH_SPECIFICS'
+}
+
+export type CreateCustomMediaInput = {
+  audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
+  bookSpecifics?: InputMaybe<BookSpecificsInput>;
+  creators: Array<Scalars['String']>;
+  description?: InputMaybe<Scalars['String']>;
+  genres: Array<Scalars['String']>;
+  images: Array<Scalars['String']>;
+  lot: MetadataLot;
+  movieSpecifics?: InputMaybe<MovieSpecificsInput>;
+  podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
+  publishYear?: InputMaybe<Scalars['Int']>;
+  showSpecifics?: InputMaybe<ShowSpecificsInput>;
+  title: Scalars['String'];
+  videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
+};
+
+export type CreateCustomMediaResult = CreateCustomMediaError | IdObject;
 
 export type DeployGoodreadsImportInput = {
   rssUrl: Scalars['String'];
@@ -245,11 +283,17 @@ export enum MetadataLot {
 }
 
 export enum MovieSource {
+  Custom = 'CUSTOM',
   Tmdb = 'TMDB'
 }
 
 export type MovieSpecifics = {
   runtime?: Maybe<Scalars['Int']>;
+  source: MovieSource;
+};
+
+export type MovieSpecificsInput = {
+  runtime?: InputMaybe<Scalars['Int']>;
   source: MovieSource;
 };
 
@@ -277,6 +321,8 @@ export type MutationRoot = {
   commitVideoGame: IdObject;
   /** Create a new collection for the logged in user. */
   createCollection: IdObject;
+  /** Create a custom media item. */
+  createCustomMedia: CreateCustomMediaResult;
   /** Delete a collection. */
   deleteCollection: Scalars['Boolean'];
   /** Delete a review if it belongs to the user. */
@@ -356,6 +402,11 @@ export type MutationRootCreateCollectionArgs = {
 };
 
 
+export type MutationRootCreateCustomMediaArgs = {
+  input: CreateCustomMediaInput;
+};
+
+
 export type MutationRootDeleteCollectionArgs = {
   collectionName: Scalars['String'];
 };
@@ -425,12 +476,29 @@ export type PodcastEpisode = {
   title: Scalars['String'];
 };
 
+export type PodcastEpisodeInput = {
+  id: Scalars['String'];
+  number: Scalars['Int'];
+  overview?: InputMaybe<Scalars['String']>;
+  publishDate: Scalars['Int'];
+  runtime?: InputMaybe<Scalars['Int']>;
+  thumbnail?: InputMaybe<Scalars['String']>;
+  title: Scalars['String'];
+};
+
 export enum PodcastSource {
+  Custom = 'CUSTOM',
   Listennotes = 'LISTENNOTES'
 }
 
 export type PodcastSpecifics = {
   episodes: Array<PodcastEpisode>;
+  source: PodcastSource;
+  totalEpisodes: Scalars['Int'];
+};
+
+export type PodcastSpecificsInput = {
+  episodes: Array<PodcastEpisodeInput>;
   source: PodcastSource;
   totalEpisodes: Scalars['Int'];
 };
@@ -486,6 +554,8 @@ export type QueryRoot = {
   coreDetails: CoreDetails;
   /** Get all the features that are enabled for the service */
   coreEnabledFeatures: Array<CoreFeatureEnabled>;
+  /** Get a presigned URL (valid for 90 minutes) for a given key. */
+  getPresignedUrl: Scalars['String'];
   /** Get details about a media present in the database. */
   mediaDetails: GraphqlMediaDetails;
   /** Get the ID of a media with the given identifier if it exists in the database */
@@ -520,6 +590,11 @@ export type QueryRootAudioBooksSearchArgs = {
 
 export type QueryRootBooksSearchArgs = {
   input: SearchInput;
+};
+
+
+export type QueryRootGetPresignedUrlArgs = {
+  key: Scalars['String'];
 };
 
 
@@ -637,6 +712,16 @@ export type ShowEpisode = {
   runtime?: Maybe<Scalars['Int']>;
 };
 
+export type ShowEpisodeSpecificsInput = {
+  episodeNumber: Scalars['Int'];
+  id: Scalars['Int'];
+  name: Scalars['String'];
+  overview?: InputMaybe<Scalars['String']>;
+  posterImages: Array<Scalars['String']>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']>;
+  runtime?: InputMaybe<Scalars['Int']>;
+};
+
 export type ShowSeason = {
   backdropImages: Array<Scalars['String']>;
   episodes: Array<ShowEpisode>;
@@ -648,12 +733,29 @@ export type ShowSeason = {
   seasonNumber: Scalars['Int'];
 };
 
+export type ShowSeasonSpecificsInput = {
+  backdropImages: Array<Scalars['String']>;
+  episodes: Array<ShowEpisodeSpecificsInput>;
+  id: Scalars['Int'];
+  name: Scalars['String'];
+  overview?: InputMaybe<Scalars['String']>;
+  posterImages: Array<Scalars['String']>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']>;
+  seasonNumber: Scalars['Int'];
+};
+
 export enum ShowSource {
+  Custom = 'CUSTOM',
   Tmdb = 'TMDB'
 }
 
 export type ShowSpecifics = {
   seasons: Array<ShowSeason>;
+  source: ShowSource;
+};
+
+export type ShowSpecificsInput = {
+  seasons: Array<ShowSeasonSpecificsInput>;
   source: ShowSource;
 };
 
@@ -707,10 +809,15 @@ export type UserSummary = {
 };
 
 export enum VideoGameSource {
+  Custom = 'CUSTOM',
   Igdb = 'IGDB'
 }
 
 export type VideoGameSpecifics = {
+  source: VideoGameSource;
+};
+
+export type VideoGameSpecificsInput = {
   source: VideoGameSource;
 };
 
@@ -780,6 +887,13 @@ export type CreateCollectionMutationVariables = Exact<{
 
 
 export type CreateCollectionMutation = { createCollection: { id: any } };
+
+export type CreateCustomMediaMutationVariables = Exact<{
+  input: CreateCustomMediaInput;
+}>;
+
+
+export type CreateCustomMediaMutation = { createCustomMedia: { __typename: 'CreateCustomMediaError', error: CreateCustomMediaErrorVariant } | { __typename: 'IdObject', id: any } };
 
 export type DeleteCollectionMutationVariables = Exact<{
   collectionName: Scalars['String'];
@@ -910,6 +1024,13 @@ export type CoreEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>
 
 export type CoreEnabledFeaturesQuery = { coreEnabledFeatures: Array<{ name: MetadataLot, enabled: boolean }> };
 
+export type GetPresignedUrlQueryVariables = Exact<{
+  key: Scalars['String'];
+}>;
+
+
+export type GetPresignedUrlQuery = { getPresignedUrl: string };
+
 export type MediaDetailsQueryVariables = Exact<{
   metadataId: Scalars['Identifier'];
 }>;
@@ -992,6 +1113,7 @@ export const CommitPodcastDocument = {"kind":"Document","definitions":[{"kind":"
 export const CommitShowDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitShow"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitShow"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identifier"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitShowMutation, CommitShowMutationVariables>;
 export const CommitVideoGameDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitVideoGame"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitVideoGame"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identifier"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitVideoGameMutation, CommitVideoGameMutationVariables>;
 export const CreateCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"NamedObjectInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCollectionMutation, CreateCollectionMutationVariables>;
+export const CreateCustomMediaDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomMedia"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMediaInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomMedia"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMediaError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]}}]} as unknown as DocumentNode<CreateCustomMediaMutation, CreateCustomMediaMutationVariables>;
 export const DeleteCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}]}]}}]} as unknown as DocumentNode<DeleteCollectionMutation, DeleteCollectionMutationVariables>;
 export const DeleteReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"reviewId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}}}]}]}}]} as unknown as DocumentNode<DeleteReviewMutation, DeleteReviewMutationVariables>;
 export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
@@ -1012,6 +1134,7 @@ export const BooksSearchDocument = {"kind":"Document","definitions":[{"kind":"Op
 export const CollectionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mediaDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<CollectionsQuery, CollectionsQueryVariables>;
 export const CoreDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"authorName"}},{"kind":"Field","name":{"kind":"Name","value":"repositoryLink"}},{"kind":"Field","name":{"kind":"Name","value":"usernameChangeAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreDetailsQuery, CoreDetailsQueryVariables>;
 export const CoreEnabledFeaturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}}]}}]}}]} as unknown as DocumentNode<CoreEnabledFeaturesQuery, CoreEnabledFeaturesQueryVariables>;
+export const GetPresignedUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPresignedUrl"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getPresignedUrl"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<GetPresignedUrlQuery, GetPresignedUrlQueryVariables>;
 export const MediaDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"creators"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}}]}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"backdropImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}},{"kind":"Field","name":{"kind":"Name","value":"genres"}},{"kind":"Field","name":{"kind":"Name","value":"audioBookSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"source"}}]}},{"kind":"Field","name":{"kind":"Name","value":"bookSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}},{"kind":"Field","name":{"kind":"Name","value":"source"}}]}},{"kind":"Field","name":{"kind":"Name","value":"movieSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"source"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"thumbnail"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"totalEpisodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"showSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"seasons"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seasonNumber"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"backdropImages"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"episodeNumber"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"videoGameSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"source"}}]}}]}}]}}]} as unknown as DocumentNode<MediaDetailsQuery, MediaDetailsQueryVariables>;
 export const MediaExistsInDatabaseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaExistsInDatabase"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"lot"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataLot"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaExistsInDatabase"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"identifier"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}}},{"kind":"Argument","name":{"kind":"Name","value":"lot"},"value":{"kind":"Variable","name":{"kind":"Name","value":"lot"}}}]}]}}]} as unknown as DocumentNode<MediaExistsInDatabaseQuery, MediaExistsInDatabaseQueryVariables>;
 export const MediaImportReportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"import"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}}]}}]}}]}}]}}]} as unknown as DocumentNode<MediaImportReportsQuery, MediaImportReportsQueryVariables>;
