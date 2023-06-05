@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::VideoGameSource;
+use crate::migrator::{custom_columns, VideoGameSource};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "video_game")]
@@ -11,6 +11,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     pub source: VideoGameSource,
+    pub platforms: custom_columns::StringVec,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

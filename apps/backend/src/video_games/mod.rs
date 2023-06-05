@@ -10,4 +10,5 @@ pub mod resolver;
 #[graphql(input_name = "VideoGameSpecificsInput")]
 pub struct VideoGameSpecifics {
     pub source: VideoGameSource,
+    pub platforms: Vec<String>,
 }

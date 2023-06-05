@@ -475,6 +475,7 @@ impl MediaService {
                     .unwrap();
                 resp.video_game_specifics = Some(VideoGameSpecifics {
                     source: additional.source,
+                    platforms: additional.platforms.0,
                 });
             }
         };

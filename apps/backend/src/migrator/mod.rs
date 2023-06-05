@@ -63,7 +63,7 @@ impl MigratorTrait for Migrator {
     }
 }
 
-mod custom_columns {
+pub mod custom_columns {
     use super::*;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,11 +98,11 @@ mod custom_columns {
         }
 
         fn array_type() -> sea_orm::sea_query::ArrayType {
-            sea_orm::sea_query::ArrayType::String
+            sea_orm::sea_query::ArrayType::Json
         }
 
         fn column_type() -> sea_query::ColumnType {
-            sea_query::ColumnType::String(None)
+            sea_query::ColumnType::Json
         }
     }
 
