@@ -36,6 +36,7 @@ import {
 	SimpleGrid,
 	Slider,
 	Space,
+	Spoiler,
 	Stack,
 	Tabs,
 	Text,
@@ -723,18 +724,22 @@ const Page: NextPageWithLayout = () => {
 									)}
 									<Box mt="xl">
 										{Object.keys(creators).map((c) => (
-											<Flex key={c}>
-												<Text span>
-													<Text fw="bold" span>
-														{c}
+											<Spoiler
+												maxHeight={50}
+												showLabel="Show more"
+												hideLabel="Hide"
+												key={c}
+												my="xs"
+											>
+												<Flex>
+													<Text span>
+														<Text fw="bold" span>
+															{c}
+														</Text>
+														: {creators[c].map((a) => a.name).join(", ")}
 													</Text>
-													:{" "}
-													{creators[c]
-														.slice(0, 5)
-														.map((a) => a.name)
-														.join(", ")}
-												</Text>
-											</Flex>
+												</Flex>
+											</Spoiler>
 										))}
 									</Box>
 								</>
