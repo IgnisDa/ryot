@@ -50,14 +50,18 @@ pub struct MetadataCoreFeatureEnabled {
 
 #[derive(SimpleObject)]
 pub struct GeneralCoreFeatureEnabled {
-    name: String,
     enabled: bool,
+}
+
+#[derive(SimpleObject)]
+pub struct GeneralCoreFeatures {
+    file_storage: GeneralCoreFeatureEnabled,
 }
 
 #[derive(SimpleObject)]
 pub struct CoreFeatureEnabled {
     metadata: Vec<MetadataCoreFeatureEnabled>,
-    general: Vec<GeneralCoreFeatureEnabled>,
+    general: GeneralCoreFeatures,
 }
 
 #[derive(SimpleObject)]
@@ -96,10 +100,11 @@ impl CoreQuery {
                 enabled: f.1.is_enabled(),
             })
             .collect();
-        let general = vec![GeneralCoreFeatureEnabled {
-            name: "FILE_STORAGE".to_owned(),
-            enabled: config.file_storage.is_enabled(),
-        }];
+        let general = GeneralCoreFeatures {
+            file_storage: GeneralCoreFeatureEnabled {
+                enabled: config.file_storage.is_enabled(),
+            },
+        };
         CoreFeatureEnabled { metadata, general }
     }
 

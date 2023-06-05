@@ -1,8 +1,9 @@
 query CoreEnabledFeatures {
   coreEnabledFeatures {
     general {
-      name
-      enabled
+      fileStorage {
+        enabled
+      }
     }
     metadata {
       name
