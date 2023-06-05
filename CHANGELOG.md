@@ -1,4 +1,15 @@
 
+# Version 1.0.0-beta.55 (2023-06-05)
+
+## Bug Fixes
+
+* **frontend:** disable file uploading if not enabled
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0-beta.54 (2023-06-05)
 
 ## Build
