@@ -8,10 +8,21 @@ use super::Metadata;
 pub struct Migration;
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Default,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum VideoGameSource {
+    #[default]
     #[sea_orm(string_value = "I")]
     Igdb,
     #[sea_orm(string_value = "C")]
@@ -23,6 +34,7 @@ pub enum VideoGame {
     Table,
     MetadataId,
     Source,
+    Details,
 }
 
 impl MigrationName for Migration {

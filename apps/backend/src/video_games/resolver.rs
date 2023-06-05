@@ -16,11 +16,11 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{custom_columns, MetadataLot, VideoGameSource},
+    migrator::{MetadataLot, VideoGameSource},
     traits::MediaProvider,
 };
 
-use super::igdb::IgdbService;
+use super::{igdb::IgdbService, VideoGameSpecifics};
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -143,7 +143,7 @@ impl VideoGamesService {
                 let game = video_game::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     source: ActiveValue::Set(s.source),
-                    platforms: ActiveValue::Set(custom_columns::StringVec(s.platforms)),
+                    details: ActiveValue::Set(s),
                 };
                 game.insert(&self.db).await.unwrap();
                 Ok(IdObject {
@@ -152,5 +152,17 @@ impl VideoGamesService {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub async fn update_details(&self, media_id: i32, details: VideoGameSpecifics) -> Result<()> {
+        let media = VideoGame::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut media: video_game::ActiveModel = media.into();
+        media.details = ActiveValue::Set(details);
+        media.save(&self.db).await.ok();
+        Ok(())
     }
 }

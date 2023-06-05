@@ -919,6 +919,11 @@ impl MiscService {
                         .update_details(metadata_id, s)
                         .await
                         .unwrap(),
+                    MediaSpecifics::VideoGame(s) => self
+                        .video_games_service
+                        .update_details(metadata_id, s)
+                        .await
+                        .unwrap(),
                     _ => {}
                 };
             }
