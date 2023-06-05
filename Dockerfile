@@ -15,7 +15,7 @@ COPY --from=frontend-workspace /app/.moon/docker/sources .
 RUN moon run frontend:build
 
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
-RUN apt-get update && apt-get install -y musl-tools musl-dev
+RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev ca-certificates
 RUN update-ca-certificates
 WORKDIR app
 
@@ -36,6 +36,7 @@ FROM ubuntu:latest as user-creator
 RUN useradd -u 1001 ryot
 
 FROM scratch
+COPY --from=chef /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=user-creator /etc/passwd /etc/passwd
 USER ryot
 # This is actually a hack to ensure that the `/data` directory exists in the image
