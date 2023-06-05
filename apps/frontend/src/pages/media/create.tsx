@@ -20,6 +20,7 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
+	CoreEnabledFeaturesDocument,
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
 	GetPresignedUrlDocument,
@@ -52,6 +53,17 @@ const Page: NextPageWithLayout = () => {
 	const [images, setImages] = useState<string[]>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
+	const enabledFeatures = useQuery(
+		["enabledFeatures"],
+		async () => {
+			const { coreEnabledFeatures } = await gqlClient.request(
+				CoreEnabledFeaturesDocument,
+			);
+			return coreEnabledFeatures;
+		},
+		{ staleTime: Infinity },
+	);
+
 	const imageUrls = useQuery(["presignedUrl", images], async () => {
 		const urls = [];
 		for (const image of images) {
@@ -78,6 +90,10 @@ const Page: NextPageWithLayout = () => {
 			}
 		},
 	});
+
+	const fileUploadNowAllowed = !enabledFeatures.data?.general.find(
+		(f) => f.name === "FILE_STORAGE",
+	)?.enabled;
 
 	return (
 		<>
@@ -128,6 +144,11 @@ const Page: NextPageWithLayout = () => {
 								<FileInput
 									label="Images"
 									multiple
+									disabled={fileUploadNowAllowed}
+									description={
+										fileUploadNowAllowed &&
+										"Please set the S3 variables required to enable file uploading"
+									}
 									onChange={async (files) => {
 										if (files.length > 0) {
 											const data = new FormData();
