@@ -42,7 +42,7 @@ const documents = {
     "query BooksSearch($input: SearchInput!) {\n  booksSearch(input: $input) {\n    total\n    items {\n      identifier\n      title\n      images\n      publishYear\n    }\n  }\n}": types.BooksSearchDocument,
     "query Collections {\n  collections {\n    collectionDetails {\n      id\n      createdOn\n      name\n    }\n    mediaDetails {\n      identifier\n      lot\n      title\n      images\n      publishYear\n    }\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}": types.CoreDetailsDocument,
-    "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}": types.CoreEnabledFeaturesDocument,
+    "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    general {\n      name\n      enabled\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}": types.GetPresignedUrlDocument,
     "query MediaDetails($metadataId: Identifier!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    description\n    identifier\n    lot\n    creators {\n      name\n      role\n    }\n    posterImages\n    backdropImages\n    publishYear\n    publishDate\n    genres\n    audioBookSpecifics {\n      source\n    }\n    bookSpecifics {\n      pages\n      source\n    }\n    movieSpecifics {\n      runtime\n      source\n    }\n    podcastSpecifics {\n      episodes {\n        title\n        overview\n        thumbnail\n        number\n        runtime\n      }\n      source\n      totalEpisodes\n    }\n    showSpecifics {\n      source\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n          runtime\n        }\n      }\n    }\n    videoGameSpecifics {\n      source\n    }\n  }\n}": types.MediaDetailsDocument,
     "query MediaExistsInDatabase($identifier: String!, $lot: MetadataLot!) {\n  mediaExistsInDatabase(identifier: $identifier, lot: $lot)\n}": types.MediaExistsInDatabaseDocument,
@@ -190,7 +190,7 @@ export function graphql(source: "query CoreDetails {\n  coreDetails {\n    versi
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}"): (typeof documents)["query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    name\n    enabled\n  }\n}"];
+export function graphql(source: "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    general {\n      name\n      enabled\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}"): (typeof documents)["query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    general {\n      name\n      enabled\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

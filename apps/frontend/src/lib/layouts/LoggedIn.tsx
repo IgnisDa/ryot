@@ -114,7 +114,7 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const links = [
 		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
-		...(enabledFeatures.data
+		...(enabledFeatures.data?.metadata
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),

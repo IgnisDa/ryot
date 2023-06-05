@@ -192,6 +192,19 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+impl IsFeatureEnabled for FileStorageConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.s3_access_key_id.is_empty()
+            && !self.s3_bucket_name.is_empty()
+            && !self.s3_secret_access_key.is_empty()
+        {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {

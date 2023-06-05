@@ -1,6 +1,12 @@
 query CoreEnabledFeatures {
   coreEnabledFeatures {
-    name
-    enabled
+    general {
+      name
+      enabled
+    }
+    metadata {
+      name
+      enabled
+    }
   }
 }
