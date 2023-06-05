@@ -168,7 +168,6 @@ const Page: NextPageWithLayout = () => {
 									}}
 									accept="image/png,image/jpeg,image/jpg"
 									icon={<IconPhoto />}
-									w="350px"
 								/>
 								<NumberInput
 									label="Publish year"
