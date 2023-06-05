@@ -609,7 +609,14 @@ const Page: NextPageWithLayout = () => {
 							mediaDetails.data.lot,
 							mediaDetails.data.identifier,
 							mediaDetails.data.title,
-							mediaDetails.data.bookSpecifics?.source,
+							{
+								audioBook: mediaDetails.data.audioBookSpecifics?.source,
+								book: mediaDetails.data.bookSpecifics?.source,
+								movie: mediaDetails.data.movieSpecifics?.source,
+								podcast: mediaDetails.data.podcastSpecifics?.source,
+								show: mediaDetails.data.showSpecifics?.source,
+								videoGame: mediaDetails.data.videoGameSpecifics?.source,
+							},
 						),
 					}}
 				>
