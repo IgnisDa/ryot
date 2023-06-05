@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::tmdb::TmdbService;
+use super::{tmdb::TmdbService, MovieSpecifics};
 
 #[derive(Default)]
 pub struct MoviesQuery;
@@ -144,5 +144,15 @@ impl MoviesService {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub async fn update_details(&self, media_id: i32, _details: MovieSpecifics) -> Result<()> {
+        let media = Movie::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut _media: movie::ActiveModel = media.into();
+        Ok(())
     }
 }

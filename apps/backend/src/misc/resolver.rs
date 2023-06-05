@@ -909,6 +909,21 @@ impl MiscService {
                     .await
                     .ok();
                 match details.specifics {
+                    MediaSpecifics::AudioBook(s) => self
+                        .audio_books_service
+                        .update_details(metadata_id, s)
+                        .await
+                        .unwrap(),
+                    MediaSpecifics::Book(s) => self
+                        .books_service
+                        .update_details(metadata_id, s)
+                        .await
+                        .unwrap(),
+                    MediaSpecifics::Movie(s) => self
+                        .movies_service
+                        .update_details(metadata_id, s)
+                        .await
+                        .unwrap(),
                     MediaSpecifics::Podcast(p) => self
                         .podcasts_service
                         .update_details(metadata_id, p)
@@ -924,7 +939,6 @@ impl MiscService {
                         .update_details(metadata_id, s)
                         .await
                         .unwrap(),
-                    _ => {}
                 };
             }
             Err(e) => {
