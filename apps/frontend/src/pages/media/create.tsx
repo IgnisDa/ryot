@@ -64,17 +64,21 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
-	const imageUrls = useQuery(["presignedUrl", images], async () => {
-		const urls = [];
-		for (const image of images) {
-			const { getPresignedUrl } = await gqlClient.request(
-				GetPresignedUrlDocument,
-				{ key: image },
-			);
-			urls.push(getPresignedUrl);
-		}
-		return urls || [];
-	});
+	const imageUrls = useQuery(
+		["presignedUrl", images],
+		async () => {
+			const urls = [];
+			for (const image of images) {
+				const { getPresignedUrl } = await gqlClient.request(
+					GetPresignedUrlDocument,
+					{ key: image },
+				);
+				urls.push(getPresignedUrl);
+			}
+			return urls || [];
+		},
+		{ staleTime: Infinity },
+	);
 
 	const createCustomMedia = useMutation({
 		mutationFn: async (variables: CreateCustomMediaMutationVariables) => {

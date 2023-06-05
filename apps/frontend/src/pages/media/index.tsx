@@ -420,6 +420,7 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaDetails;
 		},
+		staleTime: Infinity,
 	});
 	const seenHistory = useQuery({
 		queryKey: ["history", metadataId, mediaDetails.data?.lot],
