@@ -1187,27 +1187,16 @@ impl MiscService {
 
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
-        self.create_collection(
-            user_id,
-            NamedObject {
-                name: DefaultCollection::Watchlist.to_string(),
-            },
-        )
-        .await?;
-        self.create_collection(
-            user_id,
-            NamedObject {
-                name: DefaultCollection::Abandoned.to_string(),
-            },
-        )
-        .await?;
-        self.create_collection(
-            user_id,
-            NamedObject {
-                name: DefaultCollection::InProgress.to_string(),
-            },
-        )
-        .await?;
+        for collection in DefaultCollection::iter() {
+            self.create_collection(
+                user_id,
+                NamedObject {
+                    name: collection.to_string(),
+                },
+            )
+            .await
+            .ok();
+        }
         Ok(())
     }
 
