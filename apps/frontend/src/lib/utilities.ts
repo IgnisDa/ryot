@@ -137,7 +137,7 @@ export const getSourceUrl = (
 	},
 ) => {
 	const message = "from should be defined";
-	const emptyHandler = () => ``;
+	const emptyHandler = () => "";
 	const slug = slugify(title, {
 		lower: true,
 		strict: true,
