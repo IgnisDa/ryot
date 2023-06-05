@@ -1,11 +1,15 @@
 import type { NextPageWithLayout } from "../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
+import { ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
+import { BASE_URL, gqlClient } from "@/lib/services/api";
 import {
 	Box,
+	Button,
 	Container,
 	FileInput,
 	JsonInput,
+	NumberInput,
 	ScrollArea,
 	Select,
 	Stack,
@@ -13,32 +17,67 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { YearPickerInput } from "@mantine/dates";
 import { useForm, zodResolver } from "@mantine/form";
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
-import { IconPhoto } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+import {
+	CreateCustomMediaDocument,
+	type CreateCustomMediaMutationVariables,
+	GetPresignedUrlDocument,
+	MetadataLot,
+} from "@ryot/generated/graphql/backend/graphql";
+import { IconCalendar, IconPhoto } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { camelCase } from "lodash";
 import Head from "next/head";
-import type { ReactElement } from "react";
+import { useRouter } from "next/router";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
-const commaSeparatedString = z
-	.string()
-	.transform((v) => v.split(",").filter(Boolean));
+const optionalString = z.string().optional();
 
 const formSchema = z.object({
 	title: z.string(),
 	lot: z.nativeEnum(MetadataLot),
-	description: z.string().optional(),
-	files: z.any().array(),
+	description: optionalString,
 	publishYear: z.number().optional(),
-	genres: commaSeparatedString,
-	creators: commaSeparatedString,
-	specifics: z.string(),
+	genres: optionalString,
+	creators: optionalString,
+	specifics: optionalString,
 });
 type FormSchema = z.infer<typeof formSchema>;
 
 const Page: NextPageWithLayout = () => {
+	const router = useRouter();
+
+	const [images, setImages] = useState<string[]>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
+
+	const imageUrls = useQuery(["presignedUrl", images], async () => {
+		const urls = [];
+		for (const image of images) {
+			const { getPresignedUrl } = await gqlClient.request(
+				GetPresignedUrlDocument,
+				{ key: image },
+			);
+			urls.push(getPresignedUrl);
+		}
+		return urls || [];
+	});
+
+	const createCustomMedia = useMutation({
+		mutationFn: async (variables: CreateCustomMediaMutationVariables) => {
+			const { createCustomMedia } = await gqlClient.request(
+				CreateCustomMediaDocument,
+				variables,
+			);
+			return createCustomMedia;
+		},
+		onSuccess: (data) => {
+			if (data.__typename === "IdObject") {
+				router.push(`${ROUTES.media.details}?item=${data.id}`);
+			}
+		},
+	});
 
 	return (
 		<>
@@ -47,15 +86,25 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<MediaDetailsLayout
+					posterImages={imageUrls?.data || []}
 					backdropImages={[]}
-					posterImages={[]}
 					externalLink={{ source: "custom" }}
 				>
 					<ScrollArea.Autosize mah={400}>
 						<Box
 							component="form"
 							onSubmit={form.onSubmit((values) => {
-								console.log(values);
+								const input: any = {
+									...values,
+									images,
+									[`${camelCase(values.lot)}Specifics`]: JSON.parse(
+										values.specifics || "{}",
+									),
+								};
+								input.specifics = undefined;
+								input.genres = input.genres?.split(", ");
+								input.creators = input.creators?.split(", ");
+								createCustomMedia.mutate({ input });
 							})}
 						>
 							<Stack>
@@ -78,15 +127,33 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<FileInput
 									label="Images"
-									{...form.getInputProps("files")}
 									multiple
+									onChange={async (files) => {
+										if (files.length > 0) {
+											const data = new FormData();
+											for (const file of files) {
+												data.append("files[]", file, file.name);
+											}
+											const fetchResp = await fetch(`${BASE_URL}/upload`, {
+												method: "POST",
+												body: data,
+											});
+											const json = await fetchResp.json();
+											notifications.show({
+												title: "Success",
+												message: `Uploaded ${files.length} files`,
+											});
+											setImages(json);
+										}
+									}}
 									accept="image/png,image/jpeg,image/jpg"
 									icon={<IconPhoto />}
 									w="350px"
 								/>
-								<YearPickerInput
+								<NumberInput
 									label="Publish year"
 									{...form.getInputProps("publishYear")}
+									icon={<IconCalendar />}
 								/>
 								<TextInput
 									label="Creators"
@@ -98,15 +165,22 @@ const Page: NextPageWithLayout = () => {
 									{...form.getInputProps("genres")}
 									placeholder="Comma separated values"
 								/>
-								<JsonInput
-									label="Specifics (JSON)"
-									{...form.getInputProps("specifics")}
-									formatOnBlur
-								/>
+								<Box>
+									<JsonInput
+										label="Specifics (JSON)"
+										{...form.getInputProps("specifics")}
+										formatOnBlur
+										required
+										error={
+											createCustomMedia.isError &&
+											"JSON data does not conform to the expected schema. Please look at the `*Specfics` inputs at the `/graphql` endpoint."
+										}
+									/>
+								</Box>
+								<Button type="submit">Create</Button>
 							</Stack>
 						</Box>
 					</ScrollArea.Autosize>
-					<></>
 				</MediaDetailsLayout>
 			</Container>
 		</>

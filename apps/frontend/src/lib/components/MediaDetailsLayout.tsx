@@ -8,7 +8,7 @@ export default function ({
 	posterImages,
 	externalLink,
 }: {
-	children: (JSX.Element | null)[];
+	children: JSX.Element | (JSX.Element | null)[];
 	posterImages: string[];
 	backdropImages: string[];
 	externalLink: { source: string; href?: string };
