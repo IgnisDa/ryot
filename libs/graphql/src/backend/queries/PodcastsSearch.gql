@@ -1,6 +1,7 @@
 query PodcastsSearch($input: SearchInput!) {
 	podcastsSearch(input: $input) {
 		total
+		nextPage
 		items {
   		identifier
   		title

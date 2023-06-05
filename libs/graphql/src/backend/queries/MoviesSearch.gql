@@ -1,6 +1,7 @@
 query MoviesSearch($input: SearchInput!) {
   moviesSearch(input: $input) {
     total
+    nextPage
     items {
       identifier
       title

@@ -65,6 +65,7 @@ pub struct MediaSearchItem {
 pub struct MediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItem>,
+    pub next_page: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
@@ -723,6 +724,7 @@ impl MediaService {
             .await?
             .map(|qr| qr.try_get_by_index::<i64>(0).unwrap())
             .unwrap();
+        let total: i32 = total.try_into().unwrap();
 
         let main_select = main_select
             .limit(PAGE_LIMIT as u64)
@@ -755,9 +757,15 @@ impl MediaService {
             };
             items.push(m_small);
         }
+        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+            Some(input.page + 1)
+        } else {
+            None
+        };
         Ok(MediaSearchResults {
-            total: total.try_into().unwrap(),
+            total,
             items,
+            next_page,
         })
     }
 

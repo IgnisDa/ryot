@@ -96,6 +96,7 @@ impl MediaProvider for AudibleService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let page = page.unwrap_or(1);
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
             total_results: i32,
@@ -107,7 +108,7 @@ impl MediaProvider for AudibleService {
             .query(&SearchQuery {
                 title: query.to_owned(),
                 num_results: PAGE_LIMIT,
-                page: page.unwrap_or(1) - 1,
+                page: page - 1,
                 products_sort_by: "Relevance".to_owned(),
                 primary: PrimaryQuery::default(),
             })
@@ -136,9 +137,15 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect::<Vec<_>>();
+        let next_page = if search.total_results - ((page) * PAGE_LIMIT) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
         Ok(MediaSearchResults {
             total: search.total_results,
             items: resp,
+            next_page,
         })
     }
 }

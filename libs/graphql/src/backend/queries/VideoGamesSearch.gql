@@ -1,6 +1,7 @@
 query VideoGamesSearch($input: SearchInput!) {
   videoGamesSearch(input: $input) {
     total
+		nextPage
     items {
       identifier
       title

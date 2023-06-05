@@ -1,6 +1,7 @@
 query ShowsSearch($input: SearchInput!) {
   showSearch(input: $input) {
     total
+    nextPage
     items {
       identifier
       title

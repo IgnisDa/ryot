@@ -114,6 +114,7 @@ where id = {id};
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let client = igdb::get_client(&self.config).await;
+        let page = page.unwrap_or(1);
         let req_body = format!(
             r#"
 {field}
@@ -123,7 +124,7 @@ offset: {offset};
             "#,
             field = FIELDS,
             limit = PAGE_LIMIT,
-            offset = (page.unwrap_or_default() - 1) * PAGE_LIMIT
+            offset = (page - 1) * PAGE_LIMIT
         );
         let mut rsp = client
             .post("games")
@@ -156,7 +157,11 @@ offset: {offset};
                 }
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults { total, items: resp })
+        Ok(MediaSearchResults {
+            total,
+            items: resp,
+            next_page: Some(page + 1),
+        })
     }
 }
 

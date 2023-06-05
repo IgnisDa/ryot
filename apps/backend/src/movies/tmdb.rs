@@ -111,6 +111,7 @@ impl MediaProvider for TmdbService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbMovie {
             id: i32,
@@ -124,13 +125,14 @@ impl MediaProvider for TmdbService {
         struct TmdbSearchResponse {
             total_results: i32,
             results: Vec<TmdbMovie>,
+            total_pages: i32,
         }
         let mut rsp = self
             .client
             .get("search/movie")
             .query(&json!({
                 "query": query.to_owned(),
-                "page": page.unwrap_or(1),
+                "page": page,
                 "language": "en-US".to_owned(),
             }))
             .unwrap()
@@ -152,8 +154,14 @@ impl MediaProvider for TmdbService {
                 }
             })
             .collect::<Vec<_>>();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
         Ok(MediaSearchResults {
             total: search.total_results,
+            next_page,
             items: resp.to_vec(),
         })
     }
