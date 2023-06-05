@@ -1,11 +1,11 @@
 query BooksSearch($input: SearchInput!) {
-	booksSearch(input: $input) {
-		total
-		items {
-  		identifier
-  		title
-  		images
-			publishYear
-		}
-	}
+  booksSearch(input: $input) {
+    total
+    items {
+      identifier
+      title
+      images
+      publishYear
+    }
+  }
 }
