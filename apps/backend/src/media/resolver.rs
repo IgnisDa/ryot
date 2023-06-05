@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
@@ -7,8 +10,8 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, MySqlQueryBuilder, PostgresQueryBuilder, Query, SelectStatement,
-    SqliteQueryBuilder,
+    Alias, Cond, Expr, Func, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +38,10 @@ use crate::{
     video_games::VideoGameSpecifics,
 };
 
-use super::{MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImages};
+use super::{
+    MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImageUrl,
+    MetadataImages,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -51,7 +57,7 @@ pub struct MediaSearchItem {
     pub identifier: String,
     pub lot: MetadataLot,
     pub title: String,
-    pub poster_images: Vec<String>,
+    pub images: Vec<String>,
     pub publish_year: Option<i32>,
 }
 
@@ -90,15 +96,14 @@ pub struct MediaDetails {
     pub lot: MetadataLot,
     pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
+    pub images: Vec<MetadataImage>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub specifics: MediaSpecifics,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct DatabaseMediaDetails {
+pub struct GraphqlMediaDetails {
     pub id: i32,
     pub title: String,
     pub identifier: String,
@@ -189,7 +194,7 @@ impl MediaQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: Identifier,
-    ) -> Result<DatabaseMediaDetails> {
+    ) -> Result<GraphqlMediaDetails> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .media_details(metadata_id.into())
@@ -234,6 +239,14 @@ impl MediaQuery {
             .media_list(user_id, input)
             .await
     }
+
+    /// Get a presigned URL (valid for 90 minutes) for a given key.
+    async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .get_presigned_url(key)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -270,6 +283,8 @@ impl MediaMutation {
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
+    s3_client: aws_sdk_s3::Client,
+    bucket_name: String,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -278,12 +293,16 @@ pub struct MediaService {
 impl MediaService {
     pub fn new(
         db: &DatabaseConnection,
+        s3_client: &aws_sdk_s3::Client,
+        bucket_name: &str,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
     ) -> Self {
         Self {
             db: db.clone(),
+            s3_client: s3_client.clone(),
+            bucket_name: bucket_name.to_owned(),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -292,18 +311,39 @@ impl MediaService {
 }
 
 impl MediaService {
+    async fn get_presigned_url(&self, key: String) -> String {
+        self.s3_client
+            .get_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .presigned(PresigningConfig::expires_in(Duration::from_secs(90 * 60)).unwrap())
+            .await
+            .unwrap()
+            .uri()
+            .to_string()
+    }
+
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
-        let images = meta.images.0.clone();
-        let poster_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Poster)
-            .map(|i| i.url.clone())
-            .collect();
-        let backdrop_images = images
-            .iter()
-            .filter(|f| f.lot == MetadataImageLot::Backdrop)
-            .map(|i| i.url.clone())
-            .collect();
+        let mut poster_images = vec![];
+        let mut backdrop_images = vec![];
+        for i in meta.images.0.clone() {
+            match i.lot {
+                MetadataImageLot::Backdrop => {
+                    let img = match i.url.clone() {
+                        MetadataImageUrl::Url(u) => u,
+                        MetadataImageUrl::S3(u) => self.get_presigned_url(u).await,
+                    };
+                    backdrop_images.push(img);
+                }
+                MetadataImageLot::Poster => {
+                    let img = match i.url.clone() {
+                        MetadataImageUrl::Url(u) => u,
+                        MetadataImageUrl::S3(u) => self.get_presigned_url(u).await,
+                    };
+                    poster_images.push(img);
+                }
+            };
+        }
         Ok((poster_images, backdrop_images))
     }
 
@@ -349,7 +389,7 @@ impl MediaService {
             .map(|f| f.id))
     }
 
-    async fn media_details(&self, metadata_id: i32) -> Result<DatabaseMediaDetails> {
+    async fn media_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
         let MediaBaseData {
             model,
             creators,
@@ -357,7 +397,7 @@ impl MediaService {
             backdrop_images,
             genres,
         } = self.generic_metadata(metadata_id).await?;
-        let mut resp = DatabaseMediaDetails {
+        let mut resp = GraphqlMediaDetails {
             id: model.id,
             title: model.title,
             identifier: model.identifier,
@@ -492,7 +532,7 @@ impl MediaService {
             #[iden = "s"]
             Alias,
             MetadataId,
-            LastUpdatedOn,
+            FinishedOn,
             LastSeen,
             UserId,
         }
@@ -569,7 +609,7 @@ impl MediaService {
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
                             .expr_as(
-                                Func::max(Expr::col(TempSeen::LastUpdatedOn)),
+                                Func::max(Expr::col(TempSeen::FinishedOn)),
                                 TempSeen::LastSeen,
                             )
                             .from(TempSeen::Table)
@@ -578,16 +618,21 @@ impl MediaService {
                             .to_owned();
                         main_select = main_select
                             .join_subquery(
-                                JoinType::Join,
+                                JoinType::LeftJoin,
                                 sub_select,
                                 TempSeen::Alias,
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .equals((TempSeen::Alias, TempMetadata::MetadataId)),
                             )
-                            .order_by((TempSeen::Alias, TempSeen::LastSeen), order_by)
+                            .order_by_with_nulls(
+                                (TempSeen::Alias, TempSeen::LastSeen),
+                                order_by,
+                                NullOrdering::Last,
+                            )
                             .to_owned();
                     }
                     MediaSortBy::Rating => {
+                        let alias_name = "average_rating";
                         main_select = main_select
                             .expr_as(
                                 Func::coalesce([
@@ -595,12 +640,12 @@ impl MediaService {
                                         .into(),
                                     Expr::value(0),
                                 ]),
-                                Alias::new("average_rating"),
+                                Alias::new(alias_name),
                             )
                             .join_as(
                                 JoinType::LeftJoin,
                                 TempReview::Table,
-                                Alias::new("r"),
+                                TempReview::Alias,
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .equals((TempReview::Alias, TempReview::MetadataId))
                                     .and(
@@ -609,7 +654,7 @@ impl MediaService {
                                     ),
                             )
                             .group_by_col((TempMetadata::Alias, TempMetadata::Id))
-                            .order_by_expr(Expr::cust("average_rating"), order_by)
+                            .order_by_expr(Expr::cust(alias_name), order_by)
                             .to_owned();
                     }
                 };
@@ -681,7 +726,7 @@ impl MediaService {
 
         let main_select = main_select
             .limit(PAGE_LIMIT as u64)
-            .offset((((input.page - 1) * PAGE_LIMIT) + 1) as u64)
+            .offset(((input.page - 1) * PAGE_LIMIT) as u64)
             .to_owned();
         let (sql, values) = get_sql_and_values(main_select);
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
@@ -705,7 +750,7 @@ impl MediaService {
                 identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
-                poster_images,
+                images: poster_images,
                 publish_year: m.publish_year,
             };
             items.push(m_small);
@@ -872,23 +917,9 @@ impl MediaService {
         metadata_id: i32,
         title: String,
         description: Option<String>,
-        poster_images: Vec<String>,
-        backdrop_images: Vec<String>,
+        images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
     ) -> Result<()> {
-        let mut images = vec![];
-        for image in poster_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Poster,
-            });
-        }
-        for image in backdrop_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Backdrop,
-            });
-        }
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -913,24 +944,10 @@ impl MediaService {
         description: Option<String>,
         publish_year: Option<i32>,
         publish_date: Option<NaiveDate>,
-        poster_images: Vec<String>,
-        backdrop_images: Vec<String>,
+        images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
     ) -> Result<i32> {
-        let mut images = vec![];
-        for image in poster_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Poster,
-            });
-        }
-        for image in backdrop_images.into_iter() {
-            images.push(MetadataImage {
-                url: image,
-                lot: MetadataImageLot::Backdrop,
-            });
-        }
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
             title: ActiveValue::Set(title),

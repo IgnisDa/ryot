@@ -11,9 +11,9 @@ use crate::{
     graphql::{AUTHOR, PROJECT_NAME},
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, PAGE_LIMIT,
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    migrator::{BookSource, MetadataLot},
+    migrator::{BookSource, MetadataImageLot, MetadataLot},
     traits::MediaProvider,
     utils::{get_data_parallelly_from_sources, openlibrary},
 };
@@ -33,8 +33,7 @@ pub struct BookSearchItem {
     pub description: Option<String>,
     pub author_names: Vec<String>,
     pub genres: Vec<String>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
+    pub images: Vec<String>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub book_specifics: BookSpecifics,
@@ -169,11 +168,14 @@ impl MediaProvider for OpenlibraryService {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        let poster_images = data
+        let images = data
             .covers
             .unwrap_or_default()
             .into_iter()
-            .map(|c| self.get_cover_image_url(c))
+            .map(|c| MetadataImage {
+                url: MetadataImageUrl::Url(self.get_cover_image_url(c)),
+                lot: MetadataImageLot::Poster,
+            })
             .collect();
         Ok(MediaDetails {
             identifier: openlibrary::get_key(&data.key),
@@ -182,8 +184,7 @@ impl MediaProvider for OpenlibraryService {
             lot: MetadataLot::Book,
             creators: authors,
             genres: data.subjects.unwrap_or_default(),
-            poster_images,
-            backdrop_images: vec![],
+            images,
             publish_year: first_release_date.map(|d| d.year()),
             publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
@@ -236,7 +237,7 @@ impl MediaProvider for OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| {
-                let poster_images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
+                let images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
                     identifier: openlibrary::get_key(&d.key),
                     title: d.title,
@@ -249,8 +250,7 @@ impl MediaProvider for OpenlibraryService {
                         pages: d.number_of_pages_median,
                         source: BookSource::OpenLibrary,
                     },
-                    poster_images,
-                    backdrop_images: vec![],
+                    images,
                 }
             })
             .collect::<Vec<_>>();
@@ -267,7 +267,7 @@ impl MediaProvider for OpenlibraryService {
                     identifier: b.identifier,
                     lot: MetadataLot::Book,
                     title: b.title,
-                    poster_images: b.poster_images,
+                    images: b.images,
                     publish_year: b.publish_year,
                 })
                 .collect(),

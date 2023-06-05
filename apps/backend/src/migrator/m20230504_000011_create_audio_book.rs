@@ -25,6 +25,8 @@ pub enum AudioBookSource {
     #[default]
     #[sea_orm(string_value = "A")]
     Audible,
+    #[sea_orm(string_value = "C")]
+    Custom,
 }
 
 #[derive(Iden)]

@@ -19,9 +19,9 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::resolver::AudioBooksService,
+    audio_books::{resolver::AudioBooksService, AudioBookSpecifics},
     background::UserCreatedJob,
-    books::resolver::BooksService,
+    books::{resolver::BooksService, BookSpecifics},
     config::AppConfig,
     entities::{
         collection, media_import_report, metadata, metadata_to_collection,
@@ -35,20 +35,56 @@ use crate::{
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
     media::{
-        resolver::{MediaSearchItem, MediaService},
-        MediaSpecifics,
+        resolver::{MediaDetails, MediaSearchItem, MediaService},
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{MediaImportSource, MetadataLot, ReviewVisibility, UserLot},
-    movies::resolver::MoviesService,
-    podcasts::resolver::PodcastsService,
-    shows::resolver::ShowsService,
+    migrator::{
+        AudioBookSource, BookSource, MediaImportSource, MetadataImageLot, MetadataLot, MovieSource,
+        PodcastSource, ReviewVisibility, ShowSource, UserLot, VideoGameSource,
+    },
+    movies::{resolver::MoviesService, MovieSpecifics},
+    podcasts::{resolver::PodcastsService, PodcastSpecifics},
+    shows::{resolver::ShowsService, ShowSpecifics},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::resolver::VideoGamesService,
+    video_games::{resolver::VideoGamesService, VideoGameSpecifics},
 };
 
 use super::DefaultCollection;
 
 pub static COOKIE_NAME: &str = "auth";
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMediaInput {
+    pub title: String,
+    pub lot: MetadataLot,
+    pub description: Option<String>,
+    pub creators: Option<Vec<String>>,
+    pub genres: Option<Vec<String>>,
+    pub images: Option<Vec<String>>,
+    pub publish_year: Option<i32>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+enum CreateCustomMediaErrorVariant {
+    LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CreateCustomMediaError {
+    error: CreateCustomMediaErrorVariant,
+}
+
+#[derive(Union)]
+enum CreateCustomMediaResult {
+    Ok(IdObject),
+    Error(CreateCustomMediaError),
+}
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum UserDetailsErrorVariant {
@@ -420,17 +456,14 @@ impl MiscMutation {
             )
             .await?;
         let config = gql_ctx.data_unchecked::<AppConfig>();
-        match &maybe_api_key {
-            LoginResult::Ok(LoginResponse { api_key }) => {
-                create_cookie(
-                    gql_ctx,
-                    api_key,
-                    false,
-                    config.web.insecure_cookie,
-                    config.users.token_valid_for_days,
-                )?;
-            }
-            _ => (),
+        if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
+            create_cookie(
+                gql_ctx,
+                api_key,
+                false,
+                config.web.insecure_cookie,
+                config.users.token_valid_for_days,
+            )?;
         };
         Ok(maybe_api_key)
     }
@@ -468,6 +501,19 @@ impl MiscMutation {
         gql_ctx
             .data_unchecked::<MiscService>()
             .regenerate_user_summary(&user_id)
+            .await
+    }
+
+    /// Create a custom media item.
+    async fn create_custom_media(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateCustomMediaInput,
+    ) -> Result<CreateCustomMediaResult> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<MiscService>()
+            .create_custom_media(input, &user_id)
             .await
     }
 }
@@ -581,7 +627,7 @@ impl MiscService {
                     identifier: m.model.id.to_string(),
                     lot: m.model.lot,
                     title: m.model.title,
-                    poster_images: m.poster_images,
+                    images: m.poster_images,
                     publish_year: m.model.publish_year,
                 })
             }
@@ -857,8 +903,7 @@ impl MiscService {
                         metadata_id,
                         details.title,
                         details.description,
-                        details.poster_images,
-                        details.backdrop_images,
+                        details.images,
                         details.creators,
                     )
                     .await
@@ -929,20 +974,15 @@ impl MiscService {
     }
 
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
-        let mut ls = self.latest_user_summary(user_id).await?;
+        let mut ls = summary::Model::default();
         let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
-            .filter(seen::Column::LastUpdatedOn.gte(ls.created_on))
             .filter(seen::Column::Progress.eq(100))
             .find_also_related(Metadata)
             .all(&self.db)
             .await
             .unwrap();
-
-        if seen_items.is_empty() {
-            return Ok(IdObject { id: ls.id.into() });
-        }
 
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
@@ -1148,27 +1188,16 @@ impl MiscService {
 
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
-        self.create_collection(
-            user_id,
-            NamedObject {
-                name: DefaultCollection::Watchlist.to_string(),
-            },
-        )
-        .await?;
-        self.create_collection(
-            user_id,
-            NamedObject {
-                name: DefaultCollection::Abandoned.to_string(),
-            },
-        )
-        .await?;
-        self.create_collection(
-            user_id,
-            NamedObject {
-                name: DefaultCollection::InProgress.to_string(),
-            },
-        )
-        .await?;
+        for collection in DefaultCollection::iter() {
+            self.create_collection(
+                user_id,
+                NamedObject {
+                    name: collection.to_string(),
+                },
+            )
+            .await
+            .ok();
+        }
         Ok(())
     }
 
@@ -1212,5 +1241,111 @@ impl MiscService {
     pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         self.cleanup_summaries_for_user(user_id).await?;
         self.calculate_user_summary(user_id).await
+    }
+
+    async fn create_custom_media(
+        &self,
+        input: CreateCustomMediaInput,
+        user_id: &i32,
+    ) -> Result<CreateCustomMediaResult> {
+        let mut input = input;
+        let err = || {
+            Ok(CreateCustomMediaResult::Error(CreateCustomMediaError {
+                error: CreateCustomMediaErrorVariant::LotDoesNotMatchSpecifics,
+            }))
+        };
+        let specifics = match input.lot {
+            MetadataLot::AudioBook => match input.audio_book_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = AudioBookSource::Custom;
+                    MediaSpecifics::AudioBook(s.clone())
+                }
+            },
+            MetadataLot::Book => match input.book_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = BookSource::Custom;
+                    MediaSpecifics::Book(s.clone())
+                }
+            },
+            MetadataLot::Movie => match input.movie_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = MovieSource::Custom;
+                    MediaSpecifics::Movie(s.clone())
+                }
+            },
+            MetadataLot::Podcast => match input.podcast_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = PodcastSource::Custom;
+                    MediaSpecifics::Podcast(s.clone())
+                }
+            },
+            MetadataLot::Show => match input.show_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = ShowSource::Custom;
+                    MediaSpecifics::Show(s.clone())
+                }
+            },
+            MetadataLot::VideoGame => match input.video_game_specifics {
+                None => return err(),
+                Some(ref mut s) => {
+                    s.source = VideoGameSource::Custom;
+                    MediaSpecifics::VideoGame(s.clone())
+                }
+            },
+        };
+        let identifier = Uuid::new_v4().to_string();
+        let images = input
+            .images
+            .unwrap_or_default()
+            .into_iter()
+            .map(|i| MetadataImage {
+                url: MetadataImageUrl::S3(i),
+                lot: MetadataImageLot::Poster,
+            })
+            .collect();
+        let creators = input
+            .creators
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| MetadataCreator {
+                name: c,
+                role: "Creator".to_string(),
+                image_urls: vec![],
+            })
+            .collect();
+        let details = MediaDetails {
+            identifier,
+            title: input.title,
+            description: input.description,
+            lot: input.lot,
+            creators,
+            genres: input.genres.unwrap_or_default(),
+            images,
+            publish_year: input.publish_year,
+            publish_date: None,
+            specifics,
+        };
+        let media = match input.lot {
+            MetadataLot::AudioBook => self.audio_books_service.save_to_db(details).await?,
+            MetadataLot::Book => self.books_service.save_to_db(details).await?,
+            MetadataLot::Movie => self.movies_service.save_to_db(details).await?,
+            MetadataLot::Podcast => self.podcasts_service.save_to_db(details).await?,
+            MetadataLot::Show => self.shows_service.save_to_db(details).await?,
+            MetadataLot::VideoGame => self.video_games_service.save_to_db(details).await?,
+        };
+        self.add_media_to_collection(
+            user_id,
+            AddMediaToCollection {
+                collection_name: DefaultCollection::Custom.to_string(),
+                media_id: media.id,
+            },
+        )
+        .await?;
+        Ok(CreateCustomMediaResult::Ok(media))
     }
 }

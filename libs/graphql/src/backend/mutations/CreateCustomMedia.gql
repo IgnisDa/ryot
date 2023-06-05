@@ -1,0 +1,11 @@
+mutation CreateCustomMedia($input: CreateCustomMediaInput!) {
+  createCustomMedia(input: $input) {
+    __typename
+    ... on IdObject {
+      id
+    }
+    ... on CreateCustomMediaError {
+      error
+    }
+  }
+}

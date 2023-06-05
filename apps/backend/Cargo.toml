@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.0.0-beta.52"
+version = "1.0.0-beta.53"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -17,7 +17,8 @@ async-graphql = { version = "5.0.7", features = [
 ] }
 async-graphql-axum = "5.0.7"
 async-trait = "0.1.68"
-axum = { version = "0.6.12", features = ["macros"] }
+aws-sdk-s3 = "0.28.0"
+axum = { version = "0.6.12", features = ["macros", "multipart"] }
 chrono = "0.4.24"
 cookie = "0.17.0"
 dotenvy = "0.15.7"

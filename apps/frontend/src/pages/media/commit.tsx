@@ -14,7 +14,7 @@ const Page: NextPageWithLayout = () => {
 	const identifier = router.query.identifier?.toString();
 
 	const commitMedia = useCommitMedia(lot, (id) => {
-		router.push(`${ROUTES.media.details}?item=${id}`);
+		router.replace(`${ROUTES.media.details}?item=${id}`);
 	});
 
 	useEffect(() => {

@@ -83,14 +83,14 @@ impl BooksService {
 
     // Given a metadata id, this fetches the latest details from it's provider
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, book) = Metadata::find_by_id(metadata_id)
+        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
             .find_also_related(Book)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let book = book.unwrap();
-        let details = match book.source {
+        let additional_details = additional_details.unwrap();
+        let details = match additional_details.source {
             BookSource::OpenLibrary => {
                 self.openlibrary_service
                     .details(&metadata.identifier)
@@ -99,6 +99,11 @@ impl BooksService {
             BookSource::Goodreads => {
                 return Err(Error::new(
                     "Getting details from Goodreads is not supported".to_owned(),
+                ))
+            }
+            BookSource::Custom => {
+                return Err(Error::new(
+                    "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
         };
@@ -129,8 +134,7 @@ impl BooksService {
                 details.description,
                 details.publish_year,
                 None,
-                details.poster_images,
-                details.backdrop_images,
+                details.images,
                 details.creators,
                 details.genres,
             )

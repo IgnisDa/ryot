@@ -14,6 +14,8 @@ pub struct Migration;
 pub enum VideoGameSource {
     #[sea_orm(string_value = "I")]
     Igdb,
+    #[sea_orm(string_value = "C")]
+    Custom,
 }
 
 #[derive(Iden)]

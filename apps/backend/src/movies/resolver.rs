@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
 use crate::{
-    entities::{metadata, movie, prelude::Metadata},
+    entities::{
+        metadata, movie,
+        prelude::{Metadata, Movie},
+    },
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -80,13 +83,21 @@ impl MoviesService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Metadata::find_by_id(metadata_id)
+        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
+            .find_also_related(Movie)
             .one(&self.db)
             .await
             .unwrap()
-            .unwrap()
-            .identifier;
-        let details = self.tmdb_service.details(&identifier).await?;
+            .unwrap();
+        let additional_details = additional_details.unwrap();
+        let details = match additional_details.source {
+            MovieSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
+            MovieSource::Custom => {
+                return Err(Error::new(
+                    "Getting details for custom provider is not supported".to_owned(),
+                ))
+            }
+        };
         Ok(details)
     }
 
@@ -114,8 +125,7 @@ impl MoviesService {
                 details.description,
                 details.publish_year,
                 details.publish_date,
-                details.poster_images,
-                details.backdrop_images,
+                details.images,
                 details.creators,
                 details.genres,
             )

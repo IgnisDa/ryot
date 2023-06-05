@@ -115,7 +115,8 @@ To set the equivalent environment variables, join keys by `_` (underscore) and
 uppercase the keys. For example, the key `audio_books.audible.url` corresponds
 to the environment variable `AUDIO_BOOKS_AUDIBLE_URL`.
 
-Ryot serves the final configuration loaded at the `/config` endpoint as JSON.
+Ryot serves the final configuration loaded at the `/config` endpoint as JSON
+([example](https://ryot.fly.dev/config)).
 
 **Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
 builder. A minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
@@ -128,6 +129,11 @@ builder. A minimal example configuration is in [`ryot.example.json`](/config/ryo
 | `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
 | `database.url`                        | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
 | `database.scdb_url`                   | The path where [SCDB](https://docs.rs/scdb) will persist its storage.                                                                                                         |
+| `file_storage.s3_access_key_id`       | The access key ID for the S3 compatible file storage.                                                                                                                         |
+| `file_storage.s3_bucket_name`         | The name of the S3 compatible bucket.                                                                                                                                         |
+| `file_storage.s3_secret_access_key`   | The secret access key for the S3 compatible file storage.                                                                                                                     |
+| `file_storage.s3_region`              | The region for the S3 compatible file storage.                                                                                                                                |
+| `file_storage.s3_url`                 | The URL for the S3 compatible file storage.                                                                                                                                   |
 | `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
 | `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
 | `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |

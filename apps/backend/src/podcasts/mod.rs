@@ -1,4 +1,4 @@
-use async_graphql::SimpleObject;
+use async_graphql::{InputObject, SimpleObject};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
@@ -8,8 +8,18 @@ pub mod listennotes;
 pub mod resolver;
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Default, FromJsonQueryResult, Eq, PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    InputObject,
 )]
+#[graphql(input_name = "PodcastSpecificsInput")]
 pub struct PodcastSpecifics {
     pub episodes: Vec<PodcastEpisode>,
     pub source: PodcastSource,
@@ -17,8 +27,18 @@ pub struct PodcastSpecifics {
 }
 
 #[derive(
-    Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, Default, FromJsonQueryResult,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
 )]
+#[graphql(input_name = "PodcastEpisodeInput")]
 pub struct PodcastEpisode {
     #[serde(default)]
     pub number: i32,

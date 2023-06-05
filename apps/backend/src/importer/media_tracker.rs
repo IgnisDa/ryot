@@ -192,8 +192,7 @@ fn convert_item(
                     })
                     .collect(),
                 genres: vec![],
-                poster_images: vec![],
-                backdrop_images: vec![],
+                images: vec![],
                 publish_year: None,
                 publish_date: None,
                 specifics: MediaSpecifics::Book(BookSpecifics {

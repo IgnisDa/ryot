@@ -5,3 +5,5 @@ procs:
       RUST_LOG: "ryot=trace"
   Frontend:
     shell: "moon run frontend:dev"
+  Minio Proxy:
+    shell: "caddy reverse-proxy --from :9000 --to minio:9000"

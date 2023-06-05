@@ -1,0 +1,3 @@
+query GetPresignedUrl($key: String!) {
+  getPresignedUrl(key: $key)
+}

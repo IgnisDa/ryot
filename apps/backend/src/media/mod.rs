@@ -22,9 +22,21 @@ pub enum MediaSpecifics {
     Podcast(PodcastSpecifics),
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub enum MetadataImageUrl {
+    S3(String),
+    Url(String),
+}
+
+impl Default for MetadataImageUrl {
+    fn default() -> Self {
+        Self::Url("".to_owned())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
 pub struct MetadataImage {
-    pub url: String,
+    pub url: MetadataImageUrl,
     pub lot: MetadataImageLot,
 }
 

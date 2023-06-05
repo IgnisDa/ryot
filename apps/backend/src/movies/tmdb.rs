@@ -11,9 +11,9 @@ use crate::{
     config::MoviesTmdbConfig,
     media::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator,
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{MetadataLot, MovieSource},
+    migrator::{MetadataImageLot, MetadataLot, MovieSource},
     traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_string_to_date,
@@ -83,17 +83,23 @@ impl MediaProvider for TmdbService {
             role: c.known_for_department,
             image_urls: Vec::from_iter(c.profile_path.map(|p| self.get_cover_image_url(&p))),
         }));
-        let poster_images = Vec::from_iter(data.poster_path.map(|p| self.get_cover_image_url(&p)));
-        let backdrop_images =
-            Vec::from_iter(data.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+        let mut images = Vec::from_iter(data.poster_path.map(|p| MetadataImage {
+            url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+            lot: MetadataImageLot::Poster,
+        }));
+        if let Some(u) = data.backdrop_path {
+            images.push(MetadataImage {
+                url: MetadataImageUrl::Url(self.get_cover_image_url(&u)),
+                lot: MetadataImageLot::Backdrop,
+            });
+        }
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             lot: MetadataLot::Movie,
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             creators: Vec::from_iter(all_creators),
-            poster_images,
-            backdrop_images,
+            images,
             publish_year: convert_date_to_year(&data.release_date),
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
@@ -136,14 +142,13 @@ impl MediaProvider for TmdbService {
             .results
             .into_iter()
             .map(|d| {
-                let poster_images =
-                    Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                let images = Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Movie,
                     title: d.title,
                     publish_year: convert_date_to_year(&d.release_date),
-                    poster_images,
+                    images,
                 }
             })
             .collect::<Vec<_>>();

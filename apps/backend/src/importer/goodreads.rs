@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     books::BookSpecifics,
-    media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
-    migrator::{BookSource, MetadataLot},
+    media::{
+        resolver::MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
+    },
+    migrator::{BookSource, MetadataImageLot, MetadataLot},
     misc::DefaultCollection,
 };
 
@@ -115,8 +117,10 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             image_urls: vec![],
                         }],
                         genres: vec![],
-                        poster_images: vec![d.book_large_image_url],
-                        backdrop_images: vec![],
+                        images: vec![MetadataImage {
+                            url: MetadataImageUrl::Url(d.book_large_image_url),
+                            lot: MetadataImageLot::Poster,
+                        }],
                         publish_year: d.book_published.parse().ok(),
                         publish_date: None,
                         specifics: MediaSpecifics::Book(BookSpecifics {

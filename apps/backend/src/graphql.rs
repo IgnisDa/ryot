@@ -43,9 +43,21 @@ impl From<i32> for Identifier {
 scalar!(Identifier);
 
 #[derive(SimpleObject)]
-pub struct CoreFeatureEnabled {
+pub struct MetadataCoreFeatureEnabled {
     name: MetadataLot,
     enabled: bool,
+}
+
+#[derive(SimpleObject)]
+pub struct GeneralCoreFeatureEnabled {
+    name: String,
+    enabled: bool,
+}
+
+#[derive(SimpleObject)]
+pub struct CoreFeatureEnabled {
+    metadata: Vec<MetadataCoreFeatureEnabled>,
+    general: Vec<GeneralCoreFeatureEnabled>,
 }
 
 #[derive(SimpleObject)]
@@ -67,7 +79,7 @@ struct CoreQuery;
 #[Object]
 impl CoreQuery {
     /// Get all the features that are enabled for the service
-    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Vec<CoreFeatureEnabled> {
+    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> CoreFeatureEnabled {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
             (MetadataLot::Book, &config.books),
@@ -77,13 +89,18 @@ impl CoreQuery {
             (MetadataLot::AudioBook, &config.audio_books),
             (MetadataLot::Podcast, &config.podcasts),
         ];
-        feats
+        let metadata = feats
             .into_iter()
-            .map(|f| CoreFeatureEnabled {
+            .map(|f| MetadataCoreFeatureEnabled {
                 name: f.0,
                 enabled: f.1.is_enabled(),
             })
-            .collect()
+            .collect();
+        let general = vec![GeneralCoreFeatureEnabled {
+            name: "FILE_STORAGE".to_owned(),
+            enabled: config.file_storage.is_enabled(),
+        }];
+        CoreFeatureEnabled { metadata, general }
     }
 
     /// Get some primary information about the service

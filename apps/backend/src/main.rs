@@ -19,11 +19,13 @@ use apalis::{
 };
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use aws_sdk_s3::config::Region;
 use axum::{
     body::{boxed, Full},
+    extract::Multipart,
     http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
-    routing::{get, Router},
+    routing::{get, post, Router},
     Extension, Json, Server,
 };
 use config::AppConfig;
@@ -34,6 +36,7 @@ use rust_embed::RustEmbed;
 use scdb::Store;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
+use serde_json::json;
 use sqlx::SqlitePool;
 use tokio::try_join;
 use tower_cookies::{CookieManagerLayer, Cookies};
@@ -41,6 +44,7 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
+use uuid::Uuid;
 
 use crate::{
     background::{
@@ -48,7 +52,7 @@ use crate::{
         recalculate_user_summary_job, update_metadata_job, user_created_job,
     },
     config::get_app_config,
-    graphql::{get_schema, GraphqlSchema},
+    graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     utils::create_app_services,
 };
@@ -98,10 +102,6 @@ async fn graphql_playground() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
-async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
-    Json(config.masked_value())
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
@@ -110,6 +110,26 @@ async fn main() -> Result<()> {
 
     dotenv().ok();
     let config = get_app_config()?;
+
+    let mut aws_conf = aws_sdk_s3::Config::builder()
+        .region(Region::new(config.file_storage.s3_region.clone()))
+        .force_path_style(true);
+    if !config.file_storage.s3_url.is_empty() {
+        aws_conf = aws_conf.endpoint_url(&config.file_storage.s3_url);
+    }
+    if !config.file_storage.s3_access_key_id.is_empty()
+        && !config.file_storage.s3_secret_access_key.is_empty()
+    {
+        aws_conf = aws_conf.credentials_provider(aws_sdk_s3::config::Credentials::new(
+            &config.file_storage.s3_access_key_id,
+            &config.file_storage.s3_secret_access_key,
+            None,
+            None,
+            PROJECT_NAME,
+        ));
+    }
+    let aws_conf = aws_conf.build();
+    let s3_client = aws_sdk_s3::Client::from_conf(aws_conf);
 
     let db = Database::connect(&config.database.url)
         .await
@@ -139,6 +159,7 @@ async fn main() -> Result<()> {
     let app_services = create_app_services(
         db.clone(),
         scdb.clone(),
+        s3_client.clone(),
         &config,
         &import_media_storage,
         &user_created_job_storage,
@@ -164,9 +185,11 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/config", get(config_handler))
+        .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
+        .layer(Extension(s3_client.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -332,6 +355,42 @@ async fn not_found() -> Response {
         .status(StatusCode::NOT_FOUND)
         .body(boxed(Full::from("404")))
         .unwrap()
+}
+
+async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
+    Json(config.masked_value())
+}
+
+async fn upload_handler(
+    Extension(config): Extension<AppConfig>,
+    Extension(s3_client): Extension<aws_sdk_s3::Client>,
+    mut files: Multipart,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let mut res = vec![];
+    while let Some(file) = files.next_field().await.unwrap() {
+        let name = file
+            .file_name()
+            .map(String::from)
+            .unwrap_or_else(|| "file.png".to_string());
+        let data = file.bytes().await.unwrap();
+        let key = format!("uploads/{}-{}", Uuid::new_v4(), name);
+        let _resp = s3_client
+            .put_object()
+            .bucket(&config.file_storage.s3_bucket_name)
+            .key(&key)
+            .body(data.into())
+            .send()
+            .await
+            .map_err(|err| {
+                tracing::error!("{:?}", err);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"err": "an error occured during file upload"})),
+                )
+            })?;
+        res.push(key);
+    }
+    Ok(Json(json!(res)))
 }
 
 async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {

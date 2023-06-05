@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::MetadataLot,
+    migrator::{MetadataLot, PodcastSource},
     traits::MediaProvider,
 };
 
@@ -121,14 +121,22 @@ impl PodcastsService {
         let last_episode = podcast.details.episodes.last().unwrap();
         let next_pub_date = last_episode.publish_date;
         let episode_number = last_episode.number;
-        let details = self
-            .listennotes_service
-            .details_with_paginated_episodes(
-                &meta.identifier,
-                Some(next_pub_date),
-                Some(episode_number),
-            )
-            .await?;
+        let details = match podcast.source {
+            PodcastSource::Listennotes => {
+                self.listennotes_service
+                    .details_with_paginated_episodes(
+                        &meta.identifier,
+                        Some(next_pub_date),
+                        Some(episode_number),
+                    )
+                    .await?
+            }
+            PodcastSource::Custom => {
+                return Err(Error::new(
+                    "Can not fetch next episodes for custom source".to_owned(),
+                ));
+            }
+        };
         match details.specifics {
             MediaSpecifics::Podcast(ed) => {
                 let mut meta: podcast::ActiveModel = podcast.into();
@@ -143,13 +151,25 @@ impl PodcastsService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let identifier = Metadata::find_by_id(metadata_id)
+        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
+            .find_also_related(Podcast)
             .one(&self.db)
             .await
             .unwrap()
-            .unwrap()
-            .identifier;
-        let details = self.listennotes_service.details(&identifier).await?;
+            .unwrap();
+        let additional_details = additional_details.unwrap();
+        let details = match additional_details.source {
+            PodcastSource::Listennotes => {
+                self.listennotes_service
+                    .details(&metadata.identifier)
+                    .await?
+            }
+            PodcastSource::Custom => {
+                return Err(Error::new(
+                    "Getting details for custom provider is not supported".to_owned(),
+                ))
+            }
+        };
         Ok(details)
     }
 
@@ -163,8 +183,7 @@ impl PodcastsService {
                 details.description,
                 details.publish_year,
                 details.publish_date,
-                details.poster_images,
-                details.backdrop_images,
+                details.images,
                 details.creators,
                 details.genres,
             )

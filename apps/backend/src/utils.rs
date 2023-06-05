@@ -58,9 +58,11 @@ pub struct AppServices {
     pub podcasts_service: PodcastsService,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
     scdb: MemoryDb,
+    s3_client: aws_sdk_s3::Client,
     config: &AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
@@ -70,6 +72,8 @@ pub async fn create_app_services(
 ) -> AppServices {
     let media_service = MediaService::new(
         &db,
+        &s3_client,
+        &config.file_storage.s3_bucket_name,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
