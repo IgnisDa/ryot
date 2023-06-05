@@ -510,9 +510,10 @@ impl MiscMutation {
         gql_ctx: &Context<'_>,
         input: CreateCustomMediaInput,
     ) -> Result<CreateCustomMediaResult> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .create_custom_media(input)
+            .create_custom_media(input, &user_id)
             .await
     }
 }
@@ -1245,6 +1246,7 @@ impl MiscService {
     async fn create_custom_media(
         &self,
         input: CreateCustomMediaInput,
+        user_id: &i32,
     ) -> Result<CreateCustomMediaResult> {
         let mut input = input;
         let err = || {
@@ -1334,6 +1336,14 @@ impl MiscService {
             MetadataLot::Show => self.shows_service.save_to_db(details).await?,
             MetadataLot::VideoGame => self.video_games_service.save_to_db(details).await?,
         };
+        self.add_media_to_collection(
+            user_id,
+            AddMediaToCollection {
+                collection_name: DefaultCollection::Custom.to_string(),
+                media_id: media.id,
+            },
+        )
+        .await?;
         Ok(CreateCustomMediaResult::Ok(media))
     }
 }
