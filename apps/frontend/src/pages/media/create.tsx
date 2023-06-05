@@ -91,9 +91,8 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const fileUploadNowAllowed = !enabledFeatures.data?.general.find(
-		(f) => f.name === "FILE_STORAGE",
-	)?.enabled;
+	const fileUploadNowAllowed =
+		!enabledFeatures.data?.general?.fileStorage?.enabled;
 
 	return (
 		<>
