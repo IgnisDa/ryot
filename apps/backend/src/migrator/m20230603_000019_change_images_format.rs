@@ -6,7 +6,7 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::metadata,
+    entities::{collection, metadata, prelude::User},
     media::{MetadataImage, MetadataImageUrl, MetadataImages},
 };
 
@@ -73,6 +73,15 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        let users = User::find().all(db).await.unwrap();
+        for user in users {
+            let col = collection::ActiveModel {
+                name: ActiveValue::Set("Custom".to_owned()),
+                user_id: ActiveValue::Set(user.id),
+                ..Default::default()
+            };
+            col.insert(db).await?;
+        }
         Ok(())
     }
 
