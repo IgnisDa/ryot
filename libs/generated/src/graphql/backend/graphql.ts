@@ -112,10 +112,10 @@ export enum CreateCustomMediaErrorVariant {
 export type CreateCustomMediaInput = {
   audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
   bookSpecifics?: InputMaybe<BookSpecificsInput>;
-  creators: Array<Scalars['String']>;
+  creators?: InputMaybe<Array<Scalars['String']>>;
   description?: InputMaybe<Scalars['String']>;
-  genres: Array<Scalars['String']>;
-  images: Array<Scalars['String']>;
+  genres?: InputMaybe<Array<Scalars['String']>>;
+  images?: InputMaybe<Array<Scalars['String']>>;
   lot: MetadataLot;
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;

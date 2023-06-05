@@ -58,9 +58,9 @@ pub struct CreateCustomMediaInput {
     pub title: String,
     pub lot: MetadataLot,
     pub description: Option<String>,
-    pub creators: Vec<String>,
-    pub genres: Vec<String>,
-    pub images: Vec<String>,
+    pub creators: Option<Vec<String>>,
+    pub genres: Option<Vec<String>>,
+    pub images: Option<Vec<String>>,
     pub publish_year: Option<i32>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
@@ -1301,6 +1301,7 @@ impl MiscService {
         let identifier = Uuid::new_v4().to_string();
         let images = input
             .images
+            .unwrap_or_default()
             .into_iter()
             .map(|i| MetadataImage {
                 url: MetadataImageUrl::S3(i),
@@ -1309,6 +1310,7 @@ impl MiscService {
             .collect();
         let creators = input
             .creators
+            .unwrap_or_default()
             .into_iter()
             .map(|c| MetadataCreator {
                 name: c,
@@ -1322,7 +1324,7 @@ impl MiscService {
             description: input.description,
             lot: input.lot,
             creators,
-            genres: input.genres,
+            genres: input.genres.unwrap_or_default(),
             images,
             publish_year: input.publish_year,
             publish_date: None,
