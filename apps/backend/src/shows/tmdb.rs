@@ -141,7 +141,7 @@ impl MediaProvider for TmdbService {
                         gs.extend(crew);
                         Vec::from_iter(gs)
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<HashSet<_>>()
             })
             .collect::<Vec<_>>();
         Ok(MediaDetails {
