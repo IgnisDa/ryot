@@ -60,7 +60,9 @@ export default function ({
 					</Flex>
 				</Badge>
 			</Box>
-			<Stack id="details-container">{children}</Stack>
+			<Stack id="details-container" style={{ flexGrow: 1 }}>
+				{children}
+			</Stack>
 		</Flex>
 	);
 }
