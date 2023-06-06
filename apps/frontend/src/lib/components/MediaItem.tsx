@@ -84,6 +84,7 @@ export default function (props: {
 	item: Item;
 	idx: number;
 	query: string;
+	offset: number;
 	lot: MetadataLot;
 	refetch: () => void;
 }) {
