@@ -1,6 +1,7 @@
 query MediaList($input: MediaListInput!) {
   mediaList(input: $input) {
     total
+    nextPage
     items {
       identifier
       title
