@@ -64,17 +64,21 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
-	const imageUrls = useQuery(["presignedUrl", images], async () => {
-		const urls = [];
-		for (const image of images) {
-			const { getPresignedUrl } = await gqlClient.request(
-				GetPresignedUrlDocument,
-				{ key: image },
-			);
-			urls.push(getPresignedUrl);
-		}
-		return urls || [];
-	});
+	const imageUrls = useQuery(
+		["presignedUrl", images],
+		async () => {
+			const urls = [];
+			for (const image of images) {
+				const { getPresignedUrl } = await gqlClient.request(
+					GetPresignedUrlDocument,
+					{ key: image },
+				);
+				urls.push(getPresignedUrl);
+			}
+			return urls || [];
+		},
+		{ staleTime: Infinity },
+	);
 
 	const createCustomMedia = useMutation({
 		mutationFn: async (variables: CreateCustomMediaMutationVariables) => {
@@ -91,9 +95,8 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const fileUploadNowAllowed = !enabledFeatures.data?.general.find(
-		(f) => f.name === "FILE_STORAGE",
-	)?.enabled;
+	const fileUploadNowAllowed =
+		!enabledFeatures.data?.general?.fileStorage?.enabled;
 
 	return (
 		<>
@@ -169,7 +172,6 @@ const Page: NextPageWithLayout = () => {
 									}}
 									accept="image/png,image/jpeg,image/jpg"
 									icon={<IconPhoto />}
-									w="350px"
 								/>
 								<NumberInput
 									label="Publish year"

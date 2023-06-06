@@ -65,6 +65,7 @@ pub struct MediaSearchItem {
 pub struct MediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItem>,
+    pub next_page: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
@@ -278,6 +279,20 @@ impl MediaMutation {
             .deploy_update_metadata_job(metadata_id.into())
             .await
     }
+
+    /// Merge a media item into another. This will move all `seen` and `review`
+    /// items with the new user and then delete the old media item completely.
+    async fn merge_metadata(
+        &self,
+        gql_ctx: &Context<'_>,
+        merge_from: Identifier,
+        merge_into: Identifier,
+    ) -> Result<bool> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .merge_metadata(merge_from.into(), merge_into.into())
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -474,6 +489,7 @@ impl MediaService {
                     .unwrap();
                 resp.video_game_specifics = Some(VideoGameSpecifics {
                     source: additional.source,
+                    platforms: additional.details.platforms,
                 });
             }
         };
@@ -599,9 +615,10 @@ impl MediaService {
                     }
                     MediaSortBy::ReleaseDate => {
                         main_select = main_select
-                            .order_by(
+                            .order_by_with_nulls(
                                 (TempMetadata::Alias, metadata::Column::PublishYear),
                                 order_by,
+                                NullOrdering::Last,
                             )
                             .to_owned();
                     }
@@ -723,6 +740,7 @@ impl MediaService {
             .await?
             .map(|qr| qr.try_get_by_index::<i64>(0).unwrap())
             .unwrap();
+        let total: i32 = total.try_into().unwrap();
 
         let main_select = main_select
             .limit(PAGE_LIMIT as u64)
@@ -755,9 +773,15 @@ impl MediaService {
             };
             items.push(m_small);
         }
+        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+            Some(input.page + 1)
+        } else {
+            None
+        };
         Ok(MediaSearchResults {
-            total: total.try_into().unwrap(),
+            total,
             items,
+            next_page,
         })
     }
 
@@ -1008,5 +1032,40 @@ impl MediaService {
         let mut storage = self.update_metadata.clone();
         let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
+    }
+
+    pub async fn merge_metadata(&self, merge_from: i32, merge_into: i32) -> Result<bool> {
+        for old_seen in Seen::find()
+            .filter(seen::Column::MetadataId.eq(merge_from))
+            .all(&self.db)
+            .await
+            .unwrap()
+        {
+            let old_seen_active: seen::ActiveModel = old_seen.clone().into();
+            let new_seen = seen::ActiveModel {
+                id: ActiveValue::NotSet,
+                metadata_id: ActiveValue::Set(merge_into),
+                ..old_seen_active
+            };
+            new_seen.insert(&self.db).await?;
+            old_seen.delete(&self.db).await?;
+        }
+        for old_review in Review::find()
+            .filter(review::Column::MetadataId.eq(merge_from))
+            .all(&self.db)
+            .await
+            .unwrap()
+        {
+            let old_review_active: review::ActiveModel = old_review.clone().into();
+            let new_review = review::ActiveModel {
+                id: ActiveValue::NotSet,
+                metadata_id: ActiveValue::Set(merge_into),
+                ..old_review_active
+            };
+            new_review.insert(&self.db).await?;
+            old_review.delete(&self.db).await?;
+        }
+        Metadata::delete_by_id(merge_from).exec(&self.db).await?;
+        Ok(true)
     }
 }

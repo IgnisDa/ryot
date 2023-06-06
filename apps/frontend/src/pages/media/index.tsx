@@ -61,6 +61,8 @@ import {
 	MediaDetailsDocument,
 	MediaItemReviewsDocument,
 	type MediaItemReviewsQuery,
+	MergeMetadataDocument,
+	type MergeMetadataMutationVariables,
 	MetadataLot,
 	ProgressUpdateAction,
 	ProgressUpdateDocument,
@@ -420,6 +422,7 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaDetails;
 		},
+		staleTime: Infinity,
 	});
 	const seenHistory = useQuery({
 		queryKey: ["history", metadataId, mediaDetails.data?.lot],
@@ -509,6 +512,18 @@ const Page: NextPageWithLayout = () => {
 			});
 		},
 	});
+	const mergeMetadata = useMutation({
+		mutationFn: async (variables: MergeMetadataMutationVariables) => {
+			const { mergeMetadata } = await gqlClient.request(
+				MergeMetadataDocument,
+				variables,
+			);
+			return mergeMetadata;
+		},
+		onSuccess: () => {
+			router.push(ROUTES.dashboard);
+		},
+	});
 
 	const creators = useMemo(() => {
 		const creators: Record<string, { name: string }[]> = {};
@@ -587,6 +602,14 @@ const Page: NextPageWithLayout = () => {
 				.otherwise(() => undefined);
 		});
 
+	const source =
+		mediaDetails?.data?.audioBookSpecifics?.source ||
+		mediaDetails?.data?.bookSpecifics?.source ||
+		mediaDetails?.data?.movieSpecifics?.source ||
+		mediaDetails?.data?.podcastSpecifics?.source ||
+		mediaDetails?.data?.showSpecifics?.source ||
+		mediaDetails?.data?.videoGameSpecifics?.source ||
+		"UNKNOWN";
 	return mediaDetails.data && seenHistory.data ? (
 		<>
 			<Head>
@@ -597,14 +620,7 @@ const Page: NextPageWithLayout = () => {
 					backdropImages={mediaDetails.data.backdropImages}
 					posterImages={mediaDetails.data.posterImages}
 					externalLink={{
-						source:
-							mediaDetails.data.audioBookSpecifics?.source ||
-							mediaDetails.data.bookSpecifics?.source ||
-							mediaDetails.data.movieSpecifics?.source ||
-							mediaDetails.data.podcastSpecifics?.source ||
-							mediaDetails.data.showSpecifics?.source ||
-							mediaDetails.data.videoGameSpecifics?.source ||
-							"UNKNOWN",
+						source,
 						href: getSourceUrl(
 							mediaDetails.data.lot,
 							mediaDetails.data.identifier,
@@ -872,6 +888,29 @@ const Page: NextPageWithLayout = () => {
 								>
 									Update metadata
 								</Button>
+								{source === "CUSTOM" ? (
+									<Button
+										variant="outline"
+										onClick={() => {
+											const mergeInto = prompt(
+												"Enter ID of the metadata you want to merge this with",
+											);
+											if (mergeInto) {
+												const yes = confirm(
+													"Are you sure you want to continue? This will delete the current media item",
+												);
+												if (yes) {
+													mergeMetadata.mutate({
+														mergeFrom: metadataId,
+														mergeInto: parseInt(mergeInto),
+													});
+												}
+											}
+										}}
+									>
+										Merge media
+									</Button>
+								) : null}
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">

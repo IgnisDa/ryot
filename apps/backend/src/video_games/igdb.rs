@@ -32,6 +32,7 @@ fields
     involved_companies.company.logo.*,
     involved_companies.*,
     artworks.*,
+    platforms.name,
     genres.*;
 where version_parent = null; 
 ";
@@ -69,6 +70,7 @@ struct IgdbSearchResponse {
     involved_companies: Option<Vec<IgdbInvolvedCompany>>,
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<NamedObject>>,
+    platforms: Option<Vec<NamedObject>>,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +115,7 @@ where id = {id};
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let page = page.unwrap_or(1);
         let client = igdb::get_client(&self.config).await;
         let req_body = format!(
             r#"
@@ -123,7 +126,7 @@ offset: {offset};
             "#,
             field = FIELDS,
             limit = PAGE_LIMIT,
-            offset = (page.unwrap_or_default() - 1) * PAGE_LIMIT
+            offset = (page - 1) * PAGE_LIMIT
         );
         let mut rsp = client
             .post("games")
@@ -132,6 +135,9 @@ offset: {offset};
             .map_err(|e| anyhow!(e))?;
 
         let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        dbg!(&search);
+
         // let total = search.len() as i32;
         // FIXME: I have not yet found a way to get the total number of responses, so we will hardcode this
         let total = 100;
@@ -156,7 +162,11 @@ offset: {offset};
                 }
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults { total, items: resp })
+        Ok(MediaSearchResults {
+            total,
+            items: resp,
+            next_page: Some(page + 1),
+        })
     }
 }
 
@@ -219,6 +229,12 @@ impl IgdbService {
                 .collect(),
             specifics: MediaSpecifics::VideoGame(VideoGameSpecifics {
                 source: VideoGameSource::Igdb,
+                platforms: item
+                    .platforms
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|p| p.name)
+                    .collect(),
             }),
         }
     }

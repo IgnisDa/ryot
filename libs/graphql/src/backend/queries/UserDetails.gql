@@ -5,6 +5,7 @@ query UserDetails {
       id
       email
       name
+      lot
     }
   }
 }

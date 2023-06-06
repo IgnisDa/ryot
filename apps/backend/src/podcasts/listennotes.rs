@@ -44,6 +44,7 @@ impl MediaProvider for ListennotesService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
@@ -58,13 +59,14 @@ impl MediaProvider for ListennotesService {
         struct SearchResponse {
             total: i32,
             results: Vec<Podcast>,
+            next_offset: Option<i32>,
         }
         let mut rsp = self
             .client
             .get("search")
             .query(&json!({
                 "q": query.to_owned(),
-                "offset": (page.unwrap_or_default() - 1) * PAGE_LIMIT,
+                "offset": (page - 1) * PAGE_LIMIT,
                 "type": "podcast"
             }))
             .unwrap()
@@ -74,6 +76,7 @@ impl MediaProvider for ListennotesService {
         let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let total = search.total;
 
+        let next_page = search.next_offset.map(|_| page + 1);
         let resp = search
             .results
             .into_iter()
@@ -85,7 +88,11 @@ impl MediaProvider for ListennotesService {
                 publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults { total, items: resp })
+        Ok(MediaSearchResults {
+            total,
+            items: resp,
+            next_page,
+        })
     }
 }
 

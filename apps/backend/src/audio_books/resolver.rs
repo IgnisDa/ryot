@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::audible::AudibleService;
+use super::{audible::AudibleService, AudioBookSpecifics};
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -151,5 +151,15 @@ impl AudioBooksService {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub async fn update_details(&self, media_id: i32, _details: AudioBookSpecifics) -> Result<()> {
+        let media = AudioBook::find_by_id(media_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut _media: audio_book::ActiveModel = media.into();
+        Ok(())
     }
 }

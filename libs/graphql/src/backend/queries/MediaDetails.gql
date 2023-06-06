@@ -57,6 +57,7 @@ query MediaDetails($metadataId: Identifier!) {
     }
     videoGameSpecifics {
       source
+      platforms
     }
   }
 }

@@ -3,36 +3,34 @@
 </p>
 
 <h2 align="center">
-  A self hosted platform for tracking various facets of your life - media,
-  fitness etc.
+  A self hosted platform for tracking various facets of your life - media, fitness etc.
 </h2>
 
-Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the
-only self hosted tracker you will ever need!
+Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
+hosted tracker you will ever need!
 
 ## 💻 Demo
 
-You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login
-and register with the username `demo` and password `demo-password`. This instance
-is automatically deployed from the latest release.
+You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login and register
+with the username `demo` and password `demo-password`. This instance is automatically
+deployed from the latest release.
 
 **NOTE**: The data in this instance can be deleted randomly.
 
 ## 📝 ELI5
 
-Imagine you have a special notebook where you can write down all the media you
-have consumed, like books you've read, shows you have watched, video games you
-have played or workouts you have done. Now, imagine that instead of a physical
-notebook, you have a special tool on your computer or phone that lets you keep
-track of all these digitally.
+Imagine you have a special notebook where you can write down all the media you have
+consumed, like books you've read, shows you have watched, video games you have played or
+workouts you have done. Now, imagine that instead of a physical notebook, you have a
+special tool on your computer or phone that lets you keep track of all these digitally.
 
 ## 💡 Why?
 
 - Existing solutions do not have very good UI.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
 - There is a lack of a good selfhosted fitness and health tracking solution.
-- Ryot consumes very little memory (around 8MB idle eyeballing `docker stats`),
-  something that is significantly useful in RAM constrained environments.
+- Ryot consumes very little memory (around 8MB idle eyeballing `docker stats`), something
+  that is significantly useful in RAM constrained environments.
 
 ## 🚀 Features
 
@@ -49,10 +47,9 @@ track of all these digitally.
 
 ## 🧪 Project Status
 
-This project is in beta and getting some finishing touches. I do not expect it
-to have any more breaking changes. But for the sake of clarity, all releases are
-being marked as pre-releases. You can see the releases
-[here](https://github.com/IgnisDa/ryot/releases).
+This project is in beta and getting some finishing touches. I do not expect it to have any
+more breaking changes. But for the sake of clarity, all releases are being marked as
+pre-releases. You can see the releases [here](https://github.com/IgnisDa/ryot/releases).
 
 ## 📖 Guides
 
@@ -72,12 +69,13 @@ a number of guides to make thing easier.
 To get a demo server running, use the docker image:
 
 ```bash
-$ docker run --detach \
+$ docker run \
+  --detach \
   --name ryot \
   --pull always \
   --publish 8000:8000 \
-  --env "WEB_INSECURE_COOKIE=true" \ 
   --volume ./ryot/data:/data \
+  --env "WEB_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```
 
@@ -86,7 +84,7 @@ $ docker run --detach \
 ### 📦 Option 2: Quick-run a release
 
 Each release has an installation script that can be used to install the `ryot`
-binary. Follow the instructions in the release to use this script. 
+binary. Follow the instructions in the release to use this script.
 
 **Alternatively** using [eget](https://github.com/zyedidia/eget):
 
@@ -112,14 +110,14 @@ You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
 To set the equivalent environment variables, join keys by `_` (underscore) and
-uppercase the keys. For example, the key `audio_books.audible.url` corresponds
-to the environment variable `AUDIO_BOOKS_AUDIBLE_URL`.
+*UPPER_SNAKE_CASE* the characters. For example, the key `audio_books.audible.url`
+corresponds to the environment variable `AUDIO_BOOKS_AUDIBLE_URL`.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 ([example](https://ryot.fly.dev/config)).
 
-**Note**: You can see the defaults in the [config](/apps/backend/src/config.rs)
-builder. A minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
+**Note**: You can see the defaults in the [config](/apps/backend/src/config.rs) builder. A
+minimal example configuration is in [`ryot.example.json`](/config/ryot.example.json).
 
 | Key                                   | Description                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -155,19 +153,18 @@ builder. A minimal example configuration is in [`ryot.example.json`](/config/ryo
 
 ## 🤓 Developer notes
 
-In production, the frontend is a pre-rendered Nextjs app served statically by the
-Axum backend server.
+In production, the frontend is a pre-rendered Nextjs app served statically by the Axum
+backend server.
 
-In development, both servers are started independently running on `:3000` and
-`:8000` respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs),
-and run `mprocs` in the project root. If you do not want to install `mprocs`,
-take a look at [`mproc.yaml`](/mprocs.yaml) to see what all commands are
-needed to get it working.
+In development, both servers are started independently running on `:3000` and `:8000`
+respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs), and
+run `mprocs` in the project root. If you do not want to install `mprocs`, take a look at
+[`mproc.yaml`](/mprocs.yaml) to see what all commands are needed to get it working.
 
-Unless it is a very small change, I prefer creating a separate branch and merging
-it via an MR when it is done. The changelog is generated using
-[git-chglog](https://github.com/git-chglog/git-chglog). Once all changes are
-done, run the following command to update the changelog.
+Unless it is a very small change, I prefer creating a separate branch and merging it via an
+MR when it is done. The changelog is generated using
+[git-chglog](https://github.com/git-chglog/git-chglog). Once all changes are done, run the
+following command to update the changelog.
 
 ```bash
 $ git-chglog --next-tag <tag-name> -o CHANGELOG.md
@@ -175,7 +172,8 @@ $ git-chglog --next-tag <tag-name> -o CHANGELOG.md
 
 ## 🙏 Acknowledgements
 
-It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
-Moreover thanks to all those people whose stuff I have used.
+It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker). Moreover
+thanks to all those people whose stuff I have used.
 
-The logo is taken from [Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).
+The logo is taken from
+[Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).

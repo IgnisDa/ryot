@@ -195,6 +195,7 @@ impl MediaProvider for OpenlibraryService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct OpenlibraryBook {
             key: String,
@@ -224,7 +225,7 @@ impl MediaProvider for OpenlibraryService {
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,
-                "offset": (page.unwrap_or_default() - 1) * PAGE_LIMIT,
+                "offset": (page - 1) * PAGE_LIMIT,
                 "limit": PAGE_LIMIT,
                 "type": "work".to_owned(),
             }))
@@ -232,7 +233,6 @@ impl MediaProvider for OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
         let search: OpenLibrarySearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-
         let resp = search
             .docs
             .into_iter()
@@ -258,8 +258,14 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
+        let next_page = if search.num_found - ((page) * PAGE_LIMIT) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
         Ok(MediaSearchResults {
             total: data.total,
+            next_page,
             items: data
                 .items
                 .into_iter()
