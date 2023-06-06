@@ -279,6 +279,20 @@ impl MediaMutation {
             .deploy_update_metadata_job(metadata_id.into())
             .await
     }
+
+    /// Merge a media item into another. This will move all `seen` and `review`
+    /// items with the new user and then delete the old media item completely.
+    async fn merge_metadata(
+        &self,
+        gql_ctx: &Context<'_>,
+        merge_from: Identifier,
+        merge_into: Identifier,
+    ) -> Result<bool> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .merge_metadata(merge_from.into(), merge_into.into())
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1018,5 +1032,40 @@ impl MediaService {
         let mut storage = self.update_metadata.clone();
         let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
         Ok(job_id.to_string())
+    }
+
+    pub async fn merge_metadata(&self, merge_from: i32, merge_into: i32) -> Result<bool> {
+        for old_seen in Seen::find()
+            .filter(seen::Column::MetadataId.eq(merge_from))
+            .all(&self.db)
+            .await
+            .unwrap()
+        {
+            let old_seen_active: seen::ActiveModel = old_seen.clone().into();
+            let new_seen = seen::ActiveModel {
+                id: ActiveValue::NotSet,
+                metadata_id: ActiveValue::Set(merge_into),
+                ..old_seen_active
+            };
+            new_seen.insert(&self.db).await?;
+            old_seen.delete(&self.db).await?;
+        }
+        for old_review in Review::find()
+            .filter(review::Column::MetadataId.eq(merge_from))
+            .all(&self.db)
+            .await
+            .unwrap()
+        {
+            let old_review_active: review::ActiveModel = old_review.clone().into();
+            let new_review = review::ActiveModel {
+                id: ActiveValue::NotSet,
+                metadata_id: ActiveValue::Set(merge_into),
+                ..old_review_active
+            };
+            new_review.insert(&self.db).await?;
+            old_review.delete(&self.db).await?;
+        }
+        Metadata::delete_by_id(merge_from).exec(&self.db).await?;
+        Ok(true)
     }
 }
