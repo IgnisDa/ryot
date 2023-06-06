@@ -11,13 +11,11 @@ import { changeCase, getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
-	Center,
 	Container,
 	Flex,
 	Grid as MantineGrid,
 	Group,
 	Modal,
-	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -53,15 +51,13 @@ import {
 	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-
-const LIMIT = 20;
 
 const defaultFilters = {
 	mineFilter: MediaFilter.All,
@@ -70,6 +66,7 @@ const defaultFilters = {
 };
 
 const Page: NextPageWithLayout = () => {
+	const [activeTab, setActiveTab] = useState<string | null>("mine");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -89,37 +86,28 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFilters.mineFilter,
 		getInitialValueInEffect: false,
 	});
-	const [activeSearchPage, setSearchPage] = useLocalStorage({
-		key: "savedSearchPage",
-	});
 	const [query, setQuery] = useLocalStorage({
 		key: "savedQuery",
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
-	const [activeMinePage, setMinePage] = useLocalStorage({
-		key: "savedMinePage",
-		getInitialValueInEffect: false,
-	});
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
-	const listMedia = useQuery({
+	const listMedia = useInfiniteQuery({
 		queryKey: [
 			"listMedia",
-			activeMinePage,
 			lot,
 			mineSortBy,
 			mineSortOrder,
 			mineFilter,
 			debouncedQuery,
 		],
-		queryFn: async () => {
+		queryFn: async ({ pageParam = 1 }) => {
 			invariant(lot, "Lot is not defined");
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
 				input: {
 					lot,
-					page: parseInt(activeMinePage) || 1,
+					page: pageParam,
 					sort: { order: mineSortOrder, by: mineSortBy },
 					query: debouncedQuery || undefined,
 					filter: mineFilter,
@@ -127,78 +115,66 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaList;
 		},
-		onSuccess: () => {
-			if (!activeMinePage) setMinePage("1");
-		},
 		enabled: lot !== undefined,
+		getNextPageParam: (_, np) => {
+			return np.at(-1)?.nextPage;
+		},
 	});
-	const [activeTab, setActiveTab] = useState<string | null>(
-		listMedia.data?.total === 0 ? "search" : "mine",
-	);
-	const searchQuery = useQuery({
-		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
-		queryFn: async () => {
+	const listMediaTotal = listMedia.data?.pages.at(-1)?.total || 0;
+	const listMediaData = listMedia.data?.pages.flatMap((p) => p.items) || [];
+
+	const searchQuery = useInfiniteQuery({
+		queryKey: ["searchQuery", lot, debouncedQuery],
+		queryFn: async ({ pageParam = 1 }) => {
 			invariant(lot, "Lot must be defined");
 			return await match(lot)
 				.with(MetadataLot.Book, async () => {
 					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
-						input: {
-							query: debouncedQuery,
-							page: parseInt(activeSearchPage) || 1,
-						},
+						input: { query: debouncedQuery, page: pageParam },
 					});
 					return booksSearch;
 				})
 				.with(MetadataLot.Movie, async () => {
 					const { moviesSearch } = await gqlClient.request(
 						MoviesSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
+						{ input: { query, page: pageParam } },
 					);
 					return moviesSearch;
 				})
 				.with(MetadataLot.Show, async () => {
 					const { showSearch } = await gqlClient.request(ShowsSearchDocument, {
-						input: { query, page: parseInt(activeSearchPage) || 1 },
+						input: { query, page: pageParam },
 					});
 					return showSearch;
 				})
 				.with(MetadataLot.VideoGame, async () => {
 					const { videoGamesSearch } = await gqlClient.request(
 						VideoGamesSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
+						{ input: { query, page: pageParam } },
 					);
 					return videoGamesSearch;
 				})
 				.with(MetadataLot.AudioBook, async () => {
 					const { audioBooksSearch } = await gqlClient.request(
 						AudioBooksSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
+						{ input: { query, page: pageParam } },
 					);
 					return audioBooksSearch;
 				})
 				.with(MetadataLot.Podcast, async () => {
 					const { podcastsSearch } = await gqlClient.request(
 						PodcastsSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
+						{ input: { query, page: pageParam } },
 					);
 					return podcastsSearch;
 				})
 				.exhaustive();
 		},
-		onSuccess: () => {
-			if (!activeSearchPage) setSearchPage("1");
-		},
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
 	});
+	const searchQueryTotal = searchQuery.data?.pages.at(-1)?.total || 0;
+	const searchQueryData = searchQuery.data?.pages.flatMap((p) => p.items) || [];
 
 	useEffect(() => {
 		setDebouncedQuery(query?.trim());
@@ -345,16 +321,16 @@ const Page: NextPageWithLayout = () => {
 									</Flex>
 								</MantineGrid.Col>
 							</MantineGrid>
-							{listMedia.data && listMedia.data.total > 0 ? (
+							{listMediaTotal > 0 ? (
 								<>
 									<Box>
 										<Text display={"inline"} fw="bold">
-											{listMedia.data.total}
+											{listMediaTotal}
 										</Text>{" "}
 										items found
 									</Box>
 									<Grid>
-										{listMedia.data.items.map((lm) => (
+										{listMediaData.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.identifier}
 												item={lm}
@@ -366,18 +342,6 @@ const Page: NextPageWithLayout = () => {
 								</>
 							) : (
 								<Text>You do not have any saved yet</Text>
-							)}
-							{listMedia.data && (
-								<Center>
-									<Pagination
-										size="sm"
-										value={parseInt(activeMinePage)}
-										onChange={(v) => setMinePage(v.toString())}
-										total={Math.ceil(listMedia.data.total / LIMIT)}
-										boundaries={1}
-										siblings={0}
-									/>
-								</Center>
 							)}
 						</Stack>
 					</Tabs.Panel>
@@ -395,22 +359,21 @@ const Page: NextPageWithLayout = () => {
 								value={query}
 								rightSection={<ClearButton />}
 							/>
-							{searchQuery.data && searchQuery.data.total > 0 ? (
+							{searchQueryTotal > 0 ? (
 								<>
 									<Box>
 										<Text display={"inline"} fw="bold">
-											{searchQuery.data.total}
+											{searchQueryTotal}
 										</Text>{" "}
 										items found
 									</Box>
 									<Grid>
-										{searchQuery.data.items.map((b, idx) => (
+										{searchQueryData.map((b, idx) => (
 											<MediaItem
 												idx={idx}
 												key={b.identifier}
 												item={b}
 												query={query}
-												offset={offset}
 												lot={lot}
 												refetch={searchQuery.refetch}
 											/>
@@ -419,18 +382,6 @@ const Page: NextPageWithLayout = () => {
 								</>
 							) : (
 								<Text>No media found :(</Text>
-							)}
-							{searchQuery.data && (
-								<Center>
-									<Pagination
-										size="sm"
-										value={parseInt(activeSearchPage)}
-										onChange={(v) => setSearchPage(v.toString())}
-										total={Math.ceil(searchQuery.data.total / LIMIT)}
-										boundaries={1}
-										siblings={0}
-									/>
-								</Center>
 							)}
 						</Stack>
 					</Tabs.Panel>
