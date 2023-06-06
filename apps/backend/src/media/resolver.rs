@@ -601,9 +601,10 @@ impl MediaService {
                     }
                     MediaSortBy::ReleaseDate => {
                         main_select = main_select
-                            .order_by(
+                            .order_by_with_nulls(
                                 (TempMetadata::Alias, metadata::Column::PublishYear),
                                 order_by,
+                                NullOrdering::Last,
                             )
                             .to_owned();
                     }
