@@ -1,4 +1,7 @@
 
+# Version 1.0.0-beta.56 (2023-06-06)
+
+
 # Version 1.0.0-beta.55 (2023-06-05)
 
 ## Bug Fixes
