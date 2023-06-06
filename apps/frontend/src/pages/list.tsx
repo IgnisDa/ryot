@@ -26,6 +26,7 @@ import {
 import {
 	useDebouncedState,
 	useDisclosure,
+	useIntersection,
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
@@ -55,7 +56,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
@@ -116,8 +117,8 @@ const Page: NextPageWithLayout = () => {
 			return mediaList;
 		},
 		enabled: lot !== undefined,
-		getNextPageParam: (_, np) => {
-			return np.at(-1)?.nextPage;
+		getNextPageParam: (lp, _) => {
+			return lp.nextPage;
 		},
 	});
 	const listMediaTotal = listMedia.data?.pages.at(-1)?.total || 0;
@@ -172,9 +173,33 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
+		getNextPageParam: (lp, _) => {
+			return lp.nextPage;
+		},
 	});
 	const searchQueryTotal = searchQuery.data?.pages.at(-1)?.total || 0;
 	const searchQueryData = searchQuery.data?.pages.flatMap((p) => p.items) || [];
+
+	const lastMediaItemRef = useRef<HTMLDivElement>(null);
+	const { ref, entry } = useIntersection({
+		root: lastMediaItemRef.current,
+		threshold: 1,
+	});
+
+	useEffect(() => {
+		if (
+			activeTab === "mine" &&
+			listMedia.hasNextPage &&
+			!listMedia.isFetchingNextPage
+		)
+			listMedia.fetchNextPage();
+		else if (
+			activeTab === "search" &&
+			searchQuery.hasNextPage &&
+			!searchQuery.isFetchingNextPage
+		)
+			searchQuery.fetchNextPage();
+	}, [entry]);
 
 	useEffect(() => {
 		setDebouncedQuery(query?.trim());
@@ -330,7 +355,7 @@ const Page: NextPageWithLayout = () => {
 										items found
 									</Box>
 									<Grid>
-										{listMediaData.map((lm) => (
+										{listMediaData.map((lm, idx) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.identifier}
 												item={lm}
@@ -339,6 +364,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										))}
 									</Grid>
+									<Box ref={ref} />
 								</>
 							) : (
 								<Text>You do not have any saved yet</Text>
@@ -379,6 +405,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										))}
 									</Grid>
+									<Box ref={ref} />
 								</>
 							) : (
 								<Text>No media found :(</Text>
