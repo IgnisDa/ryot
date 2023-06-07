@@ -967,6 +967,7 @@ impl MediaService {
         images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
+        specifics: MediaSpecifics,
     ) -> Result<i32> {
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),

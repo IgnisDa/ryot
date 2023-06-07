@@ -136,6 +136,7 @@ impl VideoGamesService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
         match details.specifics {
