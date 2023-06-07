@@ -82,6 +82,8 @@ pub enum Metadata {
     Creators,
     // the provider source
     Source,
+    // details about the media
+    Specifics,
 }
 
 impl MigrationName for Migration {
@@ -125,6 +127,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Creators).json().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
+                    .col(ColumnDef::new(Metadata::Specifics).json().not_null())
                     .to_owned(),
             )
             .await?;

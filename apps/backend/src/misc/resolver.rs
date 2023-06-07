@@ -938,6 +938,7 @@ impl MiscService {
                         .update_details(metadata_id, s)
                         .await
                         .unwrap(),
+                    MediaSpecifics::Unknown => unreachable!(),
                 };
             }
             Err(e) => {

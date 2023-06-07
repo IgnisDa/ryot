@@ -12,7 +12,8 @@ pub mod resolver;
 
 pub static PAGE_LIMIT: i32 = 20;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
+#[serde(tag = "t", content = "d")]
 pub enum MediaSpecifics {
     AudioBook(AudioBookSpecifics),
     Book(BookSpecifics),
@@ -20,6 +21,8 @@ pub enum MediaSpecifics {
     Show(ShowSpecifics),
     VideoGame(VideoGameSpecifics),
     Podcast(PodcastSpecifics),
+    #[default]
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]

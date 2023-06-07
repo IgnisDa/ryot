@@ -979,6 +979,7 @@ impl MediaService {
             identifier: ActiveValue::Set(identifier),
             creators: ActiveValue::Set(MetadataCreators(creators)),
             source: ActiveValue::Set(source),
+            specifics: ActiveValue::Set(specifics),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
