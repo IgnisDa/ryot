@@ -6,10 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{
-        audio_book, metadata,
-        prelude::{Metadata},
-    },
+    entities::{audio_book, metadata, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -19,7 +16,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{audible::AudibleService};
+use super::audible::AudibleService;
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -138,19 +135,8 @@ impl AudioBooksService {
                 details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::AudioBook(s) => {
-                let audio_book = audio_book::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(AudioBookSource::Custom),
-                };
-                audio_book.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

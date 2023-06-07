@@ -6,10 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{
-        metadata, movie,
-        prelude::{Metadata},
-    },
+    entities::{metadata, movie, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -19,7 +16,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{tmdb::TmdbService};
+use super::tmdb::TmdbService;
 
 #[derive(Default)]
 pub struct MoviesQuery;
@@ -131,19 +128,8 @@ impl MoviesService {
                 details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Movie(s) => {
-                let movie = movie::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(MovieSource::Custom),
-                };
-                movie.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

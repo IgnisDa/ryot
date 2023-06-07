@@ -6,11 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{
-        metadata,
-        prelude::{Metadata},
-        video_game,
-    },
+    entities::{metadata, prelude::Metadata, video_game},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -20,7 +16,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{igdb::IgdbService};
+use super::igdb::IgdbService;
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -139,19 +135,8 @@ impl VideoGamesService {
                 details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::VideoGame(s) => {
-                let game = video_game::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    details: ActiveValue::Set(s),
-                    source: ActiveValue::Set(VideoGameSource::Custom),
-                };
-                game.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

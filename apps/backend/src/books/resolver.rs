@@ -6,10 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{
-        book, metadata,
-        prelude::{Metadata},
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -19,7 +16,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{openlibrary::OpenlibraryService};
+use super::openlibrary::OpenlibraryService;
 
 #[derive(Default)]
 pub struct BooksQuery;
@@ -140,19 +137,8 @@ impl BooksService {
                 details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Book(s) => {
-                let book = book::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    num_pages: ActiveValue::Set(s.pages),
-                    source: ActiveValue::Set(BookSource::Custom),
-                };
-                book.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

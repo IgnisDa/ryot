@@ -6,11 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{
-        metadata,
-        prelude::{Metadata},
-        show,
-    },
+    entities::{metadata, prelude::Metadata, show},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -115,7 +111,7 @@ impl ShowsService {
     }
 
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
-        let show_metadata_id = self
+        let metadata_id = self
             .media_service
             .commit_media(
                 details.identifier.clone(),
@@ -131,19 +127,8 @@ impl ShowsService {
                 details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Show(s) => {
-                let show = show::ActiveModel {
-                    metadata_id: ActiveValue::Set(show_metadata_id),
-                    details: ActiveValue::Set(ShowSpecifics { seasons: s.seasons }),
-                    source: ActiveValue::Set(ShowSource::Custom),
-                };
-                let show = show.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: show.metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

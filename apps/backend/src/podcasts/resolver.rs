@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{listennotes::ListennotesService};
+use super::listennotes::ListennotesService;
 
 #[derive(Default)]
 pub struct PodcastsQuery;
@@ -190,20 +190,8 @@ impl PodcastsService {
                 details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Podcast(s) => {
-                let podcast = podcast::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    total_episodes: ActiveValue::Set(s.total_episodes),
-                    details: ActiveValue::Set(s),
-                    source: ActiveValue::Set(PodcastSource::Custom),
-                };
-                podcast.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }
