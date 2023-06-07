@@ -2,12 +2,13 @@
 
 use crate::{
     media::{MetadataCreators, MetadataImages},
-    migrator::MetadataLot,
+    migrator::{MetadataLot, MetadataSource},
 };
 use chrono::NaiveDate;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+// TODO: Add field to hold all media specific details
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "metadata")]
 pub struct Model {
@@ -24,6 +25,7 @@ pub struct Model {
     pub publish_date: Option<NaiveDate>,
     pub images: MetadataImages,
     pub creators: MetadataCreators,
+    pub source: MetadataSource,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

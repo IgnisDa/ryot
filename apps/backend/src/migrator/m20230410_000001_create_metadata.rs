@@ -80,6 +80,8 @@ pub enum Metadata {
     Identifier,
     // the creators and their roles embedded as json
     Creators,
+    // the provider source
+    Source,
 }
 
 impl MigrationName for Migration {

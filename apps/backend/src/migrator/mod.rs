@@ -21,6 +21,7 @@ mod m20230531_000017_drop_creator_tables;
 mod m20230602_000018_drop_token_tables;
 mod m20230603_000019_change_images_format;
 mod m20230605_000020_add_platform_field;
+mod m20230607_000021_hoist_source;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -33,6 +34,7 @@ pub use m20230504_000011_create_audio_book::AudioBookSource;
 pub use m20230505_000012_create_review::ReviewVisibility;
 pub use m20230509_000014_create_media_import_report::MediaImportSource;
 pub use m20230514_000015_create_podcast::PodcastSource;
+pub use m20230607_000021_hoist_source::MetadataSource;
 
 pub struct Migrator;
 
@@ -60,6 +62,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230602_000018_drop_token_tables::Migration),
             Box::new(m20230603_000019_change_images_format::Migration),
             Box::new(m20230605_000020_add_platform_field::Migration),
+            Box::new(m20230607_000021_hoist_source::Migration),
         ]
     }
 }
