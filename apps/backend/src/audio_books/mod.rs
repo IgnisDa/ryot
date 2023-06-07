@@ -10,5 +10,4 @@ pub mod resolver;
 #[graphql(input_name = "AudioBookSpecificsInput")]
 pub struct AudioBookSpecifics {
     pub runtime: Option<i32>,
-    pub source: AudioBookSource,
 }

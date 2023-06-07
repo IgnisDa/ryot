@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{AudioBookSource, MetadataLot},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -97,13 +97,14 @@ impl AudioBooksService {
             .unwrap()
             .unwrap();
         let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            AudioBookSource::Audible => self.audible_service.details(&metadata.identifier).await?,
-            AudioBookSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Audible => self.audible_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -142,7 +143,7 @@ impl AudioBooksService {
                 let audio_book = audio_book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(AudioBookSource::Audible),
+                    ..Default::default()
                 };
                 audio_book.insert(&self.db).await.unwrap();
                 Ok(IdObject {

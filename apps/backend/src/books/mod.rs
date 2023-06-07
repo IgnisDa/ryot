@@ -10,5 +10,4 @@ pub mod resolver;
 #[graphql(input_name = "BookSpecificsInput")]
 pub struct BookSpecifics {
     pub pages: Option<i32>,
-    pub source: BookSource,
 }

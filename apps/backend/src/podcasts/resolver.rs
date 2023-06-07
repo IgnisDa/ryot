@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, PodcastSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -121,8 +121,8 @@ impl PodcastsService {
         let last_episode = podcast.details.episodes.last().unwrap();
         let next_pub_date = last_episode.publish_date;
         let episode_number = last_episode.number;
-        let details = match podcast.source {
-            PodcastSource::Listennotes => {
+        let details = match meta.source {
+            MetadataSource::Listennotes => {
                 self.listennotes_service
                     .details_with_paginated_episodes(
                         &meta.identifier,
@@ -131,11 +131,12 @@ impl PodcastsService {
                     )
                     .await?
             }
-            PodcastSource::Custom => {
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Can not fetch next episodes for custom source".to_owned(),
                 ));
             }
+            _ => unreachable!(),
         };
         match details.specifics {
             MediaSpecifics::Podcast(ed) => {
@@ -158,17 +159,18 @@ impl PodcastsService {
             .unwrap()
             .unwrap();
         let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            PodcastSource::Listennotes => {
+        let details = match metadata.source {
+            MetadataSource::Listennotes => {
                 self.listennotes_service
                     .details(&metadata.identifier)
                     .await?
             }
-            PodcastSource::Custom => {
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -192,9 +194,9 @@ impl PodcastsService {
             MediaSpecifics::Podcast(s) => {
                 let podcast = podcast::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    source: ActiveValue::Set(s.source),
                     total_episodes: ActiveValue::Set(s.total_episodes),
                     details: ActiveValue::Set(s),
+                    ..Default::default()
                 };
                 podcast.insert(&self.db).await.unwrap();
                 Ok(IdObject {

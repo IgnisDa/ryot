@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{BookSource, MetadataLot},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -90,22 +90,23 @@ impl BooksService {
             .unwrap()
             .unwrap();
         let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            BookSource::OpenLibrary => {
+        let details = match metadata.source {
+            MetadataSource::Openlibrary => {
                 self.openlibrary_service
                     .details(&metadata.identifier)
                     .await?
             }
-            BookSource::Goodreads => {
+            MetadataSource::Goodreads => {
                 return Err(Error::new(
                     "Getting details from Goodreads is not supported".to_owned(),
                 ))
             }
-            BookSource::Custom => {
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -144,7 +145,7 @@ impl BooksService {
                 let book = book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     num_pages: ActiveValue::Set(s.pages),
-                    source: ActiveValue::Set(s.source),
+                    ..Default::default()
                 };
                 book.insert(&self.db).await.unwrap();
                 Ok(IdObject {

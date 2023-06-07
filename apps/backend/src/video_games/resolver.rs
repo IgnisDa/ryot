@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, VideoGameSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -98,13 +98,14 @@ impl VideoGamesService {
             .unwrap()
             .unwrap();
         let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            VideoGameSource::Igdb => self.igdb_service.details(&metadata.identifier).await?,
-            VideoGameSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Igdb => self.igdb_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -142,8 +143,8 @@ impl VideoGamesService {
             MediaSpecifics::VideoGame(s) => {
                 let game = video_game::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    source: ActiveValue::Set(s.source),
                     details: ActiveValue::Set(s),
+                    ..Default::default()
                 };
                 game.insert(&self.db).await.unwrap();
                 Ok(IdObject {

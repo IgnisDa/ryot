@@ -24,7 +24,6 @@ pub mod tmdb;
 #[graphql(input_name = "ShowSpecificsInput")]
 pub struct ShowSpecifics {
     pub seasons: Vec<ShowSeason>,
-    pub source: ShowSource,
 }
 
 #[derive(

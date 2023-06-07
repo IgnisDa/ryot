@@ -11,7 +11,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    migrator::{AudioBookSource, MetadataImageLot, MetadataLot},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
@@ -160,6 +160,7 @@ impl AudibleService {
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
+            source: MetadataSource::Audible,
             title: item.title,
             description: item.merchandising_summary,
             creators: item
@@ -176,7 +177,6 @@ impl AudibleService {
             publish_date: convert_string_to_date(&release_date),
             specifics: MediaSpecifics::AudioBook(AudioBookSpecifics {
                 runtime: item.runtime_length_min,
-                source: AudioBookSource::Audible,
             }),
             images,
         }

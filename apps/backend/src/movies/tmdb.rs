@@ -13,7 +13,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{MetadataImageLot, MetadataLot, MovieSource},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_string_to_date,
@@ -96,6 +96,7 @@ impl MediaProvider for TmdbService {
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             lot: MetadataLot::Movie,
+            source: MetadataSource::Tmdb,
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             creators: Vec::from_iter(all_creators),
@@ -104,7 +105,6 @@ impl MediaProvider for TmdbService {
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
             specifics: MediaSpecifics::Movie(MovieSpecifics {
-                source: MovieSource::Tmdb,
                 runtime: Some(data.runtime),
             }),
         })

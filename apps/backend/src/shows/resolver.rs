@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, ShowSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -90,13 +90,14 @@ impl ShowsService {
             .unwrap()
             .unwrap();
         let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            ShowSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
-            ShowSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -134,11 +135,8 @@ impl ShowsService {
             MediaSpecifics::Show(s) => {
                 let show = show::ActiveModel {
                     metadata_id: ActiveValue::Set(show_metadata_id),
-                    details: ActiveValue::Set(ShowSpecifics {
-                        seasons: s.seasons,
-                        source: s.source,
-                    }),
-                    source: ActiveValue::Set(ShowSource::Tmdb),
+                    details: ActiveValue::Set(ShowSpecifics { seasons: s.seasons }),
+                    ..Default::default()
                 };
                 let show = show.insert(&self.db).await.unwrap();
                 Ok(IdObject {

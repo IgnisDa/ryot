@@ -7,7 +7,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
 use crate::media::resolver::MediaDetails;
 use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
-use crate::migrator::{MetadataImageLot, MetadataLot, VideoGameSource};
+use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
 use crate::traits::MediaProvider;
 use crate::utils::NamedObject;
 use crate::{
@@ -213,6 +213,7 @@ impl IgdbService {
         MediaDetails {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
+            source: MetadataSource::Igdb,
             title: item.name,
             description: item.summary,
             creators,
@@ -226,7 +227,6 @@ impl IgdbService {
                 .map(|g| g.name)
                 .collect(),
             specifics: MediaSpecifics::VideoGame(VideoGameSpecifics {
-                source: VideoGameSource::Igdb,
                 platforms: item
                     .platforms
                     .unwrap_or_default()

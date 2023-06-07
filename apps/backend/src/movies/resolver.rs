@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MovieSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -90,13 +90,14 @@ impl MoviesService {
             .unwrap()
             .unwrap();
         let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            MovieSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
-            MovieSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -135,7 +136,7 @@ impl MoviesService {
                 let movie = movie::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(MovieSource::Tmdb),
+                    ..Default::default()
                 };
                 movie.insert(&self.db).await.unwrap();
                 Ok(IdObject {

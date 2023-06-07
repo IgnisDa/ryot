@@ -13,7 +13,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    migrator::{BookSource, MetadataImageLot, MetadataLot},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     traits::MediaProvider,
     utils::{get_data_parallelly_from_sources, openlibrary},
 };
@@ -182,6 +182,7 @@ impl MediaProvider for OpenlibraryService {
             title: data.title,
             description,
             lot: MetadataLot::Book,
+            source: MetadataSource::Openlibrary,
             creators: authors,
             genres: data.subjects.unwrap_or_default(),
             images,
@@ -189,7 +190,6 @@ impl MediaProvider for OpenlibraryService {
             publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
-                source: BookSource::OpenLibrary,
             }),
         })
     }
@@ -248,7 +248,6 @@ impl MediaProvider for OpenlibraryService {
                     publish_date: None,
                     book_specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
-                        source: BookSource::OpenLibrary,
                     },
                     images,
                 }

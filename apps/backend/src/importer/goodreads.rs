@@ -8,7 +8,7 @@ use crate::{
     media::{
         resolver::MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{BookSource, MetadataImageLot, MetadataLot},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     misc::DefaultCollection,
 };
 
@@ -111,6 +111,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                         title: d.title,
                         description: Some(d.book_description),
                         lot: MetadataLot::Book,
+                        source: MetadataSource::Goodreads,
                         creators: vec![MetadataCreator {
                             name: d.author_name,
                             role: "Author".to_owned(),
@@ -125,7 +126,6 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                         publish_date: None,
                         specifics: MediaSpecifics::Book(BookSpecifics {
                             pages: d.book.num_pages.parse().ok(),
-                            source: BookSource::Goodreads,
                         }),
                     })),
                     seen_history,

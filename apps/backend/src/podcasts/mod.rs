@@ -22,7 +22,6 @@ pub mod resolver;
 #[graphql(input_name = "PodcastSpecificsInput")]
 pub struct PodcastSpecifics {
     pub episodes: Vec<PodcastEpisode>,
-    pub source: PodcastSource,
     pub total_episodes: i32,
 }
 

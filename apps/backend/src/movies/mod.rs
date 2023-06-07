@@ -10,5 +10,4 @@ pub mod tmdb;
 #[graphql(input_name = "MovieSpecificsInput")]
 pub struct MovieSpecifics {
     pub runtime: Option<i32>,
-    pub source: MovieSource,
 }
