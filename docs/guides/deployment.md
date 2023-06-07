@@ -76,3 +76,34 @@ dokku postgres:link $APPNAME-service $APPNAME
 You can create `/var/lib/dokku/storage/$APPNAME/config/ryot.{json,toml,yaml}`
 files to configure the instance. Make sure to restart the server after you change
 the configuration.
+
+### Fly
+
+The demo Ryot instance is deployed to [Fly](https://fly.io). The following steps
+are required to deploy to Fly.
+
+1. Create a new postgres database for Ryot.
+
+```bash
+flyctl postgres create ryot-db
+```
+
+2. Copy the [`fly.toml`](/fly.toml) in the root of this repository to your own
+repository. You **WILL** have to change the `app` key to a name of your choosing.
+Deploy it using the below command.
+
+```bash
+flyctl launch
+```
+
+3. Connect the database.
+
+```bash
+fly postgres attach --app ryot ryot-db
+```
+
+4. Optionally you can configure the instance using `fly secrets set`.
+
+```bash
+fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
+```
