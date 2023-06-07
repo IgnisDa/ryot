@@ -19,26 +19,6 @@ enum UserToMetadata {
     MetadataId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum TokenLot {
-    #[sea_orm(string_value = "A")]
-    ApiAccess,
-    #[sea_orm(string_value = "L")]
-    Login,
-}
-
-#[derive(Iden)]
-pub enum Token {
-    Table,
-    Id,
-    UserId,
-    Lot,
-    CreatedOn,
-    LastUsed,
-    Value,
-}
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -93,52 +73,6 @@ impl MigrationTrait for Migration {
                     .name("user__name__index")
                     .table(User::Table)
                     .col(User::Name)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_table(
-                Table::create()
-                    .table(Token::Table)
-                    .col(
-                        ColumnDef::new(Token::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(Token::Value)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(ColumnDef::new(Token::Lot).string_len(1).not_null())
-                    .col(ColumnDef::new(Token::UserId).integer().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("user-to-token_foreign_key")
-                            .from(Token::Table, Token::UserId)
-                            .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .col(
-                        ColumnDef::new(Token::CreatedOn)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(ColumnDef::new(Token::LastUsed).timestamp_with_time_zone())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("token__value__index")
-                    .table(Token::Table)
-                    .col(Token::Value)
                     .to_owned(),
             )
             .await?;

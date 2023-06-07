@@ -40,8 +40,6 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::summary::Entity")]
     Summary,
-    #[sea_orm(has_many = "super::token::Entity")]
-    Token,
 }
 
 impl Related<super::collection::Entity> for Entity {
@@ -71,12 +69,6 @@ impl Related<super::seen::Entity> for Entity {
 impl Related<super::summary::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Summary.def()
-    }
-}
-
-impl Related<super::token::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Token.def()
     }
 }
 
