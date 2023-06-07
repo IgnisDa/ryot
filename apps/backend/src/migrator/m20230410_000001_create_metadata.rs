@@ -121,8 +121,10 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
-                    .col(ColumnDef::new(Metadata::Images).json().default("[]"))
+                    .col(ColumnDef::new(Metadata::Images).json())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
+                    .col(ColumnDef::new(Metadata::Creators).json().not_null())
+                    .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .to_owned(),
             )
             .await?;
