@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource, PodcastSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 

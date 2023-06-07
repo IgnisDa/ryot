@@ -2,21 +2,20 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
 use crate::{
-    entities::{metadata, prelude::Metadata, show},
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource, ShowSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{tmdb::TmdbService, ShowSpecifics};
+use super::{tmdb::TmdbService};
 
 #[derive(Default)]
 pub struct ShowsQuery;

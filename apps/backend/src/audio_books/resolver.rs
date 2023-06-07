@@ -2,17 +2,16 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
 use crate::{
-    entities::{audio_book, metadata, prelude::Metadata},
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
     },
-    migrator::{AudioBookSource, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
