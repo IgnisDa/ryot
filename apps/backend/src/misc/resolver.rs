@@ -904,42 +904,10 @@ impl MiscService {
                         details.description,
                         details.images,
                         details.creators,
+                        details.specifics,
                     )
                     .await
                     .ok();
-                match details.specifics {
-                    MediaSpecifics::AudioBook(s) => self
-                        .audio_books_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Book(s) => self
-                        .books_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Movie(s) => self
-                        .movies_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Podcast(p) => self
-                        .podcasts_service
-                        .update_details(metadata_id, p)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Show(s) => self
-                        .shows_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::VideoGame(s) => self
-                        .video_games_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Unknown => unreachable!(),
-                };
             }
             Err(e) => {
                 tracing::error!("Error while updating: {:?}", e);

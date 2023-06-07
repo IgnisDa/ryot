@@ -154,16 +154,4 @@ impl VideoGamesService {
             _ => unreachable!(),
         }
     }
-
-    pub async fn update_details(&self, media_id: i32, details: VideoGameSpecifics) -> Result<()> {
-        let media = VideoGame::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut media: video_game::ActiveModel = media.into();
-        media.details = ActiveValue::Set(details);
-        media.save(&self.db).await.ok();
-        Ok(())
-    }
 }

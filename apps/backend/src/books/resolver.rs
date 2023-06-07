@@ -155,14 +155,4 @@ impl BooksService {
             _ => unreachable!(),
         }
     }
-
-    pub async fn update_details(&self, media_id: i32, _details: BookSpecifics) -> Result<()> {
-        let media = Book::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut _media: book::ActiveModel = media.into();
-        Ok(())
-    }
 }

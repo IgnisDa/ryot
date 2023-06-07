@@ -900,6 +900,7 @@ impl MediaService {
         description: Option<String>,
         images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
+        specifics: MediaSpecifics,
     ) -> Result<()> {
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
@@ -912,6 +913,7 @@ impl MediaService {
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.creators = ActiveValue::Set(MetadataCreators(creators));
+        meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
         Ok(())
     }
