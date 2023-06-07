@@ -4,6 +4,12 @@ use super::Metadata;
 
 pub struct Migration;
 
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230502_000004_create_genre"
+    }
+}
+
 #[derive(Iden)]
 pub enum MetadataToGenre {
     Table,
@@ -16,12 +22,6 @@ pub enum Genre {
     Table,
     Id,
     Name,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230502_000009_create_genre"
-    }
 }
 
 #[async_trait::async_trait]

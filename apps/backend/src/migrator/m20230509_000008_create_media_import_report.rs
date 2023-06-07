@@ -7,6 +7,12 @@ use super::m20230417_000002_create_user::User;
 
 pub struct Migration;
 
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230509_000008_create_media_import_report"
+    }
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -28,12 +34,6 @@ pub enum MediaImportReport {
     Source,
     Details,
     Success,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230509_000014_create_media_import_report"
-    }
 }
 
 #[async_trait::async_trait]

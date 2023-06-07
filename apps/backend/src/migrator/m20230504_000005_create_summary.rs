@@ -4,6 +4,12 @@ use super::m20230417_000002_create_user::User;
 
 pub struct Migration;
 
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230504_000005_create_summary"
+    }
+}
+
 #[derive(Iden)]
 pub enum Summary {
     Table,
@@ -11,12 +17,6 @@ pub enum Summary {
     UserId,
     CreatedOn,
     Data,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230504_000010_create_summary"
-    }
 }
 
 #[async_trait::async_trait]

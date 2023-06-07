@@ -7,6 +7,12 @@ use super::{m20230417_000002_create_user::User, Metadata};
 
 pub struct Migration;
 
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230505_000006_create_review"
+    }
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
@@ -33,12 +39,6 @@ pub enum Review {
     Spoiler,
     // This will store the ID in case this review was imported
     Identifier,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230505_000012_create_review"
-    }
 }
 
 #[async_trait::async_trait]

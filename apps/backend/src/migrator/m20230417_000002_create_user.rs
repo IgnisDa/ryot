@@ -7,6 +7,12 @@ use super::Metadata;
 
 pub struct Migration;
 
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230417_000002_create_user"
+    }
+}
+
 /// This exists if a media item is related to a user. A media is related to a
 /// user if:
 /// - the user has it in their seen history
@@ -38,12 +44,6 @@ pub enum User {
     Password,
     Lot,
     Email,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230417_000004_create_user"
-    }
 }
 
 #[async_trait::async_trait]

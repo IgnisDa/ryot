@@ -5,6 +5,12 @@ use serde::{Deserialize, Serialize};
 
 pub struct Migration;
 
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230410_000001_create_metadata"
+    }
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Default,
 )]
@@ -117,12 +123,6 @@ pub enum Metadata {
     Source,
     // details about the media
     Specifics,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230410_000001_create_metadata"
-    }
 }
 
 #[async_trait::async_trait]
