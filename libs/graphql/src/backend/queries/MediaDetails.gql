@@ -4,6 +4,7 @@ query MediaDetails($metadataId: Identifier!) {
     description
     identifier
     lot
+    source
     creators {
       name
       role
@@ -13,16 +14,11 @@ query MediaDetails($metadataId: Identifier!) {
     publishYear
     publishDate
 		genres
-    audioBookSpecifics {
-      source
-    }
     bookSpecifics {
       pages
-      source
     }
     movieSpecifics {
       runtime
-      source
     }
     podcastSpecifics {
       episodes {
@@ -32,11 +28,9 @@ query MediaDetails($metadataId: Identifier!) {
         number
         runtime
       }
-      source
       totalEpisodes
     }
     showSpecifics {
-      source
       seasons {
         seasonNumber
         name
@@ -56,7 +50,6 @@ query MediaDetails($metadataId: Identifier!) {
       }
     }
     videoGameSpecifics {
-      source
       platforms
     }
   }
