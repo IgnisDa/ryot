@@ -64,6 +64,7 @@ import {
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
+	MetadataSource,
 	ProgressUpdateAction,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
@@ -602,14 +603,8 @@ const Page: NextPageWithLayout = () => {
 				.otherwise(() => undefined);
 		});
 
-	const source =
-		mediaDetails?.data?.audioBookSpecifics?.source ||
-		mediaDetails?.data?.bookSpecifics?.source ||
-		mediaDetails?.data?.movieSpecifics?.source ||
-		mediaDetails?.data?.podcastSpecifics?.source ||
-		mediaDetails?.data?.showSpecifics?.source ||
-		mediaDetails?.data?.videoGameSpecifics?.source ||
-		"UNKNOWN";
+	const source = mediaDetails?.data?.source || MetadataSource.Custom;
+
 	return mediaDetails.data && seenHistory.data ? (
 		<>
 			<Head>
@@ -622,17 +617,9 @@ const Page: NextPageWithLayout = () => {
 					externalLink={{
 						source,
 						href: getSourceUrl(
-							mediaDetails.data.lot,
+							source,
 							mediaDetails.data.identifier,
 							mediaDetails.data.title,
-							{
-								audioBook: mediaDetails.data.audioBookSpecifics?.source,
-								book: mediaDetails.data.bookSpecifics?.source,
-								movie: mediaDetails.data.movieSpecifics?.source,
-								podcast: mediaDetails.data.podcastSpecifics?.source,
-								show: mediaDetails.data.showSpecifics?.source,
-								videoGame: mediaDetails.data.videoGameSpecifics?.source,
-							},
 						),
 					}}
 				>
