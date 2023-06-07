@@ -8,7 +8,7 @@ use sea_orm::{
 use crate::{
     entities::{
         metadata,
-        prelude::{Metadata, VideoGame},
+        prelude::{Metadata},
         video_game,
     },
     graphql::IdObject,
@@ -20,7 +20,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{igdb::IgdbService, VideoGameSpecifics};
+use super::{igdb::IgdbService};
 
 #[derive(Default)]
 pub struct VideoGamesQuery;

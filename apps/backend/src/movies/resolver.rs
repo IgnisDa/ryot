@@ -8,7 +8,7 @@ use sea_orm::{
 use crate::{
     entities::{
         metadata, movie,
-        prelude::{Metadata, Movie},
+        prelude::{Metadata},
     },
     graphql::IdObject,
     media::{
@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{tmdb::TmdbService, MovieSpecifics};
+use super::{tmdb::TmdbService};
 
 #[derive(Default)]
 pub struct MoviesQuery;

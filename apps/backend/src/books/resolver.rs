@@ -8,7 +8,7 @@ use sea_orm::{
 use crate::{
     entities::{
         book, metadata,
-        prelude::{Book, Metadata},
+        prelude::{Metadata},
     },
     graphql::IdObject,
     media::{
@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{openlibrary::OpenlibraryService, BookSpecifics};
+use super::{openlibrary::OpenlibraryService};
 
 #[derive(Default)]
 pub struct BooksQuery;

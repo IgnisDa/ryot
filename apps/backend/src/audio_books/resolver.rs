@@ -8,7 +8,7 @@ use sea_orm::{
 use crate::{
     entities::{
         audio_book, metadata,
-        prelude::{AudioBook, Metadata},
+        prelude::{Metadata},
     },
     graphql::IdObject,
     media::{
@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{audible::AudibleService, AudioBookSpecifics};
+use super::{audible::AudibleService};
 
 #[derive(Default)]
 pub struct AudioBooksQuery;

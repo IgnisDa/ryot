@@ -19,7 +19,7 @@ use crate::{
     traits::MediaProvider,
 };
 
-use super::{listennotes::ListennotesService, PodcastSpecifics};
+use super::{listennotes::ListennotesService};
 
 #[derive(Default)]
 pub struct PodcastsQuery;

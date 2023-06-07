@@ -8,7 +8,7 @@ use sea_orm::{
 use crate::{
     entities::{
         metadata,
-        prelude::{Metadata, Show},
+        prelude::{Metadata},
         show,
     },
     graphql::IdObject,
