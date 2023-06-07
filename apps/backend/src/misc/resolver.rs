@@ -992,6 +992,7 @@ impl MiscService {
         Ok(ls.data)
     }
 
+    // TODO: Paginate seen items while doing calculations to avoid memory overflow.
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         let mut ls = summary::Model::default();
         let seen_items = Seen::find()

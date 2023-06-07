@@ -573,23 +573,19 @@ impl MediaService {
             .to_owned();
 
         if let Some(v) = input.query.clone() {
+            let get_contains_expr = |col: metadata::Column| {
+                Expr::expr(Func::lower(Func::cast_as(
+                    Expr::col((TempMetadata::Alias, col)),
+                    Alias::new("text"),
+                )))
+                .like(format!("%{}%", v))
+            };
             main_select = main_select
                 .cond_where(
                     Cond::any()
-                        .add(
-                            Expr::expr(Func::lower(Expr::col((
-                                TempMetadata::Alias,
-                                metadata::Column::Title,
-                            ))))
-                            .like(format!("%{}%", v)),
-                        )
-                        .add(
-                            Expr::expr(Func::lower(Expr::col((
-                                TempMetadata::Alias,
-                                metadata::Column::Description,
-                            ))))
-                            .like(format!("%{}%", v)),
-                        ),
+                        .add(get_contains_expr(metadata::Column::Title))
+                        .add(get_contains_expr(metadata::Column::Description))
+                        .add(get_contains_expr(metadata::Column::Creators)),
                 )
                 .to_owned();
         };

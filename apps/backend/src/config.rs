@@ -212,7 +212,7 @@ pub struct SchedulerConfig {
     pub database_url: String,
     #[setting(default = 5)]
     pub rate_limit_num: i32,
-    #[setting(default = 600)]
+    #[setting(default = 12)]
     pub user_cleanup_every: i32,
 }
 
