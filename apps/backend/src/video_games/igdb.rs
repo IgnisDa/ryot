@@ -136,8 +136,6 @@ offset: {offset};
 
         let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
-        dbg!(&search);
-
         // let total = search.len() as i32;
         // FIXME: I have not yet found a way to get the total number of responses, so we will hardcode this
         let total = 100;
