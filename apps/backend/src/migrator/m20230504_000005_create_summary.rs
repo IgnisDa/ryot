@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_000004_create_user::User;
+use super::m20230417_000002_create_user::User;
 
 pub struct Migration;
 
