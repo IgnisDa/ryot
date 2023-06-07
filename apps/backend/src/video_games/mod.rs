@@ -2,7 +2,7 @@ use async_graphql::{InputObject, SimpleObject};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::VideoGameSource;
+
 
 pub mod igdb;
 pub mod resolver;
@@ -21,6 +21,5 @@ pub mod resolver;
 )]
 #[graphql(input_name = "VideoGameSpecificsInput")]
 pub struct VideoGameSpecifics {
-    pub source: VideoGameSource,
     pub platforms: Vec<String>,
 }

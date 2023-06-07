@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, PodcastSource},
+    migrator::{MetadataLot, MetadataSource, PodcastSource},
     traits::MediaProvider,
 };
 
@@ -121,8 +121,8 @@ impl PodcastsService {
         let last_episode = podcast.details.episodes.last().unwrap();
         let next_pub_date = last_episode.publish_date;
         let episode_number = last_episode.number;
-        let details = match podcast.source {
-            PodcastSource::Listennotes => {
+        let details = match meta.source {
+            MetadataSource::Listennotes => {
                 self.listennotes_service
                     .details_with_paginated_episodes(
                         &meta.identifier,
@@ -131,11 +131,12 @@ impl PodcastsService {
                     )
                     .await?
             }
-            PodcastSource::Custom => {
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Can not fetch next episodes for custom source".to_owned(),
                 ));
             }
+            _ => unreachable!(),
         };
         match details.specifics {
             MediaSpecifics::Podcast(ed) => {
@@ -151,24 +152,23 @@ impl PodcastsService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(Podcast)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            PodcastSource::Listennotes => {
+        let details = match metadata.source {
+            MetadataSource::Listennotes => {
                 self.listennotes_service
                     .details(&metadata.identifier)
                     .await?
             }
-            PodcastSource::Custom => {
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -179,6 +179,7 @@ impl PodcastsService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Podcast,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -192,9 +193,9 @@ impl PodcastsService {
             MediaSpecifics::Podcast(s) => {
                 let podcast = podcast::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    source: ActiveValue::Set(s.source),
                     total_episodes: ActiveValue::Set(s.total_episodes),
                     details: ActiveValue::Set(s),
+                    source: ActiveValue::Set(PodcastSource::Custom),
                 };
                 podcast.insert(&self.db).await.unwrap();
                 Ok(IdObject {

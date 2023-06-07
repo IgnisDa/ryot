@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{AudioBookSource, MetadataLot},
+    migrator::{AudioBookSource, MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -90,20 +90,19 @@ impl AudioBooksService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(AudioBook)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            AudioBookSource::Audible => self.audible_service.details(&metadata.identifier).await?,
-            AudioBookSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Audible => self.audible_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -128,6 +127,7 @@ impl AudioBooksService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::AudioBook,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -142,7 +142,7 @@ impl AudioBooksService {
                 let audio_book = audio_book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(AudioBookSource::Audible),
+                    source: ActiveValue::Set(AudioBookSource::Custom),
                 };
                 audio_book.insert(&self.db).await.unwrap();
                 Ok(IdObject {

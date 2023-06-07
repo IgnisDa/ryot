@@ -39,8 +39,7 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     migrator::{
-        AudioBookSource, BookSource, MediaImportSource, MetadataImageLot, MetadataLot, MovieSource,
-        PodcastSource, ReviewVisibility, ShowSource, UserLot, VideoGameSource,
+        MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
     movies::{resolver::MoviesService, MovieSpecifics},
     podcasts::{resolver::PodcastsService, PodcastSpecifics},
@@ -992,6 +991,7 @@ impl MiscService {
         Ok(ls.data)
     }
 
+    // TODO: Paginate seen items while doing calculations to avoid memory overflow.
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         let mut ls = summary::Model::default();
         let seen_items = Seen::find()
@@ -1276,45 +1276,27 @@ impl MiscService {
         let specifics = match input.lot {
             MetadataLot::AudioBook => match input.audio_book_specifics {
                 None => return err(),
-                Some(ref mut s) => {
-                    s.source = AudioBookSource::Custom;
-                    MediaSpecifics::AudioBook(s.clone())
-                }
+                Some(ref mut s) => MediaSpecifics::AudioBook(s.clone()),
             },
             MetadataLot::Book => match input.book_specifics {
                 None => return err(),
-                Some(ref mut s) => {
-                    s.source = BookSource::Custom;
-                    MediaSpecifics::Book(s.clone())
-                }
+                Some(ref mut s) => MediaSpecifics::Book(s.clone()),
             },
             MetadataLot::Movie => match input.movie_specifics {
                 None => return err(),
-                Some(ref mut s) => {
-                    s.source = MovieSource::Custom;
-                    MediaSpecifics::Movie(s.clone())
-                }
+                Some(ref mut s) => MediaSpecifics::Movie(s.clone()),
             },
             MetadataLot::Podcast => match input.podcast_specifics {
                 None => return err(),
-                Some(ref mut s) => {
-                    s.source = PodcastSource::Custom;
-                    MediaSpecifics::Podcast(s.clone())
-                }
+                Some(ref mut s) => MediaSpecifics::Podcast(s.clone()),
             },
             MetadataLot::Show => match input.show_specifics {
                 None => return err(),
-                Some(ref mut s) => {
-                    s.source = ShowSource::Custom;
-                    MediaSpecifics::Show(s.clone())
-                }
+                Some(ref mut s) => MediaSpecifics::Show(s.clone()),
             },
             MetadataLot::VideoGame => match input.video_game_specifics {
                 None => return err(),
-                Some(ref mut s) => {
-                    s.source = VideoGameSource::Custom;
-                    MediaSpecifics::VideoGame(s.clone())
-                }
+                Some(ref mut s) => MediaSpecifics::VideoGame(s.clone()),
             },
         };
         let identifier = Uuid::new_v4().to_string();
@@ -1342,6 +1324,7 @@ impl MiscService {
             title: input.title,
             description: input.description,
             lot: input.lot,
+            source: MetadataSource::Custom,
             creators,
             genres: input.genres.unwrap_or_default(),
             images,

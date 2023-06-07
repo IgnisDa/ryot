@@ -1,11 +1,6 @@
 import {
-	AudioBookSource,
-	BookSource,
 	MetadataLot,
-	MovieSource,
-	PodcastSource,
-	ShowSource,
-	VideoGameSource,
+	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
@@ -17,7 +12,6 @@ import {
 } from "@tabler/icons-react";
 import { camelCase, startCase } from "lodash";
 import slugify from "slugify";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
 /**
@@ -124,85 +118,36 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 };
 
 export const getSourceUrl = (
-	lot: MetadataLot,
+	from: MetadataSource,
 	identifier: string,
 	title: string,
-	from: {
-		audioBook?: AudioBookSource;
-		book?: BookSource;
-		movie?: MovieSource;
-		podcast?: PodcastSource;
-		show?: ShowSource;
-		videoGame?: VideoGameSource;
-	},
 ) => {
-	const message = "from should be defined";
-	const emptyHandler = () => "";
 	const slug = slugify(title, {
 		lower: true,
 		strict: true,
 	});
-	switch (lot) {
-		case MetadataLot.AudioBook: {
-			invariant(from.audioBook, message);
-			return match(from.audioBook)
-				.with(
-					AudioBookSource.Audible,
-					() => `https://www.audible.com/pd/${slug}/${identifier}`,
-				)
-				.with(AudioBookSource.Custom, emptyHandler)
-				.exhaustive();
-		}
-		case MetadataLot.Book: {
-			invariant(from.book, message);
-			return match(from.book)
-				.with(
-					BookSource.OpenLibrary,
-					() => `https://openlibrary.org/works/${identifier}/${slug}`,
-				)
-				.with(
-					BookSource.Goodreads,
-					() => `https://www.goodreads.com/book/show/${identifier}-${slug}`,
-				)
-				.with(BookSource.Custom, emptyHandler)
-				.exhaustive();
-		}
-		case MetadataLot.Movie: {
-			invariant(from.movie, message);
-			return match(from.movie)
-				.with(
-					MovieSource.Tmdb,
-					() => `https://www.themoviedb.org/movie/${identifier}-${slug}`,
-				)
-				.with(MovieSource.Custom, emptyHandler)
-				.exhaustive();
-		}
-		case MetadataLot.Podcast: {
-			invariant(from.podcast, message);
-			return match(from.podcast)
-				.with(
-					PodcastSource.Listennotes,
-					() => `https://www.listennotes.com/podcasts/${slug}-${identifier}`,
-				)
-				.with(PodcastSource.Custom, emptyHandler)
-				.exhaustive();
-		}
-		case MetadataLot.Show: {
-			invariant(from.show, message);
-			return match(from.show)
-				.with(
-					ShowSource.Tmdb,
-					() => `https://www.themoviedb.org/tv/${identifier}-${slug}`,
-				)
-				.with(ShowSource.Custom, emptyHandler)
-				.exhaustive();
-		}
-		case MetadataLot.VideoGame: {
-			invariant(from.videoGame, message);
-			return match(from.videoGame)
-				.with(VideoGameSource.Igdb, () => `https://www.igdb.com/games/${slug}`)
-				.with(VideoGameSource.Custom, emptyHandler)
-				.exhaustive();
-		}
-	}
+	return match(from)
+		.with(MetadataSource.Custom, () => "")
+		.with(
+			MetadataSource.Audible,
+			() => `https://www.audible.com/pd/${slug}/${identifier}`,
+		)
+		.with(
+			MetadataSource.Openlibrary,
+			() => `https://openlibrary.org/works/${identifier}/${slug}`,
+		)
+		.with(
+			MetadataSource.Goodreads,
+			() => `https://www.goodreads.com/book/show/${identifier}-${slug}`,
+		)
+		.with(
+			MetadataSource.Tmdb,
+			() => `https://www.themoviedb.org/movie/${identifier}-${slug}`,
+		)
+		.with(
+			MetadataSource.Listennotes,
+			() => `https://www.listennotes.com/podcasts/${slug}-${identifier}`,
+		)
+		.with(MetadataSource.Igdb, () => `https://www.igdb.com/games/${slug}`)
+		.exhaustive();
 };

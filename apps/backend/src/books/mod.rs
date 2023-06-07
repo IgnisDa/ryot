@@ -1,7 +1,7 @@
 use async_graphql::{InputObject, SimpleObject};
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::BookSource;
+
 
 pub mod openlibrary;
 pub mod resolver;
@@ -10,5 +10,4 @@ pub mod resolver;
 #[graphql(input_name = "BookSpecificsInput")]
 pub struct BookSpecifics {
     pub pages: Option<i32>,
-    pub source: BookSource,
 }

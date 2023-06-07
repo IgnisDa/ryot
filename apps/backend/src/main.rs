@@ -219,10 +219,9 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .stream(
-                        // every 10 minutes
                         CronStream::new(
                             Schedule::from_str(&format!(
-                                "0 */{} * * * *",
+                                "0 0 */{} ? * *",
                                 config.scheduler.user_cleanup_every
                             ))
                             .unwrap(),

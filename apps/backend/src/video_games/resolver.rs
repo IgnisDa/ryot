@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, VideoGameSource},
+    migrator::{MetadataLot, MetadataSource, VideoGameSource},
     traits::MediaProvider,
 };
 
@@ -91,20 +91,19 @@ impl VideoGamesService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(VideoGame)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            VideoGameSource::Igdb => self.igdb_service.details(&metadata.identifier).await?,
-            VideoGameSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Igdb => self.igdb_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -129,6 +128,7 @@ impl VideoGamesService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::VideoGame,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -142,8 +142,8 @@ impl VideoGamesService {
             MediaSpecifics::VideoGame(s) => {
                 let game = video_game::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
-                    source: ActiveValue::Set(s.source),
                     details: ActiveValue::Set(s),
+                    source: ActiveValue::Set(VideoGameSource::Custom),
                 };
                 game.insert(&self.db).await.unwrap();
                 Ok(IdObject {

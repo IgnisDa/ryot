@@ -13,7 +13,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{MetadataImageLot, MetadataLot, ShowSource},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     shows::{ShowEpisode, ShowSeason},
     traits::MediaProvider,
     utils::{
@@ -148,13 +148,13 @@ impl MediaProvider for TmdbService {
             identifier: data.id.to_string(),
             title: data.name,
             lot: MetadataLot::Show,
+            source: MetadataSource::Tmdb,
             description: data.overview,
             creators: author_names,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             specifics: MediaSpecifics::Show(ShowSpecifics {
-                source: ShowSource::Tmdb,
                 seasons: seasons
                     .into_iter()
                     .map(|s| {

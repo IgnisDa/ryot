@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, ShowSource},
+    migrator::{MetadataLot, MetadataSource, ShowSource},
     traits::MediaProvider,
 };
 
@@ -83,20 +83,19 @@ impl ShowsService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(Show)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            ShowSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
-            ShowSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -121,6 +120,7 @@ impl ShowsService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Show,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -134,11 +134,8 @@ impl ShowsService {
             MediaSpecifics::Show(s) => {
                 let show = show::ActiveModel {
                     metadata_id: ActiveValue::Set(show_metadata_id),
-                    details: ActiveValue::Set(ShowSpecifics {
-                        seasons: s.seasons,
-                        source: s.source,
-                    }),
-                    source: ActiveValue::Set(ShowSource::Tmdb),
+                    details: ActiveValue::Set(ShowSpecifics { seasons: s.seasons }),
+                    source: ActiveValue::Set(ShowSource::Custom),
                 };
                 let show = show.insert(&self.db).await.unwrap();
                 Ok(IdObject {

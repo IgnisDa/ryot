@@ -1,7 +1,7 @@
 use async_graphql::{InputObject, SimpleObject};
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::MovieSource;
+
 
 pub mod resolver;
 pub mod tmdb;
@@ -10,5 +10,4 @@ pub mod tmdb;
 #[graphql(input_name = "MovieSpecificsInput")]
 pub struct MovieSpecifics {
     pub runtime: Option<i32>,
-    pub source: MovieSource,
 }

@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MovieSource},
+    migrator::{MetadataLot, MetadataSource, MovieSource},
     traits::MediaProvider,
 };
 
@@ -83,20 +83,19 @@ impl MoviesService {
     }
 
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(Movie)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            MovieSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
-            MovieSource::Custom => {
+        let details = match metadata.source {
+            MetadataSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -121,6 +120,7 @@ impl MoviesService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Movie,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -135,7 +135,7 @@ impl MoviesService {
                 let movie = movie::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(MovieSource::Tmdb),
+                    source: ActiveValue::Set(MovieSource::Custom),
                 };
                 movie.insert(&self.db).await.unwrap();
                 Ok(IdObject {

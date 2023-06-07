@@ -15,7 +15,7 @@ use crate::{
         ImportItemSeen,
     },
     media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
-    migrator::{BookSource, MetadataLot},
+    migrator::{MetadataLot, MetadataSource},
     utils::openlibrary,
 };
 
@@ -181,6 +181,7 @@ fn convert_item(
                 title: details.title,
                 description: details.overview,
                 lot,
+                source: MetadataSource::Goodreads,
                 creators: details
                     .authors
                     .unwrap_or_default()
@@ -197,7 +198,6 @@ fn convert_item(
                 publish_date: None,
                 specifics: MediaSpecifics::Book(BookSpecifics {
                     pages: details.number_of_pages,
-                    source: BookSource::Goodreads,
                 }),
             })),
             true => ImportItemIdentifier::NeedsDetails(identifier),

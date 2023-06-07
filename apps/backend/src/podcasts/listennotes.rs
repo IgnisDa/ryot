@@ -16,7 +16,7 @@ use crate::media::{
     PAGE_LIMIT,
 };
 use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
-use crate::migrator::{MetadataImageLot, MetadataLot, PodcastSource};
+use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
 use crate::podcasts::{PodcastEpisode, PodcastSpecifics};
 use crate::traits::MediaProvider;
 use crate::utils::listennotes;
@@ -137,6 +137,7 @@ impl ListennotesService {
             title: d.title,
             description: d.description,
             lot: MetadataLot::Podcast,
+            source: MetadataSource::Listennotes,
             creators: Vec::from_iter(d.publisher.map(|p| MetadataCreator {
                 name: p,
                 role: "Publishing".to_owned(),
@@ -164,7 +165,6 @@ impl ListennotesService {
                         ..episode
                     })
                     .collect(),
-                source: PodcastSource::Listennotes,
                 total_episodes: d.total_episodes,
             }),
         })

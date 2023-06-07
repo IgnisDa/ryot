@@ -2,7 +2,7 @@ use async_graphql::{InputObject, SimpleObject};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::PodcastSource;
+
 
 pub mod listennotes;
 pub mod resolver;
@@ -22,7 +22,6 @@ pub mod resolver;
 #[graphql(input_name = "PodcastSpecificsInput")]
 pub struct PodcastSpecifics {
     pub episodes: Vec<PodcastEpisode>,
-    pub source: PodcastSource,
     pub total_episodes: i32,
 }
 

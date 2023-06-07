@@ -30,7 +30,7 @@ use crate::{
     },
     graphql::{IdObject, Identifier},
     media::PAGE_LIMIT,
-    migrator::{MetadataImageLot, MetadataLot},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     movies::MovieSpecifics,
     podcasts::PodcastSpecifics,
     shows::ShowSpecifics,
@@ -93,6 +93,7 @@ pub struct ProgressUpdate {
 pub struct MediaDetails {
     pub identifier: String,
     pub title: String,
+    pub source: MetadataSource,
     pub description: Option<String>,
     pub lot: MetadataLot,
     pub creators: Vec<MetadataCreator>,
@@ -110,6 +111,7 @@ pub struct GraphqlMediaDetails {
     pub identifier: String,
     pub description: Option<String>,
     pub lot: MetadataLot,
+    pub source: MetadataSource,
     pub creators: Vec<MetadataCreator>,
     pub genres: Vec<String>,
     pub poster_images: Vec<String>,
@@ -419,6 +421,7 @@ impl MediaService {
             description: model.description,
             publish_year: model.publish_year,
             publish_date: model.publish_date,
+            source: model.source,
             lot: model.lot,
             creators,
             genres,
@@ -440,7 +443,6 @@ impl MediaService {
                     .unwrap();
                 resp.audio_book_specifics = Some(AudioBookSpecifics {
                     runtime: additional.runtime,
-                    source: additional.source,
                 });
             }
             MetadataLot::Book => {
@@ -451,7 +453,6 @@ impl MediaService {
                     .unwrap();
                 resp.book_specifics = Some(BookSpecifics {
                     pages: additional.num_pages,
-                    source: additional.source,
                 });
             }
             MetadataLot::Podcast => {
@@ -470,7 +471,6 @@ impl MediaService {
                     .unwrap();
                 resp.movie_specifics = Some(MovieSpecifics {
                     runtime: additional.runtime,
-                    source: additional.source,
                 });
             }
             MetadataLot::Show => {
@@ -488,7 +488,6 @@ impl MediaService {
                     .unwrap()
                     .unwrap();
                 resp.video_game_specifics = Some(VideoGameSpecifics {
-                    source: additional.source,
                     platforms: additional.details.platforms,
                 });
             }
@@ -573,23 +572,19 @@ impl MediaService {
             .to_owned();
 
         if let Some(v) = input.query.clone() {
+            let get_contains_expr = |col: metadata::Column| {
+                Expr::expr(Func::lower(Func::cast_as(
+                    Expr::col((TempMetadata::Alias, col)),
+                    Alias::new("text"),
+                )))
+                .like(format!("%{}%", v))
+            };
             main_select = main_select
                 .cond_where(
                     Cond::any()
-                        .add(
-                            Expr::expr(Func::lower(Expr::col((
-                                TempMetadata::Alias,
-                                metadata::Column::Title,
-                            ))))
-                            .like(format!("%{}%", v)),
-                        )
-                        .add(
-                            Expr::expr(Func::lower(Expr::col((
-                                TempMetadata::Alias,
-                                metadata::Column::Description,
-                            ))))
-                            .like(format!("%{}%", v)),
-                        ),
+                        .add(get_contains_expr(metadata::Column::Title))
+                        .add(get_contains_expr(metadata::Column::Description))
+                        .add(get_contains_expr(metadata::Column::Creators)),
                 )
                 .to_owned();
         };
@@ -964,6 +959,7 @@ impl MediaService {
         &self,
         identifier: String,
         lot: MetadataLot,
+        source: MetadataSource,
         title: String,
         description: Option<String>,
         publish_year: Option<i32>,
@@ -981,6 +977,7 @@ impl MediaService {
             images: ActiveValue::Set(MetadataImages(images)),
             identifier: ActiveValue::Set(identifier),
             creators: ActiveValue::Set(MetadataCreators(creators)),
+            source: ActiveValue::Set(source),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();

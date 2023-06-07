@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{BookSource, MetadataLot},
+    migrator::{BookSource, MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -83,29 +83,28 @@ impl BooksService {
 
     // Given a metadata id, this fetches the latest details from it's provider
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(Book)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
-        let details = match additional_details.source {
-            BookSource::OpenLibrary => {
+        let details = match metadata.source {
+            MetadataSource::Openlibrary => {
                 self.openlibrary_service
                     .details(&metadata.identifier)
                     .await?
             }
-            BookSource::Goodreads => {
+            MetadataSource::Goodreads => {
                 return Err(Error::new(
                     "Getting details from Goodreads is not supported".to_owned(),
                 ))
             }
-            BookSource::Custom => {
+            MetadataSource::Custom => {
                 return Err(Error::new(
                     "Getting details for custom provider is not supported".to_owned(),
                 ))
             }
+            _ => unreachable!(),
         };
         Ok(details)
     }
@@ -130,6 +129,7 @@ impl BooksService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Book,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -144,7 +144,7 @@ impl BooksService {
                 let book = book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     num_pages: ActiveValue::Set(s.pages),
-                    source: ActiveValue::Set(s.source),
+                    source: ActiveValue::Set(BookSource::Custom),
                 };
                 book.insert(&self.db).await.unwrap();
                 Ok(IdObject {
