@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource, MovieSource},
     traits::MediaProvider,
 };
 
@@ -122,6 +122,7 @@ impl MoviesService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Movie,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -136,7 +137,7 @@ impl MoviesService {
                 let movie = movie::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     runtime: ActiveValue::Set(s.runtime),
-                    ..Default::default()
+                    source: ActiveValue::Set(MovieSource::Custom),
                 };
                 movie.insert(&self.db).await.unwrap();
                 Ok(IdObject {

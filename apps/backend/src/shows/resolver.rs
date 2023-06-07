@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource, ShowSource},
     traits::MediaProvider,
 };
 
@@ -122,6 +122,7 @@ impl ShowsService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Show,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -136,7 +137,7 @@ impl ShowsService {
                 let show = show::ActiveModel {
                     metadata_id: ActiveValue::Set(show_metadata_id),
                     details: ActiveValue::Set(ShowSpecifics { seasons: s.seasons }),
-                    ..Default::default()
+                    source: ActiveValue::Set(ShowSource::Custom),
                 };
                 let show = show.insert(&self.db).await.unwrap();
                 Ok(IdObject {

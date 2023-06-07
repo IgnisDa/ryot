@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{BookSource, MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -131,6 +131,7 @@ impl BooksService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Book,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -145,7 +146,7 @@ impl BooksService {
                 let book = book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     num_pages: ActiveValue::Set(s.pages),
-                    ..Default::default()
+                    source: ActiveValue::Set(BookSource::Custom),
                 };
                 book.insert(&self.db).await.unwrap();
                 Ok(IdObject {

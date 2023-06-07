@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{AudioBookSource, MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
@@ -129,6 +129,7 @@ impl AudioBooksService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::AudioBook,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -143,7 +144,7 @@ impl AudioBooksService {
                 let audio_book = audio_book::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     runtime: ActiveValue::Set(s.runtime),
-                    ..Default::default()
+                    source: ActiveValue::Set(AudioBookSource::Custom),
                 };
                 audio_book.insert(&self.db).await.unwrap();
                 Ok(IdObject {

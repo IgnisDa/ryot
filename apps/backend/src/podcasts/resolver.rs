@@ -15,7 +15,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource, PodcastSource},
     traits::MediaProvider,
 };
 
@@ -181,6 +181,7 @@ impl PodcastsService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::Podcast,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -196,7 +197,7 @@ impl PodcastsService {
                     metadata_id: ActiveValue::Set(metadata_id),
                     total_episodes: ActiveValue::Set(s.total_episodes),
                     details: ActiveValue::Set(s),
-                    ..Default::default()
+                    source: ActiveValue::Set(PodcastSource::Custom),
                 };
                 podcast.insert(&self.db).await.unwrap();
                 Ok(IdObject {

@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource, VideoGameSource},
     traits::MediaProvider,
 };
 
@@ -130,6 +130,7 @@ impl VideoGamesService {
             .commit_media(
                 details.identifier.clone(),
                 MetadataLot::VideoGame,
+                details.source,
                 details.title,
                 details.description,
                 details.publish_year,
@@ -144,7 +145,7 @@ impl VideoGamesService {
                 let game = video_game::ActiveModel {
                     metadata_id: ActiveValue::Set(metadata_id),
                     details: ActiveValue::Set(s),
-                    ..Default::default()
+                    source: ActiveValue::Set(VideoGameSource::Custom),
                 };
                 game.insert(&self.db).await.unwrap();
                 Ok(IdObject {

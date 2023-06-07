@@ -959,6 +959,7 @@ impl MediaService {
         &self,
         identifier: String,
         lot: MetadataLot,
+        source: MetadataSource,
         title: String,
         description: Option<String>,
         publish_year: Option<i32>,
@@ -976,6 +977,7 @@ impl MediaService {
             images: ActiveValue::Set(MetadataImages(images)),
             identifier: ActiveValue::Set(identifier),
             creators: ActiveValue::Set(MetadataCreators(creators)),
+            source: ActiveValue::Set(source),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
