@@ -83,13 +83,11 @@ impl BooksService {
 
     // Given a metadata id, this fetches the latest details from it's provider
     pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let (metadata, additional_details) = Metadata::find_by_id(metadata_id)
-            .find_also_related(Book)
+        let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let additional_details = additional_details.unwrap();
         let details = match metadata.source {
             MetadataSource::Openlibrary => {
                 self.openlibrary_service
