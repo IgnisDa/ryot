@@ -1,25 +1,17 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 use crate::{
-    entities::{
-        metadata, movie,
-        prelude::{Metadata, Movie},
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
-    media::{
-        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
-    },
-    migrator::{MetadataLot, MetadataSource, MovieSource},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{tmdb::TmdbService, MovieSpecifics};
+use super::tmdb::TmdbService;
 
 #[derive(Default)]
 pub struct MoviesQuery;
@@ -128,31 +120,11 @@ impl MoviesService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Movie(s) => {
-                let movie = movie::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(MovieSource::Custom),
-                };
-                movie.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn update_details(&self, media_id: i32, _details: MovieSpecifics) -> Result<()> {
-        let media = Movie::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut _media: movie::ActiveModel = media.into();
-        Ok(())
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

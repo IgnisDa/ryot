@@ -1,26 +1,17 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 use crate::{
-    entities::{
-        metadata,
-        prelude::{Metadata, Show},
-        show,
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
-    media::{
-        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
-    },
-    migrator::{MetadataLot, MetadataSource, ShowSource},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{tmdb::TmdbService, ShowSpecifics};
+use super::tmdb::TmdbService;
 
 #[derive(Default)]
 pub struct ShowsQuery;
@@ -115,7 +106,7 @@ impl ShowsService {
     }
 
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
-        let show_metadata_id = self
+        let metadata_id = self
             .media_service
             .commit_media(
                 details.identifier.clone(),
@@ -128,33 +119,11 @@ impl ShowsService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Show(s) => {
-                let show = show::ActiveModel {
-                    metadata_id: ActiveValue::Set(show_metadata_id),
-                    details: ActiveValue::Set(ShowSpecifics { seasons: s.seasons }),
-                    source: ActiveValue::Set(ShowSource::Custom),
-                };
-                let show = show.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: show.metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn update_details(&self, media_id: i32, details: ShowSpecifics) -> Result<()> {
-        let media = Show::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut media: show::ActiveModel = media.into();
-        media.details = ActiveValue::Set(details);
-        media.save(&self.db).await.ok();
-        Ok(())
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

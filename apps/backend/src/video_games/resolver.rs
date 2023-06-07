@@ -1,26 +1,17 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 use crate::{
-    entities::{
-        metadata,
-        prelude::{Metadata, VideoGame},
-        video_game,
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
-    media::{
-        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
-    },
-    migrator::{MetadataLot, MetadataSource, VideoGameSource},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{igdb::IgdbService, VideoGameSpecifics};
+use super::igdb::IgdbService;
 
 #[derive(Default)]
 pub struct VideoGamesQuery;
@@ -136,33 +127,11 @@ impl VideoGamesService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::VideoGame(s) => {
-                let game = video_game::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    details: ActiveValue::Set(s),
-                    source: ActiveValue::Set(VideoGameSource::Custom),
-                };
-                game.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn update_details(&self, media_id: i32, details: VideoGameSpecifics) -> Result<()> {
-        let media = VideoGame::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut media: video_game::ActiveModel = media.into();
-        media.details = ActiveValue::Set(details);
-        media.save(&self.db).await.ok();
-        Ok(())
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

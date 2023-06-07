@@ -22,8 +22,7 @@ use crate::{
     entities::{
         collection, genre, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
-            AudioBook, Book, Collection, Genre, Metadata, MetadataToCollection, Movie, Podcast,
-            Review, Seen, Show, UserToMetadata, VideoGame,
+            Collection, Genre, Metadata, MetadataToCollection, Review, Seen, UserToMetadata,
         },
         review, seen, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
@@ -434,63 +433,26 @@ impl MediaService {
             audio_book_specifics: None,
             podcast_specifics: None,
         };
-        match model.lot {
-            MetadataLot::AudioBook => {
-                let additional = AudioBook::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.audio_book_specifics = Some(AudioBookSpecifics {
-                    runtime: additional.runtime,
-                });
+        match model.specifics {
+            MediaSpecifics::AudioBook(a) => {
+                resp.audio_book_specifics = Some(a);
             }
-            MetadataLot::Book => {
-                let additional = Book::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.book_specifics = Some(BookSpecifics {
-                    pages: additional.num_pages,
-                });
+            MediaSpecifics::Book(a) => {
+                resp.book_specifics = Some(a);
             }
-            MetadataLot::Podcast => {
-                let additional = Podcast::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.podcast_specifics = Some(additional.details);
+            MediaSpecifics::Movie(a) => {
+                resp.movie_specifics = Some(a);
             }
-            MetadataLot::Movie => {
-                let additional = Movie::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.movie_specifics = Some(MovieSpecifics {
-                    runtime: additional.runtime,
-                });
+            MediaSpecifics::Podcast(a) => {
+                resp.podcast_specifics = Some(a);
             }
-            MetadataLot::Show => {
-                let additional = Show::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.show_specifics = Some(additional.details);
+            MediaSpecifics::Show(a) => {
+                resp.show_specifics = Some(a);
             }
-            MetadataLot::VideoGame => {
-                let additional = VideoGame::find_by_id(metadata_id)
-                    .one(&self.db)
-                    .await
-                    .unwrap()
-                    .unwrap();
-                resp.video_game_specifics = Some(VideoGameSpecifics {
-                    platforms: additional.details.platforms,
-                });
+            MediaSpecifics::VideoGame(a) => {
+                resp.video_game_specifics = Some(a);
             }
+            MediaSpecifics::Unknown => {}
         };
         Ok(resp)
     }
@@ -938,6 +900,7 @@ impl MediaService {
         description: Option<String>,
         images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
+        specifics: MediaSpecifics,
     ) -> Result<()> {
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
@@ -950,6 +913,7 @@ impl MediaService {
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.creators = ActiveValue::Set(MetadataCreators(creators));
+        meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
         Ok(())
     }
@@ -967,6 +931,7 @@ impl MediaService {
         images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
+        specifics: MediaSpecifics,
     ) -> Result<i32> {
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(lot),
@@ -978,6 +943,7 @@ impl MediaService {
             identifier: ActiveValue::Set(identifier),
             creators: ActiveValue::Set(MetadataCreators(creators)),
             source: ActiveValue::Set(source),
+            specifics: ActiveValue::Set(specifics),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();

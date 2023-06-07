@@ -67,7 +67,8 @@ impl MigrationTrait for Migration {
                     )
                     .to_owned(),
             )
-            .await?;
+            .await
+            .ok();
         let db = manager.get_connection();
         let metadatas = Metadata::find().all(db).await.unwrap();
         for metadata in metadatas {

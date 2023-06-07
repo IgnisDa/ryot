@@ -22,6 +22,8 @@ mod m20230602_000018_drop_token_tables;
 mod m20230603_000019_change_images_format;
 mod m20230605_000020_add_platform_field;
 mod m20230607_000021_hoist_source;
+mod m20230607_000022_hoist_media_details;
+mod m20230607_000023_drop_specifics_tables;
 
 pub use m20230410_000001_create_metadata::{Metadata, MetadataImageLot, MetadataLot};
 pub use m20230416_000002_create_creator::Creator;
@@ -63,6 +65,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230603_000019_change_images_format::Migration),
             Box::new(m20230605_000020_add_platform_field::Migration),
             Box::new(m20230607_000021_hoist_source::Migration),
+            Box::new(m20230607_000022_hoist_media_details::Migration),
+            Box::new(m20230607_000023_drop_specifics_tables::Migration),
         ]
     }
 }

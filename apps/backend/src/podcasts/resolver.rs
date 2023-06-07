@@ -15,11 +15,11 @@ use crate::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
         MediaSpecifics,
     },
-    migrator::{MetadataLot, MetadataSource, PodcastSource},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{listennotes::ListennotesService, PodcastSpecifics};
+use super::listennotes::ListennotesService;
 
 #[derive(Default)]
 pub struct PodcastsQuery;
@@ -187,35 +187,11 @@ impl PodcastsService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Podcast(s) => {
-                let podcast = podcast::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    total_episodes: ActiveValue::Set(s.total_episodes),
-                    details: ActiveValue::Set(s),
-                    source: ActiveValue::Set(PodcastSource::Custom),
-                };
-                podcast.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn update_details(&self, media_id: i32, details: PodcastSpecifics) -> Result<()> {
-        let media = Podcast::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut media: podcast::ActiveModel = media.into();
-        media.total_episodes = ActiveValue::Set(details.total_episodes);
-        media.details = ActiveValue::Set(details);
-        media.save(&self.db).await.ok();
-        Ok(())
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

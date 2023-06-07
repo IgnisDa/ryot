@@ -1,25 +1,17 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 use crate::{
-    entities::{
-        audio_book, metadata,
-        prelude::{AudioBook, Metadata},
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
-    media::{
-        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
-    },
-    migrator::{AudioBookSource, MetadataLot, MetadataSource},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{audible::AudibleService, AudioBookSpecifics};
+use super::audible::AudibleService;
 
 #[derive(Default)]
 pub struct AudioBooksQuery;
@@ -135,31 +127,11 @@ impl AudioBooksService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::AudioBook(s) => {
-                let audio_book = audio_book::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    runtime: ActiveValue::Set(s.runtime),
-                    source: ActiveValue::Set(AudioBookSource::Custom),
-                };
-                audio_book.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn update_details(&self, media_id: i32, _details: AudioBookSpecifics) -> Result<()> {
-        let media = AudioBook::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut _media: audio_book::ActiveModel = media.into();
-        Ok(())
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

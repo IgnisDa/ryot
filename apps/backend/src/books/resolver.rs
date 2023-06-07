@@ -1,25 +1,17 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Error, Object, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 use crate::{
-    entities::{
-        book, metadata,
-        prelude::{Book, Metadata},
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::IdObject,
-    media::{
-        resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
-        MediaSpecifics,
-    },
-    migrator::{BookSource, MetadataLot, MetadataSource},
+    media::resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
+    migrator::{MetadataLot, MetadataSource},
     traits::MediaProvider,
 };
 
-use super::{openlibrary::OpenlibraryService, BookSpecifics};
+use super::openlibrary::OpenlibraryService;
 
 #[derive(Default)]
 pub struct BooksQuery;
@@ -137,31 +129,11 @@ impl BooksService {
                 details.images,
                 details.creators,
                 details.genres,
+                details.specifics.clone(),
             )
             .await?;
-        match details.specifics {
-            MediaSpecifics::Book(s) => {
-                let book = book::ActiveModel {
-                    metadata_id: ActiveValue::Set(metadata_id),
-                    num_pages: ActiveValue::Set(s.pages),
-                    source: ActiveValue::Set(BookSource::Custom),
-                };
-                book.insert(&self.db).await.unwrap();
-                Ok(IdObject {
-                    id: metadata_id.into(),
-                })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn update_details(&self, media_id: i32, _details: BookSpecifics) -> Result<()> {
-        let media = Book::find_by_id(media_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut _media: book::ActiveModel = media.into();
-        Ok(())
+        Ok(IdObject {
+            id: metadata_id.into(),
+        })
     }
 }

@@ -25,10 +25,7 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, media_import_report, metadata, metadata_to_collection,
-        prelude::{
-            AudioBook, Book, Collection, MediaImportReport, Metadata, Movie, Podcast, Review, Seen,
-            Show, Summary, User,
-        },
+        prelude::{Collection, MediaImportReport, Metadata, Review, Seen, Summary, User},
         review, seen, summary, user,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
@@ -904,41 +901,10 @@ impl MiscService {
                         details.description,
                         details.images,
                         details.creators,
+                        details.specifics,
                     )
                     .await
                     .ok();
-                match details.specifics {
-                    MediaSpecifics::AudioBook(s) => self
-                        .audio_books_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Book(s) => self
-                        .books_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Movie(s) => self
-                        .movies_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Podcast(p) => self
-                        .podcasts_service
-                        .update_details(metadata_id, p)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::Show(s) => self
-                        .shows_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                    MediaSpecifics::VideoGame(s) => self
-                        .video_games_service
-                        .update_details(metadata_id, s)
-                        .await
-                        .unwrap(),
-                };
             }
             Err(e) => {
                 tracing::error!("Error while updating: {:?}", e);
@@ -1009,40 +975,22 @@ impl MiscService {
         let mut unique_podcast_episodes = HashSet::new();
         for (seen, metadata) in seen_items.iter() {
             let meta = metadata.to_owned().unwrap();
-            match meta.lot {
-                MetadataLot::AudioBook => {
-                    let item = meta
-                        .find_related(AudioBook)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap_or_default();
+            match meta.specifics {
+                MediaSpecifics::AudioBook(item) => {
                     ls.data.audio_books.played += 1;
                     if let Some(r) = item.runtime {
                         ls.data.audio_books.runtime += r;
                     }
                 }
-                MetadataLot::Book => {
-                    let item = meta
-                        .find_related(Book)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap_or_default();
+                MediaSpecifics::Book(item) => {
                     ls.data.books.read += 1;
-                    if let Some(pg) = item.num_pages {
+                    if let Some(pg) = item.pages {
                         ls.data.books.pages += pg;
                     }
                 }
-                MetadataLot::Podcast => {
-                    let item = meta
-                        .find_related(Podcast)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap_or_default();
+                MediaSpecifics::Podcast(item) => {
                     unique_podcasts.insert(seen.metadata_id);
-                    for episode in item.details.episodes {
+                    for episode in item.episodes {
                         match seen.extra_information.to_owned() {
                             None => continue,
                             Some(sei) => match sei {
@@ -1059,27 +1007,15 @@ impl MiscService {
                         }
                     }
                 }
-                MetadataLot::Movie => {
-                    let item = meta
-                        .find_related(Movie)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap_or_default();
+                MediaSpecifics::Movie(item) => {
                     ls.data.movies.watched += 1;
                     if let Some(r) = item.runtime {
                         ls.data.movies.runtime += r;
                     }
                 }
-                MetadataLot::Show => {
-                    let item = meta
-                        .find_related(Show)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap_or_default();
-                    unique_shows.insert(item.metadata_id);
-                    for season in item.details.seasons {
+                MediaSpecifics::Show(item) => {
+                    unique_shows.insert(seen.metadata_id);
+                    for season in item.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
                                 SeenExtraInformation::Podcast(_) => unreachable!(),
@@ -1098,9 +1034,10 @@ impl MiscService {
                         }
                     }
                 }
-                MetadataLot::VideoGame => {
+                MediaSpecifics::VideoGame(_item) => {
                     ls.data.video_games.played += 1;
                 }
+                MediaSpecifics::Unknown => {}
             }
         }
 
