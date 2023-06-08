@@ -2,7 +2,7 @@ procs:
   Backend:
     shell: "cargo watch -qx 'run --package ryot'"
     env:
-      RUST_LOG: "ryot=trace,sea_orm=trace"
+      RUST_LOG: "ryot=trace,sea_orm=debug"
   Frontend:
     shell: "moon run frontend:dev"
   Minio Proxy:
