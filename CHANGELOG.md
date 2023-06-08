@@ -1,4 +1,15 @@
 
+# Version 1.0.1 (2023-06-08)
+
+## Bug Fixes
+
+* **frontend:** do not switch to 6 column layout
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.0 (2023-06-08)
 
 
