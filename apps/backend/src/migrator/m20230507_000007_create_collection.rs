@@ -1,8 +1,14 @@
 use sea_orm_migration::prelude::*;
 
-use super::{m20230417_000004_create_user::User, Metadata};
+use super::{m20230417_000002_create_user::User, Metadata};
 
 pub struct Migration;
+
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230507_000007_create_collection"
+    }
+}
 
 #[derive(Iden)]
 pub enum MetadataToCollection {
@@ -18,12 +24,6 @@ pub enum Collection {
     CreatedOn,
     Name,
     UserId,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230507_000013_create_collection"
-    }
 }
 
 #[async_trait::async_trait]

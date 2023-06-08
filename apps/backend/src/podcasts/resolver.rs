@@ -6,10 +6,7 @@ use sea_orm::{
 };
 
 use crate::{
-    entities::{
-        metadata, podcast,
-        prelude::{Metadata, Podcast},
-    },
+    entities::{metadata, prelude::Metadata},
     graphql::{IdObject, Identifier},
     media::{
         resolver::{MediaDetails, MediaSearchResults, MediaService, SearchInput},
@@ -108,43 +105,46 @@ impl PodcastsService {
     }
 
     pub async fn commit_next_10_podcast_episodes(&self, podcast_id: i32) -> Result<bool> {
-        let (podcast, meta) = Podcast::find_by_id(podcast_id)
-            .find_also_related(Metadata)
+        let podcast = Metadata::find_by_id(podcast_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let meta = meta.unwrap();
-        if podcast.total_episodes == podcast.details.episodes.len() as i32 {
-            return Ok(false);
-        }
-        let last_episode = podcast.details.episodes.last().unwrap();
-        let next_pub_date = last_episode.publish_date;
-        let episode_number = last_episode.number;
-        let details = match meta.source {
-            MetadataSource::Listennotes => {
-                self.listennotes_service
-                    .details_with_paginated_episodes(
-                        &meta.identifier,
-                        Some(next_pub_date),
-                        Some(episode_number),
-                    )
-                    .await?
-            }
-            MetadataSource::Custom => {
-                return Err(Error::new(
-                    "Can not fetch next episodes for custom source".to_owned(),
-                ));
-            }
-            _ => unreachable!(),
-        };
-        match details.specifics {
-            MediaSpecifics::Podcast(ed) => {
-                let mut meta: podcast::ActiveModel = podcast.into();
-                let mut details_small = meta.details.unwrap();
-                details_small.episodes.extend(ed.episodes.into_iter());
-                meta.details = ActiveValue::Set(details_small);
-                meta.save(&self.db).await.unwrap();
+        match podcast.specifics.clone() {
+            MediaSpecifics::Podcast(mut specifics) => {
+                if specifics.total_episodes == specifics.episodes.len() as i32 {
+                    return Ok(false);
+                }
+                let last_episode = specifics.episodes.last().unwrap();
+                let next_pub_date = last_episode.publish_date;
+                let episode_number = last_episode.number;
+                let details = match podcast.source {
+                    MetadataSource::Listennotes => {
+                        self.listennotes_service
+                            .details_with_paginated_episodes(
+                                &podcast.identifier,
+                                Some(next_pub_date),
+                                Some(episode_number),
+                            )
+                            .await?
+                    }
+                    MetadataSource::Custom => {
+                        return Err(Error::new(
+                            "Can not fetch next episodes for custom source".to_owned(),
+                        ));
+                    }
+                    _ => unreachable!(),
+                };
+                match details.specifics {
+                    MediaSpecifics::Podcast(ed) => {
+                        let mut meta: metadata::ActiveModel = podcast.into();
+                        let details_small = meta.specifics.unwrap();
+                        specifics.episodes.extend(ed.episodes.into_iter());
+                        meta.specifics = ActiveValue::Set(details_small);
+                        meta.save(&self.db).await.unwrap();
+                    }
+                    _ => unreachable!(),
+                }
             }
             _ => unreachable!(),
         }

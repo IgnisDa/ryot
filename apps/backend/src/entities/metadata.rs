@@ -30,46 +30,10 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_one = "super::audio_book::Entity")]
-    AudioBook,
-    #[sea_orm(has_one = "super::book::Entity")]
-    Book,
-    #[sea_orm(has_one = "super::movie::Entity")]
-    Movie,
-    #[sea_orm(has_one = "super::podcast::Entity")]
-    Podcast,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
-    #[sea_orm(has_one = "super::show::Entity")]
-    Show,
-    #[sea_orm(has_one = "super::video_game::Entity")]
-    VideoGame,
-}
-
-impl Related<super::audio_book::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AudioBook.def()
-    }
-}
-
-impl Related<super::book::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Book.def()
-    }
-}
-
-impl Related<super::movie::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Movie.def()
-    }
-}
-
-impl Related<super::podcast::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Podcast.def()
-    }
 }
 
 impl Related<super::review::Entity> for Entity {
@@ -81,27 +45,6 @@ impl Related<super::review::Entity> for Entity {
 impl Related<super::seen::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Seen.def()
-    }
-}
-
-impl Related<super::show::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Show.def()
-    }
-}
-
-impl Related<super::video_game::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::VideoGame.def()
-    }
-}
-
-impl Related<super::creator::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::metadata_to_creator::Relation::Creator.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::metadata_to_creator::Relation::Metadata.def().rev())
     }
 }
 

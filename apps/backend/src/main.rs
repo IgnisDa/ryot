@@ -104,6 +104,10 @@ async fn graphql_playground() -> impl IntoResponse {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
+    }
+
     tracing_subscriber::fmt::init();
 
     tracing::info!("Running version {}", VERSION);
@@ -203,6 +207,8 @@ async fn main() -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
+    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
+
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
     let media_service_1 = app_services.media_service.clone();
@@ -210,8 +216,6 @@ async fn main() -> Result<()> {
     let misc_service_2 = app_services.misc_service.clone();
     let misc_service_3 = app_services.misc_service.clone();
     let misc_service_4 = app_services.misc_service.clone();
-
-    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
 
     let monitor = async {
         let mn = Monitor::new()

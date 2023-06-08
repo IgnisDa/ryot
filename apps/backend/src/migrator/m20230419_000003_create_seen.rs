@@ -1,8 +1,14 @@
 use sea_orm_migration::prelude::*;
 
-use super::{m20230417_000004_create_user::User, Metadata};
+use super::{m20230417_000002_create_user::User, Metadata};
 
 pub struct Migration;
+
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230419_000003_create_seen"
+    }
+}
 
 #[derive(Iden)]
 pub enum Seen {
@@ -18,12 +24,6 @@ pub enum Seen {
     ExtraInformation,
     // This will store the ID in case this review was imported
     Identifier,
-}
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230419_000005_create_seen"
-    }
 }
 
 #[async_trait::async_trait]

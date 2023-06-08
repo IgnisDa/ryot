@@ -2,28 +2,17 @@
 
 pub mod prelude;
 
-pub mod audio_book;
-pub mod book;
 pub mod collection;
 pub mod genre;
 pub mod media_import_report;
 pub mod metadata;
 pub mod metadata_to_collection;
-pub mod metadata_to_creator;
 pub mod metadata_to_genre;
-pub mod movie;
-pub mod podcast;
 pub mod review;
 pub mod seen;
-pub mod show;
 pub mod summary;
 pub mod user;
 pub mod user_to_metadata;
-pub mod video_game;
-
-// these models are now dropped, so should not be exposed
-pub mod creator;
-pub mod token;
 
 pub mod utils {
     use async_graphql::SimpleObject;

@@ -9,6 +9,13 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
+## NOTE FOR EXISTING USERS
+
+The first public release includes huge code changes. If you were running the `v1.0.0-beta.*`
+versions, then please follow the migration notes for the latest release
+[here](https://github.com/IgnisDa/ryot/releases/tag/v1.0.0). Please be warned that
+failing to do so **WILL** result in data loss.
+
 ## 💻 Demo
 
 You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login and register
@@ -44,12 +51,6 @@ special tool on your computer or phone that lets you keep track of all these dig
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
-
-## 🧪 Project Status
-
-This project is in beta and getting some finishing touches. I do not expect it to have any
-more breaking changes. But for the sake of clarity, all releases are being marked as
-pre-releases. You can see the releases [here](https://github.com/IgnisDa/ryot/releases).
 
 ## 📖 Guides
 
