@@ -105,7 +105,7 @@ async fn graphql_playground() -> impl IntoResponse {
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "ryot=info,tracing=info");
+        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
 
     tracing_subscriber::fmt::init();
