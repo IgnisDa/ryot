@@ -52,12 +52,6 @@ special tool on your computer or phone that lets you keep track of all these dig
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
 
-## 🧪 Project Status
-
-This project is in beta and getting some finishing touches. I do not expect it to have any
-more breaking changes. But for the sake of clarity, all releases are being marked as
-pre-releases. You can see the releases [here](https://github.com/IgnisDa/ryot/releases).
-
 ## 📖 Guides
 
 Some things might not be obvious on how to setup or get working. I have written
