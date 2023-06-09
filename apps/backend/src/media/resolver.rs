@@ -1065,6 +1065,24 @@ impl MediaService {
     }
 
     async fn core_enabled_features(&self, config: &AppConfig) -> CoreFeatureEnabled {
+        let mut files_enabled = config.file_storage.is_enabled();
+        if files_enabled
+            && self
+                .s3_client
+                .head_bucket()
+                .bucket(&self.bucket_name)
+                .send()
+                .await
+                .is_err()
+        {
+            files_enabled = false;
+        }
+        let general = GeneralCoreFeatures {
+            file_storage: GeneralCoreFeatureEnabled {
+                enabled: files_enabled,
+            },
+        };
+
         let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
             (MetadataLot::Book, &config.books),
             (MetadataLot::Movie, &config.movies),
@@ -1080,12 +1098,6 @@ impl MediaService {
                 enabled: f.1.is_enabled(),
             })
             .collect();
-        // TODO: Check if bucket is accessible using `head_bucket` operation
-        let general = GeneralCoreFeatures {
-            file_storage: GeneralCoreFeatureEnabled {
-                enabled: config.file_storage.is_enabled(),
-            },
-        };
         CoreFeatureEnabled { metadata, general }
     }
 }
