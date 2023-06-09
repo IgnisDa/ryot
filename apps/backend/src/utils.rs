@@ -228,8 +228,8 @@ pub mod tmdb {
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct TmdbCredit {
-        pub name: String,
-        pub known_for_department: String,
+        pub name: Option<String>,
+        pub known_for_department: Option<String>,
         pub profile_path: Option<String>,
     }
 

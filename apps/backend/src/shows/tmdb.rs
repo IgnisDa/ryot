@@ -46,13 +46,16 @@ impl MediaProvider for TmdbService {
             season_number: i32,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TempStruct {
+            name: Option<String>,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbShow {
             id: i32,
             name: String,
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            production_companies: Vec<NamedObject>,
             first_air_date: Option<String>,
             seasons: Vec<TmdbSeasonNumber>,
             genres: Vec<NamedObject>,
@@ -118,24 +121,38 @@ impl MediaProvider for TmdbService {
                     .flat_map(|e| {
                         let mut gs = e
                             .guest_stars
-                            .iter()
-                            .map(|g| MetadataCreator {
-                                name: g.name.clone(),
-                                role: g.known_for_department.clone(),
-                                image_urls: Vec::from_iter(
-                                    g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
-                                ),
+                            .clone()
+                            .into_iter()
+                            .flat_map(|g| {
+                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                                    Some(MetadataCreator {
+                                        name: n,
+                                        role: r,
+                                        image_urls: Vec::from_iter(
+                                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                                        ),
+                                    })
+                                } else {
+                                    None
+                                }
                             })
                             .collect::<HashSet<_>>();
                         let crew = e
                             .crew
-                            .iter()
-                            .map(|g| MetadataCreator {
-                                name: g.name.clone(),
-                                role: g.known_for_department.clone(),
-                                image_urls: Vec::from_iter(
-                                    g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
-                                ),
+                            .clone()
+                            .into_iter()
+                            .flat_map(|g| {
+                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                                    Some(MetadataCreator {
+                                        name: n,
+                                        role: r,
+                                        image_urls: Vec::from_iter(
+                                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                                        ),
+                                    })
+                                } else {
+                                    None
+                                }
                             })
                             .collect::<HashSet<_>>();
                         gs.extend(crew);
