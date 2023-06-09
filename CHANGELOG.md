@@ -1,4 +1,11 @@
 
+# Version 1.0.4-beta.1 (2023-06-09)
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.3 (2023-06-09)
 
 ## Bug Fixes
