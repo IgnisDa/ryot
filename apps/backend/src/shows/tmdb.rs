@@ -46,10 +46,6 @@ impl MediaProvider for TmdbService {
             season_number: i32,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TempStruct {
-            name: Option<String>,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbShow {
             id: i32,
             name: String,
