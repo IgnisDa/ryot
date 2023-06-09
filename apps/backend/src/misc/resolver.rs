@@ -25,8 +25,10 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, media_import_report, metadata, metadata_to_collection,
-        prelude::{Collection, MediaImportReport, Metadata, Review, Seen, Summary, User},
-        review, seen, summary, user,
+        prelude::{
+            Collection, MediaImportReport, Metadata, Review, Seen, Summary, User, UserToMetadata,
+        },
+        review, seen, summary, user, user_to_metadata,
         utils::{SeenExtraInformation, SeenShowExtraInformation},
     },
     graphql::{IdObject, Identifier},
@@ -1285,5 +1287,19 @@ impl MiscService {
         )
         .await?;
         Ok(CreateCustomMediaResult::Ok(media))
+    }
+
+    async fn json_export(&self, user_id: i32) -> Result<bool> {
+        let related_metadata = UserToMetadata::find()
+            .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let distinct_meta_ids = related_metadata
+            .into_iter()
+            .map(|m| m.metadata_id)
+            .collect::<Vec<_>>();
+
+        Ok(true)
     }
 }
