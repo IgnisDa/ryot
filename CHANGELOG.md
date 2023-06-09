@@ -1,4 +1,15 @@
 
+# Version 1.0.3 (2023-06-09)
+
+## Bug Fixes
+
+* **backend:** tmdb not giving correct response
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.2 (2023-06-09)
 
 
