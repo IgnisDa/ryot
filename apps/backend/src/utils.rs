@@ -160,16 +160,21 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
     let scdb = ctx.data_unchecked::<MemoryDb>();
-
     let token = user_auth_token_from_ctx(ctx)?;
-    let found_token = scdb.lock().unwrap().get(token.as_bytes());
+    user_id_from_token(token, scdb)
+}
 
+pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
+    let found_token = scdb.lock().unwrap().get(token.as_bytes());
     match found_token {
         Ok(tk) => match tk {
             Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
             None => Err(Error::new("The auth token was incorrect")),
         },
-        Err(_) => Err(Error::new("Error getting auth token")),
+        Err(e) => {
+            tracing::error!("{:?}", e);
+            Err(Error::new("Error getting auth token"))
+        }
     }
 }
 
