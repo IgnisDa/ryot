@@ -8,10 +8,9 @@ use std::env;
 use crate::{
     audio_books::resolver::{AudioBooksMutation, AudioBooksQuery},
     books::resolver::{BooksMutation, BooksQuery},
-    config::{AppConfig, IsFeatureEnabled},
+    config::AppConfig,
     importer::{ImporterMutation, ImporterQuery},
     media::resolver::{MediaMutation, MediaQuery},
-    migrator::MetadataLot,
     misc::resolver::{MiscMutation, MiscQuery},
     movies::resolver::{MoviesMutation, MoviesQuery},
     podcasts::resolver::{PodcastsMutation, PodcastsQuery},
@@ -43,28 +42,6 @@ impl From<i32> for Identifier {
 scalar!(Identifier);
 
 #[derive(SimpleObject)]
-pub struct MetadataCoreFeatureEnabled {
-    name: MetadataLot,
-    enabled: bool,
-}
-
-#[derive(SimpleObject)]
-pub struct GeneralCoreFeatureEnabled {
-    enabled: bool,
-}
-
-#[derive(SimpleObject)]
-pub struct GeneralCoreFeatures {
-    file_storage: GeneralCoreFeatureEnabled,
-}
-
-#[derive(SimpleObject)]
-pub struct CoreFeatureEnabled {
-    metadata: Vec<MetadataCoreFeatureEnabled>,
-    general: GeneralCoreFeatures,
-}
-
-#[derive(SimpleObject)]
 pub struct CoreDetails {
     version: String,
     author_name: String,
@@ -82,32 +59,6 @@ struct CoreQuery;
 
 #[Object]
 impl CoreQuery {
-    /// Get all the features that are enabled for the service
-    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> CoreFeatureEnabled {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
-        let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
-            (MetadataLot::Book, &config.books),
-            (MetadataLot::Movie, &config.movies),
-            (MetadataLot::Show, &config.shows),
-            (MetadataLot::VideoGame, &config.video_games),
-            (MetadataLot::AudioBook, &config.audio_books),
-            (MetadataLot::Podcast, &config.podcasts),
-        ];
-        let metadata = feats
-            .into_iter()
-            .map(|f| MetadataCoreFeatureEnabled {
-                name: f.0,
-                enabled: f.1.is_enabled(),
-            })
-            .collect();
-        let general = GeneralCoreFeatures {
-            file_storage: GeneralCoreFeatureEnabled {
-                enabled: config.file_storage.is_enabled(),
-            },
-        };
-        CoreFeatureEnabled { metadata, general }
-    }
-
     /// Get some primary information about the service
     async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
         let config = gql_ctx.data_unchecked::<AppConfig>();
