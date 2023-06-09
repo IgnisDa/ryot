@@ -1,4 +1,15 @@
 
+# Version 1.0.5 (2023-06-09)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **backend:** recover gracefully from mutex error
+
+
 # Version 1.0.4 (2023-06-09)
 
 ## Build
