@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has-releases: ${{ steps.create-release.outputs.has-releases }}
+      is-prerelease: ${{ steps.create-release.outputs.is-prerelease }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -35,6 +36,7 @@ jobs:
           jq --raw-output ".announcement_github_body" dist-manifest.json > new_dist_announcement.md
           gh release create ${{ github.ref_name }} --draft --prerelease="$IS_PRERELEASE" --title="$ANNOUNCEMENT_TITLE" --notes-file=new_dist_announcement.md
           echo "created announcement!"
+          echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
 
           # Upload the manifest to the Github Release™
           gh release upload ${{ github.ref_name }} dist-manifest.json
@@ -136,7 +138,10 @@ jobs:
         id: required_args
         run: |
           image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
-          image_names="$image_name:${{ github.ref_name }},$image_name:latest"
+          image_names="$image_name:${{ github.ref_name }}"
+          if [ "${{ needs.create-release.outputs.is-prerelease }}" = "false" ]; then
+            image_names="$image_names,$image_name:latest"
+          fi
           # lowercase the name
           image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
