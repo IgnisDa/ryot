@@ -193,6 +193,7 @@ export type LoginError = {
 
 export enum LoginErrorVariant {
   CredentialsMismatch = 'CREDENTIALS_MISMATCH',
+  MutexError = 'MUTEX_ERROR',
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 

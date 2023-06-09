@@ -127,6 +127,7 @@ enum RegisterResult {
 enum LoginErrorVariant {
     UsernameDoesNotExist,
     CredentialsMismatch,
+    MutexError,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -1119,16 +1120,24 @@ impl MiscService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        self.scdb.lock().unwrap().set(
-            api_key.as_bytes(),
-            user.id.to_string().as_bytes(),
-            Some(
-                ChronoDuration::days(valid_for_days.into())
-                    .num_seconds()
-                    .try_into()
-                    .unwrap(),
-            ),
-        )?;
+        match self.scdb.lock() {
+            Ok(mut d) => d.set(
+                api_key.as_bytes(),
+                user.id.to_string().as_bytes(),
+                Some(
+                    ChronoDuration::days(valid_for_days.into())
+                        .num_seconds()
+                        .try_into()
+                        .unwrap(),
+                ),
+            )?,
+            Err(e) => {
+                tracing::error!("{:?}", e);
+                return Ok(LoginResult::Error(LoginError {
+                    error: LoginErrorVariant::MutexError,
+                }));
+            }
+        };
 
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
