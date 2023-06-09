@@ -309,6 +309,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
+    let st = SqliteStorage::new(pool);
+    st.setup().await.unwrap();
+    st
+}
 static INDEX_HTML: &str = "index.html";
 
 #[derive(RustEmbed)]
@@ -394,10 +399,4 @@ async fn upload_handler(
         res.push(key);
     }
     Ok(Json(json!(res)))
-}
-
-async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
-    let st = SqliteStorage::new(pool);
-    st.setup().await.unwrap();
-    st
 }
