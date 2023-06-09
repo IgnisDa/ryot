@@ -72,16 +72,32 @@ impl MediaProvider for TmdbService {
             .cast
             .clone()
             .into_iter()
-            .map(|c| MetadataCreator {
-                name: c.name,
-                role: c.known_for_department,
-                image_urls: Vec::from_iter(c.profile_path.map(|p| self.get_cover_image_url(&p))),
+            .flat_map(|g| {
+                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                    Some(MetadataCreator {
+                        name: n,
+                        role: r,
+                        image_urls: Vec::from_iter(
+                            g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
+                        ),
+                    })
+                } else {
+                    None
+                }
             })
             .collect::<HashSet<_>>();
-        all_creators.extend(credits.crew.into_iter().map(|c| MetadataCreator {
-            name: c.name,
-            role: c.known_for_department,
-            image_urls: Vec::from_iter(c.profile_path.map(|p| self.get_cover_image_url(&p))),
+        all_creators.extend(credits.crew.into_iter().flat_map(|g| {
+            if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                Some(MetadataCreator {
+                    name: n,
+                    role: r,
+                    image_urls: Vec::from_iter(
+                        g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                    ),
+                })
+            } else {
+                None
+            }
         }));
         let mut images = Vec::from_iter(data.poster_path.map(|p| MetadataImage {
             url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
