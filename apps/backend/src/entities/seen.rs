@@ -32,6 +32,7 @@ pub struct Model {
     #[graphql(skip)]
     #[serde(skip)]
     pub identifier: Option<String>,
+    pub dropped: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
