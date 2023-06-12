@@ -1,4 +1,15 @@
 
+# Version 1.0.14 (2023-06-12)
+
+## Features
+
+* make summary generation bg job
+
+## Performance Improvements
+
+* **backend:** stream seen for summary calculation
+
+
 # Version 1.0.13 (2023-06-12)
 
 ## Bug Fixes
