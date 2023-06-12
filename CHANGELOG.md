@@ -1,4 +1,15 @@
 
+# Version 1.0.8 (2023-06-12)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **backend:** download all images for openlibrary
+
+
 # Version 1.0.7 (2023-06-12)
 
 
