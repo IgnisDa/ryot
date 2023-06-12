@@ -841,10 +841,25 @@ impl MediaService {
                     last_seen.update(&self.db).await.unwrap()
                 }
                 ProgressUpdateAction::Drop => {
-                    let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
-                    last_seen.dropped = ActiveValue::Set(true);
-                    last_seen.last_updated_on = ActiveValue::Set(Utc::now());
-                    last_seen.update(&self.db).await.unwrap()
+                    let last_seen = Seen::find()
+                        .filter(seen::Column::UserId.eq(user_id))
+                        .filter(seen::Column::Dropped.ne(true))
+                        .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
+                        .order_by_desc(seen::Column::LastUpdatedOn)
+                        .one(&self.db)
+                        .await
+                        .unwrap();
+                    match last_seen {
+                        Some(ls) => {
+                            let mut last_seen: seen::ActiveModel = ls.into();
+                            last_seen.dropped = ActiveValue::Set(true);
+                            last_seen.last_updated_on = ActiveValue::Set(Utc::now());
+                            last_seen.update(&self.db).await.unwrap()
+                        }
+                        None => {
+                            return err();
+                        }
+                    }
                 }
                 ProgressUpdateAction::Now
                 | ProgressUpdateAction::InThePast
