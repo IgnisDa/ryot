@@ -1,4 +1,16 @@
 
+# Version 1.0.12 (2023-06-12)
+
+## Bug Fixes
+
+* **backend:** do not allow duplicate metadata attribute
+* **backend:** do not recalculate summary on deleting seen
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.11 (2023-06-12)
 
 
