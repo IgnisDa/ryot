@@ -138,7 +138,24 @@ pub async fn after_media_seen_job(
         information.seen.id
     );
     let misc_service = ctx.data::<MiscService>().unwrap();
-    if matches!(information.metadata_lot, MetadataLot::Show,)
+    if information.seen.dropped {
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::Watchlist.to_string(),
+            )
+            .await
+            .ok();
+        misc_service
+            .remove_media_item_from_collection(
+                &information.seen.user_id,
+                &information.seen.metadata_id,
+                &DefaultCollection::InProgress.to_string(),
+            )
+            .await
+            .ok();
+    } else if matches!(information.metadata_lot, MetadataLot::Show,)
         || matches!(information.metadata_lot, MetadataLot::Podcast)
     {
         misc_service
