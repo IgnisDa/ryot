@@ -300,6 +300,7 @@ const Page: NextPageWithLayout = () => {
 															.with("ALL", () => MediaFilter.All)
 															.with("RATED", () => MediaFilter.Rated)
 															.with("UNRATED", () => MediaFilter.Unrated)
+															.with("DROPPED", () => MediaFilter.Dropped)
 															.otherwise(() => MediaFilter.All);
 														setMineFilter(filter);
 													}}

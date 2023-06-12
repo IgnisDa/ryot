@@ -96,6 +96,7 @@ pub enum ProgressUpdateAction {
     Now,
     InThePast,
     JustStarted,
+    Drop,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -186,6 +187,7 @@ pub enum MediaFilter {
     All,
     Rated,
     Unrated,
+    Dropped,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -698,6 +700,22 @@ impl MediaService {
                             )
                             .to_owned();
                     }
+                    MediaFilter::Dropped => {
+                        let dropped_ids = Seen::find()
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .filter(seen::Column::Dropped.eq(true))
+                            .all(&self.db)
+                            .await?
+                            .into_iter()
+                            .map(|r| r.metadata_id)
+                            .collect::<Vec<_>>();
+                        main_select = main_select
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .is_in(dropped_ids),
+                            )
+                            .to_owned();
+                    }
                 }
             }
         };
@@ -788,15 +806,17 @@ impl MediaService {
             let prev_seen = Seen::find()
                 .filter(seen::Column::Progress.lt(100))
                 .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::Dropped.ne(true))
                 .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .all(&self.db)
                 .await
                 .unwrap();
+            let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
             let seen_item = match input.action {
                 ProgressUpdateAction::Update => {
-                    if prev_seen.len() != 1 {
-                        return Err(Error::new("There is no `seen` item underway".to_owned()));
+                    if prev_seen.is_empty() {
+                        return err();
                     }
                     let progress = input.progress.unwrap();
                     let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
@@ -805,6 +825,12 @@ impl MediaService {
                     if progress == 100 {
                         last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
                     }
+                    last_seen.update(&self.db).await.unwrap()
+                }
+                ProgressUpdateAction::Drop => {
+                    let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                    last_seen.dropped = ActiveValue::Set(true);
+                    last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                     last_seen.update(&self.db).await.unwrap()
                 }
                 ProgressUpdateAction::Now
@@ -826,7 +852,7 @@ impl MediaService {
                         } else {
                             (100, None)
                         };
-                    let mut seen_ins = seen::ActiveModel {
+                    let mut seen_insert = seen::ActiveModel {
                         progress: ActiveValue::Set(progress),
                         user_id: ActiveValue::Set(user_id),
                         metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
@@ -837,21 +863,21 @@ impl MediaService {
                         ..Default::default()
                     };
                     if meta.lot == MetadataLot::Show {
-                        seen_ins.extra_information = ActiveValue::Set(Some(
+                        seen_insert.extra_information = ActiveValue::Set(Some(
                             SeenExtraInformation::Show(SeenShowExtraInformation {
                                 season: input.show_season_number.unwrap(),
                                 episode: input.show_episode_number.unwrap(),
                             }),
                         ));
                     } else if meta.lot == MetadataLot::Podcast {
-                        seen_ins.extra_information = ActiveValue::Set(Some(
+                        seen_insert.extra_information = ActiveValue::Set(Some(
                             SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
                                 episode: input.podcast_episode_number.unwrap(),
                             }),
                         ))
                     }
 
-                    seen_ins.insert(&self.db).await.unwrap()
+                    seen_insert.insert(&self.db).await.unwrap()
                 }
             };
             let id = seen_item.id.into();

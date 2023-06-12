@@ -17,6 +17,8 @@ pub enum Seen {
     Progress,
     StartedOn,
     FinishedOn,
+    // If the user abandoned this media item while consuming it
+    Dropped,
     UserId,
     MetadataId,
     LastUpdatedOn,
@@ -50,6 +52,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
+                    .col(ColumnDef::new(Seen::Dropped).boolean().default(false))
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()
