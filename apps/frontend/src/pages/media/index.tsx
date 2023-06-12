@@ -677,7 +677,7 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : null}
 					</Flex>
-					{inProgressSeenItem ? (
+					{inProgressSeenItem && !inProgressSeenItem.dropped ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 							ing this ({inProgressSeenItem.progress}%)
@@ -756,149 +756,167 @@ const Page: NextPageWithLayout = () => {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
-							<SimpleGrid
-								cols={1}
-								spacing="lg"
-								breakpoints={[{ minWidth: "md", cols: 2 }]}
-							>
-								{inProgressSeenItem ? (
-									<>
-										<Button variant="outline" onClick={progressModalOpen}>
-											Set progress
-										</Button>
-										<ProgressModal
-											progress={inProgressSeenItem.progress}
-											refetch={seenHistory.refetch}
-											metadataId={metadataId}
-											onClose={progressModalClose}
-											opened={progressModalOpened}
-											lot={mediaDetails.data.lot}
-											total={
-												mediaDetails.data.bookSpecifics?.pages ||
-												mediaDetails.data.movieSpecifics?.runtime
-											}
-										/>
+							<MediaScrollArea>
+								<SimpleGrid
+									cols={1}
+									spacing="lg"
+									breakpoints={[{ minWidth: "md", cols: 2 }]}
+								>
+									{inProgressSeenItem && !inProgressSeenItem.dropped ? (
+										<>
+											<Button variant="outline" onClick={progressModalOpen}>
+												Set progress
+											</Button>
+											<ProgressModal
+												progress={inProgressSeenItem.progress}
+												refetch={seenHistory.refetch}
+												metadataId={metadataId}
+												onClose={progressModalClose}
+												opened={progressModalOpened}
+												lot={mediaDetails.data.lot}
+												total={
+													mediaDetails.data.bookSpecifics?.pages ||
+													mediaDetails.data.movieSpecifics?.runtime
+												}
+											/>
+											<Button
+												variant="outline"
+												onClick={async () => {
+													await progressUpdate.mutateAsync({
+														input: {
+															action: ProgressUpdateAction.Update,
+															progress: 100,
+															metadataId: metadataId,
+														},
+													});
+												}}
+											>
+												I finished {getVerb(Verb.Read, mediaDetails.data.lot)}
+												ing it
+											</Button>
+										</>
+									) : mediaDetails.data.lot === MetadataLot.Show ||
+									  mediaDetails.data.lot === MetadataLot.Podcast ? (
+										nextEpisode ? (
+											<Button
+												variant="outline"
+												onClick={async () => {
+													if (mediaDetails.data.lot === MetadataLot.Podcast)
+														router.push(
+															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
+														);
+													else
+														router.push(
+															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${nextEpisode.season}&selectedShowEpisodeNumber=${nextEpisode.episode}`,
+														);
+												}}
+											>
+												Mark{" "}
+												{mediaDetails.data.lot === MetadataLot.Show
+													? `S${nextEpisode.season}-E${nextEpisode.episode}`
+													: `EP-${nextEpisode.episode}`}{" "}
+												as seen
+											</Button>
+										) : null
+									) : (
 										<Button
 											variant="outline"
 											onClick={async () => {
 												await progressUpdate.mutateAsync({
 													input: {
-														action: ProgressUpdateAction.Update,
-														progress: 100,
+														action: ProgressUpdateAction.JustStarted,
 														metadataId: metadataId,
 													},
 												});
 											}}
 										>
-											I finished {getVerb(Verb.Read, mediaDetails.data.lot)}
-											ing it
+											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}ing it
 										</Button>
-									</>
-								) : mediaDetails.data.lot === MetadataLot.Show ||
-								  mediaDetails.data.lot === MetadataLot.Podcast ? (
-									nextEpisode ? (
+									)}
+									{seenHistory.data.length > 0 &&
+									!inProgressSeenItem?.dropped ? (
 										<Button
 											variant="outline"
 											onClick={async () => {
-												if (mediaDetails.data.lot === MetadataLot.Podcast)
-													router.push(
-														`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
-													);
-												else
-													router.push(
-														`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${nextEpisode.season}&selectedShowEpisodeNumber=${nextEpisode.episode}`,
-													);
+												await progressUpdate.mutateAsync({
+													input: {
+														action: ProgressUpdateAction.Drop,
+														metadataId: metadataId,
+													},
+												});
 											}}
 										>
-											Mark{" "}
-											{mediaDetails.data.lot === MetadataLot.Show
-												? `S${nextEpisode.season}-E${nextEpisode.episode}`
-												: `EP-${nextEpisode.episode}`}{" "}
-											as seen
+											Mark as dropped
 										</Button>
-									) : null
-								) : (
-									<Button
-										variant="outline"
-										onClick={async () => {
-											await progressUpdate.mutateAsync({
-												input: {
-													action: ProgressUpdateAction.JustStarted,
-													metadataId: metadataId,
-												},
-											});
-										}}
-									>
-										I'm {getVerb(Verb.Read, mediaDetails.data.lot)}ing it
-									</Button>
-								)}
-								<Button
-									variant="outline"
-									onClick={() => {
-										router.push(
-											`${ROUTES.media.updateProgress}?item=${metadataId}`,
-										);
-									}}
-								>
-									Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
-								</Button>
-								<Link
-									href={`${ROUTES.media.postReview}?item=${metadataId}`}
-									passHref
-									legacyBehavior
-								>
-									<Anchor>
-										<Button variant="outline" w="100%">
-											Post a review
-										</Button>
-									</Anchor>
-								</Link>
-								<>
-									<Button variant="outline" onClick={collectionModalOpen}>
-										Add to collection
-									</Button>
-									{collections.data ? (
-										<SelectCollectionModal
-											onClose={collectionModalClose}
-											opened={collectionModalOpened}
-											metadataId={metadataId}
-											collections={collections.data}
-											refetchCollections={collections.refetch}
-										/>
 									) : null}
-								</>
-								<Button
-									variant="outline"
-									onClick={() => {
-										deployUpdateMetadataJob.mutate({ metadataId });
-									}}
-								>
-									Update metadata
-								</Button>
-								{source === "CUSTOM" ? (
 									<Button
 										variant="outline"
 										onClick={() => {
-											const mergeInto = prompt(
-												"Enter ID of the metadata you want to merge this with",
+											router.push(
+												`${ROUTES.media.updateProgress}?item=${metadataId}`,
 											);
-											if (mergeInto) {
-												const yes = confirm(
-													"Are you sure you want to continue? This will delete the current media item",
-												);
-												if (yes) {
-													mergeMetadata.mutate({
-														mergeFrom: metadataId,
-														mergeInto: parseInt(mergeInto),
-													});
-												}
-											}
 										}}
 									>
-										Merge media
+										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
 									</Button>
-								) : null}
-							</SimpleGrid>
+									<Link
+										href={`${ROUTES.media.postReview}?item=${metadataId}`}
+										passHref
+										legacyBehavior
+									>
+										<Anchor>
+											<Button variant="outline" w="100%">
+												Post a review
+											</Button>
+										</Anchor>
+									</Link>
+									<>
+										<Button variant="outline" onClick={collectionModalOpen}>
+											Add to collection
+										</Button>
+										{collections.data ? (
+											<SelectCollectionModal
+												onClose={collectionModalClose}
+												opened={collectionModalOpened}
+												metadataId={metadataId}
+												collections={collections.data}
+												refetchCollections={collections.refetch}
+											/>
+										) : null}
+									</>
+									<Button
+										variant="outline"
+										onClick={() => {
+											deployUpdateMetadataJob.mutate({ metadataId });
+										}}
+									>
+										Update metadata
+									</Button>
+									{source === "CUSTOM" ? (
+										<Button
+											variant="outline"
+											onClick={() => {
+												const mergeInto = prompt(
+													"Enter ID of the metadata you want to merge this with",
+												);
+												if (mergeInto) {
+													const yes = confirm(
+														"Are you sure you want to continue? This will delete the current media item",
+													);
+													if (yes) {
+														mergeMetadata.mutate({
+															mergeFrom: metadataId,
+															mergeInto: parseInt(mergeInto),
+														});
+													}
+												}
+											}}
+										>
+											Merge media
+										</Button>
+									) : null}
+								</SimpleGrid>
+							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
 							{seenHistory.data.length > 0 ? (
@@ -909,9 +927,16 @@ const Page: NextPageWithLayout = () => {
 											{seenHistory.data.length > 1 ? "s" : ""} in history
 										</Text>
 										{seenHistory.data.map((h) => (
-											<Flex key={h.id} direction={"column"} ml="md">
+											<Flex
+												key={h.id}
+												direction={"column"}
+												ml="md"
+												data-seen-id={h.id}
+											>
 												<Flex gap="xl">
-													{h.progress < 100 ? (
+													{h.dropped ? (
+														<Text fw="bold">Dropped at {h.progress}%</Text>
+													) : h.progress < 100 ? (
 														<Text fw="bold">Progress {h.progress}%</Text>
 													) : (
 														<Text fw="bold">Completed</Text>
