@@ -1,4 +1,16 @@
 
+# Version 1.0.10 (2023-06-12)
+
+## Bug Fixes
+
+* **backend:** allow marking shows and podcasts as dropped
+* **frontend:** display platforms in media description
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.9 (2023-06-12)
 
 ## Build
