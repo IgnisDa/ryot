@@ -43,4 +43,5 @@ USER ryot
 # since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
 COPY --from=app-builder --chown=ryot:ryot /app/target/x86_64-unknown-linux-musl/dist/ryot /app
+COPY apps/backend/CHECKS ./CHECKS
 ENTRYPOINT ["/app"]
