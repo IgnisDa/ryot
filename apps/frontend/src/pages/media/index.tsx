@@ -535,6 +535,12 @@ const Page: NextPageWithLayout = () => {
 				creators[c.role] = [{ name: c.name }];
 			}
 		}
+		const platforms = mediaDetails.data?.videoGameSpecifics?.platforms;
+		if (platforms) {
+			creators["Platforms"] = platforms.map((p) => ({
+				name: p,
+			}));
+		}
 		return creators;
 	}, [mediaDetails.data]);
 
