@@ -1,4 +1,15 @@
 
+# Version 1.0.9 (2023-06-12)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* allow filtering by unseen
+
+
 # Version 1.0.8 (2023-06-12)
 
 ## Build
