@@ -8,6 +8,7 @@ use cookie::{
     time::{Duration, OffsetDateTime},
     Cookie,
 };
+use futures::TryStreamExt;
 use http::header::SET_COOKIE;
 use rust_decimal::Decimal;
 use sea_orm::{
@@ -981,79 +982,78 @@ impl MiscService {
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::Progress.eq(100))
             .find_also_related(Metadata)
-            .paginate(&self.db, 50);
+            .stream(&self.db)
+            .await?;
 
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
         let mut unique_podcast_episodes = HashSet::new();
-        while let Some(items) = seen_items.fetch_and_next().await.unwrap() {
-            for (seen, metadata) in items.iter() {
-                let meta = metadata.to_owned().unwrap();
-                match meta.specifics {
-                    MediaSpecifics::AudioBook(item) => {
-                        ls.data.audio_books.played += 1;
-                        if let Some(r) = item.runtime {
-                            ls.data.audio_books.runtime += r;
-                        }
+        while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
+            let meta = metadata.to_owned().unwrap();
+            match meta.specifics {
+                MediaSpecifics::AudioBook(item) => {
+                    ls.data.audio_books.played += 1;
+                    if let Some(r) = item.runtime {
+                        ls.data.audio_books.runtime += r;
                     }
-                    MediaSpecifics::Book(item) => {
-                        ls.data.books.read += 1;
-                        if let Some(pg) = item.pages {
-                            ls.data.books.pages += pg;
-                        }
+                }
+                MediaSpecifics::Book(item) => {
+                    ls.data.books.read += 1;
+                    if let Some(pg) = item.pages {
+                        ls.data.books.pages += pg;
                     }
-                    MediaSpecifics::Podcast(item) => {
-                        unique_podcasts.insert(seen.metadata_id);
-                        for episode in item.episodes {
-                            match seen.extra_information.to_owned() {
-                                None => continue,
-                                Some(sei) => match sei {
-                                    SeenExtraInformation::Show(_) => unreachable!(),
-                                    SeenExtraInformation::Podcast(s) => {
-                                        if s.episode == episode.number {
-                                            if let Some(r) = episode.runtime {
-                                                ls.data.podcasts.runtime += r;
-                                            }
-                                            unique_podcast_episodes.insert((s.episode, episode.id));
+                }
+                MediaSpecifics::Podcast(item) => {
+                    unique_podcasts.insert(seen.metadata_id);
+                    for episode in item.episodes {
+                        match seen.extra_information.to_owned() {
+                            None => continue,
+                            Some(sei) => match sei {
+                                SeenExtraInformation::Show(_) => unreachable!(),
+                                SeenExtraInformation::Podcast(s) => {
+                                    if s.episode == episode.number {
+                                        if let Some(r) = episode.runtime {
+                                            ls.data.podcasts.runtime += r;
                                         }
+                                        unique_podcast_episodes.insert((s.episode, episode.id));
                                     }
-                                },
-                            }
+                                }
+                            },
                         }
                     }
-                    MediaSpecifics::Movie(item) => {
-                        ls.data.movies.watched += 1;
-                        if let Some(r) = item.runtime {
-                            ls.data.movies.runtime += r;
-                        }
+                }
+                MediaSpecifics::Movie(item) => {
+                    ls.data.movies.watched += 1;
+                    if let Some(r) = item.runtime {
+                        ls.data.movies.runtime += r;
                     }
-                    MediaSpecifics::Show(item) => {
-                        unique_shows.insert(seen.metadata_id);
-                        for season in item.seasons {
-                            for episode in season.episodes {
-                                match seen.extra_information.to_owned().unwrap() {
-                                    SeenExtraInformation::Podcast(_) => unreachable!(),
-                                    SeenExtraInformation::Show(s) => {
-                                        if s.season == season.season_number
-                                            && s.episode == episode.episode_number
-                                        {
-                                            if let Some(r) = episode.runtime {
-                                                ls.data.shows.runtime += r;
-                                            }
-                                            ls.data.shows.watched_episodes += 1;
-                                            unique_show_seasons.insert((s.season, season.id));
+                }
+                MediaSpecifics::Show(item) => {
+                    unique_shows.insert(seen.metadata_id);
+                    for season in item.seasons {
+                        for episode in season.episodes {
+                            match seen.extra_information.to_owned().unwrap() {
+                                SeenExtraInformation::Podcast(_) => unreachable!(),
+                                SeenExtraInformation::Show(s) => {
+                                    if s.season == season.season_number
+                                        && s.episode == episode.episode_number
+                                    {
+                                        if let Some(r) = episode.runtime {
+                                            ls.data.shows.runtime += r;
                                         }
+                                        ls.data.shows.watched_episodes += 1;
+                                        unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
                             }
                         }
                     }
-                    MediaSpecifics::VideoGame(_item) => {
-                        ls.data.video_games.played += 1;
-                    }
-                    MediaSpecifics::Unknown => {}
                 }
+                MediaSpecifics::VideoGame(_item) => {
+                    ls.data.video_games.played += 1;
+                }
+                MediaSpecifics::Unknown => {}
             }
         }
 
