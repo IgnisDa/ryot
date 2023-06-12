@@ -27,7 +27,8 @@ struct PrimaryQuery {
 impl Default for PrimaryQuery {
     fn default() -> Self {
         Self {
-            response_groups: ["contributors", "media", "product_attrs"].join(","),
+            response_groups: ["contributors", "category_ladders", "media", "product_attrs"]
+                .join(","),
             image_sizes: ["2400"].join(","),
         }
     }
@@ -48,6 +49,12 @@ pub struct AudiblePoster {
     #[serde(rename = "2400")]
     image: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+pub struct AudibleCategoryLadderCollection {
+    ladder: Vec<NamedObject>,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
 pub struct AudibleItem {
     asin: String,
@@ -57,6 +64,7 @@ pub struct AudibleItem {
     merchandising_summary: Option<String>,
     release_date: Option<String>,
     runtime_length_min: Option<i32>,
+    category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
 }
 
 #[derive(Debug, Clone)]
@@ -92,6 +100,7 @@ impl MediaProvider for AudibleService {
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let d = self.audible_response_to_search_response(data.product);
+        dbg!(&d);
         Ok(d)
     }
 
@@ -172,7 +181,12 @@ impl AudibleService {
                     image_urls: vec![],
                 })
                 .collect(),
-            genres: vec![],
+            genres: item
+                .category_ladders
+                .unwrap_or_default()
+                .into_iter()
+                .flat_map(|c| c.ladder.into_iter().map(|l| l.name))
+                .collect(),
             publish_year: convert_date_to_year(&release_date),
             publish_date: convert_string_to_date(&release_date),
             specifics: MediaSpecifics::AudioBook(AudioBookSpecifics {
