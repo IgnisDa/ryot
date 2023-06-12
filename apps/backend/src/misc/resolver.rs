@@ -162,11 +162,14 @@ pub struct ExportMedia {
     #[serde(rename = "type")]
     lot: MetadataLot,
     audible_id: Option<String>,
+    custom_id: Option<String>,
     goodreads_id: Option<String>,
     igdb_id: Option<String>,
     listennotes_id: Option<String>,
     openlibrary_id: Option<String>,
     tmdb_id: Option<String>,
+    seen_history: Vec<seen::Model>,
+    user_reviews: Vec<review::Model>,
 }
 
 fn create_cookie(
@@ -1332,25 +1335,40 @@ impl MiscService {
         let mut resp = vec![];
 
         for m in metas {
+            let seens = m
+                .find_related(Seen)
+                .filter(seen::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let reviews = m
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
             let mut exp = ExportMedia {
                 ryot_id: m.id,
                 title: m.title,
                 lot: m.lot,
                 audible_id: None,
+                custom_id: None,
                 goodreads_id: None,
                 igdb_id: None,
                 listennotes_id: None,
                 openlibrary_id: None,
                 tmdb_id: None,
+                seen_history: seens,
+                user_reviews: reviews,
             };
             match m.source {
                 MetadataSource::Audible => exp.audible_id = Some(m.identifier),
+                MetadataSource::Custom => exp.custom_id = Some(m.identifier),
                 MetadataSource::Goodreads => exp.goodreads_id = Some(m.identifier),
                 MetadataSource::Igdb => exp.igdb_id = Some(m.identifier),
                 MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
                 MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
-                MetadataSource::Custom => {}
             };
             resp.push(exp);
         }
