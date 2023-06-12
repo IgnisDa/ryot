@@ -301,7 +301,11 @@ const Page: NextPageWithLayout = () => {
 															.with("RATED", () => MediaFilter.Rated)
 															.with("UNRATED", () => MediaFilter.Unrated)
 															.with("DROPPED", () => MediaFilter.Dropped)
-															.otherwise(() => MediaFilter.All);
+															.with("UNSEEN", () => MediaFilter.Unseen)
+															.otherwise((v) => {
+																console.log(v);
+																return MediaFilter.All;
+															});
 														setMineFilter(filter);
 													}}
 												/>

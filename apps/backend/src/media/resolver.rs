@@ -188,6 +188,7 @@ pub enum MediaFilter {
     Rated,
     Unrated,
     Dropped,
+    Unseen,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -714,6 +715,18 @@ impl MediaService {
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .is_in(dropped_ids),
                             )
+                            .to_owned();
+                    }
+                    MediaFilter::Unseen => {
+                        main_select = main_select
+                            .join_as(
+                                JoinType::LeftJoin,
+                                TempReview::Table,
+                                TempReview::Alias,
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((TempSeen::Alias, TempSeen::MetadataId)),
+                            )
+                            .and_where(Expr::col((TempSeen::Alias, TempSeen::MetadataId)).is_null())
                             .to_owned();
                     }
                 }

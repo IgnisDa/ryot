@@ -207,7 +207,8 @@ export enum MediaFilter {
   All = 'ALL',
   Dropped = 'DROPPED',
   Rated = 'RATED',
-  Unrated = 'UNRATED'
+  Unrated = 'UNRATED',
+  Unseen = 'UNSEEN'
 }
 
 export type MediaImportReport = {
