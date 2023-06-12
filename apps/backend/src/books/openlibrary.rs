@@ -185,12 +185,14 @@ impl MediaProvider for OpenlibraryService {
 
         let images = images
             .into_iter()
+            .filter(|c| c > &0)
             .map(|c| MetadataImage {
                 url: MetadataImageUrl::Url(self.get_cover_image_url(c)),
                 lot: MetadataImageLot::Poster,
             })
             .unique()
             .collect();
+
         Ok(MediaDetails {
             identifier: openlibrary::get_key(&data.key),
             title: data.title,
