@@ -205,6 +205,7 @@ export type LoginResult = LoginError | LoginResponse;
 
 export enum MediaFilter {
   All = 'ALL',
+  Dropped = 'DROPPED',
   Rated = 'RATED',
   Unrated = 'UNRATED'
 }

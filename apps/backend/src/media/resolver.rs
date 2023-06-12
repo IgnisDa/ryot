@@ -187,6 +187,7 @@ pub enum MediaFilter {
     All,
     Rated,
     Unrated,
+    Dropped,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -696,6 +697,22 @@ impl MediaService {
                             .and_where(
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .is_not_in(reviews),
+                            )
+                            .to_owned();
+                    }
+                    MediaFilter::Dropped => {
+                        let dropped_ids = Seen::find()
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .filter(seen::Column::Dropped.eq(true))
+                            .all(&self.db)
+                            .await?
+                            .into_iter()
+                            .map(|r| r.metadata_id)
+                            .collect::<Vec<_>>();
+                        main_select = main_select
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .is_in(dropped_ids),
                             )
                             .to_owned();
                     }
