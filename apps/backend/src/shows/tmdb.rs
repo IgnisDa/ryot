@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::Client;
@@ -132,7 +131,7 @@ impl MediaProvider for TmdbService {
                                     None
                                 }
                             })
-                            .collect::<HashSet<_>>();
+                            .collect::<Vec<_>>();
                         let crew = e
                             .crew
                             .clone()
@@ -150,12 +149,13 @@ impl MediaProvider for TmdbService {
                                     None
                                 }
                             })
-                            .collect::<HashSet<_>>();
+                            .collect::<Vec<_>>();
                         gs.extend(crew);
                         Vec::from_iter(gs)
                     })
-                    .collect::<HashSet<_>>()
+                    .collect::<Vec<_>>()
             })
+            .unique()
             .collect::<Vec<_>>();
         Ok(MediaDetails {
             identifier: data.id.to_string(),
@@ -164,8 +164,9 @@ impl MediaProvider for TmdbService {
             source: MetadataSource::Tmdb,
             description: data.overview,
             creators: author_names,
-            genres: data.genres.into_iter().map(|g| g.name).collect(),
+            genres: data.genres.into_iter().map(|g| g.name).unique().collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
+            images,
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             specifics: MediaSpecifics::Show(ShowSpecifics {
                 seasons: seasons
@@ -207,7 +208,6 @@ impl MediaProvider for TmdbService {
                     })
                     .collect(),
             }),
-            images,
         })
     }
 

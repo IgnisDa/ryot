@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::Client;
@@ -78,14 +77,15 @@ impl MediaProvider for TmdbService {
                         name: n,
                         role: r,
                         image_urls: Vec::from_iter(
-                            g.profile_path.clone().map(|p| self.get_cover_image_url(&p)),
+                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
                         ),
                     })
                 } else {
                     None
                 }
             })
-            .collect::<HashSet<_>>();
+            .unique()
+            .collect::<Vec<_>>();
         all_creators.extend(credits.crew.into_iter().flat_map(|g| {
             if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
                 Some(MetadataCreator {

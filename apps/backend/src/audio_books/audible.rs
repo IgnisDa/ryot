@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
@@ -100,7 +101,6 @@ impl MediaProvider for AudibleService {
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let d = self.audible_response_to_search_response(data.product);
-        dbg!(&d);
         Ok(d)
     }
 
@@ -186,6 +186,7 @@ impl AudibleService {
                 .unwrap_or_default()
                 .into_iter()
                 .flat_map(|c| c.ladder.into_iter().map(|l| l.name))
+                .unique()
                 .collect(),
             publish_year: convert_date_to_year(&release_date),
             publish_date: convert_string_to_date(&release_date),

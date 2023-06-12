@@ -12,7 +12,17 @@ impl MigrationName for Migration {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Default,
+    Hash,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataImageLot {

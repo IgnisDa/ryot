@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
@@ -209,6 +210,7 @@ impl IgdbService {
                     role: role.to_owned(),
                 }
             })
+            .unique()
             .collect();
         MediaDetails {
             identifier: item.id.to_string(),
@@ -225,6 +227,7 @@ impl IgdbService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
+                .unique()
                 .collect(),
             specifics: MediaSpecifics::VideoGame(VideoGameSpecifics {
                 platforms: item

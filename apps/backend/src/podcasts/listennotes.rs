@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -147,6 +148,7 @@ impl ListennotesService {
                 .genre_ids
                 .into_iter()
                 .filter_map(|g| self.genres.get(&g).cloned())
+                .unique()
                 .collect(),
             images: Vec::from_iter(d.image.map(|a| MetadataImage {
                 url: MetadataImageUrl::Url(a),

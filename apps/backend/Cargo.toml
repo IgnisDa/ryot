@@ -23,6 +23,7 @@ chrono = "0.4.24"
 cookie = "0.17.0"
 dotenvy = "0.15.7"
 http = "0.2.9"
+itertools = "0.10.5"
 mime_guess = "2.0.4"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
 regex = "1.8.1"

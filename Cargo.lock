@@ -3664,6 +3664,7 @@ dependencies = [
  "cookie 0.17.0",
  "dotenvy",
  "http",
+ "itertools",
  "mime_guess",
  "quick-xml",
  "regex",

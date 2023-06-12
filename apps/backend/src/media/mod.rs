@@ -25,7 +25,7 @@ pub enum MediaSpecifics {
     Unknown,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum MetadataImageUrl {
     S3(String),
     Url(String),
@@ -37,7 +37,9 @@ impl Default for MetadataImageUrl {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
+)]
 pub struct MetadataImage {
     pub url: MetadataImageUrl,
     pub lot: MetadataImageLot,

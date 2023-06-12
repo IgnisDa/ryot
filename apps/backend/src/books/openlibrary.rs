@@ -1,9 +1,8 @@
-use std::collections::HashSet;
-
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
@@ -166,29 +165,31 @@ impl MediaProvider for OpenlibraryService {
             role: "Author".to_owned(),
             image_urls: vec![],
         })
+        .unique()
         .collect();
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
 
-        let mut unique_images = HashSet::new();
+        let mut images = vec![];
         for c in data.covers.iter().flatten() {
-            unique_images.insert(*c);
+            images.push(*c);
         }
         for c in entries
             .iter()
             .flat_map(|e| e.covers.to_owned().unwrap_or_default())
         {
-            unique_images.insert(c);
+            images.push(c);
         }
 
-        let images = unique_images
+        let images = images
             .into_iter()
             .map(|c| MetadataImage {
                 url: MetadataImageUrl::Url(self.get_cover_image_url(c)),
                 lot: MetadataImageLot::Poster,
             })
+            .unique()
             .collect();
         Ok(MediaDetails {
             identifier: openlibrary::get_key(&data.key),
