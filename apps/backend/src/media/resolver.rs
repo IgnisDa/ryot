@@ -789,6 +789,7 @@ impl MediaService {
             let prev_seen = Seen::find()
                 .filter(seen::Column::Progress.lt(100))
                 .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::Dropped.ne(true))
                 .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .all(&self.db)
@@ -797,7 +798,7 @@ impl MediaService {
             let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
             let seen_item = match input.action {
                 ProgressUpdateAction::Update => {
-                    if prev_seen.len() != 1 {
+                    if prev_seen.is_empty() {
                         return err();
                     }
                     let progress = input.progress.unwrap();
@@ -810,11 +811,9 @@ impl MediaService {
                     last_seen.update(&self.db).await.unwrap()
                 }
                 ProgressUpdateAction::Drop => {
-                    if prev_seen.len() != 1 {
-                        return err();
-                    }
                     let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
                     last_seen.dropped = ActiveValue::Set(true);
+                    last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                     last_seen.update(&self.db).await.unwrap()
                 }
                 ProgressUpdateAction::Now
