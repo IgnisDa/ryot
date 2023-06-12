@@ -867,11 +867,6 @@ impl MiscService {
                 .await
                 .ok();
             }
-            self.cleanup_summaries_for_user(&user_id).await.ok();
-            self.media_service
-                .deploy_recalculate_summary_job(user_id)
-                .await
-                .ok();
             Ok(IdObject { id: seen_id.into() })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
