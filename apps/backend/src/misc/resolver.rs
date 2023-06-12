@@ -14,6 +14,7 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
 };
+use sea_query::Order;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
@@ -152,6 +153,20 @@ struct UpdateUserInput {
     email: Option<String>,
     #[graphql(secret)]
     password: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExportMedia {
+    ryot_id: i32,
+    title: String,
+    #[serde(rename = "type")]
+    lot: MetadataLot,
+    audible_id: Option<String>,
+    goodreads_id: Option<String>,
+    igdb_id: Option<String>,
+    listennotes_id: Option<String>,
+    openlibrary_id: Option<String>,
+    tmdb_id: Option<String>,
 }
 
 fn create_cookie(
@@ -1298,7 +1313,7 @@ impl MiscService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    async fn json_export(&self, user_id: i32) -> Result<bool> {
+    pub async fn json_export(&self, user_id: i32) -> Result<Vec<ExportMedia>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -1308,7 +1323,38 @@ impl MiscService {
             .into_iter()
             .map(|m| m.metadata_id)
             .collect::<Vec<_>>();
+        let metas = Metadata::find()
+            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
+            .order_by(metadata::Column::Id, Order::Asc)
+            .all(&self.db)
+            .await?;
 
-        Ok(true)
+        let mut resp = vec![];
+
+        for m in metas {
+            let mut exp = ExportMedia {
+                ryot_id: m.id,
+                title: m.title,
+                lot: m.lot,
+                audible_id: None,
+                goodreads_id: None,
+                igdb_id: None,
+                listennotes_id: None,
+                openlibrary_id: None,
+                tmdb_id: None,
+            };
+            match m.source {
+                MetadataSource::Audible => exp.audible_id = Some(m.identifier),
+                MetadataSource::Goodreads => exp.goodreads_id = Some(m.identifier),
+                MetadataSource::Igdb => exp.igdb_id = Some(m.identifier),
+                MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
+                MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
+                MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
+                MetadataSource::Custom => {}
+            };
+            resp.push(exp);
+        }
+
+        Ok(resp)
     }
 }
