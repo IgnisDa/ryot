@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
@@ -111,6 +113,7 @@ impl MediaProvider for OpenlibraryService {
         struct OpenlibraryEdition {
             publish_date: Option<String>,
             number_of_pages: Option<i32>,
+            covers: Option<Vec<i64>>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryEditionsResponse {
@@ -168,9 +171,19 @@ impl MediaProvider for OpenlibraryService {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,
         });
-        let images = data
-            .covers
-            .unwrap_or_default()
+
+        let mut unique_images = HashSet::new();
+        for c in data.covers.iter().flatten() {
+            unique_images.insert(*c);
+        }
+        for c in entries
+            .iter()
+            .flat_map(|e| e.covers.to_owned().unwrap_or_default())
+        {
+            unique_images.insert(c);
+        }
+
+        let images = unique_images
             .into_iter()
             .map(|c| MetadataImage {
                 url: MetadataImageUrl::Url(self.get_cover_image_url(c)),
