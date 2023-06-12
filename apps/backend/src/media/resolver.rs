@@ -987,6 +987,7 @@ impl MediaService {
         images: Vec<MetadataImage>,
         creators: Vec<MetadataCreator>,
         specifics: MediaSpecifics,
+        genres: Vec<String>,
     ) -> Result<()> {
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
@@ -1001,6 +1002,34 @@ impl MediaService {
         meta.creators = ActiveValue::Set(MetadataCreators(creators));
         meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
+        for genre in genres {
+            self.associate_genre_with_metadata(genre, metadata_id)
+                .await
+                .ok();
+        }
+        Ok(())
+    }
+
+    async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
+        let db_genre = if let Some(c) = Genre::find()
+            .filter(genre::Column::Name.eq(&name))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            c
+        } else {
+            let c = genre::ActiveModel {
+                name: ActiveValue::Set(name),
+                ..Default::default()
+            };
+            c.insert(&self.db).await.unwrap()
+        };
+        let intermediate = metadata_to_genre::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            genre_id: ActiveValue::Set(db_genre.id),
+        };
+        intermediate.insert(&self.db).await.ok();
         Ok(())
     }
 
@@ -1034,25 +1063,9 @@ impl MediaService {
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
         for genre in genres {
-            let db_genre = if let Some(c) = Genre::find()
-                .filter(genre::Column::Name.eq(&genre))
-                .one(&self.db)
+            self.associate_genre_with_metadata(genre, metadata.id)
                 .await
-                .unwrap()
-            {
-                c
-            } else {
-                let c = genre::ActiveModel {
-                    name: ActiveValue::Set(genre),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.unwrap()
-            };
-            let intermediate = metadata_to_genre::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata.id),
-                genre_id: ActiveValue::Set(db_genre.id),
-            };
-            intermediate.insert(&self.db).await.ok();
+                .ok();
         }
         Ok(metadata.id)
     }

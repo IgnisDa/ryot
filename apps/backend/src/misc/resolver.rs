@@ -923,6 +923,7 @@ impl MiscService {
                         details.images,
                         details.creators,
                         details.specifics,
+                        details.genres,
                     )
                     .await
                     .ok();
