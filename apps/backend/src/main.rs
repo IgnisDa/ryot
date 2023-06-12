@@ -23,15 +23,16 @@ use aws_sdk_s3::config::Region;
 use axum::{
     body::{boxed, Full},
     extract::Multipart,
+    headers::{authorization::Bearer, Authorization},
     http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, post, Router},
-    Extension, Json, Server,
+    Extension, Json, Server, TypedHeader,
 };
 use config::AppConfig;
 use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
-use misc::resolver::COOKIE_NAME;
+use misc::resolver::{MiscService, COOKIE_NAME};
 use rust_embed::RustEmbed;
 use scdb::Store;
 use sea_orm::{Database, DatabaseConnection};
@@ -44,6 +45,7 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
+use utils::MemoryDb;
 use uuid::Uuid;
 
 use crate::{
@@ -54,7 +56,7 @@ use crate::{
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
-    utils::create_app_services,
+    utils::{create_app_services, user_id_from_token},
 };
 
 mod audio_books;
@@ -79,27 +81,6 @@ pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Debug)]
 pub struct GqlCtx {
     auth_token: Option<String>,
-}
-
-async fn graphql_handler(
-    schema: Extension<GraphqlSchema>,
-    cookies: Cookies,
-    headers: HeaderMap,
-    req: GraphQLRequest,
-) -> GraphQLResponse {
-    let mut req = req.0;
-    let mut ctx = GqlCtx { auth_token: None };
-    if let Some(c) = cookies.get(COOKIE_NAME) {
-        ctx.auth_token = Some(c.value().to_owned());
-    } else if let Some(h) = headers.get(AUTHORIZATION) {
-        ctx.auth_token = h.to_str().map(|e| e.replace("Bearer ", "")).ok();
-    }
-    req = req.data(ctx);
-    schema.execute(req).await.into()
-}
-
-async fn graphql_playground() -> impl IntoResponse {
-    Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
 #[tokio::main]
@@ -191,8 +172,11 @@ async fn main() -> Result<()> {
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
+        .route("/export", get(export))
+        .layer(Extension(app_services.misc_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
+        .layer(Extension(scdb.clone()))
         .layer(Extension(s3_client.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -309,6 +293,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
+    let st = SqliteStorage::new(pool);
+    st.setup().await.unwrap();
+    st
+}
 static INDEX_HTML: &str = "index.html";
 
 #[derive(RustEmbed)]
@@ -360,6 +349,27 @@ async fn not_found() -> Response {
         .unwrap()
 }
 
+async fn graphql_handler(
+    schema: Extension<GraphqlSchema>,
+    cookies: Cookies,
+    headers: HeaderMap,
+    req: GraphQLRequest,
+) -> GraphQLResponse {
+    let mut req = req.0;
+    let mut ctx = GqlCtx { auth_token: None };
+    if let Some(c) = cookies.get(COOKIE_NAME) {
+        ctx.auth_token = Some(c.value().to_owned());
+    } else if let Some(h) = headers.get(AUTHORIZATION) {
+        ctx.auth_token = h.to_str().map(|e| e.replace("Bearer ", "")).ok();
+    }
+    req = req.data(ctx);
+    schema.execute(req).await.into()
+}
+
+async fn graphql_playground() -> impl IntoResponse {
+    Html(GraphiQLSource::build().endpoint("/graphql").finish())
+}
+
 async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
     Json(config.masked_value())
 }
@@ -384,8 +394,8 @@ async fn upload_handler(
             .body(data.into())
             .send()
             .await
-            .map_err(|err| {
-                tracing::error!("{:?}", err);
+            .map_err(|e| {
+                tracing::error!("{:?}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({"err": "an error occured during file upload"})),
@@ -396,8 +406,13 @@ async fn upload_handler(
     Ok(Json(json!(res)))
 }
 
-async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
-    let st = SqliteStorage::new(pool);
-    st.setup().await.unwrap();
-    st
+async fn export(
+    Extension(misc_service): Extension<MiscService>,
+    Extension(scdb): Extension<MemoryDb>,
+    TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let user_id = user_id_from_token(authorization.token().to_owned(), &scdb)
+        .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
+    let resp = misc_service.json_export(user_id).await.unwrap();
+    Ok(Json(json!(resp)))
 }

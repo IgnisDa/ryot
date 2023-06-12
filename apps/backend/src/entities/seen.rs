@@ -23,12 +23,14 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: i32,
     #[graphql(skip)]
+    #[serde(skip)]
     pub extra_information: Option<SeenExtraInformation>,
     #[sea_orm(ignore)]
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]
     pub podcast_information: Option<SeenPodcastExtraInformation>,
     #[graphql(skip)]
+    #[serde(skip)]
     pub identifier: Option<String>,
 }
 

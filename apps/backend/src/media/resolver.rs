@@ -19,6 +19,7 @@ use crate::{
     audio_books::AudioBookSpecifics,
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
     books::BookSpecifics,
+    config::{AppConfig, IsFeatureEnabled},
     entities::{
         collection, genre, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
@@ -41,6 +42,28 @@ use super::{
     MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage, MetadataImageUrl,
     MetadataImages,
 };
+
+#[derive(SimpleObject)]
+pub struct MetadataCoreFeatureEnabled {
+    name: MetadataLot,
+    enabled: bool,
+}
+
+#[derive(SimpleObject)]
+pub struct GeneralCoreFeatureEnabled {
+    enabled: bool,
+}
+
+#[derive(SimpleObject)]
+pub struct GeneralCoreFeatures {
+    file_storage: GeneralCoreFeatureEnabled,
+}
+
+#[derive(SimpleObject)]
+pub struct CoreFeatureEnabled {
+    metadata: Vec<MetadataCoreFeatureEnabled>,
+    general: GeneralCoreFeatures,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
@@ -247,6 +270,15 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .get_presigned_url(key)
+            .await
+    }
+
+    /// Get all the features that are enabled for the service
+    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> CoreFeatureEnabled {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .core_enabled_features(config)
             .await
     }
 }
@@ -1030,5 +1062,42 @@ impl MediaService {
         }
         Metadata::delete_by_id(merge_from).exec(&self.db).await?;
         Ok(true)
+    }
+
+    async fn core_enabled_features(&self, config: &AppConfig) -> CoreFeatureEnabled {
+        let mut files_enabled = config.file_storage.is_enabled();
+        if files_enabled
+            && self
+                .s3_client
+                .head_bucket()
+                .bucket(&self.bucket_name)
+                .send()
+                .await
+                .is_err()
+        {
+            files_enabled = false;
+        }
+        let general = GeneralCoreFeatures {
+            file_storage: GeneralCoreFeatureEnabled {
+                enabled: files_enabled,
+            },
+        };
+
+        let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
+            (MetadataLot::Book, &config.books),
+            (MetadataLot::Movie, &config.movies),
+            (MetadataLot::Show, &config.shows),
+            (MetadataLot::VideoGame, &config.video_games),
+            (MetadataLot::AudioBook, &config.audio_books),
+            (MetadataLot::Podcast, &config.podcasts),
+        ];
+        let metadata = feats
+            .into_iter()
+            .map(|f| MetadataCoreFeatureEnabled {
+                name: f.0,
+                enabled: f.1.is_enabled(),
+            })
+            .collect();
+        CoreFeatureEnabled { metadata, general }
     }
 }
