@@ -513,11 +513,11 @@ impl MiscMutation {
     }
 
     /// Delete all summaries for the currently logged in user and then generate one from scratch.
-    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<IdObject> {
+    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<MiscService>()
-            .regenerate_user_summary(&user_id)
+            .regenerate_user_summary(user_id)
             .await
     }
 
@@ -1218,9 +1218,12 @@ impl MiscService {
         Ok(())
     }
 
-    pub async fn regenerate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
-        self.cleanup_summaries_for_user(user_id).await?;
-        self.calculate_user_summary(user_id).await
+    pub async fn regenerate_user_summary(&self, user_id: i32) -> Result<bool> {
+        self.cleanup_summaries_for_user(&user_id).await?;
+        self.media_service
+            .deploy_recalculate_summary_job(user_id)
+            .await?;
+        Ok(true)
     }
 
     async fn create_custom_media(

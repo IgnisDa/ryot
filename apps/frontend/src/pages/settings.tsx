@@ -187,6 +187,13 @@ const Page: NextPageWithLayout = () => {
 			);
 			return regenerateUserSummary;
 		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "Summary will be regenerated in the background",
+				color: "green",
+			});
+		},
 	});
 
 	const openProfileUpdateModal = () =>

@@ -33,7 +33,7 @@ const documents = {
     "mutation MergeMetadata($mergeFrom: Identifier!, $mergeInto: Identifier!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
     "mutation ProgressUpdate($input: ProgressUpdate!) {\n  progressUpdate(input: $input) {\n    id\n  }\n}": types.ProgressUpdateDocument,
-    "mutation RegenerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}": types.RegenerateUserSummaryDocument,
+    "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
     "mutation RemoveMediaFromCollection($metadataId: Identifier!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}": types.RemoveMediaFromCollectionDocument,
     "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
@@ -155,7 +155,7 @@ export function graphql(source: "mutation ProgressUpdate($input: ProgressUpdate!
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation RegenerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}"): (typeof documents)["mutation RegenerateUserSummary {\n  regenerateUserSummary {\n    id\n  }\n}"];
+export function graphql(source: "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}"): (typeof documents)["mutation RegenerateUserSummary {\n  regenerateUserSummary\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
