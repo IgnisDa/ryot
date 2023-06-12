@@ -1,4 +1,15 @@
 
+# Version 1.0.13 (2023-06-12)
+
+## Bug Fixes
+
+* **backend:** select correct images from openlibrary
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.12 (2023-06-12)
 
 ## Bug Fixes
