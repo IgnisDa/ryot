@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     audio_books::{audible::AudibleService, AudioBookSpecifics},
-    background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
+    background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     books::{openlibrary::OpenlibraryService, BookSpecifics},
     config::{AppConfig, IsFeatureEnabled},
     entities::{
@@ -35,7 +35,7 @@ use crate::{
     podcasts::{listennotes::ListennotesService, PodcastSpecifics},
     shows::{tmdb::TmdbService as ShowTmdbService, ShowSpecifics},
     traits::MediaProvider,
-    utils::user_id_from_ctx,
+    utils::{user_id_from_ctx, MemoryDb},
     video_games::{igdb::IgdbService, VideoGameSpecifics},
 };
 
@@ -375,6 +375,7 @@ impl MediaMutation {
 #[derive(Debug, Clone)]
 pub struct MediaService {
     db: DatabaseConnection,
+    scdb: MemoryDb,
     s3_client: aws_sdk_s3::Client,
     bucket_name: String,
     audible_service: AudibleService,
@@ -386,12 +387,14 @@ pub struct MediaService {
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
+    user_created: SqliteStorage<UserCreatedJob>,
 }
 
 impl MediaService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
+        scdb: &MemoryDb,
         s3_client: &aws_sdk_s3::Client,
         bucket_name: &str,
         audible_service: &AudibleService,
@@ -403,9 +406,11 @@ impl MediaService {
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
+        user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
         Self {
             db: db.clone(),
+            scdb: scdb.clone(),
             s3_client: s3_client.clone(),
             bucket_name: bucket_name.to_owned(),
             audible_service: audible_service.clone(),
@@ -417,6 +422,7 @@ impl MediaService {
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
+            user_created: user_created.clone(),
         }
     }
 }

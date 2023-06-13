@@ -71,6 +71,7 @@ pub async fn create_app_services(
 
     let media_service = MediaService::new(
         &db,
+        &scdb,
         &s3_client,
         &config.file_storage.s3_bucket_name,
         &audible_service,
@@ -82,6 +83,7 @@ pub async fn create_app_services(
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
+        user_created_job,
     );
     let misc_service = MiscService::new(&db, &scdb, &media_service, user_created_job);
     let importer_service =
