@@ -107,3 +107,9 @@ fly postgres attach --app ryot ryot-db
 ```bash
 fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
 ```
+
+### Railway
+
+You can use the following button to deploy Ryot using a Railway template:
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/lwzKXe?referralCode=h1y1KK)
