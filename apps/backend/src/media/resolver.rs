@@ -1183,7 +1183,7 @@ impl MediaService {
                                 sub_select,
                                 TempSeen::Alias,
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
-                                    .equals((TempSeen::Alias, TempMetadata::MetadataId)),
+                                    .equals((TempSeen::Alias, TempSeen::MetadataId)),
                             )
                             .order_by_with_nulls(
                                 (TempSeen::Alias, TempSeen::LastSeen),
