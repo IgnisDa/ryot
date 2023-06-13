@@ -311,22 +311,10 @@ export type MoviesSummary = {
 export type MutationRoot = {
   /** Add a media item to a collection if it is not there, otherwise do nothing. */
   addMediaToCollection: Scalars['Boolean'];
-  /** Fetch details about a audio book and create a media item in the database. */
-  commitAudioBook: IdObject;
-  /** Fetch details about a book and create a media item in the database. */
-  commitBook: IdObject;
   /** Fetch details about a media and create a media item in the database. */
   commitMedia: IdObject;
-  /** Fetch details about a movie and create a media item in the database. */
-  commitMovie: IdObject;
   /** Load next 10 episodes of a podcast if they exist. */
   commitNext10PodcastEpisodes: Scalars['Boolean'];
-  /** Fetch details about a podcast and create a media item in the database. */
-  commitPodcast: IdObject;
-  /** Fetch details about a show and create a media item in the database. */
-  commitShow: IdObject;
-  /** Fetch details about a game and create a media item in the database. */
-  commitVideoGame: IdObject;
   /** Create a new collection for the logged in user. */
   createCollection: IdObject;
   /** Create a custom media item. */
@@ -375,44 +363,14 @@ export type MutationRootAddMediaToCollectionArgs = {
 };
 
 
-export type MutationRootCommitAudioBookArgs = {
-  identifier: Scalars['String'];
-};
-
-
-export type MutationRootCommitBookArgs = {
-  identifier: Scalars['String'];
-};
-
-
 export type MutationRootCommitMediaArgs = {
   identifier: Scalars['String'];
   lot: MetadataLot;
 };
 
 
-export type MutationRootCommitMovieArgs = {
-  identifier: Scalars['String'];
-};
-
-
 export type MutationRootCommitNext10PodcastEpisodesArgs = {
   podcastId: Scalars['Identifier'];
-};
-
-
-export type MutationRootCommitPodcastArgs = {
-  identifier: Scalars['String'];
-};
-
-
-export type MutationRootCommitShowArgs = {
-  identifier: Scalars['String'];
-};
-
-
-export type MutationRootCommitVideoGameArgs = {
-  identifier: Scalars['String'];
 };
 
 
@@ -563,10 +521,6 @@ export enum ProgressUpdateAction {
 }
 
 export type QueryRoot = {
-  /** Search for a list of audio books by a particular search query and a given page. */
-  audioBooksSearch: MediaSearchResults;
-  /** Search for a list of books by a particular search query and an offset. */
-  booksSearch: MediaSearchResults;
   /** Get all collections for the currently logged in user. */
   collections: Array<CollectionItem>;
   /** Get some primary information about the service */
@@ -587,30 +541,12 @@ export type QueryRoot = {
   mediaList: MediaSearchResults;
   /** Search for a list of media for a given type. */
   mediaSearch: MediaSearchResults;
-  /** Search for a list of movies by a particular search query and a given page. */
-  moviesSearch: MediaSearchResults;
-  /** Search for a list of games by a particular search query and a given page. */
-  podcastsSearch: MediaSearchResults;
   /** Get the user's seen history for a particular media item. */
   seenHistory: Array<Seen>;
-  /** Search for a list of show by a particular search query and a given page. */
-  showSearch: MediaSearchResults;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
   /** Get a summary of all the media items that have been consumed by this user. */
   userSummary: UserSummary;
-  /** Search for a list of games by a particular search query and a given page. */
-  videoGamesSearch: MediaSearchResults;
-};
-
-
-export type QueryRootAudioBooksSearchArgs = {
-  input: SearchInput;
-};
-
-
-export type QueryRootBooksSearchArgs = {
-  input: SearchInput;
 };
 
 
@@ -646,28 +582,8 @@ export type QueryRootMediaSearchArgs = {
 };
 
 
-export type QueryRootMoviesSearchArgs = {
-  input: SearchInput;
-};
-
-
-export type QueryRootPodcastsSearchArgs = {
-  input: SearchInput;
-};
-
-
 export type QueryRootSeenHistoryArgs = {
   metadataId: Scalars['Identifier'];
-};
-
-
-export type QueryRootShowSearchArgs = {
-  input: SearchInput;
-};
-
-
-export type QueryRootVideoGamesSearchArgs = {
-  input: SearchInput;
 };
 
 export type RegisterError = {
