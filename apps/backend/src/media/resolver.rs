@@ -1285,12 +1285,6 @@ impl MediaService {
             }
         };
 
-        let get_sql_and_values = |stmt: SelectStatement| match self.db.get_database_backend() {
-            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
-            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
-        };
-
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
             id: i32,
@@ -1304,8 +1298,7 @@ impl MediaService {
             .expr(Func::count(Expr::asterisk()))
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
-        let (sql, values) = get_sql_and_values(count_select);
-        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
+        let stmt = self.get_db_stmt(count_select);
         let total = self
             .db
             .query_one(stmt)
@@ -1318,8 +1311,7 @@ impl MediaService {
             .limit(PAGE_LIMIT as u64)
             .offset(((input.page - 1) * PAGE_LIMIT) as u64)
             .to_owned();
-        let (sql, values) = get_sql_and_values(main_select);
-        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
+        let stmt = self.get_db_stmt(main_select);
         let metas: Vec<InnerMediaSearchItem> = self
             .db
             .query_all(stmt)
@@ -2599,5 +2591,19 @@ impl MediaService {
         }
 
         Ok(resp)
+    }
+
+    fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
+        match self.db.get_database_backend() {
+            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
+            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
+            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
+        }
+    }
+
+    fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
+        let (sql, values) = self.get_sql_and_values(stmt);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
+        stmt
     }
 }
