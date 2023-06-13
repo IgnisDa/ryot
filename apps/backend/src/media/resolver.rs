@@ -1220,17 +1220,32 @@ impl MediaService {
         Ok(results)
     }
 
-    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+    pub async fn details_from_provider_for_existing_media(
+        &self,
+        metadata_id: i32,
+    ) -> Result<MediaDetails> {
         let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let service: ProviderBox = match metadata.source {
+        let results = self
+            .details_from_provider(metadata.lot, metadata.source, metadata.identifier)
+            .await?;
+        Ok(results)
+    }
+
+    async fn details_from_provider(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        identifier: String,
+    ) -> Result<MediaDetails> {
+        let service: ProviderBox = match source {
             MetadataSource::Openlibrary => Box::new(&self.openlibrary_service),
             MetadataSource::Audible => Box::new(&self.audible_service),
             MetadataSource::Listennotes => Box::new(&self.listennotes_service),
-            MetadataSource::Tmdb => match metadata.lot {
+            MetadataSource::Tmdb => match lot {
                 MetadataLot::Show => Box::new(&self.tmdb_shows_service),
                 MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
                 _ => unreachable!(),
@@ -1240,7 +1255,7 @@ impl MediaService {
                 return Err(Error::new("This source is not supported".to_owned()));
             }
         };
-        let results = service.details(&metadata.identifier).await?;
+        let results = service.details(&identifier).await?;
         Ok(results)
     }
 }

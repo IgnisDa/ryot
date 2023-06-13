@@ -889,7 +889,10 @@ impl MiscService {
     pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
         let metadata_id = metadata.id;
         tracing::info!("Updating metadata for {:?}", Identifier::from(metadata_id));
-        let maybe_details = self.media_service.details_from_provider(metadata_id).await;
+        let maybe_details = self
+            .media_service
+            .details_from_provider_for_existing_media(metadata_id)
+            .await;
         match maybe_details {
             Ok(details) => {
                 self.media_service
