@@ -30,7 +30,6 @@ use axum::{
     Extension, Json, Server, TypedHeader,
 };
 use config::AppConfig;
-use dotenvy::dotenv;
 use http::header::AUTHORIZATION;
 use misc::resolver::{MiscService, COOKIE_NAME};
 use rust_embed::RustEmbed;
@@ -85,6 +84,9 @@ pub struct GqlCtx {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    #[cfg(debug_assertions)]
+    dotenvy::dotenv().ok();
+
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
@@ -93,7 +95,6 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    dotenv().ok();
     let config = get_app_config()?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
