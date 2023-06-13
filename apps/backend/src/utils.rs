@@ -289,13 +289,14 @@ pub mod tmdb {
         (client, image_url)
     }
 
-    pub async fn save_all_images<'a>(
-        client: &'a Client,
-        identifier: &'a str,
+    pub async fn save_all_images(
+        client: &Client,
+        typ: &str,
+        identifier: &str,
         images: &mut Vec<String>,
     ) -> AnyhowResult<()> {
         let mut rsp = client
-            .get(format!("movie/{}/images", identifier))
+            .get(format!("{}/{}/images", typ, identifier))
             .await
             .map_err(|e| anyhow!(e))?;
         let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
