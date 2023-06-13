@@ -256,8 +256,8 @@ pub mod tmdb {
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct TmdbImagesResponse {
-        pub backdrops: Vec<TmdbImage>,
-        pub posters: Vec<TmdbImage>,
+        pub backdrops: Option<Vec<TmdbImage>>,
+        pub posters: Option<Vec<TmdbImage>>,
     }
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
@@ -300,11 +300,15 @@ pub mod tmdb {
             .await
             .map_err(|e| anyhow!(e))?;
         let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        for image in new_images.posters {
-            images.push(image.file_path);
+        if let Some(imgs) = new_images.posters {
+            for image in imgs {
+                images.push(image.file_path);
+            }
         }
-        for image in new_images.backdrops {
-            images.push(image.file_path);
+        if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
         }
         Ok(())
     }

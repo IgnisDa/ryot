@@ -103,7 +103,7 @@ impl MediaProvider for TmdbService {
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
         }
-        save_all_images(&self.client, "movies", identifier, &mut image_ids).await?;
+        save_all_images(&self.client, "movie", identifier, &mut image_ids).await?;
 
         Ok(MediaDetails {
             identifier: data.id.to_string(),
