@@ -10,7 +10,6 @@ use crate::{
     importer::{ImporterMutation, ImporterQuery},
     media::resolver::{MediaMutation, MediaQuery},
     misc::resolver::{MiscMutation, MiscQuery},
-    podcasts::resolver::PodcastsMutation,
     utils::{AppServices, MemoryDb},
     VERSION,
 };
@@ -70,12 +69,7 @@ impl CoreQuery {
 pub struct QueryRoot(CoreQuery, MediaQuery, MiscQuery, ImporterQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(
-    MediaMutation,
-    MiscMutation,
-    ImporterMutation,
-    PodcastsMutation,
-);
+pub struct MutationRoot(MediaMutation, MiscMutation, ImporterMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
