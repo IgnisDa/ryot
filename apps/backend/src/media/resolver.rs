@@ -345,6 +345,19 @@ impl MediaMutation {
             .merge_metadata(merge_from.into(), merge_into.into())
             .await
     }
+
+    /// Fetch details about a media and create a media item in the database.
+    async fn commit_media(
+        &self,
+        gql_ctx: &Context<'_>,
+        lot: MetadataLot,
+        identifier: String,
+    ) -> Result<IdObject> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .commit_media(lot, identifier)
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1243,5 +1256,31 @@ impl MediaService {
         };
         let results = service.details(&identifier).await?;
         Ok(results)
+    }
+
+    pub async fn commit_media(&self, lot: MetadataLot, identifier: String) -> Result<IdObject> {
+        let meta = Metadata::find()
+            .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Identifier.eq(&identifier))
+            .one(&self.db)
+            .await
+            .unwrap();
+        if let Some(m) = meta {
+            Ok(IdObject { id: m.id.into() })
+        } else {
+            let source = match lot {
+                MetadataLot::AudioBook => MetadataSource::Audible,
+                MetadataLot::Podcast => MetadataSource::Listennotes,
+                MetadataLot::Movie => MetadataSource::Tmdb,
+                MetadataLot::Show => MetadataSource::Tmdb,
+                MetadataLot::VideoGame => MetadataSource::Igdb,
+                MetadataLot::Book => MetadataSource::Goodreads,
+            };
+            let details = self.details_from_provider(lot, source, identifier).await?;
+            let media_id = self.commit_media_internal(details).await?;
+            Ok(IdObject {
+                id: media_id.into(),
+            })
+        }
     }
 }
