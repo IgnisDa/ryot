@@ -3,10 +3,13 @@ query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {
     total
     nextPage
     items {
-      identifier
-      title
-      images
-      publishYear
+      databaseId
+      item {
+        identifier
+        title
+        images
+        publishYear
+      }
     }
   }
 }
