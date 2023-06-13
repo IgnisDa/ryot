@@ -114,22 +114,7 @@ impl VideoGamesService {
     }
 
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
-        let metadata_id = self
-            .media_service
-            .commit_media_internal(
-                details.identifier.clone(),
-                MetadataLot::VideoGame,
-                details.source,
-                details.title,
-                details.description,
-                details.publish_year,
-                details.publish_date,
-                details.images,
-                details.creators,
-                details.genres,
-                details.specifics.clone(),
-            )
-            .await?;
+        let metadata_id = self.media_service.commit_media_internal(details).await?;
         Ok(IdObject {
             id: metadata_id.into(),
         })

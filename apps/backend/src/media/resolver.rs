@@ -1068,37 +1068,22 @@ impl MediaService {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub async fn commit_media_internal(
-        &self,
-        // FIXME: Take `MediaDetails as argument`
-        identifier: String,
-        lot: MetadataLot,
-        source: MetadataSource,
-        title: String,
-        description: Option<String>,
-        publish_year: Option<i32>,
-        publish_date: Option<NaiveDate>,
-        images: Vec<MetadataImage>,
-        creators: Vec<MetadataCreator>,
-        genres: Vec<String>,
-        specifics: MediaSpecifics,
-    ) -> Result<i32> {
+    pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<i32> {
         let metadata = metadata::ActiveModel {
-            lot: ActiveValue::Set(lot),
-            title: ActiveValue::Set(title),
-            description: ActiveValue::Set(description),
-            publish_year: ActiveValue::Set(publish_year),
-            publish_date: ActiveValue::Set(publish_date),
-            images: ActiveValue::Set(MetadataImages(images)),
-            identifier: ActiveValue::Set(identifier),
-            creators: ActiveValue::Set(MetadataCreators(creators)),
-            source: ActiveValue::Set(source),
-            specifics: ActiveValue::Set(specifics),
+            lot: ActiveValue::Set(details.lot),
+            title: ActiveValue::Set(details.title),
+            description: ActiveValue::Set(details.description),
+            publish_year: ActiveValue::Set(details.publish_year),
+            publish_date: ActiveValue::Set(details.publish_date),
+            images: ActiveValue::Set(MetadataImages(details.images)),
+            identifier: ActiveValue::Set(details.identifier),
+            creators: ActiveValue::Set(MetadataCreators(details.creators)),
+            source: ActiveValue::Set(details.source),
+            specifics: ActiveValue::Set(details.specifics),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for genre in genres {
+        for genre in details.genres {
             self.associate_genre_with_metadata(genre, metadata.id)
                 .await
                 .ok();

@@ -116,22 +116,7 @@ impl BooksService {
     }
 
     pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
-        let metadata_id = self
-            .media_service
-            .commit_media_internal(
-                details.identifier.clone(),
-                MetadataLot::Book,
-                details.source,
-                details.title,
-                details.description,
-                details.publish_year,
-                None,
-                details.images,
-                details.creators,
-                details.genres,
-                details.specifics.clone(),
-            )
-            .await?;
+        let metadata_id = self.media_service.commit_media_internal(details).await?;
         Ok(IdObject {
             id: metadata_id.into(),
         })
