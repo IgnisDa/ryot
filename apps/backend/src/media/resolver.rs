@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -350,12 +350,12 @@ pub struct MediaService {
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
     bucket_name: String,
-    audible_service: Arc<AudibleService>,
-    igdb_service: Arc<IgdbService>,
-    listennotes_service: Arc<ListennotesService>,
-    openlibrary_service: Arc<OpenlibraryService>,
-    tmdb_movies_service: Arc<MovieTmdbService>,
-    tmdb_shows_service: Arc<ShowTmdbService>,
+    audible_service: AudibleService,
+    igdb_service: IgdbService,
+    listennotes_service: ListennotesService,
+    openlibrary_service: OpenlibraryService,
+    tmdb_movies_service: MovieTmdbService,
+    tmdb_shows_service: ShowTmdbService,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -381,12 +381,12 @@ impl MediaService {
             db: db.clone(),
             s3_client: s3_client.clone(),
             bucket_name: bucket_name.to_owned(),
-            audible_service: Arc::new(audible_service.clone()),
-            igdb_service: Arc::new(igdb_service.clone()),
-            listennotes_service: Arc::new(listennotes_service.clone()),
-            openlibrary_service: Arc::new(openlibrary_service.clone()),
-            tmdb_movies_service: Arc::new(tmdb_movies_service.clone()),
-            tmdb_shows_service: Arc::new(tmdb_shows_service.clone()),
+            audible_service: audible_service.clone(),
+            igdb_service: igdb_service.clone(),
+            listennotes_service: listennotes_service.clone(),
+            openlibrary_service: openlibrary_service.clone(),
+            tmdb_movies_service: tmdb_movies_service.clone(),
+            tmdb_shows_service: tmdb_shows_service.clone(),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1206,34 +1206,15 @@ impl MediaService {
         lot: MetadataLot,
         input: SearchInput,
     ) -> Result<MediaSearchResults> {
-        let results = match lot {
-            MetadataLot::Book => {
-                self.openlibrary_service
-                    .search(&input.query, input.page)
-                    .await?
-            }
-            MetadataLot::AudioBook => {
-                self.audible_service
-                    .search(&input.query, input.page)
-                    .await?
-            }
-            MetadataLot::Podcast => {
-                self.listennotes_service
-                    .search(&input.query, input.page)
-                    .await?
-            }
-            MetadataLot::Movie => {
-                self.tmdb_movies_service
-                    .search(&input.query, input.page)
-                    .await?
-            }
-            MetadataLot::Show => {
-                self.tmdb_shows_service
-                    .search(&input.query, input.page)
-                    .await?
-            }
-            MetadataLot::VideoGame => self.igdb_service.search(&input.query, input.page).await?,
+        let service: Box<&(dyn MediaProvider + Send + Sync)> = match lot {
+            MetadataLot::Book => Box::new(&self.openlibrary_service),
+            MetadataLot::AudioBook => Box::new(&self.audible_service),
+            MetadataLot::Podcast => Box::new(&self.listennotes_service),
+            MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
+            MetadataLot::Show => Box::new(&self.tmdb_shows_service),
+            MetadataLot::VideoGame => Box::new(&self.igdb_service),
         };
+        let results = service.search(&input.query, input.page).await?;
         Ok(results)
     }
 }
