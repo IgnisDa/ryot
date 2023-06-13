@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -16,9 +16,9 @@ use sea_query::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    audio_books::AudioBookSpecifics,
+    audio_books::{audible::AudibleService, AudioBookSpecifics},
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob},
-    books::BookSpecifics,
+    books::{openlibrary::OpenlibraryService, BookSpecifics},
     config::{AppConfig, IsFeatureEnabled},
     entities::{
         collection, genre, metadata, metadata_to_collection, metadata_to_genre,
@@ -31,11 +31,11 @@ use crate::{
     graphql::{IdObject, Identifier},
     media::PAGE_LIMIT,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    movies::MovieSpecifics,
-    podcasts::PodcastSpecifics,
-    shows::ShowSpecifics,
+    movies::{tmdb::TmdbService as MovieTmdbService, MovieSpecifics},
+    podcasts::{listennotes::ListennotesService, PodcastSpecifics},
+    shows::{tmdb::TmdbService as ShowTmdbService, ShowSpecifics},
     utils::user_id_from_ctx,
-    video_games::VideoGameSpecifics,
+    video_games::{igdb::IgdbService, VideoGameSpecifics},
 };
 
 use super::{
@@ -336,16 +336,29 @@ pub struct MediaService {
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
     bucket_name: String,
+    audible_service: Arc<AudibleService>,
+    igdb_service: Arc<IgdbService>,
+    listennotes_service: Arc<ListennotesService>,
+    openlibrary_service: Arc<OpenlibraryService>,
+    tmdb_movies_service: Arc<MovieTmdbService>,
+    tmdb_shows_service: Arc<ShowTmdbService>,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
 }
 
 impl MediaService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
         s3_client: &aws_sdk_s3::Client,
         bucket_name: &str,
+        audible_service: &AudibleService,
+        igdb_service: &IgdbService,
+        listennotes_service: &ListennotesService,
+        openlibrary_service: &OpenlibraryService,
+        tmdb_movies_service: &MovieTmdbService,
+        tmdb_shows_service: &ShowTmdbService,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -354,6 +367,12 @@ impl MediaService {
             db: db.clone(),
             s3_client: s3_client.clone(),
             bucket_name: bucket_name.to_owned(),
+            audible_service: Arc::new(audible_service.clone()),
+            igdb_service: Arc::new(igdb_service.clone()),
+            listennotes_service: Arc::new(listennotes_service.clone()),
+            openlibrary_service: Arc::new(openlibrary_service.clone()),
+            tmdb_movies_service: Arc::new(tmdb_movies_service.clone()),
+            tmdb_shows_service: Arc::new(tmdb_shows_service.clone()),
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),

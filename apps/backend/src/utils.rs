@@ -70,25 +70,32 @@ pub async fn create_app_services(
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
+    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
+    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
+    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
+    let audible_service = AudibleService::new(&config.audio_books.audible);
+    let igdb_service = IgdbService::new(&config.video_games).await;
+    let listennotes_service = ListennotesService::new(&config.podcasts).await;
+
     let media_service = MediaService::new(
         &db,
         &s3_client,
         &config.file_storage.s3_bucket_name,
+        &audible_service,
+        &igdb_service,
+        &listennotes_service,
+        &openlibrary_service,
+        &tmdb_movies_service,
+        &tmdb_shows_service,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
     );
-    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
     let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
-    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
     let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
-    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
     let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
-    let audible_service = AudibleService::new(&config.audio_books.audible);
     let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
-    let igdb_service = IgdbService::new(&config.video_games).await;
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
-    let listennotes_service = ListennotesService::new(&config.podcasts).await;
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(
         &db,
