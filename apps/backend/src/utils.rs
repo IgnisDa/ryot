@@ -29,7 +29,6 @@ use crate::entities::user_to_metadata;
 use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
-use crate::misc::resolver::MiscService;
 use crate::movies::tmdb::TmdbService as MovieTmdbService;
 use crate::podcasts::listennotes::ListennotesService;
 use crate::shows::tmdb::TmdbService as ShowTmdbService;
@@ -46,7 +45,6 @@ pub struct AppServices {
     pub tmdb_shows_service: ShowTmdbService,
     pub audible_service: AudibleService,
     pub igdb_service: IgdbService,
-    pub misc_service: MiscService,
     pub importer_service: ImporterService,
 }
 
@@ -85,9 +83,7 @@ pub async fn create_app_services(
         recalculate_user_summary_job,
         user_created_job,
     );
-    let misc_service = MiscService::new(&db, &scdb, &media_service, user_created_job);
-    let importer_service =
-        ImporterService::new(&db, &media_service, &misc_service, import_media_job);
+    let importer_service = ImporterService::new(&db, &media_service, import_media_job);
     AppServices {
         media_service,
         openlibrary_service,
@@ -95,7 +91,6 @@ pub async fn create_app_services(
         tmdb_shows_service,
         audible_service,
         igdb_service,
-        misc_service,
         importer_service,
     }
 }

@@ -31,7 +31,7 @@ use axum::{
 };
 use config::AppConfig;
 use http::header::AUTHORIZATION;
-use misc::resolver::{MiscService, COOKIE_NAME};
+use media::resolver::{MediaService, COOKIE_NAME};
 use rust_embed::RustEmbed;
 use scdb::Store;
 use sea_orm::{Database, DatabaseConnection};
@@ -67,7 +67,6 @@ mod graphql;
 mod importer;
 mod media;
 mod migrator;
-mod misc;
 mod movies;
 mod podcasts;
 mod shows;
@@ -174,7 +173,7 @@ async fn main() -> Result<()> {
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .route("/export", get(export))
-        .layer(Extension(app_services.misc_service.clone()))
+        .layer(Extension(app_services.media_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
         .layer(Extension(scdb.clone()))
@@ -197,10 +196,11 @@ async fn main() -> Result<()> {
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
     let media_service_1 = app_services.media_service.clone();
-    let misc_service_1 = app_services.misc_service.clone();
-    let misc_service_2 = app_services.misc_service.clone();
-    let misc_service_3 = app_services.misc_service.clone();
-    let misc_service_4 = app_services.misc_service.clone();
+    let media_service_2 = app_services.media_service.clone();
+    let media_service_3 = app_services.media_service.clone();
+    let media_service_4 = app_services.media_service.clone();
+    let media_service_5 = app_services.media_service.clone();
+    let media_service_6 = app_services.media_service.clone();
 
     let monitor = async {
         let mn = Monitor::new()
@@ -219,8 +219,7 @@ async fn main() -> Result<()> {
                         .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(app_services.media_service.clone()))
-                    .layer(ApalisExtension(misc_service_1.clone()))
+                    .layer(ApalisExtension(media_service_1.clone()))
                     .build_fn(general_user_cleanup)
             })
             .register_with_count(1, move |c| {
@@ -233,7 +232,7 @@ async fn main() -> Result<()> {
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
-                    .layer(ApalisExtension(media_service_1.clone()))
+                    .layer(ApalisExtension(media_service_2.clone()))
                     .build_fn(general_media_cleanup_jobs)
             })
             // application jobs
@@ -248,21 +247,21 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(misc_service_2.clone()))
+                    .layer(ApalisExtension(media_service_3.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("after_media_seen_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(app_services.misc_service.clone()))
+                    .layer(ApalisExtension(media_service_4.clone()))
                     .with_storage(after_media_seen_job_storage.clone())
                     .build_fn(after_media_seen_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("recalculate_user_summary_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(misc_service_3.clone()))
+                    .layer(ApalisExtension(media_service_5.clone()))
                     .with_storage(recalculate_user_summary_job_storage.clone())
                     .build_fn(recalculate_user_summary_job)
             })
@@ -273,7 +272,7 @@ async fn main() -> Result<()> {
                         rate_limit_num,
                         Duration::new(5, 0),
                     ))
-                    .layer(ApalisExtension(misc_service_4.clone()))
+                    .layer(ApalisExtension(media_service_6.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })
@@ -408,12 +407,12 @@ async fn upload_handler(
 }
 
 async fn export(
-    Extension(misc_service): Extension<MiscService>,
+    Extension(media_service): Extension<MediaService>,
     Extension(scdb): Extension<MemoryDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user_id_from_token(authorization.token().to_owned(), &scdb)
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
-    let resp = misc_service.json_export(user_id).await.unwrap();
+    let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
 }

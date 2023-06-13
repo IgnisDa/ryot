@@ -9,7 +9,6 @@ use crate::{
     config::AppConfig,
     importer::{ImporterMutation, ImporterQuery},
     media::resolver::{MediaMutation, MediaQuery},
-    misc::resolver::{MiscMutation, MiscQuery},
     utils::{AppServices, MemoryDb},
     VERSION,
 };
@@ -66,10 +65,10 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery, MediaQuery, MiscQuery, ImporterQuery);
+pub struct QueryRoot(CoreQuery, MediaQuery, ImporterQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(MediaMutation, MiscMutation, ImporterMutation);
+pub struct MutationRoot(MediaMutation, ImporterMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
@@ -88,7 +87,6 @@ pub async fn get_schema(
     .data(db)
     .data(scdb)
     .data(app_services.media_service.clone())
-    .data(app_services.misc_service.clone())
     .data(app_services.importer_service.clone())
     .finish()
 }

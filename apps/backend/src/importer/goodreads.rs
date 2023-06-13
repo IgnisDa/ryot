@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     books::BookSpecifics,
     media::{
-        resolver::MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
+        resolver::MediaDetails, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage,
+        MetadataImageUrl,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    misc::DefaultCollection,
 };
 
 use super::{

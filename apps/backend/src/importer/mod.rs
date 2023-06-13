@@ -13,12 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
-    media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
-    migrator::{MediaImportSource, MetadataLot},
-    misc::{
-        resolver::{AddMediaToCollection, MiscService, PostReviewInput},
+    media::{
+        resolver::{
+            AddMediaToCollection, MediaDetails, MediaService, PostReviewInput, ProgressUpdate,
+            ProgressUpdateAction,
+        },
         DefaultCollection,
     },
+    migrator::{MediaImportSource, MetadataLot},
     utils::user_id_from_ctx,
 };
 
@@ -167,7 +169,6 @@ impl ImporterMutation {
 pub struct ImporterService {
     db: DatabaseConnection,
     media_service: Arc<MediaService>,
-    misc_service: Arc<MiscService>,
     import_media: SqliteStorage<ImportMedia>,
 }
 
@@ -176,13 +177,11 @@ impl ImporterService {
     pub fn new(
         db: &DatabaseConnection,
         media_service: &MediaService,
-        misc_service: &MiscService,
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
             db: db.clone(),
             media_service: Arc::new(media_service.clone()),
-            misc_service: Arc::new(misc_service.clone()),
             import_media: import_media.clone(),
         }
     }
@@ -226,12 +225,12 @@ impl ImporterService {
         &self,
         user_id: i32,
     ) -> Result<Vec<media_import_report::Model>> {
-        self.misc_service.media_import_reports(user_id).await
+        self.media_service.media_import_reports(user_id).await
     }
 
     pub async fn import_from_source(&self, user_id: i32, input: DeployImportInput) -> Result<()> {
         let db_import_job = self
-            .misc_service
+            .media_service
             .start_import_job(user_id, input.source)
             .await?;
         let mut import = match input.source {
@@ -289,7 +288,7 @@ impl ImporterService {
                 let text = review.review.clone().map(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);
-                self.misc_service
+                self.media_service
                     .post_review(
                         &user_id,
                         PostReviewInput {
@@ -308,7 +307,7 @@ impl ImporterService {
                     .await?;
             }
             for col in item.default_collections.iter() {
-                self.misc_service
+                self.media_service
                     .add_media_to_collection(
                         &user_id,
                         AddMediaToCollection {
@@ -343,7 +342,7 @@ impl ImporterService {
             },
             failed_items: import.failed_items,
         };
-        self.misc_service
+        self.media_service
             .finish_import_job(db_import_job, details)
             .await?;
         Ok(())
