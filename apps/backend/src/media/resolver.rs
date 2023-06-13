@@ -34,6 +34,7 @@ use crate::{
     movies::{tmdb::TmdbService as MovieTmdbService, MovieSpecifics},
     podcasts::{listennotes::ListennotesService, PodcastSpecifics},
     shows::{tmdb::TmdbService as ShowTmdbService, ShowSpecifics},
+    traits::MediaProvider,
     utils::user_id_from_ctx,
     video_games::{igdb::IgdbService, VideoGameSpecifics},
 };
@@ -282,6 +283,19 @@ impl MediaQuery {
         gql_ctx
             .data_unchecked::<MediaService>()
             .core_enabled_features(config)
+            .await
+    }
+
+    /// Search for a list of media for a given type.
+    async fn media_search(
+        &self,
+        gql_ctx: &Context<'_>,
+        lot: MetadataLot,
+        input: SearchInput,
+    ) -> Result<MediaSearchResults> {
+        gql_ctx
+            .data_unchecked::<MediaService>()
+            .media_search(lot, input)
             .await
     }
 }
@@ -1185,5 +1199,41 @@ impl MediaService {
             })
             .collect();
         CoreFeatureEnabled { metadata, general }
+    }
+
+    async fn media_search(
+        &self,
+        lot: MetadataLot,
+        input: SearchInput,
+    ) -> Result<MediaSearchResults> {
+        let results = match lot {
+            MetadataLot::Book => {
+                self.openlibrary_service
+                    .search(&input.query, input.page)
+                    .await?
+            }
+            MetadataLot::AudioBook => {
+                self.audible_service
+                    .search(&input.query, input.page)
+                    .await?
+            }
+            MetadataLot::Podcast => {
+                self.listennotes_service
+                    .search(&input.query, input.page)
+                    .await?
+            }
+            MetadataLot::Movie => {
+                self.tmdb_movies_service
+                    .search(&input.query, input.page)
+                    .await?
+            }
+            MetadataLot::Show => {
+                self.tmdb_shows_service
+                    .search(&input.query, input.page)
+                    .await?
+            }
+            MetadataLot::VideoGame => self.igdb_service.search(&input.query, input.page).await?,
+        };
+        Ok(results)
     }
 }
