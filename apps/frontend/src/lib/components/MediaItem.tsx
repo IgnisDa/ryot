@@ -13,15 +13,15 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
-	type BooksSearchQuery,
 	MediaExistsInDatabaseDocument,
 	MetadataLot,
+	type MediaSearchQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
-type Item = BooksSearchQuery["booksSearch"]["items"][number];
+type Item = MediaSearchQuery["mediaSearch"]["items"][number];
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
@@ -124,6 +124,7 @@ export default function (props: {
 	const commitFunction = async () => {
 		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
+			lot: props.lot,
 		});
 		return id;
 	};
