@@ -1069,8 +1069,9 @@ impl MediaService {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub async fn commit_media(
+    pub async fn commit_media_internal(
         &self,
+        // FIXME: Take `MediaDetails as argument`
         identifier: String,
         lot: MetadataLot,
         source: MetadataSource,
