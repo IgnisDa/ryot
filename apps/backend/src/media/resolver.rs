@@ -1081,7 +1081,7 @@ impl MediaService {
         Ok(())
     }
 
-    pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<i32> {
+    pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
             title: ActiveValue::Set(details.title),
@@ -1101,7 +1101,9 @@ impl MediaService {
                 .await
                 .ok();
         }
-        Ok(metadata.id)
+        Ok(IdObject {
+            id: metadata.id.into(),
+        })
     }
 
     pub async fn cleanup_metadata_with_associated_user_activities(&self) -> Result<()> {
@@ -1278,9 +1280,7 @@ impl MediaService {
             };
             let details = self.details_from_provider(lot, source, identifier).await?;
             let media_id = self.commit_media_internal(details).await?;
-            Ok(IdObject {
-                id: media_id.into(),
-            })
+            Ok(media_id)
         }
     }
 }

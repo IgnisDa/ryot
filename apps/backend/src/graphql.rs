@@ -6,17 +6,12 @@ use serde::{Deserialize, Serialize};
 use std::env;
 
 use crate::{
-    audio_books::resolver::{AudioBooksMutation, AudioBooksQuery},
-    books::resolver::{BooksMutation, BooksQuery},
     config::AppConfig,
     importer::{ImporterMutation, ImporterQuery},
     media::resolver::{MediaMutation, MediaQuery},
     misc::resolver::{MiscMutation, MiscQuery},
-    movies::resolver::{MoviesMutation, MoviesQuery},
-    podcasts::resolver::{PodcastsMutation, PodcastsQuery},
-    shows::resolver::{ShowsMutation, ShowsQuery},
+    podcasts::resolver::PodcastsMutation,
     utils::{AppServices, MemoryDb},
-    video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
     VERSION,
 };
 
@@ -72,27 +67,11 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(
-    CoreQuery,
-    BooksQuery,
-    MediaQuery,
-    MoviesQuery,
-    ShowsQuery,
-    VideoGamesQuery,
-    AudioBooksQuery,
-    MiscQuery,
-    ImporterQuery,
-    PodcastsQuery,
-);
+pub struct QueryRoot(CoreQuery, MediaQuery, MiscQuery, ImporterQuery);
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    BooksMutation,
     MediaMutation,
-    MoviesMutation,
-    ShowsMutation,
-    VideoGamesMutation,
-    AudioBooksMutation,
     MiscMutation,
     ImporterMutation,
     PodcastsMutation,

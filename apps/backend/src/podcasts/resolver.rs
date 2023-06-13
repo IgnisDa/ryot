@@ -19,36 +19,10 @@ use crate::{
 use super::listennotes::ListennotesService;
 
 #[derive(Default)]
-pub struct PodcastsQuery;
-
-#[Object]
-impl PodcastsQuery {
-    /// Search for a list of games by a particular search query and a given page.
-    async fn podcasts_search(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: SearchInput,
-    ) -> Result<MediaSearchResults> {
-        gql_ctx
-            .data_unchecked::<PodcastsService>()
-            .podcasts_search(&input.query, input.page)
-            .await
-    }
-}
-
-#[derive(Default)]
 pub struct PodcastsMutation;
 
 #[Object]
 impl PodcastsMutation {
-    /// Fetch details about a podcast and create a media item in the database.
-    async fn commit_podcast(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
-        gql_ctx
-            .data_unchecked::<PodcastsService>()
-            .commit_podcast(&identifier)
-            .await
-    }
-
     /// Load next 10 episodes of a podcast if they exist.
     async fn commit_next_10_podcast_episodes(
         &self,
@@ -84,26 +58,6 @@ impl PodcastsService {
 }
 
 impl PodcastsService {
-    // Get podcasts details from all sources
-    async fn podcasts_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let movies = self.listennotes_service.search(query, page).await?;
-        Ok(movies)
-    }
-
-    pub async fn commit_podcast(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Metadata::find()
-            .filter(metadata::Column::Identifier.eq(identifier))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.id.into() })
-        } else {
-            let details = self.listennotes_service.details(identifier).await?;
-            self.save_to_db(details).await
-        }
-    }
-
     pub async fn commit_next_10_podcast_episodes(&self, podcast_id: i32) -> Result<bool> {
         let podcast = Metadata::find_by_id(podcast_id)
             .one(&self.db)
@@ -149,34 +103,5 @@ impl PodcastsService {
             _ => unreachable!(),
         }
         Ok(true)
-    }
-
-    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let details = match metadata.source {
-            MetadataSource::Listennotes => {
-                self.listennotes_service
-                    .details(&metadata.identifier)
-                    .await?
-            }
-            MetadataSource::Custom => {
-                return Err(Error::new(
-                    "Getting details for custom provider is not supported".to_owned(),
-                ))
-            }
-            _ => unreachable!(),
-        };
-        Ok(details)
-    }
-
-    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
-        let metadata_id = self.media_service.commit_media_internal(details).await?;
-        Ok(IdObject {
-            id: metadata_id.into(),
-        })
     }
 }

@@ -13,38 +13,6 @@ use crate::{
 
 use super::tmdb::TmdbService;
 
-#[derive(Default)]
-pub struct ShowsQuery;
-
-#[Object]
-impl ShowsQuery {
-    /// Search for a list of show by a particular search query and a given page.
-    async fn show_search(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: SearchInput,
-    ) -> Result<MediaSearchResults> {
-        gql_ctx
-            .data_unchecked::<ShowsService>()
-            .show_search(&input.query, input.page)
-            .await
-    }
-}
-
-#[derive(Default)]
-pub struct ShowsMutation;
-
-#[Object]
-impl ShowsMutation {
-    /// Fetch details about a show and create a media item in the database.
-    async fn commit_show(&self, gql_ctx: &Context<'_>, identifier: String) -> Result<IdObject> {
-        gql_ctx
-            .data_unchecked::<ShowsService>()
-            .commit_show(&identifier)
-            .await
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ShowsService {
     db: DatabaseConnection,
@@ -66,49 +34,4 @@ impl ShowsService {
     }
 }
 
-impl ShowsService {
-    // Get show details from all sources
-    async fn show_search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let movies = self.tmdb_service.search(query, page).await?;
-        Ok(movies)
-    }
-
-    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let details = match metadata.source {
-            MetadataSource::Tmdb => self.tmdb_service.details(&metadata.identifier).await?,
-            MetadataSource::Custom => {
-                return Err(Error::new(
-                    "Getting details for custom provider is not supported".to_owned(),
-                ))
-            }
-            _ => unreachable!(),
-        };
-        Ok(details)
-    }
-
-    pub async fn commit_show(&self, identifier: &str) -> Result<IdObject> {
-        let meta = Metadata::find()
-            .filter(metadata::Column::Identifier.eq(identifier))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.id.into() })
-        } else {
-            let details = self.tmdb_service.details(identifier).await?;
-            self.save_to_db(details).await
-        }
-    }
-
-    pub async fn save_to_db(&self, details: MediaDetails) -> Result<IdObject> {
-        let metadata_id = self.media_service.commit_media_internal(details).await?;
-        Ok(IdObject {
-            id: metadata_id.into(),
-        })
-    }
-}
+impl ShowsService {}

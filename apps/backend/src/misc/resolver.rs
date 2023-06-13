@@ -1280,14 +1280,7 @@ impl MiscService {
             publish_date: None,
             specifics,
         };
-        let media = match input.lot {
-            MetadataLot::AudioBook => self.audio_books_service.save_to_db(details).await?,
-            MetadataLot::Book => self.books_service.save_to_db(details).await?,
-            MetadataLot::Movie => self.movies_service.save_to_db(details).await?,
-            MetadataLot::Podcast => self.podcasts_service.save_to_db(details).await?,
-            MetadataLot::Show => self.shows_service.save_to_db(details).await?,
-            MetadataLot::VideoGame => self.video_games_service.save_to_db(details).await?,
-        };
+        let media = self.media_service.commit_media_internal(details).await?;
         self.add_media_to_collection(
             user_id,
             AddMediaToCollection {

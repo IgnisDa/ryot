@@ -269,55 +269,15 @@ impl ImporterService {
                 "Importing media with identifier = {iden}",
                 iden = item.source_id
             );
-            let data = match item.lot {
-                MetadataLot::AudioBook => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.audio_books_service.commit_audio_book(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.audio_books_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Book => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.books_service.commit_book(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.books_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Podcast => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.podcasts_service.commit_podcast(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.podcasts_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Movie => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.movies_service.commit_movie(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.movies_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Show => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.shows_service.commit_show(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.shows_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::VideoGame => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.video_games_service.commit_video_game(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.video_games_service.save_to_db(*a.clone()).await
-                    }
-                },
+            let data = match &item.identifier {
+                ImportItemIdentifier::NeedsDetails(i) => {
+                    self.media_service
+                        .commit_media(item.lot, i.to_string())
+                        .await
+                }
+                ImportItemIdentifier::AlreadyFilled(a) => {
+                    self.media_service.commit_media_internal(*a.clone()).await
+                }
             };
             let metadata = match data {
                 Ok(r) => r,
