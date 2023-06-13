@@ -31,17 +31,11 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	AudioBooksSearchDocument,
-	BooksSearchDocument,
 	MediaFilter,
 	MediaListDocument,
+	MediaSearchDocument,
 	MediaSortBy,
 	MediaSortOrder,
-	MetadataLot,
-	MoviesSearchDocument,
-	PodcastsSearchDocument,
-	ShowsSearchDocument,
-	VideoGamesSearchDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconFilter,
@@ -139,59 +133,14 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
 			invariant(lot, "Lot must be defined");
-			return await match(lot)
-				.with(MetadataLot.Book, async () => {
-					const { booksSearch } = await gqlClient.request(BooksSearchDocument, {
-						input: {
-							query: debouncedQuery,
-							page: parseInt(activeSearchPage) || 1,
-						},
-					});
-					return booksSearch;
-				})
-				.with(MetadataLot.Movie, async () => {
-					const { moviesSearch } = await gqlClient.request(
-						MoviesSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
-					);
-					return moviesSearch;
-				})
-				.with(MetadataLot.Show, async () => {
-					const { showSearch } = await gqlClient.request(ShowsSearchDocument, {
-						input: { query, page: parseInt(activeSearchPage) || 1 },
-					});
-					return showSearch;
-				})
-				.with(MetadataLot.VideoGame, async () => {
-					const { videoGamesSearch } = await gqlClient.request(
-						VideoGamesSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
-					);
-					return videoGamesSearch;
-				})
-				.with(MetadataLot.AudioBook, async () => {
-					const { audioBooksSearch } = await gqlClient.request(
-						AudioBooksSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
-					);
-					return audioBooksSearch;
-				})
-				.with(MetadataLot.Podcast, async () => {
-					const { podcastsSearch } = await gqlClient.request(
-						PodcastsSearchDocument,
-						{
-							input: { query, page: parseInt(activeSearchPage) || 1 },
-						},
-					);
-					return podcastsSearch;
-				})
-				.exhaustive();
+			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
+				input: {
+					query: debouncedQuery,
+					page: parseInt(activeSearchPage) || 1,
+				},
+				lot,
+			});
+			return mediaSearch;
 		},
 		onSuccess: () => {
 			if (!activeSearchPage) setSearchPage("1");

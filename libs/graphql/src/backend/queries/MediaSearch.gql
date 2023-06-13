@@ -1,5 +1,5 @@
-query BooksSearch($input: SearchInput!) {
-  booksSearch(input: $input) {
+query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {
+  mediaSearch(lot: $lot, input: $input) {
     total
     nextPage
     items {
