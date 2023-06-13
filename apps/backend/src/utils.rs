@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{anyhow, Result as AnyhowResult};
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
@@ -248,6 +249,17 @@ pub mod tmdb {
         pub profile_path: Option<String>,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbImage {
+        pub file_path: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbImagesResponse {
+        pub backdrops: Vec<TmdbImage>,
+        pub posters: Vec<TmdbImage>,
+    }
+
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let path = env::temp_dir().join("tmdb-config.json");
         let client: Client = Config::new()
@@ -275,6 +287,25 @@ pub mod tmdb {
             data.images.secure_base_url
         };
         (client, image_url)
+    }
+
+    pub async fn save_all_images<'a>(
+        client: &'a Client,
+        identifier: &'a str,
+        images: &mut Vec<String>,
+    ) -> AnyhowResult<()> {
+        let mut rsp = client
+            .get(format!("movie/{}/images", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        for image in new_images.posters {
+            images.push(image.file_path);
+        }
+        for image in new_images.backdrops {
+            images.push(image.file_path);
+        }
+        Ok(())
     }
 }
 

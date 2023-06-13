@@ -16,7 +16,7 @@ use crate::{
     traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_string_to_date,
-        tmdb::{self, TmdbCredit},
+        tmdb::{self, save_all_images, TmdbCredit},
         NamedObject,
     },
 };
@@ -99,16 +99,12 @@ impl MediaProvider for TmdbService {
                 None
             }
         }));
-        let mut images = Vec::from_iter(data.poster_path.map(|p| MetadataImage {
-            url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
-            lot: MetadataImageLot::Poster,
-        }));
+        let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
-            images.push(MetadataImage {
-                url: MetadataImageUrl::Url(self.get_cover_image_url(&u)),
-                lot: MetadataImageLot::Backdrop,
-            });
+            image_ids.push(u);
         }
+        save_all_images(&self.client, identifier, &mut image_ids).await?;
+
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             lot: MetadataLot::Movie,
@@ -116,7 +112,14 @@ impl MediaProvider for TmdbService {
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             creators: Vec::from_iter(all_creators),
-            images,
+            images: image_ids
+                .into_iter()
+                .unique()
+                .map(|p| MetadataImage {
+                    url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect(),
             publish_year: convert_date_to_year(&data.release_date),
             publish_date: convert_string_to_date(&data.release_date),
             description: Some(data.overview),
