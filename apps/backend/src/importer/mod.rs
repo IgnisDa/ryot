@@ -172,14 +172,8 @@ impl ImporterMutation {
 #[derive(Debug, Clone)]
 pub struct ImporterService {
     db: DatabaseConnection,
-    audio_books_service: Arc<AudioBooksService>,
-    books_service: Arc<BooksService>,
     media_service: Arc<MediaService>,
     misc_service: Arc<MiscService>,
-    movies_service: Arc<MoviesService>,
-    shows_service: Arc<ShowsService>,
-    video_games_service: Arc<VideoGamesService>,
-    podcasts_service: Arc<PodcastsService>,
     import_media: SqliteStorage<ImportMedia>,
 }
 
@@ -187,26 +181,14 @@ impl ImporterService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
-        audio_books_service: &AudioBooksService,
-        books_service: &BooksService,
         media_service: &MediaService,
         misc_service: &MiscService,
-        movies_service: &MoviesService,
-        shows_service: &ShowsService,
-        video_games_service: &VideoGamesService,
-        podcasts_service: &PodcastsService,
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
             db: db.clone(),
-            audio_books_service: Arc::new(audio_books_service.clone()),
-            books_service: Arc::new(books_service.clone()),
             media_service: Arc::new(media_service.clone()),
             misc_service: Arc::new(misc_service.clone()),
-            movies_service: Arc::new(movies_service.clone()),
-            shows_service: Arc::new(shows_service.clone()),
-            video_games_service: Arc::new(video_games_service.clone()),
-            podcasts_service: Arc::new(podcasts_service.clone()),
             import_media: import_media.clone(),
         }
     }

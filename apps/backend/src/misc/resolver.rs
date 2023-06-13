@@ -541,12 +541,6 @@ pub struct MiscService {
     db: DatabaseConnection,
     scdb: MemoryDb,
     media_service: Arc<MediaService>,
-    audio_books_service: Arc<AudioBooksService>,
-    books_service: Arc<BooksService>,
-    movies_service: Arc<MoviesService>,
-    podcasts_service: Arc<PodcastsService>,
-    shows_service: Arc<ShowsService>,
-    video_games_service: Arc<VideoGamesService>,
     user_created: SqliteStorage<UserCreatedJob>,
 }
 
@@ -556,24 +550,12 @@ impl MiscService {
         db: &DatabaseConnection,
         scdb: &MemoryDb,
         media_service: &MediaService,
-        audio_books_service: &AudioBooksService,
-        books_service: &BooksService,
-        movies_service: &MoviesService,
-        podcasts_service: &PodcastsService,
-        shows_service: &ShowsService,
-        video_games_service: &VideoGamesService,
         user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
             media_service: Arc::new(media_service.clone()),
-            audio_books_service: Arc::new(audio_books_service.clone()),
-            books_service: Arc::new(books_service.clone()),
-            movies_service: Arc::new(movies_service.clone()),
-            podcasts_service: Arc::new(podcasts_service.clone()),
-            shows_service: Arc::new(shows_service.clone()),
-            video_games_service: Arc::new(video_games_service.clone()),
             user_created: user_created.clone(),
         }
     }

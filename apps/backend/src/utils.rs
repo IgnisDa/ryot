@@ -98,30 +98,9 @@ pub async fn create_app_services(
     let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
     let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
     let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
-    let misc_service = MiscService::new(
-        &db,
-        &scdb,
-        &media_service,
-        &audio_books_service,
-        &books_service,
-        &movies_service,
-        &podcasts_service,
-        &shows_service,
-        &video_games_service,
-        user_created_job,
-    );
-    let importer_service = ImporterService::new(
-        &db,
-        &audio_books_service,
-        &books_service,
-        &media_service,
-        &misc_service,
-        &movies_service,
-        &shows_service,
-        &video_games_service,
-        &podcasts_service,
-        import_media_job,
-    );
+    let misc_service = MiscService::new(&db, &scdb, &media_service, user_created_job);
+    let importer_service =
+        ImporterService::new(&db, &media_service, &misc_service, import_media_job);
     AppServices {
         media_service,
         openlibrary_service,
