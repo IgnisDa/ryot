@@ -16,7 +16,7 @@ use sea_orm::{
 };
 use sea_query::{
     Alias, Cond, Expr, Func, MySqlQueryBuilder, NullOrdering, OrderedStatement,
-    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder,
+    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -354,10 +354,23 @@ pub struct MediaSearchItem {
     pub publish_year: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct MediaSearchItemResponse {
+    pub item: MediaSearchItem,
+    pub database_id: Option<Identifier>,
+}
+
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct MediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItem>,
+    pub next_page: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+pub struct DetailedMediaSearchResults {
+    pub total: i32,
+    pub items: Vec<MediaSearchItemResponse>,
     pub next_page: Option<i32>,
 }
 
@@ -602,7 +615,7 @@ impl MediaQuery {
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
         input: SearchInput,
-    ) -> Result<MediaSearchResults> {
+    ) -> Result<DetailedMediaSearchResults> {
         gql_ctx
             .data_unchecked::<MediaService>()
             .media_search(lot, input)
@@ -1086,7 +1099,6 @@ impl MediaService {
             #[iden = "m"]
             Alias,
             Id,
-            MetadataId,
             Lot,
         }
         #[derive(Iden)]
@@ -1704,7 +1716,7 @@ impl MediaService {
         &self,
         lot: MetadataLot,
         input: SearchInput,
-    ) -> Result<MediaSearchResults> {
+    ) -> Result<DetailedMediaSearchResults> {
         let service: ProviderBox = match lot {
             MetadataLot::Book => Box::new(&self.openlibrary_service),
             MetadataLot::AudioBook => Box::new(&self.audible_service),
@@ -1714,6 +1726,83 @@ impl MediaService {
             MetadataLot::VideoGame => Box::new(&self.igdb_service),
         };
         let results = service.search(&input.query, input.page).await?;
+        let mut all_idens = results
+            .items
+            .iter()
+            .map(|i| i.identifier.to_owned())
+            .collect::<Vec<_>>();
+        #[derive(Iden)]
+        #[iden = "identifiers"]
+        enum TempIdentifiers {
+            #[iden = "identifiers"]
+            Alias,
+            Identifier,
+        }
+        #[derive(Iden)]
+        #[iden = "metadata"]
+        enum TempMetadata {
+            Table,
+            #[iden = "m"]
+            Alias,
+            Id,
+            Lot,
+            Identifier,
+        }
+        let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
+        let mut subquery = Query::select()
+            .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
+            .to_owned();
+        for identifier in all_idens {
+            subquery = subquery
+                .union(
+                    UnionType::All,
+                    Query::select().expr(Expr::val(identifier)).to_owned(),
+                )
+                .to_owned();
+        }
+        let identifiers_query = Query::select()
+            .expr_as(
+                Expr::case(
+                    Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                        .is_not_null()
+                        .and(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(lot)),
+                    Expr::col((TempMetadata::Alias, TempMetadata::Id)),
+                )
+                .finally(Expr::cust("NULL")),
+                TempMetadata::Id,
+            )
+            .from_subquery(subquery, TempIdentifiers::Alias)
+            .join_as(
+                JoinType::LeftJoin,
+                TempMetadata::Table,
+                TempMetadata::Alias,
+                Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
+                    .equals((TempMetadata::Alias, TempMetadata::Identifier)),
+            )
+            .to_owned();
+        let stmt = self.get_db_stmt(identifiers_query);
+        #[derive(Debug, FromQueryResult)]
+        struct DbResponse {
+            id: Option<i32>,
+        }
+        let identifiers: Vec<DbResponse> = self
+            .db
+            .query_all(stmt)
+            .await?
+            .iter()
+            .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
+            .collect();
+        let data = std::iter::zip(results.items, identifiers)
+            .map(|(i, iden)| MediaSearchItemResponse {
+                item: i,
+                database_id: iden.id.map(Identifier::from),
+            })
+            .collect::<Vec<_>>();
+        let results = DetailedMediaSearchResults {
+            total: results.total,
+            items: data,
+            next_page: results.next_page,
+        };
         Ok(results)
     }
 
