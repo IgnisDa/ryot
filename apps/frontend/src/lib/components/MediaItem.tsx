@@ -180,6 +180,7 @@ export default function (props: {
 							input: { collectionName: "Watchlist", mediaId: id },
 						});
 					}}
+					disabled={addMediaToCollection.isLoading}
 				>
 					Add to Watchlist
 				</Button>
