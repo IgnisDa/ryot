@@ -4,9 +4,6 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-
-
-pub mod resolver;
 pub mod tmdb;
 
 #[derive(

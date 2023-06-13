@@ -21,9 +21,9 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::{resolver::AudioBooksService, AudioBookSpecifics},
+    audio_books::AudioBookSpecifics,
     background::UserCreatedJob,
-    books::{resolver::BooksService, BookSpecifics},
+    books::BookSpecifics,
     config::AppConfig,
     entities::{
         collection, media_import_report, metadata, metadata_to_collection,
@@ -42,11 +42,11 @@ use crate::{
     migrator::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
-    movies::{resolver::MoviesService, MovieSpecifics},
-    podcasts::{resolver::PodcastsService, PodcastSpecifics},
-    shows::{resolver::ShowsService, ShowSpecifics},
+    movies::MovieSpecifics,
+    podcasts::PodcastSpecifics,
+    shows::ShowSpecifics,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::{resolver::VideoGamesService, VideoGameSpecifics},
+    video_games::VideoGameSpecifics,
 };
 
 use super::DefaultCollection;

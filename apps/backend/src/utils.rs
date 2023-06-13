@@ -19,24 +19,21 @@ use surf::{
 use tokio::task::JoinSet;
 
 use crate::audio_books::audible::AudibleService;
-use crate::audio_books::resolver::AudioBooksService;
+
 use crate::background::{
     AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
 };
 use crate::books::openlibrary::OpenlibraryService;
-use crate::books::resolver::BooksService;
 use crate::config::AppConfig;
 use crate::entities::user_to_metadata;
 use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
 use crate::misc::resolver::MiscService;
-use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbService};
+use crate::movies::tmdb::TmdbService as MovieTmdbService;
 use crate::podcasts::listennotes::ListennotesService;
-use crate::podcasts::resolver::PodcastsService;
-use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
+use crate::shows::tmdb::TmdbService as ShowTmdbService;
 use crate::video_games::igdb::IgdbService;
-use crate::video_games::resolver::VideoGamesService;
 use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;
@@ -45,18 +42,12 @@ pub type MemoryDb = Arc<Mutex<Store>>;
 pub struct AppServices {
     pub media_service: MediaService,
     pub openlibrary_service: OpenlibraryService,
-    pub books_service: BooksService,
     pub tmdb_movies_service: MovieTmdbService,
-    pub movies_service: MoviesService,
     pub tmdb_shows_service: ShowTmdbService,
-    pub shows_service: ShowsService,
     pub audible_service: AudibleService,
-    pub audio_books_service: AudioBooksService,
     pub igdb_service: IgdbService,
-    pub video_games_service: VideoGamesService,
     pub misc_service: MiscService,
     pub importer_service: ImporterService,
-    pub podcasts_service: PodcastsService,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -92,30 +83,18 @@ pub async fn create_app_services(
         update_metadata_job,
         recalculate_user_summary_job,
     );
-    let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
-    let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
-    let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
-    let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
-    let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
-    let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
     let misc_service = MiscService::new(&db, &scdb, &media_service, user_created_job);
     let importer_service =
         ImporterService::new(&db, &media_service, &misc_service, import_media_job);
     AppServices {
         media_service,
         openlibrary_service,
-        books_service,
         tmdb_movies_service,
-        movies_service,
         tmdb_shows_service,
-        shows_service,
         audible_service,
-        audio_books_service,
         igdb_service,
-        video_games_service,
         misc_service,
         importer_service,
-        podcasts_service,
     }
 }
 

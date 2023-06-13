@@ -11,9 +11,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    audio_books::resolver::AudioBooksService,
     background::ImportMedia,
-    books::resolver::BooksService,
     entities::{media_import_report, prelude::MediaImportReport},
     media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
     migrator::{MediaImportSource, MetadataLot},
@@ -21,11 +19,7 @@ use crate::{
         resolver::{AddMediaToCollection, MiscService, PostReviewInput},
         DefaultCollection,
     },
-    movies::resolver::MoviesService,
-    podcasts::resolver::PodcastsService,
-    shows::resolver::ShowsService,
     utils::user_id_from_ctx,
-    video_games::resolver::VideoGamesService,
 };
 
 mod goodreads;
