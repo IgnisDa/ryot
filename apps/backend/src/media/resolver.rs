@@ -44,6 +44,8 @@ use super::{
     MetadataImages,
 };
 
+type ProviderBox<'a> = Box<&'a (dyn MediaProvider + Send + Sync)>;
+
 #[derive(SimpleObject)]
 pub struct MetadataCoreFeatureEnabled {
     name: MetadataLot,
@@ -1206,7 +1208,7 @@ impl MediaService {
         lot: MetadataLot,
         input: SearchInput,
     ) -> Result<MediaSearchResults> {
-        let service: Box<&(dyn MediaProvider + Send + Sync)> = match lot {
+        let service: ProviderBox = match lot {
             MetadataLot::Book => Box::new(&self.openlibrary_service),
             MetadataLot::AudioBook => Box::new(&self.audible_service),
             MetadataLot::Podcast => Box::new(&self.listennotes_service),
@@ -1215,6 +1217,30 @@ impl MediaService {
             MetadataLot::VideoGame => Box::new(&self.igdb_service),
         };
         let results = service.search(&input.query, input.page).await?;
+        Ok(results)
+    }
+
+    pub async fn details_from_provider(&self, metadata_id: i32) -> Result<MediaDetails> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let service: ProviderBox = match metadata.source {
+            MetadataSource::Openlibrary => Box::new(&self.openlibrary_service),
+            MetadataSource::Audible => Box::new(&self.audible_service),
+            MetadataSource::Listennotes => Box::new(&self.listennotes_service),
+            MetadataSource::Tmdb => match metadata.lot {
+                MetadataLot::Show => Box::new(&self.tmdb_shows_service),
+                MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
+                _ => unreachable!(),
+            },
+            MetadataSource::Igdb => Box::new(&self.igdb_service),
+            MetadataSource::Custom | MetadataSource::Goodreads => {
+                return Err(Error::new("This source is not supported".to_owned()));
+            }
+        };
+        let results = service.details(&metadata.identifier).await?;
         Ok(results)
     }
 }
