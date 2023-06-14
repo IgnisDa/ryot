@@ -43,6 +43,7 @@ pub struct AppServices {
     pub tmdb_shows_service: Arc<ShowTmdbService>,
     pub audible_service: Arc<AudibleService>,
     pub igdb_service: Arc<IgdbService>,
+    pub listennotes_service: Arc<ListennotesService>,
     pub importer_service: Arc<ImporterService>,
 }
 
@@ -89,6 +90,7 @@ pub async fn create_app_services(
         tmdb_shows_service,
         audible_service,
         igdb_service,
+        listennotes_service,
         importer_service,
     }
 }
