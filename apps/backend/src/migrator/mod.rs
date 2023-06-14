@@ -10,6 +10,7 @@ mod m20230505_000006_create_review;
 mod m20230507_000007_create_collection;
 mod m20230509_000008_create_media_import_report;
 mod m20230612_000009_add_dropped_field;
+mod m20230614_000010_add_user_preferences_field;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -33,6 +34,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230507_000007_create_collection::Migration),
             Box::new(m20230509_000008_create_media_import_report::Migration),
             Box::new(m20230612_000009_add_dropped_field::Migration),
+            Box::new(m20230614_000010_add_user_preferences_field::Migration),
         ]
     }
 }
