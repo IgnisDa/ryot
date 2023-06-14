@@ -1,5 +1,0 @@
-mutation CommitBook($identifier: String!) {
-  commitBook(identifier: $identifier) {
-    id
-  }
-}

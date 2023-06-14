@@ -11,21 +11,17 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    audio_books::resolver::AudioBooksService,
     background::ImportMedia,
-    books::resolver::BooksService,
     entities::{media_import_report, prelude::MediaImportReport},
-    media::resolver::{MediaDetails, MediaService, ProgressUpdate, ProgressUpdateAction},
-    migrator::{MediaImportSource, MetadataLot},
-    misc::{
-        resolver::{AddMediaToCollection, MiscService, PostReviewInput},
+    media::{
+        resolver::{
+            AddMediaToCollection, MediaDetails, MediaService, PostReviewInput, ProgressUpdate,
+            ProgressUpdateAction,
+        },
         DefaultCollection,
     },
-    movies::resolver::MoviesService,
-    podcasts::resolver::PodcastsService,
-    shows::resolver::ShowsService,
+    migrator::{MediaImportSource, MetadataLot},
     utils::user_id_from_ctx,
-    video_games::resolver::VideoGamesService,
 };
 
 mod goodreads;
@@ -172,14 +168,7 @@ impl ImporterMutation {
 #[derive(Debug, Clone)]
 pub struct ImporterService {
     db: DatabaseConnection,
-    audio_books_service: Arc<AudioBooksService>,
-    books_service: Arc<BooksService>,
     media_service: Arc<MediaService>,
-    misc_service: Arc<MiscService>,
-    movies_service: Arc<MoviesService>,
-    shows_service: Arc<ShowsService>,
-    video_games_service: Arc<VideoGamesService>,
-    podcasts_service: Arc<PodcastsService>,
     import_media: SqliteStorage<ImportMedia>,
 }
 
@@ -187,26 +176,12 @@ impl ImporterService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
-        audio_books_service: &AudioBooksService,
-        books_service: &BooksService,
         media_service: &MediaService,
-        misc_service: &MiscService,
-        movies_service: &MoviesService,
-        shows_service: &ShowsService,
-        video_games_service: &VideoGamesService,
-        podcasts_service: &PodcastsService,
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
             db: db.clone(),
-            audio_books_service: Arc::new(audio_books_service.clone()),
-            books_service: Arc::new(books_service.clone()),
             media_service: Arc::new(media_service.clone()),
-            misc_service: Arc::new(misc_service.clone()),
-            movies_service: Arc::new(movies_service.clone()),
-            shows_service: Arc::new(shows_service.clone()),
-            video_games_service: Arc::new(video_games_service.clone()),
-            podcasts_service: Arc::new(podcasts_service.clone()),
             import_media: import_media.clone(),
         }
     }
@@ -250,12 +225,12 @@ impl ImporterService {
         &self,
         user_id: i32,
     ) -> Result<Vec<media_import_report::Model>> {
-        self.misc_service.media_import_reports(user_id).await
+        self.media_service.media_import_reports(user_id).await
     }
 
     pub async fn import_from_source(&self, user_id: i32, input: DeployImportInput) -> Result<()> {
         let db_import_job = self
-            .misc_service
+            .media_service
             .start_import_job(user_id, input.source)
             .await?;
         let mut import = match input.source {
@@ -269,55 +244,15 @@ impl ImporterService {
                 "Importing media with identifier = {iden}",
                 iden = item.source_id
             );
-            let data = match item.lot {
-                MetadataLot::AudioBook => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.audio_books_service.commit_audio_book(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.audio_books_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Book => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.books_service.commit_book(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.books_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Podcast => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.podcasts_service.commit_podcast(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.podcasts_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Movie => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.movies_service.commit_movie(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.movies_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::Show => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.shows_service.commit_show(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.shows_service.save_to_db(*a.clone()).await
-                    }
-                },
-                MetadataLot::VideoGame => match &item.identifier {
-                    ImportItemIdentifier::NeedsDetails(i) => {
-                        self.video_games_service.commit_video_game(i).await
-                    }
-                    ImportItemIdentifier::AlreadyFilled(a) => {
-                        self.video_games_service.save_to_db(*a.clone()).await
-                    }
-                },
+            let data = match &item.identifier {
+                ImportItemIdentifier::NeedsDetails(i) => {
+                    self.media_service
+                        .commit_media(item.lot, i.to_string())
+                        .await
+                }
+                ImportItemIdentifier::AlreadyFilled(a) => {
+                    self.media_service.commit_media_internal(*a.clone()).await
+                }
             };
             let metadata = match data {
                 Ok(r) => r,
@@ -353,7 +288,7 @@ impl ImporterService {
                 let text = review.review.clone().map(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);
-                self.misc_service
+                self.media_service
                     .post_review(
                         &user_id,
                         PostReviewInput {
@@ -372,7 +307,7 @@ impl ImporterService {
                     .await?;
             }
             for col in item.default_collections.iter() {
-                self.misc_service
+                self.media_service
                     .add_media_to_collection(
                         &user_id,
                         AddMediaToCollection {
@@ -407,7 +342,7 @@ impl ImporterService {
             },
             failed_items: import.failed_items,
         };
-        self.misc_service
+        self.media_service
             .finish_import_job(db_import_job, details)
             .await?;
         Ok(())

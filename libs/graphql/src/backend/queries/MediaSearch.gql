@@ -1,0 +1,15 @@
+query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {
+  mediaSearch(lot: $lot, input: $input) {
+    total
+    nextPage
+    items {
+      databaseId
+      item {
+        identifier
+        title
+        images
+        publishYear
+      }
+    }
+  }
+}

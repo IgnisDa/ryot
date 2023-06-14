@@ -17,7 +17,7 @@ use crate::{
     traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_string_to_date,
-        tmdb::{self, TmdbCredit},
+        tmdb::{self, save_all_images, TmdbCredit},
         NamedObject,
     },
 };
@@ -61,16 +61,12 @@ impl MediaProvider for TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut images = Vec::from_iter(data.poster_path.map(|p| MetadataImage {
-            url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
-            lot: MetadataImageLot::Poster,
-        }));
+        let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
-            images.push(MetadataImage {
-                url: MetadataImageUrl::Url(self.get_cover_image_url(&u)),
-                lot: MetadataImageLot::Backdrop,
-            });
+            image_ids.push(u);
         }
+        save_all_images(&self.client, "tv", identifier, &mut image_ids).await?;
+
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
             id: i32,
@@ -166,7 +162,14 @@ impl MediaProvider for TmdbService {
             creators: author_names,
             genres: data.genres.into_iter().map(|g| g.name).unique().collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
-            images,
+            images: image_ids
+                .into_iter()
+                .unique()
+                .map(|p| MetadataImage {
+                    url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect(),
             publish_year: convert_date_to_year(&data.first_air_date.unwrap_or_default()),
             specifics: MediaSpecifics::Show(ShowSpecifics {
                 seasons: seasons

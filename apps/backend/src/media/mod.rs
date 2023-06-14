@@ -1,6 +1,7 @@
 use async_graphql::SimpleObject;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter};
 
 use crate::{
     audio_books::AudioBookSpecifics, books::BookSpecifics, migrator::MetadataImageLot,
@@ -70,3 +71,11 @@ pub struct MetadataCreator {
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
 )]
 pub struct MetadataCreators(pub Vec<MetadataCreator>);
+
+#[derive(Display, Debug, EnumIter)]
+pub enum DefaultCollection {
+    Custom,
+    #[strum(serialize = "In Progress")]
+    InProgress,
+    Watchlist,
+}

@@ -1,18 +1,12 @@
 import { gqlClient } from "../services/api";
 import {
-	CommitAudioBookDocument,
-	CommitBookDocument,
-	type CommitBookMutationVariables,
-	CommitMovieDocument,
-	CommitPodcastDocument,
-	CommitShowDocument,
-	CommitVideoGameDocument,
+	CommitMediaDocument,
+	type CommitMediaMutationVariables,
 	MetadataLot,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
 
 export function useUser() {
 	const userDetails = useQuery({
@@ -30,52 +24,13 @@ export function useCommitMedia(
 	onSuccess?: (id: any) => void,
 ) {
 	const commitMedia = useMutation({
-		mutationFn: async (variables: CommitBookMutationVariables) => {
+		mutationFn: async (variables: CommitMediaMutationVariables) => {
 			invariant(lot, "Lot must be defined");
-			return await match(lot)
-				.with(MetadataLot.AudioBook, async () => {
-					const { commitAudioBook } = await gqlClient.request(
-						CommitAudioBookDocument,
-						variables,
-					);
-					return commitAudioBook;
-				})
-				.with(MetadataLot.Book, async () => {
-					const { commitBook } = await gqlClient.request(
-						CommitBookDocument,
-						variables,
-					);
-					return commitBook;
-				})
-				.with(MetadataLot.Movie, async () => {
-					const { commitMovie } = await gqlClient.request(
-						CommitMovieDocument,
-						variables,
-					);
-					return commitMovie;
-				})
-				.with(MetadataLot.Podcast, async () => {
-					const { commitPodcast } = await gqlClient.request(
-						CommitPodcastDocument,
-						variables,
-					);
-					return commitPodcast;
-				})
-				.with(MetadataLot.Show, async () => {
-					const { commitShow } = await gqlClient.request(
-						CommitShowDocument,
-						variables,
-					);
-					return commitShow;
-				})
-				.with(MetadataLot.VideoGame, async () => {
-					const { commitVideoGame } = await gqlClient.request(
-						CommitVideoGameDocument,
-						variables,
-					);
-					return commitVideoGame;
-				})
-				.exhaustive();
+			const { commitMedia } = await gqlClient.request(
+				CommitMediaDocument,
+				variables,
+			);
+			return commitMedia;
 		},
 		onSuccess: (data) => {
 			if (onSuccess) onSuccess(data.id);

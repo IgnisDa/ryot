@@ -6,17 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::env;
 
 use crate::{
-    audio_books::resolver::{AudioBooksMutation, AudioBooksQuery},
-    books::resolver::{BooksMutation, BooksQuery},
     config::AppConfig,
     importer::{ImporterMutation, ImporterQuery},
     media::resolver::{MediaMutation, MediaQuery},
-    misc::resolver::{MiscMutation, MiscQuery},
-    movies::resolver::{MoviesMutation, MoviesQuery},
-    podcasts::resolver::{PodcastsMutation, PodcastsQuery},
-    shows::resolver::{ShowsMutation, ShowsQuery},
     utils::{AppServices, MemoryDb},
-    video_games::resolver::{VideoGamesMutation, VideoGamesQuery},
     VERSION,
 };
 
@@ -72,31 +65,10 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(
-    CoreQuery,
-    BooksQuery,
-    MediaQuery,
-    MoviesQuery,
-    ShowsQuery,
-    VideoGamesQuery,
-    AudioBooksQuery,
-    MiscQuery,
-    ImporterQuery,
-    PodcastsQuery,
-);
+pub struct QueryRoot(CoreQuery, MediaQuery, ImporterQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(
-    BooksMutation,
-    MediaMutation,
-    MoviesMutation,
-    ShowsMutation,
-    VideoGamesMutation,
-    AudioBooksMutation,
-    MiscMutation,
-    ImporterMutation,
-    PodcastsMutation,
-);
+pub struct MutationRoot(MediaMutation, ImporterMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
@@ -114,14 +86,7 @@ pub async fn get_schema(
     .data(config.to_owned())
     .data(db)
     .data(scdb)
-    .data(app_services.books_service.clone())
     .data(app_services.media_service.clone())
-    .data(app_services.movies_service.clone())
-    .data(app_services.shows_service.clone())
-    .data(app_services.video_games_service.clone())
-    .data(app_services.audio_books_service.clone())
-    .data(app_services.misc_service.clone())
     .data(app_services.importer_service.clone())
-    .data(app_services.podcasts_service.clone())
     .finish()
 }

@@ -1,5 +1,0 @@
-mutation CommitPodcast($identifier: String!) {
-  commitPodcast(identifier: $identifier) {
-    id
-  }
-}

@@ -6,12 +6,11 @@ use crate::{
     entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
-    media::resolver::MediaService,
-    migrator::MetadataLot,
-    misc::{
-        resolver::{AddMediaToCollection, MiscService},
+    media::{
+        resolver::{AddMediaToCollection, MediaService},
         DefaultCollection,
     },
+    migrator::MetadataLot,
 };
 
 // Cron Jobs
@@ -59,7 +58,7 @@ pub async fn general_user_cleanup(
         .await
         .unwrap();
     tracing::info!("Removing old user summaries and regenerating them");
-    ctx.data::<MiscService>()
+    ctx.data::<MediaService>()
         .unwrap()
         .regenerate_user_summaries()
         .await
@@ -103,7 +102,7 @@ pub async fn user_created_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Running jobs after user creation");
-    let service = ctx.data::<MiscService>().unwrap();
+    let service = ctx.data::<MediaService>().unwrap();
     service
         .user_created_job(&information.user_id.into())
         .await
@@ -137,9 +136,9 @@ pub async fn after_media_seen_job(
         "Running jobs after media item seen {:?}",
         information.seen.id
     );
-    let misc_service = ctx.data::<MiscService>().unwrap();
+    let media_service = ctx.data::<MediaService>().unwrap();
     if information.seen.dropped {
-        misc_service
+        media_service
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
@@ -147,7 +146,7 @@ pub async fn after_media_seen_job(
             )
             .await
             .ok();
-        misc_service
+        media_service
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
@@ -158,7 +157,7 @@ pub async fn after_media_seen_job(
     } else if matches!(information.metadata_lot, MetadataLot::Show,)
         || matches!(information.metadata_lot, MetadataLot::Podcast)
     {
-        misc_service
+        media_service
             .add_media_to_collection(
                 &information.seen.user_id,
                 AddMediaToCollection {
@@ -169,7 +168,7 @@ pub async fn after_media_seen_job(
             .await
             .ok();
     } else if information.seen.progress == 100 {
-        misc_service
+        media_service
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
@@ -177,7 +176,7 @@ pub async fn after_media_seen_job(
             )
             .await
             .ok();
-        misc_service
+        media_service
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
@@ -186,7 +185,7 @@ pub async fn after_media_seen_job(
             .await
             .ok();
     } else {
-        misc_service
+        media_service
             .add_media_to_collection(
                 &information.seen.user_id,
                 AddMediaToCollection {
@@ -214,7 +213,7 @@ pub async fn recalculate_user_summary_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Calculating summary for user {:?}", information.user_id);
-    ctx.data::<MiscService>()
+    ctx.data::<MediaService>()
         .unwrap()
         .calculate_user_summary(&information.user_id.into())
         .await
@@ -235,7 +234,7 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    ctx.data::<MiscService>()
+    ctx.data::<MediaService>()
         .unwrap()
         .update_metadata(information.metadata)
         .await

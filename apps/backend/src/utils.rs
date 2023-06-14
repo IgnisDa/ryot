@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{anyhow, Result as AnyhowResult};
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
@@ -18,24 +19,20 @@ use surf::{
 use tokio::task::JoinSet;
 
 use crate::audio_books::audible::AudibleService;
-use crate::audio_books::resolver::AudioBooksService;
+
 use crate::background::{
     AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
 };
 use crate::books::openlibrary::OpenlibraryService;
-use crate::books::resolver::BooksService;
 use crate::config::AppConfig;
 use crate::entities::user_to_metadata;
 use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
-use crate::misc::resolver::MiscService;
-use crate::movies::{resolver::MoviesService, tmdb::TmdbService as MovieTmdbService};
+use crate::movies::tmdb::TmdbService as MovieTmdbService;
 use crate::podcasts::listennotes::ListennotesService;
-use crate::podcasts::resolver::PodcastsService;
-use crate::shows::{resolver::ShowsService, tmdb::TmdbService as ShowTmdbService};
+use crate::shows::tmdb::TmdbService as ShowTmdbService;
 use crate::video_games::igdb::IgdbService;
-use crate::video_games::resolver::VideoGamesService;
 use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;
@@ -44,18 +41,11 @@ pub type MemoryDb = Arc<Mutex<Store>>;
 pub struct AppServices {
     pub media_service: MediaService,
     pub openlibrary_service: OpenlibraryService,
-    pub books_service: BooksService,
     pub tmdb_movies_service: MovieTmdbService,
-    pub movies_service: MoviesService,
     pub tmdb_shows_service: ShowTmdbService,
-    pub shows_service: ShowsService,
     pub audible_service: AudibleService,
-    pub audio_books_service: AudioBooksService,
     pub igdb_service: IgdbService,
-    pub video_games_service: VideoGamesService,
-    pub misc_service: MiscService,
     pub importer_service: ImporterService,
-    pub podcasts_service: PodcastsService,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -70,65 +60,38 @@ pub async fn create_app_services(
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
+    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
+    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
+    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
+    let audible_service = AudibleService::new(&config.audio_books.audible);
+    let igdb_service = IgdbService::new(&config.video_games).await;
+    let listennotes_service = ListennotesService::new(&config.podcasts).await;
+
     let media_service = MediaService::new(
         &db,
+        &scdb,
         &s3_client,
         &config.file_storage.s3_bucket_name,
+        &audible_service,
+        &igdb_service,
+        &listennotes_service,
+        &openlibrary_service,
+        &tmdb_movies_service,
+        &tmdb_shows_service,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
-    );
-    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
-    let books_service = BooksService::new(&db, &openlibrary_service, &media_service);
-    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
-    let movies_service = MoviesService::new(&db, &tmdb_movies_service, &media_service);
-    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
-    let shows_service = ShowsService::new(&db, &tmdb_shows_service, &media_service);
-    let audible_service = AudibleService::new(&config.audio_books.audible);
-    let audio_books_service = AudioBooksService::new(&db, &audible_service, &media_service);
-    let igdb_service = IgdbService::new(&config.video_games).await;
-    let video_games_service = VideoGamesService::new(&db, &igdb_service, &media_service);
-    let listennotes_service = ListennotesService::new(&config.podcasts).await;
-    let podcasts_service = PodcastsService::new(&db, &listennotes_service, &media_service);
-    let misc_service = MiscService::new(
-        &db,
-        &scdb,
-        &media_service,
-        &audio_books_service,
-        &books_service,
-        &movies_service,
-        &podcasts_service,
-        &shows_service,
-        &video_games_service,
         user_created_job,
     );
-    let importer_service = ImporterService::new(
-        &db,
-        &audio_books_service,
-        &books_service,
-        &media_service,
-        &misc_service,
-        &movies_service,
-        &shows_service,
-        &video_games_service,
-        &podcasts_service,
-        import_media_job,
-    );
+    let importer_service = ImporterService::new(&db, &media_service, import_media_job);
     AppServices {
         media_service,
         openlibrary_service,
-        books_service,
         tmdb_movies_service,
-        movies_service,
         tmdb_shows_service,
-        shows_service,
         audible_service,
-        audio_books_service,
         igdb_service,
-        video_games_service,
-        misc_service,
         importer_service,
-        podcasts_service,
     }
 }
 
@@ -241,6 +204,17 @@ pub mod tmdb {
         pub profile_path: Option<String>,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbImage {
+        pub file_path: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbImagesResponse {
+        pub backdrops: Option<Vec<TmdbImage>>,
+        pub posters: Option<Vec<TmdbImage>>,
+    }
+
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let path = env::temp_dir().join("tmdb-config.json");
         let client: Client = Config::new()
@@ -268,6 +242,30 @@ pub mod tmdb {
             data.images.secure_base_url
         };
         (client, image_url)
+    }
+
+    pub async fn save_all_images(
+        client: &Client,
+        typ: &str,
+        identifier: &str,
+        images: &mut Vec<String>,
+    ) -> AnyhowResult<()> {
+        let mut rsp = client
+            .get(format!("{}/{}/images", typ, identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        if let Some(imgs) = new_images.posters {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        Ok(())
     }
 }
 

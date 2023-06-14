@@ -41,7 +41,7 @@ Ryot translates Goodreads shelves in the following manner:
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
 - Ryot creates a report when an import is complete, but does not provide a UI
-  to view this information ((yet)[https://github.com/IgnisDa/ryot/issues/27]).
+  to view this information ([yet](https://github.com/IgnisDa/ryot/issues/27)).
   Once an import is complete, you can run the following SQL query in the connected
   database to get more information about which items failed and why.
 

@@ -25,14 +25,10 @@ export default function ({
 				})}
 			>
 				{posterImages.length > 0 ? (
-					<Carousel
-						withIndicators={posterImages.length > 1}
-						withControls={posterImages.length > 1}
-						w={300}
-					>
-						{[...posterImages, ...backdropImages].map((i) => (
-							<Carousel.Slide key={i}>
-								<Image src={i} radius={"lg"} />
+					<Carousel withIndicators={posterImages.length > 1} w={300}>
+						{[...posterImages, ...backdropImages].map((url, idx) => (
+							<Carousel.Slide key={url} data-image-idx={idx}>
+								<Image src={url} radius={"lg"} />
 							</Carousel.Slide>
 						))}
 					</Carousel>
