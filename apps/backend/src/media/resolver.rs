@@ -23,9 +23,9 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::{audible::AudibleService, AudioBookSpecifics},
+    audio_books::audible::AudibleService,
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
-    books::{openlibrary::OpenlibraryService, BookSpecifics},
+    books::openlibrary::OpenlibraryService,
     config::{AppConfig, IsFeatureEnabled},
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
@@ -43,12 +43,12 @@ use crate::{
     migrator::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
-    movies::{tmdb::TmdbService as MovieTmdbService, MovieSpecifics},
-    podcasts::{listennotes::ListennotesService, PodcastSpecifics},
-    shows::{tmdb::TmdbService as ShowTmdbService, ShowSpecifics},
+    movies::tmdb::TmdbService as MovieTmdbService,
+    podcasts::listennotes::ListennotesService,
+    shows::tmdb::TmdbService as ShowTmdbService,
     traits::MediaProvider,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::{igdb::IgdbService, VideoGameSpecifics},
+    video_games::igdb::IgdbService,
 };
 
 use super::{
@@ -59,6 +59,158 @@ use super::{
 type ProviderBox<'a> = Box<&'a (dyn MediaProvider + Send + Sync)>;
 
 pub static COOKIE_NAME: &str = "auth";
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
+)]
+#[graphql(input_name = "AudioBookSpecificsInput")]
+pub struct AudioBookSpecifics {
+    pub runtime: Option<i32>,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
+)]
+#[graphql(input_name = "BookSpecificsInput")]
+pub struct BookSpecifics {
+    pub pages: Option<i32>,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
+)]
+#[graphql(input_name = "MovieSpecificsInput")]
+pub struct MovieSpecifics {
+    pub runtime: Option<i32>,
+}
+
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    InputObject,
+)]
+#[graphql(input_name = "PodcastSpecificsInput")]
+pub struct PodcastSpecifics {
+    pub episodes: Vec<PodcastEpisode>,
+    pub total_episodes: i32,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "PodcastEpisodeInput")]
+pub struct PodcastEpisode {
+    #[serde(default)]
+    pub number: i32,
+    pub id: String,
+    #[serde(rename = "audio_length_sec")]
+    pub runtime: Option<i32>,
+    #[serde(rename = "description")]
+    pub overview: Option<String>,
+    pub title: String,
+    #[serde(rename = "pub_date_ms")]
+    pub publish_date: i64,
+    pub thumbnail: Option<String>,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "ShowSpecificsInput")]
+pub struct ShowSpecifics {
+    pub seasons: Vec<ShowSeason>,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    Hash,
+    InputObject,
+)]
+#[graphql(input_name = "ShowSeasonSpecificsInput")]
+pub struct ShowSeason {
+    pub id: i32,
+    pub season_number: i32,
+    pub name: String,
+    pub publish_date: Option<NaiveDate>,
+    pub episodes: Vec<ShowEpisode>,
+    pub overview: Option<String>,
+    pub poster_images: Vec<String>,
+    pub backdrop_images: Vec<String>,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    Hash,
+    InputObject,
+)]
+#[graphql(input_name = "ShowEpisodeSpecificsInput")]
+pub struct ShowEpisode {
+    pub id: i32,
+    pub episode_number: i32,
+    pub publish_date: Option<NaiveDate>,
+    pub name: String,
+    pub overview: Option<String>,
+    pub poster_images: Vec<String>,
+    pub runtime: Option<i32>,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "VideoGameSpecificsInput")]
+pub struct VideoGameSpecifics {
+    pub platforms: Vec<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateCustomMediaInput {
