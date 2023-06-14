@@ -18,7 +18,7 @@ use crate::media::{
 };
 use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
 use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
-use crate::podcasts::{PodcastEpisode, PodcastSpecifics};
+use crate::models::{PodcastEpisode, PodcastSpecifics};
 use crate::traits::MediaProvider;
 use crate::utils::listennotes;
 

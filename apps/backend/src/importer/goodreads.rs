@@ -4,12 +4,12 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    books::BookSpecifics,
     media::{
         resolver::MediaDetails, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage,
         MetadataImageUrl,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    models::BookSpecifics,
 };
 
 use super::{

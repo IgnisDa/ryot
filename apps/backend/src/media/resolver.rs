@@ -23,9 +23,9 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::{audible::AudibleService, AudioBookSpecifics},
+    audio_books::audible::AudibleService,
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
-    books::{openlibrary::OpenlibraryService, BookSpecifics},
+    books::openlibrary::OpenlibraryService,
     config::{AppConfig, IsFeatureEnabled},
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
@@ -43,12 +43,16 @@ use crate::{
     migrator::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
-    movies::{tmdb::TmdbService as MovieTmdbService, MovieSpecifics},
-    podcasts::{listennotes::ListennotesService, PodcastSpecifics},
-    shows::{tmdb::TmdbService as ShowTmdbService, ShowSpecifics},
+    models::{
+        AudioBookSpecifics, BookSpecifics, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
+        VideoGameSpecifics,
+    },
+    movies::tmdb::TmdbService as MovieTmdbService,
+    podcasts::listennotes::ListennotesService,
+    shows::tmdb::TmdbService as ShowTmdbService,
     traits::MediaProvider,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::{igdb::IgdbService, VideoGameSpecifics},
+    video_games::igdb::IgdbService,
 };
 
 use super::{
@@ -69,12 +73,12 @@ pub struct CreateCustomMediaInput {
     pub genres: Option<Vec<String>>,
     pub images: Option<Vec<String>>,
     pub publish_year: Option<i32>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -2669,7 +2673,7 @@ impl MediaService {
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = self.get_sql_and_values(stmt);
-        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
-        stmt
+        
+        Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 }

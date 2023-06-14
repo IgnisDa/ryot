@@ -13,6 +13,7 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    models::MovieSpecifics,
     traits::MediaProvider,
     utils::{
         convert_date_to_year, convert_string_to_date,
@@ -20,8 +21,6 @@ use crate::{
         NamedObject,
     },
 };
-
-use super::MovieSpecifics;
 
 #[derive(Debug, Clone)]
 pub struct TmdbService {

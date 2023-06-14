@@ -9,6 +9,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use crate::media::resolver::MediaDetails;
 use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
 use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
+use crate::models::VideoGameSpecifics;
 use crate::traits::MediaProvider;
 use crate::utils::NamedObject;
 use crate::{
@@ -19,8 +20,6 @@ use crate::{
     },
     utils::igdb,
 };
-
-use super::VideoGameSpecifics;
 
 static FIELDS: &str = "
 fields

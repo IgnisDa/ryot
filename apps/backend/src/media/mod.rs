@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
 
 use crate::{
-    audio_books::AudioBookSpecifics, books::BookSpecifics, migrator::MetadataImageLot,
-    movies::MovieSpecifics, podcasts::PodcastSpecifics, shows::ShowSpecifics,
-    video_games::VideoGameSpecifics,
+    migrator::MetadataImageLot,
+    models::{
+        AudioBookSpecifics, BookSpecifics, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
+        VideoGameSpecifics,
+    },
 };
 
 pub mod resolver;
@@ -19,9 +21,9 @@ pub enum MediaSpecifics {
     AudioBook(AudioBookSpecifics),
     Book(BookSpecifics),
     Movie(MovieSpecifics),
+    Podcast(PodcastSpecifics),
     Show(ShowSpecifics),
     VideoGame(VideoGameSpecifics),
-    Podcast(PodcastSpecifics),
     #[default]
     Unknown,
 }

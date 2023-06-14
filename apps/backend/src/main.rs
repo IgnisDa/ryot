@@ -67,6 +67,7 @@ mod graphql;
 mod importer;
 mod media;
 mod migrator;
+mod models;
 mod movies;
 mod podcasts;
 mod shows;
