@@ -73,7 +73,7 @@ impl MediaProvider for OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
-            #[serde(rename = "type")]
+            #[serde(rename = "type", flatten)]
             role: Option<OpenlibraryKey>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
