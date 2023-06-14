@@ -1,4 +1,11 @@
 
+# Version 1.0.15 (2023-06-14)
+
+## Documentation
+
+* **deployment:** add docs for railway deployment
+
+
 # Version 1.0.14 (2023-06-12)
 
 ## Features
