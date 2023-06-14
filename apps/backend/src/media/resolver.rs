@@ -1834,7 +1834,7 @@ impl MediaService {
                 MetadataLot::Movie => MetadataSource::Tmdb,
                 MetadataLot::Show => MetadataSource::Tmdb,
                 MetadataLot::VideoGame => MetadataSource::Igdb,
-                MetadataLot::Book => MetadataSource::Goodreads,
+                MetadataLot::Book => MetadataSource::Openlibrary,
             };
             let details = self.details_from_provider(lot, source, identifier).await?;
             let media_id = self.commit_media_internal(details).await?;
