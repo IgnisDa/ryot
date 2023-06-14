@@ -18,34 +18,32 @@ use surf::{
 };
 use tokio::task::JoinSet;
 
-use crate::audio_books::audible::AudibleService;
-
 use crate::background::{
     AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
 };
-use crate::books::openlibrary::OpenlibraryService;
 use crate::config::AppConfig;
 use crate::entities::user_to_metadata;
 use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
-use crate::movies::tmdb::TmdbService as MovieTmdbService;
-use crate::podcasts::listennotes::ListennotesService;
-use crate::shows::tmdb::TmdbService as ShowTmdbService;
-use crate::video_games::igdb::IgdbService;
+use crate::providers::{
+    audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
+    movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
+    shows_tmdb::TmdbService as ShowTmdbService,
+};
 use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub media_service: MediaService,
-    pub openlibrary_service: OpenlibraryService,
-    pub tmdb_movies_service: MovieTmdbService,
-    pub tmdb_shows_service: ShowTmdbService,
-    pub audible_service: AudibleService,
-    pub igdb_service: IgdbService,
-    pub importer_service: ImporterService,
+    pub media_service: Arc<MediaService>,
+    pub openlibrary_service: Arc<OpenlibraryService>,
+    pub tmdb_movies_service: Arc<MovieTmdbService>,
+    pub tmdb_shows_service: Arc<ShowTmdbService>,
+    pub audible_service: Arc<AudibleService>,
+    pub igdb_service: Arc<IgdbService>,
+    pub importer_service: Arc<ImporterService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -60,30 +58,30 @@ pub async fn create_app_services(
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
-    let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary);
-    let tmdb_movies_service = MovieTmdbService::new(&config.movies.tmdb).await;
-    let tmdb_shows_service = ShowTmdbService::new(&config.shows.tmdb).await;
-    let audible_service = AudibleService::new(&config.audio_books.audible);
-    let igdb_service = IgdbService::new(&config.video_games).await;
-    let listennotes_service = ListennotesService::new(&config.podcasts).await;
+    let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
+    let tmdb_movies_service = Arc::new(MovieTmdbService::new(&config.movies.tmdb).await);
+    let tmdb_shows_service = Arc::new(ShowTmdbService::new(&config.shows.tmdb).await);
+    let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible));
+    let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
+    let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
 
-    let media_service = MediaService::new(
+    let media_service = Arc::new(MediaService::new(
         &db,
         &scdb,
         &s3_client,
         &config.file_storage.s3_bucket_name,
-        &audible_service,
-        &igdb_service,
-        &listennotes_service,
-        &openlibrary_service,
-        &tmdb_movies_service,
-        &tmdb_shows_service,
+        audible_service.clone(),
+        igdb_service.clone(),
+        listennotes_service.clone(),
+        openlibrary_service.clone(),
+        tmdb_movies_service.clone(),
+        tmdb_shows_service.clone(),
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
         user_created_job,
-    );
-    let importer_service = ImporterService::new(&db, &media_service, import_media_job);
+    ));
+    let importer_service = Arc::new(ImporterService::new(&db, &media_service, import_media_job));
     AppServices {
         media_service,
         openlibrary_service,

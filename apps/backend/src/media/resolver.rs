@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -23,9 +23,7 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::{audible::AudibleService, AudioBookSpecifics},
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
-    books::{openlibrary::OpenlibraryService, BookSpecifics},
     config::{AppConfig, IsFeatureEnabled},
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
@@ -43,12 +41,17 @@ use crate::{
     migrator::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
-    movies::{tmdb::TmdbService as MovieTmdbService, MovieSpecifics},
-    podcasts::{listennotes::ListennotesService, PodcastSpecifics},
-    shows::{tmdb::TmdbService as ShowTmdbService, ShowSpecifics},
+    models::{
+        AudioBookSpecifics, BookSpecifics, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
+        VideoGameSpecifics,
+    },
+    providers::{
+        audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
+        movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
+        shows_tmdb::TmdbService as ShowTmdbService,
+    },
     traits::MediaProvider,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::{igdb::IgdbService, VideoGameSpecifics},
 };
 
 use super::{
@@ -56,7 +59,7 @@ use super::{
     MetadataImageUrl, MetadataImages,
 };
 
-type ProviderBox<'a> = Box<&'a (dyn MediaProvider + Send + Sync)>;
+type ProviderBox = Arc<(dyn MediaProvider + Send + Sync)>;
 
 pub static COOKIE_NAME: &str = "auth";
 
@@ -69,12 +72,12 @@ pub struct CreateCustomMediaInput {
     pub genres: Option<Vec<String>>,
     pub images: Option<Vec<String>>,
     pub publish_year: Option<i32>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -509,7 +512,7 @@ impl MediaQuery {
     ) -> Result<Vec<ReviewItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .media_item_reviews(&user_id, &metadata_id.into())
             .await
     }
@@ -518,7 +521,7 @@ impl MediaQuery {
     async fn collections(&self, gql_ctx: &Context<'_>) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .collections(&user_id)
             .await
     }
@@ -527,7 +530,7 @@ impl MediaQuery {
     pub async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let token = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .user_details(&token)
             .await
     }
@@ -536,7 +539,7 @@ impl MediaQuery {
     pub async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .user_summary(&user_id)
             .await
     }
@@ -548,7 +551,7 @@ impl MediaQuery {
         metadata_id: Identifier,
     ) -> Result<GraphqlMediaDetails> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .media_details(metadata_id.into())
             .await
     }
@@ -561,7 +564,7 @@ impl MediaQuery {
     ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .seen_history(metadata_id.into(), user_id)
             .await
     }
@@ -574,7 +577,7 @@ impl MediaQuery {
     ) -> Result<MediaSearchResults> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .media_list(user_id, input)
             .await
     }
@@ -582,7 +585,7 @@ impl MediaQuery {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .get_presigned_url(key)
             .await
     }
@@ -591,7 +594,7 @@ impl MediaQuery {
     async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> CoreFeatureEnabled {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .core_enabled_features(config)
             .await
     }
@@ -604,7 +607,7 @@ impl MediaQuery {
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .media_search(lot, input)
             .await
     }
@@ -619,7 +622,7 @@ impl MediaMutation {
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .post_review(&user_id, input)
             .await
     }
@@ -628,7 +631,7 @@ impl MediaMutation {
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: Identifier) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .delete_review(&user_id, review_id.into())
             .await
     }
@@ -641,7 +644,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .create_collection(&user_id, input)
             .await
     }
@@ -654,7 +657,7 @@ impl MediaMutation {
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .add_media_to_collection(&user_id, input)
             .await
     }
@@ -668,7 +671,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .remove_media_item_from_collection(&user_id, &metadata_id.into(), &collection_name)
             .await
     }
@@ -681,7 +684,7 @@ impl MediaMutation {
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .delete_collection(&user_id, &collection_name)
             .await
     }
@@ -694,7 +697,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .delete_seen_item(seen_id.into(), user_id)
             .await
     }
@@ -702,7 +705,7 @@ impl MediaMutation {
     /// Deploy jobs to update all media item's metadata.
     async fn update_all_metadata(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .update_all_metadata()
             .await
     }
@@ -715,7 +718,7 @@ impl MediaMutation {
         input: UserInput,
     ) -> Result<RegisterResult> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .register_user(&input.username, &input.password)
             .await
     }
@@ -724,7 +727,7 @@ impl MediaMutation {
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         let maybe_api_key = gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .login_user(
                 &input.username,
                 &input.password,
@@ -756,7 +759,7 @@ impl MediaMutation {
         )?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .logout_user(&user_id)
             .await
     }
@@ -766,7 +769,7 @@ impl MediaMutation {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .update_user(&user_id, input, config)
             .await
     }
@@ -775,7 +778,7 @@ impl MediaMutation {
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .regenerate_user_summary(user_id)
             .await
     }
@@ -788,7 +791,7 @@ impl MediaMutation {
     ) -> Result<CreateCustomMediaResult> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .create_custom_media(input, &user_id)
             .await
     }
@@ -801,7 +804,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .progress_update(input, user_id)
             .await
     }
@@ -813,7 +816,7 @@ impl MediaMutation {
         metadata_id: Identifier,
     ) -> Result<String> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .deploy_update_metadata_job(metadata_id.into())
             .await
     }
@@ -827,7 +830,7 @@ impl MediaMutation {
         merge_into: Identifier,
     ) -> Result<bool> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .merge_metadata(merge_from.into(), merge_into.into())
             .await
     }
@@ -840,7 +843,7 @@ impl MediaMutation {
         identifier: String,
     ) -> Result<IdObject> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .commit_media(lot, identifier)
             .await
     }
@@ -852,7 +855,7 @@ impl MediaMutation {
         podcast_id: Identifier,
     ) -> Result<bool> {
         gql_ctx
-            .data_unchecked::<MediaService>()
+            .data_unchecked::<Arc<MediaService>>()
             .commit_next_10_podcast_episodes(podcast_id.into())
             .await
     }
@@ -864,12 +867,12 @@ pub struct MediaService {
     scdb: MemoryDb,
     s3_client: aws_sdk_s3::Client,
     bucket_name: String,
-    audible_service: AudibleService,
-    igdb_service: IgdbService,
-    listennotes_service: ListennotesService,
-    openlibrary_service: OpenlibraryService,
-    tmdb_movies_service: MovieTmdbService,
-    tmdb_shows_service: ShowTmdbService,
+    audible_service: Arc<AudibleService>,
+    igdb_service: Arc<IgdbService>,
+    listennotes_service: Arc<ListennotesService>,
+    openlibrary_service: Arc<OpenlibraryService>,
+    tmdb_movies_service: Arc<MovieTmdbService>,
+    tmdb_shows_service: Arc<ShowTmdbService>,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -883,12 +886,12 @@ impl MediaService {
         scdb: &MemoryDb,
         s3_client: &aws_sdk_s3::Client,
         bucket_name: &str,
-        audible_service: &AudibleService,
-        igdb_service: &IgdbService,
-        listennotes_service: &ListennotesService,
-        openlibrary_service: &OpenlibraryService,
-        tmdb_movies_service: &MovieTmdbService,
-        tmdb_shows_service: &ShowTmdbService,
+        audible_service: Arc<AudibleService>,
+        igdb_service: Arc<IgdbService>,
+        listennotes_service: Arc<ListennotesService>,
+        openlibrary_service: Arc<OpenlibraryService>,
+        tmdb_movies_service: Arc<MovieTmdbService>,
+        tmdb_shows_service: Arc<ShowTmdbService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -1708,12 +1711,12 @@ impl MediaService {
             Identifier,
         }
         let service: ProviderBox = match lot {
-            MetadataLot::Book => Box::new(&self.openlibrary_service),
-            MetadataLot::AudioBook => Box::new(&self.audible_service),
-            MetadataLot::Podcast => Box::new(&self.listennotes_service),
-            MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
-            MetadataLot::Show => Box::new(&self.tmdb_shows_service),
-            MetadataLot::VideoGame => Box::new(&self.igdb_service),
+            MetadataLot::Book => self.openlibrary_service.clone(),
+            MetadataLot::AudioBook => self.audible_service.clone(),
+            MetadataLot::Podcast => self.listennotes_service.clone(),
+            MetadataLot::Movie => self.tmdb_movies_service.clone(),
+            MetadataLot::Show => self.tmdb_shows_service.clone(),
+            MetadataLot::VideoGame => self.igdb_service.clone(),
         };
         let results = service.search(&input.query, input.page).await?;
         let mut all_idens = results
@@ -1805,15 +1808,15 @@ impl MediaService {
         identifier: String,
     ) -> Result<MediaDetails> {
         let service: ProviderBox = match source {
-            MetadataSource::Openlibrary => Box::new(&self.openlibrary_service),
-            MetadataSource::Audible => Box::new(&self.audible_service),
-            MetadataSource::Listennotes => Box::new(&self.listennotes_service),
+            MetadataSource::Openlibrary => self.openlibrary_service.clone(),
+            MetadataSource::Audible => self.audible_service.clone(),
+            MetadataSource::Listennotes => self.listennotes_service.clone(),
             MetadataSource::Tmdb => match lot {
-                MetadataLot::Show => Box::new(&self.tmdb_shows_service),
-                MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
+                MetadataLot::Show => self.tmdb_shows_service.clone(),
+                MetadataLot::Movie => self.tmdb_movies_service.clone(),
                 _ => unreachable!(),
             },
-            MetadataSource::Igdb => Box::new(&self.igdb_service),
+            MetadataSource::Igdb => self.igdb_service.clone(),
             MetadataSource::Custom | MetadataSource::Goodreads => {
                 return Err(Error::new("This source is not supported".to_owned()));
             }
@@ -2669,7 +2672,7 @@ impl MediaService {
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = self.get_sql_and_values(stmt);
-        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values);
-        stmt
+
+        Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 }

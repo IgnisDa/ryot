@@ -15,11 +15,10 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    models::BookSpecifics,
     traits::MediaProvider,
     utils::{get_data_parallelly_from_sources, openlibrary},
 };
-
-use super::BookSpecifics;
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct BookSearchResults {

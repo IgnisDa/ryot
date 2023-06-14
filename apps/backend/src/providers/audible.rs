@@ -13,11 +13,10 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    models::AudioBookSpecifics,
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
-
-use super::AudioBookSpecifics;
 
 #[derive(Serialize, Deserialize)]
 struct PrimaryQuery {

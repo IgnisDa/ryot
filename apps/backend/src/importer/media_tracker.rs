@@ -8,7 +8,6 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
-    books::BookSpecifics,
     graphql::{AUTHOR, PROJECT_NAME},
     importer::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
@@ -16,6 +15,7 @@ use crate::{
     },
     media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{MetadataLot, MetadataSource},
+    models::BookSpecifics,
     utils::openlibrary,
 };
 
