@@ -58,9 +58,7 @@ use crate::{
     utils::{create_app_services, user_id_from_token},
 };
 
-mod audio_books;
 mod background;
-mod books;
 mod config;
 mod entities;
 mod graphql;
@@ -68,12 +66,9 @@ mod importer;
 mod media;
 mod migrator;
 mod models;
-mod movies;
-mod podcasts;
-mod shows;
+mod providers;
 mod traits;
 mod utils;
-mod video_games;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 

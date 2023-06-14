@@ -18,21 +18,19 @@ use surf::{
 };
 use tokio::task::JoinSet;
 
-use crate::audio_books::audible::AudibleService;
-
 use crate::background::{
     AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
 };
-use crate::books::openlibrary::OpenlibraryService;
 use crate::config::AppConfig;
 use crate::entities::user_to_metadata;
 use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
-use crate::movies::tmdb::TmdbService as MovieTmdbService;
-use crate::podcasts::listennotes::ListennotesService;
-use crate::shows::tmdb::TmdbService as ShowTmdbService;
-use crate::video_games::igdb::IgdbService;
+use crate::providers::{
+    audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
+    movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
+    shows_tmdb::TmdbService as ShowTmdbService,
+};
 use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;

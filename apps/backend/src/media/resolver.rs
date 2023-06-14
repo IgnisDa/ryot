@@ -23,9 +23,7 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    audio_books::audible::AudibleService,
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
-    books::openlibrary::OpenlibraryService,
     config::{AppConfig, IsFeatureEnabled},
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
@@ -47,12 +45,13 @@ use crate::{
         AudioBookSpecifics, BookSpecifics, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
         VideoGameSpecifics,
     },
-    movies::tmdb::TmdbService as MovieTmdbService,
-    podcasts::listennotes::ListennotesService,
-    shows::tmdb::TmdbService as ShowTmdbService,
+    providers::{
+        audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
+        movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
+        shows_tmdb::TmdbService as ShowTmdbService,
+    },
     traits::MediaProvider,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-    video_games::igdb::IgdbService,
 };
 
 use super::{
@@ -2673,7 +2672,7 @@ impl MediaService {
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = self.get_sql_and_values(stmt);
-        
+
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 }
