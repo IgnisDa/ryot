@@ -1690,20 +1690,6 @@ impl MediaService {
         lot: MetadataLot,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
-        let service: ProviderBox = match lot {
-            MetadataLot::Book => Box::new(&self.openlibrary_service),
-            MetadataLot::AudioBook => Box::new(&self.audible_service),
-            MetadataLot::Podcast => Box::new(&self.listennotes_service),
-            MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
-            MetadataLot::Show => Box::new(&self.tmdb_shows_service),
-            MetadataLot::VideoGame => Box::new(&self.igdb_service),
-        };
-        let results = service.search(&input.query, input.page).await?;
-        let mut all_idens = results
-            .items
-            .iter()
-            .map(|i| i.identifier.to_owned())
-            .collect::<Vec<_>>();
         #[derive(Iden)]
         #[iden = "identifiers"]
         enum TempIdentifiers {
@@ -1721,56 +1707,74 @@ impl MediaService {
             Lot,
             Identifier,
         }
-        let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
-        let mut subquery = Query::select()
-            .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
-            .to_owned();
-        for identifier in all_idens {
-            subquery = subquery
-                .union(
-                    UnionType::All,
-                    Query::select().expr(Expr::val(identifier)).to_owned(),
+        let service: ProviderBox = match lot {
+            MetadataLot::Book => Box::new(&self.openlibrary_service),
+            MetadataLot::AudioBook => Box::new(&self.audible_service),
+            MetadataLot::Podcast => Box::new(&self.listennotes_service),
+            MetadataLot::Movie => Box::new(&self.tmdb_movies_service),
+            MetadataLot::Show => Box::new(&self.tmdb_shows_service),
+            MetadataLot::VideoGame => Box::new(&self.igdb_service),
+        };
+        let results = service.search(&input.query, input.page).await?;
+        let mut all_idens = results
+            .items
+            .iter()
+            .map(|i| i.identifier.to_owned())
+            .collect::<Vec<_>>();
+        let data = if all_idens.is_empty() {
+            vec![]
+        } else {
+            let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
+            let mut subquery = Query::select()
+                .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
+                .to_owned();
+            for identifier in all_idens {
+                subquery = subquery
+                    .union(
+                        UnionType::All,
+                        Query::select().expr(Expr::val(identifier)).to_owned(),
+                    )
+                    .to_owned();
+            }
+            let identifiers_query = Query::select()
+                .expr_as(
+                    Expr::case(
+                        Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                            .is_not_null()
+                            .and(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(lot)),
+                        Expr::col((TempMetadata::Alias, TempMetadata::Id)),
+                    )
+                    .finally(Expr::cust("NULL")),
+                    TempMetadata::Id,
+                )
+                .from_subquery(subquery, TempIdentifiers::Alias)
+                .join_as(
+                    JoinType::LeftJoin,
+                    TempMetadata::Table,
+                    TempMetadata::Alias,
+                    Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
+                        .equals((TempMetadata::Alias, TempMetadata::Identifier)),
                 )
                 .to_owned();
-        }
-        let identifiers_query = Query::select()
-            .expr_as(
-                Expr::case(
-                    Expr::col((TempMetadata::Alias, TempMetadata::Id))
-                        .is_not_null()
-                        .and(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(lot)),
-                    Expr::col((TempMetadata::Alias, TempMetadata::Id)),
-                )
-                .finally(Expr::cust("NULL")),
-                TempMetadata::Id,
-            )
-            .from_subquery(subquery, TempIdentifiers::Alias)
-            .join_as(
-                JoinType::LeftJoin,
-                TempMetadata::Table,
-                TempMetadata::Alias,
-                Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
-                    .equals((TempMetadata::Alias, TempMetadata::Identifier)),
-            )
-            .to_owned();
-        let stmt = self.get_db_stmt(identifiers_query);
-        #[derive(Debug, FromQueryResult)]
-        struct DbResponse {
-            id: Option<i32>,
-        }
-        let identifiers: Vec<DbResponse> = self
-            .db
-            .query_all(stmt)
-            .await?
-            .iter()
-            .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
-            .collect();
-        let data = std::iter::zip(results.items, identifiers)
-            .map(|(i, iden)| MediaSearchItemResponse {
-                item: i,
-                database_id: iden.id.map(Identifier::from),
-            })
-            .collect::<Vec<_>>();
+            let stmt = self.get_db_stmt(identifiers_query);
+            #[derive(Debug, FromQueryResult)]
+            struct DbResponse {
+                id: Option<i32>,
+            }
+            let identifiers: Vec<DbResponse> = self
+                .db
+                .query_all(stmt)
+                .await?
+                .iter()
+                .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
+                .collect();
+            std::iter::zip(results.items, identifiers)
+                .map(|(i, iden)| MediaSearchItemResponse {
+                    item: i,
+                    database_id: iden.id.map(Identifier::from),
+                })
+                .collect::<Vec<_>>()
+        };
         let results = DetailedMediaSearchResults {
             total: results.total,
             items: data,
