@@ -218,6 +218,10 @@ pub async fn recalculate_user_summary_job(
         .calculate_user_summary(&information.user_id.into())
         .await
         .unwrap();
+    tracing::info!(
+        "Summary calculation complete for user {:?}",
+        information.user_id
+    );
     Ok(())
 }
 
