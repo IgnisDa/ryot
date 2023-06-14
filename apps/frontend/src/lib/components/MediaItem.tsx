@@ -13,15 +13,14 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
-	MediaExistsInDatabaseDocument,
-	MetadataLot,
 	type MediaSearchQuery,
+	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
-type Item = MediaSearchQuery["mediaSearch"]["items"][number];
+type Item = MediaSearchQuery["mediaSearch"]["items"][number]["item"];
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
@@ -87,24 +86,12 @@ export default function (props: {
 	offset: number;
 	lot: MetadataLot;
 	refetch: () => void;
+	maybeItemId?: number;
 }) {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
 	const commitMedia = useCommitMedia(lot);
-	const mediaExistsInDatabase = useQuery({
-		queryKey: ["mediaExistsInDatabase", props.idx],
-		queryFn: async () => {
-			const { mediaExistsInDatabase } = await gqlClient.request(
-				MediaExistsInDatabaseDocument,
-				{
-					identifier: props.item.identifier,
-					lot: props.lot,
-				},
-			);
-			return mediaExistsInDatabase;
-		},
-	});
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
 			const { addMediaToCollection } = await gqlClient.request(
@@ -133,12 +120,10 @@ export default function (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			imageOverlayForLoadingIndicator={
-				commitMedia.isLoading || mediaExistsInDatabase.isLoading
-			}
+			imageOverlayForLoadingIndicator={commitMedia.isLoading}
 			href={
-				mediaExistsInDatabase.data
-					? `${ROUTES.media.details}?item=${mediaExistsInDatabase.data}`
+				props.maybeItemId
+					? `${ROUTES.media.details}?item=${props.maybeItemId}`
 					: `${ROUTES.media.commit}?identifier=${props.item.identifier}&lot=${props.lot}`
 			}
 		>

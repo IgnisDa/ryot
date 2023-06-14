@@ -361,8 +361,9 @@ const Page: NextPageWithLayout = () => {
 										{searchQuery.data.items.map((b, idx) => (
 											<MediaItem
 												idx={idx}
-												key={b.identifier}
-												item={b}
+												key={b.item.identifier}
+												item={b.item}
+												maybeItemId={b.databaseId}
 												query={query}
 												offset={offset}
 												lot={lot}
