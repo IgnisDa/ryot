@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use apalis::prelude::{Job, JobContext, JobError};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -33,13 +35,13 @@ pub async fn general_media_cleanup_jobs(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Invalidating invalid media import jobs");
-    ctx.data::<ImporterService>()
+    ctx.data::<Arc<ImporterService>>()
         .unwrap()
         .invalidate_import_jobs()
         .await
         .unwrap();
     tracing::info!("Cleaning up media items without associated user activities");
-    ctx.data::<MediaService>()
+    ctx.data::<Arc<MediaService>>()
         .unwrap()
         .cleanup_metadata_with_associated_user_activities()
         .await
@@ -52,13 +54,13 @@ pub async fn general_user_cleanup(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Cleaning up user and metadata association");
-    ctx.data::<MediaService>()
+    ctx.data::<Arc<MediaService>>()
         .unwrap()
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
     tracing::info!("Removing old user summaries and regenerating them");
-    ctx.data::<MediaService>()
+    ctx.data::<Arc<MediaService>>()
         .unwrap()
         .regenerate_user_summaries()
         .await
@@ -80,7 +82,7 @@ impl Job for ImportMedia {
 
 pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
     tracing::info!("Importing media");
-    ctx.data::<ImporterService>()
+    ctx.data::<Arc<ImporterService>>()
         .unwrap()
         .import_from_source(information.user_id.into(), information.input)
         .await
@@ -102,7 +104,7 @@ pub async fn user_created_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Running jobs after user creation");
-    let service = ctx.data::<MediaService>().unwrap();
+    let service = ctx.data::<Arc<MediaService>>().unwrap();
     service
         .user_created_job(&information.user_id.into())
         .await
@@ -136,7 +138,7 @@ pub async fn after_media_seen_job(
         "Running jobs after media item seen {:?}",
         information.seen.id
     );
-    let media_service = ctx.data::<MediaService>().unwrap();
+    let media_service = ctx.data::<Arc<MediaService>>().unwrap();
     if information.seen.dropped {
         media_service
             .remove_media_item_from_collection(
@@ -213,7 +215,7 @@ pub async fn recalculate_user_summary_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Calculating summary for user {:?}", information.user_id);
-    ctx.data::<MediaService>()
+    ctx.data::<Arc<MediaService>>()
         .unwrap()
         .calculate_user_summary(&information.user_id.into())
         .await
@@ -238,7 +240,7 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    ctx.data::<MediaService>()
+    ctx.data::<Arc<MediaService>>()
         .unwrap()
         .update_metadata(information.metadata)
         .await

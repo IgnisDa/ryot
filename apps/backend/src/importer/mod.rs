@@ -140,7 +140,7 @@ impl ImporterQuery {
     ) -> Result<Vec<media_import_report::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<ImporterService>()
+            .data_unchecked::<Arc<ImporterService>>()
             .media_import_reports(user_id)
             .await
     }
@@ -159,7 +159,7 @@ impl ImporterMutation {
     ) -> Result<String> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<ImporterService>()
+            .data_unchecked::<Arc<ImporterService>>()
             .deploy_import(user_id, input)
             .await
     }
