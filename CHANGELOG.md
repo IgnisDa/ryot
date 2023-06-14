@@ -1,4 +1,15 @@
 
+# Version 1.0.16 (2023-06-14)
+
+## Bug Fixes
+
+* **backend:** some authors not being updated
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.0.15 (2023-06-14)
 
 ## Documentation
