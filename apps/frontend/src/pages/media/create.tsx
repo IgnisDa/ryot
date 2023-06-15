@@ -1,6 +1,7 @@
 import type { NextPageWithLayout } from "../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { ROUTES } from "@/lib/constants";
+import { useEnabledFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { BASE_URL, gqlClient } from "@/lib/services/api";
 import {
@@ -24,7 +25,6 @@ import {
 	type CreateCustomMediaMutationVariables,
 	GetPresignedUrlDocument,
 	MetadataLot,
-	UserEnabledFeaturesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCalendar, IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -53,17 +53,7 @@ const Page: NextPageWithLayout = () => {
 	const [images, setImages] = useState<string[]>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
-	const enabledFeatures = useQuery(
-		["enabledFeatures"],
-		async () => {
-			const { userEnabledFeatures } = await gqlClient.request(
-				UserEnabledFeaturesDocument,
-			);
-			return userEnabledFeatures;
-		},
-		{ staleTime: Infinity },
-	);
-
+	const enabledFeatures = useEnabledFeatures();
 	const imageUrls = useQuery(
 		["presignedUrl", images],
 		async () => {
@@ -95,8 +85,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const fileUploadNowAllowed =
-		!enabledFeatures.data?.general?.fileStorage?.enabled;
+	const fileUploadNowAllowed = !enabledFeatures?.general?.fileStorage?.enabled;
 
 	return (
 		<>

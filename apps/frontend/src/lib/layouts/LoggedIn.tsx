@@ -1,7 +1,8 @@
 import { ROUTES } from "../constants";
 import { gqlClient } from "../services/api";
 import Basic from "./Basic";
-import { changeCase, getMetadataIcon } from "@/lib//utilities";
+import { useEnabledFeatures } from "@/lib/hooks/graphql";
+import { changeCase, getMetadataIcon } from "@/lib/utilities";
 import {
 	Box,
 	Flex,
@@ -14,7 +15,6 @@ import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
 	UserDetailsDocument,
-	UserEnabledFeaturesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconHome2,
@@ -101,20 +101,11 @@ export default function ({ children }: { children: ReactElement }) {
 		},
 		staleTime: Infinity,
 	});
-	const enabledFeatures = useQuery(
-		["enabledFeatures"],
-		async () => {
-			const { userEnabledFeatures } = await gqlClient.request(
-				UserEnabledFeaturesDocument,
-			);
-			return userEnabledFeatures;
-		},
-		{ staleTime: Infinity },
-	);
+	const enabledFeatures = useEnabledFeatures();
 
 	const links = [
 		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
-		...(enabledFeatures.data?.metadata
+		...(enabledFeatures?.metadata
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
