@@ -33,6 +33,7 @@ const documents = {
     "mutation RemoveMediaFromCollection($metadataId: Identifier!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}": types.RemoveMediaFromCollectionDocument,
     "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
+    "mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {\n  updateUserPreferences(input: $input)\n}": types.UpdateUserPreferencesDocument,
     "query Collections {\n  collections {\n    collectionDetails {\n      id\n      createdOn\n      name\n    }\n    mediaDetails {\n      identifier\n      lot\n      title\n      images\n      publishYear\n    }\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}": types.CoreEnabledFeaturesDocument,
@@ -141,6 +142,10 @@ export function graphql(source: "mutation UpdateAllMetadata {\n  updateAllMetada
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {\n  updateUserPreferences(input: $input)\n}"): (typeof documents)["mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {\n  updateUserPreferences(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
