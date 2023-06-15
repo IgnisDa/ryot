@@ -23,12 +23,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct TmdbService {
+pub struct MovieTmdbService {
     client: Client,
     image_url: String,
 }
 
-impl TmdbService {
+impl MovieTmdbService {
     pub async fn new(config: &MoviesTmdbConfig) -> Self {
         let (client, image_url) = tmdb::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
@@ -36,7 +36,7 @@ impl TmdbService {
 }
 
 #[async_trait]
-impl MediaProvider for TmdbService {
+impl MediaProvider for MovieTmdbService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
@@ -185,7 +185,7 @@ impl MediaProvider for TmdbService {
     }
 }
 
-impl TmdbService {
+impl MovieTmdbService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
     }

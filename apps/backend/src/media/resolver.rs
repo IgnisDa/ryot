@@ -47,8 +47,8 @@ use crate::{
     },
     providers::{
         audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
-        movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
-        shows_tmdb::TmdbService as ShowTmdbService,
+        movies_tmdb::MovieTmdbService, openlibrary::OpenlibraryService,
+        shows_tmdb::ShowTmdbService,
     },
     traits::MediaProvider,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},

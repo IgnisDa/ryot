@@ -28,8 +28,7 @@ use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
 use crate::providers::{
     audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
-    movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
-    shows_tmdb::TmdbService as ShowTmdbService,
+    movies_tmdb::MovieTmdbService, openlibrary::OpenlibraryService, shows_tmdb::ShowTmdbService,
 };
 use crate::GqlCtx;
 
