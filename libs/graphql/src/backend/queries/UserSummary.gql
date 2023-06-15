@@ -1,11 +1,19 @@
 query UserSummary {
   userSummary {
+    manga {
+      chapters
+      read
+    }
     books {
       pages
       read
     }
     movies {
       runtime
+      watched
+    }
+    anime {
+      episodes
       watched
     }
     podcasts {
@@ -26,5 +34,6 @@ query UserSummary {
       runtime
       played
     }
+
   }
 }
