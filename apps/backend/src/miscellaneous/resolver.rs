@@ -184,6 +184,12 @@ pub struct ExportMedia {
     user_reviews: Vec<review::Model>,
 }
 
+#[derive(Debug, InputObject)]
+struct UpdateUserPreferencesInput {
+    property: MetadataLot,
+    value: bool,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -858,6 +864,19 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .commit_next_10_podcast_episodes(podcast_id.into())
+            .await
+    }
+
+    /// Change a user's preferences
+    async fn update_user_preferences(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserPreferencesInput,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .update_user_preferences(input, user_id)
             .await
     }
 }
@@ -2243,17 +2262,21 @@ impl MiscellaneousService {
         let found_token = self.scdb.lock().unwrap().get(token.as_bytes()).unwrap();
         if let Some(t) = found_token {
             let user_id = std::str::from_utf8(&t).unwrap().parse::<i32>().unwrap();
-            let user = User::find_by_id(user_id)
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
+            let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(user))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
             }))
         }
+    }
+
+    async fn user_by_id(&self, user_id: i32) -> Result<user::Model> {
+        User::find_by_id(user_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .ok_or_else(|| Error::new("No user found"))
     }
 
     async fn latest_user_summary(&self, user_id: &i32) -> Result<summary::Model> {
@@ -2675,5 +2698,26 @@ impl MiscellaneousService {
         let (sql, values) = self.get_sql_and_values(stmt);
 
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
+    }
+
+    async fn update_user_preferences(
+        &self,
+        input: UpdateUserPreferencesInput,
+        user_id: i32,
+    ) -> Result<bool> {
+        let user_model = self.user_by_id(user_id).await?;
+        let mut preferences = user_model.preferences.clone();
+        match input.property {
+            MetadataLot::AudioBook => preferences.audio_books = input.value,
+            MetadataLot::Book => preferences.books = input.value,
+            MetadataLot::Movie => preferences.movies = input.value,
+            MetadataLot::Podcast => preferences.podcasts = input.value,
+            MetadataLot::Show => preferences.shows = input.value,
+            MetadataLot::VideoGame => preferences.video_games = input.value,
+        };
+        let mut user_model: user::ActiveModel = user_model.into();
+        user_model.preferences = ActiveValue::Set(preferences);
+        user_model.update(&self.db).await?;
+        Ok(true)
     }
 }

@@ -172,7 +172,8 @@ pub struct VideoGameSpecifics {
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "UserPreferencesInput")]
-pub struct UserPreferencesFeaturesEnabled {
+pub struct UserPreferences {
+    // features enabled
     #[serde(default = "get_serde_true")]
     pub audio_books: bool,
     #[serde(default = "get_serde_true")]
@@ -185,22 +186,4 @@ pub struct UserPreferencesFeaturesEnabled {
     pub shows: bool,
     #[serde(default = "get_serde_true")]
     pub video_games: bool,
-}
-
-#[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    SimpleObject,
-    Clone,
-    InputObject,
-    Eq,
-    PartialEq,
-    Default,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "UserPreferencesInput")]
-pub struct UserPreferences {
-    #[serde(default)]
-    pub features_enabled: UserPreferencesFeaturesEnabled,
 }
