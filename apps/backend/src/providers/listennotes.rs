@@ -20,7 +20,6 @@ use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImage
 use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
 use crate::models::{PodcastEpisode, PodcastSpecifics};
 use crate::traits::MediaProvider;
-use crate::utils::listennotes;
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
@@ -31,8 +30,7 @@ pub struct ListennotesService {
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig) -> Self {
         let (client, genres) =
-            listennotes::get_client_config(&config.listennotes.url, &config.listennotes.api_token)
-                .await;
+            utils::get_client_config(&config.listennotes.url, &config.listennotes.api_token).await;
         Self { client, genres }
     }
 }
@@ -170,5 +168,42 @@ impl ListennotesService {
                 total_episodes: d.total_episodes,
             }),
         })
+    }
+}
+
+mod utils {
+    use std::collections::HashMap;
+
+    use surf::{http::headers::USER_AGENT, Config, Url};
+
+    use crate::graphql::{AUTHOR, PROJECT_NAME};
+
+    use super::*;
+
+    pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
+        let client: Client = Config::new()
+            .add_header("X-ListenAPI-Key", api_token)
+            .unwrap()
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .unwrap()
+            .set_base_url(Url::parse(url).unwrap())
+            .try_into()
+            .unwrap();
+        #[derive(Debug, Serialize, Deserialize, Default)]
+        struct Genre {
+            id: i32,
+            name: String,
+        }
+        #[derive(Debug, Serialize, Deserialize, Default)]
+        struct GenreResponse {
+            genres: Vec<Genre>,
+        }
+        let mut rsp = client.get("genres").await.unwrap();
+        let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
+        let mut genres = HashMap::new();
+        for genre in data.genres {
+            genres.insert(genre.id, genre.name);
+        }
+        (client, genres)
     }
 }
