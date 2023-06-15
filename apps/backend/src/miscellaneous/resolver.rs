@@ -41,8 +41,8 @@ use crate::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
     models::{
-        AudioBookSpecifics, BookSpecifics, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
-        VideoGameSpecifics,
+        AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
+        PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },
     providers::{
         audible::AudibleService,
@@ -463,6 +463,8 @@ pub struct GraphqlMediaDetails {
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
+    pub manga_specifics: Option<MangaSpecifics>,
+    pub anime_specifics: Option<AnimeSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1051,6 +1053,8 @@ impl MiscellaneousService {
             video_game_specifics: None,
             audio_book_specifics: None,
             podcast_specifics: None,
+            manga_specifics: None,
+            anime_specifics: None,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
@@ -1070,6 +1074,12 @@ impl MiscellaneousService {
             }
             MediaSpecifics::VideoGame(a) => {
                 resp.video_game_specifics = Some(a);
+            }
+            MediaSpecifics::Anime(a) => {
+                resp.anime_specifics = Some(a);
+            }
+            MediaSpecifics::Manga(a) => {
+                resp.manga_specifics = Some(a);
             }
             MediaSpecifics::Unknown => {}
         };
@@ -2337,6 +2347,18 @@ impl MiscellaneousService {
                     ls.data.audio_books.played += 1;
                     if let Some(r) = item.runtime {
                         ls.data.audio_books.runtime += r;
+                    }
+                }
+                MediaSpecifics::Anime(item) => {
+                    ls.data.anime.watched += 1;
+                    if let Some(r) = item.episodes {
+                        ls.data.anime.episodes += r;
+                    }
+                }
+                MediaSpecifics::Manga(item) => {
+                    ls.data.manga.read += 1;
+                    if let Some(r) = item.chapters {
+                        ls.data.manga.chapters += r;
                     }
                 }
                 MediaSpecifics::Book(item) => {

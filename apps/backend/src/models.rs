@@ -161,6 +161,40 @@ pub struct VideoGameSpecifics {
 
 #[derive(
     Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "AnimeSpecificsInput")]
+pub struct AnimeSpecifics {
+    pub episodes: Option<i32>,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "MangaSpecificsInput")]
+pub struct MangaSpecifics {
+    pub chapters: Option<i32>,
+}
+
+#[derive(
+    Debug,
     Serialize,
     Deserialize,
     SimpleObject,
