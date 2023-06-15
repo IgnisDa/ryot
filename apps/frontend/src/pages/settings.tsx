@@ -346,6 +346,30 @@ const Page: NextPageWithLayout = () => {
 									}}
 								/>
 								<Switch
+									label="Anime"
+									checked={enabledFeatures.data?.metadata.anime}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.Anime,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
+									label="Manga"
+									checked={enabledFeatures.data?.metadata.manga}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.Manga,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
 									label="Books"
 									checked={enabledFeatures.data?.metadata.books}
 									onChange={(ev) => {
