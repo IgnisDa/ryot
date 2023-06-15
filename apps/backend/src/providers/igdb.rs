@@ -18,7 +18,6 @@ use crate::{
         resolver::{MediaSearchItem, MediaSearchResults},
         PAGE_LIMIT,
     },
-    utils::igdb,
 };
 
 static FIELDS: &str = "
@@ -93,7 +92,7 @@ impl IgdbService {
 #[async_trait]
 impl MediaProvider for IgdbService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let client = igdb::get_client(&self.config).await;
+        let client = utils::get_client(&self.config).await;
         let req_body = format!(
             r#"
 {field}
@@ -116,7 +115,7 @@ where id = {id};
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let page = page.unwrap_or(1);
-        let client = igdb::get_client(&self.config).await;
+        let client = utils::get_client(&self.config).await;
         let req_body = format!(
             r#"
 {field}
@@ -241,5 +240,85 @@ impl IgdbService {
 
     fn get_cover_image_url(&self, hash: String) -> String {
         format!("{}{}/{}.jpg", self.image_url, self.image_size, hash)
+    }
+}
+
+mod utils {
+    use std::{env, fs};
+
+    use serde_json::json;
+    use surf::{
+        http::headers::{AUTHORIZATION, USER_AGENT},
+        Client, Config, Url,
+    };
+
+    use super::*;
+    use crate::{
+        config::VideoGameConfig,
+        graphql::{AUTHOR, PROJECT_NAME},
+        utils::{get_now_timestamp, read_file_to_json},
+    };
+
+    #[derive(Deserialize, Debug, Serialize)]
+    struct Credentials {
+        access_token: String,
+        expires_at: u128,
+    }
+
+    async fn get_access_token(config: &VideoGameConfig) -> Credentials {
+        let mut access_res = surf::post(&config.twitch.access_token_url)
+            .query(&json!({
+                "client_id": config.twitch.client_id.to_owned(),
+                "client_secret": config.twitch.client_secret.to_owned(),
+                "grant_type": "client_credentials".to_owned(),
+            }))
+            .unwrap()
+            .await
+            .unwrap();
+        #[derive(Deserialize, Serialize, Default, Debug)]
+        struct AccessResponse {
+            access_token: String,
+            token_type: String,
+            expires_in: u128,
+        }
+        let access = access_res
+            .body_json::<AccessResponse>()
+            .await
+            .unwrap_or_default();
+        let expires_at = get_now_timestamp() + (access.expires_in * 1000);
+        let access_token = format!("{} {}", access.token_type, access.access_token);
+        Credentials {
+            access_token,
+            expires_at,
+        }
+    }
+
+    // Ideally, I want this to use a mutex to store the client and expiry time.
+    // However for the time being we will read and write to a file.
+    pub async fn get_client(config: &VideoGameConfig) -> Client {
+        let path = env::temp_dir().join("igdb-credentials.json");
+        let access_token =
+            if let Some(mut credential_details) = read_file_to_json::<Credentials>(&path) {
+                if credential_details.expires_at < get_now_timestamp() {
+                    tracing::info!("Access token has expired, refreshing...");
+                    credential_details = get_access_token(config).await;
+                    fs::write(path, serde_json::to_string(&credential_details).unwrap()).ok();
+                }
+                credential_details.access_token
+            } else {
+                let creds = get_access_token(config).await;
+                fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
+                creds.access_token
+            };
+        Config::new()
+            .add_header("Client-ID", config.twitch.client_id.to_owned())
+            .unwrap()
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .unwrap()
+            .add_header(AUTHORIZATION, access_token)
+            .unwrap()
+            .set_base_url(Url::parse(&config.igdb.url).unwrap())
+            .try_into()
+            .unwrap()
     }
 }
