@@ -41,10 +41,22 @@ export const getLot = (lot: unknown) => {
 	return match(newLot)
 		.with("books", "book", () => MetadataLot.Book)
 		.with("movies", "movie", () => MetadataLot.Movie)
-		.with("tv", "show", () => MetadataLot.Show)
-		.with("games", "video_game", "video game", () => MetadataLot.VideoGame)
-		.with("audio book", "audiobooks", "audio_book", () => MetadataLot.AudioBook)
-		.with("podcast", () => MetadataLot.Podcast)
+		.with("tv", "show", "shows", () => MetadataLot.Show)
+		.with(
+			"games",
+			"video_game",
+			"video game",
+			"video_games",
+			() => MetadataLot.VideoGame,
+		)
+		.with(
+			"audio book",
+			"audiobooks",
+			"audio_book",
+			"audio_books",
+			() => MetadataLot.AudioBook,
+		)
+		.with("podcast", "podcasts", () => MetadataLot.Podcast)
 		.otherwise(() => undefined);
 };
 

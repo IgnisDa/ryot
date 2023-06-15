@@ -2,7 +2,7 @@ import { ROUTES } from "../constants";
 import { gqlClient } from "../services/api";
 import Basic from "./Basic";
 import { useEnabledFeatures } from "@/lib/hooks/graphql";
-import { changeCase, getMetadataIcon } from "@/lib/utilities";
+import { changeCase, getLot, getMetadataIcon } from "@/lib/utilities";
 import {
 	Box,
 	Flex,
@@ -105,7 +105,8 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const links = [
 		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
-		...(enabledFeatures?.metadata
+		...(Object.entries(enabledFeatures?.data?.metadata || {})
+			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),

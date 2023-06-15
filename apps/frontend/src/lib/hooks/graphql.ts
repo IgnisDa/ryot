@@ -31,7 +31,7 @@ export function useEnabledFeatures() {
 		},
 		{ staleTime: Infinity },
 	);
-	return enabledFeatures.data;
+	return enabledFeatures;
 }
 
 export function useCommitMedia(

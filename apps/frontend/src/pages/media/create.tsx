@@ -85,7 +85,8 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const fileUploadNowAllowed = !enabledFeatures?.general?.fileStorage?.enabled;
+	const fileUploadNowAllowed =
+		!enabledFeatures?.data?.general?.fileStorage?.enabled;
 
 	return (
 		<>
