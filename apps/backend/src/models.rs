@@ -1,5 +1,6 @@
 use async_graphql::{InputObject, SimpleObject};
 use chrono::NaiveDate;
+use optional_struct::{optional_struct, Applyable};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
@@ -200,6 +201,7 @@ pub struct UserPreferencesFeaturesEnabled {
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "UserPreferencesInput")]
+#[optional_struct]
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserPreferencesFeaturesEnabled,
