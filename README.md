@@ -123,6 +123,7 @@ minimal example configuration is in [`ryot.example.json`](/config/ryot.example.j
 
 | Key                                   | Description                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{anime,manga}.anilist.url`           | The url to make requests for getting metadata about anime/manga.                                                                                                              |
 | `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                                                                                   |
 | `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                               |
 | `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
