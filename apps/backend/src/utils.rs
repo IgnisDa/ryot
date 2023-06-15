@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Result as AnyhowResult};
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
@@ -178,97 +177,18 @@ where
     data
 }
 
-fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
+pub fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
     let mut file = File::open(path).ok()?;
     let mut data = String::new();
     file.read_to_string(&mut data).unwrap();
     serde_json::from_str::<T>(&data).ok()
 }
 
-fn get_now_timestamp() -> u128 {
+pub fn get_now_timestamp() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_millis()
-}
-
-pub mod tmdb {
-    use std::{env, fs};
-
-    use crate::graphql::PROJECT_NAME;
-
-    use super::*;
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbCredit {
-        pub name: Option<String>,
-        pub known_for_department: Option<String>,
-        pub profile_path: Option<String>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbImage {
-        pub file_path: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbImagesResponse {
-        pub backdrops: Option<Vec<TmdbImage>>,
-        pub posters: Option<Vec<TmdbImage>>,
-    }
-
-    pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
-        let path = env::temp_dir().join("tmdb-config.json");
-        let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
-            .unwrap()
-            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
-            details.images.secure_base_url
-        } else {
-            let mut rsp = client.get("configuration").await.unwrap();
-            let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
-            data.images.secure_base_url
-        };
-        (client, image_url)
-    }
-
-    pub async fn save_all_images(
-        client: &Client,
-        typ: &str,
-        identifier: &str,
-        images: &mut Vec<String>,
-    ) -> AnyhowResult<()> {
-        let mut rsp = client
-            .get(format!("{}/{}/images", typ, identifier))
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        if let Some(imgs) = new_images.posters {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        if let Some(imgs) = new_images.backdrops {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        Ok(())
-    }
 }
 
 pub mod listennotes {
