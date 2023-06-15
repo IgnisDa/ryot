@@ -4,6 +4,7 @@ import {
 	type CommitMediaMutationVariables,
 	MetadataLot,
 	UserDetailsDocument,
+	UserEnabledFeaturesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
@@ -17,6 +18,20 @@ export function useUser() {
 		},
 	});
 	return userDetails.data?.__typename === "User" ? userDetails.data : undefined;
+}
+
+export function useEnabledFeatures() {
+	const enabledFeatures = useQuery(
+		["enabledFeatures"],
+		async () => {
+			const { userEnabledFeatures } = await gqlClient.request(
+				UserEnabledFeaturesDocument,
+			);
+			return userEnabledFeatures;
+		},
+		{ staleTime: Infinity },
+	);
+	return enabledFeatures;
 }
 
 export function useCommitMedia(

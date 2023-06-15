@@ -31,7 +31,6 @@ use axum::{
 };
 use config::AppConfig;
 use http::header::AUTHORIZATION;
-use media::resolver::{MediaService, COOKIE_NAME};
 use rust_embed::RustEmbed;
 use scdb::Store;
 use sea_orm::{Database, DatabaseConnection};
@@ -55,6 +54,7 @@ use crate::{
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
+    miscellaneous::resolver::{MiscellaneousService, COOKIE_NAME},
     utils::{create_app_services, user_id_from_token},
 };
 
@@ -63,8 +63,8 @@ mod config;
 mod entities;
 mod graphql;
 mod importer;
-mod media;
 mod migrator;
+mod miscellaneous;
 mod models;
 mod providers;
 mod traits;
@@ -403,7 +403,7 @@ async fn upload_handler(
 }
 
 async fn export(
-    Extension(media_service): Extension<MediaService>,
+    Extension(media_service): Extension<MiscellaneousService>,
     Extension(scdb): Extension<MemoryDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {

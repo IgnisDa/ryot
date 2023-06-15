@@ -1,0 +1,17 @@
+query UserEnabledFeatures {
+  userEnabledFeatures {
+    general {
+      fileStorage {
+        enabled
+      }
+    }
+    metadata {
+      audioBooks
+      books
+      movies
+      podcasts
+      shows
+      videoGames
+    }
+  }
+}

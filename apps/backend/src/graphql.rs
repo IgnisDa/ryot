@@ -8,7 +8,7 @@ use std::env;
 use crate::{
     config::AppConfig,
     importer::{ImporterMutation, ImporterQuery},
-    media::resolver::{MediaMutation, MediaQuery},
+    miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
     utils::{AppServices, MemoryDb},
     VERSION,
 };
@@ -65,10 +65,10 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery, MediaQuery, ImporterQuery);
+pub struct QueryRoot(CoreQuery, MiscellaneousQuery, ImporterQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(MediaMutation, ImporterMutation);
+pub struct MutationRoot(MiscellaneousMutation, ImporterMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 

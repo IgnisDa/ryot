@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::UserLot;
+use crate::{migrator::UserLot, models::UserPreferences};
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
@@ -26,6 +26,8 @@ pub struct Model {
     #[graphql(skip)]
     pub password: String,
     pub lot: UserLot,
+    #[graphql(skip)]
+    pub preferences: UserPreferences,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

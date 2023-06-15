@@ -1,6 +1,7 @@
 import type { NextPageWithLayout } from "../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { ROUTES } from "@/lib/constants";
+import { useEnabledFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { BASE_URL, gqlClient } from "@/lib/services/api";
 import {
@@ -20,7 +21,6 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
-	CoreEnabledFeaturesDocument,
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
 	GetPresignedUrlDocument,
@@ -53,17 +53,7 @@ const Page: NextPageWithLayout = () => {
 	const [images, setImages] = useState<string[]>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
-	const enabledFeatures = useQuery(
-		["enabledFeatures"],
-		async () => {
-			const { coreEnabledFeatures } = await gqlClient.request(
-				CoreEnabledFeaturesDocument,
-			);
-			return coreEnabledFeatures;
-		},
-		{ staleTime: Infinity },
-	);
-
+	const enabledFeatures = useEnabledFeatures();
 	const imageUrls = useQuery(
 		["presignedUrl", images],
 		async () => {
@@ -96,7 +86,7 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const fileUploadNowAllowed =
-		!enabledFeatures.data?.general?.fileStorage?.enabled;
+		!enabledFeatures?.data?.general?.fileStorage?.enabled;
 
 	return (
 		<>

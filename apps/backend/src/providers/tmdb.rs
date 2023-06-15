@@ -7,36 +7,201 @@ use serde_json::json;
 use surf::Client;
 
 use crate::{
-    config::ShowsTmdbConfig,
-    media::{
+    config::{MoviesTmdbConfig, ShowsTmdbConfig},
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    models::{ShowEpisode, ShowSeason, ShowSpecifics},
+    models::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
     traits::MediaProvider,
-    utils::{
-        convert_date_to_year, convert_string_to_date,
-        tmdb::{self, save_all_images, TmdbCredit},
-        NamedObject,
-    },
+    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
 #[derive(Debug, Clone)]
-pub struct TmdbService {
+pub struct MovieTmdbService {
     client: Client,
     image_url: String,
 }
 
-impl TmdbService {
-    pub async fn new(config: &ShowsTmdbConfig) -> Self {
-        let (client, image_url) = tmdb::get_client_config(&config.url, &config.access_token).await;
+impl MovieTmdbService {
+    pub async fn new(config: &MoviesTmdbConfig) -> Self {
+        let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
     }
 }
 
 #[async_trait]
-impl MediaProvider for TmdbService {
+impl MediaProvider for MovieTmdbService {
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbMovie {
+            id: i32,
+            title: String,
+            overview: String,
+            poster_path: Option<String>,
+            backdrop_path: Option<String>,
+            release_date: String,
+            runtime: i32,
+            genres: Vec<NamedObject>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("movie/{}", &identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbCreditsResponse {
+            cast: Vec<utils::TmdbCredit>,
+            crew: Vec<utils::TmdbCredit>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("movie/{}/credits", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut all_creators = credits
+            .cast
+            .clone()
+            .into_iter()
+            .flat_map(|g| {
+                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                    Some(MetadataCreator {
+                        name: n,
+                        role: r,
+                        image_urls: Vec::from_iter(
+                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                        ),
+                    })
+                } else {
+                    None
+                }
+            })
+            .unique()
+            .collect::<Vec<_>>();
+        all_creators.extend(credits.crew.into_iter().flat_map(|g| {
+            if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                Some(MetadataCreator {
+                    name: n,
+                    role: r,
+                    image_urls: Vec::from_iter(
+                        g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                    ),
+                })
+            } else {
+                None
+            }
+        }));
+        let mut image_ids = Vec::from_iter(data.poster_path);
+        if let Some(u) = data.backdrop_path {
+            image_ids.push(u);
+        }
+        utils::save_all_images(&self.client, "movie", identifier, &mut image_ids).await?;
+
+        Ok(MediaDetails {
+            identifier: data.id.to_string(),
+            lot: MetadataLot::Movie,
+            source: MetadataSource::Tmdb,
+            title: data.title,
+            genres: data.genres.into_iter().map(|g| g.name).collect(),
+            creators: Vec::from_iter(all_creators),
+            images: image_ids
+                .into_iter()
+                .unique()
+                .map(|p| MetadataImage {
+                    url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect(),
+            publish_year: convert_date_to_year(&data.release_date),
+            publish_date: convert_string_to_date(&data.release_date),
+            description: Some(data.overview),
+            specifics: MediaSpecifics::Movie(MovieSpecifics {
+                runtime: Some(data.runtime),
+            }),
+        })
+    }
+
+    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+        let page = page.unwrap_or(1);
+        #[derive(Debug, Serialize, Deserialize, SimpleObject)]
+        pub struct TmdbMovie {
+            id: i32,
+            poster_path: Option<String>,
+            backdrop_path: Option<String>,
+            overview: Option<String>,
+            title: String,
+            release_date: String,
+        }
+        #[derive(Serialize, Deserialize, Debug)]
+        struct TmdbSearchResponse {
+            total_results: i32,
+            results: Vec<TmdbMovie>,
+            total_pages: i32,
+        }
+        let mut rsp = self
+            .client
+            .get("search/movie")
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": "en-US".to_owned(),
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| {
+                let images = Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                MediaSearchItem {
+                    identifier: d.id.to_string(),
+                    lot: MetadataLot::Movie,
+                    title: d.title,
+                    publish_year: convert_date_to_year(&d.release_date),
+                    images,
+                }
+            })
+            .collect::<Vec<_>>();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(MediaSearchResults {
+            total: search.total_results,
+            next_page,
+            items: resp.to_vec(),
+        })
+    }
+}
+
+impl MovieTmdbService {
+    fn get_cover_image_url(&self, c: &str) -> String {
+        format!("{}{}{}", self.image_url, "original", c)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ShowTmdbService {
+    client: Client,
+    image_url: String,
+}
+
+impl ShowTmdbService {
+    pub async fn new(config: &ShowsTmdbConfig) -> Self {
+        let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
+        Self { client, image_url }
+    }
+}
+
+#[async_trait]
+impl MediaProvider for ShowTmdbService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
@@ -63,7 +228,7 @@ impl MediaProvider for TmdbService {
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
         }
-        save_all_images(&self.client, "tv", identifier, &mut image_ids).await?;
+        utils::save_all_images(&self.client, "tv", identifier, &mut image_ids).await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
@@ -74,8 +239,8 @@ impl MediaProvider for TmdbService {
             overview: Option<String>,
             air_date: Option<String>,
             runtime: Option<i32>,
-            guest_stars: Vec<TmdbCredit>,
-            crew: Vec<TmdbCredit>,
+            guest_stars: Vec<utils::TmdbCredit>,
+            crew: Vec<utils::TmdbCredit>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -269,8 +434,95 @@ impl MediaProvider for TmdbService {
     }
 }
 
-impl TmdbService {
+impl ShowTmdbService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
+    }
+}
+
+mod utils {
+    use std::{env, fs};
+
+    use surf::{
+        http::headers::{AUTHORIZATION, USER_AGENT},
+        Config, Url,
+    };
+
+    use crate::{
+        graphql::{AUTHOR, PROJECT_NAME},
+        utils::read_file_to_json,
+    };
+
+    use super::*;
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbCredit {
+        pub name: Option<String>,
+        pub known_for_department: Option<String>,
+        pub profile_path: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbImage {
+        pub file_path: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct TmdbImagesResponse {
+        pub backdrops: Option<Vec<utils::TmdbImage>>,
+        pub posters: Option<Vec<utils::TmdbImage>>,
+    }
+
+    pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
+        let path = env::temp_dir().join("tmdb-config.json");
+        let client: Client = Config::new()
+            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .unwrap()
+            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
+            .unwrap()
+            .set_base_url(Url::parse(url).unwrap())
+            .try_into()
+            .unwrap();
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbImageConfiguration {
+            secure_base_url: String,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbConfiguration {
+            images: TmdbImageConfiguration,
+        }
+        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
+            details.images.secure_base_url
+        } else {
+            let mut rsp = client.get("configuration").await.unwrap();
+            let data: TmdbConfiguration = rsp.body_json().await.unwrap();
+            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
+            data.images.secure_base_url
+        };
+        (client, image_url)
+    }
+
+    pub async fn save_all_images(
+        client: &Client,
+        typ: &str,
+        identifier: &str,
+        images: &mut Vec<String>,
+    ) -> Result<()> {
+        let mut rsp = client
+            .get(format!("{}/{}/images", typ, identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        if let Some(imgs) = new_images.posters {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        Ok(())
     }
 }

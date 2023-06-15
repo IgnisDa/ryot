@@ -3,6 +3,10 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
+fn get_serde_true() -> bool {
+    true
+}
+
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
 )]
@@ -153,4 +157,33 @@ pub struct ShowEpisode {
 #[graphql(input_name = "VideoGameSpecificsInput")]
 pub struct VideoGameSpecifics {
     pub platforms: Vec<String>,
+}
+
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    InputObject,
+    Eq,
+    PartialEq,
+    Default,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserPreferencesInput")]
+pub struct UserPreferences {
+    // features enabled
+    #[serde(default = "get_serde_true")]
+    pub audio_books: bool,
+    #[serde(default = "get_serde_true")]
+    pub books: bool,
+    #[serde(default = "get_serde_true")]
+    pub movies: bool,
+    #[serde(default = "get_serde_true")]
+    pub podcasts: bool,
+    #[serde(default = "get_serde_true")]
+    pub shows: bool,
+    #[serde(default = "get_serde_true")]
+    pub video_games: bool,
 }

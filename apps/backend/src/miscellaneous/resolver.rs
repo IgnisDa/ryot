@@ -37,7 +37,6 @@ use crate::{
     },
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
-    media::PAGE_LIMIT,
     migrator::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
@@ -46,9 +45,11 @@ use crate::{
         VideoGameSpecifics,
     },
     providers::{
-        audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
-        movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
-        shows_tmdb::TmdbService as ShowTmdbService,
+        audible::AudibleService,
+        igdb::IgdbService,
+        listennotes::ListennotesService,
+        openlibrary::OpenlibraryService,
+        tmdb::{MovieTmdbService, ShowTmdbService},
     },
     traits::MediaProvider,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
@@ -56,7 +57,7 @@ use crate::{
 
 use super::{
     DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
-    MetadataImageUrl, MetadataImages,
+    MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
 type ProviderBox = Arc<(dyn MediaProvider + Send + Sync)>;
@@ -181,6 +182,12 @@ pub struct ExportMedia {
     tmdb_id: Option<String>,
     seen_history: Vec<seen::Model>,
     user_reviews: Vec<review::Model>,
+}
+
+#[derive(Debug, InputObject)]
+struct UpdateUserPreferencesInput {
+    property: MetadataLot,
+    value: bool,
 }
 
 fn create_cookie(
@@ -318,25 +325,29 @@ pub struct AddMediaToCollection {
 }
 
 #[derive(SimpleObject)]
-pub struct MetadataCoreFeatureEnabled {
-    name: MetadataLot,
+pub struct MetadataFeatureEnabled {
+    audio_books: bool,
+    books: bool,
+    movies: bool,
+    podcasts: bool,
+    shows: bool,
+    video_games: bool,
+}
+
+#[derive(SimpleObject)]
+pub struct GeneralFeatureEnabled {
     enabled: bool,
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralCoreFeatureEnabled {
-    enabled: bool,
+pub struct GeneralFeatures {
+    file_storage: GeneralFeatureEnabled,
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralCoreFeatures {
-    file_storage: GeneralCoreFeatureEnabled,
-}
-
-#[derive(SimpleObject)]
-pub struct CoreFeatureEnabled {
-    metadata: Vec<MetadataCoreFeatureEnabled>,
-    general: GeneralCoreFeatures,
+pub struct FeatureEnabled {
+    metadata: MetadataFeatureEnabled,
+    general: GeneralFeatures,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -500,10 +511,10 @@ pub struct SearchInput {
 }
 
 #[derive(Default)]
-pub struct MediaQuery;
+pub struct MiscellaneousQuery;
 
 #[Object]
-impl MediaQuery {
+impl MiscellaneousQuery {
     /// Get all the public reviews for a media item.
     async fn media_item_reviews(
         &self,
@@ -512,7 +523,7 @@ impl MediaQuery {
     ) -> Result<Vec<ReviewItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .media_item_reviews(&user_id, &metadata_id.into())
             .await
     }
@@ -521,7 +532,7 @@ impl MediaQuery {
     async fn collections(&self, gql_ctx: &Context<'_>) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .collections(&user_id)
             .await
     }
@@ -530,7 +541,7 @@ impl MediaQuery {
     pub async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let token = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .user_details(&token)
             .await
     }
@@ -539,7 +550,7 @@ impl MediaQuery {
     pub async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .user_summary(&user_id)
             .await
     }
@@ -551,7 +562,7 @@ impl MediaQuery {
         metadata_id: Identifier,
     ) -> Result<GraphqlMediaDetails> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .media_details(metadata_id.into())
             .await
     }
@@ -564,7 +575,7 @@ impl MediaQuery {
     ) -> Result<Vec<seen::Model>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .seen_history(metadata_id.into(), user_id)
             .await
     }
@@ -577,7 +588,7 @@ impl MediaQuery {
     ) -> Result<MediaSearchResults> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .media_list(user_id, input)
             .await
     }
@@ -585,17 +596,18 @@ impl MediaQuery {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .get_presigned_url(key)
             .await
     }
 
     /// Get all the features that are enabled for the service
-    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> CoreFeatureEnabled {
+    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<FeatureEnabled> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
-            .core_enabled_features(config)
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_enabled_features(user_id, config)
             .await
     }
 
@@ -607,22 +619,22 @@ impl MediaQuery {
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .media_search(lot, input)
             .await
     }
 }
 
 #[derive(Default)]
-pub struct MediaMutation;
+pub struct MiscellaneousMutation;
 
 #[Object]
-impl MediaMutation {
+impl MiscellaneousMutation {
     /// Create or update a review.
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .post_review(&user_id, input)
             .await
     }
@@ -631,7 +643,7 @@ impl MediaMutation {
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: Identifier) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .delete_review(&user_id, review_id.into())
             .await
     }
@@ -644,7 +656,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .create_collection(&user_id, input)
             .await
     }
@@ -657,7 +669,7 @@ impl MediaMutation {
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .add_media_to_collection(&user_id, input)
             .await
     }
@@ -671,7 +683,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .remove_media_item_from_collection(&user_id, &metadata_id.into(), &collection_name)
             .await
     }
@@ -684,7 +696,7 @@ impl MediaMutation {
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .delete_collection(&user_id, &collection_name)
             .await
     }
@@ -697,7 +709,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .delete_seen_item(seen_id.into(), user_id)
             .await
     }
@@ -705,7 +717,7 @@ impl MediaMutation {
     /// Deploy jobs to update all media item's metadata.
     async fn update_all_metadata(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .update_all_metadata()
             .await
     }
@@ -718,7 +730,7 @@ impl MediaMutation {
         input: UserInput,
     ) -> Result<RegisterResult> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .register_user(&input.username, &input.password)
             .await
     }
@@ -727,7 +739,7 @@ impl MediaMutation {
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         let maybe_api_key = gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .login_user(
                 &input.username,
                 &input.password,
@@ -759,7 +771,7 @@ impl MediaMutation {
         )?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .logout_user(&user_id)
             .await
     }
@@ -769,7 +781,7 @@ impl MediaMutation {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .update_user(&user_id, input, config)
             .await
     }
@@ -778,7 +790,7 @@ impl MediaMutation {
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .regenerate_user_summary(user_id)
             .await
     }
@@ -791,7 +803,7 @@ impl MediaMutation {
     ) -> Result<CreateCustomMediaResult> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .create_custom_media(input, &user_id)
             .await
     }
@@ -804,7 +816,7 @@ impl MediaMutation {
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .progress_update(input, user_id)
             .await
     }
@@ -816,7 +828,7 @@ impl MediaMutation {
         metadata_id: Identifier,
     ) -> Result<String> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .deploy_update_metadata_job(metadata_id.into())
             .await
     }
@@ -830,7 +842,7 @@ impl MediaMutation {
         merge_into: Identifier,
     ) -> Result<bool> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .merge_metadata(merge_from.into(), merge_into.into())
             .await
     }
@@ -843,7 +855,7 @@ impl MediaMutation {
         identifier: String,
     ) -> Result<IdObject> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .commit_media(lot, identifier)
             .await
     }
@@ -855,14 +867,27 @@ impl MediaMutation {
         podcast_id: Identifier,
     ) -> Result<bool> {
         gql_ctx
-            .data_unchecked::<Arc<MediaService>>()
+            .data_unchecked::<Arc<MiscellaneousService>>()
             .commit_next_10_podcast_episodes(podcast_id.into())
+            .await
+    }
+
+    /// Change a user's preferences
+    async fn update_user_preferences(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserPreferencesInput,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .update_user_preferences(input, user_id)
             .await
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct MediaService {
+pub struct MiscellaneousService {
     db: DatabaseConnection,
     scdb: MemoryDb,
     s3_client: aws_sdk_s3::Client,
@@ -879,7 +904,7 @@ pub struct MediaService {
     user_created: SqliteStorage<UserCreatedJob>,
 }
 
-impl MediaService {
+impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
@@ -916,7 +941,7 @@ impl MediaService {
     }
 }
 
-impl MediaService {
+impl MiscellaneousService {
     async fn get_presigned_url(&self, key: String) -> String {
         self.s3_client
             .get_object()
@@ -1651,7 +1676,11 @@ impl MediaService {
         Ok(true)
     }
 
-    async fn core_enabled_features(&self, config: &AppConfig) -> CoreFeatureEnabled {
+    async fn user_enabled_features(
+        &self,
+        user_id: i32,
+        config: &AppConfig,
+    ) -> Result<FeatureEnabled> {
         let mut files_enabled = config.file_storage.is_enabled();
         if files_enabled
             && self
@@ -1664,28 +1693,22 @@ impl MediaService {
         {
             files_enabled = false;
         }
-        let general = GeneralCoreFeatures {
-            file_storage: GeneralCoreFeatureEnabled {
+        let general = GeneralFeatures {
+            file_storage: GeneralFeatureEnabled {
                 enabled: files_enabled,
             },
         };
 
-        let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
-            (MetadataLot::Book, &config.books),
-            (MetadataLot::Movie, &config.movies),
-            (MetadataLot::Show, &config.shows),
-            (MetadataLot::VideoGame, &config.video_games),
-            (MetadataLot::AudioBook, &config.audio_books),
-            (MetadataLot::Podcast, &config.podcasts),
-        ];
-        let metadata = feats
-            .into_iter()
-            .map(|f| MetadataCoreFeatureEnabled {
-                name: f.0,
-                enabled: f.1.is_enabled(),
-            })
-            .collect();
-        CoreFeatureEnabled { metadata, general }
+        let user_preferences = self.user_by_id(user_id).await?.preferences;
+        let metadata = MetadataFeatureEnabled {
+            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
+            books: config.books.is_enabled() && user_preferences.books,
+            shows: config.shows.is_enabled() && user_preferences.shows,
+            movies: config.movies.is_enabled() && user_preferences.movies,
+            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
+            video_games: config.video_games.is_enabled() && user_preferences.video_games,
+        };
+        Ok(FeatureEnabled { metadata, general })
     }
 
     async fn media_search(
@@ -2242,17 +2265,21 @@ impl MediaService {
         let found_token = self.scdb.lock().unwrap().get(token.as_bytes()).unwrap();
         if let Some(t) = found_token {
             let user_id = std::str::from_utf8(&t).unwrap().parse::<i32>().unwrap();
-            let user = User::find_by_id(user_id)
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
+            let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(user))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
             }))
         }
+    }
+
+    async fn user_by_id(&self, user_id: i32) -> Result<user::Model> {
+        User::find_by_id(user_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .ok_or_else(|| Error::new("No user found"))
     }
 
     async fn latest_user_summary(&self, user_id: &i32) -> Result<summary::Model> {
@@ -2674,5 +2701,26 @@ impl MediaService {
         let (sql, values) = self.get_sql_and_values(stmt);
 
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
+    }
+
+    async fn update_user_preferences(
+        &self,
+        input: UpdateUserPreferencesInput,
+        user_id: i32,
+    ) -> Result<bool> {
+        let user_model = self.user_by_id(user_id).await?;
+        let mut preferences = user_model.preferences.clone();
+        match input.property {
+            MetadataLot::AudioBook => preferences.audio_books = input.value,
+            MetadataLot::Book => preferences.books = input.value,
+            MetadataLot::Movie => preferences.movies = input.value,
+            MetadataLot::Podcast => preferences.podcasts = input.value,
+            MetadataLot::Show => preferences.shows = input.value,
+            MetadataLot::VideoGame => preferences.video_games = input.value,
+        };
+        let mut user_model: user::ActiveModel = user_model.into();
+        user_model.preferences = ActiveValue::Set(preferences);
+        user_model.update(&self.db).await?;
+        Ok(true)
     }
 }

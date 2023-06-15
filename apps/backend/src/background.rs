@@ -8,11 +8,11 @@ use crate::{
     entities::{metadata, seen},
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
-    media::{
-        resolver::{AddMediaToCollection, MediaService},
+    migrator::MetadataLot,
+    miscellaneous::{
+        resolver::{AddMediaToCollection, MiscellaneousService},
         DefaultCollection,
     },
-    migrator::MetadataLot,
 };
 
 // Cron Jobs
@@ -41,7 +41,7 @@ pub async fn general_media_cleanup_jobs(
         .await
         .unwrap();
     tracing::info!("Cleaning up media items without associated user activities");
-    ctx.data::<Arc<MediaService>>()
+    ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .cleanup_metadata_with_associated_user_activities()
         .await
@@ -54,13 +54,13 @@ pub async fn general_user_cleanup(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Cleaning up user and metadata association");
-    ctx.data::<Arc<MediaService>>()
+    ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
     tracing::info!("Removing old user summaries and regenerating them");
-    ctx.data::<Arc<MediaService>>()
+    ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .regenerate_user_summaries()
         .await
@@ -104,7 +104,7 @@ pub async fn user_created_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Running jobs after user creation");
-    let service = ctx.data::<Arc<MediaService>>().unwrap();
+    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service
         .user_created_job(&information.user_id.into())
         .await
@@ -138,7 +138,7 @@ pub async fn after_media_seen_job(
         "Running jobs after media item seen {:?}",
         information.seen.id
     );
-    let media_service = ctx.data::<Arc<MediaService>>().unwrap();
+    let media_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     if information.seen.dropped {
         media_service
             .remove_media_item_from_collection(
@@ -215,7 +215,7 @@ pub async fn recalculate_user_summary_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::info!("Calculating summary for user {:?}", information.user_id);
-    ctx.data::<Arc<MediaService>>()
+    ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .calculate_user_summary(&information.user_id.into())
         .await
@@ -240,7 +240,7 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    ctx.data::<Arc<MediaService>>()
+    ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .update_metadata(information.metadata)
         .await

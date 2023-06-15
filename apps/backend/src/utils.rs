@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Result as AnyhowResult};
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
@@ -12,32 +11,33 @@ use scdb::Store;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Serialize};
-use surf::{
-    http::headers::{AUTHORIZATION, USER_AGENT},
-    Client, Config, Url,
-};
+use surf::Client;
 use tokio::task::JoinSet;
 
-use crate::background::{
-    AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
+use crate::{
+    background::{
+        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
+        UserCreatedJob,
+    },
+    config::AppConfig,
+    entities::user_to_metadata,
+    importer::ImporterService,
+    miscellaneous::resolver::MiscellaneousService,
+    providers::{
+        audible::AudibleService,
+        igdb::IgdbService,
+        listennotes::ListennotesService,
+        openlibrary::OpenlibraryService,
+        tmdb::{MovieTmdbService, ShowTmdbService},
+    },
+    GqlCtx,
 };
-use crate::config::AppConfig;
-use crate::entities::user_to_metadata;
-use crate::graphql::AUTHOR;
-use crate::importer::ImporterService;
-use crate::media::resolver::MediaService;
-use crate::providers::{
-    audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
-    movies_tmdb::TmdbService as MovieTmdbService, openlibrary::OpenlibraryService,
-    shows_tmdb::TmdbService as ShowTmdbService,
-};
-use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub media_service: Arc<MediaService>,
+    pub media_service: Arc<MiscellaneousService>,
     pub openlibrary_service: Arc<OpenlibraryService>,
     pub tmdb_movies_service: Arc<MovieTmdbService>,
     pub tmdb_shows_service: Arc<ShowTmdbService>,
@@ -66,7 +66,7 @@ pub async fn create_app_services(
     let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
     let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
 
-    let media_service = Arc::new(MediaService::new(
+    let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
         &s3_client,
@@ -176,213 +176,16 @@ where
     data
 }
 
-fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
+pub fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
     let mut file = File::open(path).ok()?;
     let mut data = String::new();
     file.read_to_string(&mut data).unwrap();
     serde_json::from_str::<T>(&data).ok()
 }
 
-fn get_now_timestamp() -> u128 {
+pub fn get_now_timestamp() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_millis()
-}
-
-pub mod tmdb {
-    use std::{env, fs};
-
-    use crate::graphql::PROJECT_NAME;
-
-    use super::*;
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbCredit {
-        pub name: Option<String>,
-        pub known_for_department: Option<String>,
-        pub profile_path: Option<String>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbImage {
-        pub file_path: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct TmdbImagesResponse {
-        pub backdrops: Option<Vec<TmdbImage>>,
-        pub posters: Option<Vec<TmdbImage>>,
-    }
-
-    pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
-        let path = env::temp_dir().join("tmdb-config.json");
-        let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
-            .unwrap()
-            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
-            details.images.secure_base_url
-        } else {
-            let mut rsp = client.get("configuration").await.unwrap();
-            let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
-            data.images.secure_base_url
-        };
-        (client, image_url)
-    }
-
-    pub async fn save_all_images(
-        client: &Client,
-        typ: &str,
-        identifier: &str,
-        images: &mut Vec<String>,
-    ) -> AnyhowResult<()> {
-        let mut rsp = client
-            .get(format!("{}/{}/images", typ, identifier))
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        if let Some(imgs) = new_images.posters {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        if let Some(imgs) = new_images.backdrops {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        Ok(())
-    }
-}
-
-pub mod listennotes {
-    use std::collections::HashMap;
-
-    use crate::graphql::PROJECT_NAME;
-
-    use super::*;
-
-    pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
-        let client: Client = Config::new()
-            .add_header("X-ListenAPI-Key", api_token)
-            .unwrap()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
-        #[derive(Debug, Serialize, Deserialize, Default)]
-        struct Genre {
-            id: i32,
-            name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Default)]
-        struct GenreResponse {
-            genres: Vec<Genre>,
-        }
-        let mut rsp = client.get("genres").await.unwrap();
-        let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
-        let mut genres = HashMap::new();
-        for genre in data.genres {
-            genres.insert(genre.id, genre.name);
-        }
-        (client, genres)
-    }
-}
-
-pub mod igdb {
-    use std::{env, fs};
-
-    use serde_json::json;
-
-    use super::*;
-    use crate::{config::VideoGameConfig, graphql::PROJECT_NAME};
-
-    #[derive(Deserialize, Debug, Serialize)]
-    struct Credentials {
-        access_token: String,
-        expires_at: u128,
-    }
-
-    async fn get_access_token(config: &VideoGameConfig) -> Credentials {
-        let mut access_res = surf::post(&config.twitch.access_token_url)
-            .query(&json!({
-                "client_id": config.twitch.client_id.to_owned(),
-                "client_secret": config.twitch.client_secret.to_owned(),
-                "grant_type": "client_credentials".to_owned(),
-            }))
-            .unwrap()
-            .await
-            .unwrap();
-        #[derive(Deserialize, Serialize, Default, Debug)]
-        struct AccessResponse {
-            access_token: String,
-            token_type: String,
-            expires_in: u128,
-        }
-        let access = access_res
-            .body_json::<AccessResponse>()
-            .await
-            .unwrap_or_default();
-        let expires_at = get_now_timestamp() + (access.expires_in * 1000);
-        let access_token = format!("{} {}", access.token_type, access.access_token);
-        Credentials {
-            access_token,
-            expires_at,
-        }
-    }
-
-    // Ideally, I want this to use a mutex to store the client and expiry time.
-    // However for the time being we will read and write to a file.
-    pub async fn get_client(config: &VideoGameConfig) -> Client {
-        let path = env::temp_dir().join("igdb-credentials.json");
-        let access_token =
-            if let Some(mut credential_details) = read_file_to_json::<Credentials>(&path) {
-                if credential_details.expires_at < get_now_timestamp() {
-                    tracing::info!("Access token has expired, refreshing...");
-                    credential_details = get_access_token(config).await;
-                    fs::write(path, serde_json::to_string(&credential_details).unwrap()).ok();
-                }
-                credential_details.access_token
-            } else {
-                let creds = get_access_token(config).await;
-                fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
-                creds.access_token
-            };
-        Config::new()
-            .add_header("Client-ID", config.twitch.client_id.to_owned())
-            .unwrap()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
-            .unwrap()
-            .add_header(AUTHORIZATION, access_token)
-            .unwrap()
-            .set_base_url(Url::parse(&config.igdb.url).unwrap())
-            .try_into()
-            .unwrap()
-    }
-}
-
-pub mod openlibrary {
-    pub fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect::<Vec<_>>()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
-    }
 }

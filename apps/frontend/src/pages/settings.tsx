@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
+import { useEnabledFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -10,7 +11,10 @@ import {
 	Divider,
 	Flex,
 	PasswordInput,
+	SimpleGrid,
+	Space,
 	Stack,
+	Switch,
 	Tabs,
 	Text,
 	TextInput,
@@ -24,15 +28,23 @@ import {
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
+	MetadataLot,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
+	UpdateUserPreferencesDocument,
+	type UpdateUserPreferencesMutationVariables,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconAnalyze, IconDatabaseImport, IconUser } from "@tabler/icons-react";
+import {
+	IconAnalyze,
+	IconDatabaseImport,
+	IconSignature,
+	IconUser,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import type { ReactElement } from "react";
@@ -196,6 +208,20 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const enabledFeatures = useEnabledFeatures();
+	const updateUserPreferences = useMutation({
+		mutationFn: async (variables: UpdateUserPreferencesMutationVariables) => {
+			const { updateUserPreferences } = await gqlClient.request(
+				UpdateUserPreferencesDocument,
+				variables,
+			);
+			return updateUserPreferences;
+		},
+		onSuccess: () => {
+			enabledFeatures.refetch();
+		},
+	});
+
 	const openProfileUpdateModal = () =>
 		modals.openConfirmModal({
 			children: (
@@ -255,6 +281,12 @@ const Page: NextPageWithLayout = () => {
 								Profile
 							</Tabs.Tab>
 							<Tabs.Tab
+								value="preferences"
+								icon={<IconSignature size="1rem" />}
+							>
+								Preferences
+							</Tabs.Tab>
+							<Tabs.Tab
 								value="import"
 								icon={<IconDatabaseImport size="1rem" />}
 							>
@@ -296,6 +328,84 @@ const Page: NextPageWithLayout = () => {
 									</Button>
 								</Stack>
 							</Box>
+						</Tabs.Panel>
+						<Tabs.Panel value="preferences">
+							<Title order={3}>Enabled features</Title>
+							<Space h="sm" />
+							<SimpleGrid cols={2}>
+								<Switch
+									label="Audio books"
+									checked={enabledFeatures.data?.metadata.audioBooks}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.AudioBook,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
+									label="Books"
+									checked={enabledFeatures.data?.metadata.books}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.Book,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
+									label="Movies"
+									checked={enabledFeatures.data?.metadata.movies}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.Movie,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
+									label="Podcasts"
+									checked={enabledFeatures.data?.metadata.podcasts}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.Podcast,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
+									label="Shows"
+									checked={enabledFeatures.data?.metadata.shows}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.Show,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+								<Switch
+									label="Video games"
+									checked={enabledFeatures.data?.metadata.videoGames}
+									onChange={(ev) => {
+										updateUserPreferences.mutate({
+											input: {
+												property: MetadataLot.VideoGame,
+												value: ev.currentTarget.checked,
+											},
+										});
+									}}
+								/>
+							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
 							<Stack>
