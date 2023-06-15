@@ -27,8 +27,11 @@ use crate::graphql::AUTHOR;
 use crate::importer::ImporterService;
 use crate::media::resolver::MediaService;
 use crate::providers::{
-    audible::AudibleService, igdb::IgdbService, listennotes::ListennotesService,
-    movies_tmdb::MovieTmdbService, openlibrary::OpenlibraryService, shows_tmdb::ShowTmdbService,
+    audible::AudibleService,
+    igdb::IgdbService,
+    listennotes::ListennotesService,
+    openlibrary::OpenlibraryService,
+    tmdb::{MovieTmdbService, ShowTmdbService},
 };
 use crate::GqlCtx;
 
