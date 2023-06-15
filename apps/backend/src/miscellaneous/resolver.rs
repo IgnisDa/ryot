@@ -325,25 +325,25 @@ pub struct AddMediaToCollection {
 }
 
 #[derive(SimpleObject)]
-pub struct MetadataCoreFeatureEnabled {
+pub struct MetadataFeatureEnabled {
     name: MetadataLot,
     enabled: bool,
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralCoreFeatureEnabled {
+pub struct GeneralFeatureEnabled {
     enabled: bool,
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralCoreFeatures {
-    file_storage: GeneralCoreFeatureEnabled,
+pub struct GeneralFeatures {
+    file_storage: GeneralFeatureEnabled,
 }
 
 #[derive(SimpleObject)]
-pub struct CoreFeatureEnabled {
-    metadata: Vec<MetadataCoreFeatureEnabled>,
-    general: GeneralCoreFeatures,
+pub struct FeatureEnabled {
+    metadata: Vec<MetadataFeatureEnabled>,
+    general: GeneralFeatures,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -598,11 +598,12 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the features that are enabled for the service
-    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> CoreFeatureEnabled {
+    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<FeatureEnabled> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .core_enabled_features(config)
+            .user_enabled_features(user_id, config)
             .await
     }
 
@@ -1671,7 +1672,11 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn core_enabled_features(&self, config: &AppConfig) -> CoreFeatureEnabled {
+    async fn user_enabled_features(
+        &self,
+        user_id: i32,
+        config: &AppConfig,
+    ) -> Result<FeatureEnabled> {
         let mut files_enabled = config.file_storage.is_enabled();
         if files_enabled
             && self
@@ -1684,12 +1689,13 @@ impl MiscellaneousService {
         {
             files_enabled = false;
         }
-        let general = GeneralCoreFeatures {
-            file_storage: GeneralCoreFeatureEnabled {
+        let general = GeneralFeatures {
+            file_storage: GeneralFeatureEnabled {
                 enabled: files_enabled,
             },
         };
 
+        let user_preferences = self.user_by_id(user_id).await?.preferences;
         let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
             (MetadataLot::Book, &config.books),
             (MetadataLot::Movie, &config.movies),
@@ -1700,12 +1706,24 @@ impl MiscellaneousService {
         ];
         let metadata = feats
             .into_iter()
-            .map(|f| MetadataCoreFeatureEnabled {
-                name: f.0,
-                enabled: f.1.is_enabled(),
+            .map(|(lot, feature)| {
+                let mut enabled = feature.is_enabled();
+                enabled = if enabled {
+                    match lot {
+                        MetadataLot::AudioBook => user_preferences.audio_books,
+                        MetadataLot::Book => user_preferences.books,
+                        MetadataLot::Movie => user_preferences.movies,
+                        MetadataLot::Podcast => user_preferences.podcasts,
+                        MetadataLot::Show => user_preferences.shows,
+                        MetadataLot::VideoGame => user_preferences.video_games,
+                    }
+                } else {
+                    enabled
+                };
+                MetadataFeatureEnabled { name: lot, enabled }
             })
             .collect();
-        CoreFeatureEnabled { metadata, general }
+        Ok(FeatureEnabled { metadata, general })
     }
 
     async fn media_search(

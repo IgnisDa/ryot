@@ -1,5 +1,5 @@
-query CoreEnabledFeatures {
-  coreEnabledFeatures {
+query UserEnabledFeatures {
+  userEnabledFeatures {
     general {
       fileStorage {
         enabled
