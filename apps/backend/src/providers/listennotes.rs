@@ -10,16 +10,16 @@ use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::Client;
 
-use crate::config::PodcastConfig;
-use crate::media::resolver::MediaDetails;
-use crate::media::{
-    resolver::{MediaSearchItem, MediaSearchResults},
-    PAGE_LIMIT,
+use crate::{
+    config::PodcastConfig,
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    miscellaneous::{
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    },
+    models::{PodcastEpisode, PodcastSpecifics},
+    traits::MediaProvider,
 };
-use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
-use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
-use crate::models::{PodcastEpisode, PodcastSpecifics};
-use crate::traits::MediaProvider;
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {

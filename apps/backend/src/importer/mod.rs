@@ -13,14 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
-    media::{
+    migrator::{MediaImportSource, MetadataLot},
+    miscellaneous::{
         resolver::{
-            AddMediaToCollection, MediaDetails, MediaService, PostReviewInput, ProgressUpdate,
-            ProgressUpdateAction,
+            AddMediaToCollection, MediaDetails, MiscellaneousService, PostReviewInput,
+            ProgressUpdate, ProgressUpdateAction,
         },
         DefaultCollection,
     },
-    migrator::{MediaImportSource, MetadataLot},
     utils::user_id_from_ctx,
 };
 
@@ -168,7 +168,7 @@ impl ImporterMutation {
 #[derive(Debug, Clone)]
 pub struct ImporterService {
     db: DatabaseConnection,
-    media_service: Arc<MediaService>,
+    media_service: Arc<MiscellaneousService>,
     import_media: SqliteStorage<ImportMedia>,
 }
 
@@ -176,7 +176,7 @@ impl ImporterService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
-        media_service: &MediaService,
+        media_service: &MiscellaneousService,
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {

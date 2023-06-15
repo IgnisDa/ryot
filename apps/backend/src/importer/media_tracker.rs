@@ -13,8 +13,8 @@ use crate::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
     },
-    media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{MetadataLot, MetadataSource},
+    miscellaneous::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     models::BookSpecifics,
     providers::openlibrary::utils::get_key,
 };

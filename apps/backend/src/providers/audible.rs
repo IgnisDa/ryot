@@ -8,11 +8,11 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     config::AudibleConfig,
     graphql::{AUTHOR, PROJECT_NAME},
-    media::{
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::AudioBookSpecifics,
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},

@@ -14,27 +14,30 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 use tokio::task::JoinSet;
 
-use crate::background::{
-    AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob,
+use crate::{
+    background::{
+        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
+        UserCreatedJob,
+    },
+    config::AppConfig,
+    entities::user_to_metadata,
+    importer::ImporterService,
+    miscellaneous::resolver::MiscellaneousService,
+    providers::{
+        audible::AudibleService,
+        igdb::IgdbService,
+        listennotes::ListennotesService,
+        openlibrary::OpenlibraryService,
+        tmdb::{MovieTmdbService, ShowTmdbService},
+    },
+    GqlCtx,
 };
-use crate::config::AppConfig;
-use crate::entities::user_to_metadata;
-use crate::importer::ImporterService;
-use crate::media::resolver::MediaService;
-use crate::providers::{
-    audible::AudibleService,
-    igdb::IgdbService,
-    listennotes::ListennotesService,
-    openlibrary::OpenlibraryService,
-    tmdb::{MovieTmdbService, ShowTmdbService},
-};
-use crate::GqlCtx;
 
 pub type MemoryDb = Arc<Mutex<Store>>;
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub media_service: Arc<MediaService>,
+    pub media_service: Arc<MiscellaneousService>,
     pub openlibrary_service: Arc<OpenlibraryService>,
     pub tmdb_movies_service: Arc<MovieTmdbService>,
     pub tmdb_shows_service: Arc<ShowTmdbService>,
@@ -63,7 +66,7 @@ pub async fn create_app_services(
     let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
     let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
 
-    let media_service = Arc::new(MediaService::new(
+    let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
         &s3_client,

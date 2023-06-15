@@ -6,18 +6,16 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
-use crate::media::resolver::MediaDetails;
-use crate::media::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl};
-use crate::migrator::{MetadataImageLot, MetadataLot, MetadataSource};
-use crate::models::VideoGameSpecifics;
-use crate::traits::MediaProvider;
-use crate::utils::NamedObject;
 use crate::{
     config::VideoGameConfig,
-    media::{
-        resolver::{MediaSearchItem, MediaSearchResults},
-        PAGE_LIMIT,
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    miscellaneous::{
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
+    models::VideoGameSpecifics,
+    traits::MediaProvider,
+    utils::NamedObject,
 };
 
 static FIELDS: &str = "
@@ -25,7 +23,7 @@ fields
     id,
     name,
     summary,
-    cover.*, 
+    cover.*,
     first_release_date,
     involved_companies.company.name,
     involved_companies.company.logo.*,
@@ -33,7 +31,7 @@ fields
     artworks.*,
     platforms.name,
     genres.*;
-where version_parent = null; 
+where version_parent = null;
 ";
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -119,7 +117,7 @@ where id = {id};
         let req_body = format!(
             r#"
 {field}
-search "{query}"; 
+search "{query}";
 limit {limit};
 offset: {offset};
             "#,

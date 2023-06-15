@@ -10,11 +10,11 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use crate::{
     config::OpenlibraryConfig,
     graphql::{AUTHOR, PROJECT_NAME},
-    media::{
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::BookSpecifics,
     traits::MediaProvider,
     utils::get_data_parallelly_from_sources,

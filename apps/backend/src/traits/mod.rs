@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::media::resolver::{MediaDetails, MediaSearchResults};
+use crate::miscellaneous::resolver::{MediaDetails, MediaSearchResults};
 
 #[async_trait]
 pub trait MediaProvider {
