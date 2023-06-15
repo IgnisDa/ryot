@@ -20,11 +20,11 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
-	CoreEnabledFeaturesDocument,
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
 	GetPresignedUrlDocument,
 	MetadataLot,
+	UserEnabledFeaturesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCalendar, IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -56,10 +56,10 @@ const Page: NextPageWithLayout = () => {
 	const enabledFeatures = useQuery(
 		["enabledFeatures"],
 		async () => {
-			const { coreEnabledFeatures } = await gqlClient.request(
-				CoreEnabledFeaturesDocument,
+			const { userEnabledFeatures } = await gqlClient.request(
+				UserEnabledFeaturesDocument,
 			);
-			return coreEnabledFeatures;
+			return userEnabledFeatures;
 		},
 		{ staleTime: Infinity },
 	);

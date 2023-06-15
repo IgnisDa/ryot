@@ -12,9 +12,9 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
-	CoreEnabledFeaturesDocument,
 	LogoutUserDocument,
 	UserDetailsDocument,
+	UserEnabledFeaturesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconHome2,
@@ -104,10 +104,10 @@ export default function ({ children }: { children: ReactElement }) {
 	const enabledFeatures = useQuery(
 		["enabledFeatures"],
 		async () => {
-			const { coreEnabledFeatures } = await gqlClient.request(
-				CoreEnabledFeaturesDocument,
+			const { userEnabledFeatures } = await gqlClient.request(
+				UserEnabledFeaturesDocument,
 			);
-			return coreEnabledFeatures;
+			return userEnabledFeatures;
 		},
 		{ staleTime: Infinity },
 	);
