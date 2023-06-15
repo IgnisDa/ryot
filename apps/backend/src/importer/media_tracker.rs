@@ -16,7 +16,7 @@ use crate::{
     media::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     migrator::{MetadataLot, MetadataSource},
     models::BookSpecifics,
-    utils::openlibrary,
+    providers::openlibrary::utils::get_key,
 };
 
 use super::{
@@ -140,7 +140,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 if let Some(g_id) = details.goodreads_id {
                     g_id.to_string()
                 } else {
-                    openlibrary::get_key(&d.openlibrary_id.clone().unwrap())
+                    get_key(&d.openlibrary_id.clone().unwrap())
                 }
             }
             MediaType::Movie => d.tmdb_id.unwrap().to_string(),

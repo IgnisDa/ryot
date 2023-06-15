@@ -186,14 +186,3 @@ pub fn get_now_timestamp() -> u128 {
         .expect("Time went backwards")
         .as_millis()
 }
-
-pub mod openlibrary {
-    pub fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect::<Vec<_>>()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
-    }
-}

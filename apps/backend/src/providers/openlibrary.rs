@@ -17,7 +17,7 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::BookSpecifics,
     traits::MediaProvider,
-    utils::{get_data_parallelly_from_sources, openlibrary},
+    utils::get_data_parallelly_from_sources,
 };
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -193,7 +193,7 @@ impl MediaProvider for OpenlibraryService {
             .collect();
 
         Ok(MediaDetails {
-            identifier: openlibrary::get_key(&data.key),
+            identifier: utils::get_key(&data.key),
             title: data.title,
             description,
             lot: MetadataLot::Book,
@@ -254,7 +254,7 @@ impl MediaProvider for OpenlibraryService {
             .map(|d| {
                 let images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
-                    identifier: openlibrary::get_key(&d.key),
+                    identifier: utils::get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
@@ -311,5 +311,16 @@ impl OpenlibraryService {
             }
         }
         None
+    }
+}
+
+pub mod utils {
+    pub fn get_key(key: &str) -> String {
+        key.split('/')
+            .collect::<Vec<_>>()
+            .last()
+            .cloned()
+            .unwrap()
+            .to_owned()
     }
 }
