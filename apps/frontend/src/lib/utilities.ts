@@ -44,6 +44,7 @@ export const getLot = (lot: unknown) => {
 		.with("tv", "show", "shows", () => MetadataLot.Show)
 		.with(
 			"games",
+			"videogames",
 			"video_game",
 			"video game",
 			"video_games",
