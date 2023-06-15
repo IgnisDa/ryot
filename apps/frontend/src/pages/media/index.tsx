@@ -553,6 +553,14 @@ const Page: NextPageWithLayout = () => {
 			from: "purple",
 			to: "blue",
 		}))
+		.with(MetadataLot.Anime, () => ({
+			from: "red",
+			to: "blue",
+		}))
+		.with(MetadataLot.Manga, () => ({
+			from: "red",
+			to: "yellow",
+		}))
 		.with(MetadataLot.Podcast, undefined, () => ({
 			from: "yellow",
 			to: "purple",
