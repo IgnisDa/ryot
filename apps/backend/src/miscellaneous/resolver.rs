@@ -267,6 +267,22 @@ pub struct ShowsSummary {
 #[derive(
     SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
 )]
+pub struct MangaSummary {
+    chapters: i32,
+    read: i32,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct AnimeSummary {
+    episodes: i32,
+    watched: i32,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct UserSummary {
     books: BooksSummary,
     movies: MoviesSummary,
@@ -274,6 +290,8 @@ pub struct UserSummary {
     shows: ShowsSummary,
     video_games: VideoGamesSummary,
     audio_books: AudioBooksSummary,
+    anime: AnimeSummary,
+    manga: MangaSummary,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -2288,7 +2306,7 @@ impl MiscellaneousService {
             .order_by_desc(summary::Column::CreatedOn)
             .one(&self.db)
             .await
-            .unwrap()
+            .unwrap_or_default()
             .unwrap_or_default();
         Ok(ls)
     }
