@@ -79,6 +79,8 @@ pub struct CreateCustomMediaInput {
     pub podcast_specifics: Option<PodcastSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub manga_specifics: Option<MangaSpecifics>,
+    pub anime_specifics: Option<AnimeSpecifics>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -180,6 +182,7 @@ pub struct ExportMedia {
     listennotes_id: Option<String>,
     openlibrary_id: Option<String>,
     tmdb_id: Option<String>,
+    anilist_id: Option<String>,
     seen_history: Vec<seen::Model>,
     user_reviews: Vec<review::Model>,
 }
@@ -344,8 +347,10 @@ pub struct AddMediaToCollection {
 
 #[derive(SimpleObject)]
 pub struct MetadataFeatureEnabled {
+    anime: bool,
     audio_books: bool,
     books: bool,
+    manga: bool,
     movies: bool,
     podcasts: bool,
     shows: bool,
@@ -1729,9 +1734,11 @@ impl MiscellaneousService {
 
         let user_preferences = self.user_by_id(user_id).await?.preferences;
         let metadata = MetadataFeatureEnabled {
+            anime: config.anime.is_enabled() && user_preferences.anime,
             audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
             books: config.books.is_enabled() && user_preferences.books,
             shows: config.shows.is_enabled() && user_preferences.shows,
+            manga: config.manga.is_enabled() && user_preferences.manga,
             movies: config.movies.is_enabled() && user_preferences.movies,
             podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
             video_games: config.video_games.is_enabled() && user_preferences.video_games,
@@ -1768,6 +1775,8 @@ impl MiscellaneousService {
             MetadataLot::Movie => self.tmdb_movies_service.clone(),
             MetadataLot::Show => self.tmdb_shows_service.clone(),
             MetadataLot::VideoGame => self.igdb_service.clone(),
+            MetadataLot::Anime => todo!(),
+            MetadataLot::Manga => todo!(),
         };
         let results = service.search(&input.query, input.page).await?;
         let mut all_idens = results
@@ -1867,6 +1876,11 @@ impl MiscellaneousService {
                 MetadataLot::Movie => self.tmdb_movies_service.clone(),
                 _ => unreachable!(),
             },
+            MetadataSource::Anilist => match lot {
+                MetadataLot::Manga => todo!(),
+                MetadataLot::Anime => todo!(),
+                _ => unreachable!(),
+            },
             MetadataSource::Igdb => self.igdb_service.clone(),
             MetadataSource::Custom | MetadataSource::Goodreads => {
                 return Err(Error::new("This source is not supported".to_owned()));
@@ -1887,8 +1901,10 @@ impl MiscellaneousService {
             Ok(IdObject { id: m.id.into() })
         } else {
             let source = match lot {
+                MetadataLot::Anime => MetadataSource::Anilist,
                 MetadataLot::AudioBook => MetadataSource::Audible,
                 MetadataLot::Podcast => MetadataSource::Listennotes,
+                MetadataLot::Manga => MetadataSource::Anilist,
                 MetadataLot::Movie => MetadataSource::Tmdb,
                 MetadataLot::Show => MetadataSource::Tmdb,
                 MetadataLot::VideoGame => MetadataSource::Igdb,
@@ -2623,6 +2639,14 @@ impl MiscellaneousService {
                 None => return err(),
                 Some(ref mut s) => MediaSpecifics::VideoGame(s.clone()),
             },
+            MetadataLot::Anime => match input.anime_specifics {
+                None => return err(),
+                Some(ref mut s) => MediaSpecifics::Anime(s.clone()),
+            },
+            MetadataLot::Manga => match input.manga_specifics {
+                None => return err(),
+                Some(ref mut s) => MediaSpecifics::Manga(s.clone()),
+            },
         };
         let identifier = Uuid::new_v4().to_string();
         let images = input
@@ -2711,6 +2735,7 @@ impl MiscellaneousService {
                 listennotes_id: None,
                 openlibrary_id: None,
                 tmdb_id: None,
+                anilist_id: None,
                 seen_history: seens,
                 user_reviews: reviews,
             };
@@ -2722,6 +2747,7 @@ impl MiscellaneousService {
                 MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
                 MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
+                MetadataSource::Anilist => exp.anilist_id = Some(m.identifier),
             };
             resp.push(exp);
         }
@@ -2757,6 +2783,8 @@ impl MiscellaneousService {
             MetadataLot::Podcast => preferences.podcasts = input.value,
             MetadataLot::Show => preferences.shows = input.value,
             MetadataLot::VideoGame => preferences.video_games = input.value,
+            MetadataLot::Manga => preferences.manga = input.value,
+            MetadataLot::Anime => preferences.anime = input.value,
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);

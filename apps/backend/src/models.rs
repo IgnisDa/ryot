@@ -209,9 +209,13 @@ pub struct MangaSpecifics {
 pub struct UserPreferences {
     // features enabled
     #[serde(default = "get_serde_true")]
+    pub anime: bool,
+    #[serde(default = "get_serde_true")]
     pub audio_books: bool,
     #[serde(default = "get_serde_true")]
     pub books: bool,
+    #[serde(default = "get_serde_true")]
+    pub manga: bool,
     #[serde(default = "get_serde_true")]
     pub movies: bool,
     #[serde(default = "get_serde_true")]

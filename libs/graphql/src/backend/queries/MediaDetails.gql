@@ -14,11 +14,17 @@ query MediaDetails($metadataId: Identifier!) {
     publishYear
     publishDate
 		genres
+    animeSpecifics {
+      episodes
+    }
     bookSpecifics {
       pages
     }
     movieSpecifics {
       runtime
+    }
+    mangaSpecifics {
+      chapters
     }
     podcastSpecifics {
       episodes {
