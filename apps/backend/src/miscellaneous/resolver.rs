@@ -326,8 +326,12 @@ pub struct AddMediaToCollection {
 
 #[derive(SimpleObject)]
 pub struct MetadataFeatureEnabled {
-    name: MetadataLot,
-    enabled: bool,
+    audio_books: bool,
+    books: bool,
+    movies: bool,
+    podcasts: bool,
+    shows: bool,
+    video_games: bool,
 }
 
 #[derive(SimpleObject)]
@@ -342,7 +346,7 @@ pub struct GeneralFeatures {
 
 #[derive(SimpleObject)]
 pub struct FeatureEnabled {
-    metadata: Vec<MetadataFeatureEnabled>,
+    metadata: MetadataFeatureEnabled,
     general: GeneralFeatures,
 }
 
@@ -1696,33 +1700,14 @@ impl MiscellaneousService {
         };
 
         let user_preferences = self.user_by_id(user_id).await?.preferences;
-        let feats: [(MetadataLot, &dyn IsFeatureEnabled); 6] = [
-            (MetadataLot::Book, &config.books),
-            (MetadataLot::Movie, &config.movies),
-            (MetadataLot::Show, &config.shows),
-            (MetadataLot::VideoGame, &config.video_games),
-            (MetadataLot::AudioBook, &config.audio_books),
-            (MetadataLot::Podcast, &config.podcasts),
-        ];
-        let metadata = feats
-            .into_iter()
-            .map(|(lot, feature)| {
-                let mut enabled = feature.is_enabled();
-                enabled = if enabled {
-                    match lot {
-                        MetadataLot::AudioBook => user_preferences.audio_books,
-                        MetadataLot::Book => user_preferences.books,
-                        MetadataLot::Movie => user_preferences.movies,
-                        MetadataLot::Podcast => user_preferences.podcasts,
-                        MetadataLot::Show => user_preferences.shows,
-                        MetadataLot::VideoGame => user_preferences.video_games,
-                    }
-                } else {
-                    enabled
-                };
-                MetadataFeatureEnabled { name: lot, enabled }
-            })
-            .collect();
+        let metadata = MetadataFeatureEnabled {
+            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
+            books: config.books.is_enabled() && user_preferences.books,
+            shows: config.shows.is_enabled() && user_preferences.shows,
+            movies: config.movies.is_enabled() && user_preferences.movies,
+            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
+            video_games: config.video_games.is_enabled() && user_preferences.video_games,
+        };
         Ok(FeatureEnabled { metadata, general })
     }
 

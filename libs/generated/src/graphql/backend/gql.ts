@@ -44,7 +44,7 @@ const documents = {
     "query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query SeenHistory($metadataId: Identifier!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
-    "query UserEnabledFeatures {\n  userEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}": types.UserEnabledFeaturesDocument,
+    "query UserEnabledFeatures {\n  userEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      audioBooks\n      books\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}": types.UserEnabledFeaturesDocument,
     "query UserSummary {\n  userSummary {\n    books {\n      pages\n      read\n    }\n    movies {\n      runtime\n      watched\n    }\n    podcasts {\n      runtime\n      played\n      playedEpisodes\n    }\n    videoGames {\n      played\n    }\n    shows {\n      runtime\n      watchedEpisodes\n      watchedSeasons\n      watched\n    }\n    audioBooks {\n      runtime\n      played\n    }\n  }\n}": types.UserSummaryDocument,
 };
 
@@ -189,7 +189,7 @@ export function graphql(source: "query UserDetails {\n  userDetails {\n    __typ
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query UserEnabledFeatures {\n  userEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}"): (typeof documents)["query UserEnabledFeatures {\n  userEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      name\n      enabled\n    }\n  }\n}"];
+export function graphql(source: "query UserEnabledFeatures {\n  userEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      audioBooks\n      books\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}"): (typeof documents)["query UserEnabledFeatures {\n  userEnabledFeatures {\n    general {\n      fileStorage {\n        enabled\n      }\n    }\n    metadata {\n      audioBooks\n      books\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

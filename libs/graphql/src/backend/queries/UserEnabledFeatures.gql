@@ -6,8 +6,12 @@ query UserEnabledFeatures {
       }
     }
     metadata {
-      name
-      enabled
+      audioBooks
+      books
+      movies
+      podcasts
+      shows
+      videoGames
     }
   }
 }
