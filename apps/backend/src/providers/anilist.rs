@@ -140,12 +140,18 @@ mod utils {
             .unwrap()
             .into_iter()
             .flatten()
-            .map(|b| MediaSearchItem {
-                identifier: b.id.to_string(),
-                lot: MetadataLot::Anime,
-                title: b.title.unwrap().user_preferred.unwrap(),
-                images: Vec::from_iter(b.banner_image),
-                publish_year: b.season_year.map(|b| b.try_into().unwrap()),
+            .map(|b| {
+                let mut images = Vec::from_iter(b.banner_image);
+                if let Some(i) = b.cover_image.unwrap().extra_large {
+                    images.push(i);
+                }
+                MediaSearchItem {
+                    identifier: b.id.to_string(),
+                    lot: MetadataLot::Anime,
+                    title: b.title.unwrap().user_preferred.unwrap(),
+                    images,
+                    publish_year: b.season_year.map(|b| b.try_into().unwrap()),
+                }
             })
             .collect();
         Ok((media, total, next_page))
