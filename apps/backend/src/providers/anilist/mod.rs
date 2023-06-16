@@ -45,7 +45,7 @@ impl AnilistAnimeService {
 impl MediaProvider for AnilistAnimeService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = utils::details(&self.client, identifier).await?;
-        todo!()
+        Ok(details)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -89,12 +89,18 @@ impl MediaProvider for AnilistMangaService {
 }
 
 mod utils {
+    use itertools::Itertools;
     use surf::{
         http::headers::{ACCEPT, USER_AGENT},
         Config, Url,
     };
 
-    use crate::graphql::{AUTHOR, PROJECT_NAME};
+    use crate::{
+        graphql::{AUTHOR, PROJECT_NAME},
+        migrator::{MetadataImageLot, MetadataSource},
+        miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+        models::{AnimeSpecifics, MangaSpecifics},
+    };
 
     use super::*;
 
@@ -110,7 +116,7 @@ mod utils {
         client
     }
 
-    pub async fn details(client: &Client, id: &str) -> Result<MediaSearchItem> {
+    pub async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         let variables = details_query::Variables {
             id: id.parse::<i64>().unwrap(),
         };
@@ -129,8 +135,75 @@ mod utils {
             .unwrap()
             .media
             .unwrap();
-        dbg!(&details);
-        todo!()
+        let mut images = Vec::from_iter(details.banner_image);
+        if let Some(i) = details.cover_image.unwrap().extra_large {
+            images.push(i);
+        }
+        let images = images
+            .into_iter()
+            .map(|i| MetadataImage {
+                url: MetadataImageUrl::Url(i),
+                lot: MetadataImageLot::Poster,
+            })
+            .unique()
+            .collect();
+        let mut genres = details
+            .genres
+            .into_iter()
+            .flatten()
+            .map(|t| t.unwrap())
+            .collect::<Vec<_>>();
+        genres.extend(
+            details
+                .tags
+                .unwrap_or_default()
+                .into_iter()
+                .flatten()
+                .map(|t| t.name),
+        );
+        let creators = Vec::from_iter(details.staff)
+            .into_iter()
+            .flat_map(|s| s.edges.unwrap())
+            .flatten()
+            .map(|s| {
+                let node = s.node.unwrap();
+                MetadataCreator {
+                    name: node.name.unwrap().full.unwrap(),
+                    role: s.role.unwrap(),
+                    image_urls: Vec::from_iter(node.image.unwrap().large),
+                }
+            })
+            .unique()
+            .collect::<Vec<_>>();
+        let (specifics, lot) = match details.type_.unwrap() {
+            details_query::MediaType::ANIME => (
+                MediaSpecifics::Anime(AnimeSpecifics {
+                    episodes: details.episodes.unwrap().try_into().ok(),
+                }),
+                MetadataLot::Anime,
+            ),
+            details_query::MediaType::MANGA => (
+                MediaSpecifics::Manga(MangaSpecifics {
+                    chapters: details.chapters.unwrap().try_into().ok(),
+                    volumes: details.volumes.unwrap().try_into().ok(),
+                }),
+                MetadataLot::Manga,
+            ),
+            details_query::MediaType::Other(_) => unreachable!(),
+        };
+        Ok(MediaDetails {
+            identifier: details.id.to_string(),
+            title: details.title.unwrap().user_preferred.unwrap(),
+            source: MetadataSource::Anilist,
+            description: details.description,
+            lot,
+            creators,
+            images,
+            genres: genres.into_iter().unique().collect(),
+            publish_year: details.season_year.map(|s| s.try_into().unwrap()),
+            publish_date: None,
+            specifics,
+        })
     }
 
     pub async fn search(
