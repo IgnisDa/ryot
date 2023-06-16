@@ -1,0 +1,32 @@
+query AnilistQuery($search: String!, $page: Int!, $type: MediaType!) {
+  Page(page: $page, perPage: 20) {
+    pageInfo {
+      total
+    }
+    media(search: $search, type: $type) {
+      id
+      title {
+        userPreferred
+      }
+      episodes
+      chapters
+      type
+      description
+      coverImage {
+        extraLarge
+      }
+      bannerImage
+      staff {
+        edges {  
+          node {
+            id
+            name {
+              full
+            }
+          }
+          role
+        }
+      }
+    }
+  }
+}
