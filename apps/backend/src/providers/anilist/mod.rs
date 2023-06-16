@@ -20,16 +20,16 @@ pub struct AnilistAnimeService {
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist_schema.json",
-    query_path = "src/providers/anilist_search.graphql",
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/search.graphql",
     response_derives = "Debug"
 )]
 struct SearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist_schema.json",
-    query_path = "src/providers/anilist_details.graphql",
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/details.graphql",
     response_derives = "Debug"
 )]
 struct DetailsQuery;
