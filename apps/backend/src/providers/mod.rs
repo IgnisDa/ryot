@@ -1,3 +1,4 @@
+pub mod anilist;
 pub mod audible;
 pub mod igdb;
 pub mod listennotes;
