@@ -179,14 +179,14 @@ mod utils {
         let (specifics, lot) = match details.type_.unwrap() {
             details_query::MediaType::ANIME => (
                 MediaSpecifics::Anime(AnimeSpecifics {
-                    episodes: details.episodes.unwrap().try_into().ok(),
+                    episodes: details.episodes.map(|c| c.try_into().unwrap()),
                 }),
                 MetadataLot::Anime,
             ),
             details_query::MediaType::MANGA => (
                 MediaSpecifics::Manga(MangaSpecifics {
-                    chapters: details.chapters.unwrap().try_into().ok(),
-                    volumes: details.volumes.unwrap().try_into().ok(),
+                    chapters: details.chapters.map(|c| c.try_into().unwrap()),
+                    volumes: details.volumes.map(|v| v.try_into().unwrap()),
                 }),
                 MetadataLot::Manga,
             ),
