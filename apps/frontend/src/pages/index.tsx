@@ -2,10 +2,11 @@ import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import { ROUTES } from "@/lib/constants";
+import { useEnabledFeatures } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
+import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
 	Box,
 	Button,
@@ -44,11 +45,15 @@ const DisplayStatForMediaType = (props: {
 	lot: MetadataLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 }) => {
+	const enabledFeatures = useEnabledFeatures();
+	const isEnabled = Object.entries(enabledFeatures.data?.metadata || {}).find(
+		([name, _]) => getLot(name) === props.lot,
+	)!;
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
-	return (
+	return isEnabled[1] ? (
 		<Paper component={Flex} align={"center"}>
 			<RingProgress
 				size={60}
@@ -79,7 +84,7 @@ const DisplayStatForMediaType = (props: {
 				))}
 			</Flex>
 		</Paper>
-	);
+	) : null;
 };
 
 const Page: NextPageWithLayout = () => {
