@@ -233,6 +233,36 @@ const Page: NextPageWithLayout = () => {
 								},
 							]}
 						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.Manga}
+							data={[
+								{
+									label: "Manga",
+									value: userSummary.data.manga.read,
+									type: "number",
+								},
+								{
+									label: "Chapters",
+									value: userSummary.data.manga.chapters,
+									type: "number",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
+							lot={MetadataLot.Anime}
+							data={[
+								{
+									label: "Anime",
+									value: userSummary.data.anime.watched,
+									type: "number",
+								},
+								{
+									label: "Episodes",
+									value: userSummary.data.anime.episodes,
+									type: "number",
+								},
+							]}
+						/>
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
