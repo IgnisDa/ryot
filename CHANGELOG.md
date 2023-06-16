@@ -1,4 +1,11 @@
 
+# Version 1.2.0 (2023-06-16)
+
+## Documentation
+
+* remove mounted directory in example docker
+
+
 # Version 1.1.0 (2023-06-15)
 
 
