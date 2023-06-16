@@ -76,7 +76,6 @@ $ docker run \
   --name ryot \
   --pull always \
   --publish 8000:8000 \
-  --volume ./ryot/data:/data \
   --env "WEB_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```
@@ -105,6 +104,11 @@ $ moon run frontend:build
 # Run it
 $ cargo run --bin ryot --release
 ```
+
+## 👀 Production
+
+You will have to mount a directory to the `/data`, giving it the `1001:1001`
+permissions. It is also recommended to use PostgreSQL or MySQL in production.
 
 ## 🔧 Configuration options
 
