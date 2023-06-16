@@ -2265,14 +2265,16 @@ impl MiscellaneousService {
     }
 
     pub async fn cleanup_summaries_for_user(&self, user_id: &i32) -> Result<()> {
-        let summaries = Summary::find()
+        let summaries = Summary::delete_many()
             .filter(summary::Column::UserId.eq(user_id.to_owned()))
-            .all(&self.db)
+            .exec(&self.db)
             .await
             .unwrap();
-        for summary in summaries.into_iter() {
-            summary.delete(&self.db).await.ok();
-        }
+        tracing::trace!(
+            "Deleted {} summaries for user {}",
+            summaries.rows_affected,
+            user_id
+        );
         Ok(())
     }
 
