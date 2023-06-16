@@ -559,7 +559,7 @@ const Page: NextPageWithLayout = () => {
 		}))
 		.with(MetadataLot.Manga, () => ({
 			from: "red",
-			to: "yellow",
+			to: "green",
 		}))
 		.with(MetadataLot.Podcast, undefined, () => ({
 			from: "yellow",
