@@ -136,8 +136,8 @@ mod utils {
             .unwrap()
             .media
             .unwrap();
-        let mut images = Vec::from_iter(details.banner_image);
-        if let Some(i) = details.cover_image.unwrap().extra_large {
+        let mut images = Vec::from_iter(details.cover_image.map(|i| i.extra_large.unwrap()));
+        if let Some(i) = details.banner_image {
             images.push(i);
         }
         let images = images
