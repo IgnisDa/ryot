@@ -5,7 +5,7 @@ query SearchQuery($search: String!, $page: Int!, $type: MediaType!, $perPage: In
       id
       title { userPreferred }
       coverImage { extraLarge }
-      seasonYear
+      startDate { year }
       bannerImage
     }
   }

@@ -10,7 +10,7 @@ query DetailsQuery($id: Int!) {
     type
     genres
     tags { name }
-    seasonYear
+    startDate { year }
     bannerImage
     staff {
       edges {

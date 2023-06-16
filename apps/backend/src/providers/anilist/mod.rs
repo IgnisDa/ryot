@@ -192,6 +192,10 @@ mod utils {
             ),
             details_query::MediaType::Other(_) => unreachable!(),
         };
+
+        let year = details
+            .start_date
+            .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
         Ok(MediaDetails {
             identifier: details.id.to_string(),
             title: details.title.unwrap().user_preferred.unwrap(),
@@ -201,7 +205,7 @@ mod utils {
             creators,
             images,
             genres: genres.into_iter().unique().collect(),
-            publish_year: details.season_year.map(|s| s.try_into().unwrap()),
+            publish_year: year,
             publish_date: None,
             specifics,
         })
@@ -256,7 +260,9 @@ mod utils {
                     lot: MetadataLot::Anime,
                     title: b.title.unwrap().user_preferred.unwrap(),
                     images,
-                    publish_year: b.season_year.map(|b| b.try_into().unwrap()),
+                    publish_year: b
+                        .start_date
+                        .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
                 }
             })
             .collect();
