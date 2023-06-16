@@ -2307,7 +2307,11 @@ impl MiscellaneousService {
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
-        let metadatas = Metadata::find().all(&self.db).await.unwrap();
+        let metadatas = Metadata::find()
+            .order_by_asc(metadata::Column::Id)
+            .all(&self.db)
+            .await
+            .unwrap();
         for metadata in metadatas {
             self.deploy_update_metadata_job(metadata.id).await?;
         }
