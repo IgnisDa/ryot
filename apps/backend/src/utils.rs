@@ -39,12 +39,6 @@ pub type MemoryDb = Arc<Mutex<Store>>;
 /// All the services that are used by the app
 pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
-    pub openlibrary_service: Arc<OpenlibraryService>,
-    pub tmdb_movies_service: Arc<MovieTmdbService>,
-    pub tmdb_shows_service: Arc<ShowTmdbService>,
-    pub audible_service: Arc<AudibleService>,
-    pub igdb_service: Arc<IgdbService>,
-    pub listennotes_service: Arc<ListennotesService>,
     pub importer_service: Arc<ImporterService>,
 }
 
@@ -74,14 +68,14 @@ pub async fn create_app_services(
         &scdb,
         &s3_client,
         &config.file_storage.s3_bucket_name,
-        audible_service.clone(),
-        igdb_service.clone(),
-        listennotes_service.clone(),
-        openlibrary_service.clone(),
-        tmdb_movies_service.clone(),
-        tmdb_shows_service.clone(),
-        anilist_anime_service.clone(),
-        anilist_manga_service.clone(),
+        audible_service,
+        igdb_service,
+        listennotes_service,
+        openlibrary_service,
+        tmdb_movies_service,
+        tmdb_shows_service,
+        anilist_anime_service,
+        anilist_manga_service,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
@@ -90,12 +84,6 @@ pub async fn create_app_services(
     let importer_service = Arc::new(ImporterService::new(&db, &media_service, import_media_job));
     AppServices {
         media_service,
-        openlibrary_service,
-        tmdb_movies_service,
-        tmdb_shows_service,
-        audible_service,
-        igdb_service,
-        listennotes_service,
         importer_service,
     }
 }
