@@ -73,8 +73,13 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 	return match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
-				.with(MetadataLot.Book, () => "read")
-				.with(MetadataLot.Movie, MetadataLot.Show, () => "watch")
+				.with(MetadataLot.Book, MetadataLot.Manga, () => "read")
+				.with(
+					MetadataLot.Movie,
+					MetadataLot.Show,
+					MetadataLot.Anime,
+					() => "watch",
+				)
 				.with(
 					MetadataLot.AudioBook,
 					MetadataLot.VideoGame,
