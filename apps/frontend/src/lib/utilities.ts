@@ -4,9 +4,11 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
+	IconBooks,
 	IconBrandAppleArcade,
 	IconDeviceDesktop,
 	IconDeviceTv,
+	IconDeviceTvOld,
 	IconHeadphones,
 	IconMicrophone,
 } from "@tabler/icons-react";
@@ -39,6 +41,8 @@ export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
+		.with("anime", "animes", () => MetadataLot.Anime)
+		.with("manga", "mangas", () => MetadataLot.Manga)
 		.with("books", "book", () => MetadataLot.Book)
 		.with("movies", "movie", () => MetadataLot.Movie)
 		.with("tv", "show", "shows", () => MetadataLot.Show)
@@ -69,8 +73,13 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 	return match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
-				.with(MetadataLot.Book, () => "read")
-				.with(MetadataLot.Movie, MetadataLot.Show, () => "watch")
+				.with(MetadataLot.Book, MetadataLot.Manga, () => "read")
+				.with(
+					MetadataLot.Movie,
+					MetadataLot.Show,
+					MetadataLot.Anime,
+					() => "watch",
+				)
 				.with(
 					MetadataLot.AudioBook,
 					MetadataLot.VideoGame,
@@ -127,6 +136,8 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
 		.with(MetadataLot.AudioBook, () => IconHeadphones)
 		.with(MetadataLot.Podcast, () => IconMicrophone)
+		.with(MetadataLot.Manga, () => IconDeviceTvOld)
+		.with(MetadataLot.Anime, () => IconBooks)
 		.exhaustive();
 };
 
@@ -162,5 +173,9 @@ export const getSourceUrl = (
 			() => `https://www.listennotes.com/podcasts/${slug}-${identifier}`,
 		)
 		.with(MetadataSource.Igdb, () => `https://www.igdb.com/games/${slug}`)
+		.with(
+			MetadataSource.Anilist,
+			() => `https://anilist.co/anime/${identifier}/${slug}`,
+		)
 		.exhaustive();
 };

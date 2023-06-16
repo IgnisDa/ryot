@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
+use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -192,6 +193,17 @@ impl MediaProvider for OpenlibraryService {
             .unique()
             .collect();
 
+        let genres = data
+            .subjects
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|s| {
+                s.split(", ")
+                    .map(|d| d.to_case(Case::Title))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
         Ok(MediaDetails {
             identifier: utils::get_key(&data.key),
             title: data.title,
@@ -199,7 +211,7 @@ impl MediaProvider for OpenlibraryService {
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
             creators: authors,
-            genres: data.subjects.unwrap_or_default(),
+            genres,
             images,
             publish_year: first_release_date.map(|d| d.year()),
             publish_date: None,

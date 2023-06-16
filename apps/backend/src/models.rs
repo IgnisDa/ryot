@@ -161,6 +161,41 @@ pub struct VideoGameSpecifics {
 
 #[derive(
     Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "AnimeSpecificsInput")]
+pub struct AnimeSpecifics {
+    pub episodes: Option<i32>,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    Default,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "MangaSpecificsInput")]
+pub struct MangaSpecifics {
+    pub chapters: Option<i32>,
+    pub volumes: Option<i32>,
+}
+
+#[derive(
+    Debug,
     Serialize,
     Deserialize,
     SimpleObject,
@@ -175,9 +210,13 @@ pub struct VideoGameSpecifics {
 pub struct UserPreferences {
     // features enabled
     #[serde(default = "get_serde_true")]
+    pub anime: bool,
+    #[serde(default = "get_serde_true")]
     pub audio_books: bool,
     #[serde(default = "get_serde_true")]
     pub books: bool,
+    #[serde(default = "get_serde_true")]
+    pub manga: bool,
     #[serde(default = "get_serde_true")]
     pub movies: bool,
     #[serde(default = "get_serde_true")]

@@ -2,6 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import { useEnabledFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { changeCase, getLot } from "@/lib/utilities";
 import {
 	Anchor,
 	Box,
@@ -333,78 +334,23 @@ const Page: NextPageWithLayout = () => {
 							<Title order={3}>Enabled features</Title>
 							<Space h="sm" />
 							<SimpleGrid cols={2}>
-								<Switch
-									label="Audio books"
-									checked={enabledFeatures.data?.metadata.audioBooks}
-									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: MetadataLot.AudioBook,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
-								<Switch
-									label="Books"
-									checked={enabledFeatures.data?.metadata.books}
-									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: MetadataLot.Book,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
-								<Switch
-									label="Movies"
-									checked={enabledFeatures.data?.metadata.movies}
-									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: MetadataLot.Movie,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
-								<Switch
-									label="Podcasts"
-									checked={enabledFeatures.data?.metadata.podcasts}
-									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: MetadataLot.Podcast,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
-								<Switch
-									label="Shows"
-									checked={enabledFeatures.data?.metadata.shows}
-									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: MetadataLot.Show,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
-								<Switch
-									label="Video games"
-									checked={enabledFeatures.data?.metadata.videoGames}
-									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: MetadataLot.VideoGame,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
+								{Object.entries(enabledFeatures.data?.metadata || {}).map(
+									([name, isEnabled], idx) => (
+										<Switch
+											key={idx}
+											label={changeCase(name)}
+											checked={isEnabled}
+											onChange={(ev) => {
+												updateUserPreferences.mutate({
+													input: {
+														property: getLot(name)!,
+														value: ev.currentTarget.checked,
+													},
+												});
+											}}
+										/>
+									),
+								)}
 							</SimpleGrid>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">

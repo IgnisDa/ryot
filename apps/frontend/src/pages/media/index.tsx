@@ -553,6 +553,14 @@ const Page: NextPageWithLayout = () => {
 			from: "purple",
 			to: "blue",
 		}))
+		.with(MetadataLot.Anime, () => ({
+			from: "red",
+			to: "blue",
+		}))
+		.with(MetadataLot.Manga, () => ({
+			from: "red",
+			to: "green",
+		}))
 		.with(MetadataLot.Podcast, undefined, () => ({
 			from: "yellow",
 			to: "purple",
@@ -668,6 +676,24 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed">
 								{" "}
 								• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
+							</Text>
+						) : null}
+						{mediaDetails.data.animeSpecifics?.episodes ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.animeSpecifics.episodes} episodes
+							</Text>
+						) : null}
+						{mediaDetails.data.mangaSpecifics?.chapters ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.mangaSpecifics.chapters} chapters
+							</Text>
+						) : null}
+						{mediaDetails.data.mangaSpecifics?.volumes ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.mangaSpecifics.volumes} volumes
 							</Text>
 						) : null}
 						{mediaDetails.data.movieSpecifics?.runtime ? (

@@ -6,8 +6,8 @@ use strum::{Display, EnumIter};
 use crate::{
     migrator::MetadataImageLot,
     models::{
-        AudioBookSpecifics, BookSpecifics, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
-        VideoGameSpecifics,
+        AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
+        PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },
 };
 
@@ -24,6 +24,8 @@ pub enum MediaSpecifics {
     Podcast(PodcastSpecifics),
     Show(ShowSpecifics),
     VideoGame(VideoGameSpecifics),
+    Anime(AnimeSpecifics),
+    Manga(MangaSpecifics),
     #[default]
     Unknown,
 }

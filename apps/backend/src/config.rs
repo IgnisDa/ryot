@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::graphql::PROJECT_NAME;
 
+fn default_anilist_url(_ctx: &()) -> Option<String> {
+    Some("https://graphql.anilist.co".to_owned())
+}
+
 fn default_tmdb_url(_ctx: &()) -> Option<String> {
     Some("https://api.themoviedb.org/3/".to_owned())
 }
@@ -20,6 +24,21 @@ pub trait IsFeatureEnabled {
         true
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "ANIME_ANILIST_")]
+pub struct AnimeAnilistConfig {
+    #[setting(validate = url_secure, default = default_anilist_url)]
+    pub url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+pub struct AnimeConfig {
+    #[setting(nested)]
+    pub anilist: AnimeAnilistConfig,
+}
+
+impl IsFeatureEnabled for AnimeConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
@@ -92,6 +111,21 @@ pub struct MovieConfig {
 }
 
 impl IsFeatureEnabled for MovieConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
+pub struct MangaAnilistConfig {
+    #[setting(validate = url_secure, default = default_anilist_url)]
+    pub url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+pub struct MangaConfig {
+    #[setting(nested)]
+    pub anilist: MangaAnilistConfig,
+}
+
+impl IsFeatureEnabled for MangaConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
@@ -237,6 +271,8 @@ pub struct WebConfig {
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
     #[setting(nested)]
+    pub anime: AnimeConfig,
+    #[setting(nested)]
     pub audio_books: AudioBookConfig,
     #[setting(nested)]
     pub books: BookConfig,
@@ -244,6 +280,8 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     #[setting(nested)]
     pub file_storage: FileStorageConfig,
+    #[setting(nested)]
+    pub manga: MangaConfig,
     #[setting(nested)]
     pub movies: MovieConfig,
     #[setting(nested)]

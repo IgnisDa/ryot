@@ -19,12 +19,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct MovieTmdbService {
+pub struct TmdbMovieService {
     client: Client,
     image_url: String,
 }
 
-impl MovieTmdbService {
+impl TmdbMovieService {
     pub async fn new(config: &MoviesTmdbConfig) -> Self {
         let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
@@ -32,7 +32,7 @@ impl MovieTmdbService {
 }
 
 #[async_trait]
-impl MediaProvider for MovieTmdbService {
+impl MediaProvider for TmdbMovieService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
@@ -181,19 +181,19 @@ impl MediaProvider for MovieTmdbService {
     }
 }
 
-impl MovieTmdbService {
+impl TmdbMovieService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ShowTmdbService {
+pub struct TmdbShowService {
     client: Client,
     image_url: String,
 }
 
-impl ShowTmdbService {
+impl TmdbShowService {
     pub async fn new(config: &ShowsTmdbConfig) -> Self {
         let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self { client, image_url }
@@ -201,7 +201,7 @@ impl ShowTmdbService {
 }
 
 #[async_trait]
-impl MediaProvider for ShowTmdbService {
+impl MediaProvider for TmdbShowService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeasonNumber {
@@ -434,7 +434,7 @@ impl MediaProvider for ShowTmdbService {
     }
 }
 
-impl ShowTmdbService {
+impl TmdbShowService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
     }

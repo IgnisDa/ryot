@@ -6,8 +6,10 @@ query UserEnabledFeatures {
       }
     }
     metadata {
+      anime
       audioBooks
       books
+      manga
       movies
       podcasts
       shows

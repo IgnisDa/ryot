@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 use tokio::task::JoinSet;
 
+use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
 use crate::{
     background::{
         AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
@@ -28,7 +29,7 @@ use crate::{
         igdb::IgdbService,
         listennotes::ListennotesService,
         openlibrary::OpenlibraryService,
-        tmdb::{MovieTmdbService, ShowTmdbService},
+        tmdb::{TmdbMovieService, TmdbShowService},
     },
     GqlCtx,
 };
@@ -38,12 +39,6 @@ pub type MemoryDb = Arc<Mutex<Store>>;
 /// All the services that are used by the app
 pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
-    pub openlibrary_service: Arc<OpenlibraryService>,
-    pub tmdb_movies_service: Arc<MovieTmdbService>,
-    pub tmdb_shows_service: Arc<ShowTmdbService>,
-    pub audible_service: Arc<AudibleService>,
-    pub igdb_service: Arc<IgdbService>,
-    pub listennotes_service: Arc<ListennotesService>,
     pub importer_service: Arc<ImporterService>,
 }
 
@@ -60,23 +55,27 @@ pub async fn create_app_services(
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
-    let tmdb_movies_service = Arc::new(MovieTmdbService::new(&config.movies.tmdb).await);
-    let tmdb_shows_service = Arc::new(ShowTmdbService::new(&config.shows.tmdb).await);
+    let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
+    let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
     let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible));
     let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
     let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
+    let anilist_anime_service = Arc::new(AnilistAnimeService::new(&config.anime.anilist).await);
+    let anilist_manga_service = Arc::new(AnilistMangaService::new(&config.manga.anilist).await);
 
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
         &s3_client,
         &config.file_storage.s3_bucket_name,
-        audible_service.clone(),
-        igdb_service.clone(),
-        listennotes_service.clone(),
-        openlibrary_service.clone(),
-        tmdb_movies_service.clone(),
-        tmdb_shows_service.clone(),
+        audible_service,
+        igdb_service,
+        listennotes_service,
+        openlibrary_service,
+        tmdb_movies_service,
+        tmdb_shows_service,
+        anilist_anime_service,
+        anilist_manga_service,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,
@@ -85,12 +84,6 @@ pub async fn create_app_services(
     let importer_service = Arc::new(ImporterService::new(&db, &media_service, import_media_job));
     AppServices {
         media_service,
-        openlibrary_service,
-        tmdb_movies_service,
-        tmdb_shows_service,
-        audible_service,
-        igdb_service,
-        listennotes_service,
         importer_service,
     }
 }

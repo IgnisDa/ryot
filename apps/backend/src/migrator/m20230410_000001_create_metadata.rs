@@ -49,6 +49,8 @@ pub enum MetadataImageLot {
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataSource {
+    #[sea_orm(string_value = "AN")]
+    Anilist,
     #[default]
     #[sea_orm(string_value = "AU")]
     Audible,
@@ -94,11 +96,15 @@ pub enum MetadataImage {
 pub enum MetadataLot {
     #[sea_orm(string_value = "AB")]
     AudioBook,
+    #[sea_orm(string_value = "AN")]
+    Anime,
     #[default]
     #[sea_orm(string_value = "BO")]
     Book,
     #[sea_orm(string_value = "PO")]
     Podcast,
+    #[sea_orm(string_value = "MA")]
+    Manga,
     #[sea_orm(string_value = "MO")]
     Movie,
     #[sea_orm(string_value = "SH")]
