@@ -111,7 +111,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                         title: d.title,
                         description: Some(d.book_description),
                         lot: MetadataLot::Book,
-                        source: MetadataSource::Goodreads,
+                        source: MetadataSource::Custom,
                         creators: vec![MetadataCreator {
                             name: d.author_name,
                             role: "Author".to_owned(),
