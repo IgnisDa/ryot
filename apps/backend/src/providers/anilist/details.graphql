@@ -10,6 +10,7 @@ query DetailsQuery($id: Int!) {
     coverImage {
       extraLarge
     }
+    type
     genres
     seasonYear
     bannerImage
