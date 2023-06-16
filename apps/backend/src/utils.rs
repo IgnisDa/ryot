@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 use tokio::task::JoinSet;
 
+use crate::providers::anilist::{AnimeAnilistService, MangaAnilistService};
 use crate::{
     background::{
         AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
@@ -65,6 +66,8 @@ pub async fn create_app_services(
     let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible));
     let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
     let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
+    let anilist_anime_service = Arc::new(AnimeAnilistService::new(&config.anime.anilist).await);
+    let anilist_manga_service = Arc::new(MangaAnilistService::new(&config.manga.anilist).await);
 
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
@@ -77,6 +80,8 @@ pub async fn create_app_services(
         openlibrary_service.clone(),
         tmdb_movies_service.clone(),
         tmdb_shows_service.clone(),
+        anilist_anime_service.clone(),
+        anilist_manga_service.clone(),
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,

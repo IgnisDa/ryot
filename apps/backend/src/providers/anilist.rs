@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use graphql_client::GraphQLQuery;
 use surf::Client;
@@ -20,7 +20,7 @@ pub struct AnimeAnilistService {
     query_path = "src/providers/anilist_query.graphql",
     response_derives = "Debug"
 )]
-pub struct AnilistQuery;
+struct SearchQuery;
 
 impl AnimeAnilistService {
     pub async fn new(config: &AnimeAnilistConfig) -> Self {
@@ -37,6 +37,23 @@ impl MediaProvider for AnimeAnilistService {
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let page = page.unwrap_or(1);
+        let body = search_query::Variables {
+            page: page.into(),
+            search: query.to_owned(),
+            type_: search_query::MediaType::ANIME,
+        };
+        let response: search_query::ResponseData = self
+            .client
+            .post("")
+            .body_json(&body)
+            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        dbg!(&response);
         todo!()
     }
 }

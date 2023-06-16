@@ -45,6 +45,7 @@ use crate::{
         PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },
     providers::{
+        anilist::{AnimeAnilistService, MangaAnilistService},
         audible::AudibleService,
         igdb::IgdbService,
         listennotes::ListennotesService,
@@ -60,7 +61,7 @@ use super::{
     MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
-type ProviderBox = Arc<(dyn MediaProvider + Send + Sync)>;
+type ProviderArc = Arc<(dyn MediaProvider + Send + Sync)>;
 
 pub static COOKIE_NAME: &str = "auth";
 
@@ -923,6 +924,8 @@ pub struct MiscellaneousService {
     openlibrary_service: Arc<OpenlibraryService>,
     tmdb_movies_service: Arc<MovieTmdbService>,
     tmdb_shows_service: Arc<ShowTmdbService>,
+    anilist_anime_service: Arc<AnimeAnilistService>,
+    anilist_manga_service: Arc<MangaAnilistService>,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -942,6 +945,8 @@ impl MiscellaneousService {
         openlibrary_service: Arc<OpenlibraryService>,
         tmdb_movies_service: Arc<MovieTmdbService>,
         tmdb_shows_service: Arc<ShowTmdbService>,
+        anilist_anime_service: Arc<AnimeAnilistService>,
+        anilist_manga_service: Arc<MangaAnilistService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -958,6 +963,8 @@ impl MiscellaneousService {
             openlibrary_service,
             tmdb_movies_service,
             tmdb_shows_service,
+            anilist_anime_service,
+            anilist_manga_service,
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1768,15 +1775,15 @@ impl MiscellaneousService {
             Lot,
             Identifier,
         }
-        let service: ProviderBox = match lot {
+        let service: ProviderArc = match lot {
             MetadataLot::Book => self.openlibrary_service.clone(),
             MetadataLot::AudioBook => self.audible_service.clone(),
             MetadataLot::Podcast => self.listennotes_service.clone(),
             MetadataLot::Movie => self.tmdb_movies_service.clone(),
             MetadataLot::Show => self.tmdb_shows_service.clone(),
             MetadataLot::VideoGame => self.igdb_service.clone(),
-            MetadataLot::Anime => todo!(),
-            MetadataLot::Manga => todo!(),
+            MetadataLot::Anime => self.anilist_anime_service.clone(),
+            MetadataLot::Manga => self.anilist_manga_service.clone(),
         };
         let results = service.search(&input.query, input.page).await?;
         let mut all_idens = results
@@ -1867,7 +1874,7 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: String,
     ) -> Result<MediaDetails> {
-        let service: ProviderBox = match source {
+        let service: ProviderArc = match source {
             MetadataSource::Openlibrary => self.openlibrary_service.clone(),
             MetadataSource::Audible => self.audible_service.clone(),
             MetadataSource::Listennotes => self.listennotes_service.clone(),
@@ -1877,8 +1884,8 @@ impl MiscellaneousService {
                 _ => unreachable!(),
             },
             MetadataSource::Anilist => match lot {
-                MetadataLot::Manga => todo!(),
-                MetadataLot::Anime => todo!(),
+                MetadataLot::Anime => self.anilist_anime_service.clone(),
+                MetadataLot::Manga => self.anilist_manga_service.clone(),
                 _ => unreachable!(),
             },
             MetadataSource::Igdb => self.igdb_service.clone(),
