@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct AnimeAnilistService {
+pub struct AnilistAnimeService {
     client: Client,
 }
 
@@ -22,7 +22,7 @@ pub struct AnimeAnilistService {
 )]
 struct SearchQuery;
 
-impl AnimeAnilistService {
+impl AnilistAnimeService {
     pub async fn new(config: &AnimeAnilistConfig) -> Self {
         let client = utils::get_client_config(&config.url).await;
         Self { client }
@@ -30,7 +30,7 @@ impl AnimeAnilistService {
 }
 
 #[async_trait]
-impl MediaProvider for AnimeAnilistService {
+impl MediaProvider for AnilistAnimeService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         todo!()
     }
@@ -59,11 +59,11 @@ impl MediaProvider for AnimeAnilistService {
 }
 
 #[derive(Debug, Clone)]
-pub struct MangaAnilistService {
+pub struct AnilistMangaService {
     client: Client,
 }
 
-impl MangaAnilistService {
+impl AnilistMangaService {
     pub async fn new(config: &MangaAnilistConfig) -> Self {
         let client = utils::get_client_config(&config.url).await;
         Self { client }
@@ -71,7 +71,7 @@ impl MangaAnilistService {
 }
 
 #[async_trait]
-impl MediaProvider for MangaAnilistService {
+impl MediaProvider for AnilistMangaService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         todo!()
     }
