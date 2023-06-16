@@ -69,8 +69,13 @@ impl MediaProvider for AnilistMangaService {
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let page = page.unwrap_or(1);
-        todo!()
+        let (items, total, next_page) =
+            utils::search(&self.client, search_query::MediaType::MANGA, query, page).await?;
+        Ok(MediaSearchResults {
+            total,
+            next_page,
+            items,
+        })
     }
 }
 
