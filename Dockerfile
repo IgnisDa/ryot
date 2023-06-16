@@ -1,6 +1,6 @@
 FROM node:19.8.1 AS base
 WORKDIR /app
-RUN npm install -g @moonrepo/cli
+RUN npm install -g @moonrepo/cli && moon --version
 
 FROM base AS frontend-workspace
 WORKDIR /app
