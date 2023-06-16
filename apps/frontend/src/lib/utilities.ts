@@ -161,10 +161,6 @@ export const getSourceUrl = (
 			() => `https://openlibrary.org/works/${identifier}/${slug}`,
 		)
 		.with(
-			MetadataSource.Goodreads,
-			() => `https://www.goodreads.com/book/show/${identifier}-${slug}`,
-		)
-		.with(
 			MetadataSource.Tmdb,
 			() => `https://www.themoviedb.org/movie/${identifier}-${slug}`,
 		)

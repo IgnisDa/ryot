@@ -181,7 +181,7 @@ fn convert_item(
                 title: details.title,
                 description: details.overview,
                 lot,
-                source: MetadataSource::Goodreads,
+                source: MetadataSource::Custom,
                 creators: details
                     .authors
                     .unwrap_or_default()
