@@ -74,7 +74,8 @@ impl AnilistMangaService {
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        todo!()
+        let details = utils::details(&self.client, identifier).await?;
+        Ok(details)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
