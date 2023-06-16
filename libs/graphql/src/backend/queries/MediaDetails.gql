@@ -24,6 +24,7 @@ query MediaDetails($metadataId: Identifier!) {
       runtime
     }
     mangaSpecifics {
+      volumes
       chapters
     }
     podcastSpecifics {
