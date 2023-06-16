@@ -21,10 +21,18 @@ pub struct AnilistAnimeService {
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist_schema.json",
-    query_path = "src/providers/anilist_query.graphql",
+    query_path = "src/providers/anilist_search.graphql",
     response_derives = "Debug"
 )]
 struct SearchQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist_schema.json",
+    query_path = "src/providers/anilist_details.graphql",
+    response_derives = "Debug"
+)]
+struct DetailsQuery;
 
 impl AnilistAnimeService {
     pub async fn new(config: &AnimeAnilistConfig) -> Self {
@@ -36,6 +44,7 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+        let details = utils::details(&self.client, identifier).await?;
         todo!()
     }
 
@@ -99,6 +108,29 @@ mod utils {
             .try_into()
             .unwrap();
         client
+    }
+
+    pub async fn details(client: &Client, id: &str) -> Result<MediaSearchItem> {
+        let variables = details_query::Variables {
+            id: id.parse::<i64>().unwrap(),
+        };
+        let body = DetailsQuery::build_query(variables);
+        let details = client
+            .post("")
+            .body_json(&body)
+            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Response<details_query::ResponseData>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .data
+            .unwrap()
+            .media
+            .unwrap();
+        dbg!(&details);
+        todo!()
     }
 
     pub async fn search(

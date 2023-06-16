@@ -1,0 +1,28 @@
+query DetailsQuery($id: Int!) {
+  Media(id: $id) {
+    id
+    title {
+      userPreferred
+    }
+    episodes
+    chapters
+    description
+    coverImage {
+      extraLarge
+    }
+    genres
+    seasonYear
+    bannerImage
+    staff {
+      edges {
+        node {
+          id
+          name {
+            full
+          }
+        }
+        role
+      }
+    }
+  }
+}

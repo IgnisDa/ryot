@@ -1,0 +1,18 @@
+query SearchQuery($search: String!, $page: Int!, $type: MediaType!, $perPage: Int!) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+    }
+    media(search: $search, type: $type) {
+      id
+      title {
+        userPreferred
+      }
+      coverImage {
+        extraLarge
+      }
+      seasonYear
+      bannerImage
+    }
+  }
+}
