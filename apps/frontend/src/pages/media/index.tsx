@@ -678,6 +678,24 @@ const Page: NextPageWithLayout = () => {
 								• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
 							</Text>
 						) : null}
+						{mediaDetails.data.animeSpecifics?.episodes ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.animeSpecifics.episodes} episodes
+							</Text>
+						) : null}
+						{mediaDetails.data.mangaSpecifics?.chapters ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.mangaSpecifics.chapters} chapters
+							</Text>
+						) : null}
+						{mediaDetails.data.mangaSpecifics?.volumes ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.mangaSpecifics.volumes} volumes
+							</Text>
+						) : null}
 						{mediaDetails.data.movieSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
