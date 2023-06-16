@@ -191,6 +191,7 @@ pub struct AnimeSpecifics {
 #[graphql(input_name = "MangaSpecificsInput")]
 pub struct MangaSpecifics {
     pub chapters: Option<i32>,
+    pub volumes: Option<i32>,
 }
 
 #[derive(
