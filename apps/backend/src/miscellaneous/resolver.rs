@@ -178,7 +178,6 @@ pub struct ExportMedia {
     lot: MetadataLot,
     audible_id: Option<String>,
     custom_id: Option<String>,
-    goodreads_id: Option<String>,
     igdb_id: Option<String>,
     listennotes_id: Option<String>,
     openlibrary_id: Option<String>,
@@ -1889,7 +1888,7 @@ impl MiscellaneousService {
                 _ => unreachable!(),
             },
             MetadataSource::Igdb => self.igdb_service.clone(),
-            MetadataSource::Custom | MetadataSource::Goodreads => {
+            MetadataSource::Custom => {
                 return Err(Error::new("This source is not supported".to_owned()));
             }
         };
@@ -2743,7 +2742,6 @@ impl MiscellaneousService {
                 lot: m.lot,
                 audible_id: None,
                 custom_id: None,
-                goodreads_id: None,
                 igdb_id: None,
                 listennotes_id: None,
                 openlibrary_id: None,
@@ -2755,7 +2753,6 @@ impl MiscellaneousService {
             match m.source {
                 MetadataSource::Audible => exp.audible_id = Some(m.identifier),
                 MetadataSource::Custom => exp.custom_id = Some(m.identifier),
-                MetadataSource::Goodreads => exp.goodreads_id = Some(m.identifier),
                 MetadataSource::Igdb => exp.igdb_id = Some(m.identifier),
                 MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
