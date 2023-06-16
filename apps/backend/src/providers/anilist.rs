@@ -1,11 +1,15 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use graphql_client::GraphQLQuery;
+use graphql_client::{GraphQLQuery, Response};
 use surf::Client;
 
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
-    miscellaneous::resolver::{MediaDetails, MediaSearchResults},
+    migrator::MetadataLot,
+    miscellaneous::{
+        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        PAGE_LIMIT,
+    },
     traits::MediaProvider,
 };
 
@@ -37,12 +41,14 @@ impl MediaProvider for AnilistAnimeService {
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let page = page.unwrap_or(1);
-        let body = search_query::Variables {
+        let variables = search_query::Variables {
             page: page.into(),
             search: query.to_owned(),
             type_: search_query::MediaType::ANIME,
+            per_page: PAGE_LIMIT.into(),
         };
-        let response: search_query::ResponseData = self
+        let body = SearchQuery::build_query(variables);
+        let search = self
             .client
             .post("")
             .body_json(&body)
@@ -50,11 +56,38 @@ impl MediaProvider for AnilistAnimeService {
             .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .body_json::<Response<search_query::ResponseData>>()
             .await
-            .map_err(|e| anyhow!(e))?;
-        dbg!(&response);
-        todo!()
+            .map_err(|e| anyhow!(e))?
+            .data
+            .unwrap()
+            .page
+            .unwrap();
+        let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+        let next_page = if total - (page * PAGE_LIMIT) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(MediaSearchResults {
+            total,
+            next_page,
+            items: search
+                .media
+                .unwrap()
+                .into_iter()
+                .map(|b| {
+                    let b = b.unwrap();
+                    MediaSearchItem {
+                        identifier: b.id.to_string(),
+                        lot: MetadataLot::Anime,
+                        title: b.title.unwrap().user_preferred.unwrap(),
+                        images: Vec::from_iter(b.banner_image),
+                        publish_year: b.season_year.map(|b| b.try_into().unwrap()),
+                    }
+                })
+                .collect(),
+        })
     }
 }
 
@@ -83,7 +116,10 @@ impl MediaProvider for AnilistMangaService {
 }
 
 mod utils {
-    use surf::{http::headers::USER_AGENT, Config, Url};
+    use surf::{
+        http::headers::{ACCEPT, USER_AGENT},
+        Config, Url,
+    };
 
     use crate::graphql::{AUTHOR, PROJECT_NAME};
 
@@ -92,6 +128,8 @@ mod utils {
     pub async fn get_client_config(url: &str) -> Client {
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .unwrap()
+            .add_header(ACCEPT, "application/json")
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()

@@ -10,6 +10,7 @@ fragment MediaPart on Media {
   coverImage {
     extraLarge
   }
+  seasonYear
   bannerImage
   staff {
     edges {
@@ -24,8 +25,8 @@ fragment MediaPart on Media {
   }
 }
 
-query SearchQuery($search: String!, $page: Int!, $type: MediaType!) {
-  Page(page: $page, perPage: 20) {
+query SearchQuery($search: String!, $page: Int!, $type: MediaType!, $perPage: Int!) {
+  Page(page: $page, perPage: $perPage) {
     pageInfo {
       total
     }
