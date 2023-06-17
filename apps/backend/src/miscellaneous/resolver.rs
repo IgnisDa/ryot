@@ -2052,6 +2052,10 @@ impl MiscellaneousService {
                 ReviewVisibility::Private => i32::from(r.posted_by.id) == *user_id,
                 _ => true,
             })
+            .map(|r| ReviewItem {
+                text: r.text.map(|t| markdown::to_html(&t)),
+                ..r
+            })
             .collect();
         Ok(all_reviews)
     }

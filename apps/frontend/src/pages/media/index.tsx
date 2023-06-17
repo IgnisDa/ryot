@@ -92,7 +92,6 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
@@ -381,7 +380,7 @@ const ReviewItem = ({
 				<Space h="xs" />
 				{r.text ? (
 					!r.spoiler ? (
-						<ReactMarkdown>{r.text}</ReactMarkdown>
+						<Text dangerouslySetInnerHTML={{ __html: r.text }} />
 					) : (
 						<>
 							{!opened ? (
@@ -390,7 +389,7 @@ const ReviewItem = ({
 								</Button>
 							) : null}
 							<Collapse in={opened}>
-								<ReactMarkdown>{r.text}</ReactMarkdown>
+								<Text dangerouslySetInnerHTML={{ __html: r.text }} />
 							</Collapse>
 						</>
 					)
