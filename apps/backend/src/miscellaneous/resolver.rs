@@ -470,6 +470,7 @@ pub struct GraphqlMediaDetails {
     pub podcast_specifics: Option<PodcastSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
+    pub source_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1036,8 +1037,7 @@ impl MiscellaneousService {
             genres,
         })
     }
-    
-    // TODO: Return source url
+
     async fn media_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
         let MediaBaseData {
             model,
@@ -1046,6 +1046,32 @@ impl MiscellaneousService {
             backdrop_images,
             genres,
         } = self.generic_metadata(metadata_id).await?;
+        let slug = slug::slugify(&model.title);
+        let identifier = &model.identifier;
+        let source_url = match model.source {
+            MetadataSource::Custom => None,
+            MetadataSource::Audible => {
+                Some(format!("https://www.audible.com/pd/{slug}/{identifier}"))
+            }
+            MetadataSource::Openlibrary => {
+                Some(format!("https://openlibrary.org/works/{identifier}/{slug}"))
+            }
+            MetadataSource::Tmdb => Some(format!(
+                "https://www.themoviedb.org/movie/{identifier}-{slug}"
+            )),
+            MetadataSource::Listennotes => Some(format!(
+                "https://www.listennotes.com/podcasts/{slug}-{identifier}"
+            )),
+            MetadataSource::Igdb => Some(format!("https://www.igdb.com/games/{slug}")),
+            MetadataSource::Anilist => {
+                let bw = match model.lot {
+                    MetadataLot::Anime => "anime",
+                    MetadataLot::Manga => "manga",
+                    _ => unreachable!(),
+                };
+                Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
+            }
+        };
         let mut resp = GraphqlMediaDetails {
             id: model.id,
             title: model.title,
@@ -1067,6 +1093,7 @@ impl MiscellaneousService {
             podcast_specifics: None,
             manga_specifics: None,
             anime_specifics: None,
+            source_url,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
