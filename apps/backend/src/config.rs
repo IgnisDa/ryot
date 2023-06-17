@@ -306,6 +306,7 @@ impl AppConfig {
         cl.database.url = gt();
         cl.database.scdb_url = gt();
         cl.file_storage.s3_region = gt();
+        cl.file_storage.s3_bucket_name = gt();
         cl.file_storage.s3_access_key_id = gt();
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
