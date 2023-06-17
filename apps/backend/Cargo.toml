@@ -27,6 +27,7 @@ futures = "0.3.28"
 graphql_client = "0.13.0"
 http = "0.2.9"
 itertools = "0.10.5"
+markdown = "1.0.0-alpha.10"
 mime_guess = "2.0.4"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
 regex = "1.8.1"
