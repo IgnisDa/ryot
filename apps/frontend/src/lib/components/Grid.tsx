@@ -10,7 +10,10 @@ export default function (props: {
 			spacing="lg"
 			breakpoints={
 				props.listType === "grid"
-					? []
+					? [
+							{ minWidth: "md", cols: 2 },
+							{ minWidth: "lg", cols: 3 },
+					  ]
 					: [
 							{ minWidth: "sm", cols: 3 },
 							{ minWidth: "md", cols: 4 },

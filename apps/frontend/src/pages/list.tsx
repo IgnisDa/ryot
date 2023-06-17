@@ -100,7 +100,7 @@ const Page: NextPageWithLayout = () => {
 	const [activeListType, setListType] = useLocalStorage<"poster" | "grid">({
 		key: "savedListType",
 		getInitialValueInEffect: false,
-		defaultValue: "poster",
+		defaultValue: "grid",
 	});
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -226,6 +226,12 @@ const Page: NextPageWithLayout = () => {
 											style={{ flexGrow: 1 }}
 										/>
 										<ActionIcon
+											onClick={openFiltersModal}
+											color={isFilterChanged ? "blue" : undefined}
+										>
+											<IconFilter size="1.5rem" />
+										</ActionIcon>
+										<ActionIcon
 											onClick={() => {
 												if (activeListType === "poster") setListType("grid");
 												else setListType("poster");
@@ -236,12 +242,6 @@ const Page: NextPageWithLayout = () => {
 											) : (
 												<IconLayoutRows size="1.5rem" />
 											)}
-										</ActionIcon>
-										<ActionIcon
-											onClick={openFiltersModal}
-											color={isFilterChanged ? "blue" : undefined}
-										>
-											<IconFilter size="1.5rem" />
 										</ActionIcon>
 										<Modal
 											opened={filtersModalOpened}
