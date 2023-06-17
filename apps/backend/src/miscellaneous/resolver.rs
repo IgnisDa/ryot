@@ -1011,7 +1011,7 @@ impl MiscellaneousService {
     }
 
     pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
-        let meta = match Metadata::find_by_id(metadata_id)
+        let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -1029,6 +1029,9 @@ impl MiscellaneousService {
             .collect();
         let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
+        if let Some(ref mut d) = meta.description {
+            *d = markdown::to_html(d);
+        }
         Ok(MediaBaseData {
             model: meta,
             creators,
