@@ -1056,9 +1056,16 @@ impl MiscellaneousService {
             MetadataSource::Openlibrary => {
                 Some(format!("https://openlibrary.org/works/{identifier}/{slug}"))
             }
-            MetadataSource::Tmdb => Some(format!(
-                "https://www.themoviedb.org/movie/{identifier}-{slug}"
-            )),
+            MetadataSource::Tmdb => {
+                let bw = match model.lot {
+                    MetadataLot::Movie => "movie",
+                    MetadataLot::Show => "tv",
+                    _ => unreachable!(),
+                };
+                Some(format!(
+                    "https://www.themoviedb.org/{bw}/{identifier}-{slug}"
+                ))
+            }
             MetadataSource::Listennotes => Some(format!(
                 "https://www.listennotes.com/podcasts/{slug}-{identifier}"
             )),
