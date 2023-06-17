@@ -20,9 +20,9 @@ import {
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
 	MediaDetailsDocument,
-	MediaItemReviewsDocument,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
+	ReviewByIdDocument,
 	ReviewVisibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -65,14 +65,10 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["reviewDetails", metadataId, reviewId],
 		queryFn: async () => {
 			invariant(reviewId, "Can not get review details");
-			const { mediaItemReviews } = await gqlClient.request(
-				MediaItemReviewsDocument,
-				{
-					metadataId: metadataId,
-				},
-			);
-			const review = mediaItemReviews.find((m) => m.id === reviewId);
-			return review;
+			const { reviewById } = await gqlClient.request(ReviewByIdDocument, {
+				reviewId,
+			});
+			return reviewById;
 		},
 		enabled: reviewId !== undefined,
 		onSuccess: (data) => {
