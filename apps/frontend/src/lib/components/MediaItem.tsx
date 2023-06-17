@@ -8,7 +8,7 @@ import {
 	getLot,
 	getVerb,
 } from "@/lib/utilities";
-import { Anchor, Box, Button, Flex, Image, Loader, Text } from "@mantine/core";
+import { Anchor, Button, Flex, Image, Loader, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
@@ -55,6 +55,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						src={props.item.images.at(0)}
 						radius={"md"}
 						height={props.listType === "poster" ? 250 : 150}
+						width={props.listType === "poster" ? 167 : 100}
 						withPlaceholder
 						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
 						style={{ cursor: "pointer" }}
