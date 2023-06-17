@@ -9,7 +9,7 @@ kill_signal = "SIGINT"
 kill_timeout = "5s"
 
 [build]
-  image = "ghcr.io/ignisda/ryot:latest"
+  image = "ghcr.io/ignisda/ryot:unstable"
 
 [env]
   PORT = "8080"
