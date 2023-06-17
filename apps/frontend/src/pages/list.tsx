@@ -377,10 +377,10 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid listType={activeListType}>
+									<Grid listType={"poster"}>
 										{searchQuery.data.items.map((b, idx) => (
 											<MediaItem
-												listType={activeListType}
+												listType={"poster"}
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}
