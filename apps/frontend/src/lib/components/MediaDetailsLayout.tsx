@@ -11,7 +11,7 @@ export default function ({
 	children: JSX.Element | (JSX.Element | null)[];
 	posterImages: string[];
 	backdropImages: string[];
-	externalLink: { source: string; href?: string };
+	externalLink: { source: string; href?: string | null };
 }) {
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>

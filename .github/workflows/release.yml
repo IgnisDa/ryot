@@ -138,7 +138,7 @@ jobs:
         id: required_args
         run: |
           image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
-          image_names="$image_name:${{ github.ref_name }}"
+          image_names="$image_name:${{ github.ref_name }},$image_name:unstable"
           if [ "${{ needs.create-release.outputs.is-prerelease }}" = "false" ]; then
             image_names="$image_names,$image_name:latest"
           fi

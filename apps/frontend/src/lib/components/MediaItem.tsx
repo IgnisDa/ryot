@@ -8,7 +8,7 @@ import {
 	getLot,
 	getVerb,
 } from "@/lib/utilities";
-import { Anchor, Button, Flex, Image, Loader, Text } from "@mantine/core";
+import { Anchor, Box, Button, Flex, Image, Loader, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
@@ -28,13 +28,14 @@ export const MediaItemWithoutUpdateModal = (props: {
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
+	listType: "grid" | "poster";
 }) => {
 	return (
 		<Flex
 			key={props.item.identifier}
-			align={"center"}
-			justify={"center"}
-			direction={"column"}
+			align="center"
+			justify={props.listType === "poster" ? "center" : "start"}
+			direction={props.listType === "poster" ? "column" : "row"}
 			pos={"relative"}
 		>
 			{props.imageOverlayForLoadingIndicator ? (
@@ -49,11 +50,11 @@ export const MediaItemWithoutUpdateModal = (props: {
 				/>
 			) : null}
 			<Link passHref legacyBehavior href={props.href}>
-				<Anchor>
+				<Anchor style={{ flex: "none" }}>
 					<Image
 						src={props.item.images.at(0)}
 						radius={"md"}
-						height={250}
+						height={props.listType === "poster" ? 250 : 150}
 						withPlaceholder
 						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
 						style={{ cursor: "pointer" }}
@@ -67,14 +68,29 @@ export const MediaItemWithoutUpdateModal = (props: {
 					/>
 				</Anchor>
 			</Link>
-			<Flex justify={"space-between"} w="100%">
-				<Text c="dimmed">{props.item.publishYear}</Text>
-				<Text c="dimmed">{changeCase(props.lot)}</Text>
+			<Flex
+				w={props.listType === "poster" ? "100%" : undefined}
+				direction={props.listType === "poster" ? "column" : "column-reverse"}
+				ml={props.listType === "grid" ? "md" : 0}
+			>
+				<Flex
+					justify={"space-between"}
+					direction={props.listType === "poster" ? "row" : "column"}
+					w="100%"
+				>
+					<Text c="dimmed">{props.item.publishYear}</Text>
+					<Text c="dimmed">{changeCase(props.lot)}</Text>
+				</Flex>
+				<Text
+					w="100%"
+					truncate={props.listType === "poster" ? true : undefined}
+					fw={"bold"}
+					mb="xs"
+				>
+					{props.item.title}
+				</Text>
+				{props.children}
 			</Flex>
-			<Text w="100%" truncate fw={"bold"} mb="xs">
-				{props.item.title}
-			</Text>
-			{props.children}
 		</Flex>
 	);
 };
@@ -87,6 +103,7 @@ export default function (props: {
 	lot: MetadataLot;
 	refetch: () => void;
 	maybeItemId?: number;
+	listType: "grid" | "poster";
 }) {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -118,6 +135,7 @@ export default function (props: {
 
 	return (
 		<MediaItemWithoutUpdateModal
+			listType={props.listType}
 			item={props.item}
 			lot={props.lot}
 			imageOverlayForLoadingIndicator={commitMedia.isLoading}

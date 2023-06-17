@@ -40,6 +40,8 @@ import {
 import {
 	IconFilter,
 	IconFilterOff,
+	IconGridDots,
+	IconLayoutRows,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
@@ -94,6 +96,11 @@ const Page: NextPageWithLayout = () => {
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
+	});
+	const [activeListType, setListType] = useLocalStorage<"poster" | "grid">({
+		key: "savedListType",
+		getInitialValueInEffect: false,
+		defaultValue: "grid",
 	});
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -224,6 +231,18 @@ const Page: NextPageWithLayout = () => {
 										>
 											<IconFilter size="1.5rem" />
 										</ActionIcon>
+										<ActionIcon
+											onClick={() => {
+												if (activeListType === "poster") setListType("grid");
+												else setListType("poster");
+											}}
+										>
+											{activeListType === "poster" ? (
+												<IconGridDots size="1.5rem" />
+											) : (
+												<IconLayoutRows size="1.5rem" />
+											)}
+										</ActionIcon>
 										<Modal
 											opened={filtersModalOpened}
 											onClose={closeFiltersModal}
@@ -307,9 +326,10 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid>
+									<Grid listType={activeListType}>
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
+												listType={activeListType}
 												key={lm.identifier}
 												item={lm}
 												lot={lot}
@@ -357,9 +377,10 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid>
+									<Grid listType={"poster"}>
 										{searchQuery.data.items.map((b, idx) => (
 											<MediaItem
+												listType={"poster"}
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}

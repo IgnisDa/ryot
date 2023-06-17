@@ -29,7 +29,6 @@ import {
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	MediaImportSource,
-	MetadataLot,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
 	UpdateAllMetadataDocument,

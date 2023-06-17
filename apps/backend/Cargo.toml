@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.2.1"
+version = "1.2.2-beta.1"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -51,6 +51,7 @@ sea-query = "0.28.4"
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = "1.0.96"
 serde_with = { version = "3.0.0", features = ["chrono_0_4"] }
+slug = "0.1.4"
 sqlx = "*"
 strum = { version = "0.24.1", features = ["derive"] }
 surf = { version = "2.3.2", features = [

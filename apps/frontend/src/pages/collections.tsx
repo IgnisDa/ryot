@@ -96,9 +96,10 @@ const Page: NextPageWithLayout = () => {
 									</ActionIcon>
 								</Group>
 								{collection.mediaDetails.length > 0 ? (
-									<Grid>
+									<Grid listType="poster">
 										{collection.mediaDetails.map((mediaItem) => (
 											<MediaItemWithoutUpdateModal
+												listType="poster"
 												key={mediaItem.identifier}
 												item={mediaItem}
 												lot={mediaItem.lot}
