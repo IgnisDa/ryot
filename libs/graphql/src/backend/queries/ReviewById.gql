@@ -1,0 +1,8 @@
+query ReviewById($reviewId: Identifier!) {
+  reviewById(reviewId: $reviewId) {
+    rating
+    text
+    visibility
+    spoiler
+  }
+}
