@@ -5,6 +5,7 @@ query MediaDetails($metadataId: Identifier!) {
     identifier
     lot
     source
+    sourceUrl
     creators {
       name
       role
