@@ -40,6 +40,8 @@ import {
 import {
 	IconFilter,
 	IconFilterOff,
+	IconGridDots,
+	IconLayoutRows,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
@@ -94,6 +96,11 @@ const Page: NextPageWithLayout = () => {
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
+	});
+	const [activeListType, setListType] = useLocalStorage<"poster" | "grid">({
+		key: "savedListType",
+		getInitialValueInEffect: false,
+		defaultValue: "poster",
 	});
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -218,6 +225,18 @@ const Page: NextPageWithLayout = () => {
 											rightSection={<ClearButton />}
 											style={{ flexGrow: 1 }}
 										/>
+										<ActionIcon
+											onClick={() => {
+												if (activeListType === "poster") setListType("grid");
+												else setListType("poster");
+											}}
+										>
+											{activeListType === "poster" ? (
+												<IconGridDots size="1.5rem" />
+											) : (
+												<IconLayoutRows size="1.5rem" />
+											)}
+										</ActionIcon>
 										<ActionIcon
 											onClick={openFiltersModal}
 											color={isFilterChanged ? "blue" : undefined}
