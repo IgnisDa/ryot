@@ -28,6 +28,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
+	listType: "grid" | "poster";
 }) => {
 	return (
 		<Flex
@@ -87,6 +88,7 @@ export default function (props: {
 	lot: MetadataLot;
 	refetch: () => void;
 	maybeItemId?: number;
+	listType: "grid" | "poster";
 }) {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -118,6 +120,7 @@ export default function (props: {
 
 	return (
 		<MediaItemWithoutUpdateModal
+			listType={props.listType}
 			item={props.item}
 			lot={props.lot}
 			imageOverlayForLoadingIndicator={commitMedia.isLoading}

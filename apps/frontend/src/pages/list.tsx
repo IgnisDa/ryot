@@ -326,9 +326,10 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid>
+									<Grid listType={activeListType}>
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
+												listType={activeListType}
 												key={lm.identifier}
 												item={lm}
 												lot={lot}
@@ -376,9 +377,10 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid>
+									<Grid listType={activeListType}>
 										{searchQuery.data.items.map((b, idx) => (
 											<MediaItem
+												listType={activeListType}
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}
