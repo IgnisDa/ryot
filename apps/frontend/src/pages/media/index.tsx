@@ -9,7 +9,6 @@ import {
 	Verb,
 	changeCase,
 	getInitials,
-	getSourceUrl,
 	getStringAsciiValue,
 	getVerb,
 } from "@/lib/utilities";
@@ -630,11 +629,7 @@ const Page: NextPageWithLayout = () => {
 					posterImages={mediaDetails.data.posterImages}
 					externalLink={{
 						source,
-						href: getSourceUrl(
-							source,
-							mediaDetails.data.identifier,
-							mediaDetails.data.title,
-						),
+						href: mediaDetails.data.sourceUrl,
 					}}
 				>
 					<Group>

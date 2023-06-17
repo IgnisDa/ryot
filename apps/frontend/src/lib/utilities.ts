@@ -1,7 +1,4 @@
-import {
-	MetadataLot,
-	MetadataSource,
-} from "@ryot/generated/graphql/backend/graphql";
+import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
 	IconBooks,
@@ -13,7 +10,6 @@ import {
 	IconMicrophone,
 } from "@tabler/icons-react";
 import { camelCase, startCase } from "lodash";
-import slugify from "slugify";
 import { match } from "ts-pattern";
 
 /**
@@ -138,40 +134,5 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Podcast, () => IconMicrophone)
 		.with(MetadataLot.Manga, () => IconDeviceTvOld)
 		.with(MetadataLot.Anime, () => IconBooks)
-		.exhaustive();
-};
-
-export const getSourceUrl = (
-	from: MetadataSource,
-	identifier: string,
-	title: string,
-) => {
-	const slug = slugify(title, {
-		lower: true,
-		strict: true,
-	});
-	return match(from)
-		.with(MetadataSource.Custom, () => "")
-		.with(
-			MetadataSource.Audible,
-			() => `https://www.audible.com/pd/${slug}/${identifier}`,
-		)
-		.with(
-			MetadataSource.Openlibrary,
-			() => `https://openlibrary.org/works/${identifier}/${slug}`,
-		)
-		.with(
-			MetadataSource.Tmdb,
-			() => `https://www.themoviedb.org/movie/${identifier}-${slug}`,
-		)
-		.with(
-			MetadataSource.Listennotes,
-			() => `https://www.listennotes.com/podcasts/${slug}-${identifier}`,
-		)
-		.with(MetadataSource.Igdb, () => `https://www.igdb.com/games/${slug}`)
-		.with(
-			MetadataSource.Anilist,
-			() => `https://anilist.co/anime/${identifier}/${slug}`,
-		)
 		.exhaustive();
 };
