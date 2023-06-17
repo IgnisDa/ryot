@@ -541,6 +541,18 @@ pub struct MiscellaneousQuery;
 
 #[Object]
 impl MiscellaneousQuery {
+    /// Get a review by its ID
+    async fn review_by_id(
+        &self,
+        gql_ctx: &Context<'_>,
+        review_id: Identifier,
+    ) -> Result<review::Model> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .review_by_id(review_id.into())
+            .await
+    }
+
     /// Get all the public reviews for a media item.
     async fn media_item_reviews(
         &self,
@@ -2005,6 +2017,14 @@ impl MiscellaneousService {
             _ => unreachable!(),
         }
         Ok(true)
+    }
+
+    async fn review_by_id(&self, review_id: i32) -> Result<review::Model> {
+        let review = Review::find_by_id(review_id).one(&self.db).await?;
+        match review {
+            Some(r) => Ok(r),
+            None => Err(Error::new("Unable to find review".to_owned())),
+        }
     }
 
     async fn media_item_reviews(
