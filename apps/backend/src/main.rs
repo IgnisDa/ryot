@@ -403,7 +403,7 @@ async fn upload_handler(
 }
 
 async fn export(
-    Extension(media_service): Extension<MiscellaneousService>,
+    Extension(media_service): Extension<Arc<MiscellaneousService>>,
     Extension(scdb): Extension<MemoryDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
