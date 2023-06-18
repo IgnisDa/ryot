@@ -105,6 +105,8 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
+	const [activeTab, setActiveTab] = useState<string | null>("mine");
+
 	const listMedia = useQuery({
 		queryKey: [
 			"listMedia",
@@ -131,11 +133,8 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			if (!activeMinePage) setMinePage("1");
 		},
-		enabled: lot !== undefined,
+		enabled: query !== "" && lot !== undefined && activeTab === "mine",
 	});
-	const [activeTab, setActiveTab] = useState<string | null>(
-		listMedia.data?.total === 0 ? "search" : "mine",
-	);
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {

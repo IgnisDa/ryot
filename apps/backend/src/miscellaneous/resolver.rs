@@ -1884,7 +1884,6 @@ impl MiscellaneousService {
                     )
                     .to_owned();
             }
-            let result_alias = Alias::new("result");
             let identifiers_query = Query::select()
                 .expr(Expr::col((
                     TempIdentifiers::Alias,
@@ -1896,7 +1895,7 @@ impl MiscellaneousService {
                         Expr::col((TempMetadata::Alias, TempMetadata::Id)),
                     )
                     .finally(Expr::cust("NULL")),
-                    result_alias,
+                    TempMetadata::Id,
                 )
                 .from_subquery(subquery, TempIdentifiers::Alias)
                 .join_as(
@@ -1916,7 +1915,7 @@ impl MiscellaneousService {
             #[derive(Debug, FromQueryResult)]
             struct DbResponse {
                 identifier: String,
-                result: Option<i32>,
+                id: Option<i32>,
             }
             let identifiers: Vec<DbResponse> = self
                 .db
@@ -1933,7 +1932,7 @@ impl MiscellaneousService {
                         .iter()
                         .find(|&f| f.identifier == i.identifier)
                         .unwrap()
-                        .result
+                        .id
                         .map(Identifier::from),
                     item: i,
                 })
