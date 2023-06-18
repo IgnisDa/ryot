@@ -9,11 +9,11 @@ class Monitor(xbmc.Monitor):
 
     def onNotification(self, sender, method, dataJson):
         if not method in [
-            'Player.OnPlay',
-            'Player.OnPause',
-            'Player.OnStop',
-            'Player.OnSeek',
-            'Player.OnResume',
+            "Player.OnPlay",
+            "Player.OnPause",
+            "Player.OnStop",
+            "Player.OnSeek",
+            "Player.OnResume",
         ]:
             return
 

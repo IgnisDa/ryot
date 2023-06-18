@@ -1,30 +1,23 @@
 import urllib.request
 import urllib.parse
 import json
-from typing import TypedDict, Literal
+from typing import Literal
 
+PROGRESS_UPDATE = """
+    mutation ProgressUpdate($input: ProgressUpdate!) {
+      progressUpdate(input: $input) {
+        id
+      }
+    }
+"""
 
-class ExternalId(TypedDict):
-    imdbId: str
-    tmdbId: int
-
-
-class ProgressPayload(TypedDict):
-    mediaType: Literal["movie", "tv"]
-    id: ExternalId
-    seasonNumber: int
-    episodeNumber: int
-    action: Literal["playing", "paused"]
-    progress: float
-    duration: float
-
-
-class MarkAsSeenPayload(TypedDict):
-    mediaType: Literal["movie", "tv"]
-    id: ExternalId
-    seasonNumber: int
-    episodeNumber: int
-    duration: float
+MEDIA_EXISTS_IN_DATABASE = """
+    query MediaExistsInDatabase($identifier: String!, $lot: MetadataLot!) {
+      mediaExistsInDatabase(identifier: $identifier, lot: $lot) {
+        id
+      }
+    }  
+"""
 
 
 class Ryot:
@@ -32,29 +25,29 @@ class Ryot:
         self.url = url
         self.api_token = api_token
 
-    def set_progress(self, payload: ProgressPayload):
-        url = urllib.parse.urljoin(
-            self.url, '/api/progress/by-external-id?token=' + self.api_token)
+    def update_progress(self, payload):
+        self.post_json(payload)
 
-        put_json(url, payload)
+    def media_exists_in_database(self, identifier: str, lot: Literal["MOVIE", "SHOW"]):
+        return self.post_json(
+            MEDIA_EXISTS_IN_DATABASE, {"identifier": identifier, "lot": lot}
+        )
 
-    def mark_as_seen(self, payload: MarkAsSeenPayload):
-        url = urllib.parse.urljoin(
-            self.url, '/api/seen/by-external-id?token=' + self.api_token)
+    def post_json(self, query: str, variables: dict):
+        postdata = json.dumps({"query": query, "variables": variables}).encode()
 
-        put_json(url, payload)
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Authorization": f"Bearer {self.api_token}",
+        }
 
+        httprequest = urllib.request.Request(
+            urllib.parse.urljoin(self.url, "/graphql"),
+            data=postdata,
+            headers=headers,
+            method="POST",
+        )
 
-def put_json(url: str, data: dict):
-    postdata = json.dumps(data).encode()
-
-    headers = {"Content-Type": "application/json; charset=UTF-8"}
-
-    httprequest = urllib.request.Request(
-        url,
-        data=postdata,
-        headers=headers,
-        method="PUT"
-    )
-
-    urllib.request.urlopen(httprequest)
+        response = urllib.request.urlopen(httprequest)
+        data = json.loads(response.read().decode("utf-8"))
+        return data

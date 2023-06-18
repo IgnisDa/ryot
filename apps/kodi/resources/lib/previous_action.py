@@ -1,6 +1,7 @@
 from typing import Dict
 import datetime
 
+
 class PreviousActions:
     def __init__(self) -> None:
         self.markedAsSeenHistory: Dict[int, datetime.datetime] = {}

@@ -2,6 +2,7 @@
 <addon id="script.ryot" name="Ryot" version="0.0.1" provider-name="ignisda">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>        
+        <import addon="script.module.web-pdb" version="1.5.6"/>
     </requires>
     <extension library="default.py" point="xbmc.service"  />
     <extension point="xbmc.addon.metadata">
