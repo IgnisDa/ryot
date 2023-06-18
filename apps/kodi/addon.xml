@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.ryot" name="Ryot" version="0.0.1" provider-name="ignisda">
+<addon id="script.ryot" name="Ryot" version="1.0.0" provider-name="ignisda">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>        
     </requires>
