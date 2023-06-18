@@ -1,4 +1,18 @@
 
+# Version 1.3.0-beta.2 (2023-06-18)
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.3.0-beta.1 (2023-06-18)
+
+## Bug Fixes
+
+* **frontend:** mark correct width for list pages
+
+
 # Version 1.2.2 (2023-06-17)
 
 ## Build
