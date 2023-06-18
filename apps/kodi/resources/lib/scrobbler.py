@@ -41,21 +41,21 @@ class Scrobbler:
         ryot_tracker = Ryot(instance_url, api_token)
 
         id = video_info_tag.getDbId()
-
-        web_pdb.set_trace()
-
         duration = video_info_tag.getDuration()
         current_time = player.getTime()
         progress = (current_time / duration) * 100
-        title = video_info_tag.getTVShowTitle()
 
+        title = None
         tmdb_id = None
+        lot = None
 
         if video_info_tag.getMediaType() == "episode":
+            lot = "SHOW"
             res = kodi_json_request(
                 "VideoLibrary.GetEpisodeDetails",
                 {"episodeid": video_info_tag.getDbId(), "properties": ["tvshowid"]},
             )
+            title = video_info_tag.getTVShowTitle()
 
             tv_show_id = res.get("episodedetails", {}).get("tvshowid")
 
@@ -73,83 +73,38 @@ class Scrobbler:
 
             tmdb_id = res.get("tvshowdetails", {}).get("uniqueid", {}).get("tmdb")
 
-            # if tmdb_id is None:
-            #     xbmc.log(
-            #         f'Ryot: missing tmdbId for episode of "{title}"', xbmc.LOGDEBUG
-            #     )
-            #     return
-
-            # season_number = video_info_tag.getSeason()
-            # episode_number = video_info_tag.getEpisode()
-
-            # xbmc.log(
-            #     f'Ryot: updating progress for tv show "{title}"'
-            #     f" {season_number}x{episode_number} - {progress :.2f}%",
-            #     xbmc.LOGDEBUG,
-            # )
-
-            # ryot_tracker.update_progress(
-            #     {
-            #         "mediaType": "tv",
-            #         "id": {"tmdbId": tmdb_id},
-            #         "seasonNumber": season_number,
-            #         "episodeNumber": episode_number,
-            #         "progress": progress,
-            #         "duration": duration * 1000,
-            #     }
-            # )
-
-            # if self.previous_actions.can_mark_as_seen(id, progress):
-            #     xbmc.log(
-            #         f'Ryot: marking tv show "{title}"'
-            #         f" {season_number}x{episode_number} as seen",
-            #         xbmc.LOGDEBUG,
-            #     )
-
-            #     ryot_tracker.mark_as_seen(
-            #         {
-            #             "mediaType": "tv",
-            #             "id": {"tmdbId": tmdb_id},
-            #             "seasonNumber": season_number,
-            #             "episodeNumber": episode_number,
-            #             "duration": duration * 1000,
-            #         }
-            #     )
-
         elif video_info_tag.getMediaType() == "movie":
-            tmdb_id = video_info_tag.getUniqueID("tmdbId")
+            tmdb_id = video_info_tag.getUniqueID("tmdb")
+            lot = "MOVIE"
+            title = video_info_tag.getTitle()
 
-        if tmdb_id is None:
+        if not title:
+            xbmc.log(f'Ryot: missing title for "{id}"', xbmc.LOGDEBUG)
+            return
+
+        if not lot:
+            xbmc.log("Ryot: only movie and show tracking is supported", xbmc.LOGDEBUG)
+            return
+
+        if not tmdb_id:
             xbmc.log(f'Ryot: missing tmdbId for "{title}"', xbmc.LOGDEBUG)
             return
 
+        ryot_media_id = self.media_cache.get(tmdb_id, None)
+
+        if not ryot_media_id:
+            data = ryot_tracker.media_exists_in_database(tmdb_id, lot)
+            ryot_media_id = data
+            self.media_cache[tmdb_id] = data
+
         xbmc.log(
-            f'Ryot: updating progress for movie "{title}" - {progress * 100:.2f}%',
+            f'Ryot: updating progress for movie "{title}" - {progress :.2f}%',
             xbmc.LOGDEBUG,
         )
 
-        ryot_tracker.update_progress(
-            {
-                "mediaType": "movie",
-                "id": {"tmdbId": tmdb_id},
-                "progress": progress,
-                "duration": duration * 1000,
-            }
-        )
+        response = ryot_tracker.update_progress(ryot_media_id, progress)
 
-        if self.previous_actions.can_mark_as_seen(id, progress):
-            xbmc.log(
-                f'Ryot: marking movie "{video_info_tag.getTitle()}" as seen',
-                xbmc.LOGDEBUG,
-            )
-
-            ryot_tracker.mark_as_seen(
-                {
-                    "mediaType": "movie",
-                    "id": {"tmdbId": tmdb_id},
-                    "duration": duration * 1000,
-                }
-            )
+        web_pdb.set_trace()
 
 
 def kodi_json_request(method: str, params: dict):

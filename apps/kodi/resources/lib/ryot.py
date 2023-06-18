@@ -1,14 +1,15 @@
+from datetime import date
 import urllib.request
 import urllib.parse
 import json
 from typing import Literal
 
-PROGRESS_UPDATE = """
-    mutation ProgressUpdate($input: ProgressUpdate!) {
-      progressUpdate(input: $input) {
-        id
-      }
-    }
+COMMIT_MEDIA = """
+mutation CommitMedia($lot: MetadataLot!, $identifier: String!) {
+  commitMedia(lot: $lot, identifier: $identifier) {
+    id
+  }
+}
 """
 
 MEDIA_EXISTS_IN_DATABASE = """
@@ -19,18 +20,44 @@ MEDIA_EXISTS_IN_DATABASE = """
     }  
 """
 
+PROGRESS_UPDATE = """
+    mutation ProgressUpdate($input: ProgressUpdate!) {
+      progressUpdate(input: $input) {
+        id
+      }
+    }
+"""
+
 
 class Ryot:
     def __init__(self, url: str, api_token: str) -> None:
         self.url = url
         self.api_token = api_token
 
-    def update_progress(self, payload):
-        self.post_json(payload)
-
     def media_exists_in_database(self, identifier: str, lot: Literal["MOVIE", "SHOW"]):
+        input = {"identifier": identifier, "lot": lot}
+        response = self.post_json(MEDIA_EXISTS_IN_DATABASE, input)["data"][
+            "mediaExistsInDatabase"
+        ]
+        if response is None:
+            return self.post_json(COMMIT_MEDIA, input)["data"]["commitMedia"]["id"]
+        else:
+            return response["id"]
+
+    def update_progress(
+        self,
+        id: int,
+        progress: int,
+    ):
         return self.post_json(
-            MEDIA_EXISTS_IN_DATABASE, {"identifier": identifier, "lot": lot}
+            PROGRESS_UPDATE,
+            {
+                "input": {
+                    "metadataId": id,
+                    "progress": int(progress),
+                    "date": str(date.today()),
+                }
+            },
         )
 
     def post_json(self, query: str, variables: dict):

@@ -8,7 +8,7 @@ class Monitor(xbmc.Monitor):
         xbmc.Monitor.__init__(self)
 
     def onNotification(self, sender, method, dataJson):
-        if not method in [
+        if method not in [
             "Player.OnPlay",
             "Player.OnPause",
             "Player.OnStop",
