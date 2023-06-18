@@ -18,7 +18,6 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import {
 	MediaDetailsDocument,
-	ProgressUpdateAction,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -87,6 +86,7 @@ const Page: NextPageWithLayout = () => {
 
 	const mutationInput = {
 		metadataId: metadataId || 0,
+		progress: 100,
 		showEpisodeNumber: Number(selectedShowEpisodeNumber),
 		showSeasonNumber: Number(selectedShowSeasonNumber),
 		podcastEpisodeNumber: Number(selectedPodcastEpisodeNumber),
@@ -166,7 +166,10 @@ const Page: NextPageWithLayout = () => {
 						variant="outline"
 						onClick={async () => {
 							await progressUpdate.mutateAsync({
-								input: { action: ProgressUpdateAction.Now, ...mutationInput },
+								input: {
+									...mutationInput,
+									date: DateTime.now().toISODate(),
+								},
 								onlySeason,
 							});
 						}}
@@ -177,10 +180,7 @@ const Page: NextPageWithLayout = () => {
 						variant="outline"
 						onClick={async () => {
 							await progressUpdate.mutateAsync({
-								input: {
-									action: ProgressUpdateAction.InThePast,
-									...mutationInput,
-								},
+								input: mutationInput,
 								onlySeason,
 							});
 						}}
@@ -201,9 +201,8 @@ const Page: NextPageWithLayout = () => {
 								if (selectedDate)
 									await progressUpdate.mutateAsync({
 										input: {
-											action: ProgressUpdateAction.InThePast,
-											date: DateTime.fromJSDate(selectedDate).toISODate(),
 											...mutationInput,
+											date: DateTime.fromJSDate(selectedDate).toISODate(),
 										},
 										onlySeason,
 									});

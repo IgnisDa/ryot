@@ -562,7 +562,6 @@ export type PostReviewInput = {
 };
 
 export type ProgressUpdate = {
-  action: ProgressUpdateAction;
   date?: InputMaybe<Scalars['NaiveDate']>;
   /** If this update comes from a different source, this should be set */
   identifier?: InputMaybe<Scalars['String']>;
@@ -572,14 +571,6 @@ export type ProgressUpdate = {
   showEpisodeNumber?: InputMaybe<Scalars['Int']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']>;
 };
-
-export enum ProgressUpdateAction {
-  Drop = 'DROP',
-  InThePast = 'IN_THE_PAST',
-  JustStarted = 'JUST_STARTED',
-  Now = 'NOW',
-  Update = 'UPDATE'
-}
 
 export type QueryRoot = {
   /** Get all collections for the currently logged in user. */
