@@ -1469,8 +1469,12 @@ impl MiscellaneousService {
         let action = match input.progress {
             None => ProgressUpdateAction::Drop,
             Some(p) => {
-                if p == 0 {
-                    ProgressUpdateAction::JustStarted
+                if p < 10 {
+                    if prev_seen.is_empty() {
+                        ProgressUpdateAction::JustStarted
+                    } else {
+                        ProgressUpdateAction::Update
+                    }
                 } else {
                     match input.date {
                         None => ProgressUpdateAction::InThePast,
