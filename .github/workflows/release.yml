@@ -114,6 +114,7 @@ jobs:
         run: |
           app_name="${{ github.event.repository.name }}"
           cd ./apps
+          cp ../LICENSE ./kodi/LICENSE
           cp -r kodi "script.$app_name"
           zip -r "script.$app_name.zip" "script.$app_name"
           rm -rf "script.$app_name"
