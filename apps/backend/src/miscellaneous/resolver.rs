@@ -2560,25 +2560,23 @@ impl MiscellaneousService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        match self.scdb.lock() {
-            Ok(mut d) => d.set(
-                api_key.as_bytes(),
-                user.id.to_string().as_bytes(),
+        if self
+            .set_auth_token(
+                &api_key,
+                &user.id,
                 Some(
                     ChronoDuration::days(valid_for_days.into())
                         .num_seconds()
                         .try_into()
                         .unwrap(),
                 ),
-            )?,
-            Err(e) => {
-                tracing::error!("{:?}", e);
-                return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::MutexError,
-                }));
-            }
+            )
+            .is_err()
+        {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::MutexError,
+            }));
         };
-
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
@@ -2835,5 +2833,18 @@ impl MiscellaneousService {
         user_model.preferences = ActiveValue::Set(preferences);
         user_model.update(&self.db).await?;
         Ok(true)
+    }
+
+    fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
+        match self.scdb.lock() {
+            Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
+            Err(e) => {
+                tracing::error!("{:?}", e);
+                Err(anyhow::anyhow!(
+                    "Could not lock auth database due to mutex poisoning"
+                ))?
+            }
+        };
+        Ok(())
     }
 }
