@@ -1,4 +1,19 @@
 
+# Version 1.3.1 (2023-06-18)
+
+## Bug Fixes
+
+* **backend:** correct search query
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** display when search item is in database
+
+
 # Version 1.3.0 (2023-06-18)
 
 ## Build
