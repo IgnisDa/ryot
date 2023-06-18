@@ -1,3 +1,5 @@
+# Code adapted from https://github.com/bonukai/script.mediatracker
+
 import xbmc
 from resources.lib.monitor import Monitor
 from resources.lib.scrobbler import Scrobbler
