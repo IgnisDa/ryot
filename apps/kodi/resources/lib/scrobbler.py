@@ -47,6 +47,8 @@ class Scrobbler:
         title = None
         tmdb_id = None
         lot = None
+        season_number = None
+        episode_number = None
 
         if video_info_tag.getMediaType() == "episode":
             lot = "SHOW"
@@ -71,6 +73,8 @@ class Scrobbler:
             )
 
             tmdb_id = res.get("tvshowdetails", {}).get("uniqueid", {}).get("tmdb")
+            season_number = video_info_tag.getSeason()
+            episode_number = video_info_tag.getEpisode()
 
         elif video_info_tag.getMediaType() == "movie":
             tmdb_id = video_info_tag.getUniqueID("tmdb")
@@ -106,12 +110,16 @@ class Scrobbler:
         if progress > 90:
             if not marked_as_seen:
                 self.seen_cache[ryot_media_id] = datetime.now()
-                ryot_tracker.update_progress(ryot_media_id, 100)
+                ryot_tracker.update_progress(
+                    ryot_media_id, 100, season_number, episode_number
+                )
                 return
             if (datetime.now() - marked_as_seen).seconds < 8 * 60 * 60:
                 return
 
-        ryot_tracker.update_progress(ryot_media_id, progress)
+        ryot_tracker.update_progress(
+            ryot_media_id, progress, season_number, episode_number
+        )
 
 
 def kodi_json_request(method: str, params: dict):

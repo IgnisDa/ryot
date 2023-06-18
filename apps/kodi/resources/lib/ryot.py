@@ -2,7 +2,7 @@ from datetime import date
 import urllib.request
 import urllib.parse
 import json
-from typing import Literal
+from typing import Literal, Optional
 
 COMMIT_MEDIA = """
 mutation CommitMedia($lot: MetadataLot!, $identifier: String!) {
@@ -48,6 +48,8 @@ class Ryot:
         self,
         id: int,
         progress: int,
+        season_number: Optional[int],
+        episode_number: Optional[int],
     ):
         return self.post_json(
             PROGRESS_UPDATE,
@@ -56,6 +58,8 @@ class Ryot:
                     "metadataId": id,
                     "progress": int(progress),
                     "date": str(date.today()),
+                    "showSeasonNumber": season_number,
+                    "showEpisodeNumber": episode_number,
                 }
             },
         )
