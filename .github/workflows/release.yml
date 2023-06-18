@@ -100,6 +100,23 @@ jobs:
           gh release upload ${{ github.ref_name }} $(cat uploads.txt)
           echo "uploaded!"
 
+  upload-kodi-plugin:
+    needs: create-release
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Create and upload zip
+        run: |
+          app_name="${{ github.event.repository.name }}"
+          cd ./apps
+          cp -r kodi "script.$app_name"
+          zip -r "script.$app_name.zip" "script.$app_name"
+          rm -rf "script.$app_name"
+          gh release upload ${{ github.ref_name }} "script.$app_name.zip"
+
   # Mark the Github Release™ as a non-draft now that everything has succeeded!
   publish-release:
     # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
