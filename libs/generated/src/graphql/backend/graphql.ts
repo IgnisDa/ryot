@@ -581,6 +581,8 @@ export type QueryRoot = {
   getPresignedUrl: Scalars['String'];
   /** Get details about a media present in the database. */
   mediaDetails: GraphqlMediaDetails;
+  /** Check if a media with the given metadata and identifier exists in the database. */
+  mediaExistsInDatabase?: Maybe<IdObject>;
   /** Get all the import jobs deployed by the user */
   mediaImportReports: Array<MediaImportReport>;
   /** Get all the public reviews for a media item. */
@@ -607,6 +609,12 @@ export type QueryRootGetPresignedUrlArgs = {
 
 export type QueryRootMediaDetailsArgs = {
   metadataId: Scalars['Identifier'];
+};
+
+
+export type QueryRootMediaExistsInDatabaseArgs = {
+  identifier: Scalars['String'];
+  lot: MetadataLot;
 };
 
 

@@ -639,6 +639,19 @@ impl MiscellaneousQuery {
             .media_search(lot, input)
             .await
     }
+
+    /// Check if a media with the given metadata and identifier exists in the database.
+    async fn media_exists_in_database(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<IdObject>> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_exists_in_database(identifier, lot)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -2880,5 +2893,18 @@ impl MiscellaneousService {
             }
         };
         Ok(())
+    }
+
+    async fn media_exists_in_database(
+        &self,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<IdObject>> {
+        let media = Metadata::find()
+            .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .one(&self.db)
+            .await?;
+        Ok(media.map(|m| IdObject { id: m.id.into() }))
     }
 }
