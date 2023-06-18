@@ -1,16 +1,16 @@
+from datetime import datetime
 import xbmc
 import xbmcaddon
 import xbmcgui
 import json
 from resources.lib.ryot import Ryot
-from resources.lib.previous_action import PreviousActions
 
 
 class Scrobbler:
     def __init__(self) -> None:
-        self.previous_actions = PreviousActions()
         self.__addon__ = xbmcaddon.Addon()
         self.media_cache = {}
+        self.seen_cache = {}
 
     def scrobble(self, player: xbmc.Player):
         if player.isPlaying() is False:
@@ -89,7 +89,7 @@ class Scrobbler:
             xbmc.log(f'Ryot: missing tmdbId for "{title}"', xbmc.LOGDEBUG)
             return
 
-        ryot_media_id = self.media_cache.get(tmdb_id, None)
+        ryot_media_id = self.media_cache.get(tmdb_id)
 
         if not ryot_media_id:
             data = ryot_tracker.media_exists_in_database(tmdb_id, lot)
@@ -97,12 +97,21 @@ class Scrobbler:
             self.media_cache[tmdb_id] = data
 
         xbmc.log(
-            f'Ryot: updating progress for movie "{title}" - {progress :.2f}%',
+            f'Ryot: updating progress for "{title}" - {progress}%',
             xbmc.LOGDEBUG,
         )
 
-        response = ryot_tracker.update_progress(ryot_media_id, progress)
+        marked_as_seen = self.seen_cache.get(ryot_media_id)
 
+        if progress > 90:
+            if not marked_as_seen:
+                self.seen_cache[ryot_media_id] = datetime.now()
+                ryot_tracker.update_progress(ryot_media_id, 100)
+                return
+            if (datetime.now() - marked_as_seen).seconds < 8 * 60 * 60:
+                return
+
+        ryot_tracker.update_progress(ryot_media_id, progress)
 
 
 def kodi_json_request(method: str, params: dict):
