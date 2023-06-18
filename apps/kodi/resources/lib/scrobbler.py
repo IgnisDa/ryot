@@ -1,4 +1,3 @@
-import web_pdb
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -104,7 +103,6 @@ class Scrobbler:
 
         response = ryot_tracker.update_progress(ryot_media_id, progress)
 
-        web_pdb.set_trace()
 
 
 def kodi_json_request(method: str, params: dict):
