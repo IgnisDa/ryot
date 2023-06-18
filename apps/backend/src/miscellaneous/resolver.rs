@@ -1870,6 +1870,8 @@ impl MiscellaneousService {
         let data = if all_idens.is_empty() {
             vec![]
         } else {
+            // This can be done with `select id from metadata where identifier = '...'
+            // and lot = '...'` in a loop. But, I wanted to write a performant query.
             let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
             let mut subquery = Query::select()
                 .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
@@ -1882,16 +1884,19 @@ impl MiscellaneousService {
                     )
                     .to_owned();
             }
+            let result_alias = Alias::new("result");
             let identifiers_query = Query::select()
+                .expr(Expr::col((
+                    TempIdentifiers::Alias,
+                    TempIdentifiers::Identifier,
+                )))
                 .expr_as(
                     Expr::case(
-                        Expr::col((TempMetadata::Alias, TempMetadata::Id))
-                            .is_not_null()
-                            .and(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(lot)),
+                        Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_not_null(),
                         Expr::col((TempMetadata::Alias, TempMetadata::Id)),
                     )
                     .finally(Expr::cust("NULL")),
-                    TempMetadata::Id,
+                    result_alias,
                 )
                 .from_subquery(subquery, TempIdentifiers::Alias)
                 .join_as(
@@ -1901,11 +1906,17 @@ impl MiscellaneousService {
                     Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
                         .equals((TempMetadata::Alias, TempMetadata::Identifier)),
                 )
+                .and_where(
+                    Expr::col((TempMetadata::Alias, TempMetadata::Lot))
+                        .eq(lot)
+                        .or(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).is_null()),
+                )
                 .to_owned();
             let stmt = self.get_db_stmt(identifiers_query);
             #[derive(Debug, FromQueryResult)]
             struct DbResponse {
-                id: Option<i32>,
+                identifier: String,
+                result: Option<i32>,
             }
             let identifiers: Vec<DbResponse> = self
                 .db
@@ -1914,12 +1925,19 @@ impl MiscellaneousService {
                 .iter()
                 .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
                 .collect();
-            std::iter::zip(results.items, identifiers)
-                .map(|(i, iden)| MediaSearchItemResponse {
+            results
+                .items
+                .into_iter()
+                .map(|i| MediaSearchItemResponse {
+                    database_id: identifiers
+                        .iter()
+                        .find(|&f| f.identifier == i.identifier)
+                        .unwrap()
+                        .result
+                        .map(Identifier::from),
                     item: i,
-                    database_id: iden.id.map(Identifier::from),
                 })
-                .collect::<Vec<_>>()
+                .collect()
         };
         let results = DetailedMediaSearchResults {
             total: results.total,
