@@ -4,11 +4,15 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { changeCase, getLot } from "@/lib/utilities";
 import {
+	ActionIcon,
+	Alert,
 	Anchor,
 	Box,
 	Button,
 	Card,
+	Code,
 	Container,
+	CopyButton,
 	Divider,
 	Flex,
 	PasswordInput,
@@ -20,6 +24,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { modals } from "@mantine/modals";
@@ -28,6 +33,8 @@ import {
 	CoreDetailsDocument,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
+	GenerateApplicationTokenDocument,
+	type GenerateApplicationTokenMutationVariables,
 	MediaImportSource,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
@@ -41,6 +48,9 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAnalyze,
+	IconApps,
+	IconCheck,
+	IconCopy,
 	IconDatabaseImport,
 	IconSignature,
 	IconUser,
@@ -221,6 +231,17 @@ const Page: NextPageWithLayout = () => {
 			enabledFeatures.refetch();
 		},
 	});
+	const generateApplicationToken = useMutation({
+		mutationFn: async (
+			variables: GenerateApplicationTokenMutationVariables,
+		) => {
+			const { generateApplicationToken } = await gqlClient.request(
+				GenerateApplicationTokenDocument,
+				variables,
+			);
+			return generateApplicationToken;
+		},
+	});
 
 	const openProfileUpdateModal = () =>
 		modals.openConfirmModal({
@@ -292,6 +313,9 @@ const Page: NextPageWithLayout = () => {
 							>
 								Imports
 							</Tabs.Tab>
+							<Tabs.Tab value="tokens" icon={<IconApps size="1rem" />}>
+								Tokens
+							</Tabs.Tab>
 							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
 								Miscellaneous
 							</Tabs.Tab>
@@ -351,6 +375,46 @@ const Page: NextPageWithLayout = () => {
 									),
 								)}
 							</SimpleGrid>
+						</Tabs.Panel>
+						<Tabs.Panel value="tokens">
+							<Stack>
+								<Button
+									color="violet"
+									onClick={() => generateApplicationToken.mutate({})}
+									loading={generateApplicationToken.isLoading}
+								>
+									Generate a new token
+								</Button>
+								{generateApplicationToken.data && (
+									<Box>
+										<Alert title="This token will be shown only once">
+											<Flex align={"center"}>
+												<Code>{generateApplicationToken.data}</Code>
+												<CopyButton value={generateApplicationToken.data}>
+													{({ copied, copy }) => (
+														<Tooltip
+															label={copied ? "Copied" : "Copy"}
+															withArrow
+															position="right"
+														>
+															<ActionIcon
+																color={copied ? "teal" : "gray"}
+																onClick={copy}
+															>
+																{copied ? (
+																	<IconCheck size="1rem" />
+																) : (
+																	<IconCopy size="1rem" />
+																)}
+															</ActionIcon>
+														</Tooltip>
+													)}
+												</CopyButton>
+											</Flex>
+										</Alert>
+									</Box>
+								)}
+							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
 							<Stack>
