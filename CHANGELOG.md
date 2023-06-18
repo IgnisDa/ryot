@@ -1,4 +1,12 @@
 
+# Version 1.3.0 (2023-06-18)
+
+## Build
+
+* **backend:** bump version
+* **kodi:** bump version
+
+
 # Version 1.3.0-beta.2 (2023-06-18)
 
 ## Build
