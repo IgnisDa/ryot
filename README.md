@@ -60,6 +60,7 @@ a number of guides to make thing easier.
 - [Deployment](/docs/guides/deployment.md): Deploy Ryot to various platforms
 - [Exporting](/docs/guides/exporting.md): Export your data from Ryot
 - [Importing](/docs/guides/importing.md): Import data from various sources
+- [Integrations](/docs/guides/integrations.md): Integrations with various platforms
 - [Video Games](/docs/guides/video-games.md): Get video games tracking working
 
 ## ⌨️ How to use?

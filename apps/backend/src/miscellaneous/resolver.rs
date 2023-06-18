@@ -411,20 +411,10 @@ pub struct DetailedMediaSearchResults {
     pub next_page: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
-pub enum ProgressUpdateAction {
-    Update,
-    Now,
-    InThePast,
-    JustStarted,
-    Drop,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdate {
     pub metadata_id: Identifier,
     pub progress: Option<i32>,
-    pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
@@ -647,6 +637,19 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .media_search(lot, input)
+            .await
+    }
+
+    /// Check if a media with the given metadata and identifier exists in the database.
+    async fn media_exists_in_database(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<IdObject>> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_exists_in_database(identifier, lot)
             .await
     }
 }
@@ -908,6 +911,15 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .update_user_preferences(input, user_id)
+            .await
+    }
+
+    /// Generate an auth token without any expiry
+    async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .generate_application_token(user_id)
             .await
     }
 }
@@ -1437,6 +1449,48 @@ impl MiscellaneousService {
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
+        let prev_seen = Seen::find()
+            .filter(seen::Column::Progress.lt(100))
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::Dropped.ne(true))
+            .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
+            .order_by_desc(seen::Column::LastUpdatedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
+        pub enum ProgressUpdateAction {
+            Update,
+            Now,
+            InThePast,
+            JustStarted,
+            Drop,
+        }
+        let action = match input.progress {
+            None => ProgressUpdateAction::Drop,
+            Some(p) => {
+                if p == 100 {
+                    match input.date {
+                        None => ProgressUpdateAction::InThePast,
+                        Some(u) => {
+                            if Utc::now().date_naive() == u {
+                                if prev_seen.is_empty() {
+                                    ProgressUpdateAction::Now
+                                } else {
+                                    ProgressUpdateAction::Update
+                                }
+                            } else {
+                                ProgressUpdateAction::InThePast
+                            }
+                        }
+                    }
+                } else if prev_seen.is_empty() {
+                    ProgressUpdateAction::JustStarted
+                } else {
+                    ProgressUpdateAction::Update
+                }
+            }
+        };
         let meta = Seen::find()
             .filter(seen::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
@@ -1447,21 +1501,9 @@ impl MiscellaneousService {
                 id: m.metadata_id.into(),
             })
         } else {
-            let prev_seen = Seen::find()
-                .filter(seen::Column::Progress.lt(100))
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::Dropped.ne(true))
-                .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
-                .order_by_desc(seen::Column::LastUpdatedOn)
-                .all(&self.db)
-                .await
-                .unwrap();
             let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
-            let seen_item = match input.action {
+            let seen_item = match action {
                 ProgressUpdateAction::Update => {
-                    if prev_seen.is_empty() {
-                        return err();
-                    }
                     let progress = input.progress.unwrap();
                     let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
                     last_seen.progress = ActiveValue::Set(progress);
@@ -1500,13 +1542,13 @@ impl MiscellaneousService {
                         .await
                         .unwrap()
                         .unwrap();
-                    let finished_on = if input.action == ProgressUpdateAction::Now {
+                    let finished_on = if action == ProgressUpdateAction::Now {
                         Some(Utc::now().date_naive())
                     } else {
                         input.date
                     };
                     let (progress, started_on) =
-                        if matches!(input.action, ProgressUpdateAction::JustStarted) {
+                        if matches!(action, ProgressUpdateAction::JustStarted) {
                             (0, Some(Utc::now().date_naive()))
                         } else {
                             (100, None)
@@ -2560,25 +2602,23 @@ impl MiscellaneousService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        match self.scdb.lock() {
-            Ok(mut d) => d.set(
-                api_key.as_bytes(),
-                user.id.to_string().as_bytes(),
+        if self
+            .set_auth_token(
+                &api_key,
+                &user.id,
                 Some(
                     ChronoDuration::days(valid_for_days.into())
                         .num_seconds()
                         .try_into()
                         .unwrap(),
                 ),
-            )?,
-            Err(e) => {
-                tracing::error!("{:?}", e);
-                return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::MutexError,
-                }));
-            }
+            )
+            .is_err()
+        {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::MutexError,
+            }));
         };
-
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
@@ -2835,5 +2875,38 @@ impl MiscellaneousService {
         user_model.preferences = ActiveValue::Set(preferences);
         user_model.update(&self.db).await?;
         Ok(true)
+    }
+
+    async fn generate_application_token(&self, user_id: i32) -> Result<String> {
+        let api_token = Uuid::new_v4().to_string();
+        self.set_auth_token(&api_token, &user_id, None)
+            .map_err(|_| Error::new("Could not set auth token"))?;
+        Ok(api_token)
+    }
+
+    fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
+        match self.scdb.lock() {
+            Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
+            Err(e) => {
+                tracing::error!("{:?}", e);
+                Err(anyhow::anyhow!(
+                    "Could not lock auth database due to mutex poisoning"
+                ))?
+            }
+        };
+        Ok(())
+    }
+
+    async fn media_exists_in_database(
+        &self,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<IdObject>> {
+        let media = Metadata::find()
+            .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .one(&self.db)
+            .await?;
+        Ok(media.map(|m| IdObject { id: m.id.into() }))
     }
 }
