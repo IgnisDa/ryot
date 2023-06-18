@@ -1,4 +1,16 @@
 
+# Version 1.3.2 (2023-06-18)
+
+## Bug Fixes
+
+* general cleanups
+* **backend:** delete old on recalculating summaries
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.3.1 (2023-06-18)
 
 ## Bug Fixes
