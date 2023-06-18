@@ -103,6 +103,8 @@ jobs:
   upload-kodi-plugin:
     needs: create-release
     runs-on: ubuntu-20.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
