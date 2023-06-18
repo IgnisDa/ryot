@@ -910,6 +910,15 @@ impl MiscellaneousMutation {
             .update_user_preferences(input, user_id)
             .await
     }
+
+    /// Generate an auth token without any expiry
+    async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .generate_application_token(user_id)
+            .await
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2833,6 +2842,13 @@ impl MiscellaneousService {
         user_model.preferences = ActiveValue::Set(preferences);
         user_model.update(&self.db).await?;
         Ok(true)
+    }
+
+    async fn generate_application_token(&self, user_id: i32) -> Result<String> {
+        let api_token = Uuid::new_v4().to_string();
+        self.set_auth_token(&api_token, &user_id, None)
+            .map_err(|_| Error::new("Could not set auth token"))?;
+        Ok(api_token)
     }
 
     fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
