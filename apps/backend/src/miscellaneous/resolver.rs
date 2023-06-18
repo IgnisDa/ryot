@@ -2696,6 +2696,7 @@ impl MiscellaneousService {
     pub async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
+            self.cleanup_summaries_for_user(&user.id).await?;
             self.calculate_user_summary(&user.id).await?;
         }
         Ok(())
