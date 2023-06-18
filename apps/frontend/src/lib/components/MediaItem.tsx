@@ -8,7 +8,16 @@ import {
 	getLot,
 	getVerb,
 } from "@/lib/utilities";
-import { Anchor, Button, Flex, Image, Loader, Text } from "@mantine/core";
+import {
+	Anchor,
+	Button,
+	Flex,
+	Image,
+	Indicator,
+	Loader,
+	Text,
+	Tooltip,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
@@ -29,6 +38,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
 	listType: "grid" | "poster";
+	existsInDatabase?: boolean;
 }) => {
 	return (
 		<Flex
@@ -80,7 +90,20 @@ export const MediaItemWithoutUpdateModal = (props: {
 					w="100%"
 				>
 					<Text c="dimmed">{props.item.publishYear}</Text>
-					<Text c="dimmed">{changeCase(props.lot)}</Text>
+					<Tooltip
+						label="This media exists in the database"
+						disabled={!props.existsInDatabase}
+					>
+						<Indicator
+							inline
+							color="violet"
+							disabled={!props.existsInDatabase}
+							position="middle-start"
+							offset={-10}
+						>
+							<Text c="dimmed">{changeCase(props.lot)}</Text>
+						</Indicator>
+					</Tooltip>
 				</Flex>
 				<Text
 					w="100%"
@@ -145,6 +168,7 @@ export default function (props: {
 					? `${ROUTES.media.details}?item=${props.maybeItemId}`
 					: `${ROUTES.media.commit}?identifier=${props.item.identifier}&lot=${props.lot}`
 			}
+			existsInDatabase={!!props.maybeItemId}
 		>
 			<>
 				{props.lot !== MetadataLot.Show ? (
