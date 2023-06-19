@@ -1,19 +1,12 @@
 query UserEnabledFeatures {
   userEnabledFeatures {
-    general {
-      fileStorage {
-        enabled
-      }
-    }
-    metadata {
-      anime
-      audioBooks
-      books
-      manga
-      movies
-      podcasts
-      shows
-      videoGames
-    }
+    anime
+    audioBooks
+    books
+    manga
+    movies
+    podcasts
+    shows
+    videoGames
   }
 }
