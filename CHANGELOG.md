@@ -1,4 +1,15 @@
 
+# Version 1.3.3 (2023-06-19)
+
+## Bug Fixes
+
+* general bugs
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.3.2 (2023-06-18)
 
 ## Bug Fixes
