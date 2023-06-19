@@ -15,7 +15,7 @@ use sea_orm::{
     JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
@@ -1894,7 +1894,7 @@ impl MiscellaneousService {
                         Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_not_null(),
                         Expr::col((TempMetadata::Alias, TempMetadata::Id)),
                     )
-                    .finally(Expr::cust("NULL")),
+                    .finally(Keyword::Null),
                     TempMetadata::Id,
                 )
                 .from_subquery(subquery, TempIdentifiers::Alias)

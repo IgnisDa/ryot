@@ -64,8 +64,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 					<Image
 						src={props.item.images.at(0)}
 						radius={"md"}
-						height={props.listType === "poster" ? 250 : 150}
-						width={props.listType === "poster" ? 167 : 100}
+						height={props.listType === "poster" ? 250 : 170}
+						width={props.listType === "poster" ? 167 : 120}
 						withPlaceholder
 						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
 						style={{ cursor: "pointer" }}
