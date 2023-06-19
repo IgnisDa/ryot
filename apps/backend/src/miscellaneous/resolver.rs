@@ -359,14 +359,9 @@ pub struct MetadataFeatureEnabled {
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralFeatureEnabled {
-    enabled: bool,
-}
-
-#[derive(SimpleObject)]
 pub struct GeneralFeatures {
-    file_storage: GeneralFeatureEnabled,
-    signup_allowed: GeneralFeatureEnabled,
+    file_storage: bool,
+    signup_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1831,12 +1826,8 @@ impl MiscellaneousService {
             files_enabled = false;
         }
         let general = GeneralFeatures {
-            file_storage: GeneralFeatureEnabled {
-                enabled: files_enabled,
-            },
-            signup_allowed: GeneralFeatureEnabled {
-                enabled: config.users.allow_registration,
-            },
+            file_storage: files_enabled,
+            signup_allowed: config.users.allow_registration,
         };
         Ok(general)
     }
