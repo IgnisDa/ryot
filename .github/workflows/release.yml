@@ -73,11 +73,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Use Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 19.8.1
-          cache: yarn
       - name: Install nodejs dependencies
         run: yarn install --immutable
       - name: Setup Moon
@@ -170,6 +165,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.required_args.outputs.image_names }}
 
