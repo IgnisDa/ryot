@@ -1542,8 +1542,8 @@ impl MiscellaneousService {
                         .await
                         .unwrap()
                         .unwrap();
-                    let finished_on = if action == ProgressUpdateAction::Now {
-                        Some(Utc::now().date_naive())
+                    let finished_on = if action == ProgressUpdateAction::JustStarted {
+                        None
                     } else {
                         input.date
                     };

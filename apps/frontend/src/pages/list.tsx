@@ -133,7 +133,7 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			if (!activeMinePage) setMinePage("1");
 		},
-		enabled: query !== "" && lot !== undefined && activeTab === "mine",
+		enabled: lot !== undefined && activeTab === "mine",
 	});
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
