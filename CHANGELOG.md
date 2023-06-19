@@ -1,4 +1,11 @@
 
+# Version 1.3.4 (2023-06-19)
+
+## Features
+
+* general improvements
+
+
 # Version 1.3.3-beta.1 (2023-06-19)
 
 
