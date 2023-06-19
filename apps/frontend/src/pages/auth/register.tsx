@@ -12,6 +12,7 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
+	RegisterErrorVariant,
 	RegisterUserDocument,
 	type UserInput,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -19,6 +20,7 @@ import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { match } from "ts-pattern";
 import { z } from "zod";
 
 const formSchema = z
@@ -47,9 +49,16 @@ export default function Page() {
 		},
 		onSuccess(data) {
 			if (data.__typename === "RegisterError") {
+				const message = match(data.error)
+					.with(RegisterErrorVariant.Disabled, () => "Registration is disabled")
+					.with(
+						RegisterErrorVariant.UsernameAlreadyExists,
+						() => "This username already exists",
+					)
+					.exhaustive();
 				notifications.show({
 					title: "Error with registration",
-					message: "This username already exists",
+					message,
 					color: "red",
 				});
 			} else {
