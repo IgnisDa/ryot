@@ -117,12 +117,12 @@ export default function Page() {
 				/>
 				<Tooltip
 					label="Sign ups are disabled on this instance"
-					disabled={enabledFeatures.data?.signupAllowed.enabled}
+					disabled={enabledFeatures.data?.signupAllowed}
 				>
 					<Button
 						mt="md"
 						type="submit"
-						{...(!enabledFeatures.data?.signupAllowed.enabled
+						{...(!enabledFeatures.data?.signupAllowed
 							? { "data-disabled": true }
 							: {})}
 						loading={registerUser.isLoading}
