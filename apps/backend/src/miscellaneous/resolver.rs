@@ -368,12 +368,6 @@ pub struct GeneralFeatures {
     signup_allowed: GeneralFeatureEnabled,
 }
 
-#[derive(SimpleObject)]
-pub struct FeatureEnabled {
-    metadata: MetadataFeatureEnabled,
-    general: GeneralFeatures,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaBaseData {
     pub model: metadata::Model,
@@ -619,7 +613,16 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the features that are enabled for the service
-    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<FeatureEnabled> {
+    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .core_enabled_features(config)
+            .await
+    }
+
+    /// Get all the user specific features that are enabled
+    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<MetadataFeatureEnabled> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -1797,7 +1800,22 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         config: &AppConfig,
-    ) -> Result<FeatureEnabled> {
+    ) -> Result<MetadataFeatureEnabled> {
+        let user_preferences = self.user_by_id(user_id).await?.preferences;
+        let metadata = MetadataFeatureEnabled {
+            anime: config.anime.is_enabled() && user_preferences.anime,
+            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
+            books: config.books.is_enabled() && user_preferences.books,
+            shows: config.shows.is_enabled() && user_preferences.shows,
+            manga: config.manga.is_enabled() && user_preferences.manga,
+            movies: config.movies.is_enabled() && user_preferences.movies,
+            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
+            video_games: config.video_games.is_enabled() && user_preferences.video_games,
+        };
+        Ok(metadata)
+    }
+
+    async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {
         let mut files_enabled = config.file_storage.is_enabled();
         if files_enabled
             && self
@@ -1815,22 +1833,10 @@ impl MiscellaneousService {
                 enabled: files_enabled,
             },
             signup_allowed: GeneralFeatureEnabled {
-                enabled: config.users.allow_changing_username,
+                enabled: config.users.allow_registration,
             },
         };
-
-        let user_preferences = self.user_by_id(user_id).await?.preferences;
-        let metadata = MetadataFeatureEnabled {
-            anime: config.anime.is_enabled() && user_preferences.anime,
-            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
-            books: config.books.is_enabled() && user_preferences.books,
-            shows: config.shows.is_enabled() && user_preferences.shows,
-            manga: config.manga.is_enabled() && user_preferences.manga,
-            movies: config.movies.is_enabled() && user_preferences.movies,
-            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
-            video_games: config.video_games.is_enabled() && user_preferences.video_games,
-        };
-        Ok(FeatureEnabled { metadata, general })
+        Ok(general)
     }
 
     async fn media_search(

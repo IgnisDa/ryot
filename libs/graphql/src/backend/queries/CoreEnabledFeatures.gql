@@ -1,0 +1,10 @@
+query CoreEnabledFeatures {
+  coreEnabledFeatures {
+    fileStorage {
+      enabled
+    }
+    signupAllowed {
+      enabled
+    }
+  }
+}
