@@ -365,6 +365,7 @@ pub struct GeneralFeatureEnabled {
 #[derive(SimpleObject)]
 pub struct GeneralFeatures {
     file_storage: GeneralFeatureEnabled,
+    signup_allowed: GeneralFeatureEnabled,
 }
 
 #[derive(SimpleObject)]
@@ -1812,6 +1813,9 @@ impl MiscellaneousService {
         let general = GeneralFeatures {
             file_storage: GeneralFeatureEnabled {
                 enabled: files_enabled,
+            },
+            signup_allowed: GeneralFeatureEnabled {
+                enabled: config.users.allow_changing_username,
             },
         };
 

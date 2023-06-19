@@ -257,6 +257,8 @@ pub struct UsersConfig {
     pub allow_changing_username: bool,
     #[setting(default = 90)]
     pub token_valid_for_days: i32,
+    #[setting(default = true)]
+    pub allow_registration: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
