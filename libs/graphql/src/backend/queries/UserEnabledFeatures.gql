@@ -4,6 +4,9 @@ query UserEnabledFeatures {
       fileStorage {
         enabled
       }
+      signupAllowed {
+        enabled
+      }
     }
     metadata {
       anime
