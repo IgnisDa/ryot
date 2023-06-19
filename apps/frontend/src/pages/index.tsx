@@ -117,7 +117,7 @@ const Page: NextPageWithLayout = () => {
 						<>
 							<Title>In Progress</Title>
 							<Grid listType="poster">
-								{inProgressCollection.mediaDetails.map((lm) => (
+								{inProgressCollection.mediaDetails.slice(0, 8).map((lm) => (
 									<MediaItemWithoutUpdateModal
 										listType="poster"
 										key={lm.identifier}
