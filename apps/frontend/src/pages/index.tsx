@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import { ROUTES } from "@/lib/constants";
-import { useEnabledFeatures } from "@/lib/hooks/graphql";
+import { useEnabledUserFeatures } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -45,8 +45,8 @@ const DisplayStatForMediaType = (props: {
 	lot: MetadataLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 }) => {
-	const enabledFeatures = useEnabledFeatures();
-	const isEnabled = Object.entries(enabledFeatures.data?.metadata || {}).find(
+	const enabledFeatures = useEnabledUserFeatures();
+	const isEnabled = Object.entries(enabledFeatures.data || {}).find(
 		([name, _]) => getLot(name) === props.lot,
 	)!;
 	const theme = useMantineTheme();

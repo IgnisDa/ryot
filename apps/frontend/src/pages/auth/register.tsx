@@ -1,6 +1,14 @@
 import { ROUTES } from "@/lib/constants";
+import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
+import {
+	Anchor,
+	Box,
+	Button,
+	PasswordInput,
+	TextInput,
+	Tooltip,
+} from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -29,6 +37,7 @@ type FormSchema = z.infer<typeof formSchema>;
 
 export default function Page() {
 	const router = useRouter();
+	const enabledFeatures = useEnabledCoreFeatures();
 	const registerUser = useMutation({
 		mutationFn: async (input: UserInput) => {
 			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
@@ -97,9 +106,23 @@ export default function Page() {
 					{...form.getInputProps("confirm")}
 					required
 				/>
-				<Button mt="md" type="submit" loading={registerUser.isLoading} w="100%">
-					Register
-				</Button>
+				<Tooltip
+					label="Sign ups are disabled on this instance"
+					disabled={enabledFeatures.data?.signupAllowed.enabled}
+				>
+					<Button
+						mt="md"
+						type="submit"
+						{...(!enabledFeatures.data?.signupAllowed.enabled
+							? { "data-disabled": true }
+							: {})}
+						loading={registerUser.isLoading}
+						sx={{ "&[data-disabled]": { pointerEvents: "all" } }}
+						w="100%"
+					>
+						Register
+					</Button>
+				</Tooltip>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Already a member? Login{" "}
 					<Link href={ROUTES.auth.login} passHref legacyBehavior>

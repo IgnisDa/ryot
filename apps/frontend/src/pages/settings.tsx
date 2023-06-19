@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
-import { useEnabledFeatures } from "@/lib/hooks/graphql";
+import { useEnabledUserFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { changeCase, getLot } from "@/lib/utilities";
@@ -218,7 +218,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const enabledFeatures = useEnabledFeatures();
+	const enabledFeatures = useEnabledUserFeatures();
 	const updateUserPreferences = useMutation({
 		mutationFn: async (variables: UpdateUserPreferencesMutationVariables) => {
 			const { updateUserPreferences } = await gqlClient.request(
@@ -357,7 +357,7 @@ const Page: NextPageWithLayout = () => {
 							<Title order={3}>Enabled features</Title>
 							<Space h="sm" />
 							<SimpleGrid cols={2}>
-								{Object.entries(enabledFeatures.data?.metadata || {}).map(
+								{Object.entries(enabledFeatures.data || {}).map(
 									([name, isEnabled], idx) => (
 										<Switch
 											key={idx}

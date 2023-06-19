@@ -2,6 +2,7 @@ import { gqlClient } from "../services/api";
 import {
 	CommitMediaDocument,
 	type CommitMediaMutationVariables,
+	CoreEnabledFeaturesDocument,
 	MetadataLot,
 	UserDetailsDocument,
 	UserEnabledFeaturesDocument,
@@ -20,14 +21,28 @@ export function useUser() {
 	return userDetails.data?.__typename === "User" ? userDetails.data : undefined;
 }
 
-export function useEnabledFeatures() {
+export function useEnabledUserFeatures() {
 	const enabledFeatures = useQuery(
-		["enabledFeatures"],
+		["enabledUserFeatures"],
 		async () => {
 			const { userEnabledFeatures } = await gqlClient.request(
 				UserEnabledFeaturesDocument,
 			);
 			return userEnabledFeatures;
+		},
+		{ staleTime: Infinity },
+	);
+	return enabledFeatures;
+}
+
+export function useEnabledCoreFeatures() {
+	const enabledFeatures = useQuery(
+		["enabledCoreFeatures"],
+		async () => {
+			const { coreEnabledFeatures } = await gqlClient.request(
+				CoreEnabledFeaturesDocument,
+			);
+			return coreEnabledFeatures;
 		},
 		{ staleTime: Infinity },
 	);
