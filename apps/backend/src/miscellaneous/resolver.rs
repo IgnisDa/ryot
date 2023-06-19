@@ -126,6 +126,7 @@ struct UserInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum RegisterErrorVariant {
     UsernameAlreadyExists,
+    Disabled,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -762,9 +763,10 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: UserInput,
     ) -> Result<RegisterResult> {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .register_user(&input.username, &input.password)
+            .register_user(&input.username, &input.password, config)
             .await
     }
 
@@ -2568,7 +2570,17 @@ impl MiscellaneousService {
         Ok(IdObject { id: obj.id.into() })
     }
 
-    async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
+    async fn register_user(
+        &self,
+        username: &str,
+        password: &str,
+        config: &AppConfig,
+    ) -> Result<RegisterResult> {
+        if !config.users.allow_registration {
+            return Ok(RegisterResult::Error(RegisterError {
+                error: RegisterErrorVariant::Disabled,
+            }));
+        }
         let mut storage = self.user_created.clone();
         if User::find()
             .filter(user::Column::Name.eq(username))

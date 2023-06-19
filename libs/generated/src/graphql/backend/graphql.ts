@@ -641,6 +641,7 @@ export type RegisterError = {
 };
 
 export enum RegisterErrorVariant {
+  Disabled = 'DISABLED',
   UsernameAlreadyExists = 'USERNAME_ALREADY_EXISTS'
 }
 
