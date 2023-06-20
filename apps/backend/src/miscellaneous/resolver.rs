@@ -493,6 +493,7 @@ pub enum MediaFilter {
     Rated,
     Unrated,
     Dropped,
+    Finished,
     Unseen,
 }
 
@@ -1366,6 +1367,22 @@ impl MiscellaneousService {
                             .and_where(
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
                                     .is_in(dropped_ids),
+                            )
+                            .to_owned();
+                    }
+                    MediaFilter::Finished => {
+                        let finished_ids = Seen::find()
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .filter(seen::Column::Progress.eq(100))
+                            .all(&self.db)
+                            .await?
+                            .into_iter()
+                            .map(|r| r.metadata_id)
+                            .collect::<Vec<_>>();
+                        main_select = main_select
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .is_in(finished_ids),
                             )
                             .to_owned();
                     }

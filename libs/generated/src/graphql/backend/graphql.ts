@@ -237,6 +237,7 @@ export type MangaSummary = {
 export enum MediaFilter {
   All = 'ALL',
   Dropped = 'DROPPED',
+  Finished = 'FINISHED',
   Rated = 'RATED',
   Unrated = 'UNRATED',
   Unseen = 'UNSEEN'
