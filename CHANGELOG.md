@@ -1,4 +1,12 @@
 
+# Version 1.3.8 (2023-06-20)
+
+## Build
+
+* **backend:** bump version
+* **kodi:** correct versions
+
+
 # Version 1.3.7 (2023-06-20)
 
 ## Bug Fixes
