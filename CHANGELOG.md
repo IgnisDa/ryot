@@ -1,4 +1,15 @@
 
+# Version 1.3.7 (2023-06-20)
+
+## Bug Fixes
+
+* **kodi:** mark item as started if `progress > 2`
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.3.6 (2023-06-20)
 
 ## Bug Fixes
