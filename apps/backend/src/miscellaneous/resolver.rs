@@ -523,6 +523,18 @@ pub struct MiscellaneousQuery;
 
 #[Object]
 impl MiscellaneousQuery {
+    /// Get a review by its ID
+    async fn review_by_id(
+        &self,
+        gql_ctx: &Context<'_>,
+        review_id: Identifier,
+    ) -> Result<review::Model> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .review_by_id(review_id.into())
+            .await
+    }
+
     /// Get all the public reviews for a media item.
     async fn media_item_reviews(
         &self,
@@ -1025,7 +1037,7 @@ impl MiscellaneousService {
     }
 
     pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
-        let meta = match Metadata::find_by_id(metadata_id)
+        let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -1043,6 +1055,9 @@ impl MiscellaneousService {
             .collect();
         let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
+        if let Some(ref mut d) = meta.description {
+            *d = markdown::to_html(d);
+        }
         Ok(MediaBaseData {
             model: meta,
             creators,
@@ -2083,6 +2098,14 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    async fn review_by_id(&self, review_id: i32) -> Result<review::Model> {
+        let review = Review::find_by_id(review_id).one(&self.db).await?;
+        match review {
+            Some(r) => Ok(r),
+            None => Err(Error::new("Unable to find review".to_owned())),
+        }
+    }
+
     async fn media_item_reviews(
         &self,
         user_id: &i32,
@@ -2127,6 +2150,10 @@ impl MiscellaneousService {
             .filter(|r| match r.visibility {
                 ReviewVisibility::Private => i32::from(r.posted_by.id) == *user_id,
                 _ => true,
+            })
+            .map(|r| ReviewItem {
+                text: r.text.map(|t| markdown::to_html(&t)),
+                ..r
             })
             .collect();
         Ok(all_reviews)
