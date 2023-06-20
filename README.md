@@ -60,6 +60,7 @@ a number of guides to make thing easier.
 - [Deployment](/docs/guides/deployment.md): Deploy Ryot to various platforms
 - [Exporting](/docs/guides/exporting.md): Export your data from Ryot
 - [Importing](/docs/guides/importing.md): Import data from various sources
+- [Integrations](/docs/guides/integrations.md): Integrations with various platforms
 - [Video Games](/docs/guides/video-games.md): Get video games tracking working
 
 ## ⌨️ How to use?
@@ -156,6 +157,7 @@ minimal example configuration is in [`ryot.example.json`](/config/ryot.example.j
 | `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |
 | `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                           |
 | `users.allow_changing_username`       | Whether users will be allowed to change their username in their profile settings.                                                                                             |
+| `users.allow_registration`            | Whether new users will be allowed to sign up to this instance.                                                                                                                |
 | `users.token_valid_for_days`          | The number of days till login auth token is valid.                                                                                                                            |
 | `web.cors_origins`                    | An array of URLs for CORS.                                                                                                                                                    |
 | `web.insecure_cookie`                 | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |

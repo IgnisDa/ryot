@@ -15,7 +15,7 @@ use sea_orm::{
     JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
@@ -126,6 +126,7 @@ struct UserInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum RegisterErrorVariant {
     UsernameAlreadyExists,
+    Disabled,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -358,19 +359,9 @@ pub struct MetadataFeatureEnabled {
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralFeatureEnabled {
-    enabled: bool,
-}
-
-#[derive(SimpleObject)]
 pub struct GeneralFeatures {
-    file_storage: GeneralFeatureEnabled,
-}
-
-#[derive(SimpleObject)]
-pub struct FeatureEnabled {
-    metadata: MetadataFeatureEnabled,
-    general: GeneralFeatures,
+    file_storage: bool,
+    signup_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -411,20 +402,10 @@ pub struct DetailedMediaSearchResults {
     pub next_page: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
-pub enum ProgressUpdateAction {
-    Update,
-    Now,
-    InThePast,
-    JustStarted,
-    Drop,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdate {
     pub metadata_id: Identifier,
     pub progress: Option<i32>,
-    pub action: ProgressUpdateAction,
     pub date: Option<NaiveDate>,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
@@ -512,6 +493,7 @@ pub enum MediaFilter {
     Rated,
     Unrated,
     Dropped,
+    Finished,
     Unseen,
 }
 
@@ -640,7 +622,16 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the features that are enabled for the service
-    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<FeatureEnabled> {
+    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .core_enabled_features(config)
+            .await
+    }
+
+    /// Get all the user specific features that are enabled
+    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<MetadataFeatureEnabled> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -659,6 +650,19 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .media_search(lot, input)
+            .await
+    }
+
+    /// Check if a media with the given metadata and identifier exists in the database.
+    async fn media_exists_in_database(
+        &self,
+        gql_ctx: &Context<'_>,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<IdObject>> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_exists_in_database(identifier, lot)
             .await
     }
 }
@@ -767,9 +771,10 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: UserInput,
     ) -> Result<RegisterResult> {
+        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .register_user(&input.username, &input.password)
+            .register_user(&input.username, &input.password, config)
             .await
     }
 
@@ -920,6 +925,15 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .update_user_preferences(input, user_id)
+            .await
+    }
+
+    /// Generate an auth token without any expiry
+    async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .generate_application_token(user_id)
             .await
     }
 }
@@ -1371,6 +1385,22 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
+                    MediaFilter::Finished => {
+                        let finished_ids = Seen::find()
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .filter(seen::Column::Progress.eq(100))
+                            .all(&self.db)
+                            .await?
+                            .into_iter()
+                            .map(|r| r.metadata_id)
+                            .collect::<Vec<_>>();
+                        main_select = main_select
+                            .and_where(
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .is_in(finished_ids),
+                            )
+                            .to_owned();
+                    }
                     MediaFilter::Unseen => {
                         main_select = main_select
                             .join_as(
@@ -1452,6 +1482,48 @@ impl MiscellaneousService {
     }
 
     pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
+        let prev_seen = Seen::find()
+            .filter(seen::Column::Progress.lt(100))
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::Dropped.ne(true))
+            .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
+            .order_by_desc(seen::Column::LastUpdatedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
+        pub enum ProgressUpdateAction {
+            Update,
+            Now,
+            InThePast,
+            JustStarted,
+            Drop,
+        }
+        let action = match input.progress {
+            None => ProgressUpdateAction::Drop,
+            Some(p) => {
+                if p == 100 {
+                    match input.date {
+                        None => ProgressUpdateAction::InThePast,
+                        Some(u) => {
+                            if Utc::now().date_naive() == u {
+                                if prev_seen.is_empty() {
+                                    ProgressUpdateAction::Now
+                                } else {
+                                    ProgressUpdateAction::Update
+                                }
+                            } else {
+                                ProgressUpdateAction::InThePast
+                            }
+                        }
+                    }
+                } else if prev_seen.is_empty() {
+                    ProgressUpdateAction::JustStarted
+                } else {
+                    ProgressUpdateAction::Update
+                }
+            }
+        };
         let meta = Seen::find()
             .filter(seen::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
@@ -1462,21 +1534,9 @@ impl MiscellaneousService {
                 id: m.metadata_id.into(),
             })
         } else {
-            let prev_seen = Seen::find()
-                .filter(seen::Column::Progress.lt(100))
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::Dropped.ne(true))
-                .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
-                .order_by_desc(seen::Column::LastUpdatedOn)
-                .all(&self.db)
-                .await
-                .unwrap();
             let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
-            let seen_item = match input.action {
+            let seen_item = match action {
                 ProgressUpdateAction::Update => {
-                    if prev_seen.is_empty() {
-                        return err();
-                    }
                     let progress = input.progress.unwrap();
                     let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
                     last_seen.progress = ActiveValue::Set(progress);
@@ -1515,13 +1575,13 @@ impl MiscellaneousService {
                         .await
                         .unwrap()
                         .unwrap();
-                    let finished_on = if input.action == ProgressUpdateAction::Now {
-                        Some(Utc::now().date_naive())
+                    let finished_on = if action == ProgressUpdateAction::JustStarted {
+                        None
                     } else {
                         input.date
                     };
                     let (progress, started_on) =
-                        if matches!(input.action, ProgressUpdateAction::JustStarted) {
+                        if matches!(action, ProgressUpdateAction::JustStarted) {
                             (0, Some(Utc::now().date_naive()))
                         } else {
                             (100, None)
@@ -1769,7 +1829,22 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         config: &AppConfig,
-    ) -> Result<FeatureEnabled> {
+    ) -> Result<MetadataFeatureEnabled> {
+        let user_preferences = self.user_by_id(user_id).await?.preferences;
+        let metadata = MetadataFeatureEnabled {
+            anime: config.anime.is_enabled() && user_preferences.anime,
+            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
+            books: config.books.is_enabled() && user_preferences.books,
+            shows: config.shows.is_enabled() && user_preferences.shows,
+            manga: config.manga.is_enabled() && user_preferences.manga,
+            movies: config.movies.is_enabled() && user_preferences.movies,
+            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
+            video_games: config.video_games.is_enabled() && user_preferences.video_games,
+        };
+        Ok(metadata)
+    }
+
+    async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {
         let mut files_enabled = config.file_storage.is_enabled();
         if files_enabled
             && self
@@ -1783,23 +1858,10 @@ impl MiscellaneousService {
             files_enabled = false;
         }
         let general = GeneralFeatures {
-            file_storage: GeneralFeatureEnabled {
-                enabled: files_enabled,
-            },
+            file_storage: files_enabled,
+            signup_allowed: config.users.allow_registration,
         };
-
-        let user_preferences = self.user_by_id(user_id).await?.preferences;
-        let metadata = MetadataFeatureEnabled {
-            anime: config.anime.is_enabled() && user_preferences.anime,
-            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
-            books: config.books.is_enabled() && user_preferences.books,
-            shows: config.shows.is_enabled() && user_preferences.shows,
-            manga: config.manga.is_enabled() && user_preferences.manga,
-            movies: config.movies.is_enabled() && user_preferences.movies,
-            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
-            video_games: config.video_games.is_enabled() && user_preferences.video_games,
-        };
-        Ok(FeatureEnabled { metadata, general })
+        Ok(general)
     }
 
     async fn media_search(
@@ -1843,6 +1905,8 @@ impl MiscellaneousService {
         let data = if all_idens.is_empty() {
             vec![]
         } else {
+            // This can be done with `select id from metadata where identifier = '...'
+            // and lot = '...'` in a loop. But, I wanted to write a performant query.
             let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
             let mut subquery = Query::select()
                 .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
@@ -1856,14 +1920,16 @@ impl MiscellaneousService {
                     .to_owned();
             }
             let identifiers_query = Query::select()
+                .expr(Expr::col((
+                    TempIdentifiers::Alias,
+                    TempIdentifiers::Identifier,
+                )))
                 .expr_as(
                     Expr::case(
-                        Expr::col((TempMetadata::Alias, TempMetadata::Id))
-                            .is_not_null()
-                            .and(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).eq(lot)),
+                        Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_not_null(),
                         Expr::col((TempMetadata::Alias, TempMetadata::Id)),
                     )
-                    .finally(Expr::cust("NULL")),
+                    .finally(Keyword::Null),
                     TempMetadata::Id,
                 )
                 .from_subquery(subquery, TempIdentifiers::Alias)
@@ -1874,10 +1940,16 @@ impl MiscellaneousService {
                     Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
                         .equals((TempMetadata::Alias, TempMetadata::Identifier)),
                 )
+                .and_where(
+                    Expr::col((TempMetadata::Alias, TempMetadata::Lot))
+                        .eq(lot)
+                        .or(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).is_null()),
+                )
                 .to_owned();
             let stmt = self.get_db_stmt(identifiers_query);
             #[derive(Debug, FromQueryResult)]
             struct DbResponse {
+                identifier: String,
                 id: Option<i32>,
             }
             let identifiers: Vec<DbResponse> = self
@@ -1887,12 +1959,19 @@ impl MiscellaneousService {
                 .iter()
                 .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
                 .collect();
-            std::iter::zip(results.items, identifiers)
-                .map(|(i, iden)| MediaSearchItemResponse {
+            results
+                .items
+                .into_iter()
+                .map(|i| MediaSearchItemResponse {
+                    database_id: identifiers
+                        .iter()
+                        .find(|&f| f.identifier == i.identifier)
+                        .unwrap()
+                        .id
+                        .map(Identifier::from),
                     item: i,
-                    database_id: iden.id.map(Identifier::from),
                 })
-                .collect::<Vec<_>>()
+                .collect()
         };
         let results = DetailedMediaSearchResults {
             total: results.total,
@@ -2526,7 +2605,17 @@ impl MiscellaneousService {
         Ok(IdObject { id: obj.id.into() })
     }
 
-    async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
+    async fn register_user(
+        &self,
+        username: &str,
+        password: &str,
+        config: &AppConfig,
+    ) -> Result<RegisterResult> {
+        if !config.users.allow_registration {
+            return Ok(RegisterResult::Error(RegisterError {
+                error: RegisterErrorVariant::Disabled,
+            }));
+        }
         let mut storage = self.user_created.clone();
         if User::find()
             .filter(user::Column::Name.eq(username))
@@ -2587,25 +2676,23 @@ impl MiscellaneousService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        match self.scdb.lock() {
-            Ok(mut d) => d.set(
-                api_key.as_bytes(),
-                user.id.to_string().as_bytes(),
+        if self
+            .set_auth_token(
+                &api_key,
+                &user.id,
                 Some(
                     ChronoDuration::days(valid_for_days.into())
                         .num_seconds()
                         .try_into()
                         .unwrap(),
                 ),
-            )?,
-            Err(e) => {
-                tracing::error!("{:?}", e);
-                return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::MutexError,
-                }));
-            }
+            )
+            .is_err()
+        {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::MutexError,
+            }));
         };
-
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
@@ -2666,6 +2753,7 @@ impl MiscellaneousService {
     pub async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
+            self.cleanup_summaries_for_user(&user.id).await?;
             self.calculate_user_summary(&user.id).await?;
         }
         Ok(())
@@ -2862,5 +2950,38 @@ impl MiscellaneousService {
         user_model.preferences = ActiveValue::Set(preferences);
         user_model.update(&self.db).await?;
         Ok(true)
+    }
+
+    async fn generate_application_token(&self, user_id: i32) -> Result<String> {
+        let api_token = Uuid::new_v4().to_string();
+        self.set_auth_token(&api_token, &user_id, None)
+            .map_err(|_| Error::new("Could not set auth token"))?;
+        Ok(api_token)
+    }
+
+    fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
+        match self.scdb.lock() {
+            Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
+            Err(e) => {
+                tracing::error!("{:?}", e);
+                Err(anyhow::anyhow!(
+                    "Could not lock auth database due to mutex poisoning"
+                ))?
+            }
+        };
+        Ok(())
+    }
+
+    async fn media_exists_in_database(
+        &self,
+        identifier: String,
+        lot: MetadataLot,
+    ) -> Result<Option<IdObject>> {
+        let media = Metadata::find()
+            .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .one(&self.db)
+            .await?;
+        Ok(media.map(|m| IdObject { id: m.id.into() }))
     }
 }

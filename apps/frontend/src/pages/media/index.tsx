@@ -64,7 +64,6 @@ import {
 	type MergeMetadataMutationVariables,
 	MetadataLot,
 	MetadataSource,
-	ProgressUpdateAction,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	SeenHistoryDocument,
@@ -182,9 +181,9 @@ function ProgressModal(props: {
 					onClick={async () => {
 						await progressUpdate.mutateAsync({
 							input: {
-								action: ProgressUpdateAction.Update,
 								progress: value,
 								metadataId: props.metadataId,
+								date: DateTime.now().toISODate(),
 							},
 						});
 					}}
@@ -810,9 +809,9 @@ const Page: NextPageWithLayout = () => {
 												onClick={async () => {
 													await progressUpdate.mutateAsync({
 														input: {
-															action: ProgressUpdateAction.Update,
 															progress: 100,
 															metadataId: metadataId,
+															date: DateTime.now().toISODate(),
 														},
 													});
 												}}
@@ -849,10 +848,7 @@ const Page: NextPageWithLayout = () => {
 											variant="outline"
 											onClick={async () => {
 												await progressUpdate.mutateAsync({
-													input: {
-														action: ProgressUpdateAction.JustStarted,
-														metadataId: metadataId,
-													},
+													input: { metadataId: metadataId, progress: 0 },
 												});
 											}}
 										>
@@ -865,10 +861,7 @@ const Page: NextPageWithLayout = () => {
 											variant="outline"
 											onClick={async () => {
 												await progressUpdate.mutateAsync({
-													input: {
-														action: ProgressUpdateAction.Drop,
-														metadataId: metadataId,
-													},
+													input: { metadataId: metadataId },
 												});
 											}}
 										>
@@ -1049,7 +1042,9 @@ const Page: NextPageWithLayout = () => {
 															s.episodes.every((e) =>
 																seenHistory.data.some(
 																	(h) =>
-																		h.showInformation?.episode ===
+																		h.progress === 100 &&
+																		h.showInformation &&
+																		h.showInformation.episode ===
 																			e.episodeNumber &&
 																		h.showInformation.season === s.seasonNumber,
 																),
@@ -1083,7 +1078,9 @@ const Page: NextPageWithLayout = () => {
 																displayIndicator={
 																	seenHistory.data.filter(
 																		(h) =>
-																			h.showInformation?.episode ===
+																			h.progress === 100 &&
+																			h.showInformation &&
+																			h.showInformation.episode ===
 																				e.episodeNumber &&
 																			h.showInformation.season ===
 																				s.seasonNumber,

@@ -105,6 +105,8 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
+	const [activeTab, setActiveTab] = useState<string | null>("mine");
+
 	const listMedia = useQuery({
 		queryKey: [
 			"listMedia",
@@ -131,11 +133,8 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			if (!activeMinePage) setMinePage("1");
 		},
-		enabled: lot !== undefined,
+		enabled: lot !== undefined && activeTab === "mine",
 	});
-	const [activeTab, setActiveTab] = useState<string | null>(
-		listMedia.data?.total === 0 ? "search" : "mine",
-	);
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
@@ -269,10 +268,10 @@ const Page: NextPageWithLayout = () => {
 															.with("RATED", () => MediaFilter.Rated)
 															.with("UNRATED", () => MediaFilter.Unrated)
 															.with("DROPPED", () => MediaFilter.Dropped)
+															.with("FINISHED", () => MediaFilter.Finished)
 															.with("UNSEEN", () => MediaFilter.Unseen)
 															.otherwise((v) => {
-																console.log(v);
-																return MediaFilter.All;
+																throw new Error("Invalid filter selected");
 															});
 														setMineFilter(filter);
 													}}
@@ -295,7 +294,11 @@ const Page: NextPageWithLayout = () => {
 																.with("RATING", () => MediaSortBy.Rating)
 																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
 																.with("TITLE", () => MediaSortBy.Title)
-																.otherwise(() => MediaSortBy.Title);
+																.otherwise(() => {
+																	throw new Error(
+																		"Invalid sort order selected",
+																	);
+																});
 															setMineSortBy(orderBy);
 														}}
 													/>

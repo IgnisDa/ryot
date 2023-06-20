@@ -1,7 +1,7 @@
 import type { NextPageWithLayout } from "../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { ROUTES } from "@/lib/constants";
-import { useEnabledFeatures } from "@/lib/hooks/graphql";
+import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { BASE_URL, gqlClient } from "@/lib/services/api";
 import {
@@ -53,7 +53,7 @@ const Page: NextPageWithLayout = () => {
 	const [images, setImages] = useState<string[]>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
-	const enabledFeatures = useEnabledFeatures();
+	const enabledFeatures = useEnabledCoreFeatures();
 	const imageUrls = useQuery(
 		["presignedUrl", images],
 		async () => {
@@ -85,8 +85,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const fileUploadNowAllowed =
-		!enabledFeatures?.data?.general?.fileStorage?.enabled;
+	const fileUploadNowAllowed = !enabledFeatures?.data?.fileStorage;
 
 	return (
 		<>

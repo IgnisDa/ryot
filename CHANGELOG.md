@@ -1,4 +1,77 @@
 
+# Version 1.3.5 (0001-01-01)
+
+
+# Version 1.3.4 (2023-06-19)
+
+## Features
+
+* general improvements
+
+
+# Version 1.3.3-beta.1 (2023-06-19)
+
+
+# Version 1.3.3 (2023-06-19)
+
+## Bug Fixes
+
+* general bugs
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.3.2 (2023-06-18)
+
+## Bug Fixes
+
+* general cleanups
+* **backend:** delete old on recalculating summaries
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.3.1 (2023-06-18)
+
+## Bug Fixes
+
+* **backend:** correct search query
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** display when search item is in database
+
+
+# Version 1.3.0 (2023-06-18)
+
+## Build
+
+* **backend:** bump version
+* **kodi:** bump version
+
+
+# Version 1.3.0-beta.2 (2023-06-18)
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.3.0-beta.1 (2023-06-18)
+
+## Bug Fixes
+
+* **frontend:** mark correct width for list pages
+
+
 # Version 1.2.2 (2023-06-17)
 
 ## Build

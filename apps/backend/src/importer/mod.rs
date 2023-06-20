@@ -17,7 +17,7 @@ use crate::{
     miscellaneous::{
         resolver::{
             AddMediaToCollection, MediaDetails, MiscellaneousService, PostReviewInput,
-            ProgressUpdate, ProgressUpdateAction,
+            ProgressUpdate,
         },
         DefaultCollection,
     },
@@ -273,8 +273,7 @@ impl ImporterService {
                         ProgressUpdate {
                             identifier: seen.id.clone(),
                             metadata_id: metadata.id,
-                            progress: None,
-                            action: ProgressUpdateAction::InThePast,
+                            progress: Some(100),
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
