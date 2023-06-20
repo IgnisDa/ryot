@@ -26,6 +26,14 @@ class Scrobbler:
         if not isinstance(video_info_tag, xbmc.InfoTagVideo):
             return
 
+        id = video_info_tag.getDbId()
+        duration = video_info_tag.getDuration()
+        current_time = player.getTime()
+        progress = (current_time / duration) * 100
+
+        if progress < 2:
+            return
+
         api_token = self.__addon__.getSettingString("apiToken")
         instance_url = self.__addon__.getSettingString("instanceUrl")
 
@@ -34,15 +42,10 @@ class Scrobbler:
             return
 
         if len(instance_url) == 0:
-            xbmc.log("Ryot: missing Ryot instance url", xbmc.LOGDEBUG)
+            xbmc.log("Ryot: missing instance url", xbmc.LOGDEBUG)
             return
 
         ryot_tracker = Ryot(instance_url, api_token)
-
-        id = video_info_tag.getDbId()
-        duration = video_info_tag.getDuration()
-        current_time = player.getTime()
-        progress = (current_time / duration) * 100
 
         title = None
         tmdb_id = None
