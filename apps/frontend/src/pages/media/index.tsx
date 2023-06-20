@@ -1043,7 +1043,9 @@ const Page: NextPageWithLayout = () => {
 															s.episodes.every((e) =>
 																seenHistory.data.some(
 																	(h) =>
-																		h.showInformation?.episode ===
+																		h.progress === 100 &&
+																		h.showInformation &&
+																		h.showInformation.episode ===
 																			e.episodeNumber &&
 																		h.showInformation.season === s.seasonNumber,
 																),
@@ -1077,7 +1079,9 @@ const Page: NextPageWithLayout = () => {
 																displayIndicator={
 																	seenHistory.data.filter(
 																		(h) =>
-																			h.showInformation?.episode ===
+																			h.progress === 100 &&
+																			h.showInformation &&
+																			h.showInformation.episode ===
 																				e.episodeNumber &&
 																			h.showInformation.season ===
 																				s.seasonNumber,
