@@ -268,6 +268,7 @@ const Page: NextPageWithLayout = () => {
 															.with("RATED", () => MediaFilter.Rated)
 															.with("UNRATED", () => MediaFilter.Unrated)
 															.with("DROPPED", () => MediaFilter.Dropped)
+															.with("FINISHED", () => MediaFilter.Finished)
 															.with("UNSEEN", () => MediaFilter.Unseen)
 															.otherwise((v) => {
 																console.log(v);
