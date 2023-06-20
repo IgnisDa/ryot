@@ -268,10 +268,10 @@ const Page: NextPageWithLayout = () => {
 															.with("RATED", () => MediaFilter.Rated)
 															.with("UNRATED", () => MediaFilter.Unrated)
 															.with("DROPPED", () => MediaFilter.Dropped)
+															.with("FINISHED", () => MediaFilter.Finished)
 															.with("UNSEEN", () => MediaFilter.Unseen)
 															.otherwise((v) => {
-																console.log(v);
-																return MediaFilter.All;
+																throw new Error("Invalid filter selected");
 															});
 														setMineFilter(filter);
 													}}
@@ -294,7 +294,11 @@ const Page: NextPageWithLayout = () => {
 																.with("RATING", () => MediaSortBy.Rating)
 																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
 																.with("TITLE", () => MediaSortBy.Title)
-																.otherwise(() => MediaSortBy.Title);
+																.otherwise(() => {
+																	throw new Error(
+																		"Invalid sort order selected",
+																	);
+																});
 															setMineSortBy(orderBy);
 														}}
 													/>
