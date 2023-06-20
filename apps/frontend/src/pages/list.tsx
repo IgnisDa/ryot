@@ -53,7 +53,7 @@ import { useQuery } from "@tanstack/react-query";
 import { lowerCase, startCase } from "lodash";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 
@@ -102,10 +102,15 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 		defaultValue: "grid",
 	});
+	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
+		key: "savedActiveTab",
+		getInitialValueInEffect: false,
+		defaultValue: "mine",
+	});
+
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
-	const [activeTab, setActiveTab] = useState<string | null>("mine");
 
 	const listMedia = useQuery({
 		queryKey: [
@@ -183,7 +188,13 @@ const Page: NextPageWithLayout = () => {
 				<title>List {changeCase(lot).toLowerCase()}s | Ryot</title>
 			</Head>
 			<Container>
-				<Tabs variant="outline" value={activeTab} onTabChange={setActiveTab}>
+				<Tabs
+					variant="outline"
+					value={activeTab}
+					onTabChange={(v) => {
+						if (v === "mine" || v === "search") setActiveTab(v);
+					}}
+				>
 					<Tabs.List mb={"xs"}>
 						<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
 							<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
@@ -270,7 +281,7 @@ const Page: NextPageWithLayout = () => {
 															.with("DROPPED", () => MediaFilter.Dropped)
 															.with("FINISHED", () => MediaFilter.Finished)
 															.with("UNSEEN", () => MediaFilter.Unseen)
-															.otherwise((v) => {
+															.otherwise((_v) => {
 																throw new Error("Invalid filter selected");
 															});
 														setMineFilter(filter);
