@@ -1,5 +1,16 @@
 
-# Version 1.3.5 (0001-01-01)
+# Version 1.3.6 (2023-06-20)
+
+## Bug Fixes
+
+* **frontend:** display season/episode as seen only when `progress === 100`
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.3.5 (2023-06-20)
 
 
 # Version 1.3.4 (2023-06-19)
