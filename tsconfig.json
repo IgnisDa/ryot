@@ -6,9 +6,6 @@
       "path": "apps/frontend"
     },
     {
-      "path": "apps/importer"
-    },
-    {
       "path": "libs/generated"
     },
     {

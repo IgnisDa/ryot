@@ -2,7 +2,6 @@ $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
   frontend: 'apps/frontend'
-  importer: 'apps/importer'
   generated: 'libs/generated'
   graphql: 'libs/graphql'
 
