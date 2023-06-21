@@ -27,8 +27,14 @@ struct PrimaryQuery {
 impl Default for PrimaryQuery {
     fn default() -> Self {
         Self {
-            response_groups: ["contributors", "category_ladders", "media", "product_attrs"]
-                .join(","),
+            response_groups: [
+                "contributors",
+                "category_ladders",
+                "media",
+                "product_attrs",
+                "product_extended_attrs",
+            ]
+            .join(","),
             image_sizes: ["2400"].join(","),
         }
     }
@@ -60,8 +66,10 @@ pub struct AudibleItem {
     asin: String,
     title: String,
     authors: Vec<NamedObject>,
+    narrators: Vec<NamedObject>,
     product_images: AudiblePoster,
     merchandising_summary: Option<String>,
+    publisher_summary: Option<String>,
     release_date: Option<String>,
     runtime_length_min: Option<i32>,
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
@@ -165,21 +173,28 @@ impl AudibleService {
             lot: MetadataImageLot::Poster,
         }));
         let release_date = item.release_date.unwrap_or_default();
+        let mut creators = item
+            .authors
+            .into_iter()
+            .map(|a| MetadataCreator {
+                name: a.name,
+                role: "Author".to_owned(),
+                image_urls: vec![],
+            })
+            .collect::<Vec<_>>();
+        creators.extend(item.narrators.into_iter().map(|a| MetadataCreator {
+            name: a.name,
+            role: "Narrator".to_owned(),
+            image_urls: vec![],
+        }));
+        let description = item.publisher_summary.or(item.merchandising_summary);
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
             title: item.title,
-            description: item.merchandising_summary,
-            creators: item
-                .authors
-                .into_iter()
-                .map(|a| MetadataCreator {
-                    name: a.name,
-                    role: "Narrator".to_owned(),
-                    image_urls: vec![],
-                })
-                .collect(),
+            description,
+            creators,
             genres: item
                 .category_ladders
                 .unwrap_or_default()
