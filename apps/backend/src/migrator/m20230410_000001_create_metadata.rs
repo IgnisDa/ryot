@@ -3,6 +3,8 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
+pub static UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
+
 pub struct Migration;
 
 impl MigrationName for Migration {
@@ -66,14 +68,11 @@ pub enum MetadataSource {
     Tmdb,
 }
 
+// FIXME: Remove this once we clean up migrations
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
 pub enum MetadataImage {
     Table,
-    Id,
-    Lot,
-    Url,
-    MetadataId,
 }
 
 // The different types of media that can be stored
@@ -197,41 +196,14 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .create_table(
-                Table::create()
-                    .table(MetadataImage::Table)
-                    .col(
-                        ColumnDef::new(MetadataImage::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataImage::Url)
-                            .string()
-                            .unique_key()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(MetadataImage::Lot).string_len(1).not_null())
-                    .col(ColumnDef::new(MetadataImage::MetadataId).integer())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("metadata_to_image_foreign_key")
-                            .from(MetadataImage::Table, MetadataImage::MetadataId)
-                            .to(Metadata::Table, Metadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-        manager
             .create_index(
                 Index::create()
-                    .name("metadata-image__url__index")
-                    .table(MetadataImage::Table)
-                    .col(MetadataImage::Url)
+                    .unique()
+                    .name(UNIQUE_INDEX)
+                    .table(Metadata::Table)
+                    .col(Metadata::Identifier)
+                    .col(Metadata::Source)
+                    .col(Metadata::Lot)
                     .to_owned(),
             )
             .await?;
