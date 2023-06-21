@@ -7,5 +7,5 @@ git config --global user.email "${GIT_AUTHOR_EMAIL}"
 # These are available only in a fish environment
 fish -c '
 # setup dependencies
-moon sync
+moon sync projects
 '
