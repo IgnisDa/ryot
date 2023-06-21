@@ -53,37 +53,39 @@ const DisplayStatForMediaType = (props: {
 	const colors = Object.keys(theme.colors);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
-	return isEnabled[1] ? (
-		<Paper component={Flex} align={"center"}>
-			<RingProgress
-				size={60}
-				thickness={4}
-				sections={[]}
-				label={<Center>{icon}</Center>}
-				rootColor={
-					colors[
-						(getStringAsciiValue(props.lot) + colors.length) % colors.length
-					]
-				}
-			/>
-			<Flex wrap={"wrap"} ml="xs">
-				{props.data.map((d, idx) => (
-					<Box key={idx.toString()} mx={"xs"}>
-						<Text
-							fw={d.label !== "Runtime" ? "bold" : undefined}
-							display={"inline"}
-						>
-							{d.type === "duration"
-								? humaizer.humanize(d.value * 1000 * 60)
-								: humanFormat(d.value)}
-						</Text>
-						<Text display={"inline"} ml="4px">
-							{d.label === "Runtime" ? "" : d.label}
-						</Text>
-					</Box>
-				))}
-			</Flex>
-		</Paper>
+	return isEnabled ? (
+		isEnabled[1] ? (
+			<Paper component={Flex} align={"center"}>
+				<RingProgress
+					size={60}
+					thickness={4}
+					sections={[]}
+					label={<Center>{icon}</Center>}
+					rootColor={
+						colors[
+							(getStringAsciiValue(props.lot) + colors.length) % colors.length
+						]
+					}
+				/>
+				<Flex wrap={"wrap"} ml="xs">
+					{props.data.map((d, idx) => (
+						<Box key={idx.toString()} mx={"xs"}>
+							<Text
+								fw={d.label !== "Runtime" ? "bold" : undefined}
+								display={"inline"}
+							>
+								{d.type === "duration"
+									? humaizer.humanize(d.value * 1000 * 60)
+									: humanFormat(d.value)}
+							</Text>
+							<Text display={"inline"} ml="4px">
+								{d.label === "Runtime" ? "" : d.label}
+							</Text>
+						</Box>
+					))}
+				</Flex>
+			</Paper>
+		) : null
 	) : null;
 };
 
