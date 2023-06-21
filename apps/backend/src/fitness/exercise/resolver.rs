@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::sqlite::SqliteStorage;
+use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Object, Result};
 use sea_orm::DatabaseConnection;
 
@@ -73,8 +73,14 @@ impl ExerciseService {
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<Vec<String>> {
-        let data = self.get_all_exercises().await?;
-        todo!()
+        let mut storage = self.update_exercise.clone();
+        let exercises = self.get_all_exercises().await?;
+        let mut job_ids = vec![];
+        for exercise in exercises {
+            let job = storage.push(UpdateExerciseJob { exercise }).await?;
+            job_ids.push(job.to_string());
+        }
+        Ok(job_ids)
     }
 
     pub async fn update_exercise(&self, exercise: models::Exercise) -> Result<()> {
