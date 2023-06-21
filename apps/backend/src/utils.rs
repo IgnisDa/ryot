@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{bail, Context as AnyhowContext};
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
@@ -109,24 +108,6 @@ pub async fn create_app_services(
     }
 }
 
-pub fn user_id_from_memorydb(scdb: &MemoryDb, token: &str) -> anyhow::Result<i32> {
-    match scdb.try_lock() {
-        Ok(mut t) => std::str::from_utf8(
-            t.get(token.as_bytes())
-                .context("Key not found")?
-                .unwrap()
-                .as_slice(),
-        )
-        .unwrap()
-        .parse()
-        .context("Unable to convert to integer"),
-        Err(e) => {
-            tracing::error!("{:?}", e);
-            bail!("Could not lock user database")
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
 #[graphql(input_name = "NamedObjectInput")]
 pub struct NamedObject {
@@ -156,7 +137,21 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
     let scdb = ctx.data_unchecked::<MemoryDb>();
     let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_memorydb(scdb, &token).map_err(|e| Error::new(e.to_string()))
+    user_id_from_token(token, scdb)
+}
+
+pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
+    let found_token = match scdb.try_lock() {
+        Ok(mut t) => t.get(token.as_bytes()).unwrap(),
+        Err(e) => {
+            tracing::error!("{:?}", e);
+            return Err(Error::new("Could not lock user database"));
+        }
+    };
+    match found_token {
+        Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
+        None => Err(Error::new("The auth token was incorrect")),
+    }
 }
 
 pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
