@@ -26,32 +26,50 @@ impl ExerciseMutation {
 pub struct ExerciseService {
     db: DatabaseConnection,
     file_storage: Arc<FileStorageService>,
-    free_exercise_db_json_url: String,
+    json_url: String,
+    image_prefix_url: String,
 }
 
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
         file_storage: Arc<FileStorageService>,
-        free_exercise_db_json_url: String,
+        json_url: String,
+        image_prefix_url: String,
     ) -> Self {
         Self {
             db: db.clone(),
             file_storage,
-            free_exercise_db_json_url,
+            json_url,
+            image_prefix_url,
         }
     }
 }
 
 impl ExerciseService {
-    async fn deploy_update_exercise_library_job(&self) -> Result<Vec<String>> {
-        let data: Vec<models::Exercise> = surf::get(&self.free_exercise_db_json_url)
+    async fn get_all_exercises(&self) -> Result<Vec<models::Exercise>> {
+        let data: Vec<models::Exercise> = surf::get(&self.json_url)
             .send()
             .await
             .unwrap()
             .body_json()
             .await
             .unwrap();
+        Ok(data
+            .into_iter()
+            .map(|e| models::Exercise {
+                images: e
+                    .images
+                    .into_iter()
+                    .map(|i| format!("{}/{}", self.image_prefix_url, i))
+                    .collect(),
+                ..e
+            })
+            .collect())
+    }
+
+    async fn deploy_update_exercise_library_job(&self) -> Result<Vec<String>> {
+        let data = self.get_all_exercises().await?;
         dbg!(&data);
         todo!()
     }
@@ -139,6 +157,8 @@ mod models {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Exercise {
+        #[serde(rename = "id")]
+        pub identifier: String,
         pub name: String,
         pub force: Option<ExerciseForce>,
         pub level: ExerciseLevel,

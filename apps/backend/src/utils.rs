@@ -66,7 +66,8 @@ pub async fn create_app_services(
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
         file_storage_service.clone(),
-        config.exercise.free_exercise_db_json_url.clone(),
+        config.exercise.db.json_url.clone(),
+        config.exercise.db.images_prefix_url.clone(),
     ));
 
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
