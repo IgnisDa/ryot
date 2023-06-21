@@ -44,7 +44,7 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use utils::MemoryDb;
+use utils::{user_id_from_memorydb, MemoryDb};
 use uuid::Uuid;
 
 use crate::{
@@ -56,7 +56,7 @@ use crate::{
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     miscellaneous::resolver::{MiscellaneousService, COOKIE_NAME},
-    utils::{create_app_services, user_id_from_token},
+    utils::create_app_services,
 };
 
 mod background;
@@ -405,8 +405,8 @@ async fn export(
     Extension(scdb): Extension<MemoryDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &scdb)
-        .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
+    let user_id = user_id_from_memorydb(&scdb, authorization.token())
+        .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({ "err": e.to_string() }))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
 }
