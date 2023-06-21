@@ -31,6 +31,9 @@ export default class _Document extends Document {
 						sizes="16x16"
 						href="/favicon-16x16.png"
 					/>
+					<link rel="manifest" href="/manifest.json" />
+					<link rel="apple-touch-icon" href="/icon-192x192.png" />
+					<meta name="theme-color" content="#042940" />
 				</Head>
 				<body>
 					<Main />
