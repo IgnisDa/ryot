@@ -15,6 +15,7 @@ use surf::Client;
 use tokio::task::JoinSet;
 
 use crate::file_storage::FileStorageService;
+use crate::fitness::exercise::resolver::ExerciseService;
 use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
 use crate::{
     background::{
@@ -42,6 +43,7 @@ pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub file_storage_service: Arc<FileStorageService>,
+    pub exercise_service: Arc<ExerciseService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -60,6 +62,8 @@ pub async fn create_app_services(
         s3_client,
         &config.file_storage.s3_bucket_name,
     ));
+    let exercise_service = Arc::new(ExerciseService::new(&db, file_storage_service.clone()));
+
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
     let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
     let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
@@ -95,6 +99,7 @@ pub async fn create_app_services(
         media_service,
         importer_service,
         file_storage_service,
+        exercise_service,
     }
 }
 
