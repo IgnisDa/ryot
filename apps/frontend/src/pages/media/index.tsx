@@ -431,6 +431,7 @@ const Page: NextPageWithLayout = () => {
 			return mediaDetails;
 		},
 		staleTime: Infinity,
+		enabled: !!metadataId,
 	});
 	const seenHistory = useQuery({
 		queryKey: ["history", metadataId, mediaDetails.data?.lot],

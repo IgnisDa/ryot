@@ -15,11 +15,6 @@ export default class _Document extends Document {
 						rel="stylesheet"
 					/>
 					<link
-						rel="apple-touch-icon"
-						sizes="180x180"
-						href="/apple-touch-icon.png"
-					/>
-					<link
 						rel="icon"
 						type="image/png"
 						sizes="32x32"
@@ -32,7 +27,6 @@ export default class _Document extends Document {
 						href="/favicon-16x16.png"
 					/>
 					<link rel="manifest" href="/manifest.json" />
-					<link rel="apple-touch-icon" href="/icon-192x192.png" />
 					<meta name="theme-color" content="#042940" />
 				</Head>
 				<body>
