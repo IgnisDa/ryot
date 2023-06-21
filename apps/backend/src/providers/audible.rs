@@ -60,6 +60,7 @@ pub struct AudibleItem {
     asin: String,
     title: String,
     authors: Vec<NamedObject>,
+    narrators: Vec<NamedObject>,
     product_images: AudiblePoster,
     merchandising_summary: Option<String>,
     release_date: Option<String>,
@@ -165,21 +166,27 @@ impl AudibleService {
             lot: MetadataImageLot::Poster,
         }));
         let release_date = item.release_date.unwrap_or_default();
+        let mut creators = item
+            .authors
+            .into_iter()
+            .map(|a| MetadataCreator {
+                name: a.name,
+                role: "Author".to_owned(),
+                image_urls: vec![],
+            })
+            .collect::<Vec<_>>();
+        creators.extend(item.narrators.into_iter().map(|a| MetadataCreator {
+            name: a.name,
+            role: "Narrator".to_owned(),
+            image_urls: vec![],
+        }));
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
             title: item.title,
             description: item.merchandising_summary,
-            creators: item
-                .authors
-                .into_iter()
-                .map(|a| MetadataCreator {
-                    name: a.name,
-                    role: "Narrator".to_owned(),
-                    image_urls: vec![],
-                })
-                .collect(),
+            creators,
             genres: item
                 .category_ladders
                 .unwrap_or_default()
