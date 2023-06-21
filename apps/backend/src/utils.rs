@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 use tokio::task::JoinSet;
 
+use crate::background::UpdateExerciseJob;
 use crate::file_storage::FileStorageService;
 use crate::fitness::exercise::resolver::ExerciseService;
 use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
@@ -54,6 +55,7 @@ pub async fn create_app_services(
     config: &AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
+    update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
     after_media_seen_job: &SqliteStorage<AfterMediaSeenJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -67,6 +69,7 @@ pub async fn create_app_services(
         file_storage_service.clone(),
         config.exercise.db.json_url.clone(),
         config.exercise.db.images_prefix_url.clone(),
+        update_exercise_job,
     ));
 
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));

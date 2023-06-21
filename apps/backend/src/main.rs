@@ -50,7 +50,7 @@ use uuid::Uuid;
 use crate::{
     background::{
         after_media_seen_job, general_media_cleanup_jobs, general_user_cleanup, import_media,
-        recalculate_user_summary_job, update_metadata_job, user_created_job,
+        recalculate_user_summary_job, update_exercise_job, update_metadata_job, user_created_job,
     },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
@@ -139,6 +139,7 @@ async fn main() -> Result<()> {
     let after_media_seen_job_storage = create_storage(pool.clone()).await;
     let recalculate_user_summary_job_storage = create_storage(pool.clone()).await;
     let update_metadata_job_storage = create_storage(pool.clone()).await;
+    let update_exercise_job_storage = create_storage(pool.clone()).await;
 
     let app_services = create_app_services(
         db.clone(),
@@ -147,6 +148,7 @@ async fn main() -> Result<()> {
         &config,
         &import_media_storage,
         &user_created_job_storage,
+        &update_exercise_job_storage,
         &after_media_seen_job_storage,
         &update_metadata_job_storage,
         &recalculate_user_summary_job_storage,
@@ -200,6 +202,7 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.media_service.clone();
     let media_service_5 = app_services.media_service.clone();
     let media_service_6 = app_services.media_service.clone();
+    let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
         let mn = Monitor::new()
@@ -274,6 +277,14 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(media_service_6.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("update_exercise_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisRateLimitLayer::new(10, Duration::new(5, 0)))
+                    .layer(ApalisExtension(exercise_service_1.clone()))
+                    .with_storage(update_exercise_job_storage.clone())
+                    .build_fn(update_exercise_job)
             })
             .run()
             .await;

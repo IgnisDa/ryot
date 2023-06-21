@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Object, Result};
 use sea_orm::DatabaseConnection;
 
-use crate::file_storage::FileStorageService;
+use crate::{background::UpdateExerciseJob, file_storage::FileStorageService};
 
 #[derive(Default)]
 pub struct ExerciseMutation;
@@ -28,6 +29,7 @@ pub struct ExerciseService {
     file_storage: Arc<FileStorageService>,
     json_url: String,
     image_prefix_url: String,
+    update_exercise: SqliteStorage<UpdateExerciseJob>,
 }
 
 impl ExerciseService {
@@ -36,12 +38,14 @@ impl ExerciseService {
         file_storage: Arc<FileStorageService>,
         json_url: String,
         image_prefix_url: String,
+        update_exercise: &SqliteStorage<UpdateExerciseJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             file_storage,
             json_url,
             image_prefix_url,
+            update_exercise: update_exercise.clone(),
         }
     }
 }
@@ -70,12 +74,16 @@ impl ExerciseService {
 
     async fn deploy_update_exercise_library_job(&self) -> Result<Vec<String>> {
         let data = self.get_all_exercises().await?;
-        dbg!(&data);
+        todo!()
+    }
+
+    pub async fn update_exercise(&self, exercise: models::Exercise) -> Result<()> {
+        dbg!(exercise);
         todo!()
     }
 }
 
-mod models {
+pub mod models {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
