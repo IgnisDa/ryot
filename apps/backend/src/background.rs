@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{metadata, seen},
-    fitness::exercise::resolver::{models, ExerciseService},
+    fitness::exercise::resolver::ExerciseService,
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     migrator::MetadataLot,
@@ -14,6 +14,7 @@ use crate::{
         resolver::{AddMediaToCollection, MiscellaneousService},
         DefaultCollection,
     },
+    models::fitness::Exercise,
 };
 
 // Cron Jobs
@@ -251,7 +252,7 @@ pub async fn update_metadata_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateExerciseJob {
-    pub exercise: models::Exercise,
+    pub exercise: Exercise,
 }
 
 impl Job for UpdateExerciseJob {

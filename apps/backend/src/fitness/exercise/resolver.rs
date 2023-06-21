@@ -4,7 +4,9 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Object, Result};
 use sea_orm::DatabaseConnection;
 
-use crate::{background::UpdateExerciseJob, file_storage::FileStorageService};
+use crate::{
+    background::UpdateExerciseJob, file_storage::FileStorageService, models::fitness::Exercise,
+};
 
 #[derive(Default)]
 pub struct ExerciseMutation;
@@ -51,8 +53,8 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
-    async fn get_all_exercises(&self) -> Result<Vec<models::Exercise>> {
-        let data: Vec<models::Exercise> = surf::get(&self.json_url)
+    async fn get_all_exercises(&self) -> Result<Vec<Exercise>> {
+        let data: Vec<Exercise> = surf::get(&self.json_url)
             .send()
             .await
             .unwrap()
@@ -61,7 +63,7 @@ impl ExerciseService {
             .unwrap();
         Ok(data
             .into_iter()
-            .map(|e| models::Exercise {
+            .map(|e| Exercise {
                 images: e
                     .images
                     .into_iter()
@@ -83,111 +85,8 @@ impl ExerciseService {
         Ok(job_ids)
     }
 
-    pub async fn update_exercise(&self, exercise: models::Exercise) -> Result<()> {
+    pub async fn update_exercise(&self, exercise: Exercise) -> Result<()> {
         dbg!(exercise);
         todo!()
-    }
-}
-
-pub mod models {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseForce {
-        Static,
-        Pull,
-        Push,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseLevel {
-        Beginner,
-        Intermediate,
-        Expert,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseMechanic {
-        Isolation,
-        Compound,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseEquipment {
-        #[serde(rename = "medicine ball")]
-        MedicineBall,
-        Dumbbell,
-        #[serde(rename = "body only")]
-        BodyOnly,
-        Bands,
-        Kettlebells,
-        #[serde(rename = "foam roll")]
-        FoamRoll,
-        Cable,
-        Machine,
-        Barbell,
-        #[serde(rename = "exercise ball")]
-        ExerciseBall,
-        #[serde(rename = "e-z curl bar")]
-        EZCurlBar,
-        Other,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseMuscle {
-        Abdominals,
-        Abductors,
-        Adductors,
-        Biceps,
-        Calves,
-        Chest,
-        Forearms,
-        Glutes,
-        Hamstrings,
-        Lats,
-        #[serde(rename = "lower back")]
-        LowerBack,
-        #[serde(rename = "middle back")]
-        MiddleBack,
-        Neck,
-        Quadriceps,
-        Shoulders,
-        Traps,
-        Triceps,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseCategory {
-        Powerlifting,
-        Strength,
-        Stretching,
-        Cardio,
-        #[serde(rename = "olympic weightlifting")]
-        OlympicWeightlifting,
-        Strongman,
-        Plyometrics,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Exercise {
-        #[serde(rename = "id")]
-        pub identifier: String,
-        pub name: String,
-        pub force: Option<ExerciseForce>,
-        pub level: ExerciseLevel,
-        pub mechanic: Option<ExerciseMechanic>,
-        pub equipment: Option<ExerciseEquipment>,
-        pub primary_muscles: Vec<ExerciseMuscle>,
-        pub secondary_muscles: Vec<ExerciseMuscle>,
-        pub instructions: Vec<String>,
-        pub category: ExerciseCategory,
-        pub images: Vec<String>,
     }
 }
