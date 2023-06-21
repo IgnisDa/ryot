@@ -85,6 +85,7 @@ mod models {
         Pull,
         Push,
     }
+
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseLevel {
@@ -92,12 +93,14 @@ mod models {
         Intermediate,
         Expert,
     }
+
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMechanic {
         Isolation,
         Compound,
     }
+
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseEquipment {
@@ -119,6 +122,7 @@ mod models {
         EZCurlBar,
         Other,
     }
+
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMuscle {
@@ -142,6 +146,7 @@ mod models {
         Traps,
         Triceps,
     }
+
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseCategory {
@@ -154,6 +159,7 @@ mod models {
         Strongman,
         Plyometrics,
     }
+
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Exercise {
