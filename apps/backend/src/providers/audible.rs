@@ -187,11 +187,7 @@ impl AudibleService {
             role: "Narrator".to_owned(),
             image_urls: vec![],
         }));
-        let description = if let Some(d) = item.publisher_summary {
-            Some(d)
-        } else {
-            item.merchandising_summary
-        };
+        let description = item.publisher_summary.or(item.merchandising_summary);
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
