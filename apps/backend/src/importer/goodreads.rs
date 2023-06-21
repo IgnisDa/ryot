@@ -9,7 +9,7 @@ use crate::{
         resolver::MediaDetails, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage,
         MetadataImageUrl,
     },
-    models::BookSpecifics,
+    models::media::BookSpecifics,
 };
 
 use super::{

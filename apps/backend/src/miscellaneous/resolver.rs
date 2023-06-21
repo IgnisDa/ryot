@@ -44,7 +44,7 @@ use crate::{
     migrator::{
         MediaImportSource, MetadataImageLot, MetadataLot, MetadataSource, ReviewVisibility, UserLot,
     },
-    models::{
+    models::media::{
         AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
         PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },

@@ -13,7 +13,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    models::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
+    models::media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
     traits::MediaProvider,
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };

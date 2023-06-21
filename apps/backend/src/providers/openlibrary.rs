@@ -16,7 +16,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::BookSpecifics,
+    models::media::BookSpecifics,
     traits::MediaProvider,
     utils::get_data_parallelly_from_sources,
 };

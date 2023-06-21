@@ -5,7 +5,7 @@ use strum::{Display, EnumIter};
 
 use crate::{
     migrator::MetadataImageLot,
-    models::{
+    models::media::{
         AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
         PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },

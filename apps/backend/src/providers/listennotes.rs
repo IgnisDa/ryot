@@ -17,7 +17,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::{PodcastEpisode, PodcastSpecifics},
+    models::media::{PodcastEpisode, PodcastSpecifics},
     traits::MediaProvider,
 };
 
