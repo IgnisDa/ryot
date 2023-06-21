@@ -63,7 +63,11 @@ pub async fn create_app_services(
         s3_client,
         &config.file_storage.s3_bucket_name,
     ));
-    let exercise_service = Arc::new(ExerciseService::new(&db, file_storage_service.clone()));
+    let exercise_service = Arc::new(ExerciseService::new(
+        &db,
+        file_storage_service.clone(),
+        config.exercise.free_exercise_db_json_url.clone(),
+    ));
 
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
     let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
