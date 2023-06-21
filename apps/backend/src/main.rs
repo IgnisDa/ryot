@@ -61,6 +61,7 @@ use crate::{
 mod background;
 mod config;
 mod entities;
+mod fitness;
 mod graphql;
 mod importer;
 mod migrator;
