@@ -8,6 +8,10 @@ use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
+use markdown::{
+    to_html as markdown_to_html, to_html_with_options as markdown_to_html_with_options,
+    CompileOptions, Options,
+};
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -1056,7 +1060,18 @@ impl MiscellaneousService {
         let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
-            *d = markdown::to_html(d);
+            *d = markdown_to_html_with_options(
+                d,
+                &Options {
+                    compile: CompileOptions {
+                        allow_dangerous_html: true,
+                        allow_dangerous_protocol: true,
+                        ..CompileOptions::default()
+                    },
+                    ..Options::default()
+                },
+            )
+            .unwrap();
         }
         Ok(MediaBaseData {
             model: meta,
@@ -2152,7 +2167,7 @@ impl MiscellaneousService {
                 _ => true,
             })
             .map(|r| ReviewItem {
-                text: r.text.map(|t| markdown::to_html(&t)),
+                text: r.text.map(|t| markdown_to_html(&t)),
                 ..r
             })
             .collect();
