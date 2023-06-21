@@ -18,6 +18,9 @@ query MediaDetails($metadataId: Identifier!) {
     animeSpecifics {
       episodes
     }
+    audioBookSpecifics {
+      runtime
+    }
     bookSpecifics {
       pages
     }

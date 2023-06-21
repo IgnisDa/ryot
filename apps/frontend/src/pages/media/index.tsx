@@ -71,7 +71,9 @@ import {
 import {
 	IconAlertCircle,
 	IconBook,
+	IconBrandPagekit,
 	IconClock,
+	IconDeviceTv,
 	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
@@ -123,7 +125,15 @@ function ProgressModal(props: {
 
 	const [updateIcon, text] = match(props.lot)
 		.with(MetadataLot.Book, () => [<IconBook size="1.5rem" />, "Pages"])
-		.with(MetadataLot.Movie, () => [<IconClock size="1.5rem" />, "Minutes"])
+		.with(MetadataLot.Anime, () => [<IconDeviceTv size="1.5rem" />, "Episodes"])
+		.with(MetadataLot.Manga, () => [
+			<IconBrandPagekit size="1.5rem" />,
+			"Chapters",
+		])
+		.with(MetadataLot.Movie, MetadataLot.AudioBook, () => [
+			<IconClock size="1.5rem" />,
+			"Minutes",
+		])
 		.otherwise(() => [null, null]);
 
 	return (
@@ -800,8 +810,11 @@ const Page: NextPageWithLayout = () => {
 												opened={progressModalOpened}
 												lot={mediaDetails.data.lot}
 												total={
+													mediaDetails.data.audioBookSpecifics?.runtime ||
 													mediaDetails.data.bookSpecifics?.pages ||
-													mediaDetails.data.movieSpecifics?.runtime
+													mediaDetails.data.movieSpecifics?.runtime ||
+													mediaDetails.data.mangaSpecifics?.chapters ||
+													mediaDetails.data.animeSpecifics?.episodes
 												}
 											/>
 											<Button
