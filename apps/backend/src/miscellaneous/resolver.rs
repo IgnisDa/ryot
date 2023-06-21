@@ -1,9 +1,8 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use futures::TryStreamExt;
@@ -39,6 +38,7 @@ use crate::{
         review, seen, summary, user, user_to_metadata,
         utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
+    file_storage::FileStorageService,
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
     migrator::{
@@ -621,6 +621,7 @@ impl MiscellaneousQuery {
     async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
+            .file_storage
             .get_presigned_url(key)
             .await
     }
@@ -946,8 +947,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     db: DatabaseConnection,
     scdb: MemoryDb,
-    s3_client: aws_sdk_s3::Client,
-    bucket_name: String,
+    file_storage: Arc<FileStorageService>,
     audible_service: Arc<AudibleService>,
     igdb_service: Arc<IgdbService>,
     listennotes_service: Arc<ListennotesService>,
@@ -967,8 +967,7 @@ impl MiscellaneousService {
     pub fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
-        s3_client: &aws_sdk_s3::Client,
-        bucket_name: &str,
+        file_storage: Arc<FileStorageService>,
         audible_service: Arc<AudibleService>,
         igdb_service: Arc<IgdbService>,
         listennotes_service: Arc<ListennotesService>,
@@ -985,8 +984,7 @@ impl MiscellaneousService {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
-            s3_client: s3_client.clone(),
-            bucket_name: bucket_name.to_owned(),
+            file_storage,
             audible_service,
             igdb_service,
             listennotes_service,
@@ -1004,18 +1002,6 @@ impl MiscellaneousService {
 }
 
 impl MiscellaneousService {
-    async fn get_presigned_url(&self, key: String) -> String {
-        self.s3_client
-            .get_object()
-            .bucket(&self.bucket_name)
-            .key(key)
-            .presigned(PresigningConfig::expires_in(Duration::from_secs(90 * 60)).unwrap())
-            .await
-            .unwrap()
-            .uri()
-            .to_string()
-    }
-
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
@@ -1024,14 +1010,14 @@ impl MiscellaneousService {
                 MetadataImageLot::Backdrop => {
                     let img = match i.url.clone() {
                         MetadataImageUrl::Url(u) => u,
-                        MetadataImageUrl::S3(u) => self.get_presigned_url(u).await,
+                        MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
                     };
                     backdrop_images.push(img);
                 }
                 MetadataImageLot::Poster => {
                     let img = match i.url.clone() {
                         MetadataImageUrl::Url(u) => u,
-                        MetadataImageUrl::S3(u) => self.get_presigned_url(u).await,
+                        MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
                     };
                     poster_images.push(img);
                 }
@@ -1861,15 +1847,7 @@ impl MiscellaneousService {
 
     async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {
         let mut files_enabled = config.file_storage.is_enabled();
-        if files_enabled
-            && self
-                .s3_client
-                .head_bucket()
-                .bucket(&self.bucket_name)
-                .send()
-                .await
-                .is_err()
-        {
+        if files_enabled && self.file_storage.head_bucket().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {

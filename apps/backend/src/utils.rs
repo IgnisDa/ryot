@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 use tokio::task::JoinSet;
 
+use crate::file_storage::FileStorageService;
 use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
 use crate::{
     background::{
@@ -40,6 +41,7 @@ pub type MemoryDb = Arc<Mutex<Store>>;
 pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
+    pub file_storage_service: Arc<FileStorageService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -54,6 +56,10 @@ pub async fn create_app_services(
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
+    let file_storage_service = Arc::new(FileStorageService::new(
+        s3_client,
+        &config.file_storage.s3_bucket_name,
+    ));
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
     let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
     let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
@@ -66,8 +72,7 @@ pub async fn create_app_services(
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
-        &s3_client,
-        &config.file_storage.s3_bucket_name,
+        file_storage_service.clone(),
         audible_service,
         igdb_service,
         listennotes_service,
@@ -89,6 +94,7 @@ pub async fn create_app_services(
     AppServices {
         media_service,
         importer_service,
+        file_storage_service,
     }
 }
 
