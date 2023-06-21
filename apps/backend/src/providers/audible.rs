@@ -27,8 +27,14 @@ struct PrimaryQuery {
 impl Default for PrimaryQuery {
     fn default() -> Self {
         Self {
-            response_groups: ["contributors", "category_ladders", "media", "product_attrs"]
-                .join(","),
+            response_groups: [
+                "contributors",
+                "category_ladders",
+                "media",
+                "product_attrs",
+                "product_extended_attrs",
+            ]
+            .join(","),
             image_sizes: ["2400"].join(","),
         }
     }
@@ -63,6 +69,7 @@ pub struct AudibleItem {
     narrators: Vec<NamedObject>,
     product_images: AudiblePoster,
     merchandising_summary: Option<String>,
+    publisher_summary: Option<String>,
     release_date: Option<String>,
     runtime_length_min: Option<i32>,
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
@@ -180,12 +187,17 @@ impl AudibleService {
             role: "Narrator".to_owned(),
             image_urls: vec![],
         }));
+        let description = if let Some(d) = item.publisher_summary {
+            Some(d)
+        } else {
+            item.merchandising_summary
+        };
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
             title: item.title,
-            description: item.merchandising_summary,
+            description,
             creators,
             genres: item
                 .category_ladders
