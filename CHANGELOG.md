@@ -1,4 +1,11 @@
 
+# Version 1.3.9 (2023-06-21)
+
+## Features
+
+* **frontend:** save active tab for list pages
+
+
 # Version 1.3.8 (2023-06-20)
 
 ## Build
