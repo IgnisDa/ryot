@@ -7,6 +7,7 @@ use std::env;
 
 use crate::{
     config::AppConfig,
+    fitness::exercise::resolver::ExerciseMutation,
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
     utils::{AppServices, MemoryDb},
@@ -68,7 +69,7 @@ impl CoreQuery {
 pub struct QueryRoot(CoreQuery, MiscellaneousQuery, ImporterQuery);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(MiscellaneousMutation, ImporterMutation);
+pub struct MutationRoot(MiscellaneousMutation, ImporterMutation, ExerciseMutation);
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
@@ -88,5 +89,6 @@ pub async fn get_schema(
     .data(scdb)
     .data(app_services.media_service.clone())
     .data(app_services.importer_service.clone())
+    .data(app_services.exercise_service.clone())
     .finish()
 }
