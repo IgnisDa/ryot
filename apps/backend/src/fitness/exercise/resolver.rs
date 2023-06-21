@@ -1,6 +1,6 @@
 use sea_orm::DatabaseConnection;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ExerciseService {
     db: DatabaseConnection,
 }

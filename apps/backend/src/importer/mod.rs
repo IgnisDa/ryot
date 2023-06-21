@@ -165,7 +165,7 @@ impl ImporterMutation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ImporterService {
     db: DatabaseConnection,
     media_service: Arc<MiscellaneousService>,
@@ -176,12 +176,12 @@ impl ImporterService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
-        media_service: &MiscellaneousService,
+        media_service: Arc<MiscellaneousService>,
         import_media: &SqliteStorage<ImportMedia>,
     ) -> Self {
         Self {
             db: db.clone(),
-            media_service: Arc::new(media_service.clone()),
+            media_service,
             import_media: import_media.clone(),
         }
     }

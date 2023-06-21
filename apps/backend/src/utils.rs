@@ -81,7 +81,11 @@ pub async fn create_app_services(
         recalculate_user_summary_job,
         user_created_job,
     ));
-    let importer_service = Arc::new(ImporterService::new(&db, &media_service, import_media_job));
+    let importer_service = Arc::new(ImporterService::new(
+        &db,
+        media_service.clone(),
+        import_media_job,
+    ));
     AppServices {
         media_service,
         importer_service,

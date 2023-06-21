@@ -942,7 +942,7 @@ impl MiscellaneousMutation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MiscellaneousService {
     db: DatabaseConnection,
     scdb: MemoryDb,
