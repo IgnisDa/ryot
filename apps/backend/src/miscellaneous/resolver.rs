@@ -2474,7 +2474,13 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = self.scdb.lock().unwrap().get(token.as_bytes()).unwrap();
+        let found_token = match self.scdb.try_lock() {
+            Ok(mut t) => t.get(token.as_bytes()).unwrap(),
+            Err(e) => {
+                tracing::error!("{:?}", e);
+                return Err(Error::new("Could not lock user database"));
+            }
+        };
         if let Some(t) = found_token {
             let user_id = std::str::from_utf8(&t).unwrap().parse::<i32>().unwrap();
             let user = self.user_by_id(user_id).await?;
@@ -2712,9 +2718,21 @@ impl MiscellaneousService {
     }
 
     async fn logout_user(&self, token: &str) -> Result<bool> {
-        let found_token = self.scdb.lock().unwrap().get(token.as_bytes()).unwrap();
+        let found_token = match self.scdb.try_lock() {
+            Ok(mut t) => t.get(token.as_bytes()).unwrap(),
+            Err(e) => {
+                tracing::error!("{:?}", e);
+                return Err(Error::new("Could not lock user database"));
+            }
+        };
         if let Some(t) = found_token {
-            self.scdb.lock().unwrap().delete(&t)?;
+            match self.scdb.try_lock() {
+                Ok(mut d) => d.delete(&t)?,
+                Err(e) => {
+                    tracing::error!("{:?}", e);
+                    return Err(Error::new("Could not lock user database"));
+                }
+            };
             Ok(true)
         } else {
             Ok(false)
