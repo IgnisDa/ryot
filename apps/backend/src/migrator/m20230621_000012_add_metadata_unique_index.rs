@@ -32,7 +32,12 @@ impl MigrationTrait for Migration {
             .ok();
         if manager.has_table("metadata_image").await? {
             manager
-                .drop_table(Table::drop().table(MetadataImage::Table).to_owned())
+                .drop_table(
+                    Table::drop()
+                        .if_exists()
+                        .table(MetadataImage::Table)
+                        .to_owned(),
+                )
                 .await?;
         }
         Ok(())
