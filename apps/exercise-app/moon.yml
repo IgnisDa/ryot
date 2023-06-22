@@ -1,0 +1,4 @@
+tasks:
+  dev:
+    command: 'expo start'
+    local: true
