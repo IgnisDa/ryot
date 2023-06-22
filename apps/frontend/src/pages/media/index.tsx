@@ -709,6 +709,15 @@ const Page: NextPageWithLayout = () => {
 								)}
 							</Text>
 						) : null}
+						{mediaDetails.data.audioBookSpecifics?.runtime ? (
+							<Text color="dimmed">
+								{" "}
+								•{" "}
+								{humaizer.humanize(
+									mediaDetails.data.audioBookSpecifics.runtime * 1000 * 60,
+								)}
+							</Text>
+						) : null}
 						{mediaDetails.data.publishYear ? (
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : null}

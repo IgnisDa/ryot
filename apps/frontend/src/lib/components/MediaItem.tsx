@@ -125,9 +125,9 @@ export default function (props: {
 	query: string;
 	offset: number;
 	lot: MetadataLot;
+	listType: "grid" | "poster";
 	refetch: () => void;
 	maybeItemId?: number;
-	listType: "grid" | "poster";
 }) {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -142,6 +142,7 @@ export default function (props: {
 			return addMediaToCollection;
 		},
 		onSuccess: () => {
+			props.refetch();
 			notifications.show({
 				title: "Success",
 				message: "Media added to watchlist successfully",

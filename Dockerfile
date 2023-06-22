@@ -36,7 +36,7 @@ RUN rustup target add $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH")
 RUN cargo chef cook --profile dist --target $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH") --recipe-path recipe.json
 COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
-RUN ./ci/build-app.sh
+RUN ./apps/backend/ci/build-app.sh
 
 # taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
 FROM ubuntu:latest as user-creator
