@@ -13,6 +13,7 @@ mod m20230612_000009_add_dropped_field;
 mod m20230614_000010_add_user_preferences_field;
 mod m20230616_000011_remove_goodreads_source;
 mod m20230621_000012_add_metadata_unique_index;
+mod m20230622_000013_create_exercise;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -39,6 +40,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230614_000010_add_user_preferences_field::Migration),
             Box::new(m20230616_000011_remove_goodreads_source::Migration),
             Box::new(m20230621_000012_add_metadata_unique_index::Migration),
+            Box::new(m20230622_000013_create_exercise::Migration),
         ]
     }
 }
