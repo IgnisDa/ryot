@@ -4,9 +4,9 @@ set -euxo pipefail
 
 cp "../../LICENSE" "./LICENSE"
 cd "../"
-cp -r "kodi" "script.kodi"
-zip -r "script.kodi.zip" "script.kodi"
-rm -rf "script.kodi"
+cp -r "kodi" "script.ryot"
+zip -r "script.ryot.zip" "script.ryot"
+rm -rf "script.ryot" "kodi/LICENSE"
 cd "../"
 mkdir -p "./tmp"
-mv "./apps/script.kodi.zip" "./tmp/script.kodi.zip"
+mv "./apps/script.ryot.zip" "./tmp/script.ryot.zip"
