@@ -1,13 +1,17 @@
-use std::sync::Arc;
+use std::{ffi::OsStr, path::Path, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Object, Result};
-use sea_orm::DatabaseConnection;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
+use slug::slugify;
 
 use crate::{
     background::UpdateExerciseJob,
+    entities::{exercise, prelude::Exercise},
     file_storage::FileStorageService,
-    models::fitness::{Exercise, ExerciseAttributes},
+    models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
 };
 
 #[derive(Default)]
@@ -55,8 +59,8 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
-    async fn get_all_exercises(&self) -> Result<Vec<Exercise>> {
-        let data: Vec<Exercise> = surf::get(&self.json_url)
+    async fn get_all_exercises(&self) -> Result<Vec<GithubExercise>> {
+        let data: Vec<GithubExercise> = surf::get(&self.json_url)
             .send()
             .await
             .unwrap()
@@ -65,7 +69,7 @@ impl ExerciseService {
             .unwrap();
         Ok(data
             .into_iter()
-            .map(|e| Exercise {
+            .map(|e| GithubExercise {
                 attributes: ExerciseAttributes {
                     images: e
                         .attributes
@@ -91,8 +95,45 @@ impl ExerciseService {
         Ok(job_ids)
     }
 
-    pub async fn update_exercise(&self, exercise: Exercise) -> Result<()> {
-        dbg!(exercise);
-        todo!()
+    pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
+        if Exercise::find()
+            .filter(exercise::Column::Identifier.eq(&ex.identifier))
+            .one(&self.db)
+            .await?
+            .is_none()
+        {
+            let mut images = vec![];
+            let mut attributes = ex.attributes.clone();
+            for (idx, image) in ex.attributes.images.into_iter().enumerate() {
+                let ext = Path::new(&image)
+                    .extension()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or("png");
+                let key = format!(
+                    "fitness/exercises/{iden}/{idx}.{ext}",
+                    iden = slugify(&ex.identifier)
+                );
+                let image_data = surf::get(image)
+                    .send()
+                    .await
+                    .unwrap()
+                    .body_bytes()
+                    .await
+                    .unwrap();
+                images.push(key.clone());
+                self.file_storage
+                    .upload_file(&key, image_data.into())
+                    .await?;
+            }
+            attributes.images = images;
+            let db_exercise = exercise::ActiveModel {
+                name: ActiveValue::Set(ex.name),
+                identifier: ActiveValue::Set(ex.identifier),
+                attributes: ActiveValue::Set(attributes),
+                ..Default::default()
+            };
+            db_exercise.insert(&self.db).await?;
+        }
+        Ok(())
     }
 }

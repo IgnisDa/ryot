@@ -281,7 +281,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("update_exercise_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisRateLimitLayer::new(10, Duration::new(5, 0)))
+                    .layer(ApalisRateLimitLayer::new(50, Duration::new(5, 0)))
                     .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(update_exercise_job_storage.clone())
                     .build_fn(update_exercise_job)
