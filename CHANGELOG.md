@@ -1,4 +1,19 @@
 
+# Version 1.3.12 (2023-06-22)
+
+## Bug Fixes
+
+* **kodi:** incorrect ci script
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** display audiobook runtime
+
+
 # Version 1.3.11 (2023-06-22)
 
 
