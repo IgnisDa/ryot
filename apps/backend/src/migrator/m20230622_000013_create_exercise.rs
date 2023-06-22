@@ -47,24 +47,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("exercise__name__index")
-                    .table(Exercise::Table)
-                    .col(Exercise::Name)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("exercise__identifier__index")
-                    .table(Exercise::Table)
-                    .col(Exercise::Identifier)
-                    .to_owned(),
-            )
-            .await?;
         Ok(())
     }
 
