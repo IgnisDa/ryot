@@ -12,18 +12,18 @@ pub struct FileStorageService {
 impl FileStorageService {
     pub fn new(s3_client: aws_sdk_s3::Client, bucket_name: &str) -> Self {
         Self {
-            s3_client: s3_client.clone(),
+            s3_client,
             bucket_name: bucket_name.to_owned(),
         }
     }
 
-    pub async fn head_bucket(&self) -> bool {
+    pub async fn is_enabled(&self) -> bool {
         self.s3_client
             .head_bucket()
             .bucket(&self.bucket_name)
             .send()
             .await
-            .is_err()
+            .is_ok()
     }
 
     pub async fn get_presigned_url(&self, key: String) -> String {

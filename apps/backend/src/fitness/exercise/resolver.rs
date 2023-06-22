@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, path::Path, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
@@ -20,10 +20,7 @@ pub struct ExerciseMutation;
 #[Object]
 impl ExerciseMutation {
     /// Deploy a job to download update the exercise library
-    async fn deploy_update_exercise_library_job(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<String>> {
+    async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
         gql_ctx
             .data_unchecked::<Arc<ExerciseService>>()
             .deploy_update_exercise_library_job()
@@ -84,7 +81,12 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn deploy_update_exercise_library_job(&self) -> Result<Vec<String>> {
+    async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
+        if !self.file_storage.is_enabled().await {
+            return Err(Error::new(
+                "File storage must be enabled for this feature.".to_owned(),
+            ));
+        }
         let mut storage = self.update_exercise.clone();
         let exercises = self.get_all_exercises().await?;
         let mut job_ids = vec![];
@@ -92,7 +94,7 @@ impl ExerciseService {
             let job = storage.push(UpdateExerciseJob { exercise }).await?;
             job_ids.push(job.to_string());
         }
-        Ok(job_ids)
+        Ok(job_ids.len().try_into().unwrap())
     }
 
     pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {

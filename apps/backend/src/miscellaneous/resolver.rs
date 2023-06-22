@@ -1847,7 +1847,7 @@ impl MiscellaneousService {
 
     async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {
         let mut files_enabled = config.file_storage.is_enabled();
-        if files_enabled && self.file_storage.head_bucket().await {
+        if files_enabled && !self.file_storage.is_enabled().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {
