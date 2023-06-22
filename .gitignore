@@ -32,3 +32,11 @@ tmp
 **/public/worker-*.js
 **/public/worker-*.js.map
 **/kodi/LICENSE
+**/.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
