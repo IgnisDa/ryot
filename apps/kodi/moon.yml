@@ -1,0 +1,10 @@
+type: application
+
+tasks:
+  build:
+    command: './ci/build-plugin.sh'
+    platform: 'system'
+
+workspace:
+  inheritedTasks:
+    include: []
