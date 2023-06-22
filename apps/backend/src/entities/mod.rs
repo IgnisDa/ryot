@@ -3,6 +3,7 @@
 pub mod prelude;
 
 pub mod collection;
+pub mod exercise;
 pub mod genre;
 pub mod media_import_report;
 pub mod metadata;
@@ -13,7 +14,6 @@ pub mod seen;
 pub mod summary;
 pub mod user;
 pub mod user_to_metadata;
-
 pub mod utils {
     use async_graphql::SimpleObject;
     use sea_orm::FromJsonQueryResult;

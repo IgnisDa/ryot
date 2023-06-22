@@ -236,7 +236,7 @@ pub mod media {
 pub mod fitness {
     use super::*;
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseForce {
         Static,
@@ -244,7 +244,7 @@ pub mod fitness {
         Push,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseLevel {
         Beginner,
@@ -252,14 +252,14 @@ pub mod fitness {
         Expert,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMechanic {
         Isolation,
         Compound,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseEquipment {
         #[serde(rename = "medicine ball")]
@@ -281,7 +281,7 @@ pub mod fitness {
         Other,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMuscle {
         Abdominals,
@@ -305,7 +305,7 @@ pub mod fitness {
         Triceps,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseCategory {
         Powerlifting,
@@ -318,7 +318,7 @@ pub mod fitness {
         Plyometrics,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
         pub force: Option<ExerciseForce>,
@@ -332,7 +332,7 @@ pub mod fitness {
         pub images: Vec<String>,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct Exercise {
         #[serde(rename = "id")]
