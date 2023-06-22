@@ -105,15 +105,16 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Create and upload zip
+      - name: Install nodejs dependencies
+        run: yarn install --immutable
+      - name: Setup Moon
+        uses: moonrepo/setup-moon-action@v1.1.1
+      - name: Build plugin
         run: |
-          app_name="${{ github.event.repository.name }}"
-          cd ./apps
-          cp ../LICENSE ./kodi/LICENSE
-          cp -r kodi "script.$app_name"
-          zip -r "script.$app_name.zip" "script.$app_name"
-          rm -rf "script.$app_name"
-          gh release upload ${{ github.ref_name }} "script.$app_name.zip"
+          moon run kodi:build
+      - name: Upload plugin to releases
+        run: |
+          gh release upload ${{ github.ref_name }} "tmp/script.ryot.zip"
 
   # Mark the Github Release™ as a non-draft now that everything has succeeded!
   publish-release:
