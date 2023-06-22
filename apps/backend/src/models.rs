@@ -320,18 +320,25 @@ pub mod fitness {
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Exercise {
-        #[serde(rename = "id")]
-        pub identifier: String,
-        pub name: String,
+    pub struct ExerciseAttributes {
         pub force: Option<ExerciseForce>,
         pub level: ExerciseLevel,
         pub mechanic: Option<ExerciseMechanic>,
         pub equipment: Option<ExerciseEquipment>,
         pub primary_muscles: Vec<ExerciseMuscle>,
         pub secondary_muscles: Vec<ExerciseMuscle>,
-        pub instructions: Vec<String>,
         pub category: ExerciseCategory,
+        pub instructions: Vec<String>,
         pub images: Vec<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Exercise {
+        #[serde(rename = "id")]
+        pub identifier: String,
+        #[serde(flatten)]
+        pub attributes: ExerciseAttributes,
+        pub name: String,
     }
 }

@@ -5,7 +5,9 @@ use async_graphql::{Context, Object, Result};
 use sea_orm::DatabaseConnection;
 
 use crate::{
-    background::UpdateExerciseJob, file_storage::FileStorageService, models::fitness::Exercise,
+    background::UpdateExerciseJob,
+    file_storage::FileStorageService,
+    models::fitness::{Exercise, ExerciseAttributes},
 };
 
 #[derive(Default)]
@@ -64,11 +66,15 @@ impl ExerciseService {
         Ok(data
             .into_iter()
             .map(|e| Exercise {
-                images: e
-                    .images
-                    .into_iter()
-                    .map(|i| format!("{}/{}", self.image_prefix_url, i))
-                    .collect(),
+                attributes: ExerciseAttributes {
+                    images: e
+                        .attributes
+                        .images
+                        .into_iter()
+                        .map(|i| format!("{}/{}", self.image_prefix_url, i))
+                        .collect(),
+                    ..e.attributes
+                },
                 ..e
             })
             .collect())
