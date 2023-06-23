@@ -5,13 +5,31 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CoreEnabledFeaturesDocument } from "@ryot/generated/src/graphql/backend/graphql";
 import { useRouter } from "expo-router";
 import request from "graphql-request";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native";
+
+const getChecker = async (url: string) => {
+	const { coreEnabledFeatures } = await request(
+		`${url}/graphql`,
+		CoreEnabledFeaturesDocument,
+	);
+	return coreEnabledFeatures;
+};
 
 export default function Page() {
 	const [url, setUrl] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const router = useRouter();
+
+	useEffect(() => {
+		(async () => {
+			const url = await AsyncStorage.getItem(URL_KEY);
+			if (url) {
+				const check = await getChecker(url);
+				if (check) router.push(ROUTES.auth.login);
+			}
+		})();
+	}, []);
 
 	return (
 		<SafeAreaView style={{ flex: 1 }}>
@@ -37,11 +55,8 @@ export default function Page() {
 						onPress={async () => {
 							if (url) {
 								setIsLoading(true);
-								const { coreEnabledFeatures } = await request(
-									`${url}/graphql`,
-									CoreEnabledFeaturesDocument,
-								);
-								if (coreEnabledFeatures) {
+								const check = await getChecker(url);
+								if (check) {
 									await AsyncStorage.setItem(URL_KEY, url);
 									router.push(ROUTES.auth.login);
 								}
