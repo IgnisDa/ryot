@@ -12,6 +12,7 @@
 		"@gluestack-style/react": "latest",
 		"@gluestack-ui/button": "latest",
 		"@gluestack-ui/provider": "latest",
+		"@tanstack/react-query": "4.29.15",
 		"expo": "^48.0.7",
 		"expo-constants": "~14.2.1",
 		"expo-linking": "~4.0.1",
