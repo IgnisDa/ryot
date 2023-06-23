@@ -1,14 +1,18 @@
 {
-  "expo": {
-    "name": "exercise-app",
-    "slug": "exercise-app",
-    "extra": {
-      "eas": {
-        "projectId": "91ca3d7a-6f85-4d09-95ea-fc6cedb40a34"
-      }
-    },
-    "android": {
-      "package": "com.ignisda.ryotexerciseapp"
-    }
-  }
+	"expo": {
+		"name": "Ryot Exercise App",
+		"slug": "ryot-exercise-app",
+		"extra": {
+			"eas": {
+				"projectId": "91ca3d7a-6f85-4d09-95ea-fc6cedb40a34"
+			}
+		},
+		"android": {
+			"package": "com.ignisda.ryotexerciseapp"
+		},
+		"web": {
+			"bundler": "metro"
+		},
+		"scheme": "ryot"
+	}
 }
