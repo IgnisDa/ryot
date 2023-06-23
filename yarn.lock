@@ -5126,6 +5126,7 @@ __metadata:
     expo-linking: ~4.0.1
     expo-router: ^1.2.0
     expo-status-bar: ~1.4.4
+    graphql-request: 6.1.0
     react: 18.2.0
     react-dom: 18.2.0
     react-native: 0.71.8
@@ -5192,7 +5193,7 @@ __metadata:
   resolution: "@ryot/graphql@workspace:libs/graphql"
   dependencies:
     "@ryot/generated": "workspace:*"
-    graphql-request: 6.0.0
+    graphql-request: 6.1.0
     graphql-scalars: 1.21.3
   languageName: unknown
   linkType: soft
@@ -10067,7 +10068,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql-request@npm:6.0.0, graphql-request@npm:^6.0.0":
+"graphql-request@npm:6.1.0":
+  version: 6.1.0
+  resolution: "graphql-request@npm:6.1.0"
+  dependencies:
+    "@graphql-typed-document-node/core": ^3.2.0
+    cross-fetch: ^3.1.5
+  peerDependencies:
+    graphql: 14 - 16
+  checksum: 6d62630a0169574442320651c1f7626c0c602025c3c46b19e09417c9579bb209306ee63de9793a03be2e1701bb7f13971f8545d99bc6573e340f823af0ad35b2
+  languageName: node
+  linkType: hard
+
+"graphql-request@npm:^6.0.0":
   version: 6.0.0
   resolution: "graphql-request@npm:6.0.0"
   dependencies:

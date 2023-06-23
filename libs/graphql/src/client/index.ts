@@ -1,5 +1,5 @@
 import { GraphQLClient } from "graphql-request";
-import { gqlSerializer } from "./serialize";
+import { gqlSerializer } from "../serialize";
 
 export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 	const headers: Record<string, string> = {};
