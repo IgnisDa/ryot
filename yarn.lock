@@ -4921,6 +4921,7 @@ __metadata:
   resolution: "@ryot/exercise-app@workspace:apps/exercise-app"
   dependencies:
     "@babel/core": ^7.19.3
+    "@expo/config-plugins": ~6.0.0
     "@expo/webpack-config": ^18.0.1
     "@gluestack-style/animation-plugin": latest
     "@gluestack-style/react": latest

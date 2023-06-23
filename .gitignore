@@ -1,3 +1,4 @@
+.yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
@@ -14,7 +15,6 @@
 .moon/docker
 .next/
 .pnp.*
-.yarn/*
 Thumbs.db
 build
 computed-config.*
