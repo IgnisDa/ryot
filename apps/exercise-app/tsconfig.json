@@ -1,6 +1,14 @@
 {
-  "compilerOptions": {
-    "outDir": "../../.moon/cache/types/apps/exercise-app"
-  },
-  "extends": "expo/tsconfig.base"
+	"compilerOptions": {
+		"outDir": "../../.moon/cache/types/apps/exercise-app"
+	},
+	"extends": "expo/tsconfig.base",
+	"references": [
+		{
+			"path": "../../libs/generated"
+		},
+		{
+			"path": "../../libs/graphql"
+		}
+	]
 }
