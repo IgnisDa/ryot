@@ -3079,6 +3079,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@gluestack-ui/form-control@npm:^0.1.7, @gluestack-ui/form-control@npm:latest":
+  version: 0.1.7
+  resolution: "@gluestack-ui/form-control@npm:0.1.7"
+  dependencies:
+    "@gluestack-ui/utils": ^0.1.3
+    "@react-native-aria/focus": ^0.2.7
+  peerDependencies:
+    react: ">=16"
+    react-dom: ">=16"
+  checksum: a3cf2a64f0d04859691339d8b276c2506575efda7fab8ba828d299448c21595e5f27f683ae1592255e26de1ceaef9f25700bbaee6c4a30b375d9f37107d4b27f
+  languageName: node
+  linkType: hard
+
 "@gluestack-ui/hooks@npm:^0.1.0":
   version: 0.1.1
   resolution: "@gluestack-ui/hooks@npm:0.1.1"
@@ -3089,6 +3102,22 @@ __metadata:
     react: ">=16"
     react-dom: ">=16"
   checksum: f751efb8ba5f24eec3e8ad4d3c1e79994eafb6dc1ac9f7629653dfeb5ad7970dc39d41392d2d12e136b879b960b29d4d296fca00b104c7ccd4ca877ce607616f
+  languageName: node
+  linkType: hard
+
+"@gluestack-ui/input@npm:latest":
+  version: 0.1.7
+  resolution: "@gluestack-ui/input@npm:0.1.7"
+  dependencies:
+    "@gluestack-ui/form-control": ^0.1.7
+    "@gluestack-ui/utils": ^0.1.3
+    "@react-native-aria/focus": ^0.2.7
+    "@react-native-aria/interactions": ^0.2.8
+    react-native-svg: 13.4.0
+  peerDependencies:
+    react: ">=16"
+    react-dom: ">=16"
+  checksum: b29c089ca484434b709e6f05a0811a187d8608f502dd822932673ced8f09bbe39d4c8f4afdae9e4c16954b51c66900354788c3b26ee34a492d016de66e6742af
   languageName: node
   linkType: hard
 
@@ -3132,6 +3161,16 @@ __metadata:
     react: ">=16"
     react-dom: ">=16"
   checksum: f6b16ca2efa477d0f53d27852383932e38787b4eb3fb09785885654d3dd841c2d4634936839bf1adb5e028615eca0775d28239c50908cf54dfae31fc2013569d
+  languageName: node
+  linkType: hard
+
+"@gluestack-ui/spinner@npm:latest":
+  version: 0.1.6
+  resolution: "@gluestack-ui/spinner@npm:0.1.6"
+  peerDependencies:
+    react: ">=16"
+    react-dom: ">=16"
+  checksum: 41efbe392cac7ffd0e18c235811cd06be131cf69dcf0d0980e80b059b2ad70f89c0e622015bf2da420d019a85d5baed2217bc183dbfbb470a18c8d1321853849
   languageName: node
   linkType: hard
 
@@ -4578,7 +4617,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-aria/interactions@npm:^0.2.10":
+"@react-native-aria/interactions@npm:^0.2.10, @react-native-aria/interactions@npm:^0.2.8":
   version: 0.2.10
   resolution: "@react-native-aria/interactions@npm:0.2.10"
   dependencies:
@@ -5114,7 +5153,10 @@ __metadata:
     "@gluestack-style/animation-plugin": latest
     "@gluestack-style/react": latest
     "@gluestack-ui/button": latest
+    "@gluestack-ui/form-control": latest
+    "@gluestack-ui/input": latest
     "@gluestack-ui/provider": latest
+    "@gluestack-ui/spinner": latest
     "@react-native-async-storage/async-storage": 1.17.11
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
