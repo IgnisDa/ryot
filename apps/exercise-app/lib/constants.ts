@@ -1,8 +1,4 @@
 export const ROUTES = {
-	auth: {
-		login: "/auth/login",
-	},
-	misc: {
-		instancUrl: "/instance-url",
-	},
+	setup: "/setup",
+	dashboard: "/",
 } as const;

@@ -3,7 +3,9 @@ import { GraphQLClient, createGqlClient } from "@ryot/graphql/src/client";
 import { QueryClient } from "@tanstack/react-query";
 
 let gqlClient: GraphQLClient;
+
 export const URL_KEY = "instanceUrl";
+export const AUTH_KEY = "authToken";
 
 export const getGraphqlClient = async () => {
 	if (gqlClient) return gqlClient;
