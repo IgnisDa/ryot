@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { GraphQLClient, createGqlClient } from "@ryot/graphql/src/client";
+import { GraphQLClient, createGqlClient } from "@ryot/graphql/client";
 import { QueryClient } from "@tanstack/react-query";
 
 let gqlClient: GraphQLClient;

@@ -1,7 +1,7 @@
-import { getGraphqlClient } from "../../lib/api";
-import { Center } from "../../lib/components";
-import { ROUTES } from "../../lib/constants";
-import { CoreEnabledFeaturesDocument } from "@ryot/generated/src/graphql/backend/graphql";
+import { getGraphqlClient } from "@/api";
+import { Center } from "@/components";
+import { ROUTES } from "@/constants";
+import { CoreEnabledFeaturesDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "expo-router";
 import { SafeAreaView, Text } from "react-native";

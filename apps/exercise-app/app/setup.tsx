@@ -1,16 +1,9 @@
-import { AUTH_KEY, URL_KEY } from "../lib/api";
-import {
-	Box,
-	Button,
-	Center,
-	FormControl,
-	Input,
-	Spinner,
-} from "../lib/components";
-import { ROUTES } from "../lib/constants";
+import { AUTH_KEY, URL_KEY } from "@/api";
+import { Box, Button, Center, FormControl, Input, Spinner } from "@/components";
+import { ROUTES } from "@/constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UserDetailsDocument } from "@ryot/generated/src/graphql/backend/graphql";
-import { getAuthHeader } from "@ryot/graphql/src/client";
+import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { getAuthHeader } from "@ryot/graphql/client";
 import { useRouter } from "expo-router";
 import request from "graphql-request";
 import { useState } from "react";
