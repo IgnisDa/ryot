@@ -8,7 +8,7 @@ import { getAuthHeader } from "@ryot/graphql/client";
 import request from "graphql-request";
 import { createContext, useContext, useEffect, useState } from "react";
 
-type AuthData = {
+export type AuthData = {
 	token: string;
 };
 

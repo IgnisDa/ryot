@@ -1,25 +1,38 @@
-import { getGraphqlClient } from "@/api";
+import { getAuthHeaders, getGraphqlClient } from "@/api";
 import { Button, Center } from "@/components";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CoreEnabledFeaturesDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ExercisesDocument,
+	UserEnabledFeaturesDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView, Text } from "react-native";
 
 export default function Page() {
 	const { authData, signOut } = useAuth();
 	const router = useRouter();
 
-	const query = useQuery({
-		queryKey: ["query"],
+	const exercises = useQuery({
+		queryKey: ["exercises"],
 		queryFn: async () => {
 			const client = await getGraphqlClient();
-			const { coreEnabledFeatures } = await client.request(
-				CoreEnabledFeaturesDocument,
+			const { exercises } = await client.request(ExercisesDocument, undefined);
+			return exercises;
+		},
+	});
+
+	const userEnabledFeatures = useQuery({
+		queryKey: ["userEnabledFeatures"],
+		queryFn: async () => {
+			const client = await getGraphqlClient();
+			const { userEnabledFeatures } = await client.request(
+				UserEnabledFeaturesDocument,
+				undefined,
+				await getAuthHeaders(),
 			);
-			return coreEnabledFeatures;
+			return userEnabledFeatures;
 		},
 	});
 
@@ -29,13 +42,6 @@ export default function Page() {
 			<Text>{JSON.stringify(authData)}</Text>
 			<Button
 				onPress={async () => {
-					await AsyncStorage.clear();
-				}}
-			>
-				<Button.Text color="$white">Clear async storage</Button.Text>
-			</Button>
-			<Button
-				onPress={async () => {
 					await signOut();
 					router.push(ROUTES.setup);
 				}}
@@ -43,9 +49,12 @@ export default function Page() {
 				<Button.Text color="$white">Sign out</Button.Text>
 			</Button>
 			<Center>
-				<Text>Authenticated route</Text>
-				<Text>{JSON.stringify(query.data)}</Text>
-				<Link href={ROUTES.setup}>Setup page</Link>
+				<Text>Authenticated query</Text>
+				<Text>{JSON.stringify(userEnabledFeatures.data)}</Text>
+			</Center>
+			<Center>
+				<Text>Unauthenticated query</Text>
+				<Text>{JSON.stringify(exercises.data)}</Text>
 			</Center>
 		</SafeAreaView>
 	);

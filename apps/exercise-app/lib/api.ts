@@ -1,5 +1,10 @@
+import { AuthData } from "./hooks";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { GraphQLClient, createGqlClient } from "@ryot/graphql/client";
+import {
+	GraphQLClient,
+	createGqlClient,
+	getAuthHeader,
+} from "@ryot/graphql/client";
 import { QueryClient } from "@tanstack/react-query";
 
 let gqlClient: GraphQLClient;
@@ -19,3 +24,9 @@ export const getGraphqlClient = async () => {
 };
 
 export const queryClient = new QueryClient();
+
+export const getAuthHeaders = async () => {
+	const authData: AuthData = JSON.parse(await AsyncStorage.getItem(AUTH_KEY));
+	const headers = getAuthHeader(authData.token);
+	return headers;
+};
