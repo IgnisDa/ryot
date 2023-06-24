@@ -4,6 +4,7 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder,
 };
 use slug::slugify;
 
@@ -96,7 +97,10 @@ impl ExerciseService {
     }
 
     async fn exercises(&self) -> Result<Vec<exercise::Model>> {
-        let data = Exercise::find().all(&self.db).await?;
+        let data = Exercise::find()
+            .order_by_asc(exercise::Column::Id)
+            .all(&self.db)
+            .await?;
         let mut resp = vec![];
         for ex in data {
             let mut ex_new = ex.clone();
