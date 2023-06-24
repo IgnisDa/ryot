@@ -14,6 +14,7 @@ pub mod seen;
 pub mod summary;
 pub mod user;
 pub mod user_to_metadata;
+
 pub mod utils {
     use async_graphql::SimpleObject;
     use sea_orm::FromJsonQueryResult;
