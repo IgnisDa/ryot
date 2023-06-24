@@ -14,6 +14,7 @@ pub enum Exercise {
     Id,
     Name,
     Identifier,
+    // FIXME: Storage image directly in database
     Attributes,
 }
 
