@@ -1,35 +1,16 @@
-import { AUTH_KEY, URL_KEY } from "@/api";
 import { Box, Button, Center, FormControl, Input, Spinner } from "@/components";
 import { ROUTES } from "@/constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { getAuthHeader } from "@ryot/graphql/client";
+import { useAuth } from "@/hooks";
 import { useRouter } from "expo-router";
-import request from "graphql-request";
 import { useState } from "react";
 import { SafeAreaView } from "react-native";
 
-const isAuthenticated = async (url: string, token: string) => {
-	try {
-		const { userDetails } = await request(
-			`${url}/graphql`,
-			UserDetailsDocument,
-			{},
-			getAuthHeader(token),
-		);
-		if (userDetails.__typename === "UserDetailsError") return false;
-		return true;
-	} catch (e) {
-		console.error(e);
-		return false;
-	}
-};
-
 export default function Page() {
 	const [url, setUrl] = useState("");
-	const [apiToken, setApiToken] = useState("");
+	const [token, setToken] = useState("");
 	const [error, setError] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+	const { signIn } = useAuth();
 	const router = useRouter();
 
 	return (
@@ -63,7 +44,7 @@ export default function Page() {
 							<Input.Input
 								type="password"
 								autoCapitalize="none"
-								onChange={({ nativeEvent: { text } }) => setApiToken(text)}
+								onChange={({ nativeEvent: { text } }) => setToken(text)}
 							/>
 						</Input>
 						<FormControl.Helper>
@@ -76,17 +57,16 @@ export default function Page() {
 						isDisabled={isLoading}
 						marginTop="$4"
 						onPress={async () => {
-							if (url && apiToken) {
+							if (url && token) {
 								setIsLoading(true);
-								const authCheck = await isAuthenticated(url, apiToken);
-								if (authCheck) {
-									await AsyncStorage.setItem(URL_KEY, url);
-									await AsyncStorage.setItem(AUTH_KEY, url);
+								try {
+									await signIn(url, token);
 									router.push(ROUTES.dashboard);
-								} else {
+								} catch {
 									setError("Invalid token entered");
+								} finally {
+									setIsLoading(false);
 								}
-								setIsLoading(false);
 							}
 						}}
 					>
