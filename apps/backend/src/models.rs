@@ -234,9 +234,13 @@ pub mod media {
 }
 
 pub mod fitness {
+    use async_graphql::Enum;
+
     use super::*;
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseForce {
         Static,
@@ -244,7 +248,9 @@ pub mod fitness {
         Push,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseLevel {
         Beginner,
@@ -252,14 +258,18 @@ pub mod fitness {
         Expert,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMechanic {
         Isolation,
         Compound,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseEquipment {
         #[serde(rename = "medicine ball")]
@@ -281,7 +291,9 @@ pub mod fitness {
         Other,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMuscle {
         Abdominals,
@@ -305,7 +317,9 @@ pub mod fitness {
         Triceps,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseCategory {
         Powerlifting,
@@ -318,7 +332,9 @@ pub mod fitness {
         Plyometrics,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(
+        Debug, Clone, Serialize, SimpleObject, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
         pub force: Option<ExerciseForce>,

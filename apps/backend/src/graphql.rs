@@ -7,7 +7,7 @@ use std::env;
 
 use crate::{
     config::AppConfig,
-    fitness::exercise::resolver::ExerciseMutation,
+    fitness::exercise::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
     utils::{AppServices, MemoryDb},
@@ -66,7 +66,7 @@ impl CoreQuery {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(CoreQuery, MiscellaneousQuery, ImporterQuery);
+pub struct QueryRoot(CoreQuery, MiscellaneousQuery, ImporterQuery, ExerciseQuery);
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(MiscellaneousMutation, ImporterMutation, ExerciseMutation);

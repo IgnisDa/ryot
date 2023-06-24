@@ -15,6 +15,20 @@ use crate::{
 };
 
 #[derive(Default)]
+pub struct ExerciseQuery;
+
+#[Object]
+impl ExerciseQuery {
+    /// Get all the exercises in the database
+    async fn exercises(&self, gql_ctx: &Context<'_>) -> Result<Vec<exercise::Model>> {
+        gql_ctx
+            .data_unchecked::<Arc<ExerciseService>>()
+            .exercises()
+            .await
+    }
+}
+
+#[derive(Default)]
 pub struct ExerciseMutation;
 
 #[Object]
@@ -56,7 +70,7 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
-    async fn get_all_exercises(&self) -> Result<Vec<GithubExercise>> {
+    async fn get_all_exercises_from_dataset(&self) -> Result<Vec<GithubExercise>> {
         let data: Vec<GithubExercise> = surf::get(&self.json_url)
             .send()
             .await
@@ -81,6 +95,21 @@ impl ExerciseService {
             .collect())
     }
 
+    async fn exercises(&self) -> Result<Vec<exercise::Model>> {
+        let data = Exercise::find().all(&self.db).await?;
+        let mut resp = vec![];
+        for ex in data {
+            let mut ex_new = ex.clone();
+            let mut images = vec![];
+            for i in ex.attributes.images {
+                images.push(self.file_storage.get_presigned_url(i).await);
+            }
+            ex_new.attributes.images = images;
+            resp.push(ex_new);
+        }
+        Ok(resp)
+    }
+
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
         if !self.file_storage.is_enabled().await {
             return Err(Error::new(
@@ -88,7 +117,7 @@ impl ExerciseService {
             ));
         }
         let mut storage = self.update_exercise.clone();
-        let exercises = self.get_all_exercises().await?;
+        let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
             let job = storage.push(UpdateExerciseJob { exercise }).await?;
