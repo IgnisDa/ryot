@@ -10,6 +10,7 @@ import {
 import { ROUTES } from "../lib/constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UserDetailsDocument } from "@ryot/generated/src/graphql/backend/graphql";
+import { getAuthHeader } from "@ryot/graphql/src/client";
 import { useRouter } from "expo-router";
 import request from "graphql-request";
 import { useState } from "react";
@@ -21,7 +22,7 @@ const isAuthenticated = async (url: string, token: string) => {
 			`${url}/graphql`,
 			UserDetailsDocument,
 			{},
-			{ Authorization: `Bearer ${token}` },
+			getAuthHeader(token),
 		);
 		if (userDetails.__typename === "UserDetailsError") return false;
 		return true;
