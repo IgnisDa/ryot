@@ -15,11 +15,17 @@ type AuthData = {
 type AuthContextData = {
 	authData?: AuthData;
 	loading: boolean;
-	signIn: (url: string, token: string) => Promise<void>;
+	signIn: (url: string, token: string) => Promise<SignInResponse>;
 	signOut(): Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+
+export enum SignInResponse {
+	ServerUrlError = 1,
+	CredentialsError = 2,
+	Success = 3,
+}
 
 export const AuthProvider = ({ children }: { children: JSX.Element }) => {
 	const [authData, setAuthData] = useState<AuthData>();
@@ -51,13 +57,14 @@ export const AuthProvider = ({ children }: { children: JSX.Element }) => {
 				getAuthHeader(token),
 			);
 			if (userDetails.__typename === "UserDetailsError")
-				throw new Error("Incorrect details provided");
+				return SignInResponse.CredentialsError;
 			const _authData: AuthData = { token };
 			setAuthData(_authData);
 			await AsyncStorage.setItem(URL_KEY, url);
 			await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(_authData));
+			return SignInResponse.Success;
 		} catch {
-			throw new Error("Incorrect server url provided");
+			return SignInResponse.ServerUrlError;
 		}
 	};
 

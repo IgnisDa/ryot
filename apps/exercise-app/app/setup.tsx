@@ -1,6 +1,6 @@
 import { Box, Button, Center, FormControl, Input, Spinner } from "@/components";
 import { ROUTES } from "@/constants";
-import { useAuth } from "@/hooks";
+import { SignInResponse, useAuth } from "@/hooks";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { SafeAreaView } from "react-native";
@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native";
 export default function Page() {
 	const [url, setUrl] = useState("");
 	const [token, setToken] = useState("");
-	const [error, setError] = useState("");
+	const [error, setError] = useState<SignInResponse | null>();
 	const [isLoading, setIsLoading] = useState(false);
 	const { signIn } = useAuth();
 	const router = useRouter();
@@ -20,8 +20,16 @@ export default function Page() {
 					<Box>
 						<FormControl.Label>
 							<FormControl.Label.Text>Instance URL</FormControl.Label.Text>
+							{error && error === SignInResponse.ServerUrlError ? (
+								<FormControl.Error.Text>
+									Invalid URL entered
+								</FormControl.Error.Text>
+							) : null}
 						</FormControl.Label>
-						<Input isRequired>
+						<Input
+							isRequired
+							isInvalid={error === SignInResponse.ServerUrlError}
+						>
 							<Input.Input
 								autoCapitalize="none"
 								onChange={({ nativeEvent: { text } }) => setUrl(text)}
@@ -36,11 +44,16 @@ export default function Page() {
 					<Box marginTop="$4">
 						<FormControl.Label>
 							<FormControl.Label.Text>API Token</FormControl.Label.Text>
-							{error ? (
-								<FormControl.Error.Text>{error}</FormControl.Error.Text>
+							{error && error === SignInResponse.CredentialsError ? (
+								<FormControl.Error.Text>
+									Invalid API token entered
+								</FormControl.Error.Text>
 							) : null}
 						</FormControl.Label>
-						<Input isRequired isInvalid={!!error}>
+						<Input
+							isRequired
+							isInvalid={error === SignInResponse.CredentialsError}
+						>
 							<Input.Input
 								type="password"
 								autoCapitalize="none"
@@ -57,17 +70,12 @@ export default function Page() {
 						isDisabled={isLoading}
 						marginTop="$4"
 						onPress={async () => {
-							if (url && token) {
-								setIsLoading(true);
-								try {
-									await signIn(url, token);
-									router.push(ROUTES.dashboard);
-								} catch {
-									setError("Invalid token entered");
-								} finally {
-									setIsLoading(false);
-								}
-							}
+							setIsLoading(true);
+							const response = await signIn(url, token);
+							setIsLoading(false);
+							setError(response);
+							if (response === SignInResponse.Success)
+								router.push(ROUTES.dashboard);
 						}}
 					>
 						{isLoading ? <Spinner color="$white" marginRight="$4" /> : null}
