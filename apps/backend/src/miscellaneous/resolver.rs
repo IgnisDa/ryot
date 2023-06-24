@@ -1005,21 +1005,19 @@ impl MiscellaneousService {
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
+        async fn get_image(m: MetadataImageUrl, storage: Arc<FileStorageService>) -> String {
+            match m {
+                MetadataImageUrl::Url(u) => u,
+                MetadataImageUrl::S3(u) => storage.get_presigned_url(u).await,
+            }
+        }
         for i in meta.images.0.clone() {
             match i.lot {
                 MetadataImageLot::Backdrop => {
-                    let img = match i.url.clone() {
-                        MetadataImageUrl::Url(u) => u,
-                        MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
-                    };
-                    backdrop_images.push(img);
+                    backdrop_images.push(get_image(i.url, self.file_storage.clone()).await);
                 }
                 MetadataImageLot::Poster => {
-                    let img = match i.url.clone() {
-                        MetadataImageUrl::Url(u) => u,
-                        MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
-                    };
-                    poster_images.push(img);
+                    poster_images.push(get_image(i.url, self.file_storage.clone()).await);
                 }
             };
         }
