@@ -10,7 +10,7 @@ export default function Layout() {
 		<GluestackUIProvider config={config.theme}>
 			<QueryClientProvider client={queryClient}>
 				<AuthProvider>
-					<Stack />
+					<Stack screenOptions={{ headerShown: false }} />
 				</AuthProvider>
 			</QueryClientProvider>
 		</GluestackUIProvider>
