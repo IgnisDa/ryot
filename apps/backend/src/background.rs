@@ -263,6 +263,7 @@ pub async fn update_exercise_job(
     information: UpdateExerciseJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
+    tracing::info!("Updating {:?}", information.exercise.name);
     ctx.data::<Arc<ExerciseService>>()
         .unwrap()
         .update_exercise(information.exercise)
