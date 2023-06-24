@@ -172,15 +172,19 @@ impl ListennotesService {
 }
 
 mod utils {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, env, fs};
 
     use surf::{http::headers::USER_AGENT, Config, Url};
 
-    use crate::graphql::{AUTHOR, PROJECT_NAME};
+    use crate::{
+        graphql::{AUTHOR, PROJECT_NAME},
+        utils::read_file_to_json,
+    };
 
     use super::*;
 
     pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
+        let path = env::temp_dir().join("listennotes.json");
         let client: Client = Config::new()
             .add_header("X-ListenAPI-Key", api_token)
             .unwrap()
@@ -198,12 +202,18 @@ mod utils {
         struct GenreResponse {
             genres: Vec<Genre>,
         }
-        let mut rsp = client.get("genres").await.unwrap();
-        let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
-        let mut genres = HashMap::new();
-        for genre in data.genres {
-            genres.insert(genre.id, genre.name);
-        }
+        let genres = if let Some(details) = read_file_to_json::<HashMap<i32, String>>(&path) {
+            details
+        } else {
+            let mut rsp = client.get("genres").await.unwrap();
+            let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
+            let mut genres = HashMap::new();
+            for genre in data.genres {
+                genres.insert(genre.id, genre.name);
+            }
+            fs::write(path, serde_json::to_string(&genres).unwrap()).ok();
+            genres
+        };
         (client, genres)
     }
 }
