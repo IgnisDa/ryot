@@ -367,10 +367,13 @@ async fn graphql_handler(
 ) -> GraphQLResponse {
     let mut req = req.0;
     let mut ctx = GqlCtx { auth_token: None };
+    let strip = |t: &str| t.replace("Bearer ", "");
     if let Some(c) = cookies.get(COOKIE_NAME) {
         ctx.auth_token = Some(c.value().to_owned());
     } else if let Some(h) = headers.get(AUTHORIZATION) {
-        ctx.auth_token = h.to_str().map(|e| e.replace("Bearer ", "")).ok();
+        ctx.auth_token = h.to_str().map(strip).ok();
+    } else if let Some(h) = headers.get("X-Auth-Token") {
+        ctx.auth_token = h.to_str().map(strip).ok();
     }
     req = req.data(ctx);
     schema.execute(req).await.into()
