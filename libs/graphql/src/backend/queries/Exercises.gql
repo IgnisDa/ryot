@@ -1,0 +1,18 @@
+query Exercises {
+  exercises {
+    id
+    name
+    attributes {
+      force
+      level
+      mechanic
+      equipment
+      primaryMuscles
+      secondaryMuscles
+      category
+      instructions
+      images
+      alternateNames
+    }
+  }
+}

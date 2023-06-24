@@ -145,6 +145,88 @@ export type DetailedMediaSearchResults = {
   total: Scalars['Int'];
 };
 
+export type Exercise = {
+  attributes: ExerciseAttributes;
+  id: Scalars['Int'];
+  identifier: Scalars['String'];
+  name: Scalars['String'];
+};
+
+export type ExerciseAttributes = {
+  alternateNames: Array<Scalars['String']>;
+  category: ExerciseCategory;
+  equipment?: Maybe<ExerciseEquipment>;
+  force?: Maybe<ExerciseForce>;
+  images: Array<Scalars['String']>;
+  instructions: Array<Scalars['String']>;
+  level: ExerciseLevel;
+  mechanic?: Maybe<ExerciseMechanic>;
+  primaryMuscles: Array<ExerciseMuscle>;
+  secondaryMuscles: Array<ExerciseMuscle>;
+};
+
+export enum ExerciseCategory {
+  Cardio = 'CARDIO',
+  OlympicWeightlifting = 'OLYMPIC_WEIGHTLIFTING',
+  Plyometrics = 'PLYOMETRICS',
+  Powerlifting = 'POWERLIFTING',
+  Strength = 'STRENGTH',
+  Stretching = 'STRETCHING',
+  Strongman = 'STRONGMAN'
+}
+
+export enum ExerciseEquipment {
+  Bands = 'BANDS',
+  Barbell = 'BARBELL',
+  BodyOnly = 'BODY_ONLY',
+  Cable = 'CABLE',
+  Dumbbell = 'DUMBBELL',
+  ExerciseBall = 'EXERCISE_BALL',
+  EzCurlBar = 'EZ_CURL_BAR',
+  FoamRoll = 'FOAM_ROLL',
+  Kettlebells = 'KETTLEBELLS',
+  Machine = 'MACHINE',
+  MedicineBall = 'MEDICINE_BALL',
+  Other = 'OTHER'
+}
+
+export enum ExerciseForce {
+  Pull = 'PULL',
+  Push = 'PUSH',
+  Static = 'STATIC'
+}
+
+export enum ExerciseLevel {
+  Beginner = 'BEGINNER',
+  Expert = 'EXPERT',
+  Intermediate = 'INTERMEDIATE'
+}
+
+export enum ExerciseMechanic {
+  Compound = 'COMPOUND',
+  Isolation = 'ISOLATION'
+}
+
+export enum ExerciseMuscle {
+  Abdominals = 'ABDOMINALS',
+  Abductors = 'ABDUCTORS',
+  Adductors = 'ADDUCTORS',
+  Biceps = 'BICEPS',
+  Calves = 'CALVES',
+  Chest = 'CHEST',
+  Forearms = 'FOREARMS',
+  Glutes = 'GLUTES',
+  Hamstrings = 'HAMSTRINGS',
+  Lats = 'LATS',
+  LowerBack = 'LOWER_BACK',
+  MiddleBack = 'MIDDLE_BACK',
+  Neck = 'NECK',
+  Quadriceps = 'QUADRICEPS',
+  Shoulders = 'SHOULDERS',
+  Traps = 'TRAPS',
+  Triceps = 'TRICEPS'
+}
+
 export type GeneralFeatures = {
   fileStorage: Scalars['Boolean'];
   signupAllowed: Scalars['Boolean'];
@@ -340,15 +422,6 @@ export enum MetadataSource {
   Tmdb = 'TMDB'
 }
 
-export type Model = {
-  postedOn: Scalars['DateTime'];
-  rating?: Maybe<Scalars['Decimal']>;
-  spoiler: Scalars['Boolean'];
-  text?: Maybe<Scalars['String']>;
-  userId: Scalars['Int'];
-  visibility: ReviewVisibility;
-};
-
 export type MovieSpecifics = {
   runtime?: Maybe<Scalars['Int']>;
 };
@@ -381,6 +454,8 @@ export type MutationRoot = {
   deleteSeenItem: IdObject;
   /** Add job to import data from various sources. */
   deployImport: Scalars['String'];
+  /** Deploy a job to download update the exercise library */
+  deployUpdateExerciseLibraryJob: Scalars['Int'];
   /** Deploy a job to update a media item's metadata. */
   deployUpdateMetadataJob: Scalars['String'];
   /** Generate an auth token without any expiry */
@@ -581,6 +656,8 @@ export type QueryRoot = {
   coreDetails: CoreDetails;
   /** Get all the features that are enabled for the service */
   coreEnabledFeatures: GeneralFeatures;
+  /** Get all the exercises in the database */
+  exercises: Array<Exercise>;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedUrl: Scalars['String'];
   /** Get details about a media present in the database. */
@@ -596,7 +673,7 @@ export type QueryRoot = {
   /** Search for a list of media for a given type. */
   mediaSearch: DetailedMediaSearchResults;
   /** Get a review by its ID */
-  reviewById: Model;
+  reviewById: Review;
   /** Get the user's seen history for a particular media item. */
   seenHistory: Array<Seen>;
   /** Get details about the currently logged in user. */
@@ -659,6 +736,15 @@ export enum RegisterErrorVariant {
 }
 
 export type RegisterResult = IdObject | RegisterError;
+
+export type Review = {
+  postedOn: Scalars['DateTime'];
+  rating?: Maybe<Scalars['Decimal']>;
+  spoiler: Scalars['Boolean'];
+  text?: Maybe<Scalars['String']>;
+  userId: Scalars['Int'];
+  visibility: ReviewVisibility;
+};
 
 export type ReviewItem = {
   episodeNumber?: Maybe<Scalars['Int']>;
@@ -992,6 +1078,11 @@ export type CoreEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>
 
 export type CoreEnabledFeaturesQuery = { coreEnabledFeatures: { fileStorage: boolean, signupAllowed: boolean } };
 
+export type ExercisesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ExercisesQuery = { exercises: Array<{ id: number, name: string, attributes: { force?: ExerciseForce | null, level: ExerciseLevel, mechanic?: ExerciseMechanic | null, equipment?: ExerciseEquipment | null, primaryMuscles: Array<ExerciseMuscle>, secondaryMuscles: Array<ExerciseMuscle>, category: ExerciseCategory, instructions: Array<string>, images: Array<string>, alternateNames: Array<string> } }> };
+
 export type GetPresignedUrlQueryVariables = Exact<{
   key: Scalars['String'];
 }>;
@@ -1088,6 +1179,7 @@ export const UpdateUserPreferencesDocument = {"kind":"Document","definitions":[{
 export const CollectionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mediaDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<CollectionsQuery, CollectionsQueryVariables>;
 export const CoreDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"authorName"}},{"kind":"Field","name":{"kind":"Name","value":"repositoryLink"}},{"kind":"Field","name":{"kind":"Name","value":"usernameChangeAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreDetailsQuery, CoreDetailsQueryVariables>;
 export const CoreEnabledFeaturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fileStorage"}},{"kind":"Field","name":{"kind":"Name","value":"signupAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreEnabledFeaturesQuery, CoreEnabledFeaturesQueryVariables>;
+export const ExercisesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attributes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"force"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"mechanic"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}},{"kind":"Field","name":{"kind":"Name","value":"primaryMuscles"}},{"kind":"Field","name":{"kind":"Name","value":"secondaryMuscles"}},{"kind":"Field","name":{"kind":"Name","value":"category"}},{"kind":"Field","name":{"kind":"Name","value":"instructions"}},{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"alternateNames"}}]}}]}}]}}]} as unknown as DocumentNode<ExercisesQuery, ExercisesQueryVariables>;
 export const GetPresignedUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPresignedUrl"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getPresignedUrl"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<GetPresignedUrlQuery, GetPresignedUrlQueryVariables>;
 export const MediaDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"sourceUrl"}},{"kind":"Field","name":{"kind":"Name","value":"creators"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"role"}}]}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"backdropImages"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}},{"kind":"Field","name":{"kind":"Name","value":"genres"}},{"kind":"Field","name":{"kind":"Name","value":"animeSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"audioBookSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"bookSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}}]}},{"kind":"Field","name":{"kind":"Name","value":"movieSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mangaSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"volumes"}},{"kind":"Field","name":{"kind":"Name","value":"chapters"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"thumbnail"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"totalEpisodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"showSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seasons"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seasonNumber"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"backdropImages"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"episodeNumber"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"videoGameSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"platforms"}}]}}]}}]}}]} as unknown as DocumentNode<MediaDetailsQuery, MediaDetailsQueryVariables>;
 export const MediaImportReportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MediaImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"import"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}}]}}]}}]}}]}}]} as unknown as DocumentNode<MediaImportReportsQuery, MediaImportReportsQueryVariables>;
