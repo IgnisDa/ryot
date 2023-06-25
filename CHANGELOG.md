@@ -1,4 +1,11 @@
 
+# Version 1.4.0 (2023-06-25)
+
+## Bug Fixes
+
+* **frontend:** refresh search results when adding to watchlist
+
+
 # Version 1.3.12 (2023-06-22)
 
 ## Bug Fixes
