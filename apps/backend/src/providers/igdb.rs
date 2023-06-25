@@ -13,7 +13,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::VideoGameSpecifics,
+    models::media::VideoGameSpecifics,
     traits::MediaProvider,
     utils::NamedObject,
 };

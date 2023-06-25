@@ -15,7 +15,7 @@ use crate::{
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
-    models::BookSpecifics,
+    models::media::BookSpecifics,
     providers::openlibrary::utils::get_key,
 };
 

@@ -1,3 +1,4 @@
+.yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
@@ -14,7 +15,6 @@
 .moon/docker
 .next/
 .pnp.*
-.yarn/*
 Thumbs.db
 build
 computed-config.*
@@ -32,3 +32,11 @@ tmp
 **/public/worker-*.js
 **/public/worker-*.js.map
 **/kodi/LICENSE
+**/.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/

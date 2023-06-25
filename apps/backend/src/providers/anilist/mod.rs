@@ -100,7 +100,7 @@ mod utils {
         graphql::{AUTHOR, PROJECT_NAME},
         migrator::{MetadataImageLot, MetadataSource},
         miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
-        models::{AnimeSpecifics, MangaSpecifics},
+        models::media::{AnimeSpecifics, MangaSpecifics},
     };
 
     use super::*;

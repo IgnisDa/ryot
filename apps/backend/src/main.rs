@@ -30,6 +30,7 @@ use axum::{
     Extension, Json, Server, TypedHeader,
 };
 use config::AppConfig;
+use file_storage::FileStorageService;
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use scdb::Store;
@@ -49,7 +50,7 @@ use uuid::Uuid;
 use crate::{
     background::{
         after_media_seen_job, general_media_cleanup_jobs, general_user_cleanup, import_media,
-        recalculate_user_summary_job, update_metadata_job, user_created_job,
+        recalculate_user_summary_job, update_exercise_job, update_metadata_job, user_created_job,
     },
     config::get_app_config,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
@@ -61,6 +62,8 @@ use crate::{
 mod background;
 mod config;
 mod entities;
+mod file_storage;
+mod fitness;
 mod graphql;
 mod importer;
 mod migrator;
@@ -136,14 +139,16 @@ async fn main() -> Result<()> {
     let after_media_seen_job_storage = create_storage(pool.clone()).await;
     let recalculate_user_summary_job_storage = create_storage(pool.clone()).await;
     let update_metadata_job_storage = create_storage(pool.clone()).await;
+    let update_exercise_job_storage = create_storage(pool.clone()).await;
 
     let app_services = create_app_services(
         db.clone(),
         scdb.clone(),
-        s3_client.clone(),
+        s3_client,
         &config,
         &import_media_storage,
         &user_created_job_storage,
+        &update_exercise_job_storage,
         &after_media_seen_job_storage,
         &update_metadata_job_storage,
         &recalculate_user_summary_job_storage,
@@ -170,10 +175,10 @@ async fn main() -> Result<()> {
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .route("/export", get(export))
         .layer(Extension(app_services.media_service.clone()))
+        .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
         .layer(Extension(scdb.clone()))
-        .layer(Extension(s3_client.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -197,6 +202,7 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.media_service.clone();
     let media_service_5 = app_services.media_service.clone();
     let media_service_6 = app_services.media_service.clone();
+    let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
         let mn = Monitor::new()
@@ -271,6 +277,14 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(media_service_6.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("update_exercise_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisRateLimitLayer::new(50, Duration::new(5, 0)))
+                    .layer(ApalisExtension(exercise_service_1.clone()))
+                    .with_storage(update_exercise_job_storage.clone())
+                    .build_fn(update_exercise_job)
             })
             .run()
             .await;
@@ -353,10 +367,13 @@ async fn graphql_handler(
 ) -> GraphQLResponse {
     let mut req = req.0;
     let mut ctx = GqlCtx { auth_token: None };
+    let strip = |t: &str| t.replace("Bearer ", "");
     if let Some(c) = cookies.get(COOKIE_NAME) {
         ctx.auth_token = Some(c.value().to_owned());
     } else if let Some(h) = headers.get(AUTHORIZATION) {
-        ctx.auth_token = h.to_str().map(|e| e.replace("Bearer ", "")).ok();
+        ctx.auth_token = h.to_str().map(strip).ok();
+    } else if let Some(h) = headers.get("X-Auth-Token") {
+        ctx.auth_token = h.to_str().map(strip).ok();
     }
     req = req.data(ctx);
     schema.execute(req).await.into()
@@ -371,8 +388,7 @@ async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoRes
 }
 
 async fn upload_handler(
-    Extension(config): Extension<AppConfig>,
-    Extension(s3_client): Extension<aws_sdk_s3::Client>,
+    Extension(file_storage): Extension<Arc<FileStorageService>>,
     mut files: Multipart,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let mut res = vec![];
@@ -383,12 +399,8 @@ async fn upload_handler(
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
         let key = format!("uploads/{}-{}", Uuid::new_v4(), name);
-        let _resp = s3_client
-            .put_object()
-            .bucket(&config.file_storage.s3_bucket_name)
-            .key(&key)
-            .body(data.into())
-            .send()
+        file_storage
+            .upload_file(&key, data.into())
             .await
             .map_err(|e| {
                 tracing::error!("{:?}", e);

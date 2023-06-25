@@ -12,6 +12,7 @@ use super::utils::SeenExtraInformation;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "review")]
+#[graphql(name = "Review")]
 pub struct Model {
     #[graphql(skip)]
     #[sea_orm(primary_key)]

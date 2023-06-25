@@ -14,6 +14,9 @@ use serde::{Deserialize, Serialize};
 use surf::Client;
 use tokio::task::JoinSet;
 
+use crate::background::UpdateExerciseJob;
+use crate::file_storage::FileStorageService;
+use crate::fitness::exercise::resolver::ExerciseService;
 use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
 use crate::{
     background::{
@@ -40,6 +43,8 @@ pub type MemoryDb = Arc<Mutex<Store>>;
 pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
+    pub file_storage_service: Arc<FileStorageService>,
+    pub exercise_service: Arc<ExerciseService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -50,10 +55,23 @@ pub async fn create_app_services(
     config: &AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
+    update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
     after_media_seen_job: &SqliteStorage<AfterMediaSeenJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
+    let file_storage_service = Arc::new(FileStorageService::new(
+        s3_client,
+        &config.file_storage.s3_bucket_name,
+    ));
+    let exercise_service = Arc::new(ExerciseService::new(
+        &db,
+        file_storage_service.clone(),
+        config.exercise.db.json_url.clone(),
+        config.exercise.db.images_prefix_url.clone(),
+        update_exercise_job,
+    ));
+
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
     let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
     let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
@@ -66,8 +84,7 @@ pub async fn create_app_services(
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
-        &s3_client,
-        &config.file_storage.s3_bucket_name,
+        file_storage_service.clone(),
         audible_service,
         igdb_service,
         listennotes_service,
@@ -81,10 +98,16 @@ pub async fn create_app_services(
         recalculate_user_summary_job,
         user_created_job,
     ));
-    let importer_service = Arc::new(ImporterService::new(&db, &media_service, import_media_job));
+    let importer_service = Arc::new(ImporterService::new(
+        &db,
+        media_service.clone(),
+        import_media_job,
+    ));
     AppServices {
         media_service,
         importer_service,
+        file_storage_service,
+        exercise_service,
     }
 }
 
@@ -121,16 +144,16 @@ pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
 }
 
 pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
-    let found_token = scdb.lock().unwrap().get(token.as_bytes());
-    match found_token {
-        Ok(tk) => match tk {
-            Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
-            None => Err(Error::new("The auth token was incorrect")),
-        },
+    let found_token = match scdb.try_lock() {
+        Ok(mut t) => t.get(token.as_bytes()).unwrap(),
         Err(e) => {
             tracing::error!("{:?}", e);
-            Err(Error::new("Error getting auth token"))
+            return Err(Error::new("Could not lock user database"));
         }
+    };
+    match found_token {
+        Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
+        None => Err(Error::new("The auth token was incorrect")),
     }
 }
 

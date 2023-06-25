@@ -2,7 +2,7 @@
 	"name": "@ryot/graphql",
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
-		"graphql-request": "6.0.0",
+		"graphql-request": "6.1.0",
 		"graphql-scalars": "1.21.3"
 	}
 }

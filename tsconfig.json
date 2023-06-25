@@ -3,6 +3,9 @@
   "files": [],
   "references": [
     {
+      "path": "apps/exercise-app"
+    },
+    {
       "path": "apps/frontend"
     },
     {

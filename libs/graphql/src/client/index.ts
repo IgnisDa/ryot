@@ -1,5 +1,5 @@
 import { GraphQLClient } from "graphql-request";
-import { gqlSerializer } from "./serialize";
+import { gqlSerializer } from "../serialize";
 
 export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 	const headers: Record<string, string> = {};
@@ -12,7 +12,7 @@ export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 };
 
 export const getAuthHeader = (issuerString: string) => ({
-	"X-Auth-Token": `${issuerString}`,
+	"X-Auth-Token": `Bearer ${issuerString}`,
 });
 
 export type { GraphQLClient };

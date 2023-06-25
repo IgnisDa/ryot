@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{metadata, seen},
+    fitness::exercise::resolver::ExerciseService,
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     migrator::MetadataLot,
@@ -13,6 +14,7 @@ use crate::{
         resolver::{AddMediaToCollection, MiscellaneousService},
         DefaultCollection,
     },
+    models::fitness::Exercise,
 };
 
 // Cron Jobs
@@ -243,6 +245,28 @@ pub async fn update_metadata_job(
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .update_metadata(information.metadata)
+        .await
+        .unwrap();
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UpdateExerciseJob {
+    pub exercise: Exercise,
+}
+
+impl Job for UpdateExerciseJob {
+    const NAME: &'static str = "apalis::UpdateExerciseJob";
+}
+
+pub async fn update_exercise_job(
+    information: UpdateExerciseJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Updating {:?}", information.exercise.name);
+    ctx.data::<Arc<ExerciseService>>()
+        .unwrap()
+        .update_exercise(information.exercise)
         .await
         .unwrap();
     Ok(())

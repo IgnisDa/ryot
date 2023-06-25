@@ -95,6 +95,25 @@ pub struct DatabaseConfig {
     pub url: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
+#[config(rename_all = "snake_case", env_prefix = "EXERCISE_DB_")]
+pub struct FreeExerciseDbConfig {
+    #[setting(
+        default = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json"
+    )]
+    pub json_url: String,
+    #[setting(
+        default = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises"
+    )]
+    pub images_prefix_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
+pub struct ExerciseConfig {
+    #[setting(nested)]
+    pub db: FreeExerciseDbConfig,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct MoviesTmdbConfig {
@@ -280,6 +299,8 @@ pub struct AppConfig {
     pub books: BookConfig,
     #[setting(nested)]
     pub database: DatabaseConfig,
+    #[setting(nested)]
+    pub exercise: ExerciseConfig,
     #[setting(nested)]
     pub file_storage: FileStorageConfig,
     #[setting(nested)]
