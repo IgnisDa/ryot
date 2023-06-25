@@ -20,4 +20,7 @@ the relevant `file_storage.*` configuration parameters.
   }
   ```
 
-**NOTE**: This needs to be run only once.
+  The response will include the number of exercises that will be imported. The
+  import will be done in background, and you can check the progress in the logs.
+
+**NOTE**: This needs to be run only once per instance.
