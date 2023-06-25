@@ -102,7 +102,7 @@ impl ExerciseService {
             .order_by_asc(exercise::Column::Id)
             .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
         let mut resp = vec![];
-        for ex in data.fetch_page(page.try_into().unwrap()).await? {
+        for ex in data.fetch_page((page - 1).try_into().unwrap()).await? {
             let mut ex_new = ex.clone();
             let mut images = vec![];
             for i in ex.attributes.images {
