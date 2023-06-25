@@ -18,7 +18,9 @@ export default function Page() {
 		queryKey: ["exercises"],
 		queryFn: async () => {
 			const client = await getGraphqlClient();
-			const { exercises } = await client.request(ExercisesDocument, undefined);
+			const { exercises } = await client.request(ExercisesDocument, {
+				page: 0,
+			});
 			return exercises;
 		},
 	});
