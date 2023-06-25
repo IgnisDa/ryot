@@ -3787,7 +3787,6 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "axum",
- "base64 0.21.2",
  "chrono",
  "convert_case",
  "cookie 0.17.0",

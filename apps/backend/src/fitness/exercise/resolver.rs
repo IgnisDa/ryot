@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use std::{ffi::OsStr, path::Path, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Object, Result};
-use base64::{engine::general_purpose, Engine as _};
+use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder,
 };
+use slug::slugify;
 
 use crate::{
     background::UpdateExerciseJob,
@@ -101,10 +101,25 @@ impl ExerciseService {
             .order_by_asc(exercise::Column::Id)
             .all(&self.db)
             .await?;
-        Ok(data)
+        let mut resp = vec![];
+        for ex in data {
+            let mut ex_new = ex.clone();
+            let mut images = vec![];
+            for i in ex.attributes.images {
+                images.push(self.file_storage.get_presigned_url(i).await);
+            }
+            ex_new.attributes.images = images;
+            resp.push(ex_new);
+        }
+        Ok(resp)
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
+        if !self.file_storage.is_enabled().await {
+            return Err(Error::new(
+                "File storage must be enabled for this feature.".to_owned(),
+            ));
+        }
         let mut storage = self.update_exercise.clone();
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
@@ -124,7 +139,15 @@ impl ExerciseService {
         {
             let mut images = vec![];
             let mut attributes = ex.attributes.clone();
-            for (_idx, image) in ex.attributes.images.into_iter().enumerate() {
+            for (idx, image) in ex.attributes.images.into_iter().enumerate() {
+                let ext = Path::new(&image)
+                    .extension()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or("png");
+                let key = format!(
+                    "fitness/exercises/{iden}/{idx}.{ext}",
+                    iden = slugify(&ex.identifier)
+                );
                 let image_data = surf::get(image)
                     .send()
                     .await
@@ -132,8 +155,10 @@ impl ExerciseService {
                     .body_bytes()
                     .await
                     .unwrap();
-                let image_base64 = general_purpose::URL_SAFE_NO_PAD.encode(image_data);
-                images.push(image_base64);
+                images.push(key.clone());
+                self.file_storage
+                    .upload_file(&key, image_data.into())
+                    .await?;
             }
             attributes.images = images;
             let db_exercise = exercise::ActiveModel {
