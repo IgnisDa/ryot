@@ -1,5 +1,5 @@
-query Exercises {
-  exercises {
+query Exercises($page: Int!) {
+  exercises(page: $page) {
     id
     name
     attributes {

@@ -3,8 +3,8 @@ use std::{ffi::OsStr, path::Path, sync::Arc};
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder,
 };
 use slug::slugify;
 
@@ -12,6 +12,7 @@ use crate::{
     background::UpdateExerciseJob,
     entities::{exercise, prelude::Exercise},
     file_storage::FileStorageService,
+    miscellaneous::PAGE_LIMIT,
     models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
 };
 
@@ -21,10 +22,10 @@ pub struct ExerciseQuery;
 #[Object]
 impl ExerciseQuery {
     /// Get all the exercises in the database
-    async fn exercises(&self, gql_ctx: &Context<'_>) -> Result<Vec<exercise::Model>> {
+    async fn exercises(&self, gql_ctx: &Context<'_>, page: i32) -> Result<Vec<exercise::Model>> {
         gql_ctx
             .data_unchecked::<Arc<ExerciseService>>()
-            .exercises()
+            .exercises(page)
             .await
     }
 }
@@ -96,13 +97,12 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercises(&self) -> Result<Vec<exercise::Model>> {
+    async fn exercises(&self, page: i32) -> Result<Vec<exercise::Model>> {
         let data = Exercise::find()
             .order_by_asc(exercise::Column::Id)
-            .all(&self.db)
-            .await?;
+            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
         let mut resp = vec![];
-        for ex in data {
+        for ex in data.fetch_page(page.try_into().unwrap()).await? {
             let mut ex_new = ex.clone();
             let mut images = vec![];
             for i in ex.attributes.images {
