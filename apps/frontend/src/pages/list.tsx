@@ -36,6 +36,7 @@ import {
 	MediaSearchDocument,
 	MediaSortBy,
 	MediaSortOrder,
+	PartialCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconFilter,
@@ -60,7 +61,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const defaultFilters = {
-	mineFilter: MediaFilter.All,
+	mineGeneralFilter: MediaFilter.All,
 	mineSortOrder: MediaSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
 };
@@ -80,9 +81,13 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFilters.mineSortBy,
 		getInitialValueInEffect: false,
 	});
-	const [mineFilter, setMineFilter] = useLocalStorage({
-		key: "mineFilter",
-		defaultValue: defaultFilters.mineFilter,
+	const [mineGeneralFilter, setMineGeneralFilter] = useLocalStorage({
+		key: "mineGeneralFilter",
+		defaultValue: defaultFilters.mineGeneralFilter,
+		getInitialValueInEffect: false,
+	});
+	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage({
+		key: "mineCollectionFilter",
 		getInitialValueInEffect: false,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
@@ -119,7 +124,8 @@ const Page: NextPageWithLayout = () => {
 			lot,
 			mineSortBy,
 			mineSortOrder,
-			mineFilter,
+			mineGeneralFilter,
+			mineCollectionFilter,
 			debouncedQuery,
 		],
 		queryFn: async () => {
@@ -130,7 +136,8 @@ const Page: NextPageWithLayout = () => {
 					page: parseInt(activeMinePage) || 1,
 					sort: { order: mineSortOrder, by: mineSortBy },
 					query: debouncedQuery || undefined,
-					filter: mineFilter,
+					filter: mineGeneralFilter,
+					collection: Number(mineCollectionFilter),
 				},
 			});
 			return mediaList;
@@ -159,6 +166,16 @@ const Page: NextPageWithLayout = () => {
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
 	});
+	const partialCollections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(
+				PartialCollectionsDocument,
+			);
+			return collections.map((c) => c.collectionDetails);
+		},
+		staleTime: Infinity,
+	});
 
 	useEffect(() => {
 		setDebouncedQuery(query?.trim());
@@ -172,12 +189,12 @@ const Page: NextPageWithLayout = () => {
 		) : null;
 
 	const isFilterChanged =
-		mineFilter !== defaultFilters.mineFilter ||
+		mineGeneralFilter !== defaultFilters.mineGeneralFilter ||
 		mineSortOrder !== defaultFilters.mineSortOrder ||
 		mineSortBy !== defaultFilters.mineSortBy;
 
 	const resetFilters = () => {
-		setMineFilter(defaultFilters.mineFilter);
+		setMineGeneralFilter(defaultFilters.mineGeneralFilter);
 		setMineSortOrder(defaultFilters.mineSortOrder);
 		setMineSortBy(defaultFilters.mineSortBy);
 	};
@@ -270,10 +287,11 @@ const Page: NextPageWithLayout = () => {
 												</Group>
 												<Select
 													withinPortal
-													value={mineFilter.toString()}
+													value={mineGeneralFilter.toString()}
 													data={Object.values(MediaFilter).map((o) => ({
 														value: o.toString(),
 														label: startCase(lowerCase(o)),
+														group: "General filters",
 													}))}
 													onChange={(v) => {
 														const filter = match(v)
@@ -286,7 +304,7 @@ const Page: NextPageWithLayout = () => {
 															.otherwise((_v) => {
 																throw new Error("Invalid filter selected");
 															});
-														setMineFilter(filter);
+														setMineGeneralFilter(filter);
 													}}
 												/>
 												<Flex gap={"xs"} align={"center"}>
@@ -296,6 +314,7 @@ const Page: NextPageWithLayout = () => {
 														data={Object.values(MediaSortBy).map((o) => ({
 															value: o.toString(),
 															label: startCase(lowerCase(o)),
+															group: "Sort by",
 														}))}
 														value={mineSortBy.toString()}
 														onChange={(v) => {
@@ -329,6 +348,18 @@ const Page: NextPageWithLayout = () => {
 														)}
 													</ActionIcon>
 												</Flex>
+												<Select
+													withinPortal
+													value={mineCollectionFilter}
+													data={(partialCollections.data || []).map((c) => ({
+														value: c.id.toString(),
+														label: c.name,
+														group: "Collections",
+													}))}
+													onChange={(v) => {
+														if (v) setMineCollectionFilter(v);
+													}}
+												/>
 											</Stack>
 										</Modal>
 									</Flex>
