@@ -51,3 +51,22 @@ struct DoneWorkout {
     pub total: DoneTotal,
     pub user_id: i32,
 }
+
+impl DoneWorkout {
+    fn new(name: String, start_time: DateTimeUtc, end_time: DateTimeUtc, user_id: i32) -> Self {
+        Self {
+            name,
+            start_time,
+            end_time,
+            user_id,
+            exercises: vec![],
+            supersets: vec![],
+            total: DoneTotal {
+                personal_bests: 0,
+                weight: 0,
+                reps: 0,
+                active_duration: 0,
+            },
+        }
+    }
+}
