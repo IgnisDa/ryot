@@ -1,4 +1,3 @@
-const path = require("node:path");
 const withPWAInit = require("next-pwa");
 
 /** @type {import('next-pwa').PWAConfig} */
