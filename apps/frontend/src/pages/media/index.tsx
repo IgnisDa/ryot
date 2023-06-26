@@ -66,6 +66,8 @@ import {
 	MetadataSource,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
+	RemoveMediaFromCollectionDocument,
+	type RemoveMediaFromCollectionMutationVariables,
 	SeenHistoryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -533,6 +535,20 @@ const Page: NextPageWithLayout = () => {
 			router.push(ROUTES.dashboard);
 		},
 	});
+	const removeMediaFromCollection = useMutation({
+		mutationFn: async (
+			variables: RemoveMediaFromCollectionMutationVariables,
+		) => {
+			const { removeMediaFromCollection } = await gqlClient.request(
+				RemoveMediaFromCollectionDocument,
+				variables,
+			);
+			return removeMediaFromCollection;
+		},
+		onSuccess: () => {
+			collections.refetch();
+		},
+	});
 
 	const creators = useMemo(() => {
 		const creators: Record<string, { name: string }[]> = {};
@@ -649,17 +665,35 @@ const Page: NextPageWithLayout = () => {
 					</Group>
 					{mediaCollections && mediaCollections.length > 0 ? (
 						<Group id="media-collections">
-							{mediaCollections.map((c) => (
+							{mediaCollections.map((collectionName) => (
 								<Badge
-									key={c}
+									key={collectionName}
 									color={
 										colors[
 											// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-											(getStringAsciiValue(c) + colors.length) % colors.length
+											(getStringAsciiValue(collectionName) + colors.length) %
+												colors.length
 										]
 									}
 								>
-									<Text truncate>{c}</Text>
+									<Flex gap={2}>
+										<Text truncate>{collectionName}</Text>
+										<ActionIcon
+											size="1rem"
+											onClick={() => {
+												const yes = confirm(
+													"Are you sure you want to remove this media from this collection?",
+												);
+												if (yes)
+													removeMediaFromCollection.mutate({
+														collectionName,
+														metadataId,
+													});
+											}}
+										>
+											<IconX />
+										</ActionIcon>
+									</Flex>
 								</Badge>
 							))}
 						</Group>

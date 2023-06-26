@@ -492,13 +492,19 @@ pub struct MediaSortInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
-pub enum MediaFilter {
+pub enum MediaGeneralFilter {
     All,
     Rated,
     Unrated,
     Dropped,
     Finished,
     Unseen,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaFilter {
+    pub general: Option<MediaGeneralFilter>,
+    pub collection: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1235,7 +1241,7 @@ impl MiscellaneousService {
             )
             .to_owned();
 
-        if let Some(v) = input.query.clone() {
+        if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
                 Expr::expr(Func::lower(Func::cast_as(
                     Expr::col((TempMetadata::Alias, col)),
@@ -1255,11 +1261,11 @@ impl MiscellaneousService {
 
         let order_by = input
             .sort
-            .clone()
+            .as_ref()
             .map(|a| Order::from(a.order))
             .unwrap_or(Order::Asc);
 
-        match input.sort.clone() {
+        match input.sort {
             None => {
                 main_select = main_select
                     .order_by((TempMetadata::Alias, metadata::Column::Title), order_by)
@@ -1337,10 +1343,24 @@ impl MiscellaneousService {
             }
         };
 
-        match input.filter {
-            None => {}
-            Some(s) => {
-                let reviews = if matches!(s, MediaFilter::All) {
+        if let Some(f) = input.filter {
+            if let Some(s) = f.collection {
+                let all_media = MetadataToCollection::find()
+                    .filter(metadata_to_collection::Column::CollectionId.eq(s))
+                    .all(&self.db)
+                    .await?;
+                let collections = all_media
+                    .into_iter()
+                    .map(|m| m.metadata_id)
+                    .collect::<Vec<_>>();
+                main_select = main_select
+                    .and_where(
+                        Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(collections),
+                    )
+                    .to_owned();
+            }
+            if let Some(s) = f.general {
+                let reviews = if matches!(s, MediaGeneralFilter::All) {
                     vec![]
                 } else {
                     Review::find()
@@ -1352,15 +1372,15 @@ impl MiscellaneousService {
                         .collect::<Vec<_>>()
                 };
                 match s {
-                    MediaFilter::All => {}
-                    MediaFilter::Rated => {
+                    MediaGeneralFilter::All => {}
+                    MediaGeneralFilter::Rated => {
                         main_select = main_select
                             .and_where(
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id)).is_in(reviews),
                             )
                             .to_owned();
                     }
-                    MediaFilter::Unrated => {
+                    MediaGeneralFilter::Unrated => {
                         main_select = main_select
                             .and_where(
                                 Expr::col((TempMetadata::Alias, TempMetadata::Id))
@@ -1368,7 +1388,7 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
-                    MediaFilter::Dropped => {
+                    MediaGeneralFilter::Dropped => {
                         let dropped_ids = Seen::find()
                             .filter(seen::Column::UserId.eq(user_id))
                             .filter(seen::Column::Dropped.eq(true))
@@ -1384,7 +1404,7 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
-                    MediaFilter::Finished => {
+                    MediaGeneralFilter::Finished => {
                         let finished_ids = Seen::find()
                             .filter(seen::Column::UserId.eq(user_id))
                             .filter(seen::Column::Progress.eq(100))
@@ -1400,7 +1420,7 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
-                    MediaFilter::Unseen => {
+                    MediaGeneralFilter::Unseen => {
                         main_select = main_select
                             .join_as(
                                 JoinType::LeftJoin,
@@ -1412,7 +1432,7 @@ impl MiscellaneousService {
                             .and_where(Expr::col((TempSeen::Alias, TempSeen::MetadataId)).is_null())
                             .to_owned();
                     }
-                }
+                };
             }
         };
 
