@@ -2,13 +2,17 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use sea_orm::entity::prelude::*;
+use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::associate_user_with_metadata;
+use crate::{entities::prelude::UserToMetadata, utils::associate_user_with_metadata};
 
-use super::utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation};
+use super::{
+    user_to_metadata,
+    utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Seen")]
@@ -78,6 +82,15 @@ impl ActiveModelBehavior for ActiveModel {
                 .await
                 .ok();
         }
+        UserToMetadata::update_many()
+            .filter(user_to_metadata::Column::UserId.eq(model.user_id))
+            .filter(user_to_metadata::Column::MetadataId.eq(model.metadata_id))
+            .col_expr(
+                user_to_metadata::Column::LastUpdatedOn,
+                Expr::value(Utc::now()),
+            )
+            .exec(db)
+            .await?;
         Ok(model)
     }
 }

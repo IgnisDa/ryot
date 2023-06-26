@@ -1281,6 +1281,7 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
+                    // TODO: This can be sorted by the `last_updated_on` field
                     MediaSortBy::LastSeen => {
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
@@ -2152,7 +2153,7 @@ impl MiscellaneousService {
 
     async fn collections(&self, user_id: &i32) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .filter(collection::Column::UserId.eq(*user_id))
             .find_with_related(Metadata)
             .all(&self.db)
             .await
@@ -2160,19 +2161,30 @@ impl MiscellaneousService {
         let mut data = vec![];
         for (col, metas) in collections.into_iter() {
             let mut meta_data = vec![];
-            for meta in metas {
+            for meta in metas.iter() {
                 let m = self.generic_metadata(meta.id).await?;
-                meta_data.push(MediaSearchItem {
-                    identifier: m.model.id.to_string(),
-                    lot: m.model.lot,
-                    title: m.model.title,
-                    images: m.poster_images,
-                    publish_year: m.model.publish_year,
-                })
+                let u_t_m = UserToMetadata::find()
+                    .filter(user_to_metadata::Column::UserId.eq(*user_id))
+                    .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
+                    .one(&self.db)
+                    .await?
+                    .unwrap();
+                meta_data.push((
+                    MediaSearchItem {
+                        identifier: m.model.id.to_string(),
+                        lot: m.model.lot,
+                        title: m.model.title,
+                        images: m.poster_images,
+                        publish_year: m.model.publish_year,
+                    },
+                    u_t_m.last_updated_on,
+                ));
             }
+            meta_data.sort_by_key(|item| item.1);
+            let ordered = meta_data.into_iter().rev().map(|a| a.0).collect();
             data.push(CollectionItem {
                 collection_details: col,
-                media_details: meta_data,
+                media_details: ordered,
             });
         }
         Ok(data)
