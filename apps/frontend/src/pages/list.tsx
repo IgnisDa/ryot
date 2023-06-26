@@ -362,7 +362,7 @@ const Page: NextPageWithLayout = () => {
 													data={(partialCollections.data || []).map((c) => ({
 														value: c.id.toString(),
 														label: c.name,
-														group: "Collections",
+														group: "My collections",
 													}))}
 													onChange={(v) => {
 														setMineCollectionFilter(v || "non");
