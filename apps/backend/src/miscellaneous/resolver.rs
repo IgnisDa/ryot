@@ -1241,7 +1241,7 @@ impl MiscellaneousService {
             )
             .to_owned();
 
-        if let Some(v) = input.query.clone() {
+        if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
                 Expr::expr(Func::lower(Func::cast_as(
                     Expr::col((TempMetadata::Alias, col)),
@@ -1261,11 +1261,11 @@ impl MiscellaneousService {
 
         let order_by = input
             .sort
-            .clone()
+            .as_ref()
             .map(|a| Order::from(a.order))
             .unwrap_or(Order::Asc);
 
-        match input.sort.clone() {
+        match input.sort {
             None => {
                 main_select = main_select
                     .order_by((TempMetadata::Alias, metadata::Column::Title), order_by)
