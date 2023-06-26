@@ -1,4 +1,15 @@
 
+# Version 1.4.1 (2023-06-26)
+
+## Documentation
+
+* add more info to fitness guide
+
+## Features
+
+* do not autocapitalize input
+
+
 # Version 1.4.0 (2023-06-25)
 
 ## Bug Fixes
