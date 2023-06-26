@@ -234,6 +234,8 @@ const Page: NextPageWithLayout = () => {
 											value={query}
 											rightSection={<ClearButton />}
 											style={{ flexGrow: 1 }}
+											autoCapitalize="none"
+											autoComplete="off"
 										/>
 										<ActionIcon
 											onClick={openFiltersModal}
@@ -386,6 +388,8 @@ const Page: NextPageWithLayout = () => {
 								onChange={(e) => setQuery(e.currentTarget.value)}
 								value={query}
 								rightSection={<ClearButton />}
+								autoCapitalize="none"
+								autoComplete="off"
 							/>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<>
