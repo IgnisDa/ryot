@@ -2185,7 +2185,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         let mut data = vec![];
-        for (col, metas) in collections.into_iter() {
+        for (collection_details, metas) in collections.into_iter() {
             let mut meta_data = vec![];
             for meta in metas.iter() {
                 let m = self.generic_metadata(meta.id).await?;
@@ -2207,10 +2207,10 @@ impl MiscellaneousService {
                 ));
             }
             meta_data.sort_by_key(|item| item.1);
-            let ordered = meta_data.into_iter().rev().map(|a| a.0).collect();
+            let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
             data.push(CollectionItem {
-                collection_details: col,
-                media_details: ordered,
+                collection_details,
+                media_details,
             });
         }
         Ok(data)
