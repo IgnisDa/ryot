@@ -31,11 +31,12 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	MediaFilter,
+	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
 	MediaSortBy,
 	MediaSortOrder,
+	PartialCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconFilter,
@@ -60,7 +61,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const defaultFilters = {
-	mineFilter: MediaFilter.All,
+	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: MediaSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
 };
@@ -80,9 +81,13 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFilters.mineSortBy,
 		getInitialValueInEffect: false,
 	});
-	const [mineFilter, setMineFilter] = useLocalStorage({
-		key: "mineFilter",
-		defaultValue: defaultFilters.mineFilter,
+	const [mineGeneralFilter, setMineGeneralFilter] = useLocalStorage({
+		key: "mineGeneralFilter",
+		defaultValue: defaultFilters.mineGeneralFilter,
+		getInitialValueInEffect: false,
+	});
+	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage({
+		key: "mineCollectionFilter",
 		getInitialValueInEffect: false,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
@@ -119,7 +124,8 @@ const Page: NextPageWithLayout = () => {
 			lot,
 			mineSortBy,
 			mineSortOrder,
-			mineFilter,
+			mineGeneralFilter,
+			mineCollectionFilter,
 			debouncedQuery,
 		],
 		queryFn: async () => {
@@ -130,7 +136,10 @@ const Page: NextPageWithLayout = () => {
 					page: parseInt(activeMinePage) || 1,
 					sort: { order: mineSortOrder, by: mineSortBy },
 					query: debouncedQuery || undefined,
-					filter: mineFilter,
+					filter: {
+						general: mineGeneralFilter,
+						collection: Number(mineCollectionFilter),
+					},
 				},
 			});
 			return mediaList;
@@ -159,6 +168,16 @@ const Page: NextPageWithLayout = () => {
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
 	});
+	const partialCollections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(
+				PartialCollectionsDocument,
+			);
+			return collections.map((c) => c.collectionDetails);
+		},
+		staleTime: Infinity,
+	});
 
 	useEffect(() => {
 		setDebouncedQuery(query?.trim());
@@ -172,12 +191,12 @@ const Page: NextPageWithLayout = () => {
 		) : null;
 
 	const isFilterChanged =
-		mineFilter !== defaultFilters.mineFilter ||
+		mineGeneralFilter !== defaultFilters.mineGeneralFilter ||
 		mineSortOrder !== defaultFilters.mineSortOrder ||
 		mineSortBy !== defaultFilters.mineSortBy;
 
 	const resetFilters = () => {
-		setMineFilter(defaultFilters.mineFilter);
+		setMineGeneralFilter(defaultFilters.mineGeneralFilter);
 		setMineSortOrder(defaultFilters.mineSortOrder);
 		setMineSortBy(defaultFilters.mineSortBy);
 	};
@@ -279,23 +298,27 @@ const Page: NextPageWithLayout = () => {
 												</Group>
 												<Select
 													withinPortal
-													value={mineFilter.toString()}
-													data={Object.values(MediaFilter).map((o) => ({
+													value={mineGeneralFilter.toString()}
+													data={Object.values(MediaGeneralFilter).map((o) => ({
 														value: o.toString(),
 														label: startCase(lowerCase(o)),
+														group: "General filters",
 													}))}
 													onChange={(v) => {
 														const filter = match(v)
-															.with("ALL", () => MediaFilter.All)
-															.with("RATED", () => MediaFilter.Rated)
-															.with("UNRATED", () => MediaFilter.Unrated)
-															.with("DROPPED", () => MediaFilter.Dropped)
-															.with("FINISHED", () => MediaFilter.Finished)
-															.with("UNSEEN", () => MediaFilter.Unseen)
+															.with("ALL", () => MediaGeneralFilter.All)
+															.with("RATED", () => MediaGeneralFilter.Rated)
+															.with("UNRATED", () => MediaGeneralFilter.Unrated)
+															.with("DROPPED", () => MediaGeneralFilter.Dropped)
+															.with(
+																"FINISHED",
+																() => MediaGeneralFilter.Finished,
+															)
+															.with("UNSEEN", () => MediaGeneralFilter.Unseen)
 															.otherwise((_v) => {
 																throw new Error("Invalid filter selected");
 															});
-														setMineFilter(filter);
+														setMineGeneralFilter(filter);
 													}}
 												/>
 												<Flex gap={"xs"} align={"center"}>
@@ -305,6 +328,7 @@ const Page: NextPageWithLayout = () => {
 														data={Object.values(MediaSortBy).map((o) => ({
 															value: o.toString(),
 															label: startCase(lowerCase(o)),
+															group: "Sort by",
 														}))}
 														value={mineSortBy.toString()}
 														onChange={(v) => {
@@ -327,21 +351,37 @@ const Page: NextPageWithLayout = () => {
 																});
 															setMineSortBy(orderBy);
 														}}
+														rightSection={
+															<ActionIcon
+																onClick={() => {
+																	if (mineSortOrder === MediaSortOrder.Asc)
+																		setMineSortOrder(MediaSortOrder.Desc);
+																	else setMineSortOrder(MediaSortOrder.Asc);
+																}}
+															>
+																{mineSortOrder === MediaSortOrder.Asc ? (
+																	<IconSortAscending />
+																) : (
+																	<IconSortDescending />
+																)}
+															</ActionIcon>
+														}
 													/>
-													<ActionIcon
-														onClick={() => {
-															if (mineSortOrder === MediaSortOrder.Asc)
-																setMineSortOrder(MediaSortOrder.Desc);
-															else setMineSortOrder(MediaSortOrder.Asc);
-														}}
-													>
-														{mineSortOrder === MediaSortOrder.Asc ? (
-															<IconSortAscending />
-														) : (
-															<IconSortDescending />
-														)}
-													</ActionIcon>
 												</Flex>
+												<Select
+													withinPortal
+													placeholder="Select a collection"
+													value={mineCollectionFilter}
+													data={(partialCollections.data || []).map((c) => ({
+														value: c.id.toString(),
+														label: c.name,
+														group: "My collections",
+													}))}
+													onChange={(v) => {
+														setMineCollectionFilter(v || "non");
+													}}
+													clearable
+												/>
 											</Stack>
 										</Modal>
 									</Flex>

@@ -2,7 +2,6 @@ query Collections {
   collections {
     collectionDetails {
       id
-      createdOn
       name
     }
     mediaDetails {

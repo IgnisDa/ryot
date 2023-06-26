@@ -16,12 +16,7 @@ import {
 	LogoutUserDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	IconHome2,
-	IconListDetails,
-	IconLogout,
-	IconSettings,
-} from "@tabler/icons-react";
+import { IconHome2, IconLogout, IconSettings } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -113,7 +108,6 @@ export default function ({ children }: { children: ReactElement }) {
 				icon: getMetadataIcon(f.name),
 				href: undefined,
 			})) || []),
-		{ icon: IconListDetails, label: "Collections", href: ROUTES.collections },
 		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
 	].map((link, _index) => (
 		<NavbarButton

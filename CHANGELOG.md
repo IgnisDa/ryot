@@ -1,4 +1,7 @@
 
+# Version 1.4.2 (2023-06-26)
+
+
 # Version 1.4.1 (2023-06-26)
 
 ## Documentation
