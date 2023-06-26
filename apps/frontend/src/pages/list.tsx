@@ -31,7 +31,7 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	MediaFilter,
+	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
 	MediaSortBy,
@@ -61,7 +61,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const defaultFilters = {
-	mineGeneralFilter: MediaFilter.All,
+	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: MediaSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
 };
@@ -136,8 +136,10 @@ const Page: NextPageWithLayout = () => {
 					page: parseInt(activeMinePage) || 1,
 					sort: { order: mineSortOrder, by: mineSortBy },
 					query: debouncedQuery || undefined,
-					filter: mineGeneralFilter,
-					collection: Number(mineCollectionFilter),
+					filter: {
+						general: mineGeneralFilter,
+						collection: Number(mineCollectionFilter),
+					},
 				},
 			});
 			return mediaList;
@@ -288,19 +290,22 @@ const Page: NextPageWithLayout = () => {
 												<Select
 													withinPortal
 													value={mineGeneralFilter.toString()}
-													data={Object.values(MediaFilter).map((o) => ({
+													data={Object.values(MediaGeneralFilter).map((o) => ({
 														value: o.toString(),
 														label: startCase(lowerCase(o)),
 														group: "General filters",
 													}))}
 													onChange={(v) => {
 														const filter = match(v)
-															.with("ALL", () => MediaFilter.All)
-															.with("RATED", () => MediaFilter.Rated)
-															.with("UNRATED", () => MediaFilter.Unrated)
-															.with("DROPPED", () => MediaFilter.Dropped)
-															.with("FINISHED", () => MediaFilter.Finished)
-															.with("UNSEEN", () => MediaFilter.Unseen)
+															.with("ALL", () => MediaGeneralFilter.All)
+															.with("RATED", () => MediaGeneralFilter.Rated)
+															.with("UNRATED", () => MediaGeneralFilter.Unrated)
+															.with("DROPPED", () => MediaGeneralFilter.Dropped)
+															.with(
+																"FINISHED",
+																() => MediaGeneralFilter.Finished,
+															)
+															.with("UNSEEN", () => MediaGeneralFilter.Unseen)
 															.otherwise((_v) => {
 																throw new Error("Invalid filter selected");
 															});
@@ -333,23 +338,26 @@ const Page: NextPageWithLayout = () => {
 																});
 															setMineSortBy(orderBy);
 														}}
+														rightSection={
+															<ActionIcon
+																onClick={() => {
+																	if (mineSortOrder === MediaSortOrder.Asc)
+																		setMineSortOrder(MediaSortOrder.Desc);
+																	else setMineSortOrder(MediaSortOrder.Asc);
+																}}
+															>
+																{mineSortOrder === MediaSortOrder.Asc ? (
+																	<IconSortAscending />
+																) : (
+																	<IconSortDescending />
+																)}
+															</ActionIcon>
+														}
 													/>
-													<ActionIcon
-														onClick={() => {
-															if (mineSortOrder === MediaSortOrder.Asc)
-																setMineSortOrder(MediaSortOrder.Desc);
-															else setMineSortOrder(MediaSortOrder.Asc);
-														}}
-													>
-														{mineSortOrder === MediaSortOrder.Asc ? (
-															<IconSortAscending />
-														) : (
-															<IconSortDescending />
-														)}
-													</ActionIcon>
 												</Flex>
 												<Select
 													withinPortal
+													placeholder="Select a collection"
 													value={mineCollectionFilter}
 													data={(partialCollections.data || []).map((c) => ({
 														value: c.id.toString(),
@@ -357,8 +365,9 @@ const Page: NextPageWithLayout = () => {
 														group: "Collections",
 													}))}
 													onChange={(v) => {
-														if (v) setMineCollectionFilter(v);
+														setMineCollectionFilter(v || "non");
 													}}
+													clearable
 												/>
 											</Stack>
 										</Modal>

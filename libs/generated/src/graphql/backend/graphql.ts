@@ -316,7 +316,12 @@ export type MangaSummary = {
   read: Scalars['Int'];
 };
 
-export enum MediaFilter {
+export type MediaFilter = {
+  collection?: InputMaybe<Scalars['Int']>;
+  general?: InputMaybe<MediaGeneralFilter>;
+};
+
+export enum MediaGeneralFilter {
   All = 'ALL',
   Dropped = 'DROPPED',
   Finished = 'FINISHED',
