@@ -182,6 +182,22 @@ const Page: NextPageWithLayout = () => {
 		setMineSortBy(defaultFilters.mineSortBy);
 	};
 
+	const SearchInput = (props: { placeholder: string }) => {
+		return (
+			<TextInput
+				name="query"
+				placeholder={props.placeholder}
+				icon={<IconSearch />}
+				onChange={(e) => setQuery(e.currentTarget.value)}
+				value={query}
+				rightSection={<ClearButton />}
+				style={{ flexGrow: 1 }}
+				autoCapitalize="none"
+				autoComplete="off"
+			/>
+		);
+	};
+
 	return lot ? (
 		<>
 			<Head>
@@ -224,19 +240,12 @@ const Page: NextPageWithLayout = () => {
 							<MantineGrid grow>
 								<MantineGrid.Col span={12}>
 									<Flex align={"center"} gap="xs">
-										<TextInput
-											name="query"
-											placeholder={`Sift through your ${changeCase(
+										{/* Weird syntax because of: https://stackoverflow.com/a/65328486/11667450 */}
+										{SearchInput({
+											placeholder: `Sift through your ${changeCase(
 												lot.toLowerCase(),
-											).toLowerCase()}s`}
-											icon={<IconSearch />}
-											onChange={(e) => setQuery(e.currentTarget.value)}
-											value={query}
-											rightSection={<ClearButton />}
-											style={{ flexGrow: 1 }}
-											autoCapitalize="none"
-											autoComplete="off"
-										/>
+											).toLowerCase()}s`,
+										})}
 										<ActionIcon
 											onClick={openFiltersModal}
 											color={isFilterChanged ? "blue" : undefined}
@@ -378,19 +387,11 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="search">
 						<Stack>
-							<TextInput
-								name="query"
-								placeholder={`Search for a ${changeCase(
+							{SearchInput({
+								placeholder: `Search for ${changeCase(
 									lot.toLowerCase(),
-								).toLowerCase()}`}
-								icon={<IconSearch />}
-								style={{ flexGrow: 1 }}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={<ClearButton />}
-								autoCapitalize="none"
-								autoComplete="off"
-							/>
+								).toLowerCase()}s`,
+							})}
 							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<>
 									<Box>
