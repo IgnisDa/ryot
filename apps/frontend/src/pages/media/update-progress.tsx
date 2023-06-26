@@ -16,8 +16,10 @@ import {
 	Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { notifications } from "@mantine/notifications";
 import {
 	MediaDetailsDocument,
+	MetadataLot,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -69,7 +71,16 @@ const Page: NextPageWithLayout = () => {
 						},
 					});
 				}
-				return;
+				return true;
+			}
+			if (
+				(details.data?.lot === MetadataLot.Show &&
+					(!selectedShowEpisodeNumber || !selectedShowSeasonNumber)) ||
+				(details.data?.lot === MetadataLot.Podcast &&
+					!selectedPodcastEpisodeNumber)
+			) {
+				notifications.show({ message: "Please select a season and episode" });
+				return false;
 			}
 			const { progressUpdate } = await gqlClient.request(
 				ProgressUpdateDocument,
@@ -77,8 +88,8 @@ const Page: NextPageWithLayout = () => {
 			);
 			return progressUpdate;
 		},
-		onSuccess: () => {
-			router.push(`${ROUTES.media.details}?item=${metadataId}`);
+		onSuccess: (data) => {
+			if (data) router.push(`${ROUTES.media.details}?item=${metadataId}`);
 		},
 	});
 
