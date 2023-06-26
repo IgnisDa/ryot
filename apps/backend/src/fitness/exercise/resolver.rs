@@ -1,11 +1,13 @@
 use std::{ffi::OsStr, path::Path, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Error, Object, Result};
+use async_graphql::{Context, Error, InputObject, Object, Result};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    QueryFilter, QueryOrder, QueryTrait,
 };
+use sea_query::{Condition, Expr, Func};
+use serde::{Deserialize, Serialize};
 use slug::slugify;
 
 use crate::{
@@ -16,16 +18,26 @@ use crate::{
     models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
 };
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct ExercisesListInput {
+    pub page: i32,
+    pub query: Option<String>,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
     /// Get all the exercises in the database
-    async fn exercises(&self, gql_ctx: &Context<'_>, page: i32) -> Result<Vec<exercise::Model>> {
+    async fn exercises_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: ExercisesListInput,
+    ) -> Result<Vec<exercise::Model>> {
         gql_ctx
             .data_unchecked::<Arc<ExerciseService>>()
-            .exercises(page)
+            .exercises_list(input)
             .await
     }
 }
@@ -97,12 +109,23 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercises(&self, page: i32) -> Result<Vec<exercise::Model>> {
+    async fn exercises_list(&self, input: ExercisesListInput) -> Result<Vec<exercise::Model>> {
         let data = Exercise::find()
-            .order_by_asc(exercise::Column::Id)
+            .apply_if(input.query, |query, v| {
+                query.filter(
+                    Condition::all().add(
+                        Expr::expr(Func::lower(Expr::col(exercise::Column::Name)))
+                            .like(format!("%{}%", v.to_lowercase())),
+                    ),
+                )
+            })
+            .order_by_asc(exercise::Column::Name)
             .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
         let mut resp = vec![];
-        for ex in data.fetch_page((page - 1).try_into().unwrap()).await? {
+        for ex in data
+            .fetch_page((input.page - 1).try_into().unwrap())
+            .await?
+        {
             let mut ex_new = ex.clone();
             let mut images = vec![];
             for i in ex.attributes.images {

@@ -3,7 +3,7 @@ import { Button, Center } from "@/components";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks";
 import {
-	ExercisesDocument,
+	ExercisesListDocument,
 	UserEnabledFeaturesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
@@ -18,10 +18,10 @@ export default function Page() {
 		queryKey: ["exercises"],
 		queryFn: async () => {
 			const client = await getGraphqlClient();
-			const { exercises } = await client.request(ExercisesDocument, {
-				page: 0,
+			const { exercisesList } = await client.request(ExercisesListDocument, {
+				input: { page: 0 },
 			});
-			return exercises;
+			return exercisesList;
 		},
 	});
 
