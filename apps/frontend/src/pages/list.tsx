@@ -304,6 +304,10 @@ const Page: NextPageWithLayout = () => {
 																)
 																.with("RATING", () => MediaSortBy.Rating)
 																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
+																.with(
+																	"LAST_UPDATED",
+																	() => MediaSortBy.LastUpdated,
+																)
 																.with("TITLE", () => MediaSortBy.Title)
 																.otherwise(() => {
 																	throw new Error(

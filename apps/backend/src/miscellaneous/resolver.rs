@@ -480,6 +480,7 @@ pub enum MediaSortBy {
     #[default]
     ReleaseDate,
     LastSeen,
+    LastUpdated,
     Rating,
 }
 
@@ -1205,6 +1206,15 @@ impl MiscellaneousService {
             Lot,
         }
         #[derive(Iden)]
+        #[iden = "user_to_metadata"]
+        enum TempMetadataToUser {
+            Table,
+            #[iden = "mtu"]
+            Alias,
+            MetadataId,
+            LastUpdatedOn,
+        }
+        #[derive(Iden)]
         #[iden = "seen"]
         enum TempSeen {
             Table,
@@ -1281,7 +1291,6 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
-                    // TODO: This can be sorted by the `last_updated_on` field
                     MediaSortBy::LastSeen => {
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
@@ -1305,6 +1314,23 @@ impl MiscellaneousService {
                                 (TempSeen::Alias, TempSeen::LastSeen),
                                 order_by,
                                 NullOrdering::Last,
+                            )
+                            .to_owned();
+                    }
+                    MediaSortBy::LastUpdated => {
+                        main_select = main_select
+                            .join_as(
+                                JoinType::LeftJoin,
+                                TempMetadataToUser::Table,
+                                TempMetadataToUser::Alias,
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id)).equals((
+                                    TempMetadataToUser::Alias,
+                                    TempMetadataToUser::MetadataId,
+                                )),
+                            )
+                            .order_by(
+                                (TempMetadataToUser::Alias, TempMetadataToUser::LastUpdatedOn),
+                                order_by,
                             )
                             .to_owned();
                     }
