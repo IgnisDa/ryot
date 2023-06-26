@@ -22,3 +22,15 @@ formatter = { command = "npx", args = ["rome", "format", "--stdin-file-path", "s
 name = "jsx"
 auto-format = true
 formatter = { command = "npx", args = ["rome", "format", "--stdin-file-path", "source.jsx"] }
+
+[[language]]
+name = "vue"
+auto-format = true
+file-types = ["vue"]
+injection-regex = "vue"
+language-server = { command = "vue-language-server", args = ["--stdio"] }
+roots = ["package.json"]
+scope = "text.html.vue"
+
+[language.config.typescript]
+tsdk = "/workspaces/ryot/node_modules/typescript/lib"
