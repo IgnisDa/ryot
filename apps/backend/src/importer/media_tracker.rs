@@ -135,18 +135,21 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
-        let identifier = match d.media_type.clone() {
+        let (identifier, source) = match d.media_type.clone() {
             MediaType::Book => {
                 if let Some(g_id) = details.goodreads_id {
-                    g_id.to_string()
+                    (g_id.to_string(), MetadataSource::Custom)
                 } else {
-                    get_key(&d.openlibrary_id.clone().unwrap())
+                    (
+                        get_key(&d.openlibrary_id.clone().unwrap()),
+                        MetadataSource::Openlibrary,
+                    )
                 }
             }
-            MediaType::Movie => d.tmdb_id.unwrap().to_string(),
-            MediaType::Tv => d.tmdb_id.unwrap().to_string(),
-            MediaType::VideoGame => d.igdb_id.unwrap().to_string(),
-            MediaType::Audiobook => d.audible_id.clone().unwrap(),
+            MediaType::Movie => (d.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
+            MediaType::Tv => (d.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
+            MediaType::VideoGame => (d.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
+            MediaType::Audiobook => (d.audible_id.clone().unwrap(), MetadataSource::Audible),
         };
         tracing::trace!(
             "Got details for {type:?}: {id} ({idx}/{total})",
@@ -156,7 +159,14 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             total = len
         );
         let need_details = details.goodreads_id.is_none();
-        final_data.push(convert_item(d, details, identifier, lot, need_details));
+        final_data.push(convert_item(
+            d,
+            details,
+            identifier,
+            lot,
+            source,
+            need_details,
+        ));
     }
     Ok(ImportResult {
         media: final_data,
@@ -169,10 +179,12 @@ fn convert_item(
     details: ItemDetails,
     identifier: String,
     lot: MetadataLot,
+    source: MetadataSource,
     need_details: bool,
 ) -> ImportItem {
     ImportItem {
         source_id: d.id.to_string(),
+        source,
         lot,
         default_collections: vec![],
         identifier: match need_details {

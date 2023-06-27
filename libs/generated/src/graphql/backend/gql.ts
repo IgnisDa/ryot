@@ -14,7 +14,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  */
 const documents = {
     "mutation AddMediaToCollection($input: AddMediaToCollection!) {\n  addMediaToCollection(input: $input)\n}": types.AddMediaToCollectionDocument,
-    "mutation CommitMedia($lot: MetadataLot!, $identifier: String!) {\n  commitMedia(lot: $lot, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
+    "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
     "mutation CommitNext10PodcastEpisodes($podcastId: Identifier!) {\n  commitNext10PodcastEpisodes(podcastId: $podcastId)\n}": types.CommitNext10PodcastEpisodesDocument,
     "mutation CreateCollection($input: NamedObjectInput!) {\n  createCollection(input: $input) {\n    id\n  }\n}": types.CreateCollectionDocument,
     "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}": types.CreateCustomMediaDocument,
@@ -74,7 +74,7 @@ export function graphql(source: "mutation AddMediaToCollection($input: AddMediaT
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation CommitMedia($lot: MetadataLot!, $identifier: String!) {\n  commitMedia(lot: $lot, identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitMedia($lot: MetadataLot!, $identifier: String!) {\n  commitMedia(lot: $lot, identifier: $identifier) {\n    id\n  }\n}"];
+export function graphql(source: "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}"): (typeof documents)["mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

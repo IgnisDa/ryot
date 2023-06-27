@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
-    migrator::{MediaImportSource, MetadataLot},
+    migrator::{MediaImportSource, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{
             AddMediaToCollection, MediaDetails, MiscellaneousService, PostReviewInput,
@@ -83,6 +83,7 @@ pub enum ImportItemIdentifier {
 pub struct ImportItem {
     source_id: String,
     lot: MetadataLot,
+    source: MetadataSource,
     identifier: ImportItemIdentifier,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
@@ -247,7 +248,7 @@ impl ImporterService {
             let data = match &item.identifier {
                 ImportItemIdentifier::NeedsDetails(i) => {
                     self.media_service
-                        .commit_media(item.lot, i.to_string())
+                        .commit_media(item.lot, item.source, i.to_string())
                         .await
                 }
                 ImportItemIdentifier::AlreadyFilled(a) => {
