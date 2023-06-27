@@ -103,7 +103,7 @@ const Page: NextPageWithLayout = () => {
 		return collections;
 	});
 
-	const inProgressCollection = collections.data?.find(
+	const inProgressCollection = (collections.data || [])?.find(
 		(c) => c.collectionDetails.name === "In Progress",
 	);
 

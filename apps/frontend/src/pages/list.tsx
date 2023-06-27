@@ -160,7 +160,7 @@ const Page: NextPageWithLayout = () => {
 			const { collections } = await gqlClient.request(
 				PartialCollectionsDocument,
 			);
-			return collections.map((c) => c.collectionDetails);
+			return collections;
 		},
 		staleTime: Infinity,
 	});
@@ -382,8 +382,8 @@ const Page: NextPageWithLayout = () => {
 													placeholder="Select a collection"
 													value={mineCollectionFilter}
 													data={(partialCollections.data || []).map((c) => ({
-														value: c.id.toString(),
-														label: c.name,
+														value: c.collectionDetails.id.toString(),
+														label: c.collectionDetails.name,
 														group: "My collections",
 													}))}
 													onChange={(v) => {
