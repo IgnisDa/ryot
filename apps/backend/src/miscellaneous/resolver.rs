@@ -656,11 +656,12 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
+        source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_search(lot, input)
+            .media_search(lot, source, input)
             .await
     }
 
@@ -1892,6 +1893,7 @@ impl MiscellaneousService {
     async fn media_search(
         &self,
         lot: MetadataLot,
+        source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         #[derive(Iden)]
@@ -1908,6 +1910,7 @@ impl MiscellaneousService {
             #[iden = "m"]
             Alias,
             Id,
+            Source,
             Lot,
             Identifier,
         }
@@ -1968,6 +1971,7 @@ impl MiscellaneousService {
                 .and_where(
                     Expr::col((TempMetadata::Alias, TempMetadata::Lot))
                         .eq(lot)
+                        .and(Expr::col((TempMetadata::Alias, TempMetadata::Source)).eq(source))
                         .or(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).is_null()),
                 )
                 .to_owned();

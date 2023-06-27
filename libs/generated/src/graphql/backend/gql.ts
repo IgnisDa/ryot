@@ -44,7 +44,7 @@ const documents = {
     "query MediaImportReports {\n  mediaImportReports {\n    id\n    source\n    startedOn\n    finishedOn\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n      }\n    }\n  }\n}": types.MediaImportReportsDocument,
     "query MediaItemReviews($metadataId: Identifier!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    spoiler\n    visibility\n    seasonNumber\n    episodeNumber\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}": types.MediaItemReviewsDocument,
     "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    nextPage\n    items {\n      identifier\n      title\n      images\n      publishYear\n    }\n  }\n}": types.MediaListDocument,
-    "query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
+    "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}": types.MediaSourcesForLotDocument,
     "query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n    }\n  }\n}": types.PartialCollectionsDocument,
     "query ReviewById($reviewId: Identifier!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}": types.ReviewByIdDocument,
@@ -195,7 +195,7 @@ export function graphql(source: "query MediaList($input: MediaListInput!) {\n  m
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}"): (typeof documents)["query MediaSearch($lot: MetadataLot!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}"];
+export function graphql(source: "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}"): (typeof documents)["query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

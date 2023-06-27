@@ -182,6 +182,7 @@ const Page: NextPageWithLayout = () => {
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
+			invariant(searchSource, "Source must be defined");
 			invariant(lot, "Lot must be defined");
 			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
 				input: {
@@ -189,6 +190,7 @@ const Page: NextPageWithLayout = () => {
 					page: parseInt(activeSearchPage) || 1,
 				},
 				lot,
+				source: searchSource as MetadataSource,
 			});
 			return mediaSearch;
 		},
