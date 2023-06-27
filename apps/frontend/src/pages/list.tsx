@@ -89,7 +89,9 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFilters.mineGeneralFilter,
 		getInitialValueInEffect: false,
 	});
-	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage({
+	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage<
+		string | undefined
+	>({
 		key: "mineCollectionFilter",
 		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,

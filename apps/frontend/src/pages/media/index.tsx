@@ -385,10 +385,12 @@ const ReviewItem = ({
 				) : null}
 			</Flex>
 			<Box ml={"sm"} mt={"xs"}>
-				{r.rating ? (
-					<Rating value={Number(r.rating)} fractions={2} readOnly />
+				{r.rating > 0 ? (
+					<>
+						<Rating value={Number(r.rating)} fractions={2} readOnly />
+						<Space h="xs" />
+					</>
 				) : null}
-				<Space h="xs" />
 				{r.text ? (
 					!r.spoiler ? (
 						<Text dangerouslySetInnerHTML={{ __html: r.text }} />
