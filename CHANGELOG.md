@@ -1,4 +1,19 @@
 
+# Version 1.4.4 (2023-06-27)
+
+## Bug Fixes
+
+* **frontend:** collection related errors
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* search by source
+
+
 # Version 1.4.3 (2023-06-27)
 
 ## Bug Fixes
