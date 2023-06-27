@@ -664,6 +664,18 @@ impl MiscellaneousQuery {
             .await
     }
 
+    /// Get all the metadata sources possible for a lot.
+    async fn media_sources_for_lot(
+        &self,
+        gql_ctx: &Context<'_>,
+        lot: MetadataLot,
+    ) -> Vec<MetadataSource> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_sources_for_lot(lot)
+            .await
+    }
+
     /// Check if a media with the given metadata and identifier exists in the database.
     async fn media_exists_in_database(
         &self,
@@ -3011,5 +3023,16 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?;
         Ok(media.map(|m| IdObject { id: m.id.into() }))
+    }
+
+    async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
+        match lot {
+            MetadataLot::AudioBook => vec![MetadataSource::Audible],
+            MetadataLot::Book => vec![MetadataSource::Openlibrary],
+            MetadataLot::Podcast => vec![MetadataSource::Listennotes],
+            MetadataLot::VideoGame => vec![MetadataSource::Igdb],
+            MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
+            MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
+        }
     }
 }
