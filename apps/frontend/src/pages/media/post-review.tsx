@@ -35,7 +35,7 @@ import { z } from "zod";
 const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(5)).default(0),
 	text: z.string().optional(),
-	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Private),
+	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Public),
 	spoiler: z.boolean().optional(),
 });
 type FormSchema = z.infer<typeof formSchema>;
@@ -62,7 +62,8 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	useQuery({
-		queryKey: ["reviewDetails", metadataId, reviewId],
+		enabled: reviewId !== undefined,
+		queryKey: ["reviewDetails", reviewId],
 		queryFn: async () => {
 			invariant(reviewId, "Can not get review details");
 			const { reviewById } = await gqlClient.request(ReviewByIdDocument, {
@@ -70,7 +71,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return reviewById;
 		},
-		enabled: reviewId !== undefined,
 		onSuccess: (data) => {
 			form.setValues({
 				rating: data?.rating || 0,
@@ -80,6 +80,7 @@ const Page: NextPageWithLayout = () => {
 			});
 			form.resetDirty();
 		},
+		staleTime: Infinity,
 	});
 	const postReview = useMutation({
 		mutationFn: async (variables: PostReviewMutationVariables) => {
@@ -150,12 +151,12 @@ const Page: NextPageWithLayout = () => {
 								fullWidth
 								data={[
 									{
-										label: ReviewVisibility.Private,
-										value: ReviewVisibility.Private,
-									},
-									{
 										label: ReviewVisibility.Public,
 										value: ReviewVisibility.Public,
+									},
+									{
+										label: ReviewVisibility.Private,
+										value: ReviewVisibility.Private,
 									},
 								]}
 								{...form.getInputProps("visibility")}
@@ -163,8 +164,7 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 						<Checkbox
 							label="This review is a spoiler"
-							{...form.getInputProps("spoiler")}
-							checked={form.values.spoiler}
+							{...form.getInputProps("spoiler", { type: "checkbox" })}
 						/>
 						<Button
 							mt="md"

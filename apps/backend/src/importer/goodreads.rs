@@ -105,6 +105,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
 
                 ImportItem {
                     source_id: d.book_id.to_string(),
+                    source: MetadataSource::Custom,
                     lot: MetadataLot::Book,
                     identifier: ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                         identifier: d.book_id.to_string(),

@@ -5,16 +5,16 @@ import json
 from typing import Literal, Optional
 
 COMMIT_MEDIA = """
-mutation CommitMedia($lot: MetadataLot!, $identifier: String!) {
-  commitMedia(lot: $lot, identifier: $identifier) {
-    id
-  }
-}
+    mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {
+      commitMedia(lot: $lot, source: $source, identifier: $identifier) {
+        id
+      }
+    }
 """
 
 MEDIA_EXISTS_IN_DATABASE = """
-    query MediaExistsInDatabase($identifier: String!, $lot: MetadataLot!) {
-      mediaExistsInDatabase(identifier: $identifier, lot: $lot) {
+    query MediaExistsInDatabase($identifier: String!, $lot: MetadataLot!, $source: MetadataSource!) {
+      mediaExistsInDatabase(identifier: $identifier, lot: $lot, source: $source) {
         id
       }
     }  
@@ -35,7 +35,8 @@ class Ryot:
         self.api_token = api_token
 
     def media_exists_in_database(self, identifier: str, lot: Literal["MOVIE", "SHOW"]):
-        input = {"identifier": identifier, "lot": lot}
+        # since we support only movies and shows
+        input = {"identifier": identifier, "lot": lot, "source": "TMDB"}
         response = self.post_json(MEDIA_EXISTS_IN_DATABASE, input)["data"][
             "mediaExistsInDatabase"
         ]

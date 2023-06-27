@@ -1,4 +1,36 @@
 
+# Version 1.4.4 (2023-06-27)
+
+## Bug Fixes
+
+* **frontend:** collection related errors
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* search by source
+
+
+# Version 1.4.3 (2023-06-27)
+
+## Bug Fixes
+
+* **backend:** get source to commit to from mutation
+* **frontend:** review page
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **backend:** add query to get media sources for lot
+* **frontend:** allow choosing search source
+
+
 # Version 1.4.2 (2023-06-26)
 
 

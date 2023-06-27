@@ -657,11 +657,24 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
+        source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_search(lot, input)
+            .media_search(lot, source, input)
+            .await
+    }
+
+    /// Get all the metadata sources possible for a lot.
+    async fn media_sources_for_lot(
+        &self,
+        gql_ctx: &Context<'_>,
+        lot: MetadataLot,
+    ) -> Vec<MetadataSource> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_sources_for_lot(lot)
             .await
     }
 
@@ -671,10 +684,11 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         identifier: String,
         lot: MetadataLot,
+        source: MetadataSource,
     ) -> Result<Option<IdObject>> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_exists_in_database(identifier, lot)
+            .media_exists_in_database(identifier, lot, source)
             .await
     }
 }
@@ -907,11 +921,12 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
+        source: MetadataSource,
         identifier: String,
     ) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_media(lot, identifier)
+            .commit_media(lot, source, identifier)
             .await
     }
 
@@ -1905,6 +1920,7 @@ impl MiscellaneousService {
     async fn media_search(
         &self,
         lot: MetadataLot,
+        source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         #[derive(Iden)]
@@ -1921,6 +1937,7 @@ impl MiscellaneousService {
             #[iden = "m"]
             Alias,
             Id,
+            Source,
             Lot,
             Identifier,
         }
@@ -1981,6 +1998,7 @@ impl MiscellaneousService {
                 .and_where(
                     Expr::col((TempMetadata::Alias, TempMetadata::Lot))
                         .eq(lot)
+                        .and(Expr::col((TempMetadata::Alias, TempMetadata::Source)).eq(source))
                         .or(Expr::col((TempMetadata::Alias, TempMetadata::Lot)).is_null()),
                 )
                 .to_owned();
@@ -2063,7 +2081,12 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn commit_media(&self, lot: MetadataLot, identifier: String) -> Result<IdObject> {
+    pub async fn commit_media(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        identifier: String,
+    ) -> Result<IdObject> {
         let meta = Metadata::find()
             .filter(metadata::Column::Lot.eq(lot))
             .filter(metadata::Column::Identifier.eq(&identifier))
@@ -2073,16 +2096,6 @@ impl MiscellaneousService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.id.into() })
         } else {
-            let source = match lot {
-                MetadataLot::Anime => MetadataSource::Anilist,
-                MetadataLot::AudioBook => MetadataSource::Audible,
-                MetadataLot::Podcast => MetadataSource::Listennotes,
-                MetadataLot::Manga => MetadataSource::Anilist,
-                MetadataLot::Movie => MetadataSource::Tmdb,
-                MetadataLot::Show => MetadataSource::Tmdb,
-                MetadataLot::VideoGame => MetadataSource::Igdb,
-                MetadataLot::Book => MetadataSource::Openlibrary,
-            };
             let details = self.details_from_provider(lot, source, identifier).await?;
             let media_id = self.commit_media_internal(details).await?;
             Ok(media_id)
@@ -3043,12 +3056,25 @@ impl MiscellaneousService {
         &self,
         identifier: String,
         lot: MetadataLot,
+        source: MetadataSource,
     ) -> Result<Option<IdObject>> {
         let media = Metadata::find()
             .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Source.eq(source))
             .filter(metadata::Column::Identifier.eq(identifier))
             .one(&self.db)
             .await?;
         Ok(media.map(|m| IdObject { id: m.id.into() }))
+    }
+
+    async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
+        match lot {
+            MetadataLot::AudioBook => vec![MetadataSource::Audible],
+            MetadataLot::Book => vec![MetadataSource::Openlibrary],
+            MetadataLot::Podcast => vec![MetadataSource::Listennotes],
+            MetadataLot::VideoGame => vec![MetadataSource::Igdb],
+            MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
+            MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
+        }
     }
 }

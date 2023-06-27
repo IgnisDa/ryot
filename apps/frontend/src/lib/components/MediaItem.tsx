@@ -24,6 +24,7 @@ import {
 	type AddMediaToCollectionMutationVariables,
 	type MediaSearchQuery,
 	MetadataLot,
+	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
@@ -125,6 +126,7 @@ export default function (props: {
 	query: string;
 	offset: number;
 	lot: MetadataLot;
+	source: MetadataSource;
 	listType: "grid" | "poster";
 	refetch: () => void;
 	maybeItemId?: number;
@@ -154,6 +156,7 @@ export default function (props: {
 		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
 			lot: props.lot,
+			source: props.source,
 		});
 		return id;
 	};
@@ -167,7 +170,7 @@ export default function (props: {
 			href={
 				props.maybeItemId
 					? `${ROUTES.media.details}?item=${props.maybeItemId}`
-					: `${ROUTES.media.commit}?identifier=${props.item.identifier}&lot=${props.lot}`
+					: `${ROUTES.media.commit}?identifier=${props.item.identifier}&lot=${props.lot}&source=${props.source}`
 			}
 			existsInDatabase={!!props.maybeItemId}
 		>

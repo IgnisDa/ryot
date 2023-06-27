@@ -36,6 +36,8 @@ import {
 	MediaSearchDocument,
 	MediaSortBy,
 	MediaSortOrder,
+	MediaSourcesForLotDocument,
+	MetadataSource,
 	PartialCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -97,7 +99,9 @@ const Page: NextPageWithLayout = () => {
 		key: "savedQuery",
 		getInitialValueInEffect: false,
 	});
-	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
+	const [searchSource, setSearchSource] = useLocalStorage({
+		key: "savedSearchSource",
+	});
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
@@ -112,6 +116,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 		defaultValue: "mine",
 	});
+	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
@@ -149,9 +154,35 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: lot !== undefined && activeTab === "mine",
 	});
+	const partialCollections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(
+				PartialCollectionsDocument,
+			);
+			return collections;
+		},
+		staleTime: Infinity,
+	});
+	const mediaSources = useQuery({
+		queryKey: ["sources", lot],
+		queryFn: async () => {
+			invariant(lot, "Lot is not defined");
+			const { mediaSourcesForLot } = await gqlClient.request(
+				MediaSourcesForLotDocument,
+				{ lot },
+			);
+			return mediaSourcesForLot;
+		},
+		onSuccess: (data) => {
+			if (!data.includes(searchSource as unknown as MetadataSource))
+				setSearchSource(data[0]);
+		},
+	});
 	const searchQuery = useQuery({
 		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
 		queryFn: async () => {
+			invariant(searchSource, "Source must be defined");
 			invariant(lot, "Lot must be defined");
 			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
 				input: {
@@ -159,6 +190,7 @@ const Page: NextPageWithLayout = () => {
 					page: parseInt(activeSearchPage) || 1,
 				},
 				lot,
+				source: searchSource as MetadataSource,
 			});
 			return mediaSearch;
 		},
@@ -166,16 +198,6 @@ const Page: NextPageWithLayout = () => {
 			if (!activeSearchPage) setSearchPage("1");
 		},
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
-		staleTime: Infinity,
-	});
-	const partialCollections = useQuery({
-		queryKey: ["collections"],
-		queryFn: async () => {
-			const { collections } = await gqlClient.request(
-				PartialCollectionsDocument,
-			);
-			return collections.map((c) => c.collectionDetails);
-		},
 		staleTime: Infinity,
 	});
 
@@ -373,8 +395,8 @@ const Page: NextPageWithLayout = () => {
 													placeholder="Select a collection"
 													value={mineCollectionFilter}
 													data={(partialCollections.data || []).map((c) => ({
-														value: c.id.toString(),
-														label: c.name,
+														value: c.collectionDetails.id.toString(),
+														label: c.collectionDetails.name,
 														group: "My collections",
 													}))}
 													onChange={(v) => {
@@ -427,11 +449,24 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="search">
 						<Stack>
-							{SearchInput({
-								placeholder: `Search for ${changeCase(
-									lot.toLowerCase(),
-								).toLowerCase()}s`,
-							})}
+							<Flex gap={"xs"}>
+								{SearchInput({
+									placeholder: `Search for ${changeCase(
+										lot.toLowerCase(),
+									).toLowerCase()}s`,
+								})}
+								<Select
+									w="37%"
+									value={searchSource?.toString()}
+									data={(mediaSources.data || []).map((o) => ({
+										value: o.toString(),
+										label: startCase(lowerCase(o)),
+									}))}
+									onChange={(v) => {
+										if (v) setSearchSource(v);
+									}}
+								/>
+							</Flex>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<>
 									<Box>
@@ -452,6 +487,7 @@ const Page: NextPageWithLayout = () => {
 												offset={offset}
 												lot={lot}
 												refetch={searchQuery.refetch}
+												source={searchSource as unknown as MetadataSource}
 											/>
 										))}
 									</Grid>
