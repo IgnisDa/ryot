@@ -22,13 +22,16 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionsDocument,
 	MetadataLot,
 	UserSummaryDocument,
+	type CreateCollectionMutationVariables,
+	CreateCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconPhotoPlus } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { IconList, IconPhotoPlus } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
@@ -101,6 +104,22 @@ const Page: NextPageWithLayout = () => {
 	const collections = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument);
 		return collections;
+	});
+	const createCollection = useMutation({
+		mutationFn: async (variables: CreateCollectionMutationVariables) => {
+			const { createCollection } = await gqlClient.request(
+				CreateCollectionDocument,
+				variables,
+			);
+			return createCollection;
+		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "Collection created successfully",
+				color: "green",
+			});
+		},
 	});
 
 	const inProgressCollection = (collections.data || [])?.find(
@@ -274,7 +293,17 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
-					<Box>
+					<SimpleGrid cols={4}>
+						<Button
+							variant="outline"
+							leftIcon={<IconList />}
+							onClick={() => {
+								const name = prompt("Please enter name of the new list");
+								if (name) createCollection.mutate({ input: { name } });
+							}}
+						>
+							Create a collection
+						</Button>
 						<Link passHref legacyBehavior href={ROUTES.media.create}>
 							<Button
 								variant="outline"
@@ -284,7 +313,7 @@ const Page: NextPageWithLayout = () => {
 								Create a media item
 							</Button>
 						</Link>
-					</Box>
+					</SimpleGrid>
 				</Stack>
 			</Container>
 		</>
