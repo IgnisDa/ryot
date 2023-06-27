@@ -63,6 +63,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const defaultFilters = {
+	mineCollectionFilter: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: MediaSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
@@ -90,6 +91,7 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage({
 		key: "mineCollectionFilter",
+		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
@@ -215,9 +217,11 @@ const Page: NextPageWithLayout = () => {
 	const isFilterChanged =
 		mineGeneralFilter !== defaultFilters.mineGeneralFilter ||
 		mineSortOrder !== defaultFilters.mineSortOrder ||
-		mineSortBy !== defaultFilters.mineSortBy;
+		mineSortBy !== defaultFilters.mineSortBy ||
+		mineCollectionFilter !== defaultFilters.mineCollectionFilter;
 
 	const resetFilters = () => {
+		setMineCollectionFilter(defaultFilters.mineCollectionFilter);
 		setMineGeneralFilter(defaultFilters.mineGeneralFilter);
 		setMineSortOrder(defaultFilters.mineSortOrder);
 		setMineSortBy(defaultFilters.mineSortBy);
