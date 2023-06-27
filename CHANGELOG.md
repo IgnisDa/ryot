@@ -1,4 +1,15 @@
 
+# Version 1.4.5 (2023-06-28)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** allow creating new collections
+
+
 # Version 1.4.4 (2023-06-27)
 
 ## Bug Fixes
