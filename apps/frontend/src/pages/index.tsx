@@ -25,10 +25,10 @@ import {
 import { notifications } from "@mantine/notifications";
 import {
 	CollectionsDocument,
+	CreateCollectionDocument,
+	type CreateCollectionMutationVariables,
 	MetadataLot,
 	UserSummaryDocument,
-	type CreateCollectionMutationVariables,
-	CreateCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconList, IconPhotoPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";

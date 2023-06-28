@@ -4,6 +4,7 @@ projects:
   exercise-app: 'apps/exercise-app'
   frontend: 'apps/frontend'
   kodi: 'apps/kodi'
+  importer: 'apps/importer'
   generated: 'libs/generated'
   graphql: 'libs/graphql'
 

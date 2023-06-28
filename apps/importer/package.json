@@ -1,0 +1,13 @@
+{
+	"name": "@ryot/importer",
+	"private": true,
+	"scripts": {
+		"postinstall": "nuxt prepare"
+	},
+	"devDependencies": {
+		"@nuxt/devtools": "latest",
+		"@types/node": "^18",
+		"nuxt": "^3.6.0",
+		"typescript": "latest"
+	}
+}

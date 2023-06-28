@@ -1,0 +1,6 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../.moon/cache/types/apps/importer"
+  }
+}

@@ -63,6 +63,7 @@ import { match } from "ts-pattern";
 const LIMIT = 20;
 
 const defaultFilters = {
+	mineCollectionFilter: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: MediaSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
@@ -88,8 +89,11 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFilters.mineGeneralFilter,
 		getInitialValueInEffect: false,
 	});
-	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage({
+	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage<
+		string | undefined
+	>({
 		key: "mineCollectionFilter",
+		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
@@ -215,12 +219,30 @@ const Page: NextPageWithLayout = () => {
 	const isFilterChanged =
 		mineGeneralFilter !== defaultFilters.mineGeneralFilter ||
 		mineSortOrder !== defaultFilters.mineSortOrder ||
-		mineSortBy !== defaultFilters.mineSortBy;
+		mineSortBy !== defaultFilters.mineSortBy ||
+		mineCollectionFilter !== defaultFilters.mineCollectionFilter;
 
 	const resetFilters = () => {
+		setMineCollectionFilter(defaultFilters.mineCollectionFilter);
 		setMineGeneralFilter(defaultFilters.mineGeneralFilter);
 		setMineSortOrder(defaultFilters.mineSortOrder);
 		setMineSortBy(defaultFilters.mineSortBy);
+	};
+
+	const SearchInput = (props: { placeholder: string }) => {
+		return (
+			<TextInput
+				name="query"
+				placeholder={props.placeholder}
+				icon={<IconSearch />}
+				onChange={(e) => setQuery(e.currentTarget.value)}
+				value={query}
+				rightSection={<ClearButton />}
+				style={{ flexGrow: 1 }}
+				autoCapitalize="none"
+				autoComplete="off"
+			/>
+		);
 	};
 
 	return lot ? (
@@ -265,19 +287,12 @@ const Page: NextPageWithLayout = () => {
 							<MantineGrid grow>
 								<MantineGrid.Col span={12}>
 									<Flex align={"center"} gap="xs">
-										<TextInput
-											name="query"
-											placeholder={`Sift through your ${changeCase(
+										{/* Weird syntax because of: https://stackoverflow.com/a/65328486/11667450 */}
+										{SearchInput({
+											placeholder: `Sift through your ${changeCase(
 												lot.toLowerCase(),
-											).toLowerCase()}s`}
-											icon={<IconSearch />}
-											onChange={(e) => setQuery(e.currentTarget.value)}
-											value={query}
-											rightSection={<ClearButton />}
-											style={{ flexGrow: 1 }}
-											autoCapitalize="none"
-											autoComplete="off"
-										/>
+											).toLowerCase()}s`,
+										})}
 										<ActionIcon
 											onClick={openFiltersModal}
 											color={isFilterChanged ? "blue" : undefined}
@@ -352,6 +367,10 @@ const Page: NextPageWithLayout = () => {
 																)
 																.with("RATING", () => MediaSortBy.Rating)
 																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
+																.with(
+																	"LAST_UPDATED",
+																	() => MediaSortBy.LastUpdated,
+																)
 																.with("TITLE", () => MediaSortBy.Title)
 																.otherwise(() => {
 																	throw new Error(
@@ -437,20 +456,11 @@ const Page: NextPageWithLayout = () => {
 					<Tabs.Panel value="search">
 						<Stack>
 							<Flex gap={"xs"}>
-								<TextInput
-									w="63%"
-									name="query"
-									placeholder={`Search for a ${changeCase(
+								{SearchInput({
+									placeholder: `Search for ${changeCase(
 										lot.toLowerCase(),
-									).toLowerCase()}`}
-									icon={<IconSearch />}
-									style={{ flexGrow: 1 }}
-									onChange={(e) => setQuery(e.currentTarget.value)}
-									value={query}
-									rightSection={<ClearButton />}
-									autoCapitalize="none"
-									autoComplete="off"
-								/>
+									).toLowerCase()}s`,
+								})}
 								<Select
 									w="37%"
 									value={searchSource?.toString()}

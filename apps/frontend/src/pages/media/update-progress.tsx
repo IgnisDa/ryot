@@ -16,8 +16,10 @@ import {
 	Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { notifications } from "@mantine/notifications";
 import {
 	MediaDetailsDocument,
+	MetadataLot,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -27,6 +29,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
+import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -69,7 +72,16 @@ const Page: NextPageWithLayout = () => {
 						},
 					});
 				}
-				return;
+				return true;
+			}
+			if (
+				(details.data?.lot === MetadataLot.Show &&
+					(!selectedShowEpisodeNumber || !selectedShowSeasonNumber)) ||
+				(details.data?.lot === MetadataLot.Podcast &&
+					!selectedPodcastEpisodeNumber)
+			) {
+				notifications.show({ message: "Please select a season and episode" });
+				return false;
 			}
 			const { progressUpdate } = await gqlClient.request(
 				ProgressUpdateDocument,
@@ -77,8 +89,16 @@ const Page: NextPageWithLayout = () => {
 			);
 			return progressUpdate;
 		},
-		onSuccess: () => {
-			router.push(`${ROUTES.media.details}?item=${metadataId}`);
+		onSuccess: (data) => {
+			if (data) {
+				if (router.query.next) router.push(router.query.next.toString());
+				else
+					router.push(
+						withQuery(ROUTES.media.details, {
+							item: metadataId,
+						}),
+					);
+			}
 		},
 	});
 

@@ -1,4 +1,4 @@
-import { ROUTES } from "../constants";
+import { ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -13,7 +13,6 @@ import {
 	Button,
 	Flex,
 	Image,
-	Indicator,
 	Loader,
 	Text,
 	Tooltip,
@@ -29,6 +28,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { withQuery } from "ufo";
 
 type Item = MediaSearchQuery["mediaSearch"]["items"][number]["item"];
 
@@ -94,26 +94,23 @@ export const MediaItemWithoutUpdateModal = (props: {
 					<Tooltip
 						label="This media exists in the database"
 						disabled={!props.existsInDatabase}
+						position="right"
 					>
-						<Indicator
-							inline
-							color="violet"
-							disabled={!props.existsInDatabase}
-							position="middle-start"
-							offset={-10}
-						>
-							<Text c="dimmed">{changeCase(props.lot)}</Text>
-						</Indicator>
+						<Text c={props.existsInDatabase ? "yellow" : "dimmed"}>
+							{changeCase(props.lot)}
+						</Text>
 					</Tooltip>
 				</Flex>
-				<Text
-					w="100%"
-					truncate={props.listType === "poster" ? true : undefined}
-					fw={"bold"}
-					mb="xs"
-				>
-					{props.item.title}
-				</Text>
+				<Tooltip label={props.item.title} position="right">
+					<Text
+						w="100%"
+						truncate={props.listType === "poster" ? true : undefined}
+						fw={"bold"}
+						mb="xs"
+					>
+						{props.item.title}
+					</Text>
+				</Tooltip>
 				{props.children}
 			</Flex>
 		</Flex>
@@ -182,7 +179,13 @@ export default function (props: {
 						compact
 						onClick={async () => {
 							const id = await commitFunction();
-							router.push(`${ROUTES.media.updateProgress}?item=${id}`);
+							const nextPath = withQuery(router.pathname, router.query);
+							router.push(
+								withQuery(ROUTES.media.updateProgress, {
+									item: id,
+									next: nextPath,
+								}),
+							);
 						}}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
@@ -195,7 +198,11 @@ export default function (props: {
 							compact
 							onClick={async () => {
 								const id = await commitFunction();
-								router.push(`${ROUTES.media.details}?item=${id}`);
+								router.push(
+									withQuery(ROUTES.media.details, {
+										item: id,
+									}),
+								);
 							}}
 						>
 							Show details

@@ -40,3 +40,7 @@ tmp
 *.mobileprovision
 *.orig.*
 web-build/
+.output
+.nuxt
+.nitro
+.cache

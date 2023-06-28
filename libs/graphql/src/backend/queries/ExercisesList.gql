@@ -1,5 +1,5 @@
-query Exercises($page: Int!) {
-  exercises(page: $page) {
+query ExercisesList($input: ExercisesListInput!) {
+  exercisesList(input: $input) {
     id
     name
     attributes {

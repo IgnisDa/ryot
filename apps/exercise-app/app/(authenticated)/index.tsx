@@ -1,63 +1,66 @@
-import { getAuthHeaders, getGraphqlClient } from "@/api";
-import { Button, Center } from "@/components";
+import { getGraphqlClient } from "@/api";
+import { Box, Button, Input } from "@/components";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks";
-import {
-	ExercisesDocument,
-	UserEnabledFeaturesDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { useDebouncedState } from "@mantine/hooks";
+import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { SafeAreaView, Text } from "react-native";
+import { useState } from "react";
+import { FlatList, ScrollView, Text, View } from "react-native";
 
 export default function Page() {
-	const { authData, signOut } = useAuth();
+	const { signOut } = useAuth();
 	const router = useRouter();
+	const [query, setQuery] = useDebouncedState("", 1000);
+	const [page, _setpage] = useState(1);
 
 	const exercises = useQuery({
-		queryKey: ["exercises"],
+		queryKey: ["exercises", query, page],
 		queryFn: async () => {
 			const client = await getGraphqlClient();
-			const { exercises } = await client.request(ExercisesDocument, {
-				page: 0,
+			const { exercisesList } = await client.request(ExercisesListDocument, {
+				input: { page, query },
 			});
-			return exercises;
-		},
-	});
-
-	const userEnabledFeatures = useQuery({
-		queryKey: ["userEnabledFeatures"],
-		queryFn: async () => {
-			const client = await getGraphqlClient();
-			const { userEnabledFeatures } = await client.request(
-				UserEnabledFeaturesDocument,
-				undefined,
-				await getAuthHeaders(),
-			);
-			return userEnabledFeatures;
+			return exercisesList;
 		},
 	});
 
 	return (
-		<SafeAreaView style={{ flex: 1 }}>
-			<Text>This is an authenticated and server url complete route</Text>
-			<Text>{JSON.stringify(authData)}</Text>
-			<Button
-				onPress={async () => {
-					await signOut();
-					router.push(ROUTES.setup);
-				}}
-			>
-				<Button.Text color="$white">Sign out</Button.Text>
-			</Button>
-			<Center>
-				<Text>Authenticated query</Text>
-				<Text>{JSON.stringify(userEnabledFeatures.data)}</Text>
-			</Center>
-			<Center>
-				<Text>Unauthenticated query</Text>
-				<Text>{JSON.stringify(exercises.data)}</Text>
-			</Center>
-		</SafeAreaView>
+		<View>
+			<Box marginHorizontal="$2" marginVertical="$2">
+				<Input>
+					<Input.Input
+						placeholder="Search for an exercise"
+						autoCapitalize="none"
+						onChange={({ nativeEvent: { text } }) => setQuery(text)}
+					/>
+				</Input>
+				<Box>
+					{exercises.data ? (
+						<FlatList
+							data={exercises.data}
+							keyExtractor={(item) => item.name}
+							renderItem={({ item }) => (
+								<View>
+									<Box marginVertical="$2">
+										<Text>{item.name}</Text>
+										<Text>{JSON.stringify(item.attributes)}</Text>
+									</Box>
+								</View>
+							)}
+						/>
+					) : null}
+				</Box>
+				<Button
+					onPress={async () => {
+						await signOut();
+						router.push(ROUTES.setup);
+					}}
+				>
+					<Button.Text color="$white">Sign out</Button.Text>
+				</Button>
+			</Box>
+		</View>
 	);
 }
