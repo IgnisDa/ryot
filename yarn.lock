@@ -6095,6 +6095,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ryot/importer@workspace:apps/importer":
+  version: 0.0.0-use.local
+  resolution: "@ryot/importer@workspace:apps/importer"
+  dependencies:
+    "@nuxt/devtools": latest
+    "@types/node": ^18
+    nuxt: ^3.6.0
+    typescript: latest
+  languageName: unknown
+  linkType: soft
+
 "@ryot/root@workspace:.":
   version: 0.0.0-use.local
   resolution: "@ryot/root@workspace:."
@@ -16832,17 +16843,6 @@ __metadata:
   checksum: 6169c9dd838ca0a062aa2292a6030cb9d8e5011f3e2e6de354eeca65527fbc1888629b81a26f8b70050a736dbd23cf32414b4602527364b7b3119663f8ae53aa
   languageName: node
   linkType: hard
-
-"nuxt-app@workspace:apps/importer":
-  version: 0.0.0-use.local
-  resolution: "nuxt-app@workspace:apps/importer"
-  dependencies:
-    "@nuxt/devtools": latest
-    "@types/node": ^18
-    nuxt: ^3.6.0
-    typescript: latest
-  languageName: unknown
-  linkType: soft
 
 "nuxt@npm:^3.6.0":
   version: 3.6.0
