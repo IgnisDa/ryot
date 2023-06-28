@@ -19,10 +19,11 @@ impl MigrationName for Migration {
 /// - added it to a collection
 /// - has reviewed it
 #[derive(Iden)]
-enum UserToMetadata {
+pub enum UserToMetadata {
     Table,
     UserId,
     MetadataId,
+    LastUpdatedOn,
 }
 
 #[derive(
@@ -100,7 +101,7 @@ impl MigrationTrait for Migration {
                             .col(UserToMetadata::MetadataId),
                     )
                     .col(
-                        ColumnDef::new(Metadata::LastUpdatedOn)
+                        ColumnDef::new(UserToMetadata::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),

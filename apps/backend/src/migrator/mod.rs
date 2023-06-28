@@ -18,8 +18,9 @@ mod m20230622_000013_create_exercise;
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
 };
-pub use m20230417_000002_create_user::UserLot;
-pub use m20230505_000006_create_review::ReviewVisibility;
+pub use m20230417_000002_create_user::{UserLot, UserToMetadata};
+pub use m20230419_000003_create_seen::Seen;
+pub use m20230505_000006_create_review::{Review, ReviewVisibility};
 pub use m20230509_000008_create_media_import_report::MediaImportSource;
 
 pub struct Migrator;
