@@ -1,4 +1,4 @@
-import { ROUTES } from "../constants";
+import { ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -13,7 +13,6 @@ import {
 	Button,
 	Flex,
 	Image,
-	Indicator,
 	Loader,
 	Text,
 	Tooltip,
@@ -95,15 +94,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 						label="This media exists in the database"
 						disabled={!props.existsInDatabase}
 					>
-						<Indicator
-							inline
-							color="violet"
-							disabled={!props.existsInDatabase}
-							position="middle-start"
-							offset={-10}
-						>
-							<Text c="dimmed">{changeCase(props.lot)}</Text>
-						</Indicator>
+						<Text c={props.existsInDatabase ? "yellow" : "dimmed"}>
+							{changeCase(props.lot)}
+						</Text>
 					</Tooltip>
 				</Flex>
 				<Text
