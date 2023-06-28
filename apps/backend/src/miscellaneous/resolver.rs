@@ -1279,7 +1279,7 @@ impl MiscellaneousService {
                     Expr::col((metadata_alias.clone(), col)),
                     Alias::new("text"),
                 )))
-                .like(format!("%{}%", v))
+                .like(format!("%{}%", v.to_lowercase()))
             };
             main_select = main_select
                 .cond_where(
