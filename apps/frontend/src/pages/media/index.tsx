@@ -97,6 +97,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
@@ -887,11 +888,19 @@ const Page: NextPageWithLayout = () => {
 												onClick={async () => {
 													if (mediaDetails.data.lot === MetadataLot.Podcast)
 														router.push(
-															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${nextEpisode.episode}`,
+															withQuery(ROUTES.media.updateProgress, {
+																item: metadataId,
+																selectedPodcastEpisodeNumber:
+																	nextEpisode.episode,
+															}),
 														);
 													else
 														router.push(
-															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${nextEpisode.season}&selectedShowEpisodeNumber=${nextEpisode.episode}`,
+															withQuery(ROUTES.media.updateProgress, {
+																item: metadataId,
+																selectedShowSeasonNumber: nextEpisode.season,
+																selectedShowEpisodeNumber: nextEpisode.episode,
+															}),
 														);
 												}}
 											>
@@ -931,14 +940,18 @@ const Page: NextPageWithLayout = () => {
 										variant="outline"
 										onClick={() => {
 											router.push(
-												`${ROUTES.media.updateProgress}?item=${metadataId}`,
+												withQuery(ROUTES.media.updateProgress, {
+													item: metadataId,
+												}),
 											);
 										}}
 									>
 										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
 									</Button>
 									<Link
-										href={`${ROUTES.media.postReview}?item=${metadataId}`}
+										href={withQuery(ROUTES.media.postReview, {
+											item: metadataId,
+										})}
 										passHref
 										legacyBehavior
 									>
@@ -1119,7 +1132,11 @@ const Page: NextPageWithLayout = () => {
 															variant="outline"
 															onClick={() => {
 																router.push(
-																	`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&onlySeason=1`,
+																	withQuery(ROUTES.media.updateProgress, {
+																		item: metadataId,
+																		selectedShowSeasonNumber: s.seasonNumber,
+																		onlySeason: 1,
+																	}),
 																);
 															}}
 														>
@@ -1150,7 +1167,13 @@ const Page: NextPageWithLayout = () => {
 																	variant="outline"
 																	onClick={() => {
 																		router.push(
-																			`${ROUTES.media.updateProgress}?item=${metadataId}&selectedShowSeasonNumber=${s.seasonNumber}&selectedShowEpisodeNumber=${e.episodeNumber}`,
+																			withQuery(ROUTES.media.updateProgress, {
+																				item: metadataId,
+																				selectedShowSeasonNumber:
+																					s.seasonNumber,
+																				selectedShowEpisodeNumber:
+																					e.episodeNumber,
+																			}),
 																		);
 																	}}
 																>
@@ -1186,7 +1209,10 @@ const Page: NextPageWithLayout = () => {
 													variant="outline"
 													onClick={() => {
 														router.push(
-															`${ROUTES.media.updateProgress}?item=${metadataId}&selectedPodcastEpisodeNumber=${e.number}`,
+															withQuery(ROUTES.media.updateProgress, {
+																item: metadataId,
+																selectedPodcastEpisodeNumber: e.number,
+															}),
 														);
 													}}
 												>

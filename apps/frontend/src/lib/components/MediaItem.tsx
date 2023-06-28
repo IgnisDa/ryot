@@ -181,7 +181,10 @@ export default function (props: {
 							const id = await commitFunction();
 							const nextPath = withQuery(router.pathname, router.query);
 							router.push(
-								`${ROUTES.media.updateProgress}?item=${id}&next=${nextPath}`,
+								withQuery(ROUTES.media.updateProgress, {
+									item: id,
+									next: nextPath,
+								}),
 							);
 						}}
 					>
@@ -195,7 +198,11 @@ export default function (props: {
 							compact
 							onClick={async () => {
 								const id = await commitFunction();
-								router.push(`${ROUTES.media.details}?item=${id}`);
+								router.push(
+									withQuery(ROUTES.media.details, {
+										item: id,
+									}),
+								);
 							}}
 						>
 							Show details

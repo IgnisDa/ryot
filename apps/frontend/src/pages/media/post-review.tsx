@@ -30,6 +30,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
+import { withQuery } from "ufo";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -91,7 +92,7 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess: () => {
-			router.push(`${ROUTES.media.details}?item=${metadataId}`);
+			router.push(withQuery(ROUTES.media.details, { item: metadataId }));
 		},
 	});
 	const deleteReview = useMutation({
@@ -103,7 +104,11 @@ const Page: NextPageWithLayout = () => {
 			return deleteReview;
 		},
 		onSuccess: () => {
-			router.push(`${ROUTES.media.details}?item=${metadataId}`);
+			router.push(
+				withQuery(ROUTES.media.details, {
+					item: metadataId,
+				}),
+			);
 		},
 	});
 

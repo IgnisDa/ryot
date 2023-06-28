@@ -32,6 +32,7 @@ import { camelCase } from "lodash";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
+import { withQuery } from "ufo";
 import { z } from "zod";
 
 const optionalString = z.string().optional();
@@ -79,9 +80,8 @@ const Page: NextPageWithLayout = () => {
 			return createCustomMedia;
 		},
 		onSuccess: (data) => {
-			if (data.__typename === "IdObject") {
-				router.push(`${ROUTES.media.details}?item=${data.id}`);
-			}
+			if (data.__typename === "IdObject")
+				router.push(withQuery(ROUTES.media.details, { item: data.id }));
 		},
 	});
 

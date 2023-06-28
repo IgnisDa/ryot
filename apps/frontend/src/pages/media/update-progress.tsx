@@ -29,6 +29,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
+import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -91,7 +92,12 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: (data) => {
 			if (data) {
 				if (router.query.next) router.push(router.query.next.toString());
-				else router.push(`${ROUTES.media.details}?item=${metadataId}`);
+				else
+					router.push(
+						withQuery(ROUTES.media.details, {
+							item: metadataId,
+						}),
+					);
 			}
 		},
 	});
