@@ -597,7 +597,7 @@ const Page: NextPageWithLayout = () => {
 	const inProgressSeenItem = seenHistory.data?.find((h) => h.progress < 100);
 
 	// all the collections that the user has added this media to
-	const mediaCollections = collections.data
+	const mediaCollections = (collections.data || [])
 		?.filter((c) =>
 			c.mediaDetails.some((m) => m.identifier === metadataId.toString()),
 		)
