@@ -436,6 +436,7 @@ pub struct MediaDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+
 pub struct GraphqlMediaDetails {
     pub id: i32,
     pub title: String,
@@ -458,6 +459,8 @@ pub struct GraphqlMediaDetails {
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub source_url: Option<String>,
+    /// The number of users who have seen this media
+    pub seen_by: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1131,6 +1134,40 @@ impl MiscellaneousService {
                 Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
             }
         };
+
+        let metadata_alias = Alias::new("m");
+        let seen_alias = Alias::new("s");
+
+        let seen_select = Query::select()
+            .expr_as(
+                Expr::col((metadata_alias.clone(), TempMetadata::Id)),
+                Alias::new("metadata_id"),
+            )
+            .expr_as(
+                Func::count(Expr::col((seen_alias.clone(), TempSeen::MetadataId))),
+                Alias::new("num_times_seen"),
+            )
+            .from_as(TempMetadata::Table, metadata_alias.clone())
+            .join_as(
+                JoinType::LeftJoin,
+                TempSeen::Table,
+                seen_alias.clone(),
+                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                    .equals((seen_alias.clone(), TempSeen::MetadataId)),
+            )
+            .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Id)).eq(metadata_id))
+            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
+            .to_owned();
+
+        let stmt = self.get_db_stmt(seen_select);
+        let seen_by = self
+            .db
+            .query_one(stmt)
+            .await?
+            .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
+            .unwrap();
+        let seen_by: i32 = seen_by.try_into().unwrap();
+
         let mut resp = GraphqlMediaDetails {
             id: model.id,
             title: model.title,
@@ -1153,6 +1190,7 @@ impl MiscellaneousService {
             manga_specifics: None,
             anime_specifics: None,
             source_url,
+            seen_by,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
