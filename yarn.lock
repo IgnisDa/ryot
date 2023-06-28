@@ -6069,6 +6069,7 @@ __metadata:
     react-dom: 18.2.0
     tiny-invariant: 1.3.1
     ts-pattern: 4.3.0
+    ufo: 1.1.2
     zod: 3.21.4
   languageName: unknown
   linkType: soft
@@ -21737,7 +21738,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ufo@npm:^1.1.1, ufo@npm:^1.1.2":
+"ufo@npm:1.1.2, ufo@npm:^1.1.1, ufo@npm:^1.1.2":
   version: 1.1.2
   resolution: "ufo@npm:1.1.2"
   checksum: 83c940a6a23b6d4fc0cd116265bb5dcf88ab34a408ad9196e413270ca607a4781c09b547dc518f43caee128a096f20fe80b5a0e62b4bcc0a868619896106d048
