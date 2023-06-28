@@ -1,7 +1,7 @@
-import { ROUTES } from "@/lib/constants";
-import { gqlClient } from "@/lib/services/api";
 import Basic from "./Basic";
+import { ROUTES } from "@/lib/constants";
 import { useEnabledUserFeatures } from "@/lib/hooks/graphql";
+import { gqlClient } from "@/lib/services/api";
 import { changeCase, getLot, getMetadataIcon } from "@/lib/utilities";
 import {
 	Box,

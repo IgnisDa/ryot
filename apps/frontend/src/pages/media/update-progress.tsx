@@ -89,7 +89,10 @@ const Page: NextPageWithLayout = () => {
 			return progressUpdate;
 		},
 		onSuccess: (data) => {
-			if (data) router.push(`${ROUTES.media.details}?item=${metadataId}`);
+			if (data) {
+				if (router.query.next) router.push(router.query.next.toString());
+				else router.push(`${ROUTES.media.details}?item=${metadataId}`);
+			}
 		},
 	});
 

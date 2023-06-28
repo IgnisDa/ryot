@@ -28,6 +28,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { withQuery } from "ufo";
 
 type Item = MediaSearchQuery["mediaSearch"]["items"][number]["item"];
 
@@ -178,7 +179,10 @@ export default function (props: {
 						compact
 						onClick={async () => {
 							const id = await commitFunction();
-							router.push(`${ROUTES.media.updateProgress}?item=${id}`);
+							const nextPath = withQuery(router.pathname, router.query);
+							router.push(
+								`${ROUTES.media.updateProgress}?item=${id}&next=${nextPath}`,
+							);
 						}}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
