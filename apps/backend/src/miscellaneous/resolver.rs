@@ -1233,6 +1233,7 @@ impl MiscellaneousService {
             #[iden = "mtu"]
             Alias,
             MetadataId,
+            UserId,
             LastUpdatedOn,
         }
         #[derive(Iden)]
@@ -1344,10 +1345,18 @@ impl MiscellaneousService {
                                 JoinType::LeftJoin,
                                 TempMetadataToUser::Table,
                                 TempMetadataToUser::Alias,
-                                Expr::col((TempMetadata::Alias, TempMetadata::Id)).equals((
-                                    TempMetadataToUser::Alias,
-                                    TempMetadataToUser::MetadataId,
-                                )),
+                                Expr::col((TempMetadata::Alias, TempMetadata::Id))
+                                    .equals((
+                                        TempMetadataToUser::Alias,
+                                        TempMetadataToUser::MetadataId,
+                                    ))
+                                    .and(
+                                        Expr::col((
+                                            TempMetadataToUser::Alias,
+                                            TempMetadataToUser::UserId,
+                                        ))
+                                        .eq(user_id),
+                                    ),
                             )
                             .order_by(
                                 (TempMetadataToUser::Alias, TempMetadataToUser::LastUpdatedOn),
