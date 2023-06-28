@@ -40,6 +40,9 @@ pub struct UserPreferences {
     #[serde(default = "get_serde_true")]
     pub video_games: bool,
     // -- media
+
+    // -- localization
+    // -- localization
 }
 
 pub mod media {
