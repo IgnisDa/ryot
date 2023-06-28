@@ -1014,8 +1014,10 @@ const Page: NextPageWithLayout = () => {
 								<MediaScrollArea>
 									<Stack>
 										<Text>
-											{seenHistory.data.length} element
-											{seenHistory.data.length > 1 ? "s" : ""} in history
+											Seen by all users {mediaDetails.data.seenBy} time
+											{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
+											{seenHistory.data.length} time
+											{seenHistory.data.length > 1 ? "s" : ""} by you
 										</Text>
 										{seenHistory.data.map((h) => (
 											<Flex
