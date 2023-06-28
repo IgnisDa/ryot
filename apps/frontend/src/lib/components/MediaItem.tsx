@@ -93,20 +93,23 @@ export const MediaItemWithoutUpdateModal = (props: {
 					<Tooltip
 						label="This media exists in the database"
 						disabled={!props.existsInDatabase}
+						position="right"
 					>
 						<Text c={props.existsInDatabase ? "yellow" : "dimmed"}>
 							{changeCase(props.lot)}
 						</Text>
 					</Tooltip>
 				</Flex>
-				<Text
-					w="100%"
-					truncate={props.listType === "poster" ? true : undefined}
-					fw={"bold"}
-					mb="xs"
-				>
-					{props.item.title}
-				</Text>
+				<Tooltip label={props.item.title} position="right">
+					<Text
+						w="100%"
+						truncate={props.listType === "poster" ? true : undefined}
+						fw={"bold"}
+						mb="xs"
+					>
+						{props.item.title}
+					</Text>
+				</Tooltip>
 				{props.children}
 			</Flex>
 		</Flex>
