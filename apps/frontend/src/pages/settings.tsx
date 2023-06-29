@@ -42,9 +42,9 @@ import {
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
 	type UpdateUserMutationVariables,
-	UpdateUserPreferencesDocument,
-	type UpdateUserPreferencesMutationVariables,
 	UserDetailsDocument,
+	UpdateUserFeaturePreferencesDocument,
+	type UpdateUserFeaturePreferencesMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAnalyze,
@@ -220,12 +220,14 @@ const Page: NextPageWithLayout = () => {
 
 	const enabledFeatures = useEnabledUserFeatures();
 	const updateUserPreferences = useMutation({
-		mutationFn: async (variables: UpdateUserPreferencesMutationVariables) => {
-			const { updateUserPreferences } = await gqlClient.request(
-				UpdateUserPreferencesDocument,
+		mutationFn: async (
+			variables: UpdateUserFeaturePreferencesMutationVariables,
+		) => {
+			const { updateUserFeaturesPreferences } = await gqlClient.request(
+				UpdateUserFeaturePreferencesDocument,
 				variables,
 			);
-			return updateUserPreferences;
+			return updateUserFeaturesPreferences;
 		},
 		onSuccess: () => {
 			enabledFeatures.refetch();

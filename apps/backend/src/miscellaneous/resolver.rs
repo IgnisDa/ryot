@@ -205,7 +205,7 @@ pub struct ExportMedia {
 }
 
 #[derive(Debug, InputObject)]
-struct UpdateUserPreferencesInput {
+struct UpdateUserFeaturesPreferencesInput {
     property: MetadataLot,
     value: bool,
 }
@@ -968,15 +968,15 @@ impl MiscellaneousMutation {
     }
 
     /// Change a user's preferences
-    async fn update_user_preferences(
+    async fn update_user_features_preferences(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserPreferencesInput,
+        input: UpdateUserFeaturesPreferencesInput,
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user_preferences(input, user_id)
+            .update_user_features_preferences(input, user_id)
             .await
     }
 
@@ -3043,9 +3043,9 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 
-    async fn update_user_preferences(
+    async fn update_user_features_preferences(
         &self,
-        input: UpdateUserPreferencesInput,
+        input: UpdateUserFeaturesPreferencesInput,
         user_id: i32,
     ) -> Result<bool> {
         let user_model = self.user_by_id(user_id).await?;
