@@ -23,6 +23,7 @@ pub static URL: &str = "https://api.themoviedb.org/3/";
 #[derive(Debug, Clone)]
 pub struct TmdbService {
     image_url: String,
+    language: String,
 }
 
 impl TmdbService {
@@ -54,7 +55,10 @@ impl TmdbMovieService {
         let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
-            base: TmdbService { image_url },
+            base: TmdbService {
+                image_url,
+                language: config.locale.clone(),
+            },
         }
     }
 }
@@ -76,6 +80,10 @@ impl MediaProvider for TmdbMovieService {
         let mut rsp = self
             .client
             .get(format!("movie/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -87,6 +95,10 @@ impl MediaProvider for TmdbMovieService {
         let mut rsp = self
             .client
             .get(format!("movie/{}/credits", identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -175,7 +187,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": "en-US".to_owned(),
+                "language": self.base.language,
             }))
             .unwrap()
             .await
@@ -221,7 +233,10 @@ impl TmdbShowService {
         let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
-            base: TmdbService { image_url },
+            base: TmdbService {
+                image_url,
+                language: config.locale.clone(),
+            },
         }
     }
 }
@@ -247,6 +262,10 @@ impl MediaProvider for TmdbShowService {
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -288,6 +307,10 @@ impl MediaProvider for TmdbShowService {
                     identifier.to_owned(),
                     s.season_number
                 ))
+                .query(&json!({
+                    "language": self.base.language,
+                }))
+                .unwrap()
                 .await
                 .map_err(|e| anyhow!(e))?;
             let data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -430,7 +453,7 @@ impl MediaProvider for TmdbShowService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": "en-US".to_owned(),
+                "language": self.base.language
             }))
             .unwrap()
             .await
