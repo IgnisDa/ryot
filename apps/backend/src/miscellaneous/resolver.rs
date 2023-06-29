@@ -645,20 +645,18 @@ impl MiscellaneousQuery {
 
     /// Get all the features that are enabled for the service
     async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .core_enabled_features(config)
+            .core_enabled_features()
             .await
     }
 
     /// Get a user's preferences.
     async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_preferences(user_id, config)
+            .user_preferences(user_id)
             .await
     }
 
@@ -817,10 +815,9 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: UserInput,
     ) -> Result<RegisterResult> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .register_user(&input.username, &input.password, config)
+            .register_user(&input.username, &input.password)
             .await
     }
 
@@ -835,7 +832,6 @@ impl MiscellaneousMutation {
                 config.users.token_valid_for_days,
             )
             .await?;
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
             create_cookie(
                 gql_ctx,
@@ -868,10 +864,9 @@ impl MiscellaneousMutation {
     /// Update a user's profile details.
     async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user(&user_id, input, config)
+            .update_user(&user_id, input)
             .await
     }
 
@@ -1002,6 +997,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     db: DatabaseConnection,
     scdb: MemoryDb,
+    config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: Arc<AudibleService>,
     igdb_service: Arc<IgdbService>,
@@ -1022,6 +1018,7 @@ impl MiscellaneousService {
     pub fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
+        config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         audible_service: Arc<AudibleService>,
         igdb_service: Arc<IgdbService>,
@@ -1039,6 +1036,7 @@ impl MiscellaneousService {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
+            config,
             file_storage,
             audible_service,
             igdb_service,
@@ -1936,35 +1934,35 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_preferences(&self, user_id: i32, config: &AppConfig) -> Result<UserPreferences> {
+    async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut user_preferences = self.user_by_id(user_id).await?.preferences;
         user_preferences.features_enabled.anime =
-            config.anime.is_enabled() && user_preferences.features_enabled.anime;
+            self.config.anime.is_enabled() && user_preferences.features_enabled.anime;
         user_preferences.features_enabled.audio_books =
-            config.audio_books.is_enabled() && user_preferences.features_enabled.audio_books;
+            self.config.audio_books.is_enabled() && user_preferences.features_enabled.audio_books;
         user_preferences.features_enabled.books =
-            config.books.is_enabled() && user_preferences.features_enabled.books;
+            self.config.books.is_enabled() && user_preferences.features_enabled.books;
         user_preferences.features_enabled.shows =
-            config.shows.is_enabled() && user_preferences.features_enabled.shows;
+            self.config.shows.is_enabled() && user_preferences.features_enabled.shows;
         user_preferences.features_enabled.manga =
-            config.manga.is_enabled() && user_preferences.features_enabled.manga;
+            self.config.manga.is_enabled() && user_preferences.features_enabled.manga;
         user_preferences.features_enabled.movies =
-            config.movies.is_enabled() && user_preferences.features_enabled.movies;
+            self.config.movies.is_enabled() && user_preferences.features_enabled.movies;
         user_preferences.features_enabled.podcasts =
-            config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts;
+            self.config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts;
         user_preferences.features_enabled.video_games =
-            config.video_games.is_enabled() && user_preferences.features_enabled.video_games;
+            self.config.video_games.is_enabled() && user_preferences.features_enabled.video_games;
         Ok(user_preferences)
     }
 
-    async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {
-        let mut files_enabled = config.file_storage.is_enabled();
+    async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
+        let mut files_enabled = self.config.file_storage.is_enabled();
         if files_enabled && !self.file_storage.is_enabled().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {
             file_storage: files_enabled,
-            signup_allowed: config.users.allow_registration,
+            signup_allowed: self.config.users.allow_registration,
         };
         Ok(general)
     }
@@ -2715,13 +2713,8 @@ impl MiscellaneousService {
         Ok(IdObject { id: obj.id.into() })
     }
 
-    async fn register_user(
-        &self,
-        username: &str,
-        password: &str,
-        config: &AppConfig,
-    ) -> Result<RegisterResult> {
-        if !config.users.allow_registration {
+    async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
+        if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
@@ -2843,12 +2836,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(
-        &self,
-        user_id: &i32,
-        input: UpdateUserInput,
-        config: &AppConfig,
-    ) -> Result<IdObject> {
+    async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
         let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
             .one(&self.db)
             .await
@@ -2856,7 +2844,7 @@ impl MiscellaneousService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            if config.users.allow_changing_username {
+            if self.config.users.allow_changing_username {
                 user_obj.name = ActiveValue::Set(n);
             }
         }
