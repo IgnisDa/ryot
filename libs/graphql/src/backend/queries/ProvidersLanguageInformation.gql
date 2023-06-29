@@ -1,0 +1,7 @@
+query ProvidersLanguageInformation {
+  providersLanguageInformation {
+    supported
+    default
+    source
+  }
+}
