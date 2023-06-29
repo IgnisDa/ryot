@@ -1,4 +1,19 @@
 
+# Version 1.4.8 (2023-06-29)
+
+## Bug Fixes
+
+* **frontend:** client side error
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* lowercase word
+
+
 # Version 1.4.7 (2023-06-29)
 
 
