@@ -1,0 +1,3 @@
+mutation UpdateUserFeaturePreference($input: UpdateUserFeaturePreferenceInput!) {
+  updateUserFeaturePreference(input: $input)
+}

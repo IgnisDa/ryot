@@ -205,13 +205,13 @@ pub struct ExportMedia {
 }
 
 #[derive(Debug, InputObject)]
-struct UpdateUserFeaturesPreferencesInput {
+struct UpdateUserFeaturePreferenceInput {
     property: MetadataLot,
     value: bool,
 }
 
 #[derive(Debug, InputObject)]
-struct UpdateUserLocalizationPreferencesInput {
+struct UpdateUserLocalizationPreferenceInput {
     property: MetadataSource,
     value: String,
 }
@@ -973,29 +973,29 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Change a user's features preferences
-    async fn update_user_features_preferences(
+    /// Change a user's feature preferences
+    async fn update_user_feature_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserFeaturesPreferencesInput,
+        input: UpdateUserFeaturePreferenceInput,
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user_features_preferences(input, user_id)
+            .update_user_feature_preference(input, user_id)
             .await
     }
 
     /// Change a user's localization preferences
-    async fn update_user_localization_preferences(
+    async fn update_user_localization_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserLocalizationPreferencesInput,
+        input: UpdateUserLocalizationPreferenceInput,
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user_localization_preferences(input, user_id)
+            .update_user_localization_preference(input, user_id)
             .await
     }
 
@@ -3062,9 +3062,9 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 
-    async fn update_user_features_preferences(
+    async fn update_user_feature_preference(
         &self,
-        input: UpdateUserFeaturesPreferencesInput,
+        input: UpdateUserFeaturePreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
         let user_model = self.user_by_id(user_id).await?;
@@ -3085,9 +3085,9 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn update_user_localization_preferences(
+    async fn update_user_localization_preference(
         &self,
-        input: UpdateUserLocalizationPreferencesInput,
+        input: UpdateUserLocalizationPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
         let user_model = self.user_by_id(user_id).await?;

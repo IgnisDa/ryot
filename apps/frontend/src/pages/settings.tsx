@@ -42,8 +42,8 @@ import {
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
-	UpdateUserFeaturePreferencesDocument,
-	type UpdateUserFeaturePreferencesMutationVariables,
+	UpdateUserFeaturePreferenceDocument,
+	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -234,13 +234,13 @@ const Page: NextPageWithLayout = () => {
 	const enabledFeatures = useEnabledUserFeatures();
 	const updateUserPreferences = useMutation({
 		mutationFn: async (
-			variables: UpdateUserFeaturePreferencesMutationVariables,
+			variables: UpdateUserFeaturePreferenceMutationVariables,
 		) => {
-			const { updateUserFeaturesPreferences } = await gqlClient.request(
-				UpdateUserFeaturePreferencesDocument,
+			const { updateUserFeaturePreference } = await gqlClient.request(
+				UpdateUserFeaturePreferenceDocument,
 				variables,
 			);
-			return updateUserFeaturesPreferences;
+			return updateUserFeaturePreference;
 		},
 		onSuccess: () => {
 			enabledFeatures.refetch();
