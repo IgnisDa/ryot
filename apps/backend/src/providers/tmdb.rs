@@ -21,7 +21,6 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct TmdbService {
     image_url: String,
-    language: String,
 }
 
 impl TmdbService {
@@ -50,14 +49,11 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &MoviesTmdbConfig, language: String) -> Self {
+    pub async fn new(config: &MoviesTmdbConfig) -> Self {
         let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self {
             client,
-            base: TmdbService {
-                image_url,
-                language,
-            },
+            base: TmdbService { image_url },
         }
     }
 }
@@ -220,14 +216,11 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &ShowsTmdbConfig, language: String) -> Self {
+    pub async fn new(config: &ShowsTmdbConfig) -> Self {
         let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self {
             client,
-            base: TmdbService {
-                image_url,
-                language,
-            },
+            base: TmdbService { image_url },
         }
     }
 }

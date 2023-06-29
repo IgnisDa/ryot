@@ -32,7 +32,6 @@ struct DetailsQuery;
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
-    language: String,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -51,10 +50,10 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(config: &AnimeAnilistConfig, language: String) -> Self {
+    pub async fn new(config: &AnimeAnilistConfig) -> Self {
         let client = utils::get_client_config(&config.url).await;
         Self {
-            base: AnilistService { client, language },
+            base: AnilistService { client },
         }
     }
 }
@@ -88,10 +87,10 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(config: &MangaAnilistConfig, language: String) -> Self {
+    pub async fn new(config: &MangaAnilistConfig) -> Self {
         let client = utils::get_client_config(&config.url).await;
         Self {
-            base: AnilistService { client, language },
+            base: AnilistService { client },
         }
     }
 }

@@ -75,7 +75,6 @@ pub struct IgdbService {
     image_url: String,
     image_size: String,
     config: VideoGameConfig,
-    language: String,
 }
 
 impl MediaProviderLanguages for IgdbService {
@@ -89,12 +88,11 @@ impl MediaProviderLanguages for IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(config: &VideoGameConfig, language: String) -> Self {
+    pub async fn new(config: &VideoGameConfig) -> Self {
         Self {
             image_url: config.igdb.image_url.to_owned(),
             image_size: config.igdb.image_size.to_string(),
             config: config.clone(),
-            language,
         }
     }
 }

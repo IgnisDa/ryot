@@ -72,11 +72,28 @@ pub async fn create_app_services(
         update_exercise_job,
     ));
 
+    let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
+    let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
+    let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
+    let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible));
+    let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
+    let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
+    let anilist_anime_service = Arc::new(AnilistAnimeService::new(&config.anime.anilist).await);
+    let anilist_manga_service = Arc::new(AnilistMangaService::new(&config.manga.anilist).await);
+
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
         Arc::new(config.clone()),
         file_storage_service.clone(),
+        audible_service,
+        igdb_service,
+        listennotes_service,
+        openlibrary_service,
+        tmdb_movies_service,
+        tmdb_shows_service,
+        anilist_anime_service,
+        anilist_manga_service,
         after_media_seen_job,
         update_metadata_job,
         recalculate_user_summary_job,

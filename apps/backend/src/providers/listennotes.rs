@@ -25,7 +25,6 @@ use crate::{
 pub struct ListennotesService {
     client: Client,
     genres: HashMap<i32, String>,
-    language: String,
 }
 
 impl MediaProviderLanguages for ListennotesService {
@@ -39,14 +38,10 @@ impl MediaProviderLanguages for ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(config: &PodcastConfig, language: String) -> Self {
+    pub async fn new(config: &PodcastConfig) -> Self {
         let (client, genres) =
             utils::get_client_config(&config.listennotes.url, &config.listennotes.api_token).await;
-        Self {
-            client,
-            genres,
-            language,
-        }
+        Self { client, genres }
     }
 }
 
