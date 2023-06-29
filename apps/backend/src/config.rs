@@ -1,10 +1,14 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader};
+use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader, ValidateError};
 use serde::{Deserialize, Serialize};
 
-use crate::graphql::PROJECT_NAME;
+use crate::{
+    graphql::PROJECT_NAME,
+    providers::{audible::AudibleService, tmdb::TmdbService},
+    traits::MediaProviderLanguages,
+};
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
@@ -29,9 +33,26 @@ pub struct AnimeConfig {
 
 impl IsFeatureEnabled for AnimeConfig {}
 
+fn validate_audible_locale(
+    value: &str,
+    _partial: &PartialAudibleConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    if !AudibleService::supported_languages().contains(&value.to_owned()) {
+        return Err(ValidateError::new(format!(
+            "Audible does not support this locale: {:?}",
+            value
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
-pub struct AudibleConfig {}
+pub struct AudibleConfig {
+    #[setting(validate = validate_audible_locale, default = AudibleService::default_language())]
+    pub locale: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct AudioBookConfig {
@@ -96,11 +117,31 @@ pub struct ExerciseConfig {
     pub db: FreeExerciseDbConfig,
 }
 
+fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
+    if !TmdbService::supported_languages().contains(&value.to_owned()) {
+        return Err(ValidateError::new(format!(
+            "Tmdb does not support this locale: {:?}",
+            value
+        )));
+    }
+    Ok(())
+}
+
+fn validate_movies_tmdb_locale(
+    value: &str,
+    _partial: &PartialMoviesTmdbConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    validate_tmdb_locale(value)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct MoviesTmdbConfig {
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
+    #[setting(validate = validate_movies_tmdb_locale, default = TmdbService::default_language())]
+    pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -145,11 +186,21 @@ impl IsFeatureEnabled for PodcastConfig {
     }
 }
 
+fn validate_shows_tmdb_locale(
+    value: &str,
+    _partial: &PartialShowsTmdbConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    validate_tmdb_locale(value)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct ShowsTmdbConfig {
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
+    #[setting(validate = validate_shows_tmdb_locale, default = TmdbService::default_language())]
+    pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
