@@ -1916,14 +1916,16 @@ impl MiscellaneousService {
     ) -> Result<MetadataFeatureEnabled> {
         let user_preferences = self.user_by_id(user_id).await?.preferences;
         let metadata = MetadataFeatureEnabled {
-            anime: config.anime.is_enabled() && user_preferences.anime,
-            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
-            books: config.books.is_enabled() && user_preferences.books,
-            shows: config.shows.is_enabled() && user_preferences.shows,
-            manga: config.manga.is_enabled() && user_preferences.manga,
-            movies: config.movies.is_enabled() && user_preferences.movies,
-            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
-            video_games: config.video_games.is_enabled() && user_preferences.video_games,
+            anime: config.anime.is_enabled() && user_preferences.features_enabled.anime,
+            audio_books: config.audio_books.is_enabled()
+                && user_preferences.features_enabled.audio_books,
+            books: config.books.is_enabled() && user_preferences.features_enabled.books,
+            shows: config.shows.is_enabled() && user_preferences.features_enabled.shows,
+            manga: config.manga.is_enabled() && user_preferences.features_enabled.manga,
+            movies: config.movies.is_enabled() && user_preferences.features_enabled.movies,
+            podcasts: config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts,
+            video_games: config.video_games.is_enabled()
+                && user_preferences.features_enabled.video_games,
         };
         Ok(metadata)
     }
@@ -3030,14 +3032,14 @@ impl MiscellaneousService {
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property {
-            MetadataLot::AudioBook => preferences.audio_books = input.value,
-            MetadataLot::Book => preferences.books = input.value,
-            MetadataLot::Movie => preferences.movies = input.value,
-            MetadataLot::Podcast => preferences.podcasts = input.value,
-            MetadataLot::Show => preferences.shows = input.value,
-            MetadataLot::VideoGame => preferences.video_games = input.value,
-            MetadataLot::Manga => preferences.manga = input.value,
-            MetadataLot::Anime => preferences.anime = input.value,
+            MetadataLot::AudioBook => preferences.features_enabled.audio_books = input.value,
+            MetadataLot::Book => preferences.features_enabled.books = input.value,
+            MetadataLot::Movie => preferences.features_enabled.movies = input.value,
+            MetadataLot::Podcast => preferences.features_enabled.podcasts = input.value,
+            MetadataLot::Show => preferences.features_enabled.shows = input.value,
+            MetadataLot::VideoGame => preferences.features_enabled.video_games = input.value,
+            MetadataLot::Manga => preferences.features_enabled.manga = input.value,
+            MetadataLot::Anime => preferences.features_enabled.anime = input.value,
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);

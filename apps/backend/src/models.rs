@@ -19,10 +19,8 @@ fn get_serde_true() -> bool {
     Default,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "UserPreferencesInput")]
-pub struct UserPreferences {
-    // -- media
-    // features enabled
+#[graphql(input_name = "UserFeaturesEnabledPreferencesInput")]
+pub struct UserFeaturesEnabledPreferences {
     #[serde(default = "get_serde_true")]
     pub anime: bool,
     #[serde(default = "get_serde_true")]
@@ -39,10 +37,24 @@ pub struct UserPreferences {
     pub shows: bool,
     #[serde(default = "get_serde_true")]
     pub video_games: bool,
-    // -- media
+}
 
-    // -- localization
-    // -- localization
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    InputObject,
+    Eq,
+    PartialEq,
+    Default,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserPreferencesInput")]
+pub struct UserPreferences {
+    #[serde(default)]
+    pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
 pub mod media {
