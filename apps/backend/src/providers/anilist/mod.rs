@@ -52,7 +52,7 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(config: &AnimeAnilistConfig) -> Self {
+    pub async fn new(_config: &AnimeAnilistConfig) -> Self {
         let client = utils::get_client_config(URL).await;
         Self {
             base: AnilistService { client },
@@ -89,7 +89,7 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(config: &MangaAnilistConfig) -> Self {
+    pub async fn new(_config: &MangaAnilistConfig) -> Self {
         let client = utils::get_client_config(URL).await;
         Self {
             base: AnilistService { client },
