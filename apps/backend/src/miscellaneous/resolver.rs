@@ -66,8 +66,8 @@ use crate::{
 };
 
 use super::{
-    DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
-    MetadataImageUrl, MetadataImages, PAGE_LIMIT,
+    CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
+    MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
 type ProviderArc = Arc<(dyn MediaProvider + Send + Sync)>;
@@ -208,6 +208,12 @@ pub struct ExportMedia {
 struct UpdateUserFeaturesPreferencesInput {
     property: MetadataLot,
     value: bool,
+}
+
+#[derive(Debug, InputObject)]
+struct UpdateUserLocalizationPreferencesInput {
+    property: MetadataSource,
+    value: String,
 }
 
 fn create_cookie(
@@ -967,7 +973,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Change a user's preferences
+    /// Change a user's features preferences
     async fn update_user_features_preferences(
         &self,
         gql_ctx: &Context<'_>,
@@ -977,6 +983,19 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .update_user_features_preferences(input, user_id)
+            .await
+    }
+
+    /// Change a user's localization preferences
+    async fn update_user_localization_preferences(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserLocalizationPreferencesInput,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .update_user_localization_preferences(input, user_id)
             .await
     }
 
@@ -3066,6 +3085,28 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    async fn update_user_localization_preferences(
+        &self,
+        input: UpdateUserLocalizationPreferencesInput,
+        user_id: i32,
+    ) -> Result<bool> {
+        let user_model = self.user_by_id(user_id).await?;
+        let mut preferences = user_model.preferences.clone();
+        match input.property {
+            MetadataSource::Anilist => preferences.localization.anilist = input.value,
+            MetadataSource::Audible => preferences.localization.audible = input.value,
+            MetadataSource::Custom => preferences.localization.custom = input.value,
+            MetadataSource::Igdb => preferences.localization.igdb = input.value,
+            MetadataSource::Listennotes => preferences.localization.listennotes = input.value,
+            MetadataSource::Openlibrary => preferences.localization.openlibrary = input.value,
+            MetadataSource::Tmdb => preferences.localization.tmdb = input.value,
+        };
+        let mut user_model: user::ActiveModel = user_model.into();
+        user_model.preferences = ActiveValue::Set(preferences);
+        user_model.update(&self.db).await?;
+        Ok(true)
+    }
+
     async fn generate_application_token(&self, user_id: i32) -> Result<String> {
         let api_token = Uuid::new_v4().to_string();
         self.set_auth_token(&api_token, &user_id, None)
@@ -3136,10 +3177,13 @@ impl MiscellaneousService {
                         IgdbService::supported_languages(),
                         IgdbService::default_language(),
                     ),
-                    MetadataSource::Custom => (vec!["us".to_owned()], "us".to_owned()),
                     MetadataSource::Anilist => (
                         AnilistService::supported_languages(),
                         AnilistService::default_language(),
+                    ),
+                    MetadataSource::Custom => (
+                        CustomService::supported_languages(),
+                        CustomService::default_language(),
                     ),
                 };
                 ProviderLanguageInformation {

@@ -4,6 +4,7 @@ use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    miscellaneous::CustomService,
     providers::{
         anilist::AnilistService, audible::AudibleService, igdb::IgdbService,
         listennotes::ListennotesService, openlibrary::OpenlibraryService, tmdb::TmdbService,
@@ -62,6 +63,7 @@ impl Default for UserFeaturesEnabledPreferences {
 pub struct UserLocalizationPreferences {
     pub anilist: String,
     pub audible: String,
+    pub custom: String,
     pub igdb: String,
     pub listennotes: String,
     pub openlibrary: String,
@@ -73,6 +75,7 @@ impl Default for UserLocalizationPreferences {
         Self {
             anilist: AnilistService::default_language(),
             audible: AudibleService::default_language(),
+            custom: CustomService::default_language(),
             igdb: IgdbService::default_language(),
             listennotes: ListennotesService::default_language(),
             openlibrary: OpenlibraryService::default_language(),
