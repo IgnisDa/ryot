@@ -18,6 +18,8 @@ use crate::{
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
+pub static URL: &str = "https://api.audible.com/1.0/catalog/products/";
+
 #[derive(Serialize, Deserialize)]
 struct PrimaryQuery {
     response_groups: String,
@@ -98,7 +100,7 @@ impl AudibleService {
         let client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
-            .set_base_url(Url::parse(&config.url).unwrap())
+            .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();
         Self { client }

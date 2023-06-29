@@ -21,6 +21,8 @@ use crate::{
     traits::{MediaProvider, MediaProviderLanguages},
 };
 
+pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";
+
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
     client: Client,
@@ -39,8 +41,7 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig) -> Self {
-        let (client, genres) =
-            utils::get_client_config(&config.listennotes.url, &config.listennotes.api_token).await;
+        let (client, genres) = utils::get_client_config(URL, &config.listennotes.api_token).await;
         Self { client, genres }
     }
 }

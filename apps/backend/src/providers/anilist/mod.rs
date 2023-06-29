@@ -13,6 +13,8 @@ use crate::{
     traits::{MediaProvider, MediaProviderLanguages},
 };
 
+static URL: &str = "https://graphql.anilist.co";
+
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
@@ -51,7 +53,7 @@ pub struct AnilistAnimeService {
 
 impl AnilistAnimeService {
     pub async fn new(config: &AnimeAnilistConfig) -> Self {
-        let client = utils::get_client_config(&config.url).await;
+        let client = utils::get_client_config(URL).await;
         Self {
             base: AnilistService { client },
         }
@@ -88,7 +90,7 @@ pub struct AnilistMangaService {
 
 impl AnilistMangaService {
     pub async fn new(config: &MangaAnilistConfig) -> Self {
-        let client = utils::get_client_config(&config.url).await;
+        let client = utils::get_client_config(URL).await;
         Self {
             base: AnilistService { client },
         }

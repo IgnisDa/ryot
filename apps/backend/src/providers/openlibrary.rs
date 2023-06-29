@@ -21,6 +21,9 @@ use crate::{
     utils::get_data_parallelly_from_sources,
 };
 
+pub static URL: &str = "https://openlibrary.org";
+pub static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
+
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct BookSearchResults {
     pub total: i32,
@@ -62,11 +65,11 @@ impl OpenlibraryService {
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
-            .set_base_url(Url::parse(&config.url).unwrap())
+            .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();
         Self {
-            image_url: config.cover_image_url.to_owned(),
+            image_url: IMAGE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
         }

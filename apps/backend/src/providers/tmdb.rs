@@ -18,6 +18,8 @@ use crate::{
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
+pub static URL: &str = "https://api.themoviedb.org/3/";
+
 #[derive(Debug, Clone)]
 pub struct TmdbService {
     image_url: String,
@@ -49,7 +51,7 @@ pub struct TmdbMovieService {
 
 impl TmdbMovieService {
     pub async fn new(config: &MoviesTmdbConfig) -> Self {
-        let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
+        let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService { image_url },
@@ -216,7 +218,7 @@ pub struct TmdbShowService {
 
 impl TmdbShowService {
     pub async fn new(config: &ShowsTmdbConfig) -> Self {
-        let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
+        let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService { image_url },
