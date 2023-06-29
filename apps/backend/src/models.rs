@@ -11,10 +11,6 @@ use crate::{
     traits::MediaProviderLanguages,
 };
 
-fn get_serde_true() -> bool {
-    true
-}
-
 #[derive(
     Debug,
     Serialize,
@@ -24,26 +20,32 @@ fn get_serde_true() -> bool {
     InputObject,
     Eq,
     PartialEq,
-    Default,
     FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
-    #[serde(default = "get_serde_true")]
     pub anime: bool,
-    #[serde(default = "get_serde_true")]
     pub audio_books: bool,
-    #[serde(default = "get_serde_true")]
     pub books: bool,
-    #[serde(default = "get_serde_true")]
     pub manga: bool,
-    #[serde(default = "get_serde_true")]
     pub movies: bool,
-    #[serde(default = "get_serde_true")]
     pub podcasts: bool,
-    #[serde(default = "get_serde_true")]
     pub shows: bool,
-    #[serde(default = "get_serde_true")]
     pub video_games: bool,
+}
+
+impl Default for UserFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self {
+            anime: true,
+            audio_books: true,
+            books: true,
+            manga: true,
+            movies: true,
+            podcasts: true,
+            shows: true,
+            video_games: true,
+        }
+    }
 }
 
 #[derive(
@@ -55,22 +57,28 @@ pub struct UserFeaturesEnabledPreferences {
     InputObject,
     Eq,
     PartialEq,
-    Default,
     FromJsonQueryResult,
 )]
 pub struct UserLocalizationPreferences {
-    #[serde(default = "AnilistService::default_language")]
     pub anilist: String,
-    #[serde(default = "AudibleService::default_language")]
     pub audible: String,
-    #[serde(default = "IgdbService::default_language")]
     pub igdb: String,
-    #[serde(default = "ListennotesService::default_language")]
     pub listennotes: String,
-    #[serde(default = "OpenlibraryService::default_language")]
     pub openlibrary: String,
-    #[serde(default = "TmdbService::default_language")]
     pub tmdb: String,
+}
+
+impl Default for UserLocalizationPreferences {
+    fn default() -> Self {
+        Self {
+            anilist: AnilistService::default_language(),
+            audible: AudibleService::default_language(),
+            igdb: IgdbService::default_language(),
+            listennotes: ListennotesService::default_language(),
+            openlibrary: OpenlibraryService::default_language(),
+            tmdb: TmdbService::default_language(),
+        }
+    }
 }
 
 #[derive(
