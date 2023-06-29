@@ -1,8 +1,9 @@
 import type { NextPageWithLayout } from "./_app";
 import { useUserPreferences } from "@/lib/hooks/graphql";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { changeCase, getLot } from "@/lib/utilities";
+import { changeCase, getLot, getSource } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
@@ -304,7 +305,7 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	return (
+	return languageInformation.data && userPrefs.data ? (
 		<>
 			<Head>
 				<title>Settings | Ryot</title>
@@ -373,7 +374,7 @@ const Page: NextPageWithLayout = () => {
 								<Stack spacing={"xs"}>
 									<Title order={3}>Enabled features</Title>
 									<SimpleGrid cols={2}>
-										{Object.entries(userPrefs.data?.featuresEnabled || {}).map(
+										{Object.entries(userPrefs.data.featuresEnabled || {}).map(
 											([name, isEnabled], idx) => (
 												<Switch
 													key={idx}
@@ -395,13 +396,18 @@ const Page: NextPageWithLayout = () => {
 								<Stack spacing={"xs"}>
 									<Title order={3}>Localization</Title>
 									<SimpleGrid cols={2}>
-										{(languageInformation.data || [])
+										{languageInformation.data
 											.filter((li) => li.supported.length > 1)
 											.map((provider, idx) => (
 												<Select
 													key={idx}
 													label={provider.source}
 													data={provider.supported}
+													defaultValue={
+														Object.entries(userPrefs.data.localization).find(
+															([name]) => getSource(name) === provider.source,
+														)?.[1]
+													}
 													onChange={() => {
 														// TODO: Actually commit the change
 													}}
@@ -534,6 +540,8 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Container>
 		</>
+	) : (
+		<LoadingPage />
 	);
 };
 
