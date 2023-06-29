@@ -439,7 +439,7 @@ const Page: NextPageWithLayout = () => {
 		enabled: !!metadataId,
 	});
 	const seenHistory = useQuery({
-		queryKey: ["history", metadataId, mediaDetails.data?.lot],
+		queryKey: ["history", metadataId, mediaDetails?.data?.lot],
 		queryFn: async () => {
 			const { seenHistory } = await gqlClient.request(SeenHistoryDocument, {
 				metadataId: metadataId,
@@ -600,7 +600,7 @@ const Page: NextPageWithLayout = () => {
 	// all the collections that the user has added this media to
 	const mediaCollections = (collections.data || [])
 		?.filter((c) =>
-			c.mediaDetails.some((m) => m.identifier === metadataId.toString()),
+			c.mediaDetails?.some((m) => m.identifier === metadataId.toString()),
 		)
 		.map((c) => c.collectionDetails.name);
 
