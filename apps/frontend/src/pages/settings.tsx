@@ -16,8 +16,8 @@ import {
 	Divider,
 	Flex,
 	PasswordInput,
+	Select,
 	SimpleGrid,
-	Space,
 	Stack,
 	Switch,
 	Tabs,
@@ -36,15 +36,16 @@ import {
 	GenerateApplicationTokenDocument,
 	type GenerateApplicationTokenMutationVariables,
 	MediaImportSource,
+	ProvidersLanguageInformationDocument,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
-	type UpdateUserMutationVariables,
-	UserDetailsDocument,
 	UpdateUserFeaturePreferencesDocument,
 	type UpdateUserFeaturePreferencesMutationVariables,
+	type UpdateUserMutationVariables,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAnalyze,
@@ -146,11 +147,23 @@ const Page: NextPageWithLayout = () => {
 			}
 		},
 	});
+
 	const coreDetails = useQuery(
 		["coreDetails"],
 		async () => {
 			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
 			return coreDetails;
+		},
+		{ staleTime: Infinity },
+	);
+
+	const languageInformation = useQuery(
+		["languageInformation"],
+		async () => {
+			const { providersLanguageInformation } = await gqlClient.request(
+				ProvidersLanguageInformationDocument,
+			);
+			return providersLanguageInformation;
 		},
 		{ staleTime: Infinity },
 	);
@@ -356,27 +369,47 @@ const Page: NextPageWithLayout = () => {
 							</Box>
 						</Tabs.Panel>
 						<Tabs.Panel value="preferences">
-							<Title order={3}>Enabled features</Title>
-							<Space h="sm" />
-							<SimpleGrid cols={2}>
-								{Object.entries(enabledFeatures.data || {}).map(
-									([name, isEnabled], idx) => (
-										<Switch
-											key={idx}
-											label={changeCase(name)}
-											checked={isEnabled}
-											onChange={(ev) => {
-												updateUserPreferences.mutate({
-													input: {
-														property: getLot(name)!,
-														value: ev.currentTarget.checked,
-													},
-												});
-											}}
-										/>
-									),
-								)}
-							</SimpleGrid>
+							<Stack>
+								<Stack spacing={"xs"}>
+									<Title order={3}>Enabled features</Title>
+									<SimpleGrid cols={2}>
+										{Object.entries(enabledFeatures.data || {}).map(
+											([name, isEnabled], idx) => (
+												<Switch
+													key={idx}
+													label={changeCase(name)}
+													checked={isEnabled}
+													onChange={(ev) => {
+														updateUserPreferences.mutate({
+															input: {
+																property: getLot(name)!,
+																value: ev.currentTarget.checked,
+															},
+														});
+													}}
+												/>
+											),
+										)}
+									</SimpleGrid>
+								</Stack>
+								<Stack spacing={"xs"}>
+									<Title order={3}>Localization</Title>
+									<SimpleGrid cols={2}>
+										{(languageInformation.data || [])
+											.filter((li) => li.supported.length > 1)
+											.map((provider, idx) => (
+												<Select
+													key={idx}
+													label={provider.source}
+													data={provider.supported}
+													onChange={() => {
+														// TODO: Actually commit the change
+													}}
+												/>
+											))}
+									</SimpleGrid>
+								</Stack>
+							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="tokens">
 							<Stack>
