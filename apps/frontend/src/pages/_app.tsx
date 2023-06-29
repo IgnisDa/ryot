@@ -70,6 +70,7 @@ const Footer = () => {
 	);
 };
 
+// TODO: Add meta tags
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
 	const getLayout = Component.getLayout ?? ((page) => page);
 
