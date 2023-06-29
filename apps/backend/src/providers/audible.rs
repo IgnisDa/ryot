@@ -78,6 +78,7 @@ pub struct AudibleItem {
 #[derive(Debug, Clone)]
 pub struct AudibleService {
     client: Client,
+    language: String,
 }
 
 impl MediaProviderLanguages for AudibleService {
@@ -94,14 +95,14 @@ impl MediaProviderLanguages for AudibleService {
 }
 
 impl AudibleService {
-    pub fn new(config: &AudibleConfig) -> Self {
+    pub async fn new(config: &AudibleConfig, language: String) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
             .set_base_url(Url::parse(&config.url).unwrap())
             .try_into()
             .unwrap();
-        Self { client }
+        Self { client, language }
     }
 }
 

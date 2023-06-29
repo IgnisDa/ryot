@@ -71,8 +71,6 @@ use super::{
     MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
-type ProviderArc = Arc<(dyn MediaProvider + Send + Sync)>;
-
 pub static COOKIE_NAME: &str = "auth";
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -668,9 +666,10 @@ impl MiscellaneousQuery {
         source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_search(lot, source, input)
+            .media_search(user_id, lot, source, input)
             .await
     }
 
@@ -939,9 +938,10 @@ impl MiscellaneousMutation {
         source: MetadataSource,
         identifier: String,
     ) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_media(lot, source, identifier)
+            .commit_media(user_id, lot, source, identifier)
             .await
     }
 
@@ -951,9 +951,10 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         podcast_id: Identifier,
     ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_next_10_podcast_episodes(podcast_id.into())
+            .commit_next_10_podcast_episodes(user_id, podcast_id.into())
             .await
     }
 
@@ -999,14 +1000,6 @@ pub struct MiscellaneousService {
     scdb: MemoryDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
-    audible_service: Arc<AudibleService>,
-    igdb_service: Arc<IgdbService>,
-    listennotes_service: Arc<ListennotesService>,
-    openlibrary_service: Arc<OpenlibraryService>,
-    tmdb_movies_service: Arc<TmdbMovieService>,
-    tmdb_shows_service: Arc<TmdbShowService>,
-    anilist_anime_service: Arc<AnilistAnimeService>,
-    anilist_manga_service: Arc<AnilistMangaService>,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -1020,14 +1013,6 @@ impl MiscellaneousService {
         scdb: &MemoryDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
-        audible_service: Arc<AudibleService>,
-        igdb_service: Arc<IgdbService>,
-        listennotes_service: Arc<ListennotesService>,
-        openlibrary_service: Arc<OpenlibraryService>,
-        tmdb_movies_service: Arc<TmdbMovieService>,
-        tmdb_shows_service: Arc<TmdbShowService>,
-        anilist_anime_service: Arc<AnilistAnimeService>,
-        anilist_manga_service: Arc<AnilistMangaService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
@@ -1038,14 +1023,6 @@ impl MiscellaneousService {
             scdb: scdb.clone(),
             config,
             file_storage,
-            audible_service,
-            igdb_service,
-            listennotes_service,
-            openlibrary_service,
-            tmdb_movies_service,
-            tmdb_shows_service,
-            anilist_anime_service,
-            anilist_manga_service,
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1969,6 +1946,7 @@ impl MiscellaneousService {
 
     async fn media_search(
         &self,
+        user_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
         input: SearchInput,
@@ -1981,16 +1959,7 @@ impl MiscellaneousService {
             Identifier,
         }
         let metadata_alias = Alias::new("m");
-        let service: ProviderArc = match lot {
-            MetadataLot::Book => self.openlibrary_service.clone(),
-            MetadataLot::AudioBook => self.audible_service.clone(),
-            MetadataLot::Podcast => self.listennotes_service.clone(),
-            MetadataLot::Movie => self.tmdb_movies_service.clone(),
-            MetadataLot::Show => self.tmdb_shows_service.clone(),
-            MetadataLot::VideoGame => self.igdb_service.clone(),
-            MetadataLot::Anime => self.anilist_anime_service.clone(),
-            MetadataLot::Manga => self.anilist_manga_service.clone(),
-        };
+        let service = self.get_service(lot, source, user_id).await?;
         let results = service.search(&input.query, input.page).await?;
         let mut all_idens = results
             .items
@@ -2079,6 +2048,7 @@ impl MiscellaneousService {
 
     pub async fn details_from_provider_for_existing_media(
         &self,
+        user_id: i32,
         metadata_id: i32,
     ) -> Result<MediaDetails> {
         let metadata = Metadata::find_by_id(metadata_id)
@@ -2087,42 +2057,26 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let results = self
-            .details_from_provider(metadata.lot, metadata.source, metadata.identifier)
+            .details_from_provider(user_id, metadata.lot, metadata.source, metadata.identifier)
             .await?;
         Ok(results)
     }
 
     async fn details_from_provider(
         &self,
+        user_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
         identifier: String,
     ) -> Result<MediaDetails> {
-        let service: ProviderArc = match source {
-            MetadataSource::Openlibrary => self.openlibrary_service.clone(),
-            MetadataSource::Audible => self.audible_service.clone(),
-            MetadataSource::Listennotes => self.listennotes_service.clone(),
-            MetadataSource::Tmdb => match lot {
-                MetadataLot::Show => self.tmdb_shows_service.clone(),
-                MetadataLot::Movie => self.tmdb_movies_service.clone(),
-                _ => unreachable!(),
-            },
-            MetadataSource::Anilist => match lot {
-                MetadataLot::Anime => self.anilist_anime_service.clone(),
-                MetadataLot::Manga => self.anilist_manga_service.clone(),
-                _ => unreachable!(),
-            },
-            MetadataSource::Igdb => self.igdb_service.clone(),
-            MetadataSource::Custom => {
-                return Err(Error::new("This source is not supported".to_owned()));
-            }
-        };
+        let service = self.get_service(lot, source, user_id).await?;
         let results = service.details(&identifier).await?;
         Ok(results)
     }
 
     pub async fn commit_media(
         &self,
+        user_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
         identifier: String,
@@ -2136,13 +2090,19 @@ impl MiscellaneousService {
         if let Some(m) = meta {
             Ok(IdObject { id: m.id.into() })
         } else {
-            let details = self.details_from_provider(lot, source, identifier).await?;
+            let details = self
+                .details_from_provider(user_id, lot, source, identifier)
+                .await?;
             let media_id = self.commit_media_internal(details).await?;
             Ok(media_id)
         }
     }
 
-    pub async fn commit_next_10_podcast_episodes(&self, podcast_id: i32) -> Result<bool> {
+    pub async fn commit_next_10_podcast_episodes(
+        &self,
+        user_id: i32,
+        podcast_id: i32,
+    ) -> Result<bool> {
         let podcast = Metadata::find_by_id(podcast_id)
             .one(&self.db)
             .await
@@ -2158,7 +2118,8 @@ impl MiscellaneousService {
                 let episode_number = last_episode.number;
                 let details = match podcast.source {
                     MetadataSource::Listennotes => {
-                        self.listennotes_service
+                        self.get_listennotes_service("en".to_owned())
+                            .await
                             .details_with_paginated_episodes(
                                 &podcast.identifier,
                                 Some(next_pub_date),
@@ -2520,11 +2481,11 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
+    pub async fn update_metadata(&self, user_id: i32, metadata: metadata::Model) -> Result<()> {
         let metadata_id = metadata.id;
         tracing::info!("Updating metadata for {:?}", Identifier::from(metadata_id));
         let maybe_details = self
-            .details_from_provider_for_existing_media(metadata_id)
+            .details_from_provider_for_existing_media(user_id, metadata_id)
             .await;
         match maybe_details {
             Ok(details) => {
@@ -3170,5 +3131,68 @@ impl MiscellaneousService {
                 }
             })
             .collect()
+    }
+
+    async fn get_service(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        user_id: i32,
+    ) -> Result<Box<dyn MediaProvider>> {
+        let prefs = self.user_by_id(user_id).await?.preferences;
+        let service: Box<dyn MediaProvider> = match source {
+            MetadataSource::Openlibrary => Box::new(
+                OpenlibraryService::new(
+                    &self.config.books.openlibrary,
+                    prefs.localization.openlibrary,
+                )
+                .await,
+            ),
+            MetadataSource::Audible => Box::new(
+                AudibleService::new(&self.config.audio_books.audible, prefs.localization.audible)
+                    .await,
+            ),
+            MetadataSource::Listennotes => Box::new(
+                self.get_listennotes_service(prefs.localization.listennotes)
+                    .await,
+            ),
+            MetadataSource::Tmdb => match lot {
+                MetadataLot::Show => Box::new(
+                    TmdbShowService::new(&self.config.shows.tmdb, prefs.localization.tmdb).await,
+                ),
+                MetadataLot::Movie => Box::new(
+                    TmdbMovieService::new(&self.config.movies.tmdb, prefs.localization.tmdb).await,
+                ),
+                _ => unreachable!(),
+            },
+            MetadataSource::Anilist => match lot {
+                MetadataLot::Anime => Box::new(
+                    AnilistAnimeService::new(
+                        &self.config.anime.anilist,
+                        prefs.localization.anilist,
+                    )
+                    .await,
+                ),
+                MetadataLot::Manga => Box::new(
+                    AnilistMangaService::new(
+                        &self.config.manga.anilist,
+                        prefs.localization.anilist,
+                    )
+                    .await,
+                ),
+                _ => unreachable!(),
+            },
+            MetadataSource::Igdb => {
+                Box::new(IgdbService::new(&self.config.video_games, prefs.localization.igdb).await)
+            }
+            MetadataSource::Custom => {
+                return Err(Error::new("This source is not supported".to_owned()));
+            }
+        };
+        Ok(service)
+    }
+
+    async fn get_listennotes_service(&self, language: String) -> ListennotesService {
+        ListennotesService::new(&self.config.podcasts, language).await
     }
 }

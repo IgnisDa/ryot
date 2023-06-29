@@ -45,6 +45,7 @@ pub struct OpenlibraryService {
     image_url: String,
     image_size: String,
     client: Client,
+    language: String,
 }
 
 impl MediaProviderLanguages for OpenlibraryService {
@@ -58,7 +59,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub fn new(config: &OpenlibraryConfig) -> Self {
+    pub async fn new(config: &OpenlibraryConfig, language: String) -> Self {
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
@@ -69,6 +70,7 @@ impl OpenlibraryService {
             image_url: config.cover_image_url.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
+            language,
         }
     }
 }
