@@ -10,7 +10,7 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         PAGE_LIMIT,
     },
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
 };
 
 #[derive(Debug, Clone)]
@@ -33,6 +33,19 @@ struct SearchQuery;
     response_derives = "Debug"
 )]
 struct DetailsQuery;
+
+#[derive(Debug, Clone)]
+pub struct AnilistService {}
+
+impl MediaProviderLanguages for AnilistService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
+}
 
 impl AnilistAnimeService {
     pub async fn new(config: &AnimeAnilistConfig) -> Self {

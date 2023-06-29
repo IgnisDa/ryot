@@ -14,7 +14,7 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::VideoGameSpecifics,
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::NamedObject,
 };
 
@@ -75,6 +75,16 @@ pub struct IgdbService {
     image_url: String,
     image_size: String,
     config: VideoGameConfig,
+}
+
+impl MediaProviderLanguages for IgdbService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
 }
 
 impl IgdbService {

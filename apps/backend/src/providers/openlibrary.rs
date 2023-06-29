@@ -17,7 +17,7 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::BookSpecifics,
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::get_data_parallelly_from_sources,
 };
 
@@ -45,6 +45,16 @@ pub struct OpenlibraryService {
     image_url: String,
     image_size: String,
     client: Client,
+}
+
+impl MediaProviderLanguages for OpenlibraryService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
 }
 
 impl OpenlibraryService {

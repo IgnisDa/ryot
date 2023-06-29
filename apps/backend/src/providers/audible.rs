@@ -14,7 +14,7 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::AudioBookSpecifics,
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
@@ -78,6 +78,19 @@ pub struct AudibleItem {
 #[derive(Debug, Clone)]
 pub struct AudibleService {
     client: Client,
+}
+
+impl MediaProviderLanguages for AudibleService {
+    fn supported_languages() -> Vec<String> {
+        ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"]
+            .into_iter()
+            .map(String::from)
+            .collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
 }
 
 impl AudibleService {

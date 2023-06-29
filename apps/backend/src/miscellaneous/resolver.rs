@@ -12,6 +12,7 @@ use markdown::{
     CompileOptions, Options,
 };
 use rust_decimal::Decimal;
+use sea_orm::Iterable;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromJsonQueryResult, FromQueryResult, Iden,
@@ -26,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::providers::anilist::AnilistService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -57,9 +59,9 @@ use crate::{
         igdb::IgdbService,
         listennotes::ListennotesService,
         openlibrary::OpenlibraryService,
-        tmdb::{TmdbMovieService, TmdbShowService},
+        tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
 };
 
@@ -94,6 +96,13 @@ pub struct CreateCustomMediaInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+struct ProviderLanguageInformation {
+    source: MetadataSource,
+    supported: Vec<String>,
+    default: String,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -672,18 +681,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all the metadata sources possible for a lot.
-    async fn media_sources_for_lot(
-        &self,
-        gql_ctx: &Context<'_>,
-        lot: MetadataLot,
-    ) -> Vec<MetadataSource> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_sources_for_lot(lot)
-            .await
-    }
-
     /// Check if a media with the given metadata and identifier exists in the database.
     async fn media_exists_in_database(
         &self,
@@ -696,6 +693,28 @@ impl MiscellaneousQuery {
             .data_unchecked::<Arc<MiscellaneousService>>()
             .media_exists_in_database(identifier, lot, source)
             .await
+    }
+
+    /// Get all the metadata sources possible for a lot.
+    async fn media_sources_for_lot(
+        &self,
+        gql_ctx: &Context<'_>,
+        lot: MetadataLot,
+    ) -> Vec<MetadataSource> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_sources_for_lot(lot)
+            .await
+    }
+
+    /// Get all languages supported by all the providers.
+    async fn providers_language_information(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Vec<ProviderLanguageInformation> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .providers_language_information()
     }
 }
 
@@ -3091,5 +3110,44 @@ impl MiscellaneousService {
             MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
         }
+    }
+
+    fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
+        MetadataSource::iter()
+            .map(|source| {
+                let (supported, default) = match source {
+                    MetadataSource::Audible => (
+                        AudibleService::supported_languages(),
+                        AudibleService::default_language(),
+                    ),
+                    MetadataSource::Openlibrary => (
+                        OpenlibraryService::supported_languages(),
+                        OpenlibraryService::default_language(),
+                    ),
+                    MetadataSource::Tmdb => (
+                        TmdbService::supported_languages(),
+                        TmdbService::default_language(),
+                    ),
+                    MetadataSource::Listennotes => (
+                        ListennotesService::supported_languages(),
+                        ListennotesService::default_language(),
+                    ),
+                    MetadataSource::Igdb => (
+                        IgdbService::supported_languages(),
+                        IgdbService::default_language(),
+                    ),
+                    MetadataSource::Custom => (vec!["us".to_owned()], "us".to_owned()),
+                    MetadataSource::Anilist => (
+                        AnilistService::supported_languages(),
+                        AnilistService::default_language(),
+                    ),
+                };
+                ProviderLanguageInformation {
+                    supported,
+                    default,
+                    source,
+                }
+            })
+            .collect()
     }
 }

@@ -18,13 +18,23 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::{PodcastEpisode, PodcastSpecifics},
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
 };
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
     client: Client,
     genres: HashMap<i32, String>,
+}
+
+impl MediaProviderLanguages for ListennotesService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
 }
 
 impl ListennotesService {
