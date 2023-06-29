@@ -47,6 +47,7 @@ special tool on your computer or phone that lets you keep track of all these dig
   - Goodreads
   - MediaTracker
 - ✅ Self-hosted
+- ✅ PWA Enabled
 - ✅ Documented GraphQL API
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
