@@ -32,7 +32,6 @@ impl TmdbService {
 impl MediaProviderLanguages for TmdbService {
     fn supported_languages() -> Vec<String> {
         isolang::languages()
-            .into_iter()
             .filter_map(|l| l.to_639_1().map(String::from))
             .collect()
     }

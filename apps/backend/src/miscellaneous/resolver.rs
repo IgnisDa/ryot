@@ -211,12 +211,6 @@ struct UpdateUserFeaturePreferenceInput {
     value: bool,
 }
 
-#[derive(Debug, InputObject)]
-struct UpdateUserLocalizationPreferenceInput {
-    property: MetadataSource,
-    value: String,
-}
-
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -970,19 +964,6 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Change a user's localization preferences
-    async fn update_user_localization_preference(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UpdateUserLocalizationPreferenceInput,
-    ) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user_localization_preference(input, user_id)
-            .await
-    }
-
     /// Generate an auth token without any expiry
     async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
@@ -1372,7 +1353,7 @@ impl MiscellaneousService {
                                     .equals((seen_alias.clone(), TempSeen::MetadataId)),
                             )
                             .order_by_with_nulls(
-                                (seen_alias.clone(), last_seen.clone()),
+                                (seen_alias.clone(), last_seen),
                                 order_by,
                                 NullOrdering::Last,
                             )
@@ -3055,28 +3036,6 @@ impl MiscellaneousService {
             MetadataLot::VideoGame => preferences.features_enabled.video_games = input.value,
             MetadataLot::Manga => preferences.features_enabled.manga = input.value,
             MetadataLot::Anime => preferences.features_enabled.anime = input.value,
-        };
-        let mut user_model: user::ActiveModel = user_model.into();
-        user_model.preferences = ActiveValue::Set(preferences);
-        user_model.update(&self.db).await?;
-        Ok(true)
-    }
-
-    async fn update_user_localization_preference(
-        &self,
-        input: UpdateUserLocalizationPreferenceInput,
-        user_id: i32,
-    ) -> Result<bool> {
-        let user_model = self.user_by_id(user_id).await?;
-        let mut preferences = user_model.preferences.clone();
-        match input.property {
-            MetadataSource::Anilist => preferences.localization.anilist = input.value,
-            MetadataSource::Audible => preferences.localization.audible = input.value,
-            MetadataSource::Custom => preferences.localization.custom = input.value,
-            MetadataSource::Igdb => preferences.localization.igdb = input.value,
-            MetadataSource::Listennotes => preferences.localization.listennotes = input.value,
-            MetadataSource::Openlibrary => preferences.localization.openlibrary = input.value,
-            MetadataSource::Tmdb => preferences.localization.tmdb = input.value,
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);

@@ -1,3 +1,0 @@
-mutation UpdateUserLocalizationPreference($input: UpdateUserLocalizationPreferenceInput!) {
-  updateUserLocalizationPreference(input: $input)
-}

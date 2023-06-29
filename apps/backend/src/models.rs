@@ -3,14 +3,7 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    miscellaneous::CustomService,
-    providers::{
-        anilist::AnilistService, audible::AudibleService, igdb::IgdbService,
-        listennotes::ListennotesService, openlibrary::OpenlibraryService, tmdb::TmdbService,
-    },
-    traits::MediaProviderLanguages,
-};
+
 
 #[derive(
     Debug,
@@ -58,49 +51,12 @@ impl Default for UserFeaturesEnabledPreferences {
     InputObject,
     Eq,
     PartialEq,
-    FromJsonQueryResult,
-)]
-pub struct UserLocalizationPreferences {
-    pub anilist: String,
-    pub audible: String,
-    pub custom: String,
-    pub igdb: String,
-    pub listennotes: String,
-    pub openlibrary: String,
-    pub tmdb: String,
-}
-
-impl Default for UserLocalizationPreferences {
-    fn default() -> Self {
-        Self {
-            anilist: AnilistService::default_language(),
-            audible: AudibleService::default_language(),
-            custom: CustomService::default_language(),
-            igdb: IgdbService::default_language(),
-            listennotes: ListennotesService::default_language(),
-            openlibrary: OpenlibraryService::default_language(),
-            tmdb: TmdbService::default_language(),
-        }
-    }
-}
-
-#[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    SimpleObject,
-    Clone,
-    InputObject,
-    Eq,
-    PartialEq,
     Default,
     FromJsonQueryResult,
 )]
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
-    #[serde(default)]
-    pub localization: UserLocalizationPreferences,
 }
 
 pub mod media {

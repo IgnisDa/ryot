@@ -3,7 +3,7 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { changeCase, getLot, getSource } from "@/lib/utilities";
+import { changeCase, getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
@@ -17,7 +17,6 @@ import {
 	Divider,
 	Flex,
 	PasswordInput,
-	Select,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -45,8 +44,6 @@ import {
 	UpdateUserDocument,
 	UpdateUserFeaturePreferenceDocument,
 	type UpdateUserFeaturePreferenceMutationVariables,
-	UpdateUserLocalizationPreferenceDocument,
-	type UpdateUserLocalizationPreferenceMutationVariables,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -251,26 +248,6 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const updateUserLocalizationPrefs = useMutation({
-		mutationFn: async (
-			variables: UpdateUserLocalizationPreferenceMutationVariables,
-		) => {
-			const { updateUserLocalizationPreference } = await gqlClient.request(
-				UpdateUserLocalizationPreferenceDocument,
-				variables,
-			);
-			return updateUserLocalizationPreference;
-		},
-		onSuccess: () => {
-			userPrefs.refetch();
-			notifications.show({
-				title: "Success",
-				message: "Update localization preference",
-				color: "green",
-			});
-		},
-	});
-
 	const generateApplicationToken = useMutation({
 		mutationFn: async (
 			variables: GenerateApplicationTokenMutationVariables,
@@ -415,34 +392,6 @@ const Page: NextPageWithLayout = () => {
 												/>
 											),
 										)}
-									</SimpleGrid>
-								</Stack>
-								<Stack spacing={"xs"}>
-									<Title order={3}>Localization</Title>
-									<SimpleGrid cols={2}>
-										{languageInformation.data
-											.filter((li) => li.supported.length > 1)
-											.map((provider, idx) => (
-												<Select
-													key={idx}
-													label={provider.source}
-													data={provider.supported}
-													defaultValue={
-														Object.entries(userPrefs.data.localization).find(
-															([name]) => getSource(name) === provider.source,
-														)?.[1]
-													}
-													onChange={(v) => {
-														if (v)
-															updateUserLocalizationPrefs.mutate({
-																input: {
-																	property: provider.source,
-																	value: v,
-																},
-															});
-													}}
-												/>
-											))}
 									</SimpleGrid>
 								</Stack>
 							</Stack>
