@@ -12,6 +12,7 @@ import { Notifications } from "@mantine/notifications";
 import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { NextPage } from "next";
+import { NextSeo } from "next-seo";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import type { ReactElement, ReactNode } from "react";
@@ -70,12 +71,25 @@ const Footer = () => {
 	);
 };
 
-// TODO: Add meta tags
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
 	const getLayout = Component.getLayout ?? ((page) => page);
 
 	return (
 		<>
+			<NextSeo
+				title="Ryot - Roll your own tracker!"
+				description="The only self hosted tracker you will ever need."
+				openGraph={{
+					images: [
+						{
+							url: "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/ryot-logo.png",
+							alt: "Ryot logo",
+						},
+					],
+				}}
+				noindex
+				nofollow
+			/>
 			<Head>
 				<title>Ryot</title>
 				<meta
