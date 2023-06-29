@@ -18,7 +18,7 @@ use crate::{
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
-pub static URL: &str = "https://api.audible.com/1.0/catalog/products/";
+pub static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 
 #[derive(Serialize, Deserialize)]
 struct PrimaryQuery {
@@ -67,8 +67,8 @@ pub struct AudibleCategoryLadderCollection {
 pub struct AudibleItem {
     asin: String,
     title: String,
-    authors: Vec<NamedObject>,
-    narrators: Vec<NamedObject>,
+    authors: Option<Vec<NamedObject>>,
+    narrators: Option<Vec<NamedObject>>,
     product_images: AudiblePoster,
     merchandising_summary: Option<String>,
     publisher_summary: Option<String>,
@@ -84,10 +84,7 @@ pub struct AudibleService {
 
 impl MediaProviderLanguages for AudibleService {
     fn supported_languages() -> Vec<String> {
-        ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"]
-            .into_iter()
-            .map(String::from)
-            .collect()
+        LOCALES.into_iter().map(String::from).collect()
     }
 
     fn default_language() -> String {
@@ -96,11 +93,28 @@ impl MediaProviderLanguages for AudibleService {
 }
 
 impl AudibleService {
+    fn url_from_locale(locale: &str) -> String {
+        let suffix = match locale {
+            "us" => "us",
+            "ca" => "ca",
+            "uk" => "co.uk",
+            "au" => "co.au",
+            "fr" => "fr",
+            "de" => "de",
+            "jp" => "co.jp",
+            "it" => "it",
+            "in" => "co.in",
+            "es" => "es",
+            _ => unreachable!(),
+        };
+        format!("https://api.audible.{}/1.0/catalog/products/", suffix)
+    }
+
     pub fn new(config: &AudibleConfig) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
-            .set_base_url(Url::parse(URL).unwrap())
+            .set_base_url(Url::parse(&Self::url_from_locale(&config.locale)).unwrap())
             .try_into()
             .unwrap();
         Self { client }
@@ -190,6 +204,7 @@ impl AudibleService {
         let release_date = item.release_date.unwrap_or_default();
         let mut creators = item
             .authors
+            .unwrap_or_default()
             .into_iter()
             .map(|a| MetadataCreator {
                 name: a.name,
@@ -197,11 +212,16 @@ impl AudibleService {
                 image_urls: vec![],
             })
             .collect::<Vec<_>>();
-        creators.extend(item.narrators.into_iter().map(|a| MetadataCreator {
-            name: a.name,
-            role: "Narrator".to_owned(),
-            image_urls: vec![],
-        }));
+        creators.extend(
+            item.narrators
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| MetadataCreator {
+                    name: a.name,
+                    role: "Narrator".to_owned(),
+                    image_urls: vec![],
+                }),
+        );
         let description = item.publisher_summary.or(item.merchandising_summary);
         MediaDetails {
             identifier: item.asin,
