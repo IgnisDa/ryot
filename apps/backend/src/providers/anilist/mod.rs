@@ -13,11 +13,6 @@ use crate::{
     traits::{MediaProvider, MediaProviderLanguages},
 };
 
-#[derive(Debug, Clone)]
-pub struct AnilistAnimeService {
-    client: Client,
-}
-
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
@@ -35,7 +30,9 @@ struct SearchQuery;
 struct DetailsQuery;
 
 #[derive(Debug, Clone)]
-pub struct AnilistService {}
+pub struct AnilistService {
+    client: Client,
+}
 
 impl MediaProviderLanguages for AnilistService {
     fn supported_languages() -> Vec<String> {
@@ -47,23 +44,35 @@ impl MediaProviderLanguages for AnilistService {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct AnilistAnimeService {
+    base: AnilistService,
+}
+
 impl AnilistAnimeService {
     pub async fn new(config: &AnimeAnilistConfig) -> Self {
         let client = utils::get_client_config(&config.url).await;
-        Self { client }
+        Self {
+            base: AnilistService { client },
+        }
     }
 }
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = utils::details(&self.client, identifier).await?;
+        let details = utils::details(&self.base.client, identifier).await?;
         Ok(details)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let (items, total, next_page) =
-            utils::search(&self.client, search_query::MediaType::ANIME, query, page).await?;
+        let (items, total, next_page) = utils::search(
+            &self.base.client,
+            search_query::MediaType::ANIME,
+            query,
+            page,
+        )
+        .await?;
         Ok(MediaSearchResults {
             total,
             next_page,
@@ -74,26 +83,33 @@ impl MediaProvider for AnilistAnimeService {
 
 #[derive(Debug, Clone)]
 pub struct AnilistMangaService {
-    client: Client,
+    base: AnilistService,
 }
 
 impl AnilistMangaService {
     pub async fn new(config: &MangaAnilistConfig) -> Self {
         let client = utils::get_client_config(&config.url).await;
-        Self { client }
+        Self {
+            base: AnilistService { client },
+        }
     }
 }
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = utils::details(&self.client, identifier).await?;
+        let details = utils::details(&self.base.client, identifier).await?;
         Ok(details)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
-        let (items, total, next_page) =
-            utils::search(&self.client, search_query::MediaType::MANGA, query, page).await?;
+        let (items, total, next_page) = utils::search(
+            &self.base.client,
+            search_query::MediaType::MANGA,
+            query,
+            page,
+        )
+        .await?;
         Ok(MediaSearchResults {
             total,
             next_page,
