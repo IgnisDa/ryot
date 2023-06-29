@@ -11,3 +11,11 @@ pub trait MediaProvider {
     /// Get details about a media item for the particular identifier.
     async fn details(&self, identifier: &str) -> Result<MediaDetails>;
 }
+
+pub trait MediaProviderLanguages {
+    /// Get all the languages that a provider supports.
+    fn supported_languages() -> Vec<String>;
+
+    /// The default language to be used for this provider.
+    fn default_language() -> String;
+}

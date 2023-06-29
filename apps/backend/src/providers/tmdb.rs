@@ -14,25 +14,38 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     models::media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
 #[derive(Debug, Clone)]
-pub struct BaseTmdbService {
+pub struct TmdbService {
     image_url: String,
 }
 
-impl BaseTmdbService {
+impl TmdbService {
     fn get_cover_image_url(&self, c: &str) -> String {
         format!("{}{}{}", self.image_url, "original", c)
+    }
+}
+
+impl MediaProviderLanguages for TmdbService {
+    fn supported_languages() -> Vec<String> {
+        isolang::languages()
+            .into_iter()
+            .filter_map(|l| l.to_639_1().map(String::from))
+            .collect()
+    }
+
+    fn default_language() -> String {
+        "en".to_owned()
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct TmdbMovieService {
     client: Client,
-    base: BaseTmdbService,
+    base: TmdbService,
 }
 
 impl TmdbMovieService {
@@ -40,7 +53,7 @@ impl TmdbMovieService {
         let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self {
             client,
-            base: BaseTmdbService { image_url },
+            base: TmdbService { image_url },
         }
     }
 }
@@ -199,7 +212,7 @@ impl MediaProvider for TmdbMovieService {
 #[derive(Debug, Clone)]
 pub struct TmdbShowService {
     client: Client,
-    base: BaseTmdbService,
+    base: TmdbService,
 }
 
 impl TmdbShowService {
@@ -207,7 +220,7 @@ impl TmdbShowService {
         let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
         Self {
             client,
-            base: BaseTmdbService { image_url },
+            base: TmdbService { image_url },
         }
     }
 }
