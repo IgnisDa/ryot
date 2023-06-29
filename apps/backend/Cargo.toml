@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.4.6"
+version = "1.4.7"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -38,15 +38,15 @@ rust_decimal_macros = "1.29.1"
 schematic = { version = "0.7.1", features = ["toml", "yaml", "valid_url"] }
 scdb = "0.2.1"
 sea-orm = { version = "0.11.1", features = [
+    "debug-print",
+    "macros",
+    "runtime-tokio-rustls",
     "sqlx-mysql",
     "sqlx-postgres",
     "sqlx-sqlite",
-    "runtime-tokio-rustls",
-    "macros",
     "with-chrono",
     "with-uuid",
     "with-rust_decimal",
-    "debug-print",
 ] }
 sea-orm-migration = "0.11.1"
 sea-query = "0.28.4"
