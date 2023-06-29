@@ -1,5 +1,4 @@
-import type { NextPageWithLayout } from "./_app";
-import Grid from "@/lib/components/Grid";
+import type { NextPageWithLayout } from "./_app";import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import { ROUTES } from "@/lib/constants";
 import { useEnabledUserFeatures } from "@/lib/hooks/graphql";
@@ -294,6 +293,7 @@ const Page: NextPageWithLayout = () => {
 					<Divider />
 					<Title>Actions</Title>
 					<SimpleGrid cols={4}>
+						// FIXME: Make it responsive
 						<Button
 							variant="outline"
 							leftIcon={<IconList />}
