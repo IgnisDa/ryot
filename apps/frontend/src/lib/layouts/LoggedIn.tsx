@@ -1,6 +1,6 @@
+import { useUserPreferences } from "../hooks/graphql";
 import Basic from "./Basic";
 import { ROUTES } from "@/lib/constants";
-import { useEnabledUserFeatures } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { changeCase, getLot, getMetadataIcon } from "@/lib/utilities";
 import {
@@ -96,11 +96,11 @@ export default function ({ children }: { children: ReactElement }) {
 		},
 		staleTime: Infinity,
 	});
-	const enabledFeatures = useEnabledUserFeatures();
+	const userPrefs = useUserPreferences();
 
 	const links = [
 		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
-		...(Object.entries(enabledFeatures?.data || {})
+		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -155,7 +155,7 @@ export default function ({ children }: { children: ReactElement }) {
 	return (
 		<Basic
 			header={
-				enabledFeatures ? (
+				userPrefs ? (
 					<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
 						{links}
 						<NavbarButton

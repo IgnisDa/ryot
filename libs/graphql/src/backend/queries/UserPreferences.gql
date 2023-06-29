@@ -1,0 +1,23 @@
+query UserPreferences {
+  userPreferences {
+    localization {
+      anilist
+      audible
+      custom
+      igdb
+      listennotes
+      openlibrary
+      tmdb
+    }
+    featuresEnabled {
+      anime
+      audioBooks
+      books
+      manga
+      movies
+      podcasts
+      shows
+      videoGames
+    }
+  }
+}

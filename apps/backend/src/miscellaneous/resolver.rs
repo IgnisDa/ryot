@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::models::UserPreferences;
 use crate::providers::anilist::AnilistService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
@@ -369,18 +370,6 @@ pub struct AddMediaToCollection {
 }
 
 #[derive(SimpleObject)]
-pub struct MetadataFeatureEnabled {
-    anime: bool,
-    audio_books: bool,
-    books: bool,
-    manga: bool,
-    movies: bool,
-    podcasts: bool,
-    shows: bool,
-    video_games: bool,
-}
-
-#[derive(SimpleObject)]
 pub struct GeneralFeatures {
     file_storage: bool,
     signup_allowed: bool,
@@ -663,13 +652,13 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all the user specific features that are enabled
-    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<MetadataFeatureEnabled> {
+    /// Get a user's preferences.
+    async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
         let config = gql_ctx.data_unchecked::<AppConfig>();
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_enabled_features(user_id, config)
+            .user_preferences(user_id, config)
             .await
     }
 
@@ -1947,25 +1936,25 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_enabled_features(
-        &self,
-        user_id: i32,
-        config: &AppConfig,
-    ) -> Result<MetadataFeatureEnabled> {
-        let user_preferences = self.user_by_id(user_id).await?.preferences;
-        let metadata = MetadataFeatureEnabled {
-            anime: config.anime.is_enabled() && user_preferences.features_enabled.anime,
-            audio_books: config.audio_books.is_enabled()
-                && user_preferences.features_enabled.audio_books,
-            books: config.books.is_enabled() && user_preferences.features_enabled.books,
-            shows: config.shows.is_enabled() && user_preferences.features_enabled.shows,
-            manga: config.manga.is_enabled() && user_preferences.features_enabled.manga,
-            movies: config.movies.is_enabled() && user_preferences.features_enabled.movies,
-            podcasts: config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts,
-            video_games: config.video_games.is_enabled()
-                && user_preferences.features_enabled.video_games,
-        };
-        Ok(metadata)
+    async fn user_preferences(&self, user_id: i32, config: &AppConfig) -> Result<UserPreferences> {
+        let mut user_preferences = self.user_by_id(user_id).await?.preferences;
+        user_preferences.features_enabled.anime =
+            config.anime.is_enabled() && user_preferences.features_enabled.anime;
+        user_preferences.features_enabled.audio_books =
+            config.audio_books.is_enabled() && user_preferences.features_enabled.audio_books;
+        user_preferences.features_enabled.books =
+            config.books.is_enabled() && user_preferences.features_enabled.books;
+        user_preferences.features_enabled.shows =
+            config.shows.is_enabled() && user_preferences.features_enabled.shows;
+        user_preferences.features_enabled.manga =
+            config.manga.is_enabled() && user_preferences.features_enabled.manga;
+        user_preferences.features_enabled.movies =
+            config.movies.is_enabled() && user_preferences.features_enabled.movies;
+        user_preferences.features_enabled.podcasts =
+            config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts;
+        user_preferences.features_enabled.video_games =
+            config.video_games.is_enabled() && user_preferences.features_enabled.video_games;
+        Ok(user_preferences)
     }
 
     async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {

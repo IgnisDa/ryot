@@ -403,17 +403,6 @@ export type MetadataCreator = {
   role: Scalars['String'];
 };
 
-export type MetadataFeatureEnabled = {
-  anime: Scalars['Boolean'];
-  audioBooks: Scalars['Boolean'];
-  books: Scalars['Boolean'];
-  manga: Scalars['Boolean'];
-  movies: Scalars['Boolean'];
-  podcasts: Scalars['Boolean'];
-  shows: Scalars['Boolean'];
-  videoGames: Scalars['Boolean'];
-};
-
 export enum MetadataLot {
   Anime = 'ANIME',
   AudioBook = 'AUDIO_BOOK',
@@ -709,8 +698,8 @@ export type QueryRoot = {
   seenHistory: Array<Seen>;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
-  /** Get all the user specific features that are enabled */
-  userEnabledFeatures: MetadataFeatureEnabled;
+  /** Get a user's preferences. */
+  userPreferences: UserPreferences;
   /** Get a summary of all the media items that have been consumed by this user. */
   userSummary: UserSummary;
 };
@@ -929,15 +918,41 @@ export enum UserDetailsErrorVariant {
 
 export type UserDetailsResult = User | UserDetailsError;
 
+export type UserFeaturesEnabledPreferences = {
+  anime: Scalars['Boolean'];
+  audioBooks: Scalars['Boolean'];
+  books: Scalars['Boolean'];
+  manga: Scalars['Boolean'];
+  movies: Scalars['Boolean'];
+  podcasts: Scalars['Boolean'];
+  shows: Scalars['Boolean'];
+  videoGames: Scalars['Boolean'];
+};
+
 export type UserInput = {
   password: Scalars['String'];
   username: Scalars['String'];
+};
+
+export type UserLocalizationPreferences = {
+  anilist: Scalars['String'];
+  audible: Scalars['String'];
+  custom: Scalars['String'];
+  igdb: Scalars['String'];
+  listennotes: Scalars['String'];
+  openlibrary: Scalars['String'];
+  tmdb: Scalars['String'];
 };
 
 export enum UserLot {
   Admin = 'ADMIN',
   Normal = 'NORMAL'
 }
+
+export type UserPreferences = {
+  featuresEnabled: UserFeaturesEnabledPreferences;
+  localization: UserLocalizationPreferences;
+};
 
 export type UserSummary = {
   anime: AnimeSummary;
@@ -1219,10 +1234,10 @@ export type UserDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type UserDetailsQuery = { userDetails: { __typename: 'User', id: number, email?: string | null, name: string, lot: UserLot } | { __typename: 'UserDetailsError' } };
 
-export type UserEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>;
+export type UserPreferencesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserEnabledFeaturesQuery = { userEnabledFeatures: { anime: boolean, audioBooks: boolean, books: boolean, manga: boolean, movies: boolean, podcasts: boolean, shows: boolean, videoGames: boolean } };
+export type UserPreferencesQuery = { userPreferences: { localization: { anilist: string, audible: string, custom: string, igdb: string, listennotes: string, openlibrary: string, tmdb: string }, featuresEnabled: { anime: boolean, audioBooks: boolean, books: boolean, manga: boolean, movies: boolean, podcasts: boolean, shows: boolean, videoGames: boolean } } };
 
 export type UserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1269,5 +1284,5 @@ export const ProvidersLanguageInformationDocument = {"kind":"Document","definiti
 export const ReviewByIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReviewById"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviewById"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"reviewId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"spoiler"}}]}}]}}]} as unknown as DocumentNode<ReviewByIdQuery, ReviewByIdQueryVariables>;
 export const SeenHistoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SeenHistory"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Identifier"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"seenHistory"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"progress"}},{"kind":"Field","name":{"kind":"Name","value":"dropped"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdatedOn"}},{"kind":"Field","name":{"kind":"Name","value":"showInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}},{"kind":"Field","name":{"kind":"Name","value":"season"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}}]}}]}}]} as unknown as DocumentNode<SeenHistoryQuery, SeenHistoryQueryVariables>;
 export const UserDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}}]}}]}}]}}]} as unknown as DocumentNode<UserDetailsQuery, UserDetailsQueryVariables>;
-export const UserEnabledFeaturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"anime"}},{"kind":"Field","name":{"kind":"Name","value":"audioBooks"}},{"kind":"Field","name":{"kind":"Name","value":"books"}},{"kind":"Field","name":{"kind":"Name","value":"manga"}},{"kind":"Field","name":{"kind":"Name","value":"movies"}},{"kind":"Field","name":{"kind":"Name","value":"podcasts"}},{"kind":"Field","name":{"kind":"Name","value":"shows"}},{"kind":"Field","name":{"kind":"Name","value":"videoGames"}}]}}]}}]} as unknown as DocumentNode<UserEnabledFeaturesQuery, UserEnabledFeaturesQueryVariables>;
+export const UserPreferencesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserPreferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userPreferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"localization"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"anilist"}},{"kind":"Field","name":{"kind":"Name","value":"audible"}},{"kind":"Field","name":{"kind":"Name","value":"custom"}},{"kind":"Field","name":{"kind":"Name","value":"igdb"}},{"kind":"Field","name":{"kind":"Name","value":"listennotes"}},{"kind":"Field","name":{"kind":"Name","value":"openlibrary"}},{"kind":"Field","name":{"kind":"Name","value":"tmdb"}}]}},{"kind":"Field","name":{"kind":"Name","value":"featuresEnabled"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"anime"}},{"kind":"Field","name":{"kind":"Name","value":"audioBooks"}},{"kind":"Field","name":{"kind":"Name","value":"books"}},{"kind":"Field","name":{"kind":"Name","value":"manga"}},{"kind":"Field","name":{"kind":"Name","value":"movies"}},{"kind":"Field","name":{"kind":"Name","value":"podcasts"}},{"kind":"Field","name":{"kind":"Name","value":"shows"}},{"kind":"Field","name":{"kind":"Name","value":"videoGames"}}]}}]}}]}}]} as unknown as DocumentNode<UserPreferencesQuery, UserPreferencesQueryVariables>;
 export const UserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"manga"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"chapters"}},{"kind":"Field","name":{"kind":"Name","value":"read"}}]}},{"kind":"Field","name":{"kind":"Name","value":"books"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}},{"kind":"Field","name":{"kind":"Name","value":"read"}}]}},{"kind":"Field","name":{"kind":"Name","value":"movies"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"anime"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcasts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"played"}},{"kind":"Field","name":{"kind":"Name","value":"playedEpisodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"videoGames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"played"}}]}},{"kind":"Field","name":{"kind":"Name","value":"shows"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"watchedEpisodes"}},{"kind":"Field","name":{"kind":"Name","value":"watchedSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"audioBooks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"played"}}]}}]}}]}}]} as unknown as DocumentNode<UserSummaryQuery, UserSummaryQueryVariables>;
