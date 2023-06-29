@@ -3,6 +3,14 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
+use crate::{
+    providers::{
+        anilist::AnilistService, audible::AudibleService, igdb::IgdbService,
+        listennotes::ListennotesService, openlibrary::OpenlibraryService, tmdb::TmdbService,
+    },
+    traits::MediaProviderLanguages,
+};
+
 fn get_serde_true() -> bool {
     true
 }
@@ -19,7 +27,6 @@ fn get_serde_true() -> bool {
     Default,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "UserFeaturesEnabledPreferencesInput")]
 pub struct UserFeaturesEnabledPreferences {
     #[serde(default = "get_serde_true")]
     pub anime: bool,
@@ -51,10 +58,38 @@ pub struct UserFeaturesEnabledPreferences {
     Default,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "UserPreferencesInput")]
+pub struct UserLocalizationPreferences {
+    #[serde(default = "AnilistService::default_language")]
+    pub anilist: String,
+    #[serde(default = "AudibleService::default_language")]
+    pub audible: String,
+    #[serde(default = "IgdbService::default_language")]
+    pub igdb: String,
+    #[serde(default = "ListennotesService::default_language")]
+    pub listennotes: String,
+    #[serde(default = "OpenlibraryService::default_language")]
+    pub openlibrary: String,
+    #[serde(default = "TmdbService::default_language")]
+    pub tmdb: String,
+}
+
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    InputObject,
+    Eq,
+    PartialEq,
+    Default,
+    FromJsonQueryResult,
+)]
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
+    #[serde(default)]
+    pub localization: UserLocalizationPreferences,
 }
 
 pub mod media {
