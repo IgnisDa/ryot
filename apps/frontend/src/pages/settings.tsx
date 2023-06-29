@@ -45,6 +45,8 @@ import {
 	UpdateUserDocument,
 	UpdateUserFeaturePreferenceDocument,
 	type UpdateUserFeaturePreferenceMutationVariables,
+	UpdateUserLocalizationPreferenceDocument,
+	type UpdateUserLocalizationPreferenceMutationVariables,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -233,7 +235,8 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const userPrefs = useUserPreferences();
-	const updateUserPreferences = useMutation({
+
+	const updateUserEnabledFeatures = useMutation({
 		mutationFn: async (
 			variables: UpdateUserFeaturePreferenceMutationVariables,
 		) => {
@@ -247,6 +250,27 @@ const Page: NextPageWithLayout = () => {
 			userPrefs.refetch();
 		},
 	});
+
+	const updateUserLocalizationPrefs = useMutation({
+		mutationFn: async (
+			variables: UpdateUserLocalizationPreferenceMutationVariables,
+		) => {
+			const { updateUserLocalizationPreference } = await gqlClient.request(
+				UpdateUserLocalizationPreferenceDocument,
+				variables,
+			);
+			return updateUserLocalizationPreference;
+		},
+		onSuccess: () => {
+			userPrefs.refetch();
+			notifications.show({
+				title: "Success",
+				message: "Update localization preference",
+				color: "green",
+			});
+		},
+	});
+
 	const generateApplicationToken = useMutation({
 		mutationFn: async (
 			variables: GenerateApplicationTokenMutationVariables,
@@ -381,7 +405,7 @@ const Page: NextPageWithLayout = () => {
 													label={changeCase(name)}
 													checked={isEnabled}
 													onChange={(ev) => {
-														updateUserPreferences.mutate({
+														updateUserEnabledFeatures.mutate({
 															input: {
 																property: getLot(name)!,
 																value: ev.currentTarget.checked,
@@ -408,8 +432,14 @@ const Page: NextPageWithLayout = () => {
 															([name]) => getSource(name) === provider.source,
 														)?.[1]
 													}
-													onChange={() => {
-														// TODO: Actually commit the change
+													onChange={(v) => {
+														if (v)
+															updateUserLocalizationPrefs.mutate({
+																input: {
+																	property: provider.source,
+																	value: v,
+																},
+															});
 													}}
 												/>
 											))}
