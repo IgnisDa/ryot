@@ -18,8 +18,9 @@ use sea_orm::{
     JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
-    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
+    Alias, BinOper, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, SqliteQueryBuilder, UnionType,
+    Values,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -1275,11 +1276,17 @@ impl MiscellaneousService {
 
         if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
-                Expr::expr(Func::lower(Func::cast_as(
-                    Expr::col((metadata_alias.clone(), col)),
-                    Alias::new("text"),
-                )))
-                .like(format!("%{}%", v.to_lowercase()))
+                SimpleExpr::Binary(
+                    Box::new(
+                        Func::lower(Func::cast_as(
+                            Expr::col((metadata_alias.clone(), col)),
+                            Alias::new("text"),
+                        ))
+                        .into(),
+                    ),
+                    BinOper::Like,
+                    Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+                )
             };
             main_select = main_select
                 .cond_where(
