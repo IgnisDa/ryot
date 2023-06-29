@@ -14,9 +14,13 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::VideoGameSpecifics,
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::NamedObject,
 };
+
+pub static URL: &str = "https://api.igdb.com/v4/";
+pub static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
+pub static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
 
 static FIELDS: &str = "
 fields
@@ -77,10 +81,20 @@ pub struct IgdbService {
     config: VideoGameConfig,
 }
 
+impl MediaProviderLanguages for IgdbService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
+}
+
 impl IgdbService {
     pub async fn new(config: &VideoGameConfig) -> Self {
         Self {
-            image_url: config.igdb.image_url.to_owned(),
+            image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
             config: config.clone(),
         }
@@ -264,7 +278,7 @@ mod utils {
     }
 
     async fn get_access_token(config: &VideoGameConfig) -> Credentials {
-        let mut access_res = surf::post(&config.twitch.access_token_url)
+        let mut access_res = surf::post(AUTH_URL)
             .query(&json!({
                 "client_id": config.twitch.client_id.to_owned(),
                 "client_secret": config.twitch.client_secret.to_owned(),
@@ -315,7 +329,7 @@ mod utils {
             .unwrap()
             .add_header(AUTHORIZATION, access_token)
             .unwrap()
-            .set_base_url(Url::parse(&config.igdb.url).unwrap())
+            .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap()
     }

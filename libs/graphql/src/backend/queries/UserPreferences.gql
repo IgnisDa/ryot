@@ -1,0 +1,14 @@
+query UserPreferences {
+  userPreferences {
+    featuresEnabled {
+      anime
+      audioBooks
+      books
+      manga
+      movies
+      podcasts
+      shows
+      videoGames
+    }
+  }
+}

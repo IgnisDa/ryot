@@ -17,9 +17,12 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::BookSpecifics,
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::get_data_parallelly_from_sources,
 };
+
+pub static URL: &str = "https://openlibrary.org";
+pub static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct BookSearchResults {
@@ -47,16 +50,26 @@ pub struct OpenlibraryService {
     client: Client,
 }
 
+impl MediaProviderLanguages for OpenlibraryService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
+}
+
 impl OpenlibraryService {
     pub fn new(config: &OpenlibraryConfig) -> Self {
         let client: Client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
-            .set_base_url(Url::parse(&config.url).unwrap())
+            .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();
         Self {
-            image_url: config.cover_image_url.to_owned(),
+            image_url: IMAGE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
         }

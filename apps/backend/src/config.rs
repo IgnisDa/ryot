@@ -1,18 +1,14 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use schematic::{derive_enum, validate::url_secure, Config, ConfigEnum, ConfigLoader};
+use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader, ValidateError};
 use serde::{Deserialize, Serialize};
 
-use crate::graphql::PROJECT_NAME;
-
-fn default_anilist_url(_ctx: &()) -> Option<String> {
-    Some("https://graphql.anilist.co".to_owned())
-}
-
-fn default_tmdb_url(_ctx: &()) -> Option<String> {
-    Some("https://api.themoviedb.org/3/".to_owned())
-}
+use crate::{
+    graphql::PROJECT_NAME,
+    providers::{audible::AudibleService, tmdb::TmdbService},
+    traits::MediaProviderLanguages,
+};
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
@@ -27,10 +23,7 @@ pub trait IsFeatureEnabled {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_ANILIST_")]
-pub struct AnimeAnilistConfig {
-    #[setting(validate = url_secure, default = default_anilist_url)]
-    pub url: String,
-}
+pub struct AnimeAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct AnimeConfig {
@@ -40,11 +33,25 @@ pub struct AnimeConfig {
 
 impl IsFeatureEnabled for AnimeConfig {}
 
+fn validate_audible_locale(
+    value: &str,
+    _partial: &PartialAudibleConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    if !AudibleService::supported_languages().contains(&value.to_owned()) {
+        return Err(ValidateError::new(format!(
+            "Audible does not support this locale: {:?}",
+            value
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
-    #[setting(validate = url_secure, default = "https://api.audible.com/1.0/catalog/products/")]
-    pub url: String,
+    #[setting(validate = validate_audible_locale, default = AudibleService::default_language())]
+    pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -72,10 +79,6 @@ derive_enum!(
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     pub cover_image_size: OpenlibraryCoverImageSize,
-    #[setting(validate = url_secure, default = "https://covers.openlibrary.org/b")]
-    pub cover_image_url: String,
-    #[setting(validate = url_secure, default = "https://openlibrary.org")]
-    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -114,13 +117,31 @@ pub struct ExerciseConfig {
     pub db: FreeExerciseDbConfig,
 }
 
+fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
+    if !TmdbService::supported_languages().contains(&value.to_owned()) {
+        return Err(ValidateError::new(format!(
+            "Tmdb does not support this locale: {:?}",
+            value
+        )));
+    }
+    Ok(())
+}
+
+fn validate_movies_tmdb_locale(
+    value: &str,
+    _partial: &PartialMoviesTmdbConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    validate_tmdb_locale(value)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct MoviesTmdbConfig {
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
-    #[setting(validate = url_secure, default = default_tmdb_url)]
-    pub url: String,
+    #[setting(validate = validate_movies_tmdb_locale, default = TmdbService::default_language())]
+    pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -133,10 +154,7 @@ impl IsFeatureEnabled for MovieConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
-pub struct MangaAnilistConfig {
-    #[setting(validate = url_secure, default = default_anilist_url)]
-    pub url: String,
-}
+pub struct MangaAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MangaConfig {
@@ -150,8 +168,6 @@ impl IsFeatureEnabled for MangaConfig {}
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
     pub api_token: String,
-    #[setting(validate = url_secure, default = "https://listen-api.listennotes.com/api/v2/")]
-    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -170,13 +186,21 @@ impl IsFeatureEnabled for PodcastConfig {
     }
 }
 
+fn validate_shows_tmdb_locale(
+    value: &str,
+    _partial: &PartialShowsTmdbConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    validate_tmdb_locale(value)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct ShowsTmdbConfig {
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
-    #[setting(validate = url_secure, default = default_tmdb_url)]
-    pub url: String,
+    #[setting(validate = validate_shows_tmdb_locale, default = TmdbService::default_language())]
+    pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -190,9 +214,6 @@ impl IsFeatureEnabled for ShowConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
-    // Endpoint used to get access tokens which will be used by IGDB
-    #[setting(validate = url_secure, default = "https://id.twitch.tv/oauth2/token")]
-    pub access_token_url: String,
     pub client_id: String,
     pub client_secret: String,
 }
@@ -210,10 +231,6 @@ derive_enum!(
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
     pub image_size: IgdbImageSize,
-    #[setting(validate = url_secure, default = "https://images.igdb.com/igdb/image/upload/")]
-    pub image_url: String,
-    #[setting(validate = url_secure, default = "https://api.igdb.com/v4/")]
-    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

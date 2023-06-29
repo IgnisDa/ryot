@@ -34,7 +34,7 @@ const documents = {
     "mutation RemoveMediaFromCollection($metadataId: Identifier!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}": types.RemoveMediaFromCollectionDocument,
     "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
-    "mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {\n  updateUserPreferences(input: $input)\n}": types.UpdateUserPreferencesDocument,
+    "mutation UpdateUserFeaturePreference($input: UpdateUserFeaturePreferenceInput!) {\n  updateUserFeaturePreference(input: $input)\n}": types.UpdateUserFeaturePreferenceDocument,
     "query Collections {\n  collections {\n    collectionDetails {\n      id\n      name\n    }\n    mediaDetails {\n      identifier\n      lot\n      title\n      images\n      publishYear\n    }\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
@@ -47,10 +47,11 @@ const documents = {
     "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        images\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}": types.MediaSourcesForLotDocument,
     "query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n    }\n  }\n}": types.PartialCollectionsDocument,
+    "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query ReviewById($reviewId: Identifier!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}": types.ReviewByIdDocument,
     "query SeenHistory($metadataId: Identifier!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
-    "query UserEnabledFeatures {\n  userEnabledFeatures {\n    anime\n    audioBooks\n    books\n    manga\n    movies\n    podcasts\n    shows\n    videoGames\n  }\n}": types.UserEnabledFeaturesDocument,
+    "query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}": types.UserPreferencesDocument,
     "query UserSummary {\n  userSummary {\n    manga {\n      chapters\n      read\n    }\n    books {\n      pages\n      read\n    }\n    movies {\n      runtime\n      watched\n    }\n    anime {\n      episodes\n      watched\n    }\n    podcasts {\n      runtime\n      played\n      playedEpisodes\n    }\n    videoGames {\n      played\n    }\n    shows {\n      runtime\n      watchedEpisodes\n      watchedSeasons\n      watched\n    }\n    audioBooks {\n      runtime\n      played\n    }\n  }\n}": types.UserSummaryDocument,
 };
 
@@ -155,7 +156,7 @@ export function graphql(source: "mutation UpdateUser($input: UpdateUserInput!) {
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {\n  updateUserPreferences(input: $input)\n}"): (typeof documents)["mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {\n  updateUserPreferences(input: $input)\n}"];
+export function graphql(source: "mutation UpdateUserFeaturePreference($input: UpdateUserFeaturePreferenceInput!) {\n  updateUserFeaturePreference(input: $input)\n}"): (typeof documents)["mutation UpdateUserFeaturePreference($input: UpdateUserFeaturePreferenceInput!) {\n  updateUserFeaturePreference(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -207,6 +208,10 @@ export function graphql(source: "query PartialCollections {\n  collections {\n  
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}"): (typeof documents)["query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "query ReviewById($reviewId: Identifier!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}"): (typeof documents)["query ReviewById($reviewId: Identifier!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -219,7 +224,7 @@ export function graphql(source: "query UserDetails {\n  userDetails {\n    __typ
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query UserEnabledFeatures {\n  userEnabledFeatures {\n    anime\n    audioBooks\n    books\n    manga\n    movies\n    podcasts\n    shows\n    videoGames\n  }\n}"): (typeof documents)["query UserEnabledFeatures {\n  userEnabledFeatures {\n    anime\n    audioBooks\n    books\n    manga\n    movies\n    podcasts\n    shows\n    videoGames\n  }\n}"];
+export function graphql(source: "query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}"): (typeof documents)["query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

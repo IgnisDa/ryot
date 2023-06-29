@@ -12,19 +12,23 @@ use markdown::{
     CompileOptions, Options,
 };
 use rust_decimal::Decimal;
+use sea_orm::Iterable;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromJsonQueryResult, FromQueryResult, Iden,
     JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
-    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
+    Alias, BinOper, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, SqliteQueryBuilder, UnionType,
+    Values,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::models::UserPreferences;
+use crate::providers::anilist::AnilistService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -56,15 +60,15 @@ use crate::{
         igdb::IgdbService,
         listennotes::ListennotesService,
         openlibrary::OpenlibraryService,
-        tmdb::{TmdbMovieService, TmdbShowService},
+        tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
 };
 
 use super::{
-    DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
-    MetadataImageUrl, MetadataImages, PAGE_LIMIT,
+    CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
+    MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
 type ProviderArc = Arc<(dyn MediaProvider + Send + Sync)>;
@@ -93,6 +97,13 @@ pub struct CreateCustomMediaInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+struct ProviderLanguageInformation {
+    source: MetadataSource,
+    supported: Vec<String>,
+    default: String,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -195,7 +206,7 @@ pub struct ExportMedia {
 }
 
 #[derive(Debug, InputObject)]
-struct UpdateUserPreferencesInput {
+struct UpdateUserFeaturePreferenceInput {
     property: MetadataLot,
     value: bool,
 }
@@ -350,18 +361,6 @@ struct CollectionItem {
 pub struct AddMediaToCollection {
     pub collection_name: String,
     pub media_id: Identifier,
-}
-
-#[derive(SimpleObject)]
-pub struct MetadataFeatureEnabled {
-    anime: bool,
-    audio_books: bool,
-    books: bool,
-    manga: bool,
-    movies: bool,
-    podcasts: bool,
-    shows: bool,
-    video_games: bool,
 }
 
 #[derive(SimpleObject)]
@@ -640,20 +639,18 @@ impl MiscellaneousQuery {
 
     /// Get all the features that are enabled for the service
     async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .core_enabled_features(config)
+            .core_enabled_features()
             .await
     }
 
-    /// Get all the user specific features that are enabled
-    async fn user_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<MetadataFeatureEnabled> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
+    /// Get a user's preferences.
+    async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_enabled_features(user_id, config)
+            .user_preferences(user_id)
             .await
     }
 
@@ -671,18 +668,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all the metadata sources possible for a lot.
-    async fn media_sources_for_lot(
-        &self,
-        gql_ctx: &Context<'_>,
-        lot: MetadataLot,
-    ) -> Vec<MetadataSource> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_sources_for_lot(lot)
-            .await
-    }
-
     /// Check if a media with the given metadata and identifier exists in the database.
     async fn media_exists_in_database(
         &self,
@@ -695,6 +680,28 @@ impl MiscellaneousQuery {
             .data_unchecked::<Arc<MiscellaneousService>>()
             .media_exists_in_database(identifier, lot, source)
             .await
+    }
+
+    /// Get all the metadata sources possible for a lot.
+    async fn media_sources_for_lot(
+        &self,
+        gql_ctx: &Context<'_>,
+        lot: MetadataLot,
+    ) -> Vec<MetadataSource> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_sources_for_lot(lot)
+            .await
+    }
+
+    /// Get all languages supported by all the providers.
+    async fn providers_language_information(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Vec<ProviderLanguageInformation> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .providers_language_information()
     }
 }
 
@@ -802,10 +809,9 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: UserInput,
     ) -> Result<RegisterResult> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .register_user(&input.username, &input.password, config)
+            .register_user(&input.username, &input.password)
             .await
     }
 
@@ -820,7 +826,6 @@ impl MiscellaneousMutation {
                 config.users.token_valid_for_days,
             )
             .await?;
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
             create_cookie(
                 gql_ctx,
@@ -853,10 +858,9 @@ impl MiscellaneousMutation {
     /// Update a user's profile details.
     async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
-        let config = gql_ctx.data_unchecked::<AppConfig>();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user(&user_id, input, config)
+            .update_user(&user_id, input)
             .await
     }
 
@@ -947,16 +951,16 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Change a user's preferences
-    async fn update_user_preferences(
+    /// Change a user's feature preferences
+    async fn update_user_feature_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserPreferencesInput,
+        input: UpdateUserFeaturePreferenceInput,
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user_preferences(input, user_id)
+            .update_user_feature_preference(input, user_id)
             .await
     }
 
@@ -974,6 +978,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     db: DatabaseConnection,
     scdb: MemoryDb,
+    config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: Arc<AudibleService>,
     igdb_service: Arc<IgdbService>,
@@ -994,6 +999,7 @@ impl MiscellaneousService {
     pub fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
+        config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         audible_service: Arc<AudibleService>,
         igdb_service: Arc<IgdbService>,
@@ -1011,6 +1017,7 @@ impl MiscellaneousService {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
+            config,
             file_storage,
             audible_service,
             igdb_service,
@@ -1275,11 +1282,17 @@ impl MiscellaneousService {
 
         if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
-                Expr::expr(Func::lower(Func::cast_as(
-                    Expr::col((metadata_alias.clone(), col)),
-                    Alias::new("text"),
-                )))
-                .like(format!("%{}%", v.to_lowercase()))
+                SimpleExpr::Binary(
+                    Box::new(
+                        Func::lower(Func::cast_as(
+                            Expr::col((metadata_alias.clone(), col)),
+                            Alias::new("text"),
+                        ))
+                        .into(),
+                    ),
+                    BinOper::Like,
+                    Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+                )
             };
             main_select = main_select
                 .cond_where(
@@ -1340,7 +1353,7 @@ impl MiscellaneousService {
                                     .equals((seen_alias.clone(), TempSeen::MetadataId)),
                             )
                             .order_by_with_nulls(
-                                (seen_alias.clone(), last_seen.clone()),
+                                (seen_alias.clone(), last_seen),
                                 order_by,
                                 NullOrdering::Last,
                             )
@@ -1902,33 +1915,35 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_enabled_features(
-        &self,
-        user_id: i32,
-        config: &AppConfig,
-    ) -> Result<MetadataFeatureEnabled> {
-        let user_preferences = self.user_by_id(user_id).await?.preferences;
-        let metadata = MetadataFeatureEnabled {
-            anime: config.anime.is_enabled() && user_preferences.anime,
-            audio_books: config.audio_books.is_enabled() && user_preferences.audio_books,
-            books: config.books.is_enabled() && user_preferences.books,
-            shows: config.shows.is_enabled() && user_preferences.shows,
-            manga: config.manga.is_enabled() && user_preferences.manga,
-            movies: config.movies.is_enabled() && user_preferences.movies,
-            podcasts: config.podcasts.is_enabled() && user_preferences.podcasts,
-            video_games: config.video_games.is_enabled() && user_preferences.video_games,
-        };
-        Ok(metadata)
+    async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
+        let mut user_preferences = self.user_by_id(user_id).await?.preferences;
+        user_preferences.features_enabled.anime =
+            self.config.anime.is_enabled() && user_preferences.features_enabled.anime;
+        user_preferences.features_enabled.audio_books =
+            self.config.audio_books.is_enabled() && user_preferences.features_enabled.audio_books;
+        user_preferences.features_enabled.books =
+            self.config.books.is_enabled() && user_preferences.features_enabled.books;
+        user_preferences.features_enabled.shows =
+            self.config.shows.is_enabled() && user_preferences.features_enabled.shows;
+        user_preferences.features_enabled.manga =
+            self.config.manga.is_enabled() && user_preferences.features_enabled.manga;
+        user_preferences.features_enabled.movies =
+            self.config.movies.is_enabled() && user_preferences.features_enabled.movies;
+        user_preferences.features_enabled.podcasts =
+            self.config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts;
+        user_preferences.features_enabled.video_games =
+            self.config.video_games.is_enabled() && user_preferences.features_enabled.video_games;
+        Ok(user_preferences)
     }
 
-    async fn core_enabled_features(&self, config: &AppConfig) -> Result<GeneralFeatures> {
-        let mut files_enabled = config.file_storage.is_enabled();
+    async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
+        let mut files_enabled = self.config.file_storage.is_enabled();
         if files_enabled && !self.file_storage.is_enabled().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {
             file_storage: files_enabled,
-            signup_allowed: config.users.allow_registration,
+            signup_allowed: self.config.users.allow_registration,
         };
         Ok(general)
     }
@@ -2679,13 +2694,8 @@ impl MiscellaneousService {
         Ok(IdObject { id: obj.id.into() })
     }
 
-    async fn register_user(
-        &self,
-        username: &str,
-        password: &str,
-        config: &AppConfig,
-    ) -> Result<RegisterResult> {
-        if !config.users.allow_registration {
+    async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
+        if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
@@ -2807,12 +2817,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(
-        &self,
-        user_id: &i32,
-        input: UpdateUserInput,
-        config: &AppConfig,
-    ) -> Result<IdObject> {
+    async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
         let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
             .one(&self.db)
             .await
@@ -2820,7 +2825,7 @@ impl MiscellaneousService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            if config.users.allow_changing_username {
+            if self.config.users.allow_changing_username {
                 user_obj.name = ActiveValue::Set(n);
             }
         }
@@ -3015,22 +3020,22 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 
-    async fn update_user_preferences(
+    async fn update_user_feature_preference(
         &self,
-        input: UpdateUserPreferencesInput,
+        input: UpdateUserFeaturePreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property {
-            MetadataLot::AudioBook => preferences.audio_books = input.value,
-            MetadataLot::Book => preferences.books = input.value,
-            MetadataLot::Movie => preferences.movies = input.value,
-            MetadataLot::Podcast => preferences.podcasts = input.value,
-            MetadataLot::Show => preferences.shows = input.value,
-            MetadataLot::VideoGame => preferences.video_games = input.value,
-            MetadataLot::Manga => preferences.manga = input.value,
-            MetadataLot::Anime => preferences.anime = input.value,
+            MetadataLot::AudioBook => preferences.features_enabled.audio_books = input.value,
+            MetadataLot::Book => preferences.features_enabled.books = input.value,
+            MetadataLot::Movie => preferences.features_enabled.movies = input.value,
+            MetadataLot::Podcast => preferences.features_enabled.podcasts = input.value,
+            MetadataLot::Show => preferences.features_enabled.shows = input.value,
+            MetadataLot::VideoGame => preferences.features_enabled.video_games = input.value,
+            MetadataLot::Manga => preferences.features_enabled.manga = input.value,
+            MetadataLot::Anime => preferences.features_enabled.anime = input.value,
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);
@@ -3082,5 +3087,47 @@ impl MiscellaneousService {
             MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
         }
+    }
+
+    fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
+        MetadataSource::iter()
+            .map(|source| {
+                let (supported, default) = match source {
+                    MetadataSource::Audible => (
+                        AudibleService::supported_languages(),
+                        AudibleService::default_language(),
+                    ),
+                    MetadataSource::Openlibrary => (
+                        OpenlibraryService::supported_languages(),
+                        OpenlibraryService::default_language(),
+                    ),
+                    MetadataSource::Tmdb => (
+                        TmdbService::supported_languages(),
+                        TmdbService::default_language(),
+                    ),
+                    MetadataSource::Listennotes => (
+                        ListennotesService::supported_languages(),
+                        ListennotesService::default_language(),
+                    ),
+                    MetadataSource::Igdb => (
+                        IgdbService::supported_languages(),
+                        IgdbService::default_language(),
+                    ),
+                    MetadataSource::Anilist => (
+                        AnilistService::supported_languages(),
+                        AnilistService::default_language(),
+                    ),
+                    MetadataSource::Custom => (
+                        CustomService::supported_languages(),
+                        CustomService::default_language(),
+                    ),
+                };
+                ProviderLanguageInformation {
+                    supported,
+                    default,
+                    source,
+                }
+            })
+            .collect()
     }
 }

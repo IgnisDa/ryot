@@ -1,4 +1,7 @@
-import { MetadataLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MetadataLot,
+	MetadataSource,
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
 	IconBooks,
@@ -58,6 +61,23 @@ export const getLot = (lot: unknown) => {
 			() => MetadataLot.AudioBook,
 		)
 		.with("podcast", "podcasts", () => MetadataLot.Podcast)
+		.otherwise(() => undefined);
+};
+
+/**
+ * Get the correct source from a string
+ */
+export const getSource = (source: unknown) => {
+	if (!source) return undefined;
+	const newLot = (source as string).toLowerCase();
+	return match(newLot)
+		.with("anilist", () => MetadataSource.Anilist)
+		.with("audible", () => MetadataSource.Audible)
+		.with("custom", () => MetadataSource.Custom)
+		.with("igdb", () => MetadataSource.Igdb)
+		.with("listennotes", () => MetadataSource.Listennotes)
+		.with("openlibrary", () => MetadataSource.Openlibrary)
+		.with("tmdb", () => MetadataSource.Tmdb)
 		.otherwise(() => undefined);
 };
 

@@ -95,6 +95,14 @@ const Page: NextPageWithLayout = () => {
 		key: "mineCollectionFilter",
 		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
+		deserialize: (value) => {
+			if (value === "__undefined") return undefined;
+			return value;
+		},
+		serialize: (value) => {
+			if (typeof value === "undefined") return "__undefined";
+			return value;
+		},
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		key: "savedSearchPage",

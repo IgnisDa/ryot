@@ -5,7 +5,7 @@ import {
 	CoreEnabledFeaturesDocument,
 	MetadataLot,
 	UserDetailsDocument,
-	UserEnabledFeaturesDocument,
+	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
@@ -21,18 +21,18 @@ export function useUser() {
 	return userDetails.data?.__typename === "User" ? userDetails.data : undefined;
 }
 
-export function useEnabledUserFeatures() {
-	const enabledFeatures = useQuery(
+export function useUserPreferences() {
+	const prefs = useQuery(
 		["enabledUserFeatures"],
 		async () => {
-			const { userEnabledFeatures } = await gqlClient.request(
-				UserEnabledFeaturesDocument,
+			const { userPreferences } = await gqlClient.request(
+				UserPreferencesDocument,
 			);
-			return userEnabledFeatures;
+			return userPreferences;
 		},
 		{ staleTime: Infinity },
 	);
-	return enabledFeatures;
+	return prefs;
 }
 
 export function useEnabledCoreFeatures() {

@@ -84,6 +84,7 @@ pub async fn create_app_services(
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
+        Arc::new(config.clone()),
         file_storage_service.clone(),
         audible_service,
         igdb_service,

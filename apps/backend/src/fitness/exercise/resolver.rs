@@ -6,7 +6,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QueryTrait,
 };
-use sea_query::{Condition, Expr, Func};
+use sea_query::{BinOper, Condition, Expr, Func, SimpleExpr};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 
@@ -112,12 +112,11 @@ impl ExerciseService {
     async fn exercises_list(&self, input: ExercisesListInput) -> Result<Vec<exercise::Model>> {
         let data = Exercise::find()
             .apply_if(input.query, |query, v| {
-                query.filter(
-                    Condition::all().add(
-                        Expr::expr(Func::lower(Expr::col(exercise::Column::Name)))
-                            .like(format!("%{}%", v.to_lowercase())),
-                    ),
-                )
+                query.filter(Condition::all().add(SimpleExpr::Binary(
+                    Box::new(Func::lower(Expr::col(exercise::Column::Name)).into()),
+                    BinOper::Like,
+                    Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+                )))
             })
             .order_by_asc(exercise::Column::Name)
             .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());

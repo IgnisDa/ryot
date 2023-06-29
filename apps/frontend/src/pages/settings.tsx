@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "./_app";
-import { useEnabledUserFeatures } from "@/lib/hooks/graphql";
+import { useUserPreferences } from "@/lib/hooks/graphql";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { changeCase, getLot } from "@/lib/utilities";
@@ -17,7 +18,6 @@ import {
 	Flex,
 	PasswordInput,
 	SimpleGrid,
-	Space,
 	Stack,
 	Switch,
 	Tabs,
@@ -36,14 +36,15 @@ import {
 	GenerateApplicationTokenDocument,
 	type GenerateApplicationTokenMutationVariables,
 	MediaImportSource,
+	ProvidersLanguageInformationDocument,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
+	UpdateUserFeaturePreferenceDocument,
+	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
-	UpdateUserPreferencesDocument,
-	type UpdateUserPreferencesMutationVariables,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -146,11 +147,23 @@ const Page: NextPageWithLayout = () => {
 			}
 		},
 	});
+
 	const coreDetails = useQuery(
 		["coreDetails"],
 		async () => {
 			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
 			return coreDetails;
+		},
+		{ staleTime: Infinity },
+	);
+
+	const languageInformation = useQuery(
+		["languageInformation"],
+		async () => {
+			const { providersLanguageInformation } = await gqlClient.request(
+				ProvidersLanguageInformationDocument,
+			);
+			return providersLanguageInformation;
 		},
 		{ staleTime: Infinity },
 	);
@@ -218,19 +231,23 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const enabledFeatures = useEnabledUserFeatures();
-	const updateUserPreferences = useMutation({
-		mutationFn: async (variables: UpdateUserPreferencesMutationVariables) => {
-			const { updateUserPreferences } = await gqlClient.request(
-				UpdateUserPreferencesDocument,
+	const userPrefs = useUserPreferences();
+
+	const updateUserEnabledFeatures = useMutation({
+		mutationFn: async (
+			variables: UpdateUserFeaturePreferenceMutationVariables,
+		) => {
+			const { updateUserFeaturePreference } = await gqlClient.request(
+				UpdateUserFeaturePreferenceDocument,
 				variables,
 			);
-			return updateUserPreferences;
+			return updateUserFeaturePreference;
 		},
 		onSuccess: () => {
-			enabledFeatures.refetch();
+			userPrefs.refetch();
 		},
 	});
+
 	const generateApplicationToken = useMutation({
 		mutationFn: async (
 			variables: GenerateApplicationTokenMutationVariables,
@@ -289,7 +306,7 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	return (
+	return languageInformation.data && userPrefs.data ? (
 		<>
 			<Head>
 				<title>Settings | Ryot</title>
@@ -354,27 +371,30 @@ const Page: NextPageWithLayout = () => {
 							</Box>
 						</Tabs.Panel>
 						<Tabs.Panel value="preferences">
-							<Title order={3}>Enabled features</Title>
-							<Space h="sm" />
-							<SimpleGrid cols={2}>
-								{Object.entries(enabledFeatures.data || {}).map(
-									([name, isEnabled], idx) => (
-										<Switch
-											key={idx}
-											label={changeCase(name)}
-											checked={isEnabled}
-											onChange={(ev) => {
-												updateUserPreferences.mutate({
-													input: {
-														property: getLot(name)!,
-														value: ev.currentTarget.checked,
-													},
-												});
-											}}
-										/>
-									),
-								)}
-							</SimpleGrid>
+							<Stack>
+								<Stack spacing={"xs"}>
+									<Title order={3}>Enabled features</Title>
+									<SimpleGrid cols={2}>
+										{Object.entries(userPrefs.data.featuresEnabled || {}).map(
+											([name, isEnabled], idx) => (
+												<Switch
+													key={idx}
+													label={changeCase(name)}
+													checked={isEnabled}
+													onChange={(ev) => {
+														updateUserEnabledFeatures.mutate({
+															input: {
+																property: getLot(name)!,
+																value: ev.currentTarget.checked,
+															},
+														});
+													}}
+												/>
+											),
+										)}
+									</SimpleGrid>
+								</Stack>
+							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="tokens">
 							<Stack>
@@ -499,6 +519,8 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Container>
 		</>
+	) : (
+		<LoadingPage />
 	);
 };
 

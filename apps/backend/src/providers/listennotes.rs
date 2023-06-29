@@ -18,8 +18,10 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
     models::media::{PodcastEpisode, PodcastSpecifics},
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
 };
+
+pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
@@ -27,10 +29,19 @@ pub struct ListennotesService {
     genres: HashMap<i32, String>,
 }
 
+impl MediaProviderLanguages for ListennotesService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
+}
+
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig) -> Self {
-        let (client, genres) =
-            utils::get_client_config(&config.listennotes.url, &config.listennotes.api_token).await;
+        let (client, genres) = utils::get_client_config(URL, &config.listennotes.api_token).await;
         Self { client, genres }
     }
 }

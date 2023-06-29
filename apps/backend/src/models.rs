@@ -3,8 +3,43 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-fn get_serde_true() -> bool {
-    true
+
+
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Clone,
+    InputObject,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+)]
+pub struct UserFeaturesEnabledPreferences {
+    pub anime: bool,
+    pub audio_books: bool,
+    pub books: bool,
+    pub manga: bool,
+    pub movies: bool,
+    pub podcasts: bool,
+    pub shows: bool,
+    pub video_games: bool,
+}
+
+impl Default for UserFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self {
+            anime: true,
+            audio_books: true,
+            books: true,
+            manga: true,
+            movies: true,
+            podcasts: true,
+            shows: true,
+            video_games: true,
+        }
+    }
 }
 
 #[derive(
@@ -19,27 +54,9 @@ fn get_serde_true() -> bool {
     Default,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "UserPreferencesInput")]
 pub struct UserPreferences {
-    // -- media
-    // features enabled
-    #[serde(default = "get_serde_true")]
-    pub anime: bool,
-    #[serde(default = "get_serde_true")]
-    pub audio_books: bool,
-    #[serde(default = "get_serde_true")]
-    pub books: bool,
-    #[serde(default = "get_serde_true")]
-    pub manga: bool,
-    #[serde(default = "get_serde_true")]
-    pub movies: bool,
-    #[serde(default = "get_serde_true")]
-    pub podcasts: bool,
-    #[serde(default = "get_serde_true")]
-    pub shows: bool,
-    #[serde(default = "get_serde_true")]
-    pub video_games: bool,
-    // -- media
+    #[serde(default)]
+    pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
 pub mod media {

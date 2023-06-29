@@ -47,6 +47,7 @@ special tool on your computer or phone that lets you keep track of all these dig
   - Goodreads
   - MediaTracker
 - ✅ Self-hosted
+- ✅ PWA Enabled
 - ✅ Documented GraphQL API
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
@@ -121,8 +122,8 @@ You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
 To set the equivalent environment variables, join keys by `_` (underscore) and
-*UPPER_SNAKE_CASE* the characters. For example, the key `audio_books.audible.url`
-corresponds to the environment variable `AUDIO_BOOKS_AUDIBLE_URL`.
+*UPPER_SNAKE_CASE* the characters. For example, the key `podcasts.listennotes.api_token`
+corresponds to the environment variable `PODCASTS_LISTENNOTES_API_TOKEN`.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 ([example](https://ryot.fly.dev/config)).
@@ -132,11 +133,8 @@ minimal example configuration is in [`ryot.example.json`](/config/ryot.example.j
 
 | Key                                   | Description                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `{anime,manga}.anilist.url`           | The url to make requests for getting metadata about anime/manga.                                                                                                              |
-| `audio_books.audible.url`             | The url to make requests for getting metadata from Audible.                                                                                                                   |
-| `books.openlibrary.url`               | The url to make requests for getting metadata from Openlibrary.                                                                                                               |
-| `books.openlibrary.cover_image_url`   | The url for getting images from Openlibrary.                                                                                                                                  |
 | `books.openlibrary.cover_image_size`  | The image sizes to fetch from Openlibrary.                                                                                                                                    |
+| `audio_books.audible.locale`          | The locale to use for getting metadata from Audible. [More information](https://audible.readthedocs.io/en/latest/marketplaces/marketplaces.html)                              |
 | `database.url`                        | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
 | `database.scdb_url`                   | The path where [SCDB](https://docs.rs/scdb) will persist its storage.                                                                                                         |
 | `file_storage.s3_access_key_id`       | The access key ID for the S3 compatible file storage. **Required** to enable file storage.                                                                                    |
@@ -144,18 +142,14 @@ minimal example configuration is in [`ryot.example.json`](/config/ryot.example.j
 | `file_storage.s3_secret_access_key`   | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                |
 | `file_storage.s3_region`              | The region for the S3 compatible file storage.                                                                                                                                |
 | `file_storage.s3_url`                 | The URL for the S3 compatible file storage.                                                                                                                                   |
-| `{movies,shows}.tmdb.url`             | The url to make requests for getting metadata about shows/movies.                                                                                                             |
 | `{movies,shows}.tmdb.access_token`    | The access token for the TMDB API.                                                                                                                                            |
-| `podcasts.listennotes.url`            | The url to make requests for getting metadata about podcasts.                                                                                                                 |
+| `{movies,shows}.tmdb.locale`          | The locale to use for getting metadata from TMDB. [More information](https://developer.themoviedb.org/docs/languages)                                                         |
 | `podcasts.listennotes.api_token`      | The access token for the Listennotes API. **Required** to enable podcasts tracking.                                                                                           |
 | `scheduler.database_url`              | The url to the SQLite database where job related data needs to be stored.                                                                                                     |
 | `scheduler.user_cleanup_every`        | Deploy a job every x hours that performs user cleanup and summary calculation.                                                                                                |
 | `scheduler.rate_limit_num`            | The number of jobs to process every 5 seconds when updating metadata in the background.                                                                                       |
 | `video_games.twitch.client_id`        | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
 | `video_games.twitch.client_secret`    | The client secret issued by Twitch. **Required** to enable video games tracking.                                                                                              |
-| `video_games.twitch.access_token_url` | The endpoint that issues access keys for IGDB.                                                                                                                                |
-| `video_games.igdb.url`                | The url to make requests for getting metadata about video games.                                                                                                              |
-| `video_games.igdb.image_url`          | The url for getting images from IGDB.                                                                                                                                         |
 | `video_games.igdb.image_size`         | The image sizes to fetch from IGDB.                                                                                                                                           |
 | `users.allow_changing_username`       | Whether users will be allowed to change their username in their profile settings.                                                                                             |
 | `users.allow_registration`            | Whether new users will be allowed to sign up to this instance.                                                                                                                |

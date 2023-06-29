@@ -9,6 +9,7 @@ use crate::{
         AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
         PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },
+    traits::MediaProviderLanguages,
 };
 
 pub mod resolver;
@@ -82,4 +83,17 @@ pub enum DefaultCollection {
     #[strum(serialize = "In Progress")]
     InProgress,
     Watchlist,
+}
+
+#[derive(Debug, Clone)]
+pub struct CustomService {}
+
+impl MediaProviderLanguages for CustomService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
 }

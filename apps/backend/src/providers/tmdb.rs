@@ -14,20 +14,52 @@ use crate::{
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     models::media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
-    traits::MediaProvider,
+    traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
+
+pub static URL: &str = "https://api.themoviedb.org/3/";
+
+#[derive(Debug, Clone)]
+pub struct TmdbService {
+    image_url: String,
+    language: String,
+}
+
+impl TmdbService {
+    fn get_cover_image_url(&self, c: &str) -> String {
+        format!("{}{}{}", self.image_url, "original", c)
+    }
+}
+
+impl MediaProviderLanguages for TmdbService {
+    fn supported_languages() -> Vec<String> {
+        isolang::languages()
+            .filter_map(|l| l.to_639_1().map(String::from))
+            .collect()
+    }
+
+    fn default_language() -> String {
+        "en".to_owned()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct TmdbMovieService {
     client: Client,
-    image_url: String,
+    base: TmdbService,
 }
 
 impl TmdbMovieService {
     pub async fn new(config: &MoviesTmdbConfig) -> Self {
-        let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
-        Self { client, image_url }
+        let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
+        Self {
+            client,
+            base: TmdbService {
+                image_url,
+                language: config.locale.clone(),
+            },
+        }
     }
 }
 
@@ -48,6 +80,10 @@ impl MediaProvider for TmdbMovieService {
         let mut rsp = self
             .client
             .get(format!("movie/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -59,6 +95,10 @@ impl MediaProvider for TmdbMovieService {
         let mut rsp = self
             .client
             .get(format!("movie/{}/credits", identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -72,7 +112,7 @@ impl MediaProvider for TmdbMovieService {
                         name: n,
                         role: r,
                         image_urls: Vec::from_iter(
-                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                            g.profile_path.map(|p| self.base.get_cover_image_url(&p)),
                         ),
                     })
                 } else {
@@ -87,7 +127,7 @@ impl MediaProvider for TmdbMovieService {
                     name: n,
                     role: r,
                     image_urls: Vec::from_iter(
-                        g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                        g.profile_path.map(|p| self.base.get_cover_image_url(&p)),
                     ),
                 })
             } else {
@@ -111,7 +151,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImage {
-                    url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+                    url: MetadataImageUrl::Url(self.base.get_cover_image_url(&p)),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -147,7 +187,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": "en-US".to_owned(),
+                "language": self.base.language,
             }))
             .unwrap()
             .await
@@ -158,7 +198,8 @@ impl MediaProvider for TmdbMovieService {
             .results
             .into_iter()
             .map(|d| {
-                let images = Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                let images =
+                    Vec::from_iter(d.poster_path.map(|p| self.base.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Movie,
@@ -181,22 +222,22 @@ impl MediaProvider for TmdbMovieService {
     }
 }
 
-impl TmdbMovieService {
-    fn get_cover_image_url(&self, c: &str) -> String {
-        format!("{}{}{}", self.image_url, "original", c)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct TmdbShowService {
     client: Client,
-    image_url: String,
+    base: TmdbService,
 }
 
 impl TmdbShowService {
     pub async fn new(config: &ShowsTmdbConfig) -> Self {
-        let (client, image_url) = utils::get_client_config(&config.url, &config.access_token).await;
-        Self { client, image_url }
+        let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
+        Self {
+            client,
+            base: TmdbService {
+                image_url,
+                language: config.locale.clone(),
+            },
+        }
     }
 }
 
@@ -221,6 +262,10 @@ impl MediaProvider for TmdbShowService {
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -262,6 +307,10 @@ impl MediaProvider for TmdbShowService {
                     identifier.to_owned(),
                     s.season_number
                 ))
+                .query(&json!({
+                    "language": self.base.language,
+                }))
+                .unwrap()
                 .await
                 .map_err(|e| anyhow!(e))?;
             let data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -283,7 +332,8 @@ impl MediaProvider for TmdbShowService {
                                         name: n,
                                         role: r,
                                         image_urls: Vec::from_iter(
-                                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                                            g.profile_path
+                                                .map(|p| self.base.get_cover_image_url(&p)),
                                         ),
                                     })
                                 } else {
@@ -301,7 +351,8 @@ impl MediaProvider for TmdbShowService {
                                         name: n,
                                         role: r,
                                         image_urls: Vec::from_iter(
-                                            g.profile_path.map(|p| self.get_cover_image_url(&p)),
+                                            g.profile_path
+                                                .map(|p| self.base.get_cover_image_url(&p)),
                                         ),
                                     })
                                 } else {
@@ -329,7 +380,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImage {
-                    url: MetadataImageUrl::Url(self.get_cover_image_url(&p)),
+                    url: MetadataImageUrl::Url(self.base.get_cover_image_url(&p)),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -338,10 +389,12 @@ impl MediaProvider for TmdbShowService {
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
-                        let poster_images =
-                            Vec::from_iter(s.poster_path.map(|p| self.get_cover_image_url(&p)));
-                        let backdrop_images =
-                            Vec::from_iter(s.backdrop_path.map(|p| self.get_cover_image_url(&p)));
+                        let poster_images = Vec::from_iter(
+                            s.poster_path.map(|p| self.base.get_cover_image_url(&p)),
+                        );
+                        let backdrop_images = Vec::from_iter(
+                            s.backdrop_path.map(|p| self.base.get_cover_image_url(&p)),
+                        );
                         ShowSeason {
                             id: s.id,
                             name: s.name,
@@ -355,7 +408,7 @@ impl MediaProvider for TmdbShowService {
                                 .into_iter()
                                 .map(|e| {
                                     let poster_images = Vec::from_iter(
-                                        e.still_path.map(|p| self.get_cover_image_url(&p)),
+                                        e.still_path.map(|p| self.base.get_cover_image_url(&p)),
                                     );
                                     ShowEpisode {
                                         id: e.id,
@@ -400,7 +453,7 @@ impl MediaProvider for TmdbShowService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": "en-US".to_owned(),
+                "language": self.base.language
             }))
             .unwrap()
             .await
@@ -411,7 +464,8 @@ impl MediaProvider for TmdbShowService {
             .results
             .into_iter()
             .map(|d| {
-                let images = Vec::from_iter(d.poster_path.map(|p| self.get_cover_image_url(&p)));
+                let images =
+                    Vec::from_iter(d.poster_path.map(|p| self.base.get_cover_image_url(&p)));
                 MediaSearchItem {
                     identifier: d.id.to_string(),
                     lot: MetadataLot::Show,
@@ -431,12 +485,6 @@ impl MediaProvider for TmdbShowService {
             next_page,
             items: resp.to_vec(),
         })
-    }
-}
-
-impl TmdbShowService {
-    fn get_cover_image_url(&self, c: &str) -> String {
-        format!("{}{}{}", self.image_url, "original", c)
     }
 }
 
