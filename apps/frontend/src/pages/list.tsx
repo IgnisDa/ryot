@@ -475,17 +475,20 @@ const Page: NextPageWithLayout = () => {
 										lot.toLowerCase(),
 									).toLowerCase()}s`,
 								})}
-								<Select
-									w="37%"
-									value={searchSource?.toString()}
-									data={(mediaSources.data || []).map((o) => ({
-										value: o.toString(),
-										label: startCase(lowerCase(o)),
-									}))}
-									onChange={(v) => {
-										if (v) setSearchSource(v);
-									}}
-								/>
+								{typeof mediaSources.data?.length !== "undefined" &&
+								mediaSources.data.length > 1 ? (
+									<Select
+										w="37%"
+										value={searchSource?.toString()}
+										data={(mediaSources.data || []).map((o) => ({
+											value: o.toString(),
+											label: startCase(lowerCase(o)),
+										}))}
+										onChange={(v) => {
+											if (v) setSearchSource(v);
+										}}
+									/>
+								) : null}
 							</Flex>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<>
