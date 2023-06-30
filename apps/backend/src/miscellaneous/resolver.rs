@@ -1840,6 +1840,7 @@ impl MiscellaneousService {
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
+            source: ActiveValue::Set(details.source),
             title: ActiveValue::Set(details.title),
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
@@ -1847,7 +1848,6 @@ impl MiscellaneousService {
             images: ActiveValue::Set(MetadataImages(details.images)),
             identifier: ActiveValue::Set(details.identifier),
             creators: ActiveValue::Set(MetadataCreators(details.creators)),
-            source: ActiveValue::Set(details.source),
             specifics: ActiveValue::Set(details.specifics),
             ..Default::default()
         };
@@ -2121,14 +2121,11 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: String,
     ) -> Result<IdObject> {
-        let meta = Metadata::find()
-            .filter(metadata::Column::Lot.eq(lot))
-            .filter(metadata::Column::Identifier.eq(&identifier))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.id.into() })
+        if let Some(m) = self
+            .media_exists_in_database(identifier.clone(), lot, source)
+            .await?
+        {
+            Ok(m)
         } else {
             let details = self.details_from_provider(lot, source, identifier).await?;
             let media_id = self.commit_media_internal(details).await?;
