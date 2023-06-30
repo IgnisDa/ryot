@@ -36,17 +36,17 @@ const Footer = () => {
 						href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
 						target="_blank"
 					>
-						<Text color="red" weight={"bold"} style={{ display: "inline" }}>
+						<Text color="red" weight={"bold"}>
 							v{coreDetails.data.version}
 						</Text>
 					</Anchor>
 					<Anchor href="https://diptesh.me" target="_blank">
-						<Text weight={"bold"} style={{ display: "inline" }}>
+						<Text color="indigo" weight={"bold"}>
 							{coreDetails.data.authorName}
 						</Text>
 					</Anchor>
 					<Anchor href={coreDetails.data.repositoryLink} target="_blank">
-						<Text color="orange" weight={"bold"} style={{ display: "inline" }}>
+						<Text color="orange" weight={"bold"}>
 							Github
 						</Text>
 					</Anchor>
