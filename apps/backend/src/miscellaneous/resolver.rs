@@ -1970,25 +1970,8 @@ impl MiscellaneousService {
         source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
-        let service: ProviderArc = match lot {
-            MetadataLot::Book => match source {
-                MetadataSource::Openlibrary => self.openlibrary_service.clone(),
-                MetadataSource::GoogleBooks => self.google_books_service.clone(),
-                _ => unreachable!(),
-            },
-            MetadataLot::AudioBook => self.audible_service.clone(),
-            MetadataLot::Podcast => match source {
-                MetadataSource::Listennotes => self.listennotes_service.clone(),
-                MetadataSource::ITunes => self.itunes_service.clone(),
-                _ => unreachable!(),
-            },
-            MetadataLot::Movie => self.tmdb_movies_service.clone(),
-            MetadataLot::Show => self.tmdb_shows_service.clone(),
-            MetadataLot::VideoGame => self.igdb_service.clone(),
-            MetadataLot::Anime => self.anilist_anime_service.clone(),
-            MetadataLot::Manga => self.anilist_manga_service.clone(),
-        };
-        let results = service.search(&input.query, input.page).await?;
+        let provider = self.get_provider(lot, source)?;
+        let results = provider.search(&input.query, input.page).await?;
         let mut all_idens = results
             .items
             .iter()
@@ -2097,12 +2080,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    async fn details_from_provider(
-        &self,
-        lot: MetadataLot,
-        source: MetadataSource,
-        identifier: String,
-    ) -> Result<MediaDetails> {
+    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<ProviderArc> {
         let service: ProviderArc = match source {
             MetadataSource::Openlibrary => self.openlibrary_service.clone(),
             MetadataSource::ITunes => self.itunes_service.clone(),
@@ -2124,7 +2102,17 @@ impl MiscellaneousService {
                 return Err(Error::new("This source is not supported".to_owned()));
             }
         };
-        let results = service.details(&identifier).await?;
+        Ok(service)
+    }
+
+    async fn details_from_provider(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        identifier: String,
+    ) -> Result<MediaDetails> {
+        let provider = self.get_provider(lot, source)?;
+        let results = provider.details(&identifier).await?;
         Ok(results)
     }
 
