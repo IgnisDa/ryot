@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
@@ -66,6 +67,7 @@ struct ItemVolumeInfo {
     description: Option<String>,
     authors: Option<Vec<String>>,
     publisher: Option<String>,
+    main_category: Option<String>,
     categories: Option<Vec<String>>,
     page_count: Option<i32>,
 }
@@ -158,22 +160,22 @@ impl GoogleBooksService {
     ) -> MediaDetails {
         let mut images = vec![];
         if let Some(il) = item.image_links {
-            if let Some(a) = il.extra_large {
+            if let Some(a) = il.thumbnail {
                 images.push(a);
             }
-            if let Some(a) = il.large {
-                images.push(a);
-            }
-            if let Some(a) = il.medium {
+            if let Some(a) = il.small_thumbnail {
                 images.push(a);
             }
             if let Some(a) = il.small {
                 images.push(a);
             }
-            if let Some(a) = il.thumbnail {
+            if let Some(a) = il.medium {
                 images.push(a);
             }
-            if let Some(a) = il.small_thumbnail {
+            if let Some(a) = il.large {
+                images.push(a);
+            }
+            if let Some(a) = il.extra_large {
                 images.push(a);
             }
         };
@@ -198,6 +200,19 @@ impl GoogleBooksService {
                 image_urls: vec![],
             });
         }
+        let mut genres = item
+            .categories
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|c| {
+                c.split(" / ")
+                    .map(|g| g.to_case(Case::Title))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        if let Some(g) = item.main_category {
+            genres.push(g);
+        }
         MediaDetails {
             identifier: id,
             lot: MetadataLot::Book,
@@ -205,12 +220,7 @@ impl GoogleBooksService {
             title: item.title,
             description: item.description,
             creators: creators.into_iter().unique().collect(),
-            genres: item
-                .categories
-                .unwrap_or_default()
-                .into_iter()
-                .unique()
-                .collect(),
+            genres: genres.into_iter().unique().collect(),
             publish_year: item
                 .published_date
                 .map(|d| convert_date_to_year(&d))
