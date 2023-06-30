@@ -1,24 +1,23 @@
 use anyhow::{anyhow, Result};
-use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
-    config::{AudibleConfig, GoogleBooksConfig},
+    config::GoogleBooksConfig,
     graphql::{AUTHOR, PROJECT_NAME},
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::AudioBookSpecifics,
+    models::media::BookSpecifics,
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
+    utils::convert_date_to_year,
 };
 
-pub static URL: &str = "https://www.googleapis.com/books/v1/volumes";
+pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 
 #[derive(Debug, Clone)]
 pub struct GoogleBooksService {
@@ -36,7 +35,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub fn new(config: &GoogleBooksConfig) -> Self {
+    pub fn new(_config: &GoogleBooksConfig) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
             .unwrap()
@@ -66,6 +65,7 @@ struct ItemVolumeInfo {
     image_links: Option<ImageLinks>,
     description: Option<String>,
     authors: Option<Vec<String>>,
+    publisher: Option<String>,
     categories: Option<Vec<String>>,
     page_count: Option<i32>,
 }
@@ -87,7 +87,10 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        todo!()
+        let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
+        let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let d = self.google_books_response_to_search_response(data.volume_info, data.id);
+        Ok(d)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -111,25 +114,27 @@ impl MediaProvider for GoogleBooksService {
             .unwrap_or_default()
             .into_iter()
             .map(|b| {
-                let mut images = vec![];
-                if let Some(il) = b.volume_info.image_links {
-                    if let Some(a) = il.thumbnail {
-                        images.push(a);
-                    }
-                    if let Some(a) = il.small_thumbnail {
-                        images.push(a);
-                    }
-                }
-                MediaSearchItem {
-                    identifier: b.id,
-                    lot: MetadataLot::Book,
-                    title: b.volume_info.title,
+                let MediaDetails {
+                    identifier,
+                    title,
+                    lot,
                     images,
-                    publish_year: b
-                        .volume_info
-                        .published_date
-                        .map(|d| convert_date_to_year(&d))
-                        .flatten(),
+                    publish_year,
+                    ..
+                } = self.google_books_response_to_search_response(b.volume_info, b.id);
+                let images = images
+                    .into_iter()
+                    .map(|i| match i.url {
+                        MetadataImageUrl::S3(_u) => unreachable!(),
+                        MetadataImageUrl::Url(u) => u,
+                    })
+                    .collect();
+                MediaSearchItem {
+                    identifier,
+                    lot,
+                    title,
+                    images,
+                    publish_year,
                 }
             })
             .collect();
@@ -143,5 +148,78 @@ impl MediaProvider for GoogleBooksService {
             items: resp,
             next_page,
         })
+    }
+}
+impl GoogleBooksService {
+    fn google_books_response_to_search_response(
+        &self,
+        item: ItemVolumeInfo,
+        id: String,
+    ) -> MediaDetails {
+        let mut images = vec![];
+        if let Some(il) = item.image_links {
+            if let Some(a) = il.extra_large {
+                images.push(a);
+            }
+            if let Some(a) = il.large {
+                images.push(a);
+            }
+            if let Some(a) = il.medium {
+                images.push(a);
+            }
+            if let Some(a) = il.small {
+                images.push(a);
+            }
+            if let Some(a) = il.thumbnail {
+                images.push(a);
+            }
+            if let Some(a) = il.small_thumbnail {
+                images.push(a);
+            }
+        };
+        let images = images.into_iter().map(|a| MetadataImage {
+            url: MetadataImageUrl::Url(a),
+            lot: MetadataImageLot::Poster,
+        });
+        let mut creators = item
+            .authors
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| MetadataCreator {
+                name: a,
+                role: "Author".to_owned(),
+                image_urls: vec![],
+            })
+            .collect::<Vec<_>>();
+        if let Some(p) = item.publisher {
+            creators.push(MetadataCreator {
+                name: p,
+                role: "Publisher".to_owned(),
+                image_urls: vec![],
+            });
+        }
+        MediaDetails {
+            identifier: id,
+            lot: MetadataLot::Book,
+            source: MetadataSource::GoogleBooks,
+            title: item.title,
+            description: item.description,
+            creators: creators.into_iter().unique().collect(),
+            genres: item
+                .categories
+                .unwrap_or_default()
+                .into_iter()
+                .unique()
+                .collect(),
+            publish_year: item
+                .published_date
+                .map(|d| convert_date_to_year(&d))
+                .flatten(),
+            publish_date: None,
+            specifics: MediaSpecifics::Book(BookSpecifics {
+                pages: item.page_count,
+            }),
+            images: images.unique().collect(),
+        }
     }
 }
