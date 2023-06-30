@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     graphql::PROJECT_NAME,
-    providers::{audible::AudibleService, tmdb::TmdbService},
+    providers::{audible::AudibleService, itunes::ITunesService, tmdb::TmdbService},
     traits::MediaProviderLanguages,
 };
 
@@ -176,9 +176,26 @@ pub struct ListenNotesConfig {
     pub api_token: String,
 }
 
+fn validate_itunes_locale(
+    value: &str,
+    _partial: &PartialITunesConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    if !ITunesService::supported_languages().contains(&value.to_owned()) {
+        return Err(ValidateError::new(format!(
+            "ITunes does not support this locale: {:?}",
+            value
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
-pub struct ITunesConfig {}
+pub struct ITunesConfig {
+    #[setting(validate = validate_itunes_locale, default = ITunesService::default_language())]
+    pub locale: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct PodcastConfig {

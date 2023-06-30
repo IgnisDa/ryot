@@ -23,27 +23,31 @@ pub static URL: &str = "https://itunes.apple.com/";
 #[derive(Debug, Clone)]
 pub struct ITunesService {
     client: Client,
+    language: String,
 }
 
 impl MediaProviderLanguages for ITunesService {
     fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
+        ["en_us", "ja_jp"].into_iter().map(String::from).collect()
     }
 
     fn default_language() -> String {
-        "us".to_owned()
+        "en_us".to_owned()
     }
 }
 
 impl ITunesService {
-    pub async fn new(_config: &ITunesConfig) -> Self {
+    pub async fn new(config: &ITunesConfig) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();
-        Self { client }
+        Self {
+            client,
+            language: config.locale.clone(),
+        }
     }
 }
 
