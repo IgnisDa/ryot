@@ -418,6 +418,7 @@ export enum MetadataSource {
   Anilist = 'ANILIST',
   Audible = 'AUDIBLE',
   Custom = 'CUSTOM',
+  GoogleBooks = 'GOOGLE_BOOKS',
   Igdb = 'IGDB',
   Listennotes = 'LISTENNOTES',
   Openlibrary = 'OPENLIBRARY',

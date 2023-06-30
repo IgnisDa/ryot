@@ -29,6 +29,7 @@ use uuid::Uuid;
 
 use crate::models::UserPreferences;
 use crate::providers::anilist::AnilistService;
+use crate::providers::google_books::GoogleBooksService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -198,6 +199,7 @@ pub struct ExportMedia {
     custom_id: Option<String>,
     igdb_id: Option<String>,
     listennotes_id: Option<String>,
+    google_books_id: Option<String>,
     openlibrary_id: Option<String>,
     tmdb_id: Option<String>,
     anilist_id: Option<String>,
@@ -981,6 +983,7 @@ pub struct MiscellaneousService {
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: Arc<AudibleService>,
+    google_books_service: Arc<GoogleBooksService>,
     igdb_service: Arc<IgdbService>,
     listennotes_service: Arc<ListennotesService>,
     openlibrary_service: Arc<OpenlibraryService>,
@@ -1002,6 +1005,7 @@ impl MiscellaneousService {
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         audible_service: Arc<AudibleService>,
+        google_books_service: Arc<GoogleBooksService>,
         igdb_service: Arc<IgdbService>,
         listennotes_service: Arc<ListennotesService>,
         openlibrary_service: Arc<OpenlibraryService>,
@@ -1020,6 +1024,7 @@ impl MiscellaneousService {
             config,
             file_storage,
             audible_service,
+            google_books_service,
             igdb_service,
             listennotes_service,
             openlibrary_service,
@@ -1112,6 +1117,9 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
+            MetadataSource::GoogleBooks => Some(format!(
+                "https://www.google.co.in/books/edition/{slug}/{identifier}"
+            )),
             MetadataSource::Audible => {
                 Some(format!("https://www.audible.com/pd/{slug}/{identifier}"))
             }
@@ -1954,16 +1962,12 @@ impl MiscellaneousService {
         source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
-        #[derive(Iden)]
-        #[iden = "identifiers"]
-        enum TempIdentifiers {
-            #[iden = "identifiers"]
-            Alias,
-            Identifier,
-        }
-        let metadata_alias = Alias::new("m");
         let service: ProviderArc = match lot {
-            MetadataLot::Book => self.openlibrary_service.clone(),
+            MetadataLot::Book => match source {
+                MetadataSource::Openlibrary => self.openlibrary_service.clone(),
+                MetadataSource::GoogleBooks => self.google_books_service.clone(),
+                _ => unreachable!(),
+            },
             MetadataLot::AudioBook => self.audible_service.clone(),
             MetadataLot::Podcast => self.listennotes_service.clone(),
             MetadataLot::Movie => self.tmdb_movies_service.clone(),
@@ -1981,6 +1985,14 @@ impl MiscellaneousService {
         let data = if all_idens.is_empty() {
             vec![]
         } else {
+            #[derive(Iden)]
+            #[iden = "identifiers"]
+            enum TempIdentifiers {
+                #[iden = "identifiers"]
+                Alias,
+                Identifier,
+            }
+            let metadata_alias = Alias::new("m");
             // This can be done with `select id from metadata where identifier = '...'
             // and lot = '...'` in a loop. But, I wanted to write a performant query.
             let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
@@ -2081,6 +2093,7 @@ impl MiscellaneousService {
     ) -> Result<MediaDetails> {
         let service: ProviderArc = match source {
             MetadataSource::Openlibrary => self.openlibrary_service.clone(),
+            MetadataSource::GoogleBooks => self.google_books_service.clone(),
             MetadataSource::Audible => self.audible_service.clone(),
             MetadataSource::Listennotes => self.listennotes_service.clone(),
             MetadataSource::Tmdb => match lot {
@@ -2985,6 +2998,7 @@ impl MiscellaneousService {
                 custom_id: None,
                 igdb_id: None,
                 listennotes_id: None,
+                google_books_id: None,
                 openlibrary_id: None,
                 tmdb_id: None,
                 anilist_id: None,
@@ -2994,6 +3008,7 @@ impl MiscellaneousService {
             match m.source {
                 MetadataSource::Audible => exp.audible_id = Some(m.identifier),
                 MetadataSource::Custom => exp.custom_id = Some(m.identifier),
+                MetadataSource::GoogleBooks => exp.google_books_id = Some(m.identifier),
                 MetadataSource::Igdb => exp.igdb_id = Some(m.identifier),
                 MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
@@ -3081,7 +3096,7 @@ impl MiscellaneousService {
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
         match lot {
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
-            MetadataLot::Book => vec![MetadataSource::Openlibrary],
+            MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
             MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
@@ -3108,6 +3123,10 @@ impl MiscellaneousService {
                     MetadataSource::Listennotes => (
                         ListennotesService::supported_languages(),
                         ListennotesService::default_language(),
+                    ),
+                    MetadataSource::GoogleBooks => (
+                        GoogleBooksService::supported_languages(),
+                        GoogleBooksService::default_language(),
                     ),
                     MetadataSource::Igdb => (
                         IgdbService::supported_languages(),

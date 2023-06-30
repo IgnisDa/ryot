@@ -76,6 +76,10 @@ derive_enum!(
 );
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
+pub struct GoogleBooksConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     pub cover_image_size: OpenlibraryCoverImageSize,
@@ -85,6 +89,8 @@ pub struct OpenlibraryConfig {
 pub struct BookConfig {
     #[setting(nested)]
     pub openlibrary: OpenlibraryConfig,
+    #[setting(nested)]
+    pub google_books: GoogleBooksConfig,
 }
 
 impl IsFeatureEnabled for BookConfig {}

@@ -18,6 +18,7 @@ use crate::background::UpdateExerciseJob;
 use crate::file_storage::FileStorageService;
 use crate::fitness::exercise::resolver::ExerciseService;
 use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
+use crate::providers::google_books::GoogleBooksService;
 use crate::{
     background::{
         AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
@@ -73,6 +74,7 @@ pub async fn create_app_services(
     ));
 
     let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
+    let google_books_service = Arc::new(GoogleBooksService::new(&config.books.google_books));
     let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
     let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
     let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible));
@@ -87,6 +89,7 @@ pub async fn create_app_services(
         Arc::new(config.clone()),
         file_storage_service.clone(),
         audible_service,
+        google_books_service,
         igdb_service,
         listennotes_service,
         openlibrary_service,
