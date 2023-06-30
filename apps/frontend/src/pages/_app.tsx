@@ -1,12 +1,5 @@
 import { gqlClient, queryClient } from "@/lib/services/api";
-import {
-	Anchor,
-	Box,
-	Container,
-	Flex,
-	MantineProvider,
-	Text,
-} from "@mantine/core";
+import { Anchor, Container, Flex, MantineProvider, Text } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
@@ -38,34 +31,26 @@ const Footer = () => {
 	return (
 		<Container p={"md"} style={{ textAlign: "center" }}>
 			{coreDetails.data ? (
-				<>
-					<Box>
-						You are running version{" "}
+				<Flex gap={50}>
+					<Anchor
+						href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
+						target="_blank"
+					>
 						<Text color="red" weight={"bold"} style={{ display: "inline" }}>
-							{coreDetails.data.version}
+							v{coreDetails.data.version}
 						</Text>
-					</Box>
-					<Box>
-						Made with love by{" "}
-						<Anchor href="https://diptesh.me" target="_blank">
-							<Text weight={"bold"} style={{ display: "inline" }}>
-								{coreDetails.data.authorName}
-							</Text>
-						</Anchor>
-					</Box>
-					<Box>
-						Source code hosted on{" "}
-						<Anchor href={coreDetails.data.repositoryLink} target="_blank">
-							<Text
-								color="orange"
-								weight={"bold"}
-								style={{ display: "inline" }}
-							>
-								Github
-							</Text>
-						</Anchor>
-					</Box>
-				</>
+					</Anchor>
+					<Anchor href="https://diptesh.me" target="_blank">
+						<Text weight={"bold"} style={{ display: "inline" }}>
+							{coreDetails.data.authorName}
+						</Text>
+					</Anchor>
+					<Anchor href={coreDetails.data.repositoryLink} target="_blank">
+						<Text color="orange" weight={"bold"} style={{ display: "inline" }}>
+							Github
+						</Text>
+					</Anchor>
+				</Flex>
 			) : null}
 		</Container>
 	);
