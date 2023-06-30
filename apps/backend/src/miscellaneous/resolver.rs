@@ -30,6 +30,7 @@ use uuid::Uuid;
 use crate::models::UserPreferences;
 use crate::providers::anilist::AnilistService;
 use crate::providers::google_books::GoogleBooksService;
+use crate::providers::itunes::ITunesService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -202,6 +203,7 @@ pub struct ExportMedia {
     google_books_id: Option<String>,
     openlibrary_id: Option<String>,
     tmdb_id: Option<String>,
+    itunes_id: Option<String>,
     anilist_id: Option<String>,
     seen_history: Vec<seen::Model>,
     user_reviews: Vec<review::Model>,
@@ -985,6 +987,7 @@ pub struct MiscellaneousService {
     audible_service: Arc<AudibleService>,
     google_books_service: Arc<GoogleBooksService>,
     igdb_service: Arc<IgdbService>,
+    itunes_service: Arc<ITunesService>,
     listennotes_service: Arc<ListennotesService>,
     openlibrary_service: Arc<OpenlibraryService>,
     tmdb_movies_service: Arc<TmdbMovieService>,
@@ -1007,6 +1010,7 @@ impl MiscellaneousService {
         audible_service: Arc<AudibleService>,
         google_books_service: Arc<GoogleBooksService>,
         igdb_service: Arc<IgdbService>,
+        itunes_service: Arc<ITunesService>,
         listennotes_service: Arc<ListennotesService>,
         openlibrary_service: Arc<OpenlibraryService>,
         tmdb_movies_service: Arc<TmdbMovieService>,
@@ -1026,6 +1030,7 @@ impl MiscellaneousService {
             audible_service,
             google_books_service,
             igdb_service,
+            itunes_service,
             listennotes_service,
             openlibrary_service,
             tmdb_movies_service,
@@ -1117,6 +1122,9 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
+            MetadataSource::ITunes => Some(format!(
+                "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
+            )),
             MetadataSource::GoogleBooks => Some(format!(
                 "https://www.google.co.in/books/edition/{slug}/{identifier}"
             )),
@@ -1969,7 +1977,11 @@ impl MiscellaneousService {
                 _ => unreachable!(),
             },
             MetadataLot::AudioBook => self.audible_service.clone(),
-            MetadataLot::Podcast => self.listennotes_service.clone(),
+            MetadataLot::Podcast => match source {
+                MetadataSource::Listennotes => self.listennotes_service.clone(),
+                MetadataSource::ITunes => self.itunes_service.clone(),
+                _ => unreachable!(),
+            },
             MetadataLot::Movie => self.tmdb_movies_service.clone(),
             MetadataLot::Show => self.tmdb_shows_service.clone(),
             MetadataLot::VideoGame => self.igdb_service.clone(),
@@ -2093,6 +2105,7 @@ impl MiscellaneousService {
     ) -> Result<MediaDetails> {
         let service: ProviderArc = match source {
             MetadataSource::Openlibrary => self.openlibrary_service.clone(),
+            MetadataSource::ITunes => self.itunes_service.clone(),
             MetadataSource::GoogleBooks => self.google_books_service.clone(),
             MetadataSource::Audible => self.audible_service.clone(),
             MetadataSource::Listennotes => self.listennotes_service.clone(),
@@ -2998,6 +3011,7 @@ impl MiscellaneousService {
                 google_books_id: None,
                 openlibrary_id: None,
                 tmdb_id: None,
+                itunes_id: None,
                 anilist_id: None,
                 seen_history: seens,
                 user_reviews: reviews,
@@ -3011,6 +3025,7 @@ impl MiscellaneousService {
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
                 MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
                 MetadataSource::Anilist => exp.anilist_id = Some(m.identifier),
+                MetadataSource::ITunes => exp.itunes_id = Some(m.identifier),
             };
             resp.push(exp);
         }
@@ -3094,7 +3109,7 @@ impl MiscellaneousService {
         match lot {
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
-            MetadataLot::Podcast => vec![MetadataSource::Listennotes],
+            MetadataLot::Podcast => vec![MetadataSource::ITunes, MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
             MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
@@ -3105,6 +3120,10 @@ impl MiscellaneousService {
         MetadataSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
+                    MetadataSource::ITunes => (
+                        ITunesService::supported_languages(),
+                        ITunesService::default_language(),
+                    ),
                     MetadataSource::Audible => (
                         AudibleService::supported_languages(),
                         AudibleService::default_language(),

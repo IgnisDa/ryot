@@ -177,9 +177,15 @@ pub struct ListenNotesConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
+pub struct ITunesConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct PodcastConfig {
     #[setting(nested)]
     pub listennotes: ListenNotesConfig,
+    #[setting(nested)]
+    pub itunes: ITunesConfig,
 }
 
 impl IsFeatureEnabled for PodcastConfig {

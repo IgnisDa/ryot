@@ -110,7 +110,7 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products/", suffix)
     }
 
-    pub fn new(config: &AudibleConfig) -> Self {
+    pub async fn new(config: &AudibleConfig) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
