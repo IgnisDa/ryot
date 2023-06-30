@@ -1,5 +1,6 @@
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(tag = "t", content = "d")]
@@ -42,6 +43,8 @@ pub struct DoneExercise {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 struct DoneWorkout {
+    /// A unique identifier for this workout
+    pub client_id: Uuid,
     pub name: String,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
@@ -53,8 +56,15 @@ struct DoneWorkout {
 }
 
 impl DoneWorkout {
-    fn new(name: String, start_time: DateTimeUtc, end_time: DateTimeUtc, user_id: i32) -> Self {
+    fn new(
+        client_id: Uuid,
+        name: String,
+        start_time: DateTimeUtc,
+        end_time: DateTimeUtc,
+        user_id: i32,
+    ) -> Self {
         Self {
+            client_id,
             name,
             start_time,
             end_time,
