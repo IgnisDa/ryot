@@ -21,6 +21,7 @@ aws-sdk-s3 = "0.28.0"
 axum = { version = "0.6.12", features = ["macros", "multipart"] }
 chrono = "0.4.24"
 convert_case = "0.6.0"
+const-str = "0.5.5"
 cookie = "0.17.0"
 dotenvy = "0.15.7"
 futures = "0.3.28"
