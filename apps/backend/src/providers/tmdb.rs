@@ -496,10 +496,7 @@ mod utils {
         Config, Url,
     };
 
-    use crate::{
-        graphql::{AUTHOR, PROJECT_NAME},
-        utils::read_file_to_json,
-    };
+    use crate::{graphql::USER_AGENT_STR, utils::read_file_to_json};
 
     use super::*;
 
@@ -524,7 +521,7 @@ mod utils {
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let path = env::temp_dir().join("tmdb-config.json");
         let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
             .unwrap()

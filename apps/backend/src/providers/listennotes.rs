@@ -187,10 +187,7 @@ mod utils {
 
     use surf::{http::headers::USER_AGENT, Config, Url};
 
-    use crate::{
-        graphql::{AUTHOR, PROJECT_NAME},
-        utils::read_file_to_json,
-    };
+    use crate::{graphql::USER_AGENT_STR, utils::read_file_to_json};
 
     use super::*;
 
@@ -199,7 +196,7 @@ mod utils {
         let client: Client = Config::new()
             .add_header("X-ListenAPI-Key", api_token)
             .unwrap()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()

@@ -267,7 +267,7 @@ mod utils {
     use super::*;
     use crate::{
         config::VideoGameConfig,
-        graphql::{AUTHOR, PROJECT_NAME},
+        graphql::USER_AGENT_STR,
         utils::{get_now_timestamp, read_file_to_json},
     };
 
@@ -325,7 +325,7 @@ mod utils {
         Config::new()
             .add_header("Client-ID", config.twitch.client_id.to_owned())
             .unwrap()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .add_header(AUTHORIZATION, access_token)
             .unwrap()

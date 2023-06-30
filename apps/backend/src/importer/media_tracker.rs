@@ -8,7 +8,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
-    graphql::{AUTHOR, PROJECT_NAME},
+    graphql::USER_AGENT_STR,
     importer::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
@@ -103,7 +103,7 @@ struct ItemDetails {
 
 pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
     let client: Client = Config::new()
-        .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+        .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
         .add_header("Access-Token", input.api_key)
         .unwrap()

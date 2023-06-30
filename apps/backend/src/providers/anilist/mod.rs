@@ -128,7 +128,7 @@ mod utils {
     };
 
     use crate::{
-        graphql::{AUTHOR, PROJECT_NAME},
+        graphql::USER_AGENT_STR,
         migrator::{MetadataImageLot, MetadataSource},
         miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
         models::media::{AnimeSpecifics, MangaSpecifics},
@@ -138,7 +138,7 @@ mod utils {
 
     pub async fn get_client_config(url: &str) -> Client {
         let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .add_header(ACCEPT, "application/json")
             .unwrap()
