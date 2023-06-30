@@ -420,6 +420,7 @@ export enum MetadataSource {
   Custom = 'CUSTOM',
   GoogleBooks = 'GOOGLE_BOOKS',
   Igdb = 'IGDB',
+  ITunes = 'I_TUNES',
   Listennotes = 'LISTENNOTES',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB'
