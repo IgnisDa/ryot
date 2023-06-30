@@ -192,7 +192,13 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const searchQuery = useQuery({
-		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
+		queryKey: [
+			"searchQuery",
+			activeSearchPage,
+			lot,
+			debouncedQuery,
+			searchSource,
+		],
 		queryFn: async () => {
 			invariant(searchSource, "Source must be defined");
 			invariant(lot, "Lot must be defined");
