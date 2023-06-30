@@ -13,7 +13,6 @@
 		"web": {
 			"bundler": "metro"
 		},
-		"scheme": "ryot",
-		"plugins": ["expo-router"]
+		"scheme": "ryot"
 	}
 }
