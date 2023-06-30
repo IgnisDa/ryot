@@ -205,15 +205,7 @@ pub struct PodcastConfig {
     pub itunes: ITunesConfig,
 }
 
-impl IsFeatureEnabled for PodcastConfig {
-    fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.listennotes.api_token.is_empty() {
-            enabled = true;
-        }
-        enabled
-    }
-}
+impl IsFeatureEnabled for PodcastConfig {}
 
 fn validate_shows_tmdb_locale(
     value: &str,
