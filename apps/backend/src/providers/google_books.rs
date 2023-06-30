@@ -47,6 +47,43 @@ impl GoogleBooksService {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ImageLinks {
+    extra_large: Option<String>,
+    large: Option<String>,
+    medium: Option<String>,
+    small: Option<String>,
+    small_thumbnail: Option<String>,
+    thumbnail: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ItemVolumeInfo {
+    title: String,
+    published_date: Option<String>,
+    image_links: Option<ImageLinks>,
+    description: Option<String>,
+    authors: Option<Vec<String>>,
+    categories: Option<Vec<String>>,
+    page_count: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ItemResponse {
+    id: String,
+    volume_info: ItemVolumeInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct SearchResponse {
+    total_items: i32,
+    items: Option<Vec<ItemResponse>>,
+}
+
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -56,31 +93,6 @@ impl MediaProvider for GoogleBooksService {
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_LIMIT;
-        #[derive(Serialize, Deserialize, Debug)]
-        #[serde(rename_all = "camelCase")]
-        struct ImageLinks {
-            small_thumbnail: Option<String>,
-            thumbnail: Option<String>,
-        }
-        #[derive(Serialize, Deserialize, Debug)]
-        #[serde(rename_all = "camelCase")]
-        struct ItemVolumeInfo {
-            title: String,
-            published_date: Option<String>,
-            image_links: Option<ImageLinks>,
-        }
-        #[derive(Serialize, Deserialize, Debug)]
-        #[serde(rename_all = "camelCase")]
-        struct ItemResponse {
-            id: String,
-            volume_info: ItemVolumeInfo,
-        }
-        #[derive(Serialize, Deserialize, Debug)]
-        #[serde(rename_all = "camelCase")]
-        struct SearchResponse {
-            total_items: i32,
-            items: Option<Vec<ItemResponse>>,
-        }
         let mut rsp = self
             .client
             .get("")
