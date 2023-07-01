@@ -49,8 +49,35 @@ impl ListennotesService {
 #[async_trait]
 impl MediaProvider for ListennotesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        self.details_with_paginated_episodes(identifier, None, None)
-            .await
+        let mut details = self
+            .details_with_paginated_episodes(identifier, None, None)
+            .await?;
+        match details.specifics {
+            MediaSpecifics::Podcast(ref mut specifics) => loop {
+                if specifics.total_episodes > i32::try_from(specifics.episodes.len()).unwrap() {
+                    let last_episode = specifics.episodes.last().unwrap();
+                    let next_pub_date = last_episode.publish_date;
+                    let episode_number = last_episode.number;
+                    let new_details = self
+                        .details_with_paginated_episodes(
+                            identifier,
+                            Some(next_pub_date),
+                            Some(episode_number),
+                        )
+                        .await?;
+                    match new_details.specifics {
+                        MediaSpecifics::Podcast(p) => {
+                            specifics.episodes.extend(p.episodes);
+                        }
+                        _ => unreachable!(),
+                    }
+                } else {
+                    break;
+                }
+            },
+            _ => unreachable!(),
+        };
+        Ok(details)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
