@@ -1,4 +1,15 @@
 
+# Version 1.5.2 (2023-07-01)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** change meta tag logo
+
+
 # Version 1.5.1 (2023-07-01)
 
 
