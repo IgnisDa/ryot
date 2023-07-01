@@ -1,17 +1,24 @@
-<p align="center">
-  <img src="/apps/frontend/public/ryot-logo.png" alt="Ryot Logo">
-</p>
+<h1 align="center">Ryot</h1>
 
-<h2 align="center">
+<h3 align="center">
   A self hosted platform for tracking various facets of your life - media, fitness etc.
-</h2>
+</h3>
+
+<br/>
+
+<div align="center">
+  <a href="https://github.com/ignisda/ryot/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ignisda/ryot"></a>
+  <a href="https://github.com/ignisda/ryot/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple"></a>
+</div>
+
+<br/>
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
-## NOTE FOR EXISTING USERS
+## NOTE FOR BETA USERS
 
-The first public release includes huge code changes. If you were running the `v1.0.0-beta.*`
+The first public release includes huge code changes. If you are running the `v1.0.0-beta.*`
 versions, then please follow the migration notes for the latest release
 [here](https://github.com/IgnisDa/ryot/releases/tag/v1.0.0). Please be warned that
 failing to do so **WILL** result in data loss.
