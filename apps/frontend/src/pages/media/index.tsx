@@ -49,8 +49,6 @@ import {
 	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
 	type CollectionsQuery,
-	CommitNext10PodcastEpisodesDocument,
-	type CommitNext10PodcastEpisodesMutationVariables,
 	CreateCollectionDocument,
 	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
@@ -494,20 +492,6 @@ const Page: NextPageWithLayout = () => {
 				title: "Deleted",
 				message: "Record deleted from your history successfully",
 			});
-		},
-	});
-	const commitNext10Episodes = useMutation({
-		mutationFn: async (
-			variables: CommitNext10PodcastEpisodesMutationVariables,
-		) => {
-			const { commitNext10PodcastEpisodes } = await gqlClient.request(
-				CommitNext10PodcastEpisodesDocument,
-				variables,
-			);
-			return commitNext10PodcastEpisodes;
-		},
-		onSuccess: () => {
-			mediaDetails.refetch();
 		},
 	});
 	const deployUpdateMetadataJob = useMutation({
@@ -1222,22 +1206,6 @@ const Page: NextPageWithLayout = () => {
 												</Button>
 											</AccordionLabel>
 										))}
-										{mediaDetails.data.podcastSpecifics.totalEpisodes >
-										mediaDetails.data.podcastSpecifics.episodes.length ? (
-											<Button
-												onClick={() =>
-													commitNext10Episodes.mutate({
-														podcastId: metadataId,
-													})
-												}
-												loading={
-													commitNext10Episodes.isLoading ||
-													mediaDetails.isLoading
-												}
-											>
-												Load 10 more
-											</Button>
-										) : null}
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
