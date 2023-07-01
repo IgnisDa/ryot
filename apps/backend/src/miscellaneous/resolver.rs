@@ -1233,7 +1233,6 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    // TODO: Return number of times other have seen this media
     async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
         let mut prev_seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
