@@ -27,6 +27,7 @@ dotenvy = "0.15.7"
 futures = "0.3.28"
 graphql_client = "0.13.0"
 http = "0.2.9"
+imagesize = "0.12.0"
 isolang = { version = "2.3.0", features = ["list_languages"] }
 itertools = "0.10.5"
 markdown = "1.0.0-alpha.10"
