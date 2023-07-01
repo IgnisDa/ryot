@@ -14,8 +14,9 @@ use crate::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::PodcastSpecifics,
+    models::media::{PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::NamedObject,
 };
 
 pub static URL: &str = "https://itunes.apple.com/";
@@ -51,47 +52,134 @@ impl ITunesService {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct ImageLinks {
-    extra_large: Option<String>,
-    large: Option<String>,
-    medium: Option<String>,
-    small: Option<String>,
-    small_thumbnail: Option<String>,
-    thumbnail: Option<String>,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+enum Genre {
+    Flat(String),
+    Nested(NamedObject),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct ItemResponse {
-    collection_id: i32,
+struct ITunesItem {
+    collection_id: i64,
+    track_name: Option<String>,
     collection_name: String,
     release_date: Option<ChronoDateTimeUtc>,
     description: Option<String>,
     artist_name: Option<String>,
-    genres: Option<Vec<String>>,
-    track_count: i32,
+    genres: Option<Vec<Genre>>,
+    track_count: Option<i32>,
+    track_id: Option<i64>,
     artwork_url_100: Option<String>,
     artwork_url_30: Option<String>,
     artwork_url_60: Option<String>,
     artwork_url_600: Option<String>,
+    track_time_millis: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct SearchResponse {
-    results: Option<Vec<ItemResponse>>,
+    results: Option<Vec<ITunesItem>>,
 }
 
 #[async_trait]
 impl MediaProvider for ITunesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        todo!()
-        // let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
-        // let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        // let d = self.itunes_response_to_search_response(data.volume_info, data.id);
-        // Ok(d)
+        let mut rsp = self
+            .client
+            .get("lookup")
+            .query(&serde_json::json!({
+                "id": identifier,
+                "media": "podcast",
+                "entity": "podcast",
+                "lang": self.language
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let details: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let ht = details.results.unwrap()[0].clone();
+        let description = ht.description.clone();
+        let creators = Vec::from_iter(ht.artist_name.clone())
+            .into_iter()
+            .map(|a| MetadataCreator {
+                name: a,
+                role: "Artist".to_owned(),
+                image_urls: vec![],
+            })
+            .collect();
+        let genres = ht
+            .genres
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|g| match g {
+                Genre::Flat(s) => s,
+                Genre::Nested(s) => s.name,
+            })
+            .collect();
+        let total_episodes = ht.track_count.unwrap();
+        let details = get_search_response(ht);
+        let mut rsp = self
+            .client
+            .get("lookup")
+            .query(&serde_json::json!({
+                "id": identifier,
+                "media": "podcast",
+                "entity": "podcastEpisode",
+                "limit": total_episodes,
+                "lang": self.language
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let images = details
+            .images
+            .into_iter()
+            .map(|a| MetadataImage {
+                url: MetadataImageUrl::Url(a),
+                lot: MetadataImageLot::Poster,
+            })
+            .collect();
+        let episodes: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let episodes = episodes.results.unwrap_or_default();
+        let publish_date = episodes
+            .last()
+            .map(|e| e.release_date.to_owned())
+            .flatten()
+            .map(|d| d.date_naive());
+        let episodes = episodes
+            .into_iter()
+            .enumerate()
+            .rev()
+            .map(|(idx, e)| PodcastEpisode {
+                number: i32::try_from(idx).unwrap() + 1,
+                id: e.track_id.unwrap().to_string(),
+                runtime: e.track_time_millis.map(|t| t / 1000 / 60),
+                overview: e.description,
+                title: e.track_name.unwrap(),
+                publish_date: e.release_date.map(|d| d.timestamp()).unwrap(),
+                thumbnail: e.artwork_url_60,
+            })
+            .collect_vec();
+        Ok(MediaDetails {
+            identifier: details.identifier,
+            title: details.title,
+            publish_date,
+            publish_year: publish_date.map(|d| d.year()),
+            source: MetadataSource::ITunes,
+            lot: MetadataLot::Podcast,
+            description,
+            images,
+            creators,
+            genres,
+            specifics: MediaSpecifics::Podcast(PodcastSpecifics {
+                episodes,
+                total_episodes,
+            }),
+        })
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -114,31 +202,9 @@ impl MediaProvider for ITunesService {
             .results
             .unwrap_or_default()
             .into_iter()
-            .map(|b| {
-                let MediaDetails {
-                    identifier,
-                    title,
-                    lot,
-                    images,
-                    publish_year,
-                    ..
-                } = self.itunes_response_to_search_response(b);
-                let images = images
-                    .into_iter()
-                    .map(|i| match i.url {
-                        MetadataImageUrl::S3(_u) => unreachable!(),
-                        MetadataImageUrl::Url(u) => u,
-                    })
-                    .collect();
-                MediaSearchItem {
-                    identifier,
-                    lot,
-                    title,
-                    images,
-                    publish_year,
-                }
-            })
+            .map(get_search_response)
             .collect();
+
         // DEV: API does not return total count
         let total = 100;
 
@@ -149,55 +215,28 @@ impl MediaProvider for ITunesService {
         })
     }
 }
-impl ITunesService {
-    fn itunes_response_to_search_response(&self, item: ItemResponse) -> MediaDetails {
-        let mut images = vec![];
-        if let Some(a) = item.artwork_url_600 {
-            images.push(a);
-        }
-        if let Some(a) = item.artwork_url_100 {
-            images.push(a);
-        }
-        if let Some(a) = item.artwork_url_30 {
-            images.push(a);
-        }
-        if let Some(a) = item.artwork_url_60 {
-            images.push(a);
-        }
-        let images = images.into_iter().map(|a| MetadataImage {
-            url: MetadataImageUrl::Url(a),
-            lot: MetadataImageLot::Poster,
-        });
-        let creators = Vec::from_iter(item.artist_name)
-            .into_iter()
-            .map(|a| MetadataCreator {
-                name: a,
-                role: "Artist".to_owned(),
-                image_urls: vec![],
-            })
-            .collect::<Vec<_>>();
-        let date = item.release_date.map(|d| d.date_naive());
-        MediaDetails {
-            identifier: item.collection_id.to_string(),
-            lot: MetadataLot::Podcast,
-            source: MetadataSource::ITunes,
-            title: item.collection_name,
-            description: item.description,
-            creators: creators.into_iter().unique().collect(),
-            genres: item
-                .genres
-                .unwrap_or_default()
-                .into_iter()
-                .unique()
-                .collect(),
-            publish_year: date.map(|d| d.year()),
-            publish_date: date,
-            specifics: MediaSpecifics::Podcast(PodcastSpecifics {
-                total_episodes: item.track_count,
-                // FIXME: Use correct one
-                episodes: vec![],
-            }),
-            images: images.unique().collect(),
-        }
+
+fn get_search_response(item: ITunesItem) -> MediaSearchItem {
+    let mut images = vec![];
+    if let Some(a) = item.artwork_url_600 {
+        images.push(a);
+    }
+    if let Some(a) = item.artwork_url_100 {
+        images.push(a);
+    }
+    if let Some(a) = item.artwork_url_30 {
+        images.push(a);
+    }
+    if let Some(a) = item.artwork_url_60 {
+        images.push(a);
+    }
+    let date = item.release_date.map(|d| d.date_naive());
+    let publish_year = date.map(|d| d.year());
+    MediaSearchItem {
+        identifier: item.collection_id.to_string(),
+        lot: MetadataLot::Podcast,
+        title: item.collection_name,
+        images,
+        publish_year,
     }
 }
