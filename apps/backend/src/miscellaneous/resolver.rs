@@ -1834,9 +1834,6 @@ impl MiscellaneousService {
     }
 
     async fn get_images_sorted(&self, images: Vec<MetadataImage>) -> Result<Vec<MetadataImage>> {
-        if !self.config.media.sort_images {
-            return Ok(images);
-        }
         let mut sorted_images = vec![];
         for image in images.into_iter() {
             let image_size = match &image.url {
@@ -1846,14 +1843,20 @@ impl MiscellaneousService {
                         Ok(mut b) => b.body_bytes().await?,
                         Err(_) => continue,
                     };
-                    let size = imagesize::blob_size(bytes.as_slice()).unwrap();
+                    let size = match imagesize::blob_size(bytes.as_slice()) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
                     size.width * size.height
                 }
             };
             sorted_images.push((image, image_size));
         }
-        sorted_images.sort_unstable_by_key(|i| i.1);
-        Ok(sorted_images.into_iter().rev().map(|i| i.0).collect())
+        if self.config.media.sort_images {
+            sorted_images.sort_unstable_by_key(|i| i.1);
+            sorted_images = sorted_images.into_iter().rev().collect();
+        }
+        Ok(sorted_images.into_iter().map(|i| i.0).collect())
     }
 
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
@@ -2501,7 +2504,7 @@ impl MiscellaneousService {
                 tracing::error!("Error while updating: {:?}", e);
             }
         }
-
+        tracing::info!("Updated metadata for {:?}", Identifier::from(metadata_id));
         Ok(())
     }
 
