@@ -1122,7 +1122,7 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
-            MetadataSource::ITunes => Some(format!(
+            MetadataSource::Itunes => Some(format!(
                 "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
             )),
             MetadataSource::GoogleBooks => Some(format!(
@@ -2085,7 +2085,7 @@ impl MiscellaneousService {
     fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<ProviderArc> {
         let service: ProviderArc = match source {
             MetadataSource::Openlibrary => self.openlibrary_service.clone(),
-            MetadataSource::ITunes => self.itunes_service.clone(),
+            MetadataSource::Itunes => self.itunes_service.clone(),
             MetadataSource::GoogleBooks => self.google_books_service.clone(),
             MetadataSource::Audible => self.audible_service.clone(),
             MetadataSource::Listennotes => self.listennotes_service.clone(),
@@ -3015,7 +3015,7 @@ impl MiscellaneousService {
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
                 MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
                 MetadataSource::Anilist => exp.anilist_id = Some(m.identifier),
-                MetadataSource::ITunes => exp.itunes_id = Some(m.identifier),
+                MetadataSource::Itunes => exp.itunes_id = Some(m.identifier),
             };
             resp.push(exp);
         }
@@ -3099,7 +3099,7 @@ impl MiscellaneousService {
         match lot {
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
-            MetadataLot::Podcast => vec![MetadataSource::ITunes, MetadataSource::Listennotes],
+            MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
             MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
@@ -3110,7 +3110,7 @@ impl MiscellaneousService {
         MetadataSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
-                    MetadataSource::ITunes => (
+                    MetadataSource::Itunes => (
                         ITunesService::supported_languages(),
                         ITunesService::default_language(),
                     ),

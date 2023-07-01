@@ -63,7 +63,7 @@ pub enum MetadataSource {
     #[sea_orm(string_value = "IG")]
     Igdb,
     #[sea_orm(string_value = "IT")]
-    ITunes,
+    Itunes,
     #[sea_orm(string_value = "LI")]
     Listennotes,
     #[sea_orm(string_value = "OL")]

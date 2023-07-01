@@ -169,7 +169,7 @@ impl MediaProvider for ITunesService {
             title: details.title,
             publish_date,
             publish_year: publish_date.map(|d| d.year()),
-            source: MetadataSource::ITunes,
+            source: MetadataSource::Itunes,
             lot: MetadataLot::Podcast,
             description,
             images,
