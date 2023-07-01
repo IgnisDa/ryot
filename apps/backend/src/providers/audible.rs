@@ -95,7 +95,7 @@ impl MediaProviderLanguages for AudibleService {
 impl AudibleService {
     fn url_from_locale(locale: &str) -> String {
         let suffix = match locale {
-            "us" => "us",
+            "us" => "com",
             "ca" => "ca",
             "uk" => "co.uk",
             "au" => "co.au",
@@ -111,10 +111,11 @@ impl AudibleService {
     }
 
     pub async fn new(config: &AudibleConfig) -> Self {
+        let url = Self::url_from_locale(&config.locale);
         let client = Config::new()
             .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
-            .set_base_url(Url::parse(&Self::url_from_locale(&config.locale)).unwrap())
+            .set_base_url(Url::parse(&url).unwrap())
             .try_into()
             .unwrap();
         Self { client }

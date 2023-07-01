@@ -1,4 +1,16 @@
 
+# Version 1.4.9 (2023-07-01)
+
+## Bug Fixes
+
+* **backend:** use correct address for audible us locale
+
+## Build
+
+* **backend:** bump version
+* **exercise-app:** revert expo to stable version
+
+
 # Version 1.4.8 (2023-06-29)
 
 ## Bug Fixes
