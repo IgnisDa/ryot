@@ -1,9 +1,10 @@
+use std::{env, sync::Arc};
+
 use async_graphql::{
     scalar, Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject,
 };
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
-use std::env;
 
 use crate::{
     config::AppConfig,
@@ -56,7 +57,7 @@ struct CoreQuery;
 impl CoreQuery {
     /// Get some primary information about the service
     async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
+        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         CoreDetails {
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
@@ -78,14 +79,14 @@ pub async fn get_schema(
     app_services: &AppServices,
     db: DatabaseConnection,
     scdb: MemoryDb,
-    config: &AppConfig,
+    config: Arc<AppConfig>,
 ) -> GraphqlSchema {
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
         EmptySubscription,
     )
-    .data(config.to_owned())
+    .data(config)
     .data(db)
     .data(scdb)
     .data(app_services.media_service.clone())

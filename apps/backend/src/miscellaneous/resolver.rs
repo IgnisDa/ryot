@@ -821,7 +821,7 @@ impl MiscellaneousMutation {
 
     /// Login a user using their username and password and return an API key.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
+        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         let maybe_api_key = gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .login_user(
@@ -844,7 +844,7 @@ impl MiscellaneousMutation {
 
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
+        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         create_cookie(
             gql_ctx,
             "",

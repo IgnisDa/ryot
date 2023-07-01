@@ -54,7 +54,7 @@ pub async fn create_app_services(
     db: DatabaseConnection,
     scdb: MemoryDb,
     s3_client: aws_sdk_s3::Client,
-    config: &AppConfig,
+    config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
@@ -88,7 +88,7 @@ pub async fn create_app_services(
     let media_service = Arc::new(MiscellaneousService::new(
         &db,
         &scdb,
-        Arc::new(config.clone()),
+        config,
         file_storage_service.clone(),
         audible_service,
         google_books_service,
