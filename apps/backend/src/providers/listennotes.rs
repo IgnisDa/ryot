@@ -49,8 +49,35 @@ impl ListennotesService {
 #[async_trait]
 impl MediaProvider for ListennotesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        self.details_with_paginated_episodes(identifier, None, None)
-            .await
+        let mut details = self
+            .details_with_paginated_episodes(identifier, None, None)
+            .await?;
+        match details.specifics {
+            MediaSpecifics::Podcast(ref mut specifics) => loop {
+                if specifics.total_episodes > i32::try_from(specifics.episodes.len()).unwrap() {
+                    let last_episode = specifics.episodes.last().unwrap();
+                    let next_pub_date = last_episode.publish_date;
+                    let episode_number = last_episode.number;
+                    let new_details = self
+                        .details_with_paginated_episodes(
+                            identifier,
+                            Some(next_pub_date),
+                            Some(episode_number),
+                        )
+                        .await?;
+                    match new_details.specifics {
+                        MediaSpecifics::Podcast(p) => {
+                            specifics.episodes.extend(p.episodes);
+                        }
+                        _ => unreachable!(),
+                    }
+                } else {
+                    break;
+                }
+            },
+            _ => unreachable!(),
+        };
+        Ok(details)
     }
 
     async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
@@ -187,10 +214,7 @@ mod utils {
 
     use surf::{http::headers::USER_AGENT, Config, Url};
 
-    use crate::{
-        graphql::{AUTHOR, PROJECT_NAME},
-        utils::read_file_to_json,
-    };
+    use crate::{graphql::USER_AGENT_STR, utils::read_file_to_json};
 
     use super::*;
 
@@ -199,7 +223,7 @@ mod utils {
         let client: Client = Config::new()
             .add_header("X-ListenAPI-Key", api_token)
             .unwrap()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()

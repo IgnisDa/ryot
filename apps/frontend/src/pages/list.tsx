@@ -192,10 +192,17 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const searchQuery = useQuery({
-		queryKey: ["searchQuery", activeSearchPage, lot, debouncedQuery],
+		queryKey: [
+			"searchQuery",
+			activeSearchPage,
+			lot,
+			debouncedQuery,
+			searchSource,
+		],
 		queryFn: async () => {
 			invariant(searchSource, "Source must be defined");
 			invariant(lot, "Lot must be defined");
+			invariant(debouncedQuery.length > 0, "Must have search query");
 			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
 				input: {
 					query: debouncedQuery,
@@ -469,17 +476,20 @@ const Page: NextPageWithLayout = () => {
 										lot.toLowerCase(),
 									).toLowerCase()}s`,
 								})}
-								<Select
-									w="37%"
-									value={searchSource?.toString()}
-									data={(mediaSources.data || []).map((o) => ({
-										value: o.toString(),
-										label: startCase(lowerCase(o)),
-									}))}
-									onChange={(v) => {
-										if (v) setSearchSource(v);
-									}}
-								/>
+								{typeof mediaSources.data?.length !== "undefined" &&
+								mediaSources.data.length > 1 ? (
+									<Select
+										w="37%"
+										value={searchSource?.toString()}
+										data={(mediaSources.data || []).map((o) => ({
+											value: o.toString(),
+											label: startCase(lowerCase(o)),
+										}))}
+										onChange={(v) => {
+											if (v) setSearchSource(v);
+										}}
+									/>
+								) : null}
 							</Flex>
 							{searchQuery.data && searchQuery.data.total > 0 ? (
 								<>

@@ -7,7 +7,7 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::AudibleConfig,
-    graphql::{AUTHOR, PROJECT_NAME},
+    graphql::USER_AGENT_STR,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
@@ -110,10 +110,10 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products/", suffix)
     }
 
-    pub fn new(config: &AudibleConfig) -> Self {
+    pub async fn new(config: &AudibleConfig) -> Self {
         let url = Self::url_from_locale(&config.locale);
         let client = Config::new()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .set_base_url(Url::parse(&url).unwrap())
             .try_into()

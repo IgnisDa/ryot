@@ -10,7 +10,7 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     config::OpenlibraryConfig,
-    graphql::{AUTHOR, PROJECT_NAME},
+    graphql::USER_AGENT_STR,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
@@ -63,7 +63,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 impl OpenlibraryService {
     pub fn new(config: &OpenlibraryConfig) -> Self {
         let client: Client = Config::new()
-            .add_header(USER_AGENT, format!("{}/{}", AUTHOR, PROJECT_NAME))
+            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .set_base_url(Url::parse(URL).unwrap())
             .try_into()

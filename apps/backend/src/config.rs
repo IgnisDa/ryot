@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     graphql::PROJECT_NAME,
-    providers::{audible::AudibleService, tmdb::TmdbService},
+    providers::{audible::AudibleService, itunes::ITunesService, tmdb::TmdbService},
     traits::MediaProviderLanguages,
 };
 
@@ -76,6 +76,10 @@ derive_enum!(
 );
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
+pub struct GoogleBooksConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     pub cover_image_size: OpenlibraryCoverImageSize,
@@ -85,6 +89,8 @@ pub struct OpenlibraryConfig {
 pub struct BookConfig {
     #[setting(nested)]
     pub openlibrary: OpenlibraryConfig,
+    #[setting(nested)]
+    pub google_books: GoogleBooksConfig,
 }
 
 impl IsFeatureEnabled for BookConfig {}
@@ -170,21 +176,36 @@ pub struct ListenNotesConfig {
     pub api_token: String,
 }
 
+fn validate_itunes_locale(
+    value: &str,
+    _partial: &PartialITunesConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
+    if !ITunesService::supported_languages().contains(&value.to_owned()) {
+        return Err(ValidateError::new(format!(
+            "ITunes does not support this locale: {:?}",
+            value
+        )));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
+pub struct ITunesConfig {
+    #[setting(validate = validate_itunes_locale, default = ITunesService::default_language())]
+    pub locale: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct PodcastConfig {
     #[setting(nested)]
     pub listennotes: ListenNotesConfig,
+    #[setting(nested)]
+    pub itunes: ITunesConfig,
 }
 
-impl IsFeatureEnabled for PodcastConfig {
-    fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.listennotes.api_token.is_empty() {
-            enabled = true;
-        }
-        enabled
-    }
-}
+impl IsFeatureEnabled for PodcastConfig {}
 
 fn validate_shows_tmdb_locale(
     value: &str,

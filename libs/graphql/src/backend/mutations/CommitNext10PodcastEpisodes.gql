@@ -1,3 +1,0 @@
-mutation CommitNext10PodcastEpisodes($podcastId: Identifier!) {
-  commitNext10PodcastEpisodes(podcastId: $podcastId)
-}

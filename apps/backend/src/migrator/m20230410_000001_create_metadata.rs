@@ -58,8 +58,12 @@ pub enum MetadataSource {
     Audible,
     #[sea_orm(string_value = "CU")]
     Custom,
+    #[sea_orm(string_value = "GO")]
+    GoogleBooks,
     #[sea_orm(string_value = "IG")]
     Igdb,
+    #[sea_orm(string_value = "IT")]
+    Itunes,
     #[sea_orm(string_value = "LI")]
     Listennotes,
     #[sea_orm(string_value = "OL")]

@@ -29,6 +29,8 @@ use uuid::Uuid;
 
 use crate::models::UserPreferences;
 use crate::providers::anilist::AnilistService;
+use crate::providers::google_books::GoogleBooksService;
+use crate::providers::itunes::ITunesService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -198,8 +200,10 @@ pub struct ExportMedia {
     custom_id: Option<String>,
     igdb_id: Option<String>,
     listennotes_id: Option<String>,
+    google_books_id: Option<String>,
     openlibrary_id: Option<String>,
     tmdb_id: Option<String>,
+    itunes_id: Option<String>,
     anilist_id: Option<String>,
     seen_history: Vec<seen::Model>,
     user_reviews: Vec<review::Model>,
@@ -939,18 +943,6 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Load next 10 episodes of a podcast if they exist.
-    async fn commit_next_10_podcast_episodes(
-        &self,
-        gql_ctx: &Context<'_>,
-        podcast_id: Identifier,
-    ) -> Result<bool> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_next_10_podcast_episodes(podcast_id.into())
-            .await
-    }
-
     /// Change a user's feature preferences
     async fn update_user_feature_preference(
         &self,
@@ -981,7 +973,9 @@ pub struct MiscellaneousService {
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: Arc<AudibleService>,
+    google_books_service: Arc<GoogleBooksService>,
     igdb_service: Arc<IgdbService>,
+    itunes_service: Arc<ITunesService>,
     listennotes_service: Arc<ListennotesService>,
     openlibrary_service: Arc<OpenlibraryService>,
     tmdb_movies_service: Arc<TmdbMovieService>,
@@ -1002,7 +996,9 @@ impl MiscellaneousService {
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         audible_service: Arc<AudibleService>,
+        google_books_service: Arc<GoogleBooksService>,
         igdb_service: Arc<IgdbService>,
+        itunes_service: Arc<ITunesService>,
         listennotes_service: Arc<ListennotesService>,
         openlibrary_service: Arc<OpenlibraryService>,
         tmdb_movies_service: Arc<TmdbMovieService>,
@@ -1020,7 +1016,9 @@ impl MiscellaneousService {
             config,
             file_storage,
             audible_service,
+            google_books_service,
             igdb_service,
+            itunes_service,
             listennotes_service,
             openlibrary_service,
             tmdb_movies_service,
@@ -1112,6 +1110,12 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
+            MetadataSource::Itunes => Some(format!(
+                "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
+            )),
+            MetadataSource::GoogleBooks => Some(format!(
+                "https://www.google.co.in/books/edition/{slug}/{identifier}"
+            )),
             MetadataSource::Audible => {
                 Some(format!("https://www.audible.com/pd/{slug}/{identifier}"))
             }
@@ -1830,8 +1834,11 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
+        // TODO: Download each image, inspect size using https://crates.io/crates/imagesize
+        // and then order them by the biggest size.
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
+            source: ActiveValue::Set(details.source),
             title: ActiveValue::Set(details.title),
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
@@ -1839,7 +1846,6 @@ impl MiscellaneousService {
             images: ActiveValue::Set(MetadataImages(details.images)),
             identifier: ActiveValue::Set(details.identifier),
             creators: ActiveValue::Set(MetadataCreators(details.creators)),
-            source: ActiveValue::Set(details.source),
             specifics: ActiveValue::Set(details.specifics),
             ..Default::default()
         };
@@ -1954,25 +1960,8 @@ impl MiscellaneousService {
         source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
-        #[derive(Iden)]
-        #[iden = "identifiers"]
-        enum TempIdentifiers {
-            #[iden = "identifiers"]
-            Alias,
-            Identifier,
-        }
-        let metadata_alias = Alias::new("m");
-        let service: ProviderArc = match lot {
-            MetadataLot::Book => self.openlibrary_service.clone(),
-            MetadataLot::AudioBook => self.audible_service.clone(),
-            MetadataLot::Podcast => self.listennotes_service.clone(),
-            MetadataLot::Movie => self.tmdb_movies_service.clone(),
-            MetadataLot::Show => self.tmdb_shows_service.clone(),
-            MetadataLot::VideoGame => self.igdb_service.clone(),
-            MetadataLot::Anime => self.anilist_anime_service.clone(),
-            MetadataLot::Manga => self.anilist_manga_service.clone(),
-        };
-        let results = service.search(&input.query, input.page).await?;
+        let provider = self.get_provider(lot, source)?;
+        let results = provider.search(&input.query, input.page).await?;
         let mut all_idens = results
             .items
             .iter()
@@ -1981,6 +1970,14 @@ impl MiscellaneousService {
         let data = if all_idens.is_empty() {
             vec![]
         } else {
+            #[derive(Iden)]
+            #[iden = "identifiers"]
+            enum TempIdentifiers {
+                #[iden = "identifiers"]
+                Alias,
+                Identifier,
+            }
+            let metadata_alias = Alias::new("m");
             // This can be done with `select id from metadata where identifier = '...'
             // and lot = '...'` in a loop. But, I wanted to write a performant query.
             let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
@@ -2073,14 +2070,11 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    async fn details_from_provider(
-        &self,
-        lot: MetadataLot,
-        source: MetadataSource,
-        identifier: String,
-    ) -> Result<MediaDetails> {
+    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<ProviderArc> {
         let service: ProviderArc = match source {
             MetadataSource::Openlibrary => self.openlibrary_service.clone(),
+            MetadataSource::Itunes => self.itunes_service.clone(),
+            MetadataSource::GoogleBooks => self.google_books_service.clone(),
             MetadataSource::Audible => self.audible_service.clone(),
             MetadataSource::Listennotes => self.listennotes_service.clone(),
             MetadataSource::Tmdb => match lot {
@@ -2098,7 +2092,17 @@ impl MiscellaneousService {
                 return Err(Error::new("This source is not supported".to_owned()));
             }
         };
-        let results = service.details(&identifier).await?;
+        Ok(service)
+    }
+
+    async fn details_from_provider(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        identifier: String,
+    ) -> Result<MediaDetails> {
+        let provider = self.get_provider(lot, source)?;
+        let results = provider.details(&identifier).await?;
         Ok(results)
     }
 
@@ -2108,66 +2112,16 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: String,
     ) -> Result<IdObject> {
-        let meta = Metadata::find()
-            .filter(metadata::Column::Lot.eq(lot))
-            .filter(metadata::Column::Identifier.eq(&identifier))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.id.into() })
+        if let Some(m) = self
+            .media_exists_in_database(identifier.clone(), lot, source)
+            .await?
+        {
+            Ok(m)
         } else {
             let details = self.details_from_provider(lot, source, identifier).await?;
             let media_id = self.commit_media_internal(details).await?;
             Ok(media_id)
         }
-    }
-
-    pub async fn commit_next_10_podcast_episodes(&self, podcast_id: i32) -> Result<bool> {
-        let podcast = Metadata::find_by_id(podcast_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        match podcast.specifics.clone() {
-            MediaSpecifics::Podcast(mut specifics) => {
-                if specifics.total_episodes == specifics.episodes.len() as i32 {
-                    return Ok(false);
-                }
-                let last_episode = specifics.episodes.last().unwrap();
-                let next_pub_date = last_episode.publish_date;
-                let episode_number = last_episode.number;
-                let details = match podcast.source {
-                    MetadataSource::Listennotes => {
-                        self.listennotes_service
-                            .details_with_paginated_episodes(
-                                &podcast.identifier,
-                                Some(next_pub_date),
-                                Some(episode_number),
-                            )
-                            .await?
-                    }
-                    MetadataSource::Custom => {
-                        return Err(Error::new(
-                            "Can not fetch next episodes for custom source".to_owned(),
-                        ));
-                    }
-                    _ => unreachable!(),
-                };
-                match details.specifics {
-                    MediaSpecifics::Podcast(ed) => {
-                        let mut meta: metadata::ActiveModel = podcast.into();
-                        let details_small = meta.specifics.unwrap();
-                        specifics.episodes.extend(ed.episodes.into_iter());
-                        meta.specifics = ActiveValue::Set(details_small);
-                        meta.save(&self.db).await.unwrap();
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            _ => unreachable!(),
-        }
-        Ok(true)
     }
 
     async fn review_by_id(&self, review_id: i32) -> Result<review::Model> {
@@ -2985,8 +2939,10 @@ impl MiscellaneousService {
                 custom_id: None,
                 igdb_id: None,
                 listennotes_id: None,
+                google_books_id: None,
                 openlibrary_id: None,
                 tmdb_id: None,
+                itunes_id: None,
                 anilist_id: None,
                 seen_history: seens,
                 user_reviews: reviews,
@@ -2994,11 +2950,13 @@ impl MiscellaneousService {
             match m.source {
                 MetadataSource::Audible => exp.audible_id = Some(m.identifier),
                 MetadataSource::Custom => exp.custom_id = Some(m.identifier),
+                MetadataSource::GoogleBooks => exp.google_books_id = Some(m.identifier),
                 MetadataSource::Igdb => exp.igdb_id = Some(m.identifier),
                 MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
                 MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
                 MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
                 MetadataSource::Anilist => exp.anilist_id = Some(m.identifier),
+                MetadataSource::Itunes => exp.itunes_id = Some(m.identifier),
             };
             resp.push(exp);
         }
@@ -3081,8 +3039,8 @@ impl MiscellaneousService {
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
         match lot {
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
-            MetadataLot::Book => vec![MetadataSource::Openlibrary],
-            MetadataLot::Podcast => vec![MetadataSource::Listennotes],
+            MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
+            MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
             MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
@@ -3093,6 +3051,10 @@ impl MiscellaneousService {
         MetadataSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
+                    MetadataSource::Itunes => (
+                        ITunesService::supported_languages(),
+                        ITunesService::default_language(),
+                    ),
                     MetadataSource::Audible => (
                         AudibleService::supported_languages(),
                         AudibleService::default_language(),
@@ -3108,6 +3070,10 @@ impl MiscellaneousService {
                     MetadataSource::Listennotes => (
                         ListennotesService::supported_languages(),
                         ListennotesService::default_language(),
+                    ),
+                    MetadataSource::GoogleBooks => (
+                        GoogleBooksService::supported_languages(),
+                        GoogleBooksService::default_language(),
                     ),
                     MetadataSource::Igdb => (
                         IgdbService::supported_languages(),

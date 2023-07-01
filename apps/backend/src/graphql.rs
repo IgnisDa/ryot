@@ -14,9 +14,10 @@ use crate::{
     VERSION,
 };
 
-pub static AUTHOR: &str = "ignisda";
-pub static PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
-pub static REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
+pub const AUTHOR: &str = "ignisda";
+pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
+pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
+pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Identifier(i32);
