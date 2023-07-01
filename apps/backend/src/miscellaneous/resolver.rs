@@ -1846,6 +1846,8 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
+        // TODO: Download each image, inspect size using https://crates.io/crates/imagesize
+        // and then order them by the biggest size.
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
             source: ActiveValue::Set(details.source),
