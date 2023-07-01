@@ -1834,6 +1834,9 @@ impl MiscellaneousService {
     }
 
     async fn get_images_sorted(&self, images: Vec<MetadataImage>) -> Result<Vec<MetadataImage>> {
+        if !self.config.media.sort_images {
+            return Ok(images);
+        }
         let mut sorted_images = vec![];
         for image in images.into_iter() {
             let image_size = match &image.url {

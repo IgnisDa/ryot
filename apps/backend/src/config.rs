@@ -123,6 +123,13 @@ pub struct ExerciseConfig {
     pub db: FreeExerciseDbConfig,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
+pub struct MediaConfig {
+    #[setting(default = false)]
+    pub sort_images: bool,
+}
+
 fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
     if !TmdbService::supported_languages().contains(&value.to_owned()) {
         return Err(ValidateError::new(format!(
@@ -343,6 +350,8 @@ pub struct AppConfig {
     pub file_storage: FileStorageConfig,
     #[setting(nested)]
     pub manga: MangaConfig,
+    #[setting(nested)]
+    pub media: MediaConfig,
     #[setting(nested)]
     pub movies: MovieConfig,
     #[setting(nested)]
