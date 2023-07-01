@@ -821,7 +821,7 @@ impl MiscellaneousMutation {
 
     /// Login a user using their username and password and return an API key.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
+        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         let maybe_api_key = gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .login_user(
@@ -844,7 +844,7 @@ impl MiscellaneousMutation {
 
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let config = gql_ctx.data_unchecked::<AppConfig>();
+        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         create_cookie(
             gql_ctx,
             "",
@@ -1233,7 +1233,6 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    // TODO: Return number of times other have seen this media
     async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
         let mut prev_seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
@@ -1789,6 +1788,7 @@ impl MiscellaneousService {
         specifics: MediaSpecifics,
         genres: Vec<String>,
     ) -> Result<()> {
+        let images = self.get_images_sorted(images).await?;
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -1833,9 +1833,34 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    async fn get_images_sorted(&self, images: Vec<MetadataImage>) -> Result<Vec<MetadataImage>> {
+        let mut sorted_images = vec![];
+        for image in images.into_iter() {
+            let image_size = match &image.url {
+                MetadataImageUrl::S3(_) => usize::MAX,
+                MetadataImageUrl::Url(u) => {
+                    let bytes = match surf::get(u).await {
+                        Ok(mut b) => b.body_bytes().await?,
+                        Err(_) => continue,
+                    };
+                    let size = match imagesize::blob_size(bytes.as_slice()) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
+                    size.width * size.height
+                }
+            };
+            sorted_images.push((image, image_size));
+        }
+        if self.config.media.sort_images {
+            sorted_images.sort_unstable_by_key(|i| i.1);
+            sorted_images = sorted_images.into_iter().rev().collect();
+        }
+        Ok(sorted_images.into_iter().map(|i| i.0).collect())
+    }
+
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
-        // TODO: Download each image, inspect size using https://crates.io/crates/imagesize
-        // and then order them by the biggest size.
+        let images = self.get_images_sorted(details.images).await?;
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
             source: ActiveValue::Set(details.source),
@@ -1843,7 +1868,7 @@ impl MiscellaneousService {
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
-            images: ActiveValue::Set(MetadataImages(details.images)),
+            images: ActiveValue::Set(MetadataImages(images)),
             identifier: ActiveValue::Set(details.identifier),
             creators: ActiveValue::Set(MetadataCreators(details.creators)),
             specifics: ActiveValue::Set(details.specifics),
@@ -2479,7 +2504,7 @@ impl MiscellaneousService {
                 tracing::error!("Error while updating: {:?}", e);
             }
         }
-
+        tracing::info!("Updated metadata for {:?}", Identifier::from(metadata_id));
         Ok(())
     }
 

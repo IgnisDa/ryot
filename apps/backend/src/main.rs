@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    let config = get_app_config()?;
+    let config = Arc::new(get_app_config()?);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -145,7 +145,7 @@ async fn main() -> Result<()> {
         db.clone(),
         scdb.clone(),
         s3_client,
-        &config,
+        config.clone(),
         &import_media_storage,
         &user_created_job_storage,
         &update_exercise_job_storage,
@@ -154,7 +154,7 @@ async fn main() -> Result<()> {
         &recalculate_user_summary_job_storage,
     )
     .await;
-    let schema = get_schema(&app_services, db.clone(), scdb.clone(), &config).await;
+    let schema = get_schema(&app_services, db.clone(), scdb.clone(), config.clone()).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -174,6 +174,7 @@ async fn main() -> Result<()> {
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .route("/export", get(export))
+        .fallback(static_handler)
         .layer(Extension(app_services.media_service.clone()))
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
@@ -182,8 +183,7 @@ async fn main() -> Result<()> {
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
-        .layer(cors)
-        .fallback(static_handler);
+        .layer(cors);
 
     let port = env::var("PORT")
         .unwrap_or_else(|_| "8000".to_owned())
@@ -242,7 +242,6 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_1.clone()))
-                    .layer(ApalisExtension(config.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })
@@ -383,7 +382,7 @@ async fn graphql_playground() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
-async fn config_handler(Extension(config): Extension<AppConfig>) -> impl IntoResponse {
+async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> impl IntoResponse {
     Json(config.masked_value())
 }
 
