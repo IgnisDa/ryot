@@ -67,7 +67,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 				openGraph={{
 					images: [
 						{
-							url: "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/ryot-logo.png",
+							url: "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png",
 							alt: "Ryot logo",
 						},
 					],
