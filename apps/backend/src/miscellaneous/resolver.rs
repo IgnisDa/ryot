@@ -9,8 +9,8 @@ use futures::TryStreamExt;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
 use markdown::{
-    to_html as markdown_to_html, to_html_with_options as markdown_to_html_with_options,
-    CompileOptions, Options,
+    to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
+    Options,
 };
 use rust_decimal::Decimal;
 use sea_orm::Iterable;
@@ -1137,7 +1137,7 @@ impl MiscellaneousService {
         let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
-            *d = markdown_to_html_with_options(
+            *d = markdown_to_html_opts(
                 d,
                 &Options {
                     compile: CompileOptions {
