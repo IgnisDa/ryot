@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::UserLot,
-    users::{UserIntegrations, UserPreferences},
+    users::{UserPreferences, UserYankIntegrations},
 };
 
 fn get_hasher() -> Argon2<'static> {
@@ -32,7 +32,7 @@ pub struct Model {
     #[graphql(skip)]
     pub preferences: UserPreferences,
     #[graphql(skip)]
-    pub integrations: Option<UserIntegrations>,
+    pub yank_integrations: Option<UserYankIntegrations>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

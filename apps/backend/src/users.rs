@@ -46,6 +46,6 @@ pub struct AudiobookshelfIntegration {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Default, FromJsonQueryResult)]
-pub struct UserIntegrations {
+pub struct UserYankIntegrations {
     pub audiobookshelf: Vec<AudiobookshelfIntegration>,
 }

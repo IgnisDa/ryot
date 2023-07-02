@@ -46,8 +46,8 @@ pub enum User {
     Lot,
     Email,
     Preferences,
-    // This field can be `NULL` if the user has not enabled any integration
-    Integrations,
+    // This field can be `NULL` if the user has not enabled any yank integration
+    YankIntegrations,
 }
 
 #[async_trait::async_trait]
@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default("{}"),
                     )
-                    .col(ColumnDef::new(User::Integrations).json())
+                    .col(ColumnDef::new(User::YankIntegrations).json())
                     .to_owned(),
             )
             .await?;
