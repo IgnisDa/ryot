@@ -63,6 +63,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { DateTime } from "luxon";
 import Head from "next/head";
 import type { ReactElement } from "react";
 import { z } from "zod";
@@ -334,7 +335,9 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	return languageInformation.data && userPrefs.data ? (
+	return languageInformation.data &&
+		userPrefs.data &&
+		userYankIntegrations.data ? (
 		<>
 			<Head>
 				<title>Settings | Ryot</title>
@@ -552,34 +555,46 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="integrations">
 							<Stack>
-								{userYankIntegrations.data?.map((i) => (
-									<Paper p="xs" withBorder key={i.id}>
-										<Flex align={"center"} justify={"space-between"}>
-											<Box>
-												<Text>{i.lot}</Text>
-												<Text size="xs">
-													Connected to{" "}
-													<Anchor href={i.description}>{i.description}</Anchor>
-												</Text>
-											</Box>
-											<Button
-												color="red"
-												variant="outline"
-												onClick={() => {
-													const yes = confirm(
-														"Are you sure you want to delete this integration?",
-													);
-													if (yes)
-														deleteUserYankIntegration.mutate({
-															yankIntegrationId: i.id,
-														});
-												}}
-											>
-												Delete
-											</Button>
-										</Flex>
-									</Paper>
-								))}
+								{userYankIntegrations.data.length > 0 ? (
+									userYankIntegrations.data.map((i) => (
+										<Paper p="xs" withBorder key={i.id}>
+											<Flex align={"center"} justify={"space-between"}>
+												<Box>
+													<Text>{i.lot}</Text>
+													<Text size="xs">
+														Connected to{" "}
+														<Anchor href={i.description}>
+															{i.description}{" "}
+														</Anchor>
+													</Text>
+													<Text size="xs">
+														on{" "}
+														{DateTime.fromJSDate(i.timestamp).toLocaleString(
+															DateTime.DATE_MED,
+														)}
+													</Text>
+												</Box>
+												<Button
+													color="red"
+													variant="outline"
+													onClick={() => {
+														const yes = confirm(
+															"Are you sure you want to delete this integration?",
+														);
+														if (yes)
+															deleteUserYankIntegration.mutate({
+																yankIntegrationId: i.id,
+															});
+													}}
+												>
+													Delete
+												</Button>
+											</Flex>
+										</Paper>
+									))
+								) : (
+									<Text>No integrations configured</Text>
+								)}
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>
