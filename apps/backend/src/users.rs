@@ -39,13 +39,10 @@ pub struct UserPreferences {
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Default, FromJsonQueryResult)]
-pub struct AudiobookshelfIntegration {
-    pub base_url: String,
-    pub token: String,
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+pub enum YankIntegration {
+    AudiobookshelfIntegration { base_url: String, token: String },
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Default, FromJsonQueryResult)]
-pub struct UserYankIntegrations {
-    pub audiobookshelf: Vec<AudiobookshelfIntegration>,
-}
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+pub struct UserYankIntegrations(Vec<YankIntegration>);
