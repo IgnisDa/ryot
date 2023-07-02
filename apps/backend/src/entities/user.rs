@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::UserLot,
-    user_prefs::{UserIntegrations, UserPreferences},
+    users::{UserIntegrations, UserPreferences},
 };
 
 fn get_hasher() -> Argon2<'static> {

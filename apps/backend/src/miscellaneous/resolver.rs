@@ -63,7 +63,7 @@ use crate::{
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    user_prefs::UserPreferences,
+    users::UserPreferences,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
 };
 
