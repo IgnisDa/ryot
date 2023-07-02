@@ -16,6 +16,7 @@ import {
 	CopyButton,
 	Divider,
 	Flex,
+	Paper,
 	PasswordInput,
 	SimpleGrid,
 	Stack,
@@ -31,6 +32,9 @@ import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
 	CoreDetailsDocument,
+	CreateUserYankIntegrationDocument,
+	DeleteUserYankIntegrationDocument,
+	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	GenerateApplicationTokenDocument,
@@ -46,6 +50,7 @@ import {
 	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
+	UserYankIntegrationsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAnalyze,
@@ -53,6 +58,7 @@ import {
 	IconCheck,
 	IconCopy,
 	IconDatabaseImport,
+	IconNeedleThread,
 	IconSignature,
 	IconUser,
 } from "@tabler/icons-react";
@@ -168,6 +174,13 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
+	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
+		const { userYankIntegrations } = await gqlClient.request(
+			UserYankIntegrationsDocument,
+		);
+		return userYankIntegrations;
+	});
+
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
 			const { updateUser } = await gqlClient.request(
@@ -183,6 +196,21 @@ const Page: NextPageWithLayout = () => {
 				message: "Profile details updated",
 				color: "green",
 			});
+		},
+	});
+
+	const deleteUserYankIntegration = useMutation({
+		mutationFn: async (
+			variables: DeleteUserYankIntegrationMutationVariables,
+		) => {
+			const { deleteUserYankIntegration } = await gqlClient.request(
+				DeleteUserYankIntegrationDocument,
+				variables,
+			);
+			return deleteUserYankIntegration;
+		},
+		onSuccess: () => {
+			userYankIntegrations.refetch();
 		},
 	});
 
@@ -334,9 +362,16 @@ const Page: NextPageWithLayout = () => {
 								Tokens
 							</Tabs.Tab>
 							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
-								Miscellaneous
+								Misc
+							</Tabs.Tab>
+							<Tabs.Tab
+								value="integrations"
+								icon={<IconNeedleThread size="1rem" />}
+							>
+								Integrations
 							</Tabs.Tab>
 						</Tabs.List>
+
 						<Tabs.Panel value="profile">
 							<Box
 								component="form"
@@ -513,6 +548,38 @@ const Page: NextPageWithLayout = () => {
 								>
 									Update All
 								</Button>
+							</Stack>
+						</Tabs.Panel>
+						<Tabs.Panel value="integrations">
+							<Stack>
+								{userYankIntegrations.data?.map((i) => (
+									<Paper p="xs" withBorder key={i.id}>
+										<Flex align={"center"} justify={"space-between"}>
+											<Box>
+												<Text>{i.lot}</Text>
+												<Text size="xs">
+													Connected to{" "}
+													<Anchor href={i.description}>{i.description}</Anchor>
+												</Text>
+											</Box>
+											<Button
+												color="red"
+												variant="outline"
+												onClick={() => {
+													const yes = confirm(
+														"Are you sure you want to delete this integration?",
+													);
+													if (yes)
+														deleteUserYankIntegration.mutate({
+															yankIntegrationId: i.id,
+														});
+												}}
+											>
+												Delete
+											</Button>
+										</Flex>
+									</Paper>
+								))}
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>
