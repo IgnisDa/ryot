@@ -1947,24 +1947,24 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
-        let mut user_preferences = self.user_by_id(user_id).await?.preferences;
-        user_preferences.features_enabled.anime =
-            self.config.anime.is_enabled() && user_preferences.features_enabled.anime;
-        user_preferences.features_enabled.audio_books =
-            self.config.audio_books.is_enabled() && user_preferences.features_enabled.audio_books;
-        user_preferences.features_enabled.books =
-            self.config.books.is_enabled() && user_preferences.features_enabled.books;
-        user_preferences.features_enabled.shows =
-            self.config.shows.is_enabled() && user_preferences.features_enabled.shows;
-        user_preferences.features_enabled.manga =
-            self.config.manga.is_enabled() && user_preferences.features_enabled.manga;
-        user_preferences.features_enabled.movies =
-            self.config.movies.is_enabled() && user_preferences.features_enabled.movies;
-        user_preferences.features_enabled.podcasts =
-            self.config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts;
-        user_preferences.features_enabled.video_games =
-            self.config.video_games.is_enabled() && user_preferences.features_enabled.video_games;
-        Ok(user_preferences)
+        let mut prefs = self.user_by_id(user_id).await?.preferences;
+        prefs.features_enabled.anime =
+            self.config.anime.is_enabled() && prefs.features_enabled.anime;
+        prefs.features_enabled.audio_books =
+            self.config.audio_books.is_enabled() && prefs.features_enabled.audio_books;
+        prefs.features_enabled.books =
+            self.config.books.is_enabled() && prefs.features_enabled.books;
+        prefs.features_enabled.shows =
+            self.config.shows.is_enabled() && prefs.features_enabled.shows;
+        prefs.features_enabled.manga =
+            self.config.manga.is_enabled() && prefs.features_enabled.manga;
+        prefs.features_enabled.movies =
+            self.config.movies.is_enabled() && prefs.features_enabled.movies;
+        prefs.features_enabled.podcasts =
+            self.config.podcasts.is_enabled() && prefs.features_enabled.podcasts;
+        prefs.features_enabled.video_games =
+            self.config.video_games.is_enabled() && prefs.features_enabled.video_games;
+        Ok(prefs)
     }
 
     async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
