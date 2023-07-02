@@ -38,8 +38,8 @@ rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
 schematic = { version = "0.10.1", features = [
-    "json_schema",
     "schema",
+    "typescript",
     "toml",
     "yaml",
     "valid_url"
