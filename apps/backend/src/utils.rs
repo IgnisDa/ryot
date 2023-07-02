@@ -125,8 +125,7 @@ pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
 pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
     let found_token = match scdb.try_lock() {
         Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-        Err(e) => {
-            tracing::error!("{:?}", e);
+        Err(_) => {
             return Err(Error::new("Could not lock user database"));
         }
     };

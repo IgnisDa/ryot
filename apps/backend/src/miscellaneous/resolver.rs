@@ -2583,8 +2583,7 @@ impl MiscellaneousService {
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = match self.scdb.try_lock() {
             Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(e) => {
-                tracing::error!("{:?}", e);
+            Err(_) => {
                 return Err(Error::new("Could not lock user database"));
             }
         };
@@ -2822,16 +2821,14 @@ impl MiscellaneousService {
     async fn logout_user(&self, token: &str) -> Result<bool> {
         let found_token = match self.scdb.try_lock() {
             Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(e) => {
-                tracing::error!("{:?}", e);
+            Err(_) => {
                 return Err(Error::new("Could not lock user database"));
             }
         };
         if let Some(t) = found_token {
             match self.scdb.try_lock() {
                 Ok(mut d) => d.delete(&t)?,
-                Err(e) => {
-                    tracing::error!("{:?}", e);
+                Err(_) => {
                     return Err(Error::new("Could not lock user database"));
                 }
             };
@@ -3179,12 +3176,9 @@ impl MiscellaneousService {
     fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
         match self.scdb.lock() {
             Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
-            Err(e) => {
-                tracing::error!("{:?}", e);
-                Err(anyhow::anyhow!(
-                    "Could not lock auth database due to mutex poisoning"
-                ))?
-            }
+            Err(_) => Err(anyhow::anyhow!(
+                "Could not lock auth database due to mutex poisoning"
+            ))?,
         };
         Ok(())
     }
