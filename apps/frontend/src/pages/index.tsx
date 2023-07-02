@@ -102,7 +102,9 @@ const Page: NextPageWithLayout = () => {
 		{ retry: false },
 	);
 	const collections = useQuery(["collections"], async () => {
-		const { collections } = await gqlClient.request(CollectionsDocument);
+		const { collections } = await gqlClient.request(CollectionsDocument, {
+			limit: 8,
+		});
 		return collections;
 	});
 	const createCollection = useMutation({
@@ -138,7 +140,7 @@ const Page: NextPageWithLayout = () => {
 						<>
 							<Title>In Progress</Title>
 							<Grid listType="poster">
-								{inProgressCollection.mediaDetails.slice(0, 8).map((lm) => (
+								{inProgressCollection.mediaDetails.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										listType="poster"
 										key={lm.identifier}
