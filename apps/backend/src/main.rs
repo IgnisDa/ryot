@@ -2,6 +2,7 @@ use std::{
     env,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
+    path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
     time::Duration,
@@ -74,6 +75,7 @@ mod traits;
 mod utils;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
+pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[derive(Debug)]
 pub struct GqlCtx {
@@ -154,6 +156,30 @@ async fn main() -> Result<()> {
         &recalculate_user_summary_job_storage,
     )
     .await;
+
+    if cfg!(debug_assertions) {
+        // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
+        let path = PathBuf::from(BASE_DIR)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("libs")
+            .join("generated")
+            .join("src")
+            .join("config")
+            .join("backend")
+            .join("schema.ts");
+        let mut generator = schematic::schema::SchemaGenerator::default();
+        generator.add::<AppConfig>();
+        generator
+            .generate(
+                path,
+                schematic::schema::typescript::TypeScriptRenderer::default(),
+            )
+            .unwrap();
+    }
+
     let schema = get_schema(&app_services, db.clone(), scdb.clone(), config.clone()).await;
 
     let cors = TowerCorsLayer::new()
