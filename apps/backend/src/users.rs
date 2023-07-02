@@ -1,5 +1,5 @@
 use async_graphql::SimpleObject;
-use sea_orm::FromJsonQueryResult;
+use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -49,6 +49,8 @@ pub enum UserYankIntegrationSetting {
 pub struct UserYankIntegration {
     pub id: usize,
     pub settings: UserYankIntegrationSetting,
+    /// the date and time it was added on
+    pub timestamp: DateTimeUtc,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

@@ -107,6 +107,7 @@ pub struct GraphqlUserYankIntegration {
     id: usize,
     lot: UserYankIntegrationLot,
     description: String,
+    timestamp: DateTimeUtc,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -3112,6 +3113,7 @@ impl MiscellaneousService {
                     id: i.id,
                     lot,
                     description,
+                    timestamp: i.timestamp,
                 }
             })
             .collect())
@@ -3131,6 +3133,7 @@ impl MiscellaneousService {
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserYankIntegration {
             id: new_integration_id,
+            timestamp: Utc::now(),
             settings: match input.lot {
                 UserYankIntegrationLot::Audiobookshelf => {
                     UserYankIntegrationSetting::Audiobookshelf {

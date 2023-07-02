@@ -3,5 +3,6 @@ query UserYankIntegrations {
     id
     lot
     description
+    timestamp
   }
 }
