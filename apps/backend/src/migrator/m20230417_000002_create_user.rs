@@ -46,6 +46,8 @@ pub enum User {
     Lot,
     Email,
     Preferences,
+    // This field can be `NULL` if the user has not enabled any integration
+    Integrations,
 }
 
 #[async_trait::async_trait]
@@ -72,6 +74,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default("{}"),
                     )
+                    .col(ColumnDef::new(User::Integrations).json())
                     .to_owned(),
             )
             .await?;

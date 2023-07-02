@@ -38,3 +38,14 @@ pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Default, FromJsonQueryResult)]
+pub struct AudiobookshelfIntegration {
+    pub base_url: String,
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Default, FromJsonQueryResult)]
+pub struct UserIntegrations {
+    pub audiobookshelf: Vec<AudiobookshelfIntegration>,
+}
