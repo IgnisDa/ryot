@@ -3262,7 +3262,20 @@ impl MiscellaneousService {
             .collect()
     }
 
+    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<()> {
+        let integrations = self.user_by_id(user_id).await?.yank_integrations.unwrap();
+        dbg!(&integrations);
+        Ok(())
+    }
+
     pub async fn yank_integrations_data(&self) -> Result<()> {
+        let users_with_integrations = User::find()
+            .filter(user::Column::YankIntegrations.is_not_null())
+            .all(&self.db)
+            .await?;
+        for user in users_with_integrations {
+            self.yank_integrations_data_for_user(user.id).await?;
+        }
         Ok(())
     }
 }
