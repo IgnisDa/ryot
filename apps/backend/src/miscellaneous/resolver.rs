@@ -590,11 +590,15 @@ impl MiscellaneousQuery {
     }
 
     /// Get all collections for the currently logged in user.
-    async fn collections(&self, gql_ctx: &Context<'_>) -> Result<Vec<CollectionItem>> {
+    async fn collections(
+        &self,
+        gql_ctx: &Context<'_>,
+        limit: Option<u64>,
+    ) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .collections(&user_id)
+            .collections(&user_id, limit)
             .await
     }
 
@@ -2271,15 +2275,19 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn collections(&self, user_id: &i32) -> Result<Vec<CollectionItem>> {
+    async fn collections(&self, user_id: &i32, limit: Option<u64>) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(*user_id))
-            .find_with_related(Metadata)
             .all(&self.db)
             .await
             .unwrap();
         let mut data = vec![];
-        for (collection_details, metas) in collections.into_iter() {
+        for collection_details in collections.into_iter() {
+            let metas = collection_details
+                .find_related(Metadata)
+                .limit(limit)
+                .all(&self.db)
+                .await?;
             let mut meta_data = vec![];
             for meta in metas.iter() {
                 let m = self.generic_metadata(meta.id).await?;
