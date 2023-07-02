@@ -3059,7 +3059,11 @@ impl MiscellaneousService {
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
         let user = self.user_by_id(user_id).await?;
-        let mut integrations = user.yank_integrations.0.clone();
+        let mut integrations = if let Some(i) = user.yank_integrations.clone() {
+            i.0
+        } else {
+            vec![]
+        };
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserYankIntegration {
             id: new_integration_id,
@@ -3070,7 +3074,7 @@ impl MiscellaneousService {
         };
         integrations.push(new_integration);
         let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(UserYankIntegrations(integrations));
+        user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
         user.update(&self.db).await?;
         Ok(new_integration_id)
     }

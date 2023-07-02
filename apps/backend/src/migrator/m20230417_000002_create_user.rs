@@ -74,12 +74,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default("{}"),
                     )
-                    .col(
-                        ColumnDef::new(User::YankIntegrations)
-                            .json()
-                            .not_null()
-                            .default("[]"),
-                    )
+                    .col(ColumnDef::new(User::YankIntegrations).json())
                     .to_owned(),
             )
             .await?;
