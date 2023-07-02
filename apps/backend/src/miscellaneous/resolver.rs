@@ -102,6 +102,13 @@ enum UserYankIntegrationLot {
     Audiobookshelf,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlUserYankIntegration {
+    id: usize,
+    lot: UserYankIntegrationLot,
+    description: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserYankIntegrationInput {
     lot: UserYankIntegrationLot,
@@ -721,6 +728,18 @@ impl MiscellaneousQuery {
             .data_unchecked::<Arc<MiscellaneousService>>()
             .providers_language_information()
     }
+
+    /// Get all the yank based integrations for the currently logged in user.
+    async fn user_yank_integrations(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_yank_integrations(user_id)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -979,6 +998,7 @@ impl MiscellaneousMutation {
             .await
     }
 
+    /// Create a yank based integrations for the currently logged in user.
     async fn create_user_yank_integration(
         &self,
         gql_ctx: &Context<'_>,
@@ -991,6 +1011,7 @@ impl MiscellaneousMutation {
             .await
     }
 
+    /// Delete a yank based integrations for the currently logged in user.
     async fn delete_user_yank_integration(
         &self,
         gql_ctx: &Context<'_>,
@@ -3070,6 +3091,33 @@ impl MiscellaneousService {
         self.set_auth_token(&api_token, &user_id, None)
             .map_err(|_| Error::new("Could not set auth token"))?;
         Ok(api_token)
+    }
+
+    async fn user_yank_integrations(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+        let user = self.user_by_id(user_id).await?;
+        let integrations = if let Some(i) = user.yank_integrations.clone() {
+            i.0
+        } else {
+            vec![]
+        };
+        Ok(integrations
+            .into_iter()
+            .map(|i| {
+                let (lot, description) = match i.settings {
+                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
+                        (UserYankIntegrationLot::Audiobookshelf, base_url)
+                    }
+                };
+                GraphqlUserYankIntegration {
+                    id: i.id,
+                    lot,
+                    description,
+                }
+            })
+            .collect())
     }
 
     async fn create_user_yank_integration(
