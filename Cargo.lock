@@ -1730,6 +1730,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68b0cf012f1230e43cd00ebb729c6bb58707ecfa8ad08b52ef3a4ccd2697fc30"
+
+[[package]]
 name = "either"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3976,15 +3982,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "schematic"
-version = "0.7.2"
+name = "schemars"
+version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce25d9f83978aff7edbc0fd181c4af97fcb70b460739dd30bca90d27b5974f95"
+checksum = "02c613288622e5f0c3fdc5dbd4db1c5fbe752746b1d1a56a0630b78fd00de44f"
+dependencies = [
+ "dyn-clone",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schematic"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c61e060d440c670a2cab9555ff8abc24510362090e594c629e64fc84f072f199"
 dependencies = [
  "garde",
+ "indexmap 2.0.0",
  "miette",
  "reqwest",
+ "schemars",
  "schematic_macros",
+ "schematic_types",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -3997,9 +4017,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_macros"
-version = "0.7.1"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96813e042aa6811883223daf490db6320c4cbd999c22bb3e2c020113e0828767"
+checksum = "47fe0c9a97a73bb9a7f1fb5edfe1d7b41b38854910e0dd9dc6b1ecaa3edd42d0"
 dependencies = [
  "convert_case",
  "darling 0.20.1",
@@ -4007,6 +4027,12 @@ dependencies = [
  "quote",
  "syn 2.0.22",
 ]
+
+[[package]]
+name = "schematic_types"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d7b047201c17d1fa0c8a2e96988278d4540708c8ea3198b0d183092622eb167"
 
 [[package]]
 name = "scopeguard"

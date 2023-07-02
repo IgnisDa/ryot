@@ -37,7 +37,13 @@ regex = "1.8.1"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
-schematic = { version = "0.7.1", features = ["toml", "yaml", "valid_url"] }
+schematic = { version = "0.10.1", features = [
+    "json_schema",
+    "schema",
+    "toml",
+    "yaml",
+    "valid_url"
+] }
 scdb = "0.2.1"
 sea-orm = { version = "0.11.1", features = [
     "debug-print",
