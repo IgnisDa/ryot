@@ -3121,4 +3121,8 @@ impl MiscellaneousService {
             })
             .collect()
     }
+
+    pub async fn yank_integrations_data(&self) -> Result<()> {
+        Ok(())
+    }
 }
