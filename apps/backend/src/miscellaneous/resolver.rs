@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations};
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -93,6 +94,13 @@ pub struct CreateCustomMediaInput {
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateUserYankIntegrationInput {
+    base_url: String,
+    #[graphql(secret)]
+    token: String,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -961,6 +969,18 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .generate_application_token(user_id)
+            .await
+    }
+
+    async fn create_user_yank_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserYankIntegrationInput,
+    ) -> Result<usize> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .create_user_yank_integration(user_id, input)
             .await
     }
 }
@@ -3031,6 +3051,28 @@ impl MiscellaneousService {
         self.set_auth_token(&api_token, &user_id, None)
             .map_err(|_| Error::new("Could not set auth token"))?;
         Ok(api_token)
+    }
+
+    async fn create_user_yank_integration(
+        &self,
+        user_id: i32,
+        input: CreateUserYankIntegrationInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut integrations = user.yank_integrations.0.clone();
+        let new_integration_id = integrations.len() + 1;
+        let new_integration = UserYankIntegration {
+            id: new_integration_id,
+            settings: UserYankIntegrationSetting::Audiobookshelf {
+                base_url: input.base_url,
+                token: input.token,
+            },
+        };
+        integrations.push(new_integration);
+        let mut user: user::ActiveModel = user.into();
+        user.yank_integrations = ActiveValue::Set(UserYankIntegrations(integrations));
+        user.update(&self.db).await?;
+        Ok(new_integration_id)
     }
 
     fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {

@@ -42,14 +42,14 @@ pub struct UserPreferences {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
 pub enum UserYankIntegrationSetting {
-    AudiobookshelfIntegration { base_url: String, token: String },
+    Audiobookshelf { base_url: String, token: String },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserYankIntegration {
-    pub id: u8,
+    pub id: usize,
     pub settings: UserYankIntegrationSetting,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-pub struct UserYankIntegrations(Vec<UserYankIntegration>);
+pub struct UserYankIntegrations(pub Vec<UserYankIntegration>);
