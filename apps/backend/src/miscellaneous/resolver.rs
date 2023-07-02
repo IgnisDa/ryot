@@ -27,10 +27,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::models::UserPreferences;
-use crate::providers::anilist::AnilistService;
-use crate::providers::google_books::GoogleBooksService;
-use crate::providers::itunes::ITunesService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -57,14 +53,17 @@ use crate::{
         PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },
     providers::{
-        anilist::{AnilistAnimeService, AnilistMangaService},
+        anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
         audible::AudibleService,
+        google_books::GoogleBooksService,
         igdb::IgdbService,
+        itunes::ITunesService,
         listennotes::ListennotesService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
     traits::{MediaProvider, MediaProviderLanguages},
+    user_prefs::UserPreferences,
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
 };
 

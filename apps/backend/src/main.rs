@@ -73,6 +73,7 @@ mod miscellaneous;
 mod models;
 mod providers;
 mod traits;
+mod user_prefs;
 mod utils;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");

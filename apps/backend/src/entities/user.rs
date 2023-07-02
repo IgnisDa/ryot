@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::{migrator::UserLot, models::UserPreferences};
+use crate::{migrator::UserLot, user_prefs::UserPreferences};
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
