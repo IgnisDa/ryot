@@ -7,6 +7,7 @@ use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
+use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_with_options,
     CompileOptions, Options,
@@ -981,6 +982,18 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .create_user_yank_integration(user_id, input)
+            .await
+    }
+
+    async fn delete_user_yank_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        yank_integration_id: usize,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .delete_user_yank_integration(user_id, yank_integration_id)
             .await
     }
 }
@@ -3077,6 +3090,32 @@ impl MiscellaneousService {
         user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
         user.update(&self.db).await?;
         Ok(new_integration_id)
+    }
+
+    async fn delete_user_yank_integration(
+        &self,
+        user_id: i32,
+        yank_integration_id: usize,
+    ) -> Result<bool> {
+        let user = self.user_by_id(user_id).await?;
+        let integrations = if let Some(i) = user.yank_integrations.clone() {
+            i.0
+        } else {
+            vec![]
+        };
+        let remaining_integrations = integrations
+            .into_iter()
+            .filter(|i| i.id != yank_integration_id)
+            .collect_vec();
+        let update_value = if remaining_integrations.is_empty() {
+            None
+        } else {
+            Some(UserYankIntegrations(remaining_integrations))
+        };
+        let mut user: user::ActiveModel = user.into();
+        user.yank_integrations = ActiveValue::Set(update_value);
+        user.update(&self.db).await?;
+        Ok(true)
     }
 
     fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
