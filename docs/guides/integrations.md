@@ -1,17 +1,30 @@
 # Integrations
 
-Ryot supports live integration from a number of sources. Here are a few pointers.
+Integrations can be of two types:
+
+- _Yank_: The data is downloaded from an external running server.
+- _Sink_: The external client publishes data updates to the Ryot server.
+
+## Yank
+
+Credentials for the external server must be saved to your profile.
+
+### Audiobookshelf
+
+// TODO: Complete it
+
+## Sink
 
 To start, go to the "Settings" tab and generate a new application token from under
 the "Tokens" tab. It will look like this: `e96fca00-18b1-467c-80f0-8534e09ed790`.
 
-## Kodi
+### Kodi
 
 The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
 show you are watching. It will work for all the media that have been a valid
 TMDb ID attached to their metadata.
 
-### Steps
+#### Steps
 
 - Download the addon from [github releases](https://github.com/IgnisDa/ryot/releases).
 The file will have a name of `script.ryot.zip`.
