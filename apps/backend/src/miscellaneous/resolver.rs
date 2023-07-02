@@ -97,8 +97,14 @@ pub struct CreateCustomMediaInput {
     pub anime_specifics: Option<AnimeSpecifics>,
 }
 
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserYankIntegrationLot {
+    Audiobookshelf,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserYankIntegrationInput {
+    lot: UserYankIntegrationLot,
     base_url: String,
     #[graphql(secret)]
     token: String,
@@ -3080,9 +3086,13 @@ impl MiscellaneousService {
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserYankIntegration {
             id: new_integration_id,
-            settings: UserYankIntegrationSetting::Audiobookshelf {
-                base_url: input.base_url,
-                token: input.token,
+            settings: match input.lot {
+                UserYankIntegrationLot::Audiobookshelf => {
+                    UserYankIntegrationSetting::Audiobookshelf {
+                        base_url: input.base_url,
+                        token: input.token,
+                    }
+                }
             },
         };
         integrations.push(new_integration);
