@@ -137,7 +137,8 @@ pub struct ExerciseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {
-    /// Whether to sort images by their resolution. This will result in better images being displayed first in the media details page.
+    /// Whether to sort images by their resolution. This will result in better
+    /// images being displayed first in the media details page.
     #[setting(default = false)]
     pub sort_images: bool,
 }
@@ -265,9 +266,11 @@ impl IsFeatureEnabled for ShowConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
-    /// The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)
+    /// The client ID issues by Twitch. **Required** to enable video games
+    /// tracking. [More information](/docs/guides/video-games.md)
     pub client_id: String,
-    /// The client secret issued by Twitch. **Required** to enable video games tracking.
+    /// The client secret issued by Twitch. **Required** to enable video games
+    /// tracking.
     pub client_secret: String,
 }
 
@@ -310,17 +313,28 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
-    /// The access key ID for the S3 compatible file storage. **Required** to enable file storage.
+    /// The access key ID for the S3 compatible file storage. **Required** to
+    /// enable file storage.
     pub s3_access_key_id: String,
     /// The name of the S3 compatible bucket. **Required** to enable file storage.
     pub s3_bucket_name: String,
     /// The region for the S3 compatible file storage.
     #[setting(default = "us-east-1")]
     pub s3_region: String,
-    /// The secret access key for the S3 compatible file storage. **Required** to enable file storage.
+    /// The secret access key for the S3 compatible file storage. **Required**
+    /// to enable file storage.
     pub s3_secret_access_key: String,
     /// The URL for the S3 compatible file storage.
     pub s3_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
+pub struct IntegrationConfig {
+    /// Sync data from [yank](/docs/guides/integrations.md) based integrations
+    /// every `n` hours.
+    #[setting(default = 2)]
+    pub pull_every: i32,
 }
 
 impl IsFeatureEnabled for FileStorageConfig {
@@ -342,10 +356,12 @@ pub struct SchedulerConfig {
     /// The url to the SQLite database where job related data needs to be stored.
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
-    /// Deploy a job every x hours that performs user cleanup and summary calculation.
+    /// The number of jobs to process every 5 seconds when updating metadata in
+    /// the background.
     #[setting(default = 5)]
     pub rate_limit_num: i32,
-    /// The url to the SQLite database where job related data needs to be stored.
+    /// Deploy a job every x hours that performs user cleanup and summary
+    /// calculation.
     #[setting(default = 12)]
     pub user_cleanup_every: i32,
 }
@@ -353,7 +369,8 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
-    /// Whether users will be allowed to change their username in their profile settings.
+    /// Whether users will be allowed to change their username in their profile
+    /// settings.
     #[setting(default = true)]
     pub allow_changing_username: bool,
     /// The number of days till login auth token is valid.
@@ -370,7 +387,9 @@ pub struct WebConfig {
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
-    /// This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#)
+    /// This will make auth cookies insecure and should be set to `true` if you
+    /// are running the server on `localhost`.
+    /// [More information](https://github.com/IgnisDa/ryot/issues/23#)
     pub insecure_cookie: bool,
 }
 
@@ -395,6 +414,9 @@ pub struct AppConfig {
     /// Settings related to file storage.
     #[setting(nested)]
     pub file_storage: FileStorageConfig,
+    /// Settings related to external integrations.
+    #[setting(nested)]
+    pub integration: IntegrationConfig,
     /// Settings related to manga.
     #[setting(nested)]
     pub manga: MangaConfig,

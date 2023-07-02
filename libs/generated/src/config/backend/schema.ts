@@ -58,16 +58,21 @@ export interface ExerciseConfig {
 }
 
 export interface FileStorageConfig {
-	// The access key ID for the S3 compatible file storage. **Required** to enable file storage.
+	// The access key ID for the S3 compatible file storage. **Required** to
 	s_3_access_key_id: string;
 	// The name of the S3 compatible bucket. **Required** to enable file storage.
 	s_3_bucket_name: string;
 	// The region for the S3 compatible file storage.
 	s_3_region: string;
-	// The secret access key for the S3 compatible file storage. **Required** to enable file storage.
+	// The secret access key for the S3 compatible file storage. **Required**
 	s_3_secret_access_key: string;
 	// The URL for the S3 compatible file storage.
 	s_3_url: string;
+}
+
+export interface IntegrationConfig {
+	// Sync data from [yank](/docs/guides/integrations.md) based integrations
+	pull_every: number;
 }
 
 export interface MangaAnilistConfig {
@@ -80,7 +85,7 @@ export interface MangaConfig {
 }
 
 export interface MediaConfig {
-	// Whether to sort images by their resolution. This will result in better images being displayed first in the media details page.
+	// Whether to sort images by their resolution. This will result in better
 	sort_images: boolean;
 }
 
@@ -116,9 +121,9 @@ export interface PodcastConfig {
 export interface SchedulerConfig {
 	// The url to the SQLite database where job related data needs to be stored.
 	database_url: string;
-	// Deploy a job every x hours that performs user cleanup and summary calculation.
+	// The number of jobs to process every 5 seconds when updating metadata in
 	rate_limit_num: number;
-	// The url to the SQLite database where job related data needs to be stored.
+	// Deploy a job every x hours that performs user cleanup and summary
 	user_cleanup_every: number;
 }
 
@@ -135,7 +140,7 @@ export interface ShowConfig {
 }
 
 export interface UsersConfig {
-	// Whether users will be allowed to change their username in their profile settings.
+	// Whether users will be allowed to change their username in their profile
 	allow_changing_username: boolean;
 	// Whether new users will be allowed to sign up to this instance.
 	allow_registration: boolean;
@@ -151,9 +156,9 @@ export interface IgdbConfig {
 }
 
 export interface TwitchConfig {
-	// The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)
+	// The client ID issues by Twitch. **Required** to enable video games
 	client_id: string;
-	// The client secret issued by Twitch. **Required** to enable video games tracking.
+	// The client secret issued by Twitch. **Required** to enable video games
 	client_secret: string;
 }
 
@@ -167,7 +172,7 @@ export interface VideoGameConfig {
 export interface WebConfig {
 	// An array of URLs for CORS.
 	cors_origins: string[];
-	// This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#)
+	// This will make auth cookies insecure and should be set to `true` if you
 	insecure_cookie: boolean;
 }
 
@@ -184,6 +189,8 @@ export interface AppConfig {
 	exercise: ExerciseConfig;
 	// Settings related to file storage.
 	file_storage: FileStorageConfig;
+	// Settings related to external integrations.
+	integration: IntegrationConfig;
 	// Settings related to manga.
 	manga: MangaConfig;
 	// Settings related to media.
