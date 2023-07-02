@@ -1,0 +1,7 @@
+query UserYankIntegrations {
+  userYankIntegrations {
+    id
+    lot
+    description
+  }
+}

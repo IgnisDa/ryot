@@ -1,0 +1,3 @@
+mutation DeleteUserYankIntegration($yankIntegrationId: Int!) {
+  deleteUserYankIntegration(yankIntegrationId: $yankIntegrationId)
+}
