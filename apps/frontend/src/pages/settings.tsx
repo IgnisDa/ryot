@@ -16,8 +16,10 @@ import {
 	CopyButton,
 	Divider,
 	Flex,
+	Modal,
 	Paper,
 	PasswordInput,
+	Select,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -28,11 +30,13 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
 	CoreDetailsDocument,
 	CreateUserYankIntegrationDocument,
+	type CreateUserYankIntegrationMutationVariables,
 	DeleteUserYankIntegrationDocument,
 	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
@@ -50,6 +54,7 @@ import {
 	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
+	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -65,7 +70,8 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
+import { match } from "ts-pattern";
 import { z } from "zod";
 
 const message = {
@@ -92,6 +98,14 @@ const goodreadsImportFormSchema = z.object({
 	rssUrl: z.string().url(),
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
+
+const createUserYankIntegrationSchema = z.object({
+	baseUrl: z.string().url(),
+	token: z.string(),
+});
+type CreateUserYankIntegationSchema = z.infer<
+	typeof createUserYankIntegrationSchema
+>;
 
 export const ImportSource = (props: {
 	onSubmit: () => void;
@@ -128,6 +142,16 @@ export const ImportSource = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
+	const [
+		createUserYankIntegrationModalOpened,
+		{
+			open: openCreateUserYankIntegrationModal,
+			close: closeCreateUserYankIntegrationModal,
+		},
+	] = useDisclosure(false);
+	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
+		useState<UserYankIntegrationLot>();
+
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
 	});
@@ -137,6 +161,11 @@ const Page: NextPageWithLayout = () => {
 	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
 		validate: zodResolver(goodreadsImportFormSchema),
 	});
+	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
+		{
+			validate: zodResolver(createUserYankIntegrationSchema),
+		},
+	);
 
 	const userDetails = useQuery({
 		queryKey: ["userDetails"],
@@ -197,6 +226,21 @@ const Page: NextPageWithLayout = () => {
 				message: "Profile details updated",
 				color: "green",
 			});
+		},
+	});
+
+	const createUserYankIntegration = useMutation({
+		mutationFn: async (
+			variables: CreateUserYankIntegrationMutationVariables,
+		) => {
+			const { createUserYankIntegration } = await gqlClient.request(
+				CreateUserYankIntegrationDocument,
+				variables,
+			);
+			return createUserYankIntegration;
+		},
+		onSuccess: () => {
+			userYankIntegrations.refetch();
 		},
 	});
 
@@ -556,8 +600,8 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="integrations">
 							<Stack>
 								{userYankIntegrations.data.length > 0 ? (
-									userYankIntegrations.data.map((i) => (
-										<Paper p="xs" withBorder key={i.id}>
+									userYankIntegrations.data.map((i, idx) => (
+										<Paper p="xs" withBorder key={idx}>
 											<Flex align={"center"} justify={"space-between"}>
 												<Box>
 													<Text>{i.lot}</Text>
@@ -595,6 +639,79 @@ const Page: NextPageWithLayout = () => {
 								) : (
 									<Text>No integrations configured</Text>
 								)}
+								<Box ml="auto">
+									<Button
+										size="xs"
+										variant="light"
+										onClick={openCreateUserYankIntegrationModal}
+									>
+										Add new integration
+									</Button>
+									<Modal
+										opened={createUserYankIntegrationModalOpened}
+										onClose={closeCreateUserYankIntegrationModal}
+										centered
+										withCloseButton={false}
+									>
+										<Box
+											component="form"
+											onSubmit={createUserYankIntegrationForm.onSubmit(
+												(values) => {
+													if (createUserYankIntegrationLot) {
+														createUserYankIntegration.mutate({
+															input: {
+																baseUrl: values.baseUrl,
+																token: values.token,
+																lot: createUserYankIntegrationLot,
+															},
+														});
+														closeCreateUserYankIntegrationModal();
+														setCreateUserYankIntegrationLot(undefined);
+													}
+												},
+											)}
+										>
+											<Stack>
+												<Select
+													label="Select a source"
+													withinPortal
+													data={Object.values(UserYankIntegrationLot)}
+													onChange={(v) => {
+														const t = match(v)
+															.with(
+																"AUDIOBOOKSHELF",
+																() => UserYankIntegrationLot.Audiobookshelf,
+															)
+															.run();
+														if (t) setCreateUserYankIntegrationLot(t);
+													}}
+												/>
+												{createUserYankIntegrationLot ? (
+													<>
+														<TextInput
+															label="Base Url"
+															{...createUserYankIntegrationForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+														<TextInput
+															label="Token"
+															{...createUserYankIntegrationForm.getInputProps(
+																"token",
+															)}
+														/>
+														<Button
+															type="submit"
+															loading={createUserYankIntegration.isLoading}
+														>
+															Submit
+														</Button>
+													</>
+												) : null}
+											</Stack>
+										</Box>
+									</Modal>
+								</Box>
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>
