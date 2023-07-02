@@ -61,7 +61,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub fn new(config: &OpenlibraryConfig) -> Self {
+    pub async fn new(config: &OpenlibraryConfig) -> Self {
         let client: Client = Config::new()
             .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()

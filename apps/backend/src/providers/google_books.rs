@@ -36,7 +36,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub fn new(_config: &GoogleBooksConfig) -> Self {
+    pub async fn new(_config: &GoogleBooksConfig) -> Self {
         let client = Config::new()
             .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()

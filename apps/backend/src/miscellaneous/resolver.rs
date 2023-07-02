@@ -72,7 +72,7 @@ use super::{
     MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
-type ProviderArc = Arc<(dyn MediaProvider + Send + Sync)>;
+type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub static COOKIE_NAME: &str = "auth";
 
@@ -971,16 +971,16 @@ pub struct MiscellaneousService {
     scdb: MemoryDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
-    audible_service: Arc<AudibleService>,
-    google_books_service: Arc<GoogleBooksService>,
-    igdb_service: Arc<IgdbService>,
-    itunes_service: Arc<ITunesService>,
-    listennotes_service: Arc<ListennotesService>,
-    openlibrary_service: Arc<OpenlibraryService>,
-    tmdb_movies_service: Arc<TmdbMovieService>,
-    tmdb_shows_service: Arc<TmdbShowService>,
-    anilist_anime_service: Arc<AnilistAnimeService>,
-    anilist_manga_service: Arc<AnilistMangaService>,
+    audible_service: AudibleService,
+    google_books_service: GoogleBooksService,
+    igdb_service: IgdbService,
+    itunes_service: ITunesService,
+    listennotes_service: ListennotesService,
+    openlibrary_service: OpenlibraryService,
+    tmdb_movies_service: TmdbMovieService,
+    tmdb_shows_service: TmdbShowService,
+    anilist_anime_service: AnilistAnimeService,
+    anilist_manga_service: AnilistMangaService,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -989,26 +989,27 @@ pub struct MiscellaneousService {
 
 impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub async fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
-        audible_service: Arc<AudibleService>,
-        google_books_service: Arc<GoogleBooksService>,
-        igdb_service: Arc<IgdbService>,
-        itunes_service: Arc<ITunesService>,
-        listennotes_service: Arc<ListennotesService>,
-        openlibrary_service: Arc<OpenlibraryService>,
-        tmdb_movies_service: Arc<TmdbMovieService>,
-        tmdb_shows_service: Arc<TmdbShowService>,
-        anilist_anime_service: Arc<AnilistAnimeService>,
-        anilist_manga_service: Arc<AnilistMangaService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
+        let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary).await;
+        let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
+        let tmdb_movies_service = TmdbMovieService::new(&config.movies.tmdb).await;
+        let tmdb_shows_service = TmdbShowService::new(&config.shows.tmdb).await;
+        let audible_service = AudibleService::new(&config.audio_books.audible).await;
+        let igdb_service = IgdbService::new(&config.video_games).await;
+        let itunes_service = ITunesService::new(&config.podcasts.itunes).await;
+        let listennotes_service = ListennotesService::new(&config.podcasts).await;
+        let anilist_anime_service = AnilistAnimeService::new(&config.anime.anilist).await;
+        let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
+
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
@@ -2094,24 +2095,24 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<ProviderArc> {
-        let service: ProviderArc = match source {
-            MetadataSource::Openlibrary => self.openlibrary_service.clone(),
-            MetadataSource::Itunes => self.itunes_service.clone(),
-            MetadataSource::GoogleBooks => self.google_books_service.clone(),
-            MetadataSource::Audible => self.audible_service.clone(),
-            MetadataSource::Listennotes => self.listennotes_service.clone(),
+    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
+        let service: Provider = match source {
+            MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
+            MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
+            MetadataSource::GoogleBooks => Box::new(self.google_books_service.clone()),
+            MetadataSource::Audible => Box::new(self.audible_service.clone()),
+            MetadataSource::Listennotes => Box::new(self.listennotes_service.clone()),
             MetadataSource::Tmdb => match lot {
-                MetadataLot::Show => self.tmdb_shows_service.clone(),
-                MetadataLot::Movie => self.tmdb_movies_service.clone(),
+                MetadataLot::Show => Box::new(self.tmdb_shows_service.clone()),
+                MetadataLot::Movie => Box::new(self.tmdb_movies_service.clone()),
                 _ => unreachable!(),
             },
             MetadataSource::Anilist => match lot {
-                MetadataLot::Anime => self.anilist_anime_service.clone(),
-                MetadataLot::Manga => self.anilist_manga_service.clone(),
+                MetadataLot::Anime => Box::new(self.anilist_anime_service.clone()),
+                MetadataLot::Manga => Box::new(self.anilist_manga_service.clone()),
                 _ => unreachable!(),
             },
-            MetadataSource::Igdb => self.igdb_service.clone(),
+            MetadataSource::Igdb => Box::new(self.igdb_service.clone()),
             MetadataSource::Custom => {
                 return Err(Error::new("This source is not supported".to_owned()));
             }

@@ -17,9 +17,6 @@ use tokio::task::JoinSet;
 use crate::background::UpdateExerciseJob;
 use crate::file_storage::FileStorageService;
 use crate::fitness::exercise::resolver::ExerciseService;
-use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
-use crate::providers::google_books::GoogleBooksService;
-use crate::providers::itunes::ITunesService;
 use crate::{
     background::{
         AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
@@ -29,13 +26,6 @@ use crate::{
     entities::user_to_metadata,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
-    providers::{
-        audible::AudibleService,
-        igdb::IgdbService,
-        listennotes::ListennotesService,
-        openlibrary::OpenlibraryService,
-        tmdb::{TmdbMovieService, TmdbShowService},
-    },
     GqlCtx,
 };
 
@@ -74,37 +64,19 @@ pub async fn create_app_services(
         update_exercise_job,
     ));
 
-    let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
-    let google_books_service = Arc::new(GoogleBooksService::new(&config.books.google_books));
-    let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
-    let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
-    let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible).await);
-    let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
-    let itunes_service = Arc::new(ITunesService::new(&config.podcasts.itunes).await);
-    let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
-    let anilist_anime_service = Arc::new(AnilistAnimeService::new(&config.anime.anilist).await);
-    let anilist_manga_service = Arc::new(AnilistMangaService::new(&config.manga.anilist).await);
-
-    let media_service = Arc::new(MiscellaneousService::new(
-        &db,
-        &scdb,
-        config,
-        file_storage_service.clone(),
-        audible_service,
-        google_books_service,
-        igdb_service,
-        itunes_service,
-        listennotes_service,
-        openlibrary_service,
-        tmdb_movies_service,
-        tmdb_shows_service,
-        anilist_anime_service,
-        anilist_manga_service,
-        after_media_seen_job,
-        update_metadata_job,
-        recalculate_user_summary_job,
-        user_created_job,
-    ));
+    let media_service = Arc::new(
+        MiscellaneousService::new(
+            &db,
+            &scdb,
+            config,
+            file_storage_service.clone(),
+            after_media_seen_job,
+            update_metadata_job,
+            recalculate_user_summary_job,
+            user_created_job,
+        )
+        .await,
+    );
     let importer_service = Arc::new(ImporterService::new(
         &db,
         media_service.clone(),
