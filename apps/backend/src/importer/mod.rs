@@ -248,7 +248,7 @@ impl ImporterService {
             let data = match &item.identifier {
                 ImportItemIdentifier::NeedsDetails(i) => {
                     self.media_service
-                        .commit_media(item.lot, item.source, i.to_string())
+                        .commit_media(item.lot, item.source, i)
                         .await
                 }
                 ImportItemIdentifier::AlreadyFilled(a) => {

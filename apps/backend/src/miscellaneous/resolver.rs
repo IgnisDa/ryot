@@ -709,7 +709,7 @@ impl MiscellaneousQuery {
     ) -> Result<Option<IdObject>> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_exists_in_database(identifier, lot, source)
+            .media_exists_in_database(&identifier, lot, source)
             .await
     }
 
@@ -978,7 +978,7 @@ impl MiscellaneousMutation {
     ) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_media(lot, source, identifier)
+            .commit_media(lot, source, &identifier)
             .await
     }
 
@@ -1031,7 +1031,7 @@ impl MiscellaneousMutation {
     }
 
     /// Yank data from all integrations for the currently logged in user
-    async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+    async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -2158,7 +2158,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn details_from_provider_for_existing_media(
+    async fn details_from_provider_for_existing_media(
         &self,
         metadata_id: i32,
     ) -> Result<MediaDetails> {
@@ -2168,7 +2168,7 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let results = self
-            .details_from_provider(metadata.lot, metadata.source, metadata.identifier)
+            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await?;
         Ok(results)
     }
@@ -2202,10 +2202,10 @@ impl MiscellaneousService {
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        identifier: String,
+        identifier: &str,
     ) -> Result<MediaDetails> {
         let provider = self.get_provider(lot, source)?;
-        let results = provider.details(&identifier).await?;
+        let results = provider.details(identifier).await?;
         Ok(results)
     }
 
@@ -2213,10 +2213,10 @@ impl MiscellaneousService {
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        identifier: String,
+        identifier: &str,
     ) -> Result<IdObject> {
         if let Some(m) = self
-            .media_exists_in_database(identifier.clone(), lot, source)
+            .media_exists_in_database(identifier, lot, source)
             .await?
         {
             Ok(m)
@@ -3209,7 +3209,7 @@ impl MiscellaneousService {
 
     async fn media_exists_in_database(
         &self,
-        identifier: String,
+        identifier: &str,
         lot: MetadataLot,
         source: MetadataSource,
     ) -> Result<Option<IdObject>> {
