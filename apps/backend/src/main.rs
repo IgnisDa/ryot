@@ -30,8 +30,6 @@ use axum::{
     routing::{get, post, Router},
     Extension, Json, Server, TypedHeader,
 };
-use config::AppConfig;
-use file_storage::FileStorageService;
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use scdb::Store;
@@ -45,7 +43,6 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use utils::MemoryDb;
 use uuid::Uuid;
 
 use crate::{
@@ -55,10 +52,12 @@ use crate::{
         yank_integrations_data,
     },
     config::get_app_config,
+    config::AppConfig,
+    file_storage::FileStorageService,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     miscellaneous::resolver::{MiscellaneousService, COOKIE_NAME},
-    utils::{create_app_services, user_id_from_token},
+    utils::{create_app_services, user_id_from_token, MemoryDb},
 };
 
 mod background;

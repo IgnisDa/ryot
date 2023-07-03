@@ -13,14 +13,13 @@ use crate::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
     },
+    importer::{
+        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
+    },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
     models::media::BookSpecifics,
     providers::openlibrary::utils::get_key,
-};
-
-use super::{
-    DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

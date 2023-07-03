@@ -4,17 +4,16 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    importer::{
+        DeployGoodreadsImportInput, ImportItem, ImportItemIdentifier, ImportItemRating,
+        ImportItemReview, ImportItemSeen, ImportResult,
+    },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::MediaDetails, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage,
         MetadataImageUrl,
     },
     models::media::BookSpecifics,
-};
-
-use super::{
-    DeployGoodreadsImportInput, ImportItem, ImportItemIdentifier, ImportItemRating,
-    ImportItemReview, ImportItemSeen, ImportResult,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

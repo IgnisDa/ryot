@@ -3,7 +3,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::Metadata;
+use crate::migrator::Metadata;
 
 pub struct Migration;
 

@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::{
+use crate::migrator::{
     m20230410_000001_create_metadata::{MetadataImage, UNIQUE_INDEX},
     Metadata,
 };

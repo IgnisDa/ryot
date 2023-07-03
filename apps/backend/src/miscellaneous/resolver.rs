@@ -28,8 +28,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::integrations::IntegrationService;
-use crate::users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations};
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -46,6 +44,7 @@ use crate::{
     file_storage::FileStorageService,
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
+    integrations::IntegrationService,
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, ReviewVisibility, Seen as TempSeen, UserLot,
@@ -67,6 +66,7 @@ use crate::{
     },
     traits::{MediaProvider, MediaProviderLanguages},
     users::UserPreferences,
+    users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
 };
 
