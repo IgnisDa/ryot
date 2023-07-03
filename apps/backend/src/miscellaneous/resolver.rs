@@ -709,7 +709,7 @@ impl MiscellaneousQuery {
     ) -> Result<Option<IdObject>> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_exists_in_database(&identifier, lot, source)
+            .media_exists_in_database(lot, source, &identifier)
             .await
     }
 
@@ -2220,7 +2220,7 @@ impl MiscellaneousService {
         identifier: &str,
     ) -> Result<IdObject> {
         if let Some(m) = self
-            .media_exists_in_database(identifier, lot, source)
+            .media_exists_in_database(lot, source, identifier)
             .await?
         {
             Ok(m)
@@ -3225,9 +3225,9 @@ impl MiscellaneousService {
 
     async fn media_exists_in_database(
         &self,
-        identifier: &str,
         lot: MetadataLot,
         source: MetadataSource,
+        identifier: &str,
     ) -> Result<Option<IdObject>> {
         let media = Metadata::find()
             .filter(metadata::Column::Lot.eq(lot))
