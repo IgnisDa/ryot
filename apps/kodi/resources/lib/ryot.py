@@ -12,14 +12,6 @@ COMMIT_MEDIA = """
     }
 """
 
-MEDIA_EXISTS_IN_DATABASE = """
-    query MediaExistsInDatabase($identifier: String!, $lot: MetadataLot!, $source: MetadataSource!) {
-      mediaExistsInDatabase(identifier: $identifier, lot: $lot, source: $source) {
-        id
-      }
-    }  
-"""
-
 PROGRESS_UPDATE = """
     mutation ProgressUpdate($input: ProgressUpdate!) {
       progressUpdate(input: $input) {
@@ -37,13 +29,7 @@ class Ryot:
     def media_exists_in_database(self, identifier: str, lot: Literal["MOVIE", "SHOW"]):
         # since we support only movies and shows
         input = {"identifier": identifier, "lot": lot, "source": "TMDB"}
-        response = self.post_json(MEDIA_EXISTS_IN_DATABASE, input)["data"][
-            "mediaExistsInDatabase"
-        ]
-        if response is None:
-            return self.post_json(COMMIT_MEDIA, input)["data"]["commitMedia"]["id"]
-        else:
-            return response["id"]
+        return self.post_json(COMMIT_MEDIA, input)["data"]["commitMedia"]["id"]
 
     def update_progress(
         self,

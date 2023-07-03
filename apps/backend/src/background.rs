@@ -70,6 +70,19 @@ pub async fn general_user_cleanup(
     Ok(())
 }
 
+pub async fn yank_integrations_data(
+    _information: ScheduledJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    tracing::info!("Getting data from yanked integrations for all users");
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
+        .yank_integrations_data()
+        .await
+        .unwrap();
+    Ok(())
+}
+
 // Application Jobs
 
 #[derive(Debug, Deserialize, Serialize)]

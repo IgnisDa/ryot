@@ -3,7 +3,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::Metadata;
+use crate::migrator::Metadata;
 
 pub struct Migration;
 
@@ -46,6 +46,8 @@ pub enum User {
     Lot,
     Email,
     Preferences,
+    // This field can be `NULL` if the user has not enabled any yank integration
+    YankIntegrations,
 }
 
 #[async_trait::async_trait]
@@ -72,6 +74,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default("{}"),
                     )
+                    .col(ColumnDef::new(User::YankIntegrations).json())
                     .to_owned(),
             )
             .await?;

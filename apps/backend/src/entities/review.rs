@@ -6,9 +6,10 @@ use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{migrator::ReviewVisibility, utils::associate_user_with_metadata};
-
-use super::utils::SeenExtraInformation;
+use crate::{
+    entities::utils::SeenExtraInformation, migrator::ReviewVisibility,
+    utils::associate_user_with_metadata,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "review")]

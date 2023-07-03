@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::Metadata;
+use crate::migrator::Metadata;
 
 pub struct Migration;
 

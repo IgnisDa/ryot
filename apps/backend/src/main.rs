@@ -2,6 +2,7 @@ use std::{
     env,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
+    path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
     time::Duration,
@@ -29,8 +30,6 @@ use axum::{
     routing::{get, post, Router},
     Extension, Json, Server, TypedHeader,
 };
-use config::AppConfig;
-use file_storage::FileStorageService;
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use scdb::Store;
@@ -44,19 +43,21 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use utils::MemoryDb;
 use uuid::Uuid;
 
 use crate::{
     background::{
         after_media_seen_job, general_media_cleanup_jobs, general_user_cleanup, import_media,
         recalculate_user_summary_job, update_exercise_job, update_metadata_job, user_created_job,
+        yank_integrations_data,
     },
     config::get_app_config,
+    config::AppConfig,
+    file_storage::FileStorageService,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     miscellaneous::resolver::{MiscellaneousService, COOKIE_NAME},
-    utils::{create_app_services, user_id_from_token},
+    utils::{create_app_services, user_id_from_token, MemoryDb},
 };
 
 mod background;
@@ -66,14 +67,17 @@ mod file_storage;
 mod fitness;
 mod graphql;
 mod importer;
+mod integrations;
 mod migrator;
 mod miscellaneous;
 mod models;
 mod providers;
 mod traits;
+mod users;
 mod utils;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
+pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[derive(Debug)]
 pub struct GqlCtx {
@@ -154,6 +158,30 @@ async fn main() -> Result<()> {
         &recalculate_user_summary_job_storage,
     )
     .await;
+
+    if cfg!(debug_assertions) {
+        // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
+        let path = PathBuf::from(BASE_DIR)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("libs")
+            .join("generated")
+            .join("src")
+            .join("config")
+            .join("backend")
+            .join("schema.ts");
+        let mut generator = schematic::schema::SchemaGenerator::default();
+        generator.add::<AppConfig>();
+        generator
+            .generate(
+                path,
+                schematic::schema::typescript::TypeScriptRenderer::default(),
+            )
+            .unwrap();
+    }
+
     let schema = get_schema(&app_services, db.clone(), scdb.clone(), config.clone()).await;
 
     let cors = TowerCorsLayer::new()
@@ -202,7 +230,11 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.media_service.clone();
     let media_service_5 = app_services.media_service.clone();
     let media_service_6 = app_services.media_service.clone();
+    let media_service_7 = app_services.media_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
+
+    let user_cleanup_every = config.scheduler.user_cleanup_every;
+    let pull_every = config.integration.pull_every;
 
     let monitor = async {
         let mn = Monitor::new()
@@ -211,11 +243,8 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .stream(
                         CronStream::new(
-                            Schedule::from_str(&format!(
-                                "0 0 */{} ? * *",
-                                config.scheduler.user_cleanup_every
-                            ))
-                            .unwrap(),
+                            Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
+                                .unwrap(),
                         )
                         .timer(SleepTimer)
                         .to_stream(),
@@ -237,6 +266,19 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(media_service_2.clone()))
                     .build_fn(general_media_cleanup_jobs)
             })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("yank_integrations_data-{c}"))
+                    .stream(
+                        CronStream::new(
+                            Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
+                        )
+                        .timer(SleepTimer)
+                        .to_stream(),
+                    )
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(media_service_3.clone()))
+                    .build_fn(yank_integrations_data)
+            })
             // application jobs
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
@@ -248,21 +290,21 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_3.clone()))
+                    .layer(ApalisExtension(media_service_4.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("after_media_seen_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_4.clone()))
+                    .layer(ApalisExtension(media_service_5.clone()))
                     .with_storage(after_media_seen_job_storage.clone())
                     .build_fn(after_media_seen_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("recalculate_user_summary_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_5.clone()))
+                    .layer(ApalisExtension(media_service_6.clone()))
                     .with_storage(recalculate_user_summary_job_storage.clone())
                     .build_fn(recalculate_user_summary_job)
             })
@@ -273,7 +315,7 @@ async fn main() -> Result<()> {
                         rate_limit_num,
                         Duration::new(5, 0),
                     ))
-                    .layer(ApalisExtension(media_service_6.clone()))
+                    .layer(ApalisExtension(media_service_7.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })

@@ -7,11 +7,13 @@ use sea_orm::entity::prelude::*;
 use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
-use crate::{entities::prelude::UserToMetadata, utils::associate_user_with_metadata};
-
-use super::{
-    user_to_metadata,
-    utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
+use crate::{
+    entities::{
+        prelude::UserToMetadata,
+        user_to_metadata,
+        utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
+    },
+    utils::associate_user_with_metadata,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]

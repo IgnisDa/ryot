@@ -11,31 +11,22 @@ use scdb::Store;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Serialize};
-use surf::Client;
+use surf::http::headers::USER_AGENT;
+use surf::{Client, Config};
 use tokio::task::JoinSet;
 
-use crate::background::UpdateExerciseJob;
-use crate::file_storage::FileStorageService;
-use crate::fitness::exercise::resolver::ExerciseService;
-use crate::providers::anilist::{AnilistAnimeService, AnilistMangaService};
-use crate::providers::google_books::GoogleBooksService;
-use crate::providers::itunes::ITunesService;
 use crate::{
     background::{
-        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
-        UserCreatedJob,
+        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateExerciseJob,
+        UpdateMetadataJob, UserCreatedJob,
     },
     config::AppConfig,
     entities::user_to_metadata,
+    file_storage::FileStorageService,
+    fitness::exercise::resolver::ExerciseService,
+    graphql::USER_AGENT_STR,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
-    providers::{
-        audible::AudibleService,
-        igdb::IgdbService,
-        listennotes::ListennotesService,
-        openlibrary::OpenlibraryService,
-        tmdb::{TmdbMovieService, TmdbShowService},
-    },
     GqlCtx,
 };
 
@@ -74,37 +65,19 @@ pub async fn create_app_services(
         update_exercise_job,
     ));
 
-    let openlibrary_service = Arc::new(OpenlibraryService::new(&config.books.openlibrary));
-    let google_books_service = Arc::new(GoogleBooksService::new(&config.books.google_books));
-    let tmdb_movies_service = Arc::new(TmdbMovieService::new(&config.movies.tmdb).await);
-    let tmdb_shows_service = Arc::new(TmdbShowService::new(&config.shows.tmdb).await);
-    let audible_service = Arc::new(AudibleService::new(&config.audio_books.audible).await);
-    let igdb_service = Arc::new(IgdbService::new(&config.video_games).await);
-    let itunes_service = Arc::new(ITunesService::new(&config.podcasts.itunes).await);
-    let listennotes_service = Arc::new(ListennotesService::new(&config.podcasts).await);
-    let anilist_anime_service = Arc::new(AnilistAnimeService::new(&config.anime.anilist).await);
-    let anilist_manga_service = Arc::new(AnilistMangaService::new(&config.manga.anilist).await);
-
-    let media_service = Arc::new(MiscellaneousService::new(
-        &db,
-        &scdb,
-        config,
-        file_storage_service.clone(),
-        audible_service,
-        google_books_service,
-        igdb_service,
-        itunes_service,
-        listennotes_service,
-        openlibrary_service,
-        tmdb_movies_service,
-        tmdb_shows_service,
-        anilist_anime_service,
-        anilist_manga_service,
-        after_media_seen_job,
-        update_metadata_job,
-        recalculate_user_summary_job,
-        user_created_job,
-    ));
+    let media_service = Arc::new(
+        MiscellaneousService::new(
+            &db,
+            &scdb,
+            config,
+            file_storage_service.clone(),
+            after_media_seen_job,
+            update_metadata_job,
+            recalculate_user_summary_job,
+            user_created_job,
+        )
+        .await,
+    );
     let importer_service = Arc::new(ImporterService::new(
         &db,
         media_service.clone(),
@@ -153,8 +126,7 @@ pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
 pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
     let found_token = match scdb.try_lock() {
         Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-        Err(e) => {
-            tracing::error!("{:?}", e);
+        Err(_) => {
             return Err(Error::new("Could not lock user database"));
         }
     };
@@ -211,4 +183,10 @@ pub fn get_now_timestamp() -> u128 {
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_millis()
+}
+
+pub fn get_base_http_client_config() -> Config {
+    Config::new()
+        .add_header(USER_AGENT, USER_AGENT_STR)
+        .unwrap()
 }

@@ -212,18 +212,18 @@ impl ListennotesService {
 mod utils {
     use std::{collections::HashMap, env, fs};
 
-    use surf::{http::headers::USER_AGENT, Config, Url};
+    use surf::{Url};
 
-    use crate::{graphql::USER_AGENT_STR, utils::read_file_to_json};
+    use crate::{
+        utils::{get_base_http_client_config, read_file_to_json},
+    };
 
     use super::*;
 
     pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
         let path = env::temp_dir().join("listennotes.json");
-        let client: Client = Config::new()
+        let client: Client = get_base_http_client_config()
             .add_header("X-ListenAPI-Key", api_token)
-            .unwrap()
-            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())
             .try_into()

@@ -3,7 +3,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{m20230417_000002_create_user::User, Metadata};
+use crate::migrator::{m20230417_000002_create_user::User, Metadata};
 
 pub struct Migration;
 

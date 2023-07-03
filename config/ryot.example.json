@@ -1,9 +1,0 @@
-{
-	"web": {
-		"cors_origins": ["http://localhost:3000"],
-		"insecure_cookie": true
-	},
-	"users": {
-		"allow_changing_username": false
-	}
-}

@@ -6,7 +6,7 @@ pub struct Migration;
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230614_000010_add_user_preferences_field"
+        "m20230702_000014_add_user_integrations_field"
     }
 }
 
@@ -17,9 +17,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(User::Table)
-                    .add_column_if_not_exists(
-                        ColumnDef::new(User::Preferences).json().default("{}"),
-                    )
+                    .add_column_if_not_exists(ColumnDef::new(User::YankIntegrations).json())
                     .to_owned(),
             )
             .await

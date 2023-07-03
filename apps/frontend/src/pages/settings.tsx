@@ -16,7 +16,10 @@ import {
 	CopyButton,
 	Divider,
 	Flex,
+	Modal,
+	Paper,
 	PasswordInput,
+	Select,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -27,10 +30,15 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
 	CoreDetailsDocument,
+	CreateUserYankIntegrationDocument,
+	type CreateUserYankIntegrationMutationVariables,
+	DeleteUserYankIntegrationDocument,
+	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
 	type DeployImportMutationVariables,
 	GenerateApplicationTokenDocument,
@@ -46,6 +54,10 @@ import {
 	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
 	UserDetailsDocument,
+	UserYankIntegrationLot,
+	UserYankIntegrationsDocument,
+	YankIntegrationDataDocument,
+	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAnalyze,
@@ -53,12 +65,15 @@ import {
 	IconCheck,
 	IconCopy,
 	IconDatabaseImport,
+	IconNeedleThread,
 	IconSignature,
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { DateTime } from "luxon";
 import Head from "next/head";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
+import { match } from "ts-pattern";
 import { z } from "zod";
 
 const message = {
@@ -85,6 +100,14 @@ const goodreadsImportFormSchema = z.object({
 	rssUrl: z.string().url(),
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
+
+const createUserYankIntegrationSchema = z.object({
+	baseUrl: z.string().url(),
+	token: z.string(),
+});
+type CreateUserYankIntegationSchema = z.infer<
+	typeof createUserYankIntegrationSchema
+>;
 
 export const ImportSource = (props: {
 	onSubmit: () => void;
@@ -121,6 +144,16 @@ export const ImportSource = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
+	const [
+		createUserYankIntegrationModalOpened,
+		{
+			open: openCreateUserYankIntegrationModal,
+			close: closeCreateUserYankIntegrationModal,
+		},
+	] = useDisclosure(false);
+	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
+		useState<UserYankIntegrationLot>();
+
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
 	});
@@ -130,6 +163,11 @@ const Page: NextPageWithLayout = () => {
 	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
 		validate: zodResolver(goodreadsImportFormSchema),
 	});
+	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
+		{
+			validate: zodResolver(createUserYankIntegrationSchema),
+		},
+	);
 
 	const userDetails = useQuery({
 		queryKey: ["userDetails"],
@@ -168,6 +206,13 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
+	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
+		const { userYankIntegrations } = await gqlClient.request(
+			UserYankIntegrationsDocument,
+		);
+		return userYankIntegrations;
+	});
+
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
 			const { updateUser } = await gqlClient.request(
@@ -183,6 +228,36 @@ const Page: NextPageWithLayout = () => {
 				message: "Profile details updated",
 				color: "green",
 			});
+		},
+	});
+
+	const createUserYankIntegration = useMutation({
+		mutationFn: async (
+			variables: CreateUserYankIntegrationMutationVariables,
+		) => {
+			const { createUserYankIntegration } = await gqlClient.request(
+				CreateUserYankIntegrationDocument,
+				variables,
+			);
+			return createUserYankIntegration;
+		},
+		onSuccess: () => {
+			userYankIntegrations.refetch();
+		},
+	});
+
+	const deleteUserYankIntegration = useMutation({
+		mutationFn: async (
+			variables: DeleteUserYankIntegrationMutationVariables,
+		) => {
+			const { deleteUserYankIntegration } = await gqlClient.request(
+				DeleteUserYankIntegrationDocument,
+				variables,
+			);
+			return deleteUserYankIntegration;
+		},
+		onSuccess: () => {
+			userYankIntegrations.refetch();
 		},
 	});
 
@@ -210,6 +285,22 @@ const Page: NextPageWithLayout = () => {
 			notifications.show({
 				title: "Success",
 				message: "All metadata will be updated in the background",
+				color: "green",
+			});
+		},
+	});
+
+	const yankIntegrationData = useMutation({
+		mutationFn: async (_variables: YankIntegrationDataMutationVariables) => {
+			const { yankIntegrationData } = await gqlClient.request(
+				YankIntegrationDataDocument,
+			);
+			return yankIntegrationData;
+		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "Progress data has been syncronized successfully",
 				color: "green",
 			});
 		},
@@ -306,7 +397,9 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	return languageInformation.data && userPrefs.data ? (
+	return languageInformation.data &&
+		userPrefs.data &&
+		userYankIntegrations.data ? (
 		<>
 			<Head>
 				<title>Settings | Ryot</title>
@@ -333,10 +426,17 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="tokens" icon={<IconApps size="1rem" />}>
 								Tokens
 							</Tabs.Tab>
+							<Tabs.Tab
+								value="integrations"
+								icon={<IconNeedleThread size="1rem" />}
+							>
+								Integrations
+							</Tabs.Tab>
 							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
 								Miscellaneous
 							</Tabs.Tab>
 						</Tabs.List>
+
 						<Tabs.Panel value="profile">
 							<Box
 								component="form"
@@ -482,37 +582,174 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="misc">
 							<Stack>
-								<Box>
-									<Title order={4}>Regenerate Summaries</Title>
-									<Text>
-										Regenerate all pre-computed summaries from the beginning.
-										This may be useful if, for some reason, summaries are faulty
-										or preconditions have changed. This may take some time.
-									</Text>
-								</Box>
-								<Button
-									color="red"
-									onClick={() => regenerateUserSummary.mutate({})}
-									loading={regenerateUserSummary.isLoading}
-								>
-									Clean and regenerate
-								</Button>
+								<>
+									<Box>
+										<Title order={4}>Update all metadata</Title>
+										<Text>
+											Fetch and update the metadata for all the media items that
+											are stored. The more media you have, the longer this will
+											take.
+										</Text>
+									</Box>
+									<Button
+										onClick={() => deployUpdateAllMetadataJobs.mutate({})}
+										loading={deployUpdateAllMetadataJobs.isLoading}
+									>
+										Delpoy job
+									</Button>
+								</>
 								<Divider />
-								<Box>
-									<Title order={4}>Update all metadata</Title>
-									<Text>
-										Fetch and update the metadata for all the media items that
-										are stored. The more media you have, the longer this will
-										take.
-									</Text>
+								<>
+									<Box>
+										<Title order={4}>Synchronize integrations progress</Title>
+										<Text>
+											Get data from all configured integrations and update
+											progress if applicable. The more integrations you have
+											enabled, the longer this will take.
+										</Text>
+									</Box>
+									<Button
+										onClick={() => yankIntegrationData.mutate({})}
+										loading={yankIntegrationData.isLoading}
+									>
+										Synchronize
+									</Button>
+								</>
+								<Divider />
+								<>
+									<Box>
+										<Title order={4}>Regenerate Summaries</Title>
+										<Text>
+											Regenerate all pre-computed summaries from the beginning.
+											This may be useful if, for some reason, summaries are
+											faulty or preconditions have changed. This may take some
+											time.
+										</Text>
+									</Box>
+									<Button
+										onClick={() => regenerateUserSummary.mutate({})}
+										loading={regenerateUserSummary.isLoading}
+									>
+										Clean and regenerate
+									</Button>
+								</>
+							</Stack>
+						</Tabs.Panel>
+						<Tabs.Panel value="integrations">
+							<Stack>
+								{userYankIntegrations.data.length > 0 ? (
+									userYankIntegrations.data.map((i, idx) => (
+										<Paper p="xs" withBorder key={idx}>
+											<Flex align={"center"} justify={"space-between"}>
+												<Box>
+													<Text>{i.lot}</Text>
+													<Text size="xs">
+														Connected to{" "}
+														<Anchor href={i.description}>
+															{i.description}{" "}
+														</Anchor>
+													</Text>
+													<Text size="xs">
+														on{" "}
+														{DateTime.fromJSDate(i.timestamp).toLocaleString(
+															DateTime.DATE_MED,
+														)}
+													</Text>
+												</Box>
+												<Button
+													color="red"
+													variant="outline"
+													onClick={() => {
+														const yes = confirm(
+															"Are you sure you want to delete this integration?",
+														);
+														if (yes)
+															deleteUserYankIntegration.mutate({
+																yankIntegrationId: i.id,
+															});
+													}}
+												>
+													Delete
+												</Button>
+											</Flex>
+										</Paper>
+									))
+								) : (
+									<Text>No integrations configured</Text>
+								)}
+								<Box ml="auto">
+									<Button
+										size="xs"
+										variant="light"
+										onClick={openCreateUserYankIntegrationModal}
+									>
+										Add new integration
+									</Button>
+									<Modal
+										opened={createUserYankIntegrationModalOpened}
+										onClose={closeCreateUserYankIntegrationModal}
+										centered
+										withCloseButton={false}
+									>
+										<Box
+											component="form"
+											onSubmit={createUserYankIntegrationForm.onSubmit(
+												(values) => {
+													if (createUserYankIntegrationLot) {
+														createUserYankIntegration.mutate({
+															input: {
+																baseUrl: values.baseUrl,
+																token: values.token,
+																lot: createUserYankIntegrationLot,
+															},
+														});
+														closeCreateUserYankIntegrationModal();
+														setCreateUserYankIntegrationLot(undefined);
+													}
+												},
+											)}
+										>
+											<Stack>
+												<Select
+													label="Select a source"
+													withinPortal
+													data={Object.values(UserYankIntegrationLot)}
+													onChange={(v) => {
+														const t = match(v)
+															.with(
+																"AUDIOBOOKSHELF",
+																() => UserYankIntegrationLot.Audiobookshelf,
+															)
+															.run();
+														if (t) setCreateUserYankIntegrationLot(t);
+													}}
+												/>
+												{createUserYankIntegrationLot ? (
+													<>
+														<TextInput
+															label="Base Url"
+															{...createUserYankIntegrationForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+														<TextInput
+															label="Token"
+															{...createUserYankIntegrationForm.getInputProps(
+																"token",
+															)}
+														/>
+														<Button
+															type="submit"
+															loading={createUserYankIntegration.isLoading}
+														>
+															Submit
+														</Button>
+													</>
+												) : null}
+											</Stack>
+										</Box>
+									</Modal>
 								</Box>
-								<Button
-									color="red"
-									onClick={() => deployUpdateAllMetadataJobs.mutate({})}
-									loading={deployUpdateAllMetadataJobs.isLoading}
-								>
-									Update All
-								</Button>
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>

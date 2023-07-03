@@ -27,6 +27,7 @@ pub struct AnimeAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct AnimeConfig {
+    /// Settings related to Anilist (anime).
     #[setting(nested)]
     pub anilist: AnimeAnilistConfig,
 }
@@ -50,12 +51,14 @@ fn validate_audible_locale(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
+    /// Settings related to locale for making requests Audible.
     #[setting(validate = validate_audible_locale, default = AudibleService::default_language())]
     pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct AudioBookConfig {
+    /// Settings related to Audible.
     #[setting(nested)]
     pub audible: AudibleConfig,
 }
@@ -82,13 +85,16 @@ pub struct GoogleBooksConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
+    /// The image sizes to fetch from Openlibrary.
     pub cover_image_size: OpenlibraryCoverImageSize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct BookConfig {
+    /// Settings related to Openlibrary.
     #[setting(nested)]
     pub openlibrary: OpenlibraryConfig,
+    /// Settings related to Google Books.
     #[setting(nested)]
     pub google_books: GoogleBooksConfig,
 }
@@ -98,8 +104,11 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
+    /// The path where [SCDB](https://docs.rs/scdb) will persist its storage.
     #[setting(default = format!("/data/{}-scdb.db", PROJECT_NAME))]
     pub scdb_url: String,
+    /// The database connection string. Supports SQLite, MySQL and Postgres.
+    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
     pub url: String,
 }
@@ -107,10 +116,12 @@ pub struct DatabaseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "EXERCISE_DB_")]
 pub struct FreeExerciseDbConfig {
+    /// The URL for the raw JSON for all exercises.
     #[setting(
         default = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json"
     )]
     pub json_url: String,
+    /// The base URL to prefix for all images.
     #[setting(
         default = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises"
     )]
@@ -119,6 +130,7 @@ pub struct FreeExerciseDbConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 pub struct ExerciseConfig {
+    //// Settings related to Free Exercise DB.
     #[setting(nested)]
     pub db: FreeExerciseDbConfig,
 }
@@ -126,6 +138,8 @@ pub struct ExerciseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {
+    /// Whether to sort images by their resolution. This will result in better
+    /// images being displayed first in the media details page.
     #[setting(default = false)]
     pub sort_images: bool,
 }
@@ -151,14 +165,17 @@ fn validate_movies_tmdb_locale(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct MoviesTmdbConfig {
+    /// The access token for the TMDB API.
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
+    /// The locale to use for making requests to TMDB API.
     #[setting(validate = validate_movies_tmdb_locale, default = TmdbService::default_language())]
     pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MovieConfig {
+    /// Settings related to TMDB (movies).
     #[setting(nested)]
     pub tmdb: MoviesTmdbConfig,
 }
@@ -171,6 +188,7 @@ pub struct MangaAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MangaConfig {
+    /// Settings related to Anilist (manga).
     #[setting(nested)]
     pub anilist: MangaAnilistConfig,
 }
@@ -180,6 +198,7 @@ impl IsFeatureEnabled for MangaConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
+    /// The access token for the Listennotes API.
     pub api_token: String,
 }
 
@@ -200,14 +219,17 @@ fn validate_itunes_locale(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
 pub struct ITunesConfig {
+    /// The locale to use for making requests to iTunes API.
     #[setting(validate = validate_itunes_locale, default = ITunesService::default_language())]
     pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct PodcastConfig {
+    /// Settings related to Listennotes.
     #[setting(nested)]
     pub listennotes: ListenNotesConfig,
+    /// Settings related to iTunes.
     #[setting(nested)]
     pub itunes: ITunesConfig,
 }
@@ -225,14 +247,17 @@ fn validate_shows_tmdb_locale(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
 pub struct ShowsTmdbConfig {
+    /// The access token for the TMDB API.
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
+    /// The locale to use for making requests to TMDB API.
     #[setting(validate = validate_shows_tmdb_locale, default = TmdbService::default_language())]
     pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct ShowConfig {
+    /// Settings related to TMDB (shows).
     #[setting(nested)]
     pub tmdb: ShowsTmdbConfig,
 }
@@ -242,7 +267,11 @@ impl IsFeatureEnabled for ShowConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
+    /// The client ID issues by Twitch. **Required** to enable video games
+    /// tracking. [More information](/docs/guides/video-games.md)
     pub client_id: String,
+    /// The client secret issued by Twitch. **Required** to enable video games
+    /// tracking.
     pub client_secret: String,
 }
 
@@ -258,13 +287,16 @@ derive_enum!(
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
+    /// The image sizes to fetch from IGDB.
     pub image_size: IgdbImageSize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct VideoGameConfig {
+    /// Settings related to IGDB.
     #[setting(nested)]
     pub igdb: IgdbConfig,
+    /// Settings related to Twitch.
     #[setting(nested)]
     pub twitch: TwitchConfig,
 }
@@ -282,12 +314,28 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
+    /// The access key ID for the S3 compatible file storage. **Required** to
+    /// enable file storage.
     pub s3_access_key_id: String,
+    /// The name of the S3 compatible bucket. **Required** to enable file storage.
     pub s3_bucket_name: String,
+    /// The region for the S3 compatible file storage.
     #[setting(default = "us-east-1")]
     pub s3_region: String,
+    /// The secret access key for the S3 compatible file storage. **Required**
+    /// to enable file storage.
     pub s3_secret_access_key: String,
+    /// The URL for the S3 compatible file storage.
     pub s3_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
+pub struct IntegrationConfig {
+    /// Sync data from [yank](/docs/guides/integrations.md) based integrations
+    /// every `n` hours.
+    #[setting(default = 2)]
+    pub pull_every: i32,
 }
 
 impl IsFeatureEnabled for FileStorageConfig {
@@ -306,10 +354,15 @@ impl IsFeatureEnabled for FileStorageConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
+    /// The url to the SQLite database where job related data needs to be stored.
     #[setting(default = "sqlite::memory:")]
     pub database_url: String,
+    /// The number of jobs to process every 5 seconds when updating metadata in
+    /// the background.
     #[setting(default = 5)]
     pub rate_limit_num: i32,
+    /// Deploy a job every x hours that performs user cleanup and summary
+    /// calculation.
     #[setting(default = 12)]
     pub user_cleanup_every: i32,
 }
@@ -317,10 +370,14 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
+    /// Whether users will be allowed to change their username in their profile
+    /// settings.
     #[setting(default = true)]
     pub allow_changing_username: bool,
+    /// The number of days till login auth token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i32,
+    /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
 }
@@ -328,42 +385,64 @@ pub struct UsersConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "WEB_")]
 pub struct WebConfig {
+    /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
+    /// This will make auth cookies insecure and should be set to `true` if you
+    /// are running the server on `localhost`.
+    /// [More information](https://github.com/IgnisDa/ryot/issues/23#)
     pub insecure_cookie: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
+    /// Settings related to anime.
     #[setting(nested)]
     pub anime: AnimeConfig,
+    /// Settings related to audio books.
     #[setting(nested)]
     pub audio_books: AudioBookConfig,
+    /// Settings related to books.
     #[setting(nested)]
     pub books: BookConfig,
+    /// The database related settings.
     #[setting(nested)]
     pub database: DatabaseConfig,
+    /// Settings related to exercises.
     #[setting(nested)]
     pub exercise: ExerciseConfig,
+    /// Settings related to file storage.
     #[setting(nested)]
     pub file_storage: FileStorageConfig,
+    /// Settings related to external integrations.
+    #[setting(nested)]
+    pub integration: IntegrationConfig,
+    /// Settings related to manga.
     #[setting(nested)]
     pub manga: MangaConfig,
+    /// Settings related to media.
     #[setting(nested)]
     pub media: MediaConfig,
+    /// Settings related to movies.
     #[setting(nested)]
     pub movies: MovieConfig,
+    /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,
+    /// Settings related to scheduler.
     #[setting(nested)]
     pub scheduler: SchedulerConfig,
+    /// Settings related to shows.
     #[setting(nested)]
     pub shows: ShowConfig,
+    /// Settings related to users.
     #[setting(nested)]
     pub users: UsersConfig,
+    /// Settings related to video games.
     #[setting(nested)]
     pub video_games: VideoGameConfig,
+    /// Settings related to website.
     #[setting(nested)]
     pub web: WebConfig,
 }

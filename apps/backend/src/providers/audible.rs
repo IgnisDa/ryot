@@ -3,11 +3,10 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
+use surf::{Client, Url};
 
 use crate::{
     config::AudibleConfig,
-    graphql::USER_AGENT_STR,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
@@ -15,7 +14,9 @@ use crate::{
     },
     models::media::AudioBookSpecifics,
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
+    utils::{
+        convert_date_to_year, convert_string_to_date, get_base_http_client_config, NamedObject,
+    },
 };
 
 pub static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
@@ -112,9 +113,7 @@ impl AudibleService {
 
     pub async fn new(config: &AudibleConfig) -> Self {
         let url = Self::url_from_locale(&config.locale);
-        let client = Config::new()
-            .add_header(USER_AGENT, USER_AGENT_STR)
-            .unwrap()
+        let client = get_base_http_client_config()
             .set_base_url(Url::parse(&url).unwrap())
             .try_into()
             .unwrap();

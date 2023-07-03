@@ -7,9 +7,10 @@ use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
+use itertools::Itertools;
 use markdown::{
-    to_html as markdown_to_html, to_html_with_options as markdown_to_html_with_options,
-    CompileOptions, Options,
+    to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
+    Options,
 };
 use rust_decimal::Decimal;
 use sea_orm::Iterable;
@@ -27,10 +28,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::models::UserPreferences;
-use crate::providers::anilist::AnilistService;
-use crate::providers::google_books::GoogleBooksService;
-use crate::providers::itunes::ITunesService;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -47,6 +44,7 @@ use crate::{
     file_storage::FileStorageService,
     graphql::{IdObject, Identifier},
     importer::ImportResultResponse,
+    integrations::IntegrationService,
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, ReviewVisibility, Seen as TempSeen, UserLot,
@@ -57,14 +55,18 @@ use crate::{
         PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
     },
     providers::{
-        anilist::{AnilistAnimeService, AnilistMangaService},
+        anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
         audible::AudibleService,
+        google_books::GoogleBooksService,
         igdb::IgdbService,
+        itunes::ITunesService,
         listennotes::ListennotesService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
     traits::{MediaProvider, MediaProviderLanguages},
+    users::UserPreferences,
+    users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations},
     utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
 };
 
@@ -73,7 +75,7 @@ use super::{
     MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
 };
 
-type ProviderArc = Arc<(dyn MediaProvider + Send + Sync)>;
+type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub static COOKIE_NAME: &str = "auth";
 
@@ -94,6 +96,27 @@ pub struct CreateCustomMediaInput {
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserYankIntegrationLot {
+    Audiobookshelf,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlUserYankIntegration {
+    id: usize,
+    lot: UserYankIntegrationLot,
+    description: String,
+    timestamp: DateTimeUtc,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateUserYankIntegrationInput {
+    lot: UserYankIntegrationLot,
+    base_url: String,
+    #[graphql(secret)]
+    token: String,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -412,7 +435,7 @@ pub struct DetailedMediaSearchResults {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdate {
+pub struct ProgressUpdateInput {
     pub metadata_id: Identifier,
     pub progress: Option<i32>,
     pub date: Option<NaiveDate>,
@@ -568,11 +591,15 @@ impl MiscellaneousQuery {
     }
 
     /// Get all collections for the currently logged in user.
-    async fn collections(&self, gql_ctx: &Context<'_>) -> Result<Vec<CollectionItem>> {
+    async fn collections(
+        &self,
+        gql_ctx: &Context<'_>,
+        limit: Option<u64>,
+    ) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .collections(&user_id)
+            .collections(&user_id, limit)
             .await
     }
 
@@ -682,7 +709,7 @@ impl MiscellaneousQuery {
     ) -> Result<Option<IdObject>> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_exists_in_database(identifier, lot, source)
+            .media_exists_in_database(&identifier, lot, source)
             .await
     }
 
@@ -706,6 +733,18 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .providers_language_information()
+    }
+
+    /// Get all the yank based integrations for the currently logged in user.
+    async fn user_yank_integrations(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_yank_integrations(user_id)
+            .await
     }
 }
 
@@ -894,7 +933,7 @@ impl MiscellaneousMutation {
     async fn progress_update(
         &self,
         gql_ctx: &Context<'_>,
-        input: ProgressUpdate,
+        input: ProgressUpdateInput,
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -939,7 +978,7 @@ impl MiscellaneousMutation {
     ) -> Result<IdObject> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_media(lot, source, identifier)
+            .commit_media(lot, source, &identifier)
             .await
     }
 
@@ -964,6 +1003,41 @@ impl MiscellaneousMutation {
             .generate_application_token(user_id)
             .await
     }
+
+    /// Create a yank based integrations for the currently logged in user.
+    async fn create_user_yank_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserYankIntegrationInput,
+    ) -> Result<usize> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .create_user_yank_integration(user_id, input)
+            .await
+    }
+
+    /// Delete a yank based integrations for the currently logged in user.
+    async fn delete_user_yank_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        yank_integration_id: usize,
+    ) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .delete_user_yank_integration(user_id, yank_integration_id)
+            .await
+    }
+
+    /// Yank data from all integrations for the currently logged in user
+    async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .yank_integrations_data_for_user(user_id)
+            .await
+    }
 }
 
 #[derive(Debug)]
@@ -972,16 +1046,17 @@ pub struct MiscellaneousService {
     scdb: MemoryDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
-    audible_service: Arc<AudibleService>,
-    google_books_service: Arc<GoogleBooksService>,
-    igdb_service: Arc<IgdbService>,
-    itunes_service: Arc<ITunesService>,
-    listennotes_service: Arc<ListennotesService>,
-    openlibrary_service: Arc<OpenlibraryService>,
-    tmdb_movies_service: Arc<TmdbMovieService>,
-    tmdb_shows_service: Arc<TmdbShowService>,
-    anilist_anime_service: Arc<AnilistAnimeService>,
-    anilist_manga_service: Arc<AnilistMangaService>,
+    audible_service: AudibleService,
+    google_books_service: GoogleBooksService,
+    igdb_service: IgdbService,
+    itunes_service: ITunesService,
+    listennotes_service: ListennotesService,
+    openlibrary_service: OpenlibraryService,
+    tmdb_movies_service: TmdbMovieService,
+    tmdb_shows_service: TmdbShowService,
+    anilist_anime_service: AnilistAnimeService,
+    anilist_manga_service: AnilistMangaService,
+    integration_service: IntegrationService,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -990,26 +1065,28 @@ pub struct MiscellaneousService {
 
 impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub async fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
-        audible_service: Arc<AudibleService>,
-        google_books_service: Arc<GoogleBooksService>,
-        igdb_service: Arc<IgdbService>,
-        itunes_service: Arc<ITunesService>,
-        listennotes_service: Arc<ListennotesService>,
-        openlibrary_service: Arc<OpenlibraryService>,
-        tmdb_movies_service: Arc<TmdbMovieService>,
-        tmdb_shows_service: Arc<TmdbShowService>,
-        anilist_anime_service: Arc<AnilistAnimeService>,
-        anilist_manga_service: Arc<AnilistMangaService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
+        let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary).await;
+        let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
+        let tmdb_movies_service = TmdbMovieService::new(&config.movies.tmdb).await;
+        let tmdb_shows_service = TmdbShowService::new(&config.shows.tmdb).await;
+        let audible_service = AudibleService::new(&config.audio_books.audible).await;
+        let igdb_service = IgdbService::new(&config.video_games).await;
+        let itunes_service = ITunesService::new(&config.podcasts.itunes).await;
+        let listennotes_service = ListennotesService::new(&config.podcasts).await;
+        let anilist_anime_service = AnilistAnimeService::new(&config.anime.anilist).await;
+        let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
+        let integration_service = IntegrationService::new().await;
+
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
@@ -1025,6 +1102,7 @@ impl MiscellaneousService {
             tmdb_shows_service,
             anilist_anime_service,
             anilist_manga_service,
+            integration_service,
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1076,7 +1154,7 @@ impl MiscellaneousService {
         let creators = meta.creators.clone().0;
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
-            *d = markdown_to_html_with_options(
+            *d = markdown_to_html_opts(
                 d,
                 &Options {
                     compile: CompileOptions {
@@ -1574,7 +1652,11 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
+    pub async fn progress_update(
+        &self,
+        input: ProgressUpdateInput,
+        user_id: i32,
+    ) -> Result<IdObject> {
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
@@ -1947,24 +2029,24 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
-        let mut user_preferences = self.user_by_id(user_id).await?.preferences;
-        user_preferences.features_enabled.anime =
-            self.config.anime.is_enabled() && user_preferences.features_enabled.anime;
-        user_preferences.features_enabled.audio_books =
-            self.config.audio_books.is_enabled() && user_preferences.features_enabled.audio_books;
-        user_preferences.features_enabled.books =
-            self.config.books.is_enabled() && user_preferences.features_enabled.books;
-        user_preferences.features_enabled.shows =
-            self.config.shows.is_enabled() && user_preferences.features_enabled.shows;
-        user_preferences.features_enabled.manga =
-            self.config.manga.is_enabled() && user_preferences.features_enabled.manga;
-        user_preferences.features_enabled.movies =
-            self.config.movies.is_enabled() && user_preferences.features_enabled.movies;
-        user_preferences.features_enabled.podcasts =
-            self.config.podcasts.is_enabled() && user_preferences.features_enabled.podcasts;
-        user_preferences.features_enabled.video_games =
-            self.config.video_games.is_enabled() && user_preferences.features_enabled.video_games;
-        Ok(user_preferences)
+        let mut prefs = self.user_by_id(user_id).await?.preferences;
+        prefs.features_enabled.anime =
+            self.config.anime.is_enabled() && prefs.features_enabled.anime;
+        prefs.features_enabled.audio_books =
+            self.config.audio_books.is_enabled() && prefs.features_enabled.audio_books;
+        prefs.features_enabled.books =
+            self.config.books.is_enabled() && prefs.features_enabled.books;
+        prefs.features_enabled.shows =
+            self.config.shows.is_enabled() && prefs.features_enabled.shows;
+        prefs.features_enabled.manga =
+            self.config.manga.is_enabled() && prefs.features_enabled.manga;
+        prefs.features_enabled.movies =
+            self.config.movies.is_enabled() && prefs.features_enabled.movies;
+        prefs.features_enabled.podcasts =
+            self.config.podcasts.is_enabled() && prefs.features_enabled.podcasts;
+        prefs.features_enabled.video_games =
+            self.config.video_games.is_enabled() && prefs.features_enabled.video_games;
+        Ok(prefs)
     }
 
     async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
@@ -2080,7 +2162,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn details_from_provider_for_existing_media(
+    async fn details_from_provider_for_existing_media(
         &self,
         metadata_id: i32,
     ) -> Result<MediaDetails> {
@@ -2090,29 +2172,29 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let results = self
-            .details_from_provider(metadata.lot, metadata.source, metadata.identifier)
+            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await?;
         Ok(results)
     }
 
-    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<ProviderArc> {
-        let service: ProviderArc = match source {
-            MetadataSource::Openlibrary => self.openlibrary_service.clone(),
-            MetadataSource::Itunes => self.itunes_service.clone(),
-            MetadataSource::GoogleBooks => self.google_books_service.clone(),
-            MetadataSource::Audible => self.audible_service.clone(),
-            MetadataSource::Listennotes => self.listennotes_service.clone(),
+    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
+        let service: Provider = match source {
+            MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
+            MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
+            MetadataSource::GoogleBooks => Box::new(self.google_books_service.clone()),
+            MetadataSource::Audible => Box::new(self.audible_service.clone()),
+            MetadataSource::Listennotes => Box::new(self.listennotes_service.clone()),
             MetadataSource::Tmdb => match lot {
-                MetadataLot::Show => self.tmdb_shows_service.clone(),
-                MetadataLot::Movie => self.tmdb_movies_service.clone(),
+                MetadataLot::Show => Box::new(self.tmdb_shows_service.clone()),
+                MetadataLot::Movie => Box::new(self.tmdb_movies_service.clone()),
                 _ => unreachable!(),
             },
             MetadataSource::Anilist => match lot {
-                MetadataLot::Anime => self.anilist_anime_service.clone(),
-                MetadataLot::Manga => self.anilist_manga_service.clone(),
+                MetadataLot::Anime => Box::new(self.anilist_anime_service.clone()),
+                MetadataLot::Manga => Box::new(self.anilist_manga_service.clone()),
                 _ => unreachable!(),
             },
-            MetadataSource::Igdb => self.igdb_service.clone(),
+            MetadataSource::Igdb => Box::new(self.igdb_service.clone()),
             MetadataSource::Custom => {
                 return Err(Error::new("This source is not supported".to_owned()));
             }
@@ -2124,10 +2206,10 @@ impl MiscellaneousService {
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        identifier: String,
+        identifier: &str,
     ) -> Result<MediaDetails> {
         let provider = self.get_provider(lot, source)?;
-        let results = provider.details(&identifier).await?;
+        let results = provider.details(identifier).await?;
         Ok(results)
     }
 
@@ -2135,10 +2217,10 @@ impl MiscellaneousService {
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        identifier: String,
+        identifier: &str,
     ) -> Result<IdObject> {
         if let Some(m) = self
-            .media_exists_in_database(identifier.clone(), lot, source)
+            .media_exists_in_database(identifier, lot, source)
             .await?
         {
             Ok(m)
@@ -2210,15 +2292,19 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn collections(&self, user_id: &i32) -> Result<Vec<CollectionItem>> {
+    async fn collections(&self, user_id: &i32, limit: Option<u64>) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(*user_id))
-            .find_with_related(Metadata)
             .all(&self.db)
             .await
             .unwrap();
         let mut data = vec![];
-        for (collection_details, metas) in collections.into_iter() {
+        for collection_details in collections.into_iter() {
+            let metas = collection_details
+                .find_related(Metadata)
+                .limit(limit)
+                .all(&self.db)
+                .await?;
             let mut meta_data = vec![];
             for meta in metas.iter() {
                 let m = self.generic_metadata(meta.id).await?;
@@ -2523,8 +2609,7 @@ impl MiscellaneousService {
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = match self.scdb.try_lock() {
             Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(e) => {
-                tracing::error!("{:?}", e);
+            Err(_) => {
                 return Err(Error::new("Could not lock user database"));
             }
         };
@@ -2762,16 +2847,14 @@ impl MiscellaneousService {
     async fn logout_user(&self, token: &str) -> Result<bool> {
         let found_token = match self.scdb.try_lock() {
             Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(e) => {
-                tracing::error!("{:?}", e);
+            Err(_) => {
                 return Err(Error::new("Could not lock user database"));
             }
         };
         if let Some(t) = found_token {
             match self.scdb.try_lock() {
                 Ok(mut d) => d.delete(&t)?,
-                Err(e) => {
-                    tracing::error!("{:?}", e);
+                Err(_) => {
                     return Err(Error::new("Could not lock user database"));
                 }
             };
@@ -3033,22 +3116,104 @@ impl MiscellaneousService {
         Ok(api_token)
     }
 
+    async fn user_yank_integrations(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+        let user = self.user_by_id(user_id).await?;
+        let integrations = if let Some(i) = user.yank_integrations {
+            i.0
+        } else {
+            vec![]
+        };
+        Ok(integrations
+            .into_iter()
+            .map(|i| {
+                let (lot, description) = match i.settings {
+                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
+                        (UserYankIntegrationLot::Audiobookshelf, base_url)
+                    }
+                };
+                GraphqlUserYankIntegration {
+                    id: i.id,
+                    lot,
+                    description,
+                    timestamp: i.timestamp,
+                }
+            })
+            .collect())
+    }
+
+    async fn create_user_yank_integration(
+        &self,
+        user_id: i32,
+        input: CreateUserYankIntegrationInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut integrations = if let Some(i) = user.yank_integrations.clone() {
+            i.0
+        } else {
+            vec![]
+        };
+        let new_integration_id = integrations.len() + 1;
+        let new_integration = UserYankIntegration {
+            id: new_integration_id,
+            timestamp: Utc::now(),
+            settings: match input.lot {
+                UserYankIntegrationLot::Audiobookshelf => {
+                    UserYankIntegrationSetting::Audiobookshelf {
+                        base_url: input.base_url,
+                        token: input.token,
+                    }
+                }
+            },
+        };
+        integrations.push(new_integration);
+        let mut user: user::ActiveModel = user.into();
+        user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
+        user.update(&self.db).await?;
+        Ok(new_integration_id)
+    }
+
+    async fn delete_user_yank_integration(
+        &self,
+        user_id: i32,
+        yank_integration_id: usize,
+    ) -> Result<bool> {
+        let user = self.user_by_id(user_id).await?;
+        let integrations = if let Some(i) = user.yank_integrations.clone() {
+            i.0
+        } else {
+            vec![]
+        };
+        let remaining_integrations = integrations
+            .into_iter()
+            .filter(|i| i.id != yank_integration_id)
+            .collect_vec();
+        let update_value = if remaining_integrations.is_empty() {
+            None
+        } else {
+            Some(UserYankIntegrations(remaining_integrations))
+        };
+        let mut user: user::ActiveModel = user.into();
+        user.yank_integrations = ActiveValue::Set(update_value);
+        user.update(&self.db).await?;
+        Ok(true)
+    }
+
     fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
         match self.scdb.lock() {
             Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
-            Err(e) => {
-                tracing::error!("{:?}", e);
-                Err(anyhow::anyhow!(
-                    "Could not lock auth database due to mutex poisoning"
-                ))?
-            }
+            Err(_) => Err(anyhow::anyhow!(
+                "Could not lock auth database due to mutex poisoning"
+            ))?,
         };
         Ok(())
     }
 
     async fn media_exists_in_database(
         &self,
-        identifier: String,
+        identifier: &str,
         lot: MetadataLot,
         source: MetadataSource,
     ) -> Result<Option<IdObject>> {
@@ -3120,5 +3285,60 @@ impl MiscellaneousService {
                 }
             })
             .collect()
+    }
+
+    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<usize> {
+        if let Some(integrations) = self.user_by_id(user_id).await?.yank_integrations {
+            let mut progress_updates = vec![];
+            for integration in integrations.0.iter() {
+                let response = match &integration.settings {
+                    UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
+                        self.integration_service
+                            .audiobookshelf_progress(base_url, token)
+                            .await
+                    }
+                };
+                if let Ok(data) = response {
+                    progress_updates.extend(data);
+                }
+            }
+            let mut updated_count = 0;
+            for pu in progress_updates.iter() {
+                if !(1..=95).contains(&pu.progress) {
+                    continue;
+                } else {
+                    updated_count += 1;
+                }
+                let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+                self.progress_update(
+                    ProgressUpdateInput {
+                        metadata_id: id,
+                        progress: Some(pu.progress),
+                        date: Some(Utc::now().date_naive()),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
+                        identifier: None,
+                    },
+                    user_id,
+                )
+                .await
+                .ok();
+            }
+            Ok(updated_count)
+        } else {
+            Ok(0)
+        }
+    }
+
+    pub async fn yank_integrations_data(&self) -> Result<()> {
+        let users_with_integrations = User::find()
+            .filter(user::Column::YankIntegrations.is_not_null())
+            .all(&self.db)
+            .await?;
+        for user in users_with_integrations {
+            self.yank_integrations_data_for_user(user.id).await?;
+        }
+        Ok(())
     }
 }

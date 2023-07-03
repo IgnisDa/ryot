@@ -1,5 +1,5 @@
-query Collections {
-  collections {
+query Collections($limit: Int) {
+  collections(limit: $limit) {
     collectionDetails {
       id
       name

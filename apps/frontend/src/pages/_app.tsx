@@ -31,7 +31,7 @@ const Footer = () => {
 	return (
 		<Container p={"md"} style={{ textAlign: "center" }}>
 			{coreDetails.data ? (
-				<Flex gap={50}>
+				<Flex gap={80}>
 					<Anchor
 						href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
 						target="_blank"

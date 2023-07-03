@@ -259,15 +259,14 @@ mod utils {
 
     use serde_json::json;
     use surf::{
-        http::headers::{AUTHORIZATION, USER_AGENT},
-        Client, Config, Url,
+        http::headers::{AUTHORIZATION},
+        Client, Url,
     };
 
     use super::*;
     use crate::{
         config::VideoGameConfig,
-        graphql::USER_AGENT_STR,
-        utils::{get_now_timestamp, read_file_to_json},
+        utils::{get_base_http_client_config, get_now_timestamp, read_file_to_json},
     };
 
     #[derive(Deserialize, Debug, Serialize)]
@@ -321,10 +320,8 @@ mod utils {
                 fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
                 creds.access_token
             };
-        Config::new()
+        get_base_http_client_config()
             .add_header("Client-ID", config.twitch.client_id.to_owned())
-            .unwrap()
-            .add_header(USER_AGENT, USER_AGENT_STR)
             .unwrap()
             .add_header(AUTHORIZATION, access_token)
             .unwrap()
