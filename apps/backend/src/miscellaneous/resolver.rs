@@ -1029,6 +1029,15 @@ impl MiscellaneousMutation {
             .delete_user_yank_integration(user_id, yank_integration_id)
             .await
     }
+
+    /// Yank data from all integrations for the currently logged in user
+    async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .yank_integrations_data_for_user(user_id)
+            .await
+    }
 }
 
 #[derive(Debug)]
@@ -3274,10 +3283,10 @@ impl MiscellaneousService {
             .collect()
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<()> {
+    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<bool> {
         let integrations = self.user_by_id(user_id).await?.yank_integrations.unwrap();
         dbg!(&integrations);
-        Ok(())
+        Ok(true)
     }
 
     pub async fn yank_integrations_data(&self) -> Result<()> {
