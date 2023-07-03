@@ -1,4 +1,20 @@
 
+# Version 1.5.5 (2023-07-03)
+
+## Bug Fixes
+
+* **backend:** remove image sorting fn
+* **backend:** get show and podcast information during export
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* update export instrutions
+
+
 # Version 1.5.4 (2023-07-03)
 
 ## Bug Fixes
