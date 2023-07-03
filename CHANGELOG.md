@@ -1,4 +1,15 @@
 
+# Version 1.5.6 (2023-07-03)
+
+## Bug Fixes
+
+* **backend:** mysql related errors
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.5.5 (2023-07-03)
 
 ## Bug Fixes
