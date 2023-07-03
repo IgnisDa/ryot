@@ -28,6 +28,14 @@ export default function Page() {
 
 	return (
 		<View>
+			<Button
+				onPress={async () => {
+					await signOut();
+					router.push(ROUTES.setup);
+				}}
+			>
+				Sign out
+			</Button>
 			<Input
 				placeholder="Search for an exercise"
 				autoCapitalize="none"
@@ -45,14 +53,6 @@ export default function Page() {
 					)}
 				/>
 			) : null}
-			<Button
-				onPress={async () => {
-					await signOut();
-					router.push(ROUTES.setup);
-				}}
-			>
-				Sign out
-			</Button>
 		</View>
 	);
 }
