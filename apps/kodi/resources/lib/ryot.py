@@ -4,6 +4,7 @@ import urllib.parse
 import json
 from typing import Literal, Optional
 
+# TODO: Use templating to inline these queries at plugin build time
 COMMIT_MEDIA = """
     mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {
       commitMedia(lot: $lot, source: $source, identifier: $identifier) {
