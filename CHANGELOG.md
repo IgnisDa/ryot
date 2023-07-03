@@ -1,4 +1,16 @@
 
+# Version 1.5.4 (2023-07-03)
+
+## Bug Fixes
+
+* **backend:** remove useless comment
+
+## Build
+
+* **backend:** bump version
+* **kodi:** bump version
+
+
 # Version 1.5.3 (2023-07-03)
 
 
