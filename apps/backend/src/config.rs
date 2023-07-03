@@ -108,6 +108,7 @@ pub struct DatabaseConfig {
     #[setting(default = format!("/data/{}-scdb.db", PROJECT_NAME))]
     pub scdb_url: String,
     /// The database connection string. Supports SQLite, MySQL and Postgres.
+    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
     pub url: String,
 }

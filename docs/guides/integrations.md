@@ -15,7 +15,7 @@ new integration under the "Integrations" tab.
 - ### Audiobookshelf
 
   The [Audiobookshelf](https://www.audiobookshelf.org/) integration can sync
-  audiobooks which have a match from Audible.
+  all media which have a match from Audible.
 
   An item is marked as started when it has more than _2%_ progress and marked as
   completed when it has more than _95%_ progress.
