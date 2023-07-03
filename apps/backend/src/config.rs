@@ -137,12 +137,7 @@ pub struct ExerciseConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
-pub struct MediaConfig {
-    /// Whether to sort images by their resolution. This will result in better
-    /// images being displayed first in the media details page.
-    #[setting(default = false)]
-    pub sort_images: bool,
-}
+pub struct MediaConfig {}
 
 fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
     if !TmdbService::supported_languages().contains(&value.to_owned()) {

@@ -85,8 +85,7 @@ export interface MangaConfig {
 }
 
 export interface MediaConfig {
-	// Whether to sort images by their resolution. This will result in better
-	sort_images: boolean;
+
 }
 
 export interface MoviesTmdbConfig {
