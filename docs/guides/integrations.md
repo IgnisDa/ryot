@@ -12,19 +12,17 @@ For each integration you want to enable, credentials for the external server
 must be saved to your profile. To do so, go to the "Settings" tab and add a
 new integration under the "Integrations" tab.
 
+**NOTE**: An item is marked as started when it has more than _2%_ progress and
+marked as completed when it has more than _95%_ progress.
+
 - ### Audiobookshelf
 
-  The [Audiobookshelf](https://www.audiobookshelf.org/) integration can sync
-  all media which have a match from Audible.
+  The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all
+  media which have a match from _Audible_.
 
-  An item is marked as started when it has more than _2%_ progress and marked as
-  completed when it has more than _95%_ progress.
-
-  ### Steps
-
-  - Obtain an API token as described in the Audiobookshelf
+  1. Obtain an API token as described in the Audiobookshelf
   [authentication](https://api.audiobookshelf.org/#authentication) docs.
-  - Go to your Ryot user settings and add the correct details as described in the
+  2. Go to your Ryot user settings and add the correct details as described in the
   [yank](#yank-plugins) section.
 
 ## Sink plugins
@@ -38,11 +36,9 @@ the "Tokens" tab. It will look like this: `e96fca00-18b1-467c-80f0-8534e09ed790`
   show you are watching. It will work for all the media that have been a valid
   TMDb ID attached to their metadata.
 
-  #### Steps
-
-  - Download the addon from [github releases](https://github.com/IgnisDa/ryot/releases).
+  1. Download the addon from [github releases](https://github.com/IgnisDa/ryot/releases).
   The file will have a name of `script.ryot.zip`.
-  - [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
+  2. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
   the zipped addon to your Kodi instance. Once installed, it will be visible under
   the "Services" sub category named "Ryot".
-  - Click on "Configure" to change the addon settings and fill the correct details.
+  3. Click on "Configure" to change the addon settings and fill the correct details.
