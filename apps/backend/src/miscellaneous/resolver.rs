@@ -3287,10 +3287,48 @@ impl MiscellaneousService {
             .collect()
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<bool> {
-        let integrations = self.user_by_id(user_id).await?.yank_integrations.unwrap();
-        dbg!(&integrations);
-        Ok(true)
+    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<usize> {
+        if let Some(integrations) = self.user_by_id(user_id).await?.yank_integrations {
+            let mut progress_updates = vec![];
+            for integration in integrations.0.iter() {
+                let response = match &integration.settings {
+                    UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
+                        self.integration_service
+                            .audiobookshelf_progress(base_url, token)
+                            .await
+                    }
+                };
+                if let Ok(data) = response {
+                    progress_updates.extend(data);
+                }
+            }
+            let mut updated_count = 0;
+            for pu in progress_updates.iter() {
+                if !(1..=95).contains(&pu.progress) {
+                    continue;
+                } else {
+                    updated_count += 1;
+                }
+                let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+                self.progress_update(
+                    ProgressUpdateInput {
+                        metadata_id: id,
+                        progress: Some(pu.progress),
+                        date: Some(Utc::now().date_naive()),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
+                        identifier: None,
+                    },
+                    user_id,
+                )
+                .await
+                .ok();
+            }
+            Ok(updated_count)
+        } else {
+            Ok(0)
+        }
     }
 
     pub async fn yank_integrations_data(&self) -> Result<()> {
