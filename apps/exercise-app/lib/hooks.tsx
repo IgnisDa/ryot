@@ -71,12 +71,12 @@ export const AuthProvider = ({ children }: { children: JSX.Element }) => {
 	const signOut = async () => {
 		const instanceUrl = await AsyncStorage.getItem(URL_KEY);
 		const token = await AsyncStorage.getItem(AUTH_KEY);
-		await request(
+		request(
 			`${instanceUrl}/graphql`,
 			LogoutUserDocument,
 			undefined,
 			getAuthHeader(token),
-		);
+		).catch(console.error);
 		setAuthData(null);
 		await AsyncStorage.removeItem(URL_KEY);
 		await AsyncStorage.removeItem(AUTH_KEY);

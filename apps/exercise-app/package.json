@@ -8,15 +8,10 @@
 	"dependencies": {
 		"@expo/config-plugins": "~6.0.0",
 		"@expo/webpack-config": "^18.0.1",
-		"@gluestack-style/animation-plugin": "latest",
-		"@gluestack-style/react": "latest",
-		"@gluestack-ui/button": "latest",
-		"@gluestack-ui/form-control": "latest",
-		"@gluestack-ui/input": "latest",
-		"@gluestack-ui/provider": "latest",
-		"@gluestack-ui/spinner": "latest",
 		"@mantine/hooks": "6.0.8",
 		"@react-native-async-storage/async-storage": "1.17.11",
+		"@rneui/base": "4.0.0-rc.7",
+		"@rneui/themed": "4.0.0-rc.7",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
 		"@tanstack/react-query": "4.29.15",
@@ -31,6 +26,7 @@
 		"react-native-gesture-handler": "~2.9.0",
 		"react-native-safe-area-context": "4.5.0",
 		"react-native-screens": "~3.20.0",
+		"react-native-vector-icons": "9.2.0",
 		"react-native-web": "~0.18.7"
 	},
 	"devDependencies": {
