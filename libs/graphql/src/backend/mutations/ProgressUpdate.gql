@@ -1,4 +1,4 @@
-mutation ProgressUpdate($input: ProgressUpdate!) {
+mutation ProgressUpdate($input: ProgressUpdateInput!) {
   progressUpdate(input: $input) {
     id
   }

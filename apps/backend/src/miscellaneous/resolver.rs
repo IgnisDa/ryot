@@ -435,7 +435,7 @@ pub struct DetailedMediaSearchResults {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdate {
+pub struct ProgressUpdateInput {
     pub metadata_id: Identifier,
     pub progress: Option<i32>,
     pub date: Option<NaiveDate>,
@@ -933,7 +933,7 @@ impl MiscellaneousMutation {
     async fn progress_update(
         &self,
         gql_ctx: &Context<'_>,
-        input: ProgressUpdate,
+        input: ProgressUpdateInput,
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -1652,7 +1652,11 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn progress_update(&self, input: ProgressUpdate, user_id: i32) -> Result<IdObject> {
+    pub async fn progress_update(
+        &self,
+        input: ProgressUpdateInput,
+        user_id: i32,
+    ) -> Result<IdObject> {
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))

@@ -17,7 +17,7 @@ use crate::{
     miscellaneous::{
         resolver::{
             AddMediaToCollection, MediaDetails, MiscellaneousService, PostReviewInput,
-            ProgressUpdate,
+            ProgressUpdateInput,
         },
         DefaultCollection,
     },
@@ -271,7 +271,7 @@ impl ImporterService {
             for seen in item.seen_history.iter() {
                 self.media_service
                     .progress_update(
-                        ProgressUpdate {
+                        ProgressUpdateInput {
                             identifier: seen.id.clone(),
                             metadata_id: metadata.id,
                             progress: Some(100),
