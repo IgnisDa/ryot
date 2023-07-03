@@ -2757,6 +2757,7 @@ impl MiscellaneousService {
             name: ActiveValue::Set(username.to_owned()),
             password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
+            preferences: ActiveValue::Set(UserPreferences::default()),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();

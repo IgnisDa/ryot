@@ -68,12 +68,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Email).unique_key().string())
                     .col(ColumnDef::new(User::Password).string().not_null())
                     .col(ColumnDef::new(User::Lot).string_len(1).not_null())
-                    .col(
-                        ColumnDef::new(User::Preferences)
-                            .json()
-                            .not_null()
-                            .default("{}"),
-                    )
+                    .col(ColumnDef::new(User::Preferences).json().not_null())
                     .col(ColumnDef::new(User::YankIntegrations).json())
                     .to_owned(),
             )
