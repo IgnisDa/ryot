@@ -68,6 +68,7 @@ mod file_storage;
 mod fitness;
 mod graphql;
 mod importer;
+mod integrations;
 mod migrator;
 mod miscellaneous;
 mod models;

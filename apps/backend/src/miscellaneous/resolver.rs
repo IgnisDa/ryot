@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::integrations::IntegrationService;
 use crate::users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations};
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
@@ -1046,6 +1047,7 @@ pub struct MiscellaneousService {
     tmdb_shows_service: TmdbShowService,
     anilist_anime_service: AnilistAnimeService,
     anilist_manga_service: AnilistMangaService,
+    integration_service: IntegrationService,
     after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     update_metadata: SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -1074,6 +1076,7 @@ impl MiscellaneousService {
         let listennotes_service = ListennotesService::new(&config.podcasts).await;
         let anilist_anime_service = AnilistAnimeService::new(&config.anime.anilist).await;
         let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
+        let integration_service = IntegrationService::new().await;
 
         Self {
             db: db.clone(),
@@ -1090,6 +1093,7 @@ impl MiscellaneousService {
             tmdb_shows_service,
             anilist_anime_service,
             anilist_manga_service,
+            integration_service,
             after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
