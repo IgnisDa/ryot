@@ -3027,12 +3027,24 @@ impl MiscellaneousService {
         let mut resp = vec![];
 
         for m in metas {
-            let seens = m
+            let mut seens = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
+            for seen in seens.iter_mut() {
+                if let Some(extra_info) = seen.extra_information.as_ref() {
+                    match extra_info {
+                        SeenExtraInformation::Show(info) => {
+                            seen.show_information = Some(info.clone());
+                        }
+                        SeenExtraInformation::Podcast(info) => {
+                            seen.podcast_information = Some(info.clone());
+                        }
+                    };
+                }
+            }
             let reviews = m
                 .find_related(Review)
                 .filter(review::Column::UserId.eq(user_id))
