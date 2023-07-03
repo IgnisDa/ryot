@@ -1,4 +1,12 @@
 
+# Version 1.5.7 (2023-07-04)
+
+## Build
+
+* **backend:** bump version
+* **backend:** update schematic version
+
+
 # Version 1.5.6 (2023-07-03)
 
 ## Bug Fixes

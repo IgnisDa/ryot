@@ -7,17 +7,17 @@ export interface AnimeAnilistConfig {
 }
 
 export interface AnimeConfig {
-	// Settings related to Anilist (anime).
+	/** Settings related to Anilist (anime). */
 	anilist: AnimeAnilistConfig;
 }
 
 export interface AudibleConfig {
-	// Settings related to locale for making requests Audible.
+	/** Settings related to locale for making requests Audible. */
 	locale: string;
 }
 
 export interface AudioBookConfig {
-	// Settings related to Audible.
+	/** Settings related to Audible. */
 	audible: AudibleConfig;
 }
 
@@ -28,28 +28,37 @@ export interface GoogleBooksConfig {
 export type OpenlibraryCoverImageSize = 'S' | 'M' | 'L';
 
 export interface OpenlibraryConfig {
-	// The image sizes to fetch from Openlibrary.
+	/** The image sizes to fetch from Openlibrary. */
 	cover_image_size: OpenlibraryCoverImageSize;
 }
 
 export interface BookConfig {
-	// Settings related to Google Books.
+	/** Settings related to Google Books. */
 	googleBooks: GoogleBooksConfig;
-	// Settings related to Openlibrary.
+	/** Settings related to Openlibrary. */
 	openlibrary: OpenlibraryConfig;
 }
 
 export interface DatabaseConfig {
-	// The path where [SCDB](https://docs.rs/scdb) will persist its storage.
+	/** The path where [SCDB](https://docs.rs/scdb) will persist its storage. */
 	scdb_url: string;
-	// The database connection string. Supports SQLite, MySQL and Postgres.
+	/**
+	 * The database connection string. Supports SQLite, MySQL and Postgres.
+	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
+	 */
 	url: string;
 }
 
 export interface FreeExerciseDbConfig {
-	// The base URL to prefix for all images.
+	/**
+	 * The base URL to prefix for all images.
+	 * @default 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises'
+	 */
 	images_prefix_url: string;
-	// The URL for the raw JSON for all exercises.
+	/**
+	 * The URL for the raw JSON for all exercises.
+	 * @default 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json'
+	 */
 	json_url: string;
 }
 
@@ -58,20 +67,33 @@ export interface ExerciseConfig {
 }
 
 export interface FileStorageConfig {
-	// The access key ID for the S3 compatible file storage. **Required** to
-	s_3_access_key_id: string;
-	// The name of the S3 compatible bucket. **Required** to enable file storage.
-	s_3_bucket_name: string;
-	// The region for the S3 compatible file storage.
-	s_3_region: string;
-	// The secret access key for the S3 compatible file storage. **Required**
-	s_3_secret_access_key: string;
-	// The URL for the S3 compatible file storage.
-	s_3_url: string;
+	/**
+	 * The access key ID for the S3 compatible file storage. **Required*to
+	 * enable file storage.
+	 */
+	s3_access_key_id: string;
+	/** The name of the S3 compatible bucket. **Required*to enable file storage. */
+	s3_bucket_name: string;
+	/**
+	 * The region for the S3 compatible file storage.
+	 * @default 'us-east-1'
+	 */
+	s3_region: string;
+	/**
+	 * The secret access key for the S3 compatible file storage. **Required**
+	 * to enable file storage.
+	 */
+	s3_secret_access_key: string;
+	/** The URL for the S3 compatible file storage. */
+	s3_url: string;
 }
 
 export interface IntegrationConfig {
-	// Sync data from [yank](/docs/guides/integrations.md) based integrations
+	/**
+	 * Sync data from [yank](/docs/guides/integrations.md) based integrations
+	 * every `n` hours.
+	 * @default 2
+	 */
 	pull_every: number;
 }
 
@@ -80,7 +102,7 @@ export interface MangaAnilistConfig {
 }
 
 export interface MangaConfig {
-	// Settings related to Anilist (manga).
+	/** Settings related to Anilist (manga). */
 	anilist: MangaAnilistConfig;
 }
 
@@ -89,123 +111,154 @@ export interface MediaConfig {
 }
 
 export interface MoviesTmdbConfig {
-	// The access token for the TMDB API.
+	/** The access token for the TMDB API. */
 	access_token: string;
-	// The locale to use for making requests to TMDB API.
+	/** The locale to use for making requests to TMDB API. */
 	locale: string;
 }
 
 export interface MovieConfig {
-	// Settings related to TMDB (movies).
+	/** Settings related to TMDB (movies). */
 	tmdb: MoviesTmdbConfig;
 }
 
 export interface ITunesConfig {
-	// The locale to use for making requests to iTunes API.
+	/** The locale to use for making requests to iTunes API. */
 	locale: string;
 }
 
 export interface ListenNotesConfig {
-	// The access token for the Listennotes API.
+	/** The access token for the Listennotes API. */
 	api_token: string;
 }
 
 export interface PodcastConfig {
-	// Settings related to iTunes.
+	/** Settings related to iTunes. */
 	itunes: ITunesConfig;
-	// Settings related to Listennotes.
+	/** Settings related to Listennotes. */
 	listennotes: ListenNotesConfig;
 }
 
 export interface SchedulerConfig {
-	// The url to the SQLite database where job related data needs to be stored.
+	/**
+	 * The url to the SQLite database where job related data needs to be stored.
+	 * @default 'sqlite::memory:'
+	 */
 	database_url: string;
-	// The number of jobs to process every 5 seconds when updating metadata in
+	/**
+	 * The number of jobs to process every 5 seconds when updating metadata in
+	 * the background.
+	 * @default 5
+	 */
 	rate_limit_num: number;
-	// Deploy a job every x hours that performs user cleanup and summary
+	/**
+	 * Deploy a job every x hours that performs user cleanup and summary
+	 * calculation.
+	 * @default 12
+	 */
 	user_cleanup_every: number;
 }
 
 export interface ShowsTmdbConfig {
-	// The access token for the TMDB API.
+	/** The access token for the TMDB API. */
 	access_token: string;
-	// The locale to use for making requests to TMDB API.
+	/** The locale to use for making requests to TMDB API. */
 	locale: string;
 }
 
 export interface ShowConfig {
-	// Settings related to TMDB (shows).
+	/** Settings related to TMDB (shows). */
 	tmdb: ShowsTmdbConfig;
 }
 
 export interface UsersConfig {
-	// Whether users will be allowed to change their username in their profile
+	/**
+	 * Whether users will be allowed to change their username in their profile
+	 * settings.
+	 * @default true
+	 */
 	allow_changing_username: boolean;
-	// Whether new users will be allowed to sign up to this instance.
+	/**
+	 * Whether new users will be allowed to sign up to this instance.
+	 * @default true
+	 */
 	allow_registration: boolean;
-	// The number of days till login auth token is valid.
+	/**
+	 * The number of days till login auth token is valid.
+	 * @default 90
+	 */
 	token_valid_for_days: number;
 }
 
 export type IgdbImageSize = 't_original';
 
 export interface IgdbConfig {
-	// The image sizes to fetch from IGDB.
+	/** The image sizes to fetch from IGDB. */
 	image_size: IgdbImageSize;
 }
 
 export interface TwitchConfig {
-	// The client ID issues by Twitch. **Required** to enable video games
+	/**
+	 * The client ID issues by Twitch. **Required*to enable video games
+	 * tracking. [More information](/docs/guides/video-games.md)
+	 */
 	client_id: string;
-	// The client secret issued by Twitch. **Required** to enable video games
+	/**
+	 * The client secret issued by Twitch. **Required*to enable video games
+	 * tracking.
+	 */
 	client_secret: string;
 }
 
 export interface VideoGameConfig {
-	// Settings related to IGDB.
+	/** Settings related to IGDB. */
 	igdb: IgdbConfig;
-	// Settings related to Twitch.
+	/** Settings related to Twitch. */
 	twitch: TwitchConfig;
 }
 
 export interface WebConfig {
-	// An array of URLs for CORS.
+	/** An array of URLs for CORS. */
 	cors_origins: string[];
-	// This will make auth cookies insecure and should be set to `true` if you
+	/**
+	 * This will make auth cookies insecure and should be set to `true` if you
+	 * are running the server on `localhost`.
+	 * [More information](https://github.com/IgnisDa/ryot/issues/23#)
+	 */
 	insecure_cookie: boolean;
 }
 
 export interface AppConfig {
-	// Settings related to anime.
+	/** Settings related to anime. */
 	anime: AnimeConfig;
-	// Settings related to audio books.
+	/** Settings related to audio books. */
 	audio_books: AudioBookConfig;
-	// Settings related to books.
+	/** Settings related to books. */
 	books: BookConfig;
-	// The database related settings.
+	/** The database related settings. */
 	database: DatabaseConfig;
-	// Settings related to exercises.
+	/** Settings related to exercises. */
 	exercise: ExerciseConfig;
-	// Settings related to file storage.
+	/** Settings related to file storage. */
 	file_storage: FileStorageConfig;
-	// Settings related to external integrations.
+	/** Settings related to external integrations. */
 	integration: IntegrationConfig;
-	// Settings related to manga.
+	/** Settings related to manga. */
 	manga: MangaConfig;
-	// Settings related to media.
+	/** Settings related to media. */
 	media: MediaConfig;
-	// Settings related to movies.
+	/** Settings related to movies. */
 	movies: MovieConfig;
-	// Settings related to podcasts.
+	/** Settings related to podcasts. */
 	podcasts: PodcastConfig;
-	// Settings related to scheduler.
+	/** Settings related to scheduler. */
 	scheduler: SchedulerConfig;
-	// Settings related to shows.
+	/** Settings related to shows. */
 	shows: ShowConfig;
-	// Settings related to users.
+	/** Settings related to users. */
 	users: UsersConfig;
-	// Settings related to video games.
+	/** Settings related to video games. */
 	video_games: VideoGameConfig;
-	// Settings related to website.
+	/** Settings related to website. */
 	web: WebConfig;
 }

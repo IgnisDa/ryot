@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.5.6"
+version = "1.5.7"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -36,7 +36,7 @@ regex = "1.8.1"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
-schematic = { version = "0.10.1", features = [
+schematic = { version = "0.11.0", features = [
     "schema",
     "toml",
     "typescript",
