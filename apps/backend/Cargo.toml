@@ -39,8 +39,8 @@ rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
 schematic = { version = "0.10.1", features = [
     "schema",
-    "typescript",
     "toml",
+    "typescript",
     "yaml",
     "valid_url"
 ] }
