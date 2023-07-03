@@ -56,6 +56,8 @@ import {
 	UserDetailsDocument,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
+	YankIntegrationDataDocument,
+	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconAnalyze,
@@ -288,6 +290,22 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const yankIntegrationData = useMutation({
+		mutationFn: async (_variables: YankIntegrationDataMutationVariables) => {
+			const { yankIntegrationData } = await gqlClient.request(
+				YankIntegrationDataDocument,
+			);
+			return yankIntegrationData;
+		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "Progress data has been syncronized successfully",
+				color: "green",
+			});
+		},
+	});
+
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (_variables: RegenerateUserSummaryMutationVariables) => {
 			const { regenerateUserSummary } = await gqlClient.request(
@@ -408,14 +426,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="tokens" icon={<IconApps size="1rem" />}>
 								Tokens
 							</Tabs.Tab>
-							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
-								Misc
-							</Tabs.Tab>
 							<Tabs.Tab
 								value="integrations"
 								icon={<IconNeedleThread size="1rem" />}
 							>
 								Integrations
+							</Tabs.Tab>
+							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
+								Miscellaneous
 							</Tabs.Tab>
 						</Tabs.List>
 
@@ -564,37 +582,57 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="misc">
 							<Stack>
-								<Box>
-									<Title order={4}>Regenerate Summaries</Title>
-									<Text>
-										Regenerate all pre-computed summaries from the beginning.
-										This may be useful if, for some reason, summaries are faulty
-										or preconditions have changed. This may take some time.
-									</Text>
-								</Box>
-								<Button
-									color="red"
-									onClick={() => regenerateUserSummary.mutate({})}
-									loading={regenerateUserSummary.isLoading}
-								>
-									Clean and regenerate
-								</Button>
+								<>
+									<Box>
+										<Title order={4}>Update all metadata</Title>
+										<Text>
+											Fetch and update the metadata for all the media items that
+											are stored. The more media you have, the longer this will
+											take.
+										</Text>
+									</Box>
+									<Button
+										onClick={() => deployUpdateAllMetadataJobs.mutate({})}
+										loading={deployUpdateAllMetadataJobs.isLoading}
+									>
+										Delpoy job
+									</Button>
+								</>
 								<Divider />
-								<Box>
-									<Title order={4}>Update all metadata</Title>
-									<Text>
-										Fetch and update the metadata for all the media items that
-										are stored. The more media you have, the longer this will
-										take.
-									</Text>
-								</Box>
-								<Button
-									color="red"
-									onClick={() => deployUpdateAllMetadataJobs.mutate({})}
-									loading={deployUpdateAllMetadataJobs.isLoading}
-								>
-									Update All
-								</Button>
+								<>
+									<Box>
+										<Title order={4}>Synchronize integrations progress</Title>
+										<Text>
+											Get data from all configured integrations and update
+											progress if applicable. The more integrations you have
+											enabled, the longer this will take.
+										</Text>
+									</Box>
+									<Button
+										onClick={() => yankIntegrationData.mutate({})}
+										loading={yankIntegrationData.isLoading}
+									>
+										Synchronize
+									</Button>
+								</>
+								<Divider />
+								<>
+									<Box>
+										<Title order={4}>Regenerate Summaries</Title>
+										<Text>
+											Regenerate all pre-computed summaries from the beginning.
+											This may be useful if, for some reason, summaries are
+											faulty or preconditions have changed. This may take some
+											time.
+										</Text>
+									</Box>
+									<Button
+										onClick={() => regenerateUserSummary.mutate({})}
+										loading={regenerateUserSummary.isLoading}
+									>
+										Clean and regenerate
+									</Button>
+								</>
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="integrations">
