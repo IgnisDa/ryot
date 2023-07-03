@@ -234,8 +234,8 @@ async fn main() -> Result<()> {
     let media_service_7 = app_services.media_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
 
-    let user_cleanup_every = config.scheduler.user_cleanup_every.clone();
-    let pull_every = config.integration.pull_every.clone();
+    let user_cleanup_every = config.scheduler.user_cleanup_every;
+    let pull_every = config.integration.pull_every;
 
     let monitor = async {
         let mn = Monitor::new()

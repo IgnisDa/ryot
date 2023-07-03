@@ -3108,7 +3108,7 @@ impl MiscellaneousService {
         user_id: i32,
     ) -> Result<Vec<GraphqlUserYankIntegration>> {
         let user = self.user_by_id(user_id).await?;
-        let integrations = if let Some(i) = user.yank_integrations.clone() {
+        let integrations = if let Some(i) = user.yank_integrations {
             i.0
         } else {
             vec![]

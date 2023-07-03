@@ -4,11 +4,10 @@ use chrono::Datelike;
 use itertools::Itertools;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
+use surf::{Client, Url};
 
 use crate::{
     config::ITunesConfig,
-    graphql::USER_AGENT_STR,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
@@ -16,7 +15,7 @@ use crate::{
     },
     models::media::{PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::NamedObject,
+    utils::{get_base_http_client_config, NamedObject},
 };
 
 pub static URL: &str = "https://itunes.apple.com/";
@@ -39,9 +38,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &ITunesConfig) -> Self {
-        let client = Config::new()
-            .add_header(USER_AGENT, USER_AGENT_STR)
-            .unwrap()
+        let client = get_base_http_client_config()
             .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();
@@ -147,8 +144,7 @@ impl MediaProvider for ITunesService {
         let episodes = episodes.results.unwrap_or_default();
         let publish_date = episodes
             .last()
-            .map(|e| e.release_date.to_owned())
-            .flatten()
+            .and_then(|e| e.release_date.to_owned())
             .map(|d| d.date_naive());
         let episodes = episodes
             .into_iter()

@@ -6,11 +6,10 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
+use surf::{Client, Url};
 
 use crate::{
     config::OpenlibraryConfig,
-    graphql::USER_AGENT_STR,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
@@ -18,7 +17,7 @@ use crate::{
     },
     models::media::BookSpecifics,
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_data_parallelly_from_sources,
+    utils::{get_base_http_client_config, get_data_parallelly_from_sources},
 };
 
 pub static URL: &str = "https://openlibrary.org";
@@ -62,9 +61,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig) -> Self {
-        let client: Client = Config::new()
-            .add_header(USER_AGENT, USER_AGENT_STR)
-            .unwrap()
+        let client: Client = get_base_http_client_config()
             .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();

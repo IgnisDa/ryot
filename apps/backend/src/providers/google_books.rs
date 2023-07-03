@@ -3,11 +3,10 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
+use surf::{Client, Url};
 
 use crate::{
     config::GoogleBooksConfig,
-    graphql::USER_AGENT_STR,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
@@ -15,7 +14,7 @@ use crate::{
     },
     models::media::BookSpecifics,
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::convert_date_to_year,
+    utils::{convert_date_to_year, get_base_http_client_config},
 };
 
 pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
@@ -37,9 +36,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 
 impl GoogleBooksService {
     pub async fn new(_config: &GoogleBooksConfig) -> Self {
-        let client = Config::new()
-            .add_header(USER_AGENT, USER_AGENT_STR)
-            .unwrap()
+        let client = get_base_http_client_config()
             .set_base_url(Url::parse(URL).unwrap())
             .try_into()
             .unwrap();
@@ -223,8 +220,7 @@ impl GoogleBooksService {
             genres: genres.into_iter().unique().collect(),
             publish_year: item
                 .published_date
-                .map(|d| convert_date_to_year(&d))
-                .flatten(),
+                .and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: item.page_count,

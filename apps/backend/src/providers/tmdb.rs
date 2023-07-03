@@ -492,11 +492,12 @@ mod utils {
     use std::{env, fs};
 
     use surf::{
-        http::headers::{AUTHORIZATION, USER_AGENT},
-        Config, Url,
+        http::headers::{AUTHORIZATION}, Url,
     };
 
-    use crate::{graphql::USER_AGENT_STR, utils::read_file_to_json};
+    use crate::{
+        utils::{get_base_http_client_config, read_file_to_json},
+    };
 
     use super::*;
 
@@ -520,9 +521,7 @@ mod utils {
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let path = env::temp_dir().join("tmdb-config.json");
-        let client: Client = Config::new()
-            .add_header(USER_AGENT, USER_AGENT_STR)
-            .unwrap()
+        let client: Client = get_base_http_client_config()
             .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
             .unwrap()
             .set_base_url(Url::parse(url).unwrap())

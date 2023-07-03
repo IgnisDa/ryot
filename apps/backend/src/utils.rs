@@ -11,19 +11,20 @@ use scdb::Store;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Serialize};
-use surf::Client;
+use surf::http::headers::USER_AGENT;
+use surf::{Client, Config};
 use tokio::task::JoinSet;
 
-use crate::background::UpdateExerciseJob;
-use crate::file_storage::FileStorageService;
-use crate::fitness::exercise::resolver::ExerciseService;
 use crate::{
     background::{
-        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateMetadataJob,
-        UserCreatedJob,
+        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateExerciseJob,
+        UpdateMetadataJob, UserCreatedJob,
     },
     config::AppConfig,
     entities::user_to_metadata,
+    file_storage::FileStorageService,
+    fitness::exercise::resolver::ExerciseService,
+    graphql::USER_AGENT_STR,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
     GqlCtx,
@@ -182,4 +183,10 @@ pub fn get_now_timestamp() -> u128 {
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_millis()
+}
+
+pub fn get_base_http_client_config() -> Config {
+    Config::new()
+        .add_header(USER_AGENT, USER_AGENT_STR)
+        .unwrap()
 }
