@@ -7,6 +7,7 @@ import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Page() {
 	const { signOut } = useAuth();
@@ -33,7 +34,8 @@ export default function Page() {
 	};
 
 	return (
-		<View>
+		<SafeAreaView style={{ paddingHorizontal: 15 }}>
+			{exercises.isFetching ? <ActivityIndicator /> : null}
 			<Button
 				onPress={async () => {
 					await signOut();
@@ -60,7 +62,6 @@ export default function Page() {
 					)}
 				/>
 			) : null}
-			{exercises.isLoading ? <ActivityIndicator /> : null}
-		</View>
+		</SafeAreaView>
 	);
 }

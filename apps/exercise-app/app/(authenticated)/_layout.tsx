@@ -11,5 +11,5 @@ export default function Layout() {
 		if (!loading && !authData) router.push(ROUTES.setup);
 	}, [authData, loading]);
 
-	return <Stack screenOptions={{}} />;
+	return <Stack screenOptions={{ headerShown: false }} />;
 }
