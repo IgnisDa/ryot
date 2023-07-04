@@ -14,7 +14,7 @@ COMMIT_MEDIA = """
 """
 
 PROGRESS_UPDATE = """
-    mutation ProgressUpdate($input: ProgressUpdate!) {
+    mutation ProgressUpdate($input: ProgressUpdateInput!) {
       progressUpdate(input: $input) {
         id
       }
