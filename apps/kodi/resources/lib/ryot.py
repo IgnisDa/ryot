@@ -1,26 +1,20 @@
+import os
+from pathlib import Path
 from datetime import date
 import urllib.request
 import urllib.parse
 import json
 from typing import Literal, Optional
 
-# TODO: Use templating to inline these queries at plugin build time
-COMMIT_MEDIA = """
-    mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {
-      commitMedia(lot: $lot, source: $source, identifier: $identifier) {
-        id
-      }
-    }
-"""
+BASE_PATH = Path(os.path.dirname(__file__))
+QUERIES_PATH = BASE_PATH / 'queries'
+MUTATIONS_PATH = BASE_PATH / 'mutations'
 
-PROGRESS_UPDATE = """
-    mutation ProgressUpdate($input: ProgressUpdateInput!) {
-      progressUpdate(input: $input) {
-        id
-      }
-    }
-"""
+with open(MUTATIONS_PATH / 'CommitMedia.gql') as f:
+    COMMIT_MEDIA = f.read()
 
+with open(MUTATIONS_PATH / 'ProgressUpdate.gql') as f:
+    PROGRESS_UPDATE = f.read()
 
 class Ryot:
     def __init__(self, url: str, api_token: str) -> None:
