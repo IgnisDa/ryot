@@ -10,10 +10,13 @@ use crate::{
     config::ITunesConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::{PodcastEpisode, PodcastSpecifics},
+    models::{
+        media::{PodcastEpisode, PodcastSpecifics},
+        SearchResults,
+    },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client_config, NamedObject},
 };
@@ -178,7 +181,11 @@ impl MediaProvider for ITunesService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -204,7 +211,7 @@ impl MediaProvider for ITunesService {
         // DEV: API does not return total count
         let total = 100;
 
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total,
             items: resp,
             next_page: Some(page + 1),

@@ -1,7 +1,17 @@
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, OutputType, SimpleObject};
 use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
+
+use crate::miscellaneous::resolver::MediaSearchItem;
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "MediaSearchResults", params(MediaSearchItem)))]
+pub struct SearchResults<T: OutputType> {
+    pub total: i32,
+    pub items: Vec<T>,
+    pub next_page: Option<i32>,
+}
 
 pub mod media {
     use super::*;

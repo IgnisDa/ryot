@@ -10,10 +10,13 @@ use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    models::media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
+    models::{
+        media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
+        SearchResults,
+    },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
@@ -164,7 +167,11 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbMovie {
@@ -214,7 +221,7 @@ impl MediaProvider for TmdbMovieService {
         } else {
             None
         };
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total: search.total_results,
             next_page,
             items: resp.to_vec(),
@@ -430,7 +437,11 @@ impl MediaProvider for TmdbShowService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbShow {
@@ -480,7 +491,7 @@ impl MediaProvider for TmdbShowService {
         } else {
             None
         };
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total: search.total_results,
             next_page,
             items: resp.to_vec(),
@@ -491,13 +502,9 @@ impl MediaProvider for TmdbShowService {
 mod utils {
     use std::{env, fs};
 
-    use surf::{
-        http::headers::{AUTHORIZATION}, Url,
-    };
+    use surf::{http::headers::AUTHORIZATION, Url};
 
-    use crate::{
-        utils::{get_base_http_client_config, read_file_to_json},
-    };
+    use crate::utils::{get_base_http_client_config, read_file_to_json};
 
     use super::*;
 

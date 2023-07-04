@@ -7,9 +7,10 @@ use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
     migrator::MetadataLot,
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem},
         PAGE_LIMIT,
     },
+    models::SearchResults,
     traits::{MediaProvider, MediaProviderLanguages},
 };
 
@@ -67,7 +68,11 @@ impl MediaProvider for AnilistAnimeService {
         Ok(details)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = utils::search(
             &self.base.client,
             search_query::MediaType::ANIME,
@@ -75,7 +80,7 @@ impl MediaProvider for AnilistAnimeService {
             page,
         )
         .await?;
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total,
             next_page,
             items,
@@ -104,7 +109,11 @@ impl MediaProvider for AnilistMangaService {
         Ok(details)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = utils::search(
             &self.base.client,
             search_query::MediaType::MANGA,
@@ -112,7 +121,7 @@ impl MediaProvider for AnilistMangaService {
             page,
         )
         .await?;
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total,
             next_page,
             items,
@@ -122,9 +131,7 @@ impl MediaProvider for AnilistMangaService {
 
 mod utils {
     use itertools::Itertools;
-    use surf::{
-        http::headers::{ACCEPT}, Url,
-    };
+    use surf::{http::headers::ACCEPT, Url};
 
     use crate::{
         migrator::{MetadataImageLot, MetadataSource},

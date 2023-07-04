@@ -12,10 +12,10 @@ use crate::{
     config::OpenlibraryConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchItem},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::BookSpecifics,
+    models::{media::BookSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client_config, get_data_parallelly_from_sources},
 };
@@ -231,7 +231,11 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct OpenlibraryBook {
@@ -299,7 +303,7 @@ impl MediaProvider for OpenlibraryService {
         } else {
             None
         };
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total: data.total,
             next_page,
             items: data

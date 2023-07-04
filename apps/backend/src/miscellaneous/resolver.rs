@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::models::SearchResults;
 use crate::utils::get_case_insensitive_like_query;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
@@ -421,13 +422,6 @@ pub struct MediaSearchItemResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct MediaSearchResults {
-    pub total: i32,
-    pub items: Vec<MediaSearchItem>,
-    pub next_page: Option<i32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct DetailedMediaSearchResults {
     pub total: i32,
     pub items: Vec<MediaSearchItemResponse>,
@@ -651,7 +645,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MediaListInput,
-    ) -> Result<MediaSearchResults> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -1327,7 +1321,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: MediaListInput,
-    ) -> Result<MediaSearchResults> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -1630,7 +1624,7 @@ impl MiscellaneousService {
         } else {
             None
         };
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total,
             items,
             next_page,
