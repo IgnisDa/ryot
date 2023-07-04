@@ -223,7 +223,7 @@ export interface WebConfig {
 	/**
 	 * This will make auth cookies insecure and should be set to `true` if you
 	 * are running the server on `localhost`.
-	 * [More information](https://github.com/IgnisDa/ryot/issues/23#)
+	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
 	 */
 	insecure_cookie: boolean;
 }
