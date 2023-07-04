@@ -1312,26 +1312,15 @@ impl MiscellaneousService {
     }
 
     async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
-        let mut prev_seen = Seen::find()
+        let mut seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
-        prev_seen.iter_mut().for_each(|s| {
-            if let Some(i) = s.extra_information.as_ref() {
-                match i {
-                    SeenExtraInformation::Show(sea) => {
-                        s.show_information = Some(sea.clone());
-                    }
-                    SeenExtraInformation::Podcast(sea) => {
-                        s.podcast_information = Some(sea.clone());
-                    }
-                };
-            }
-        });
-        Ok(prev_seen)
+        modify_seen_elements(&mut seen);
+        Ok(seen)
     }
 
     pub async fn media_list(
@@ -3006,18 +2995,7 @@ impl MiscellaneousService {
                 .all(&self.db)
                 .await
                 .unwrap();
-            for seen in seens.iter_mut() {
-                if let Some(extra_info) = seen.extra_information.as_ref() {
-                    match extra_info {
-                        SeenExtraInformation::Show(info) => {
-                            seen.show_information = Some(info.clone());
-                        }
-                        SeenExtraInformation::Podcast(info) => {
-                            seen.podcast_information = Some(info.clone());
-                        }
-                    };
-                }
-            }
+            modify_seen_elements(&mut seens);
             let reviews = m
                 .find_related(Review)
                 .filter(review::Column::UserId.eq(user_id))
@@ -3326,4 +3304,19 @@ impl MiscellaneousService {
         }
         Ok(())
     }
+}
+
+fn modify_seen_elements(all_seen: &mut Vec<seen::Model>) {
+    all_seen.iter_mut().for_each(|s| {
+        if let Some(i) = s.extra_information.as_ref() {
+            match i {
+                SeenExtraInformation::Show(sea) => {
+                    s.show_information = Some(sea.clone());
+                }
+                SeenExtraInformation::Podcast(sea) => {
+                    s.podcast_information = Some(sea.clone());
+                }
+            };
+        }
+    });
 }
