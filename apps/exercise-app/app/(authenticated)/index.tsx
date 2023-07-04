@@ -23,10 +23,7 @@ export default function Page() {
 			});
 			return exercisesList;
 		},
-		getNextPageParam: (lastPage) => {
-			if (lastPage.nextPage) return lastPage.nextPage;
-			return lastPage;
-		},
+		getNextPageParam: (lastPage) => lastPage.nextPage,
 	});
 
 	const loadMore = () => {
