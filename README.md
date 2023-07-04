@@ -7,8 +7,12 @@
 <br/>
 
 <div align="center">
-  <a href="https://github.com/ignisda/ryot/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ignisda/ryot"></a>
-  <a href="https://github.com/ignisda/ryot/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple"></a>
+  <a href="https://github.com/ignisda/ryot/stargazers">
+    <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ignisda/ryot">
+  </a>
+  <a href="https://github.com/ignisda/ryot/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple">
+  </a>
 </div>
 
 <br/>
@@ -89,6 +93,21 @@ $ docker run \
   --env "WEB_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```
+
+<details>
+  <summary><code>docker-compose</code></summary>
+  <br>
+  <pre>version: '3.9'
+services:
+  ignisda:
+    image: 'ghcr.io/ignisda/ryot:latest'
+    environment:
+        - WEB_INSECURE_COOKIE=true
+    ports:
+        - '8000:8000'
+    pull_policy: always
+    container_name: ryot</pre>
+</details>
 
 **NOTE**: The `WEB_INSECURE_COOKIE` is only required if you are not running HTTPs.
 
