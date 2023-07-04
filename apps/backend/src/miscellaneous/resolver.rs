@@ -20,14 +20,14 @@ use sea_orm::{
     JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
-    Alias, BinOper, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, SqliteQueryBuilder, UnionType,
-    Values,
+    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::utils::get_case_insensitive_like_query;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -1352,16 +1352,12 @@ impl MiscellaneousService {
 
         if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
-                SimpleExpr::Binary(
-                    Box::new(
-                        Func::lower(Func::cast_as(
-                            Expr::col((metadata_alias.clone(), col)),
-                            Alias::new("text"),
-                        ))
-                        .into(),
-                    ),
-                    BinOper::Like,
-                    Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+                get_case_insensitive_like_query(
+                    Func::lower(Func::cast_as(
+                        Expr::col((metadata_alias.clone(), col)),
+                        Alias::new("text"),
+                    )),
+                    &v,
                 )
             };
             main_select = main_select

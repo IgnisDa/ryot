@@ -6,7 +6,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QueryTrait,
 };
-use sea_query::{BinOper, Condition, Expr, Func, SimpleExpr};
+use sea_query::{Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 
@@ -16,6 +16,7 @@ use crate::{
     file_storage::FileStorageService,
     miscellaneous::PAGE_LIMIT,
     models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
+    utils::get_case_insensitive_like_query,
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -112,10 +113,9 @@ impl ExerciseService {
     async fn exercises_list(&self, input: ExercisesListInput) -> Result<Vec<exercise::Model>> {
         let data = Exercise::find()
             .apply_if(input.query, |query, v| {
-                query.filter(Condition::all().add(SimpleExpr::Binary(
-                    Box::new(Func::lower(Expr::col(exercise::Column::Name)).into()),
-                    BinOper::Like,
-                    Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                    Func::lower(Expr::col(exercise::Column::Name)),
+                    &v,
                 )))
             })
             .order_by_asc(exercise::Column::Name)

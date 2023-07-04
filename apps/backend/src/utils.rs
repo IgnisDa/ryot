@@ -9,6 +9,7 @@ use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
 use scdb::Store;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
+use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Serialize};
 use surf::http::headers::USER_AGENT;
@@ -189,4 +190,15 @@ pub fn get_base_http_client_config() -> Config {
     Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
+}
+
+pub fn get_case_insensitive_like_query<E>(expr: E, v: &str) -> SimpleExpr
+where
+    E: Into<SimpleExpr>,
+{
+    SimpleExpr::Binary(
+        Box::new(expr.into()),
+        BinOper::Like,
+        Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+    )
 }
