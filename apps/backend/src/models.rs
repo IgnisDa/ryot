@@ -3,10 +3,11 @@ use chrono::NaiveDate;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-use crate::miscellaneous::resolver::MediaSearchItem;
+use crate::{entities::exercise::Model as ExerciseModel, miscellaneous::resolver::MediaSearchItem};
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "MediaSearchResults", params(MediaSearchItem)))]
+#[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
     pub total: i32,
     pub items: Vec<T>,

@@ -15,7 +15,10 @@ use crate::{
     entities::{exercise, prelude::Exercise},
     file_storage::FileStorageService,
     miscellaneous::PAGE_LIMIT,
-    models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
+    models::{
+        fitness::{Exercise as GithubExercise, ExerciseAttributes},
+        SearchResults,
+    },
     utils::get_case_insensitive_like_query,
 };
 
@@ -35,7 +38,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
-    ) -> Result<Vec<exercise::Model>> {
+    ) -> Result<SearchResults<exercise::Model>> {
         gql_ctx
             .data_unchecked::<Arc<ExerciseService>>()
             .exercises_list(input)
@@ -110,16 +113,21 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercises_list(&self, input: ExercisesListInput) -> Result<Vec<exercise::Model>> {
-        let data = Exercise::find()
+    async fn exercises_list(
+        &self,
+        input: ExercisesListInput,
+    ) -> Result<SearchResults<exercise::Model>> {
+        let query = Exercise::find()
             .apply_if(input.query, |query, v| {
                 query.filter(Condition::all().add(get_case_insensitive_like_query(
                     Func::lower(Expr::col(exercise::Column::Name)),
                     &v,
                 )))
             })
-            .order_by_asc(exercise::Column::Name)
-            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+            .order_by_asc(exercise::Column::Name);
+        let total = query.clone().count(&self.db).await?;
+        let total: i32 = total.try_into().unwrap();
+        let data = query.paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
         let mut resp = vec![];
         for ex in data
             .fetch_page((input.page - 1).try_into().unwrap())
@@ -133,7 +141,16 @@ impl ExerciseService {
             ex_new.attributes.images = images;
             resp.push(ex_new);
         }
-        Ok(resp)
+        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+            Some(input.page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            total,
+            items: resp,
+            next_page,
+        })
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
