@@ -39,7 +39,7 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 - Existing solutions do not have very good UI.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
-- There is a lack of a good selfhosted fitness and health tracking solution.
+- There is a lack of a good self-hosted fitness and health tracking solution.
 - Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`), something
   that is significantly useful in RAM constrained environments.
 
@@ -142,8 +142,7 @@ You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
 To set the equivalent environment variables, join keys by `_` (underscore) and
-_UPPER_SNAKE_CASE_ the characters. For example, the key `podcasts.listennotes.api_token`
-corresponds to the environment variable `PODCASTS_LISTENNOTES_API_TOKEN`.
+_UPPER_SNAKE_CASE_ the characters.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 ([example](https://ryot.fly.dev/config)).
