@@ -69,9 +69,14 @@ a number of guides to make thing easier.
 - [Integrations](/docs/guides/integrations.md): Integrations with various platforms
 - [Video Games](/docs/guides/video-games.md): Get video games tracking working
 
-## ⌨️ How to use?
+## ⌨️  How to use?
 
 **NOTE**: The first user you register is automatically set as admin of the instance.
+
+### 👀 Production
+
+You will have to mount a directory to the `/data`, giving it the `1001:1001`
+permissions. It is also recommended to use PostgreSQL or MySQL in production.
 
 ### 🐳 Option 1: Use Docker
 
@@ -118,7 +123,7 @@ binary. Follow the instructions in the release to use this script.
 $ eget ignisda/ryot
 ```
 
-### 🧑‍💻Option 3: Compile and run from source
+### 🧑‍💻 Option 3: Compile and run from source
 
 - Install [moonrepo](https://moonrepo.dev/)
 
@@ -129,11 +134,6 @@ $ moon run frontend:build
 # Run it
 $ cargo run --bin ryot --release
 ```
-
-## 👀 Production
-
-You will have to mount a directory to the `/data`, giving it the `1001:1001`
-permissions. It is also recommended to use PostgreSQL or MySQL in production.
 
 ## 🔧 Configuration options
 
@@ -149,7 +149,19 @@ Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 
 **Note**: You can see all possible configuration parameters in
 the [generated schema](libs/generated/src/config/backend/schema.ts). The defaults
-can be inspected in the [config](/apps/backend/src/config.rs) builder.
+can be inspected in the [config](/apps/backend/src/config.rs) builder. Here are
+some important ones:
+
+| Key                                  | Description                                                                                                                                                                                                                  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database.url`                       | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                                                                         |
+| `file_storage.s3_access_key_id`      | The access key ID for the S3 compatible file storage. **Required** to enable file storage. [More information](/docs/guides/fitness.md)                                                                                       |
+| `file_storage.s3_bucket_name`        | The name of the S3 compatible bucket. **Required** to enable file storage.                                                                                                                                                   |
+| `file_storage.s3_secret_access_key`  | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                                                               |
+| `file_storage.s3_url`                | The URL for the S3 compatible file storage.                                                                                                                                                                                  |
+| `video_games.twitch.client_id`       | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                                                                 |
+| `video_games.twitch.client_secret`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                                                                                                             |
+| `web.insecure_cookie`                | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#)                                                |
 
 ## 🤓 Developer notes
 
@@ -172,8 +184,8 @@ $ git-chglog --next-tag <tag-name> -o CHANGELOG.md
 
 ## 🙏 Acknowledgements
 
-It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker). Moreover
-thanks to all those people whose stuff I have used.
+It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
+Moreover thanks to all those people whose stuff I have used.
 
 The logo is taken from
 [Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).
