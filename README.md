@@ -40,8 +40,7 @@ special tool on your computer or phone that lets you keep track of all these dig
 - Existing solutions do not have very good UI.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
 - There is a lack of a good self-hosted fitness and health tracking solution.
-- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`), something
-  that is significantly useful in RAM constrained environments.
+- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`)
 
 ## 🚀 Features
 
