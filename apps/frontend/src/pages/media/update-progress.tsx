@@ -34,6 +34,7 @@ import { withQuery } from "ufo";
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const completeShow = !!router.query.completeShow;
 	const onlySeason = !!router.query.onlySeason;
 
 	const [selectedShowSeasonNumber, setSelectedShowSeasonNumber] = useState<
@@ -58,9 +59,21 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const progressUpdate = useMutation({
-		mutationFn: async (
-			variables: ProgressUpdateMutationVariables & { onlySeason: boolean },
-		) => {
+		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+			if (completeShow) {
+				for (const season of details.data?.showSpecifics?.seasons || []) {
+					for (const episode of season.episodes) {
+						await gqlClient.request(ProgressUpdateDocument, {
+							input: {
+								...variables.input,
+								showSeasonNumber: season.seasonNumber,
+								showEpisodeNumber: episode.episodeNumber,
+							},
+						});
+					}
+				}
+				return true;
+			}
 			if (onlySeason) {
 				for (const episode of details.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
@@ -133,18 +146,31 @@ const Page: NextPageWithLayout = () => {
 									{selectedShowSeasonNumber} as seen
 								</Alert>
 							) : null}
-							<Title order={6}>
-								Select season{onlySeason ? "" : " and episode"}
-							</Title>
-							<Select
-								label="Season"
-								data={details.data.showSpecifics.seasons.map((s) => ({
-									label: `${s.seasonNumber}. ${s.name.toString()}`,
-									value: s.seasonNumber.toString(),
-								}))}
-								onChange={setSelectedShowSeasonNumber}
-								defaultValue={selectedShowSeasonNumber}
-							/>
+							{onlySeason || completeShow ? (
+								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+									{onlySeason
+										? `This will mark all episodes for Season ${selectedShowSeasonNumber} as seen`
+										: completeShow
+										? `This will mark all seasons for this show as seen`
+										: null}
+								</Alert>
+							) : null}
+							{!completeShow ? (
+								<>
+									<Title order={6}>
+										Select season{onlySeason ? "" : " and episode"}
+									</Title>
+									<Select
+										label="Season"
+										data={details.data.showSpecifics.seasons.map((s) => ({
+											label: `${s.seasonNumber}. ${s.name.toString()}`,
+											value: s.seasonNumber.toString(),
+										}))}
+										onChange={setSelectedShowSeasonNumber}
+										defaultValue={selectedShowSeasonNumber}
+									/>
+								</>
+							) : null}
 							{!onlySeason && selectedShowSeasonNumber ? (
 								<Select
 									label="Episode"
@@ -190,7 +216,6 @@ const Page: NextPageWithLayout = () => {
 									...mutationInput,
 									date: DateTime.now().toISODate(),
 								},
-								onlySeason,
 							});
 						}}
 					>
@@ -199,10 +224,7 @@ const Page: NextPageWithLayout = () => {
 					<Button
 						variant="outline"
 						onClick={async () => {
-							await progressUpdate.mutateAsync({
-								input: mutationInput,
-								onlySeason,
-							});
+							await progressUpdate.mutateAsync({ input: mutationInput });
 						}}
 					>
 						I do not remember
@@ -224,7 +246,6 @@ const Page: NextPageWithLayout = () => {
 											...mutationInput,
 											date: DateTime.fromJSDate(selectedDate).toISODate(),
 										},
-										onlySeason,
 									});
 							}}
 						>
