@@ -6,6 +6,7 @@ import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const theme = createTheme({
+	mode: "dark",
 	lightColors: {},
 	darkColors: {},
 });

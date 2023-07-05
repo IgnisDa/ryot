@@ -1,13 +1,14 @@
 import { getGraphqlClient } from "@/api";
-import { useDebouncedState } from "@mantine/hooks";
-import { Image, Input } from "@rneui/themed";
+import { SearchBar } from "@rneui/base";
+import { Image } from "@rneui/themed";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { useState } from "react";
+import { FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Page() {
-	const [query, setQuery] = useDebouncedState("", 1000);
+	const [query, setQuery] = useState("");
 
 	const exercises = useInfiniteQuery({
 		queryKey: ["exercises", query],
@@ -27,16 +28,19 @@ export default function Page() {
 
 	return (
 		<SafeAreaView style={{ paddingHorizontal: 15 }}>
-			<Input
+			<SearchBar
 				placeholder="Search for an exercise"
 				autoCapitalize="none"
-				onChange={({ nativeEvent: { text } }) => setQuery(text)}
+				onChangeText={setQuery}
+				value={query}
+				showLoading={exercises.isFetching}
 			/>
 			{exercises.data ? (
 				<FlatList
 					data={exercises.data.pages.flatMap((p) => p.items)}
 					onEndReached={loadMore}
 					onEndReachedThreshold={0.3}
+					showsVerticalScrollIndicator={false}
 					keyExtractor={(item) => item.name}
 					renderItem={({ item }) => (
 						<View
@@ -68,7 +72,6 @@ export default function Page() {
 					)}
 				/>
 			) : null}
-			{exercises.isFetching ? <ActivityIndicator /> : null}
 		</SafeAreaView>
 	);
 }
