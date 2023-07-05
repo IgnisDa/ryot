@@ -7,21 +7,18 @@
 <br/>
 
 <div align="center">
-  <a href="https://github.com/ignisda/ryot/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ignisda/ryot"></a>
-  <a href="https://github.com/ignisda/ryot/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple"></a>
+  <a href="https://github.com/ignisda/ryot/stargazers">
+    <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ignisda/ryot">
+  </a>
+  <a href="https://github.com/ignisda/ryot/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple">
+  </a>
 </div>
 
 <br/>
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
-
-## NOTE FOR BETA USERS
-
-The first public release includes huge code changes. If you are running the `v1.0.0-beta.*`
-versions, then please follow the migration notes for the latest release
-[here](https://github.com/IgnisDa/ryot/releases/tag/v1.0.0). Please be warned that
-failing to do so **WILL** result in data loss.
 
 ## 💻 Demo
 
@@ -42,9 +39,8 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 - Existing solutions do not have very good UI.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
-- There is a lack of a good selfhosted fitness and health tracking solution.
-- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`), something
-  that is significantly useful in RAM constrained environments.
+- There is a lack of a good self-hosted fitness and health tracking solution.
+- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`)
 
 ## 🚀 Features
 
@@ -74,7 +70,13 @@ a number of guides to make thing easier.
 
 ## ⌨️ How to use?
 
-**NOTE**: The first user you register is automatically set as admin of the instance.
+**NOTE**: The first user you register is automatically set as admin of the
+instance.
+
+### 👀 Production
+
+You will have to mount a directory to `/data`, giving it `1001:1001` permissions.
+It is also recommended to use PostgreSQL or MySQL in production.
 
 ### 🐳 Option 1: Use Docker
 
@@ -89,6 +91,21 @@ $ docker run \
   --env "WEB_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```
+
+<details>
+  <summary><code>docker-compose</code></summary>
+  <br>
+  <pre>version: '3.9'
+services:
+  ignisda:
+    image: 'ghcr.io/ignisda/ryot:latest'
+    environment:
+        - WEB_INSECURE_COOKIE=true
+    ports:
+        - '8000:8000'
+    pull_policy: always
+    container_name: ryot</pre>
+</details>
 
 **NOTE**: The `WEB_INSECURE_COOKIE` is only required if you are not running HTTPs.
 
@@ -106,7 +123,7 @@ binary. Follow the instructions in the release to use this script.
 $ eget ignisda/ryot
 ```
 
-### 🧑‍💻Option 3: Compile and run from source
+### 🧑‍💻 Option 3: Compile and run from source
 
 - Install [moonrepo](https://moonrepo.dev/)
 
@@ -118,26 +135,32 @@ $ moon run frontend:build
 $ cargo run --bin ryot --release
 ```
 
-## 👀 Production
-
-You will have to mount a directory to the `/data`, giving it the `1001:1001`
-permissions. It is also recommended to use PostgreSQL or MySQL in production.
-
 ## 🔧 Configuration options
 
 You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
 To set the equivalent environment variables, join keys by `_` (underscore) and
-_UPPER_SNAKE_CASE_ the characters. For example, the key `podcasts.listennotes.api_token`
-corresponds to the environment variable `PODCASTS_LISTENNOTES_API_TOKEN`.
+_UPPER_SNAKE_CASE_ the characters.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 ([example](https://ryot.fly.dev/config)).
 
 **Note**: You can see all possible configuration parameters in
 the [generated schema](libs/generated/src/config/backend/schema.ts). The defaults
-can be inspected in the [config](/apps/backend/src/config.rs) builder.
+can be inspected in the [config](/apps/backend/src/config.rs) builder. Here are
+some important ones:
+
+| Key / Environment variable                                                | Description                                                                                                                                                                   |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database.url` / `DATABASE_URL`                                           | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
+| `video_games.twitch.client_id` / `VIDEO_GAMES_TWITCH_CLIENT_ID`           | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
+| `video_games.twitch.client_secret` / `VIDEO_GAMES_TWITCH_CLIENT_SECRET`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                                                              |
+| `file_storage.s3_access_key_id` / `FILE_STORAGE_S3_ACCESS_KEY_ID`         | The access key ID for the S3 compatible file storage. **Required** to enable file storage. [More information](/docs/guides/fitness.md)                                        |
+| `file_storage.s3_bucket_name` / `FILE_STORAGE_S3_BUCKET_NAME`             | The name of the S3 compatible bucket. **Required** to enable file storage.                                                                                                    |
+| `file_storage.s3_secret_access_key` / `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                |
+| `file_storage.s3_url` / `FILE_STORAGE_S3_URL`                             | The URL for the S3 compatible file storage.                                                                                                                                   |
+| `web.insecure_cookie` / `WEB_INSECURE_COOKIE`                             | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
 ## 🤓 Developer notes
 
@@ -160,8 +183,8 @@ $ git-chglog --next-tag <tag-name> -o CHANGELOG.md
 
 ## 🙏 Acknowledgements
 
-It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker). Moreover
-thanks to all those people whose stuff I have used.
+It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
+Moreover thanks to all those people whose stuff I have used.
 
 The logo is taken from
 [Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).
