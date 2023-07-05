@@ -71,12 +71,13 @@ a number of guides to make thing easier.
 
 ## ⌨️  How to use?
 
-**NOTE**: The first user you register is automatically set as admin of the instance.
+**NOTE**: The first user you register is automatically set as admin of the
+instance.
 
 ### 👀 Production
 
-You will have to mount a directory to the `/data`, giving it the `1001:1001`
-permissions. It is also recommended to use PostgreSQL or MySQL in production.
+You will have to mount a directory to `/data`, giving it `1001:1001` permissions.
+It is also recommended to use PostgreSQL or MySQL in production.
 
 ### 🐳 Option 1: Use Docker
 
