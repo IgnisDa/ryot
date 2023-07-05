@@ -925,16 +925,25 @@ const Page: NextPageWithLayout = () => {
 										>
 											Mark as dropped
 										</Button>
-									) : mediaDetails.data.lot === MetadataLot.Show ? (
+									) : mediaDetails.data.lot === MetadataLot.Show ||
+									  mediaDetails.data.lot === MetadataLot.Podcast ? (
 										<Button
 											variant="outline"
 											onClick={() => {
-												router.push(
-													withQuery(ROUTES.media.updateProgress, {
-														item: metadataId,
-														completeShow: 1,
-													}),
-												);
+												if (mediaDetails.data.lot === MetadataLot.Show)
+													router.push(
+														withQuery(ROUTES.media.updateProgress, {
+															item: metadataId,
+															completeShow: 1,
+														}),
+													);
+												else
+													router.push(
+														withQuery(ROUTES.media.updateProgress, {
+															item: metadataId,
+															completePodcast: 1,
+														}),
+													);
 											}}
 										>
 											Mark {changeCase(mediaDetails.data.lot).toLowerCase()} as
