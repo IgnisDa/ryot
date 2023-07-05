@@ -20,7 +20,6 @@
 		"expo-linking": "~4.0.1",
 		"expo-router": "^1.2.0",
 		"expo-status-bar": "~1.4.4",
-		"graphql-request": "6.1.0",
 		"react": "18.2.0",
 		"react-dom": "18.2.0",
 		"react-native-gesture-handler": "~2.9.0",
