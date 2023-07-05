@@ -2,7 +2,7 @@ import { getGraphqlClient } from "@/api";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks";
 import { useDebouncedState } from "@mantine/hooks";
-import { Button, Input } from "@rneui/themed";
+import { Button, Input, Image } from "@rneui/themed";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -32,7 +32,6 @@ export default function Page() {
 
 	return (
 		<SafeAreaView style={{ paddingHorizontal: 15 }}>
-			{exercises.isFetching ? <ActivityIndicator /> : null}
 			<Button
 				onPress={async () => {
 					await signOut();
@@ -53,12 +52,31 @@ export default function Page() {
 					onEndReachedThreshold={0.3}
 					keyExtractor={(item) => item.name}
 					renderItem={({ item }) => (
-						<View>
+						<View
+							style={{
+								flex: 1,
+								flexDirection: "row",
+								marginVertical: 10,
+								alignItems: "center",
+								gap: 10,
+							}}
+						>
+							<Image
+								source={{ uri: item.attributes.images[0] }}
+								style={{
+									width: 50,
+									height: 50,
+									borderRadius: 150 / 2,
+									resizeMode: "contain",
+									overflow: "hidden",
+								}}
+							/>
 							<Text>{item.name}</Text>
 						</View>
 					)}
 				/>
 			) : null}
+			{exercises.isFetching ? <ActivityIndicator /> : null}
 		</SafeAreaView>
 	);
 }
