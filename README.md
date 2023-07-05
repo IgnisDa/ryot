@@ -69,7 +69,7 @@ a number of guides to make thing easier.
 - [Integrations](/docs/guides/integrations.md): Integrations with various platforms
 - [Video Games](/docs/guides/video-games.md): Get video games tracking working
 
-## ⌨️  How to use?
+## ⌨️ How to use?
 
 **NOTE**: The first user you register is automatically set as admin of the
 instance.
@@ -153,16 +153,16 @@ the [generated schema](libs/generated/src/config/backend/schema.ts). The default
 can be inspected in the [config](/apps/backend/src/config.rs) builder. Here are
 some important ones:
 
-| Key                                  | Description                                                                                                                                                                                                                  |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database.url`                       | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                                                                         |
-| `file_storage.s3_access_key_id`      | The access key ID for the S3 compatible file storage. **Required** to enable file storage. [More information](/docs/guides/fitness.md)                                                                                       |
-| `file_storage.s3_bucket_name`        | The name of the S3 compatible bucket. **Required** to enable file storage.                                                                                                                                                   |
-| `file_storage.s3_secret_access_key`  | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                                                               |
-| `file_storage.s3_url`                | The URL for the S3 compatible file storage.                                                                                                                                                                                  |
-| `video_games.twitch.client_id`       | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                                                                 |
-| `video_games.twitch.client_secret`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                                                                                                             |
-| `web.insecure_cookie`                | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#)                                                |
+| Key / Environment variable                                                | Description                                                                                                                                                                   |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database.url` / `DATABASE_URL`                                           | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
+| `video_games.twitch.client_id` / `VIDEO_GAMES_TWITCH_CLIENT_ID`           | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
+| `video_games.twitch.client_secret` / `VIDEO_GAMES_TWITCH_CLIENT_SECRET`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                                                              |
+| `file_storage.s3_access_key_id` / `FILE_STORAGE_S3_ACCESS_KEY_ID`         | The access key ID for the S3 compatible file storage. **Required** to enable file storage. [More information](/docs/guides/fitness.md)                                        |
+| `file_storage.s3_bucket_name` / `FILE_STORAGE_S3_BUCKET_NAME`             | The name of the S3 compatible bucket. **Required** to enable file storage.                                                                                                    |
+| `file_storage.s3_secret_access_key` / `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                |
+| `file_storage.s3_url` / `FILE_STORAGE_S3_URL`                             | The URL for the S3 compatible file storage.                                                                                                                                   |
+| `web.insecure_cookie` / `WEB_INSECURE_COOKIE`                             | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
 ## 🤓 Developer notes
 
