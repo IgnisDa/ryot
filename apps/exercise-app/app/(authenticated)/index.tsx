@@ -1,17 +1,12 @@
 import { getGraphqlClient } from "@/api";
-import { ROUTES } from "@/constants";
-import { useAuth } from "@/hooks";
 import { useDebouncedState } from "@mantine/hooks";
-import { Button, Input, Image } from "@rneui/themed";
+import { Image, Input } from "@rneui/themed";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Page() {
-	const { signOut } = useAuth();
-	const router = useRouter();
 	const [query, setQuery] = useDebouncedState("", 1000);
 
 	const exercises = useInfiniteQuery({
@@ -32,14 +27,6 @@ export default function Page() {
 
 	return (
 		<SafeAreaView style={{ paddingHorizontal: 15 }}>
-			<Button
-				onPress={async () => {
-					await signOut();
-					router.push(ROUTES.setup);
-				}}
-			>
-				Sign out
-			</Button>
 			<Input
 				placeholder="Search for an exercise"
 				autoCapitalize="none"
