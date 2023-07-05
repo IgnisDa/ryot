@@ -64,14 +64,19 @@ export default function Page() {
 							<Image
 								source={{ uri: item.attributes.images[0] }}
 								style={{
-									width: 50,
-									height: 50,
+									width: 55,
+									height: 55,
 									borderRadius: 150 / 2,
 									resizeMode: "contain",
 									overflow: "hidden",
 								}}
 							/>
-							<Text>{item.name}</Text>
+							<View>
+								<Text style={{ fontWeight: "bold", fontSize: 16 }}>
+									{item.name}
+								</Text>
+								<Text>{item.attributes.category}</Text>
+							</View>
 						</View>
 					)}
 				/>
