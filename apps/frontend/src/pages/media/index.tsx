@@ -730,6 +730,12 @@ const Page: NextPageWithLayout = () => {
 								)}
 							</Text>
 						) : null}
+						{mediaDetails.data.showSpecifics ? (
+							<Text color="dimmed">
+								{" "}
+								• {mediaDetails.data.showSpecifics.seasons.length} seasons
+							</Text>
+						) : null}
 						{mediaDetails.data.audioBookSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
