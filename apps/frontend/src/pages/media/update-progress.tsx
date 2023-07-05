@@ -34,6 +34,8 @@ import { withQuery } from "ufo";
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const completeShow = !!router.query.completeShow;
+	const completePodcast = !!router.query.completePodcast;
 	const onlySeason = !!router.query.onlySeason;
 
 	const [selectedShowSeasonNumber, setSelectedShowSeasonNumber] = useState<
@@ -48,7 +50,7 @@ const Page: NextPageWithLayout = () => {
 		);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-	const details = useQuery({
+	const mediaDetails = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
 			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
@@ -58,11 +60,35 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const progressUpdate = useMutation({
-		mutationFn: async (
-			variables: ProgressUpdateMutationVariables & { onlySeason: boolean },
-		) => {
+		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+			if (completeShow) {
+				for (const season of mediaDetails.data?.showSpecifics?.seasons || []) {
+					for (const episode of season.episodes) {
+						await gqlClient.request(ProgressUpdateDocument, {
+							input: {
+								...variables.input,
+								showSeasonNumber: season.seasonNumber,
+								showEpisodeNumber: episode.episodeNumber,
+							},
+						});
+					}
+				}
+				return true;
+			}
+			if (completePodcast) {
+				for (const episode of mediaDetails.data?.podcastSpecifics?.episodes ||
+					[]) {
+					await gqlClient.request(ProgressUpdateDocument, {
+						input: {
+							...variables.input,
+							podcastEpisodeNumber: episode.number,
+						},
+					});
+				}
+				return true;
+			}
 			if (onlySeason) {
-				for (const episode of details.data?.showSpecifics?.seasons.find(
+				for (const episode of mediaDetails.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
 				)?.episodes || []) {
 					await gqlClient.request(ProgressUpdateDocument, {
@@ -75,9 +101,9 @@ const Page: NextPageWithLayout = () => {
 				return true;
 			}
 			if (
-				(details.data?.lot === MetadataLot.Show &&
+				(mediaDetails.data?.lot === MetadataLot.Show &&
 					(!selectedShowEpisodeNumber || !selectedShowSeasonNumber)) ||
-				(details.data?.lot === MetadataLot.Podcast &&
+				(mediaDetails.data?.lot === MetadataLot.Podcast &&
 					!selectedPodcastEpisodeNumber)
 			) {
 				notifications.show({ message: "Please select a season and episode" });
@@ -102,7 +128,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const title = details.data?.title;
+	const title = mediaDetails.data?.title;
 
 	const mutationInput = {
 		metadataId: metadataId || 0,
@@ -112,7 +138,7 @@ const Page: NextPageWithLayout = () => {
 		podcastEpisodeNumber: Number(selectedPodcastEpisodeNumber),
 	};
 
-	return details.data && title ? (
+	return mediaDetails.data && title ? (
 		<>
 			<Head>
 				<title>Update Progress | Ryot</title>
@@ -125,7 +151,7 @@ const Page: NextPageWithLayout = () => {
 						radius={"md"}
 					/>
 					<Title>{title}</Title>
-					{details.data.showSpecifics ? (
+					{mediaDetails.data.showSpecifics ? (
 						<>
 							{onlySeason ? (
 								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
@@ -133,23 +159,36 @@ const Page: NextPageWithLayout = () => {
 									{selectedShowSeasonNumber} as seen
 								</Alert>
 							) : null}
-							<Title order={6}>
-								Select season{onlySeason ? "" : " and episode"}
-							</Title>
-							<Select
-								label="Season"
-								data={details.data.showSpecifics.seasons.map((s) => ({
-									label: `${s.seasonNumber}. ${s.name.toString()}`,
-									value: s.seasonNumber.toString(),
-								}))}
-								onChange={setSelectedShowSeasonNumber}
-								defaultValue={selectedShowSeasonNumber}
-							/>
+							{onlySeason || completeShow ? (
+								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+									{onlySeason
+										? `This will mark all episodes for Season ${selectedShowSeasonNumber} as seen`
+										: completeShow
+										? `This will mark all episodes for this show as seen`
+										: null}
+								</Alert>
+							) : null}
+							{!completeShow ? (
+								<>
+									<Title order={6}>
+										Select season{onlySeason ? "" : " and episode"}
+									</Title>
+									<Select
+										label="Season"
+										data={mediaDetails.data.showSpecifics.seasons.map((s) => ({
+											label: `${s.seasonNumber}. ${s.name.toString()}`,
+											value: s.seasonNumber.toString(),
+										}))}
+										onChange={setSelectedShowSeasonNumber}
+										defaultValue={selectedShowSeasonNumber}
+									/>
+								</>
+							) : null}
 							{!onlySeason && selectedShowSeasonNumber ? (
 								<Select
 									label="Episode"
 									data={
-										details.data.showSpecifics.seasons
+										mediaDetails.data.showSpecifics.seasons
 											.find(
 												(s) =>
 													s.seasonNumber === Number(selectedShowSeasonNumber),
@@ -165,22 +204,30 @@ const Page: NextPageWithLayout = () => {
 							) : null}
 						</>
 					) : null}
-					{details.data.podcastSpecifics ? (
-						<>
-							<Title order={6}>Select episode</Title>
-							<Autocomplete
-								label="Episode"
-								data={details.data.podcastSpecifics.episodes.map((se) => ({
-									label: se.title.toString(),
-									value: se.number.toString(),
-								}))}
-								onChange={setSelectedPodcastEpisodeNumber}
-								defaultValue={selectedPodcastEpisodeNumber || undefined}
-							/>
-						</>
+					{mediaDetails.data.podcastSpecifics ? (
+						completePodcast ? (
+							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+								This will mark all episodes for this podcast as seen
+							</Alert>
+						) : (
+							<>
+								<Title order={6}>Select episode</Title>
+								<Autocomplete
+									label="Episode"
+									data={mediaDetails.data.podcastSpecifics.episodes.map(
+										(se) => ({
+											label: se.title.toString(),
+											value: se.number.toString(),
+										}),
+									)}
+									onChange={setSelectedPodcastEpisodeNumber}
+									defaultValue={selectedPodcastEpisodeNumber || undefined}
+								/>
+							</>
+						)
 					) : null}
 					<Title order={6}>
-						When did you {getVerb(Verb.Read, details.data.lot)} it?
+						When did you {getVerb(Verb.Read, mediaDetails.data.lot)} it?
 					</Title>
 					<Button
 						variant="outline"
@@ -190,7 +237,6 @@ const Page: NextPageWithLayout = () => {
 									...mutationInput,
 									date: DateTime.now().toISODate(),
 								},
-								onlySeason,
 							});
 						}}
 					>
@@ -199,10 +245,7 @@ const Page: NextPageWithLayout = () => {
 					<Button
 						variant="outline"
 						onClick={async () => {
-							await progressUpdate.mutateAsync({
-								input: mutationInput,
-								onlySeason,
-							});
+							await progressUpdate.mutateAsync({ input: mutationInput });
 						}}
 					>
 						I do not remember
@@ -224,7 +267,6 @@ const Page: NextPageWithLayout = () => {
 											...mutationInput,
 											date: DateTime.fromJSDate(selectedDate).toISODate(),
 										},
-										onlySeason,
 									});
 							}}
 						>
