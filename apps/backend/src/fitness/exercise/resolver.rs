@@ -136,7 +136,14 @@ impl ExerciseService {
             let mut ex_new = ex.clone();
             let mut images = vec![];
             for i in ex.attributes.images {
-                images.push(self.file_storage.get_presigned_url(i).await);
+                let mut link = self.file_storage.get_presigned_url(i).await;
+                if cfg!(feature = "development") {
+                    link = link.replace("http://localhost:9000", "https://ryot-minio.serveo.net");
+                    if let Some((m, _)) = link.split_once("?") {
+                        link = m.to_owned();
+                    }
+                }
+                images.push(link);
             }
             ex_new.attributes.images = images;
             resp.push(ex_new);
