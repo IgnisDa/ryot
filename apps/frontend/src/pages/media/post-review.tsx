@@ -74,8 +74,8 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: (data) => {
 			form.setValues({
-				rating: data?.rating || 0,
-				text: data?.text || "",
+				rating: data?.rating,
+				text: data?.text ?? undefined,
 				visibility: data?.visibility,
 				spoiler: data?.spoiler,
 			});
