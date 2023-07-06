@@ -1,9 +1,9 @@
+import { BasePage } from "@/components";
 import { ROUTES } from "@/constants";
 import { SignInResponse, useAuth } from "@/hooks";
 import { Button, Card, Input } from "@rneui/themed";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Page() {
 	const [url, setUrl] = useState("");
@@ -14,7 +14,7 @@ export default function Page() {
 	const router = useRouter();
 
 	return (
-		<SafeAreaView>
+		<BasePage>
 			<Card>
 				<Input
 					label="Where is your Ryot instance hosted?"
@@ -51,6 +51,6 @@ export default function Page() {
 					{isLoading ? "Checking..." : "Save"}
 				</Button>
 			</Card>
-		</SafeAreaView>
+		</BasePage>
 	);
 }

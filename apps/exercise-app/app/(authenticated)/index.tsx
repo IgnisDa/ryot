@@ -1,12 +1,12 @@
 import { getGraphqlClient } from "@/api";
-import { changeCase } from "@ryot/utilities";
+import { BasePage } from "@/components";
 import { SearchBar } from "@rneui/base";
 import { Avatar } from "@rneui/themed";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/utilities";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { FlatList, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Page() {
 	const [query, setQuery] = useState("");
@@ -28,7 +28,7 @@ export default function Page() {
 	};
 
 	return (
-		<SafeAreaView style={{ paddingHorizontal: 15 }}>
+		<BasePage>
 			<SearchBar
 				placeholder="Search for an exercise"
 				autoCapitalize="none"
@@ -71,6 +71,6 @@ export default function Page() {
 					)}
 				/>
 			) : null}
-		</SafeAreaView>
+		</BasePage>
 	);
 }
