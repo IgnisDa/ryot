@@ -125,7 +125,7 @@ export default function (props: {
 	lot: MetadataLot;
 	source: MetadataSource;
 	listType: "grid" | "poster";
-	refetch: () => void;
+	searchQueryRefetch: () => void;
 	maybeItemId?: number;
 }) {
 	const router = useRouter();
@@ -141,7 +141,7 @@ export default function (props: {
 			return addMediaToCollection;
 		},
 		onSuccess: () => {
-			props.refetch();
+			props.searchQueryRefetch();
 			notifications.show({
 				title: "Success",
 				message: "Media added to watchlist successfully",
@@ -155,6 +155,7 @@ export default function (props: {
 			lot: props.lot,
 			source: props.source,
 		});
+		props.searchQueryRefetch();
 		return id;
 	};
 

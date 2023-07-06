@@ -510,7 +510,7 @@ const Page: NextPageWithLayout = () => {
 												query={query}
 												offset={offset}
 												lot={lot}
-												refetch={searchQuery.refetch}
+												searchQueryRefetch={searchQuery.refetch}
 												source={searchSource as unknown as MetadataSource}
 											/>
 										))}
