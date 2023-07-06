@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::Path, sync::Arc};
+use std::{env, ffi::OsStr, path::Path, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Error, InputObject, Object, Result};
@@ -137,8 +137,13 @@ impl ExerciseService {
             let mut images = vec![];
             for i in ex.attributes.images {
                 let mut link = self.file_storage.get_presigned_url(i).await;
+                // DEV: For the Expo app, since we are accessing the images on a
+                // mobile device, we need to expose the minio instance and refer
+                // to that in all images.
                 if cfg!(feature = "development") {
-                    link = link.replace("http://localhost:9000", "https://ryot-minio.serveo.net");
+                    let minio_url = env::var("S3_URL").unwrap();
+                    let minio_public_url = env::var("S3_PUBLIC_URL").unwrap();
+                    link = link.replace(&minio_url, &minio_public_url);
                     if let Some((m, _)) = link.split_once("?") {
                         link = m.to_owned();
                     }
