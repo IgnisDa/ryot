@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::miscellaneous::resolver::UserSummary;
+use crate::miscellaneous::resolver::UserMediaSummary;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "summary")]
@@ -12,7 +12,7 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub created_on: DateTimeUtc,
-    pub data: UserSummary,
+    pub data: UserMediaSummary,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

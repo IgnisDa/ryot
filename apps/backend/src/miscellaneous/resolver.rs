@@ -331,7 +331,7 @@ pub struct AnimeSummary {
 #[derive(
     SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
 )]
-pub struct UserSummary {
+pub struct UserMediaSummary {
     books: BooksSummary,
     movies: MoviesSummary,
     podcasts: PodcastsSummary,
@@ -340,6 +340,14 @@ pub struct UserSummary {
     audio_books: AudioBooksSummary,
     anime: AnimeSummary,
     manga: MangaSummary,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct UserSummary {
+    media: UserMediaSummary,
+    calculated_on: DateTimeUtc,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -2614,7 +2622,10 @@ impl MiscellaneousService {
 
     async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
         let ls = self.latest_user_summary(user_id).await?;
-        Ok(ls.data)
+        Ok(UserSummary {
+            media: ls.data,
+            calculated_on: ls.created_on,
+        })
     }
 
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
