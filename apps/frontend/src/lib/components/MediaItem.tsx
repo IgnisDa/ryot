@@ -1,13 +1,7 @@
 import { ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import {
-	Verb,
-	changeCase,
-	getInitials,
-	getLot,
-	getVerb,
-} from "@/lib/utilities";
+import { Verb, getLot, getVerb } from "@/lib/utilities";
 import {
 	Anchor,
 	Button,
@@ -25,6 +19,7 @@ import {
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, getInitials } from "@ryot/utilities";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";

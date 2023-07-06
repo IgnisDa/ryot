@@ -2,7 +2,7 @@ import { useUserPreferences } from "../hooks/graphql";
 import Basic from "./Basic";
 import { ROUTES } from "@/lib/constants";
 import { gqlClient } from "@/lib/services/api";
-import { changeCase, getLot, getMetadataIcon } from "@/lib/utilities";
+import { getLot, getMetadataIcon } from "@/lib/utilities";
 import {
 	Box,
 	Flex,
@@ -16,6 +16,7 @@ import {
 	LogoutUserDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/utilities";
 import { IconHome2, IconLogout, IconSettings } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";

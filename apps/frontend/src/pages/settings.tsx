@@ -3,7 +3,7 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { changeCase, getLot } from "@/lib/utilities";
+import { getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
@@ -59,6 +59,7 @@ import {
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/utilities";
 import {
 	IconAnalyze,
 	IconApps,

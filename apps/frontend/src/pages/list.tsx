@@ -7,7 +7,7 @@ import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { changeCase, getLot } from "@/lib/utilities";
+import { getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -40,6 +40,7 @@ import {
 	MetadataSource,
 	PartialCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, startCase } from "@ryot/utilities";
 import {
 	IconFilter,
 	IconFilterOff,
@@ -53,7 +54,6 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { lowerCase, startCase } from "lodash";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -344,7 +344,7 @@ const Page: NextPageWithLayout = () => {
 													value={mineGeneralFilter.toString()}
 													data={Object.values(MediaGeneralFilter).map((o) => ({
 														value: o.toString(),
-														label: startCase(lowerCase(o)),
+														label: startCase(o.toLowerCase()),
 														group: "General filters",
 													}))}
 													onChange={(v) => {
@@ -370,7 +370,7 @@ const Page: NextPageWithLayout = () => {
 														w="100%"
 														data={Object.values(MediaSortBy).map((o) => ({
 															value: o.toString(),
-															label: startCase(lowerCase(o)),
+															label: startCase(o.toLowerCase()),
 															group: "Sort by",
 														}))}
 														value={mineSortBy.toString()}
@@ -483,7 +483,7 @@ const Page: NextPageWithLayout = () => {
 										value={searchSource?.toString()}
 										data={(mediaSources.data || []).map((o) => ({
 											value: o.toString(),
-											label: startCase(lowerCase(o)),
+											label: startCase(o.toLowerCase()),
 										}))}
 										onChange={(v) => {
 											if (v) setSearchSource(v);
