@@ -1,6 +1,7 @@
 import { getGraphqlClient } from "@/api";
+import { changeCase } from "@ryot/utilities";
 import { SearchBar } from "@rneui/base";
-import { Image } from "@rneui/themed";
+import { Avatar } from "@rneui/themed";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -52,21 +53,19 @@ export default function Page() {
 								gap: 10,
 							}}
 						>
-							<Image
-								source={{ uri: item.attributes.images[0] }}
-								style={{
-									width: 55,
-									height: 55,
-									borderRadius: 150 / 2,
-									resizeMode: "contain",
-									overflow: "hidden",
-								}}
+							<Avatar
+								source={{ uri: item.attributes.images[1] }}
+								size={55}
+								rounded
 							/>
 							<View>
 								<Text style={{ fontWeight: "bold", fontSize: 16 }}>
 									{item.name}
 								</Text>
-								<Text>{item.attributes.category}</Text>
+								<View style={{ flexDirection: "row", gap: 5 }}>
+									<Text>{changeCase(item.attributes.primaryMuscles[0])}</Text>
+									<Text>• {changeCase(item.attributes.category)}</Text>
+								</View>
 							</View>
 						</View>
 					)}

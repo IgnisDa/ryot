@@ -11,6 +11,7 @@ module.exports = function (api) {
 						"@": "./lib",
 						"@ryot/generated": "../../libs/generated/src",
 						"@ryot/graphql": "../../libs/graphql/src",
+						"@ryot/utilities": "../../libs/utilities/src",
 					},
 					extensions: [".js", ".jsx", ".ts", ".tsx"],
 				},

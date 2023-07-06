@@ -5563,6 +5563,7 @@ __metadata:
     "@rneui/themed": 4.0.0-rc.7
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
+    "@ryot/utilities": "workspace:*"
     "@tanstack/react-query": 4.29.15
     "@types/react": ~18.0.24
     "@types/react-native": ^0.71.6
