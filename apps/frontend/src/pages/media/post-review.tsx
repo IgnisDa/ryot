@@ -34,7 +34,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 
 const formSchema = z.object({
-	rating: z.preprocess(Number, z.number().min(0).max(5)).default(0),
+	rating: z.preprocess(Number, z.number().min(0).max(5)).optional(),
 	text: z.string().optional(),
 	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Public),
 	spoiler: z.boolean().optional(),

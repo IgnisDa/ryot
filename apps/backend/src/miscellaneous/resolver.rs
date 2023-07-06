@@ -1463,14 +1463,7 @@ impl MiscellaneousService {
                         let alias_name = "average_rating";
                         main_select = main_select
                             .expr_as(
-                                Func::coalesce([
-                                    Func::avg(Expr::col((
-                                        review_alias.clone(),
-                                        TempReview::Rating,
-                                    )))
-                                    .into(),
-                                    Expr::value(0),
-                                ]),
+                                Func::avg(Expr::col((review_alias.clone(), TempReview::Rating))),
                                 Alias::new(alias_name),
                             )
                             .join_as(
@@ -1485,7 +1478,11 @@ impl MiscellaneousService {
                                     ),
                             )
                             .group_by_col((metadata_alias.clone(), TempMetadata::Id))
-                            .order_by_expr(Expr::cust(alias_name), order_by)
+                            .order_by_expr_with_nulls(
+                                Expr::cust(alias_name),
+                                order_by,
+                                NullOrdering::Last,
+                            )
                             .to_owned();
                     }
                 };
