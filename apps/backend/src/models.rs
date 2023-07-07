@@ -206,7 +206,7 @@ pub mod media {
         pub identifier: String,
         pub lot: MetadataLot,
         pub title: String,
-        pub images: Vec<String>,
+        pub image: Option<String>,
         pub publish_year: Option<i32>,
     }
 

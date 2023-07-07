@@ -132,7 +132,7 @@ impl MediaProvider for ITunesService {
             .await
             .map_err(|e| anyhow!(e))?;
         let images = details
-            .images
+            .image
             .into_iter()
             .map(|a| MetadataImage {
                 url: MetadataImageUrl::Url(a),
@@ -235,7 +235,7 @@ fn get_search_response(item: ITunesItem) -> MediaSearchItem {
         identifier: item.collection_id.to_string(),
         lot: MetadataLot::Podcast,
         title: item.collection_name,
-        images,
+        image: images.get(0).cloned(),
         publish_year,
     }
 }

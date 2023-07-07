@@ -204,16 +204,12 @@ impl MediaProvider for TmdbMovieService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| {
-                let images =
-                    Vec::from_iter(d.poster_path.map(|p| self.base.get_cover_image_url(&p)));
-                MediaSearchItem {
-                    identifier: d.id.to_string(),
-                    lot: MetadataLot::Movie,
-                    title: d.title,
-                    publish_year: convert_date_to_year(&d.release_date),
-                    images,
-                }
+            .map(|d| MediaSearchItem {
+                identifier: d.id.to_string(),
+                lot: MetadataLot::Movie,
+                title: d.title,
+                publish_year: convert_date_to_year(&d.release_date),
+                image: d.poster_path,
             })
             .collect::<Vec<_>>();
         let next_page = if page < search.total_pages {
@@ -474,16 +470,12 @@ impl MediaProvider for TmdbShowService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| {
-                let images =
-                    Vec::from_iter(d.poster_path.map(|p| self.base.get_cover_image_url(&p)));
-                MediaSearchItem {
-                    identifier: d.id.to_string(),
-                    lot: MetadataLot::Show,
-                    title: d.name,
-                    publish_year: convert_date_to_year(&d.first_air_date),
-                    images,
-                }
+            .map(|d| MediaSearchItem {
+                identifier: d.id.to_string(),
+                lot: MetadataLot::Show,
+                title: d.name,
+                publish_year: convert_date_to_year(&d.first_air_date),
+                image: d.poster_path,
             })
             .collect::<Vec<_>>();
         let next_page = if page < search.total_pages {

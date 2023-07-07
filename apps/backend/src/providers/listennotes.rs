@@ -125,7 +125,7 @@ impl MediaProvider for ListennotesService {
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
                 title: r.title_original,
-                images: Vec::from_iter(r.image),
+                image: r.image,
                 publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect::<Vec<_>>();

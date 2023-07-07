@@ -310,7 +310,7 @@ impl MediaProvider for OpenlibraryService {
                     identifier: b.identifier,
                     lot: MetadataLot::Book,
                     title: b.title,
-                    images: b.images,
+                    image: b.images.get(0).cloned(),
                     publish_year: b.publish_year,
                 })
                 .collect(),

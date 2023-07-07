@@ -8,7 +8,7 @@ query Collections($limit: Int) {
       identifier
       lot
       title
-      images
+      image
       publishYear
     }
   }
