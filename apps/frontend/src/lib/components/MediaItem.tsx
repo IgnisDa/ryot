@@ -14,6 +14,7 @@ import {
 	Flex,
 	Image,
 	Loader,
+	Paper,
 	Text,
 	Tooltip,
 } from "@mantine/core";
@@ -25,6 +26,7 @@ import {
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconStarFilled } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -40,6 +42,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	href: string;
 	listType: "grid" | "poster";
 	existsInDatabase?: boolean;
+	averageRating?: number;
 }) => {
 	return (
 		<Flex
@@ -61,7 +64,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 				/>
 			) : null}
 			<Link passHref legacyBehavior href={props.href}>
-				<Anchor style={{ flex: "none" }}>
+				<Anchor style={{ flex: "none" }} pos="relative">
 					<Image
 						src={props.item.images.at(0)}
 						radius={"md"}
@@ -72,12 +75,22 @@ export const MediaItemWithoutUpdateModal = (props: {
 						style={{ cursor: "pointer" }}
 						alt={`Image for ${props.item.title}`}
 						sx={(_t) => ({
-							":hover": { transform: "scale(1.02)" },
+							":hover": { boxShadow: "0 0 15px black" },
 							transitionProperty: "transform",
 							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
 							transitionDuration: "150ms",
 						})}
 					/>
+					{props.averageRating ? (
+						<Paper p={4} pos={"absolute"} top={5} right={5} withBorder>
+							<Flex align={"center"} gap={4}>
+								<IconStarFilled size={"0.8rem"} color="yellow" />
+								<Text color="white" size="xs">
+									{(+props.averageRating).toFixed(1)}
+								</Text>
+							</Flex>
+						</Paper>
+					) : null}
 				</Anchor>
 			</Link>
 			<Flex

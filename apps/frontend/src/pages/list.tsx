@@ -442,10 +442,11 @@ const Page: NextPageWithLayout = () => {
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												listType={activeListType}
-												key={lm.identifier}
-												item={lm}
+												key={lm.data.identifier}
+												item={lm.data}
+												averageRating={lm.averageRating}
 												lot={lot}
-												href={`${ROUTES.media.details}?item=${lm.identifier}`}
+												href={`${ROUTES.media.details}?item=${lm.data.identifier}`}
 											/>
 										))}
 									</Grid>
