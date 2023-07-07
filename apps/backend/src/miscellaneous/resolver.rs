@@ -2,7 +2,9 @@ use std::{collections::HashSet, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{
+    Context, Enum, Error, InputObject, Object, OutputType, Result, SimpleObject, Union,
+};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use futures::TryStreamExt;
@@ -28,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::models::media::MediaSearchItem;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -421,12 +424,9 @@ pub struct MediaBaseData {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSearchItem {
-    pub identifier: String,
-    pub lot: MetadataLot,
-    pub title: String,
-    pub images: Vec<String>,
-    pub publish_year: Option<i32>,
+pub struct MediaListItem {
+    pub data: MediaSearchItem,
+    pub average_rating: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -436,9 +436,12 @@ pub struct MediaSearchItemResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct MediaSearchResults {
+pub struct MediaSearchResults<T>
+where
+    T: OutputType,
+{
     pub total: i32,
-    pub items: Vec<MediaSearchItem>,
+    pub items: Vec<T>,
     pub next_page: Option<i32>,
 }
 
@@ -666,7 +669,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MediaListInput,
-    ) -> Result<MediaSearchResults> {
+    ) -> Result<MediaSearchResults<MediaListItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -1353,7 +1356,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: MediaListInput,
-    ) -> Result<MediaSearchResults> {
+    ) -> Result<MediaSearchResults<MediaListItem>> {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -1636,6 +1639,25 @@ impl MiscellaneousService {
             .collect();
         let mut items = vec![];
         for m in metas {
+            let avg_select = Query::select()
+                .expr(Func::avg(Expr::col((
+                    TempReview::Table,
+                    TempReview::Rating,
+                ))))
+                .from(TempReview::Table)
+                .cond_where(
+                    Cond::all()
+                        .add(Expr::col((TempReview::Table, TempReview::UserId)).eq(user_id))
+                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(m.id)),
+                )
+                .to_owned();
+            let stmt = self.get_db_stmt(avg_select);
+            let avg = self
+                .db
+                .query_one(stmt)
+                .await?
+                .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
+                .unwrap();
             let images = serde_json::from_value(m.images).unwrap();
             let (poster_images, _) = self
                 .metadata_images(&metadata::Model {
@@ -1643,12 +1665,15 @@ impl MiscellaneousService {
                     ..Default::default()
                 })
                 .await?;
-            let m_small = MediaSearchItem {
-                identifier: m.id.to_string(),
-                lot: m.lot,
-                title: m.title,
-                images: poster_images,
-                publish_year: m.publish_year,
+            let m_small = MediaListItem {
+                data: MediaSearchItem {
+                    identifier: m.id.to_string(),
+                    lot: m.lot,
+                    title: m.title,
+                    images: poster_images,
+                    publish_year: m.publish_year,
+                },
+                average_rating: avg,
             };
             items.push(m_small);
         }

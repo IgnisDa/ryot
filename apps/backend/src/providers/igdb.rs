@@ -10,10 +10,10 @@ use crate::{
     config::VideoGameConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::VideoGameSpecifics,
+    models::media::{MediaSearchItem, VideoGameSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::NamedObject,
 };
@@ -125,7 +125,11 @@ where id = {id};
         Ok(d)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let client = utils::get_client(&self.config).await;
         let req_body = format!(
@@ -258,10 +262,7 @@ mod utils {
     use std::{env, fs};
 
     use serde_json::json;
-    use surf::{
-        http::headers::{AUTHORIZATION},
-        Client, Url,
-    };
+    use surf::{http::headers::AUTHORIZATION, Client, Url};
 
     use super::*;
     use crate::{

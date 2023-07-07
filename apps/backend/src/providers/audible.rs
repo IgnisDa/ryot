@@ -9,10 +9,10 @@ use crate::{
     config::AudibleConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::AudioBookSpecifics,
+    models::media::{AudioBookSpecifics, MediaSearchItem},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{
         convert_date_to_year, convert_string_to_date, get_base_http_client_config, NamedObject,
@@ -140,7 +140,11 @@ impl MediaProvider for AudibleService {
         Ok(d)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {

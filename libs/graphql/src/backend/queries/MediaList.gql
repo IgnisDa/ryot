@@ -3,10 +3,13 @@ query MediaList($input: MediaListInput!) {
     total
     nextPage
     items {
-      identifier
-      title
-      images
-      publishYear
+      averageRating
+      data {
+        identifier
+        title
+        images
+        publishYear
+      }
     }
   }
 }

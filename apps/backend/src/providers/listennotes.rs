@@ -14,10 +14,10 @@ use crate::{
     config::PodcastConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::{PodcastEpisode, PodcastSpecifics},
+    models::media::{MediaSearchItem, PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
 };
 
@@ -80,7 +80,11 @@ impl MediaProvider for ListennotesService {
         Ok(details)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
@@ -212,11 +216,9 @@ impl ListennotesService {
 mod utils {
     use std::{collections::HashMap, env, fs};
 
-    use surf::{Url};
+    use surf::Url;
 
-    use crate::{
-        utils::{get_base_http_client_config, read_file_to_json},
-    };
+    use crate::utils::{get_base_http_client_config, read_file_to_json};
 
     use super::*;
 

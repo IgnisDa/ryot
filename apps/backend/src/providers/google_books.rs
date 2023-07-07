@@ -9,10 +9,10 @@ use crate::{
     config::GoogleBooksConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
+        resolver::{MediaDetails, MediaSearchResults},
         MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
     },
-    models::media::BookSpecifics,
+    models::media::{BookSpecifics, MediaSearchItem},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client_config},
 };
@@ -92,7 +92,11 @@ impl MediaProvider for GoogleBooksService {
         Ok(d)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_LIMIT;
         let mut rsp = self
@@ -218,9 +222,7 @@ impl GoogleBooksService {
             description: item.description,
             creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
-            publish_year: item
-                .published_date
-                .and_then(|d| convert_date_to_year(&d)),
+            publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: item.page_count,

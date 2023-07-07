@@ -4,6 +4,8 @@ use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
 pub mod media {
+    use crate::migrator::MetadataLot;
+
     use super::*;
 
     #[derive(
@@ -191,6 +193,15 @@ pub mod media {
     pub struct MangaSpecifics {
         pub chapters: Option<i32>,
         pub volumes: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct MediaSearchItem {
+        pub identifier: String,
+        pub lot: MetadataLot,
+        pub title: String,
+        pub images: Vec<String>,
+        pub publish_year: Option<i32>,
     }
 }
 
