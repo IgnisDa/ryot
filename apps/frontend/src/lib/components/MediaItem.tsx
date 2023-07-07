@@ -40,7 +40,6 @@ export const MediaItemWithoutUpdateModal = (props: {
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
-	listType: "grid" | "poster";
 	existsInDatabase?: boolean;
 	averageRating?: number;
 }) => {
@@ -48,8 +47,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 		<Flex
 			key={props.item.identifier}
 			align="center"
-			justify={props.listType === "poster" ? "center" : "start"}
-			direction={props.listType === "poster" ? "column" : "row"}
+			justify={"center"}
+			direction={"column"}
 			pos={"relative"}
 		>
 			{props.imageOverlayForLoadingIndicator ? (
@@ -68,8 +67,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 					<Image
 						src={props.item.images.at(0)}
 						radius={"md"}
-						height={props.listType === "poster" ? 250 : 170}
-						width={props.listType === "poster" ? 167 : 120}
+						height={250}
+						width={167}
 						withPlaceholder
 						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
 						style={{ cursor: "pointer" }}
@@ -93,16 +92,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 					) : null}
 				</Anchor>
 			</Link>
-			<Flex
-				w={props.listType === "poster" ? "100%" : undefined}
-				direction={props.listType === "poster" ? "column" : "column-reverse"}
-				ml={props.listType === "grid" ? "md" : 0}
-			>
-				<Flex
-					justify={"space-between"}
-					direction={props.listType === "poster" ? "row" : "column"}
-					w="100%"
-				>
+			<Flex w={"100%"} direction={"column"}>
+				<Flex justify={"space-between"} direction={"row"} w="100%">
 					<Text c="dimmed">{props.item.publishYear}</Text>
 					<Tooltip
 						label="This media exists in the database"
@@ -115,12 +106,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					</Tooltip>
 				</Flex>
 				<Tooltip label={props.item.title} position="right">
-					<Text
-						w="100%"
-						truncate={props.listType === "poster" ? true : undefined}
-						fw={"bold"}
-						mb="xs"
-					>
+					<Text w="100%" truncate fw={"bold"} mb="xs">
 						{props.item.title}
 					</Text>
 				</Tooltip>
@@ -137,7 +123,6 @@ export default function (props: {
 	offset: number;
 	lot: MetadataLot;
 	source: MetadataSource;
-	listType: "grid" | "poster";
 	searchQueryRefetch: () => void;
 	maybeItemId?: number;
 }) {
@@ -174,7 +159,6 @@ export default function (props: {
 
 	return (
 		<MediaItemWithoutUpdateModal
-			listType={props.listType}
 			item={props.item}
 			lot={props.lot}
 			imageOverlayForLoadingIndicator={commitMedia.isLoading}

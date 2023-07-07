@@ -144,10 +144,9 @@ const Page: NextPageWithLayout = () => {
 					inProgressCollection.mediaDetails.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
-							<Grid listType="poster">
+							<Grid>
 								{inProgressCollection.mediaDetails.map((lm) => (
 									<MediaItemWithoutUpdateModal
-										listType="poster"
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
@@ -308,7 +307,7 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
-					<Grid listType="grid">
+					<Grid>
 						<Button
 							variant="outline"
 							leftIcon={<IconList />}

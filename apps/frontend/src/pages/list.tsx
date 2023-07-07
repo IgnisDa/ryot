@@ -43,8 +43,6 @@ import {
 import {
 	IconFilter,
 	IconFilterOff,
-	IconGridDots,
-	IconLayoutRows,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
@@ -117,11 +115,6 @@ const Page: NextPageWithLayout = () => {
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
-	});
-	const [activeListType, setListType] = useLocalStorage<"poster" | "grid">({
-		key: "savedListType",
-		getInitialValueInEffect: false,
-		defaultValue: "grid",
 	});
 	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
 		key: "savedActiveTab",
@@ -314,18 +307,6 @@ const Page: NextPageWithLayout = () => {
 										>
 											<IconFilter size="1.5rem" />
 										</ActionIcon>
-										<ActionIcon
-											onClick={() => {
-												if (activeListType === "poster") setListType("grid");
-												else setListType("poster");
-											}}
-										>
-											{activeListType === "poster" ? (
-												<IconGridDots size="1.5rem" />
-											) : (
-												<IconLayoutRows size="1.5rem" />
-											)}
-										</ActionIcon>
 										<Modal
 											opened={filtersModalOpened}
 											onClose={closeFiltersModal}
@@ -438,10 +419,9 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid listType={activeListType}>
+									<Grid>
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
-												listType={activeListType}
 												key={lm.data.identifier}
 												item={lm.data}
 												averageRating={lm.averageRating}
@@ -500,10 +480,9 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid listType={"poster"}>
+									<Grid>
 										{searchQuery.data.items.map((b, idx) => (
 											<MediaItem
-												listType={"poster"}
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}
