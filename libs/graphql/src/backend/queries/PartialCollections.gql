@@ -3,6 +3,8 @@ query PartialCollections {
     collectionDetails {
       id
       name
+      description
+      visibility
       numItems
     }
   }

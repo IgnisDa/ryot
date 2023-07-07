@@ -48,7 +48,7 @@ const documents = {
     "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    nextPage\n    items {\n      averageRating\n      data {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaListDocument,
     "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}": types.MediaSourcesForLotDocument,
-    "query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n      numItems\n    }\n  }\n}": types.PartialCollectionsDocument,
+    "query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n      description\n      visibility\n      numItems\n    }\n  }\n}": types.PartialCollectionsDocument,
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query ReviewById($reviewId: Identifier!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}": types.ReviewByIdDocument,
     "query SeenHistory($metadataId: Identifier!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
@@ -215,7 +215,7 @@ export function graphql(source: "query MediaSourcesForLot($lot: MetadataLot!) {\
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n      numItems\n    }\n  }\n}"): (typeof documents)["query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n      numItems\n    }\n  }\n}"];
+export function graphql(source: "query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n      description\n      visibility\n      numItems\n    }\n  }\n}"): (typeof documents)["query PartialCollections {\n  collections {\n    collectionDetails {\n      id\n      name\n      description\n      visibility\n      numItems\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -276,6 +276,8 @@ struct CollectionItemDetail {
     id: i32,
     name: String,
     num_items: u64,
+    description: Option<String>,
+    visibility: Visibility,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -2173,6 +2175,8 @@ impl MiscellaneousService {
                 collection_details: CollectionItemDetail {
                     id: collection.id,
                     name: collection.name,
+                    description: collection.description,
+                    visibility: collection.visibility,
                     num_items,
                 },
                 media_details,
