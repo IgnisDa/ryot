@@ -307,7 +307,14 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
-					<Grid>
+					<SimpleGrid
+						cols={1}
+						spacing="lg"
+						breakpoints={[
+							{ minWidth: "sm", cols: 2 },
+							{ minWidth: "lg", cols: 3 },
+						]}
+					>
 						<Button
 							variant="outline"
 							leftIcon={<IconList />}
@@ -327,7 +334,7 @@ const Page: NextPageWithLayout = () => {
 								Create a media item
 							</Button>
 						</Link>
-					</Grid>
+					</SimpleGrid>
 				</Stack>
 			</Container>
 		</>
