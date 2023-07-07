@@ -50,12 +50,11 @@ use crate::{
     integrations::IntegrationService,
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
-        Review as TempReview, ReviewVisibility, Seen as TempSeen, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
     },
     models::media::{
         AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-        PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
+        PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, Visibility,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -365,7 +364,7 @@ struct ReviewItem {
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
     text: Option<String>,
-    visibility: ReviewVisibility,
+    visibility: Visibility,
     spoiler: bool,
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -377,7 +376,7 @@ struct ReviewItem {
 pub struct PostReviewInput {
     pub rating: Option<Decimal>,
     pub text: Option<String>,
-    pub visibility: Option<ReviewVisibility>,
+    pub visibility: Option<Visibility>,
     pub spoiler: Option<bool>,
     pub metadata_id: Identifier,
     pub date: Option<DateTimeUtc>,
@@ -2290,7 +2289,7 @@ impl MiscellaneousService {
         let all_reviews = all_reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                ReviewVisibility::Private => i32::from(r.posted_by.id) == *user_id,
+                Visibility::Private => i32::from(r.posted_by.id) == *user_id,
                 _ => true,
             })
             .map(|r| ReviewItem {

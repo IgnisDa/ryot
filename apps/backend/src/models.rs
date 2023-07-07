@@ -1,6 +1,6 @@
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
-use sea_orm::FromJsonQueryResult;
+use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
 pub mod media {
@@ -202,6 +202,17 @@ pub mod media {
         pub title: String,
         pub images: Vec<String>,
         pub publish_year: Option<i32>,
+    }
+
+    #[derive(
+        Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    )]
+    #[sea_orm(rs_type = "String", db_type = "String(None)")]
+    pub enum Visibility {
+        #[sea_orm(string_value = "PU")]
+        Public,
+        #[sea_orm(string_value = "PR")]
+        Private,
     }
 }
 
