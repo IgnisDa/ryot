@@ -8,13 +8,10 @@ use surf::{Client, Url};
 use crate::{
     config::GoogleBooksConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
-    },
-    models::media::{BookSpecifics, MediaSearchItem},
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{BookSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client_config},
+    utils::{convert_date_to_year, get_base_http_client_config, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";

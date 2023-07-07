@@ -9,13 +9,16 @@ use surf::Client;
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{
+        MediaDetails, MediaSearchItem, MediaSearchResults, MovieSpecifics, ShowEpisode, ShowSeason,
+        ShowSpecifics,
     },
-    models::media::{MediaSearchItem, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
+    utils::{
+        convert_date_to_year, convert_string_to_date, get_base_http_client_config,
+        read_file_to_json, NamedObject,
+    },
 };
 
 pub static URL: &str = "https://api.themoviedb.org/3/";
@@ -500,8 +503,6 @@ mod utils {
     use std::{env, fs};
 
     use surf::{http::headers::AUTHORIZATION, Url};
-
-    use crate::utils::{get_base_http_client_config, read_file_to_json};
 
     use super::*;
 

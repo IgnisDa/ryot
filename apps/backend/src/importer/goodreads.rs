@@ -10,10 +10,9 @@ use crate::{
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::MediaDetails, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage,
-        MetadataImageUrl,
+        DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    models::media::BookSpecifics,
+    models::media::{BookSpecifics, MediaDetails},
 };
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -9,13 +9,10 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use crate::{
     config::VideoGameConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
-    },
-    models::media::{MediaSearchItem, VideoGameSpecifics},
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{MediaDetails, MediaSearchItem, MediaSearchResults, VideoGameSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::NamedObject,
+    utils::{NamedObject, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://api.igdb.com/v4/";

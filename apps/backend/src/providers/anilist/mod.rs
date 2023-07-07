@@ -6,12 +6,9 @@ use surf::Client;
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
     migrator::MetadataLot,
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        PAGE_LIMIT,
-    },
-    models::media::MediaSearchItem,
+    models::media::{MediaDetails, MediaSearchItem, MediaSearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::PAGE_LIMIT,
 };
 
 static URL: &str = "https://graphql.anilist.co";

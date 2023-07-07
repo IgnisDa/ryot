@@ -9,13 +9,12 @@ use surf::{Client, Url};
 use crate::{
     config::ITunesConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{
+        MediaDetails, MediaSearchItem, MediaSearchResults, PodcastEpisode, PodcastSpecifics,
     },
-    models::media::{MediaSearchItem, PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, NamedObject},
+    utils::{get_base_http_client_config, NamedObject, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://itunes.apple.com/";

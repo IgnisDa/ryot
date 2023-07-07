@@ -11,13 +11,10 @@ use surf::{Client, Url};
 use crate::{
     config::OpenlibraryConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
-    },
-    models::media::{BookSpecifics, MediaSearchItem},
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{BookSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, get_data_parallelly_from_sources},
+    utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://openlibrary.org";

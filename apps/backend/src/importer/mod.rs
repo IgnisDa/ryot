@@ -14,13 +14,8 @@ use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
     migrator::{MediaImportSource, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{
-            AddMediaToCollection, MediaDetails, MiscellaneousService, PostReviewInput,
-            ProgressUpdateInput,
-        },
-        DefaultCollection,
-    },
+    miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
+    models::media::{AddMediaToCollection, MediaDetails, PostReviewInput, ProgressUpdateInput},
     utils::user_id_from_ctx,
 };
 

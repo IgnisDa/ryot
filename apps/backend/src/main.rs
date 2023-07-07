@@ -56,8 +56,8 @@ use crate::{
     file_storage::FileStorageService,
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
-    miscellaneous::resolver::{MiscellaneousService, COOKIE_NAME},
-    utils::{create_app_services, user_id_from_token, MemoryDb},
+    miscellaneous::resolver::MiscellaneousService,
+    utils::{create_app_services, user_id_from_token, MemoryDb, COOKIE_NAME},
 };
 
 mod background;

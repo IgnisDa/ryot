@@ -2,9 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_graphql::{
-    Context, Enum, Error, InputObject, Object, OutputType, Result, SimpleObject, Union,
-};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use futures::TryStreamExt;
@@ -18,8 +16,8 @@ use rust_decimal::Decimal;
 use sea_orm::Iterable;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, EntityTrait, FromJsonQueryResult, FromQueryResult, Iden,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
+    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait,
+    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_query::{
     Alias, BinOper, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
@@ -30,7 +28,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::models::media::MediaSearchItem;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::{AppConfig, IsFeatureEnabled},
@@ -42,7 +39,6 @@ use crate::{
             Summary, User, UserToMetadata,
         },
         review, seen, summary, user, user_to_metadata,
-        utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
     file_storage::FileStorageService,
     graphql::{IdObject, Identifier},
@@ -52,9 +48,16 @@ use crate::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
     },
+    miscellaneous::{
+        CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
+        MetadataImage, MetadataImageUrl, MetadataImages, SeenExtraInformation,
+        SeenPodcastExtraInformation, SeenShowExtraInformation,
+    },
     models::media::{
-        AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-        PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, Visibility,
+        AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExportMedia,
+        MangaSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults, MovieSpecifics,
+        PodcastSpecifics, PostReviewInput, ProgressUpdateInput, ShowSpecifics, UserSummary,
+        VideoGameSpecifics, Visibility,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -67,37 +70,34 @@ use crate::{
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    users::UserPreferences,
-    users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations},
-    utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
-};
-
-use super::{
-    CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
-    MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
+    users::{
+        UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
+    },
+    utils::{
+        user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject, SearchInput,
+        COOKIE_NAME, PAGE_LIMIT,
+    },
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
-pub static COOKIE_NAME: &str = "auth";
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateCustomMediaInput {
-    pub title: String,
-    pub lot: MetadataLot,
-    pub description: Option<String>,
-    pub creators: Option<Vec<String>>,
-    pub genres: Option<Vec<String>>,
-    pub images: Option<Vec<String>>,
-    pub publish_year: Option<i32>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub manga_specifics: Option<MangaSpecifics>,
-    pub anime_specifics: Option<AnimeSpecifics>,
+struct CreateCustomMediaInput {
+    title: String,
+    lot: MetadataLot,
+    description: Option<String>,
+    creators: Option<Vec<String>>,
+    genres: Option<Vec<String>>,
+    images: Option<Vec<String>>,
+    publish_year: Option<i32>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -106,7 +106,7 @@ enum UserYankIntegrationLot {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct GraphqlUserYankIntegration {
+struct GraphqlUserYankIntegration {
     id: usize,
     lot: UserYankIntegrationLot,
     description: String,
@@ -114,7 +114,7 @@ pub struct GraphqlUserYankIntegration {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateUserYankIntegrationInput {
+struct CreateUserYankIntegrationInput {
     lot: UserYankIntegrationLot,
     base_url: String,
     #[graphql(secret)]
@@ -145,17 +145,17 @@ enum CreateCustomMediaResult {
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum UserDetailsErrorVariant {
+enum UserDetailsErrorVariant {
     AuthTokenInvalid,
 }
 
 #[derive(Debug, SimpleObject)]
-pub struct UserDetailsError {
+struct UserDetailsError {
     error: UserDetailsErrorVariant,
 }
 
 #[derive(Union)]
-pub enum UserDetailsResult {
+enum UserDetailsResult {
     Ok(user::Model),
     Error(UserDetailsError),
 }
@@ -215,25 +215,6 @@ struct UpdateUserInput {
     password: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ExportMedia {
-    ryot_id: i32,
-    title: String,
-    #[serde(rename = "type")]
-    lot: MetadataLot,
-    audible_id: Option<String>,
-    custom_id: Option<String>,
-    igdb_id: Option<String>,
-    listennotes_id: Option<String>,
-    google_books_id: Option<String>,
-    openlibrary_id: Option<String>,
-    tmdb_id: Option<String>,
-    itunes_id: Option<String>,
-    anilist_id: Option<String>,
-    seen_history: Vec<seen::Model>,
-    user_reviews: Vec<review::Model>,
-}
-
 #[derive(Debug, InputObject)]
 struct UpdateUserFeaturePreferenceInput {
     property: MetadataLot,
@@ -264,94 +245,6 @@ fn get_hasher() -> Argon2<'static> {
     Argon2::default()
 }
 
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AudioBooksSummary {
-    runtime: i32,
-    played: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct VideoGamesSummary {
-    played: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct BooksSummary {
-    pages: i32,
-    read: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MoviesSummary {
-    runtime: i32,
-    watched: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct PodcastsSummary {
-    runtime: i32,
-    played: i32,
-    played_episodes: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct ShowsSummary {
-    runtime: i32,
-    watched: i32,
-    watched_episodes: i32,
-    watched_seasons: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MangaSummary {
-    chapters: i32,
-    read: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AnimeSummary {
-    episodes: i32,
-    watched: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserMediaSummary {
-    books: BooksSummary,
-    movies: MoviesSummary,
-    podcasts: PodcastsSummary,
-    shows: ShowsSummary,
-    video_games: VideoGamesSummary,
-    audio_books: AudioBooksSummary,
-    anime: AnimeSummary,
-    manga: MangaSummary,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserSummary {
-    media: UserMediaSummary,
-    calculated_on: DateTimeUtc,
-}
-
 #[derive(Debug, SimpleObject)]
 struct ReviewPostedBy {
     id: Identifier,
@@ -372,22 +265,6 @@ struct ReviewItem {
     podcast_episode_id: Option<i32>,
 }
 
-#[derive(Debug, InputObject)]
-pub struct PostReviewInput {
-    pub rating: Option<Decimal>,
-    pub text: Option<String>,
-    pub visibility: Option<Visibility>,
-    pub spoiler: Option<bool>,
-    pub metadata_id: Identifier,
-    pub date: Option<DateTimeUtc>,
-    /// If this review comes from a different source, this should be set
-    pub identifier: Option<String>,
-    /// ID of the review if this is an update to an existing review
-    pub review_id: Option<Identifier>,
-    pub season_number: Option<i32>,
-    pub episode_number: Option<i32>,
-}
-
 #[derive(Debug, SimpleObject)]
 struct CollectionItemDetail {
     id: i32,
@@ -401,113 +278,69 @@ struct CollectionItem {
     media_details: Vec<MediaSearchItem>,
 }
 
-#[derive(Debug, InputObject)]
-pub struct AddMediaToCollection {
-    pub collection_name: String,
-    pub media_id: Identifier,
-}
-
 #[derive(SimpleObject)]
-pub struct GeneralFeatures {
+struct GeneralFeatures {
     file_storage: bool,
     signup_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaBaseData {
-    pub model: metadata::Model,
-    pub creators: Vec<MetadataCreator>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
-    pub genres: Vec<String>,
+struct MediaBaseData {
+    model: metadata::Model,
+    creators: Vec<MetadataCreator>,
+    poster_images: Vec<String>,
+    backdrop_images: Vec<String>,
+    genres: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaListItem {
-    pub data: MediaSearchItem,
-    pub average_rating: Option<Decimal>,
+struct MediaListItem {
+    data: MediaSearchItem,
+    average_rating: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSearchItemResponse {
-    pub item: MediaSearchItem,
-    pub database_id: Option<Identifier>,
+struct MediaSearchItemResponse {
+    item: MediaSearchItem,
+    database_id: Option<Identifier>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct MediaSearchResults<T>
-where
-    T: OutputType,
-{
-    pub total: i32,
-    pub items: Vec<T>,
-    pub next_page: Option<i32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct DetailedMediaSearchResults {
-    pub total: i32,
-    pub items: Vec<MediaSearchItemResponse>,
-    pub next_page: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateInput {
-    pub metadata_id: Identifier,
-    pub progress: Option<i32>,
-    pub date: Option<NaiveDate>,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    /// If this update comes from a different source, this should be set
-    pub identifier: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaDetails {
-    pub identifier: String,
-    pub title: String,
-    pub source: MetadataSource,
-    pub description: Option<String>,
-    pub lot: MetadataLot,
-    pub creators: Vec<MetadataCreator>,
-    pub genres: Vec<String>,
-    pub images: Vec<MetadataImage>,
-    pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub specifics: MediaSpecifics,
+struct DetailedMediaSearchResults {
+    total: i32,
+    items: Vec<MediaSearchItemResponse>,
+    next_page: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-
-pub struct GraphqlMediaDetails {
-    pub id: i32,
-    pub title: String,
-    pub identifier: String,
-    pub description: Option<String>,
-    pub lot: MetadataLot,
-    pub source: MetadataSource,
-    pub creators: Vec<MetadataCreator>,
-    pub genres: Vec<String>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
-    pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
-    pub manga_specifics: Option<MangaSpecifics>,
-    pub anime_specifics: Option<AnimeSpecifics>,
-    pub source_url: Option<String>,
+struct GraphqlMediaDetails {
+    id: i32,
+    title: String,
+    identifier: String,
+    description: Option<String>,
+    lot: MetadataLot,
+    source: MetadataSource,
+    creators: Vec<MetadataCreator>,
+    genres: Vec<String>,
+    poster_images: Vec<String>,
+    backdrop_images: Vec<String>,
+    publish_year: Option<i32>,
+    publish_date: Option<NaiveDate>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
+    source_url: Option<String>,
     /// The number of users who have seen this media
-    pub seen_by: i32,
+    seen_by: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum MediaSortOrder {
+enum MediaSortOrder {
     Desc,
     #[default]
     Asc,
@@ -523,7 +356,7 @@ impl From<MediaSortOrder> for Order {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum MediaSortBy {
+enum MediaSortBy {
     Title,
     #[default]
     ReleaseDate,
@@ -533,15 +366,15 @@ pub enum MediaSortBy {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaSortInput {
+struct MediaSortInput {
     #[graphql(default)]
-    pub order: MediaSortOrder,
+    order: MediaSortOrder,
     #[graphql(default)]
-    pub by: MediaSortBy,
+    by: MediaSortBy,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
-pub enum MediaGeneralFilter {
+enum MediaGeneralFilter {
     All,
     Rated,
     Unrated,
@@ -551,30 +384,24 @@ pub enum MediaGeneralFilter {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaFilter {
-    pub general: Option<MediaGeneralFilter>,
-    pub collection: Option<i32>,
+struct MediaFilter {
+    general: Option<MediaGeneralFilter>,
+    collection: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaListInput {
-    pub page: i32,
-    pub lot: MetadataLot,
-    pub sort: Option<MediaSortInput>,
-    pub query: Option<String>,
-    pub filter: Option<MediaFilter>,
+struct MediaListInput {
+    page: i32,
+    lot: MetadataLot,
+    sort: Option<MediaSortInput>,
+    query: Option<String>,
+    filter: Option<MediaFilter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaConsumedInput {
-    pub identifier: String,
-    pub lot: MetadataLot,
-}
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct SearchInput {
-    pub query: String,
-    pub page: Option<i32>,
+struct MediaConsumedInput {
+    identifier: String,
+    lot: MetadataLot,
 }
 
 #[derive(Default)]
@@ -621,7 +448,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about the currently logged in user.
-    pub async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
+    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let token = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -630,7 +457,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    pub async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -1151,7 +978,7 @@ impl MiscellaneousService {
         Ok((poster_images, backdrop_images))
     }
 
-    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
+    async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
         let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -1351,7 +1178,7 @@ impl MiscellaneousService {
         Ok(prev_seen)
     }
 
-    pub async fn media_list(
+    async fn media_list(
         &self,
         user_id: i32,
         input: MediaListInput,

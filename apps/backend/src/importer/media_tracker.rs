@@ -17,8 +17,8 @@ use crate::{
         DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    miscellaneous::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
-    models::media::BookSpecifics,
+    miscellaneous::{MediaSpecifics, MetadataCreator},
+    models::media::{BookSpecifics, MediaDetails},
     providers::openlibrary::utils::get_key,
 };
 

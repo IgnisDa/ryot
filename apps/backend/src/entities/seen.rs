@@ -8,11 +8,8 @@ use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{
-        prelude::UserToMetadata,
-        user_to_metadata,
-        utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
-    },
+    entities::{prelude::UserToMetadata, user_to_metadata},
+    miscellaneous::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     utils::associate_user_with_metadata,
 };
 

@@ -13,12 +13,12 @@ use surf::Client;
 use crate::{
     config::PodcastConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{
+        MediaDetails, MediaSearchItem, MediaSearchResults, PodcastEpisode, PodcastSpecifics,
     },
-    models::media::{MediaSearchItem, PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::PAGE_LIMIT,
 };
 
 pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";

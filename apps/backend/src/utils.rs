@@ -30,6 +30,8 @@ use crate::{
     GqlCtx,
 };
 
+pub static PAGE_LIMIT: i32 = 20;
+pub static COOKIE_NAME: &str = "auth";
 pub type MemoryDb = Arc<Mutex<Store>>;
 
 /// All the services that are used by the app
@@ -95,6 +97,12 @@ pub async fn create_app_services(
 #[graphql(input_name = "NamedObjectInput")]
 pub struct NamedObject {
     pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, InputObject)]
+pub struct SearchInput {
+    pub query: String,
+    pub page: Option<i32>,
 }
 
 pub async fn associate_user_with_metadata<C>(user_id: &i32, metadata_id: &i32, db: &C) -> Result<()>
