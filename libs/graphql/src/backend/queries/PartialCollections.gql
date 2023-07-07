@@ -3,6 +3,7 @@ query PartialCollections {
     collectionDetails {
       id
       name
+      numItems
     }
   }
 }

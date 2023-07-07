@@ -387,8 +387,15 @@ pub struct PostReviewInput {
 }
 
 #[derive(Debug, SimpleObject)]
+struct CollectionItemDetail {
+    id: i32,
+    name: String,
+    num_items: u64,
+}
+
+#[derive(Debug, SimpleObject)]
 struct CollectionItem {
-    collection_details: collection::Model,
+    collection_details: CollectionItemDetail,
     media_details: Vec<MediaSearchItem>,
 }
 
@@ -2276,8 +2283,9 @@ impl MiscellaneousService {
             .await
             .unwrap();
         let mut data = vec![];
-        for collection_details in collections.into_iter() {
-            let metas = collection_details
+        for collection in collections.into_iter() {
+            let num_items = collection.find_related(Metadata).count(&self.db).await?;
+            let metas = collection
                 .find_related(Metadata)
                 .limit(limit)
                 .all(&self.db)
@@ -2305,7 +2313,11 @@ impl MiscellaneousService {
             meta_data.sort_by_key(|item| item.1);
             let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
             data.push(CollectionItem {
-                collection_details,
+                collection_details: CollectionItemDetail {
+                    id: collection.id,
+                    name: collection.name,
+                    num_items,
+                },
                 media_details,
             });
         }
