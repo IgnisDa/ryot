@@ -1910,7 +1910,6 @@ impl MiscellaneousService {
     ) -> Result<DetailedMediaSearchResults> {
         let provider = self.get_provider(lot, source)?;
         let results = provider.search(&input.query, input.page).await?;
-        dbg!(&results);
         let mut all_idens = results
             .items
             .iter()
