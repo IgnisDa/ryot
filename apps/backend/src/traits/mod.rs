@@ -23,3 +23,10 @@ pub trait MediaProviderLanguages {
     /// The default language to be used for this provider.
     fn default_language() -> String;
 }
+
+/// Determine whether a feature is enabled
+pub trait IsFeatureEnabled {
+    fn is_enabled(&self) -> bool {
+        true
+    }
+}

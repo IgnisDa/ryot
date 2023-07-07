@@ -30,7 +30,7 @@ use uuid::Uuid;
 
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
-    config::{AppConfig, IsFeatureEnabled},
+    config::AppConfig,
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
         metadata_to_genre,
@@ -69,7 +69,7 @@ use crate::{
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
-    traits::{MediaProvider, MediaProviderLanguages},
+    traits::{IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
         UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
