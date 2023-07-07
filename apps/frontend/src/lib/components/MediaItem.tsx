@@ -10,11 +10,11 @@ import {
 } from "@/lib/utilities";
 import {
 	Anchor,
+	Box,
 	Button,
 	Flex,
 	Image,
 	Loader,
-	Paper,
 	Text,
 	Tooltip,
 } from "@mantine/core";
@@ -81,14 +81,26 @@ export const MediaItemWithoutUpdateModal = (props: {
 						})}
 					/>
 					{props.averageRating ? (
-						<Paper p={4} pos={"absolute"} top={5} right={5} withBorder>
+						<Box
+							p={2}
+							pos={"absolute"}
+							top={5}
+							right={5}
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.75)",
+								borderRadius: 3,
+							}}
+						>
 							<Flex align={"center"} gap={4}>
-								<IconStarFilled size={"0.8rem"} color="yellow" />
+								<IconStarFilled
+									size={"0.8rem"}
+									style={{ color: "#EBE600FF" }}
+								/>
 								<Text color="white" size="xs">
 									{(+props.averageRating).toFixed(1)}
 								</Text>
 							</Flex>
-						</Paper>
+						</Box>
 					) : null}
 				</Anchor>
 			</Link>
