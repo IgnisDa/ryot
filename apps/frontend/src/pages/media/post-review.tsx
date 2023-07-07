@@ -23,7 +23,7 @@ import {
 	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewByIdDocument,
-	ReviewVisibility,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
@@ -36,7 +36,7 @@ import { z } from "zod";
 const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(5)).optional(),
 	text: z.string().optional(),
-	visibility: z.nativeEnum(ReviewVisibility).default(ReviewVisibility.Public),
+	visibility: z.nativeEnum(Visibility).default(Visibility.Public),
 	spoiler: z.boolean().optional(),
 });
 type FormSchema = z.infer<typeof formSchema>;
@@ -156,12 +156,12 @@ const Page: NextPageWithLayout = () => {
 								fullWidth
 								data={[
 									{
-										label: ReviewVisibility.Public,
-										value: ReviewVisibility.Public,
+										label: Visibility.Public,
+										value: Visibility.Public,
 									},
 									{
-										label: ReviewVisibility.Private,
-										value: ReviewVisibility.Private,
+										label: Visibility.Private,
+										value: Visibility.Private,
 									},
 								]}
 								{...form.getInputProps("visibility")}
