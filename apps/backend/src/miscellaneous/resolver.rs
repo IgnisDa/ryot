@@ -74,8 +74,7 @@ use crate::{
         UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject, SearchInput,
-        COOKIE_NAME, PAGE_LIMIT,
+        user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
 };
 
@@ -165,6 +164,13 @@ struct UserInput {
     username: String,
     #[graphql(secret)]
     password: String,
+}
+
+#[derive(Debug, InputObject, Default)]
+struct CreateCollectionInput {
+    name: String,
+    description: Option<String>,
+    visibility: Option<Visibility>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -619,7 +625,7 @@ impl MiscellaneousMutation {
     async fn create_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: NamedObject,
+        input: CreateCollectionInput,
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
@@ -2242,7 +2248,11 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
+    async fn create_collection(
+        &self,
+        user_id: &i32,
+        input: CreateCollectionInput,
+    ) -> Result<IdObject> {
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
@@ -2255,6 +2265,11 @@ impl MiscellaneousService {
             let col = collection::ActiveModel {
                 name: ActiveValue::Set(input.name),
                 user_id: ActiveValue::Set(user_id.to_owned()),
+                description: ActiveValue::Set(input.description),
+                visibility: match input.visibility {
+                    None => ActiveValue::NotSet,
+                    Some(v) => ActiveValue::Set(v),
+                },
                 ..Default::default()
             };
             let inserted = col
@@ -2713,8 +2728,9 @@ impl MiscellaneousService {
         for collection in DefaultCollection::iter() {
             self.create_collection(
                 user_id,
-                NamedObject {
+                CreateCollectionInput {
                     name: collection.to_string(),
+                    ..Default::default()
                 },
             )
             .await

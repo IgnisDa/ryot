@@ -94,6 +94,12 @@ export type CoreDetails = {
   version: Scalars['String'];
 };
 
+export type CreateCollectionInput = {
+  description?: InputMaybe<Scalars['String']>;
+  name: Scalars['String'];
+  visibility?: InputMaybe<Visibility>;
+};
+
 export type CreateCustomMediaError = {
   error: CreateCustomMediaErrorVariant;
 };
@@ -530,7 +536,7 @@ export type MutationRootCommitMediaArgs = {
 
 
 export type MutationRootCreateCollectionArgs = {
-  input: NamedObjectInput;
+  input: CreateCollectionInput;
 };
 
 
@@ -615,10 +621,6 @@ export type MutationRootUpdateUserFeaturePreferenceArgs = {
   input: UpdateUserFeaturePreferenceInput;
 };
 
-export type NamedObjectInput = {
-  name: Scalars['String'];
-};
-
 export type PodcastEpisode = {
   id: Scalars['String'];
   number: Scalars['Int'];
@@ -667,7 +669,7 @@ export type PostReviewInput = {
   seasonNumber?: InputMaybe<Scalars['Int']>;
   spoiler?: InputMaybe<Scalars['Boolean']>;
   text?: InputMaybe<Scalars['String']>;
-  visibility?: InputMaybe<ReviewVisibility>;
+  visibility?: InputMaybe<Visibility>;
 };
 
 export type ProgressUpdateInput = {
@@ -804,7 +806,7 @@ export type Review = {
   spoiler: Scalars['Boolean'];
   text?: Maybe<Scalars['String']>;
   userId: Scalars['Int'];
-  visibility: ReviewVisibility;
+  visibility: Visibility;
 };
 
 export type ReviewItem = {
@@ -817,18 +819,13 @@ export type ReviewItem = {
   seasonNumber?: Maybe<Scalars['Int']>;
   spoiler: Scalars['Boolean'];
   text?: Maybe<Scalars['String']>;
-  visibility: ReviewVisibility;
+  visibility: Visibility;
 };
 
 export type ReviewPostedBy = {
   id: Scalars['Identifier'];
   name: Scalars['String'];
 };
-
-export enum ReviewVisibility {
-  Private = 'PRIVATE',
-  Public = 'PUBLIC'
-}
 
 export type SearchInput = {
   page?: InputMaybe<Scalars['Int']>;
@@ -999,6 +996,11 @@ export type VideoGamesSummary = {
   played: Scalars['Int'];
 };
 
+export enum Visibility {
+  Private = 'PRIVATE',
+  Public = 'PUBLIC'
+}
+
 export type AddMediaToCollectionMutationVariables = Exact<{
   input: AddMediaToCollection;
 }>;
@@ -1016,7 +1018,7 @@ export type CommitMediaMutationVariables = Exact<{
 export type CommitMediaMutation = { commitMedia: { id: any } };
 
 export type CreateCollectionMutationVariables = Exact<{
-  input: NamedObjectInput;
+  input: CreateCollectionInput;
 }>;
 
 
@@ -1209,7 +1211,7 @@ export type MediaItemReviewsQueryVariables = Exact<{
 }>;
 
 
-export type MediaItemReviewsQuery = { mediaItemReviews: Array<{ id: any, rating?: any | null, text?: string | null, spoiler: boolean, visibility: ReviewVisibility, seasonNumber?: number | null, episodeNumber?: number | null, postedOn: Date, postedBy: { id: any, name: string } }> };
+export type MediaItemReviewsQuery = { mediaItemReviews: Array<{ id: any, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, seasonNumber?: number | null, episodeNumber?: number | null, postedOn: Date, postedBy: { id: any, name: string } }> };
 
 export type MediaListQueryVariables = Exact<{
   input: MediaListInput;
@@ -1249,7 +1251,7 @@ export type ReviewByIdQueryVariables = Exact<{
 }>;
 
 
-export type ReviewByIdQuery = { reviewById: { rating?: any | null, text?: string | null, visibility: ReviewVisibility, spoiler: boolean } };
+export type ReviewByIdQuery = { reviewById: { rating?: any | null, text?: string | null, visibility: Visibility, spoiler: boolean } };
 
 export type SeenHistoryQueryVariables = Exact<{
   metadataId: Scalars['Identifier'];
@@ -1281,7 +1283,7 @@ export type UserYankIntegrationsQuery = { userYankIntegrations: Array<{ id: numb
 
 export const AddMediaToCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddMediaToCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddMediaToCollection"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addMediaToCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<AddMediaToCollectionMutation, AddMediaToCollectionMutationVariables>;
 export const CommitMediaDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitMedia"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"lot"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataLot"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"source"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataSource"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitMedia"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"lot"},"value":{"kind":"Variable","name":{"kind":"Name","value":"lot"}}},{"kind":"Argument","name":{"kind":"Name","value":"source"},"value":{"kind":"Variable","name":{"kind":"Name","value":"source"}}},{"kind":"Argument","name":{"kind":"Name","value":"identifier"},"value":{"kind":"Variable","name":{"kind":"Name","value":"identifier"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitMediaMutation, CommitMediaMutationVariables>;
-export const CreateCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"NamedObjectInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCollectionMutation, CreateCollectionMutationVariables>;
+export const CreateCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCollectionInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCollectionMutation, CreateCollectionMutationVariables>;
 export const CreateCustomMediaDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomMedia"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMediaInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomMedia"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMediaError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]}}]} as unknown as DocumentNode<CreateCustomMediaMutation, CreateCustomMediaMutationVariables>;
 export const CreateUserYankIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserYankIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserYankIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserYankIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserYankIntegrationMutation, CreateUserYankIntegrationMutationVariables>;
 export const DeleteCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}]}]}}]} as unknown as DocumentNode<DeleteCollectionMutation, DeleteCollectionMutationVariables>;
