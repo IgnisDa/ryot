@@ -16,7 +16,12 @@ import {
 	LogoutUserDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconHome2, IconLogout, IconSettings } from "@tabler/icons-react";
+import {
+	IconArchive,
+	IconHome2,
+	IconLogout,
+	IconSettings,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -109,6 +114,7 @@ export default function ({ children }: { children: ReactElement }) {
 				href: undefined,
 			})) || []),
 		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
+		{ icon: IconArchive, label: "Collections", href: ROUTES.collections },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
@@ -118,6 +124,7 @@ export default function ({ children }: { children: ReactElement }) {
 			}
 		/>
 	));
+
 	const logoutUser = useMutation({
 		mutationFn: async () => {
 			try {
