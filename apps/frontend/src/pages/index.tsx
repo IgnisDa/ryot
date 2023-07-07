@@ -160,7 +160,7 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
-						Calculated on{" "}
+						Calculated{" "}
 						{humaizer.humanize(
 							new Date().getTime() - userSummary.data.calculatedOn.getTime(),
 							{ units: ["h", "m"], round: true },
