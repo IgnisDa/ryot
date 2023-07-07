@@ -1375,21 +1375,6 @@ impl MiscellaneousService {
                     .is_in(distinct_meta_ids.clone()),
             )
             .to_owned();
-        let alias_name = "average_rating";
-        main_select = main_select
-            .expr_as(
-                Func::avg(Expr::col((review_alias.clone(), TempReview::Rating))),
-                Alias::new(alias_name),
-            )
-            .join_as(
-                JoinType::LeftJoin,
-                TempReview::Table,
-                review_alias.clone(),
-                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                    .equals((review_alias.clone(), TempReview::MetadataId))
-                    .and(Expr::col((review_alias.clone(), TempReview::UserId)).eq(user_id)),
-            )
-            .to_owned();
 
         if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
@@ -1432,7 +1417,6 @@ impl MiscellaneousService {
                     MediaSortBy::Title => {
                         main_select = main_select
                             .order_by((metadata_alias.clone(), metadata::Column::Title), order_by)
-                            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
                             .to_owned();
                     }
                     MediaSortBy::ReleaseDate => {
@@ -1442,12 +1426,10 @@ impl MiscellaneousService {
                                 order_by,
                                 NullOrdering::Last,
                             )
-                            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
                         let last_seen = Alias::new("last_seen");
-                        let id = Alias::new("id");
                         let sub_select = Query::select()
                             .column(TempSeen::MetadataId)
                             .expr_as(
@@ -1466,10 +1448,6 @@ impl MiscellaneousService {
                                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
                                     .equals((seen_alias.clone(), TempSeen::MetadataId)),
                             )
-                            .group_by_columns([
-                                (metadata_alias.clone(), id),
-                                (seen_alias.clone(), last_seen.clone()),
-                            ])
                             .order_by_with_nulls(
                                 (seen_alias.clone(), last_seen),
                                 order_by,
@@ -1490,7 +1468,6 @@ impl MiscellaneousService {
                                             .eq(user_id),
                                     ),
                             )
-                            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
                             .order_by(
                                 (mtu_alias.clone(), TempUserToMetadata::LastUpdatedOn),
                                 order_by,
@@ -1498,7 +1475,23 @@ impl MiscellaneousService {
                             .to_owned();
                     }
                     MediaSortBy::Rating => {
+                        let alias_name = "average_rating";
                         main_select = main_select
+                            .expr_as(
+                                Func::avg(Expr::col((review_alias.clone(), TempReview::Rating))),
+                                Alias::new(alias_name),
+                            )
+                            .join_as(
+                                JoinType::LeftJoin,
+                                TempReview::Table,
+                                review_alias.clone(),
+                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                                    .equals((review_alias.clone(), TempReview::MetadataId))
+                                    .and(
+                                        Expr::col((review_alias.clone(), TempReview::UserId))
+                                            .eq(user_id),
+                                    ),
+                            )
                             .group_by_col((metadata_alias.clone(), TempMetadata::Id))
                             .order_by_expr_with_nulls(
                                 Expr::cust(alias_name),
