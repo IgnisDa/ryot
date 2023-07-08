@@ -231,6 +231,12 @@ struct UpdateUserFeaturePreferenceInput {
     value: bool,
 }
 
+#[derive(Debug, InputObject)]
+struct CollectionContentsInput {
+    collection_id: i32,
+    media_limit: Option<u64>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -276,18 +282,12 @@ struct ReviewItem {
 }
 
 #[derive(Debug, SimpleObject)]
-struct CollectionItemDetail {
+struct CollectionItem {
     id: i32,
     name: String,
     num_items: u64,
     description: Option<String>,
     visibility: Visibility,
-}
-
-#[derive(Debug, SimpleObject)]
-struct CollectionItem {
-    collection_details: CollectionItemDetail,
-    media_details: Vec<MediaSearchItem>,
 }
 
 #[derive(SimpleObject)]
@@ -412,7 +412,6 @@ struct MediaListInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CollectionInput {
-    media_limit: Option<u64>,
     name: Option<String>,
 }
 
@@ -462,6 +461,19 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .collections(&user_id, input)
+            .await
+    }
+
+    /// Get the contents of a collection and respect visibility.
+    async fn collection_contents(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CollectionContentsInput,
+    ) -> Result<Vec<MediaSearchItem>> {
+        let user_id = user_id_from_ctx(gql_ctx).await.ok();
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .collection_contents(user_id, input)
             .await
     }
 
@@ -2162,45 +2174,55 @@ impl MiscellaneousService {
         let mut data = vec![];
         for collection in collections.into_iter() {
             let num_items = collection.find_related(Metadata).count(&self.db).await?;
-            let metas = collection
-                .find_related(Metadata)
-                .limit(input.clone().map(|i| i.media_limit).flatten())
-                .all(&self.db)
-                .await?;
-            let mut meta_data = vec![];
-            for meta in metas.iter() {
-                let m = self.generic_metadata(meta.id).await?;
-                let u_t_m = UserToMetadata::find()
-                    .filter(user_to_metadata::Column::UserId.eq(*user_id))
-                    .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
-                    .one(&self.db)
-                    .await?
-                    .unwrap();
-                meta_data.push((
-                    MediaSearchItem {
-                        identifier: m.model.id.to_string(),
-                        lot: m.model.lot,
-                        title: m.model.title,
-                        image: m.poster_images.get(0).cloned(),
-                        publish_year: m.model.publish_year,
-                    },
-                    u_t_m.last_updated_on,
-                ));
-            }
-            meta_data.sort_by_key(|item| item.1);
-            let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
             data.push(CollectionItem {
-                collection_details: CollectionItemDetail {
-                    id: collection.id,
-                    name: collection.name,
-                    description: collection.description,
-                    visibility: collection.visibility,
-                    num_items,
-                },
-                media_details,
+                id: collection.id,
+                name: collection.name,
+                description: collection.description,
+                visibility: collection.visibility,
+                num_items,
             });
         }
         Ok(data)
+    }
+
+    async fn collection_contents(
+        &self,
+        user_id: Option<i32>,
+        input: CollectionContentsInput,
+    ) -> Result<Vec<MediaSearchItem>> {
+        let collection = Collection::find_by_id(input.collection_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let metas = collection
+            .find_related(Metadata)
+            .limit(input.media_limit)
+            .all(&self.db)
+            .await?;
+        let mut meta_data = vec![];
+        for meta in metas.iter() {
+            let m = self.generic_metadata(meta.id).await?;
+            let u_t_m = UserToMetadata::find()
+                .filter(user_to_metadata::Column::UserId.eq(user_id))
+                .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
+                .one(&self.db)
+                .await?
+                .unwrap();
+            meta_data.push((
+                MediaSearchItem {
+                    identifier: m.model.id.to_string(),
+                    lot: m.model.lot,
+                    title: m.model.title,
+                    image: m.poster_images.get(0).cloned(),
+                    publish_year: m.model.publish_year,
+                },
+                u_t_m.last_updated_on,
+            ));
+        }
+        meta_data.sort_by_key(|item| item.1);
+        let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
+        Ok(media_details)
     }
 
     pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {

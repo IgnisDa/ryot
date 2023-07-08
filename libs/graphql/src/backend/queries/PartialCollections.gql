@@ -1,11 +1,9 @@
 query PartialCollections($input: CollectionInput) {
   collections(input: $input) {
-    collectionDetails {
-      id
-      name
-      description
-      visibility
-      numItems
-    }
+    id
+    name
+    description
+    visibility
+    numItems
   }
 }
