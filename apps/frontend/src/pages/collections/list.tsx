@@ -1,10 +1,13 @@
 import type { NextPageWithLayout } from "../_app";
+import { ROUTES } from "@/lib/constants";
+import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { changeCase } from "@/lib/utilities";
 import {
 	ActionIcon,
+	Anchor,
 	Box,
 	Button,
 	Container,
@@ -30,14 +33,12 @@ import {
 	PartialCollectionsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	IconPlus,
-	IconTrashFilled,
-	IconWritingSign,
-} from "@tabler/icons-react";
+import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
+import Link from "next/link";
 import { type ReactElement, useState } from "react";
+import { withQuery } from "ufo";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -50,6 +51,7 @@ type FormSchema = z.infer<typeof formSchema>;
 const Page: NextPageWithLayout = () => {
 	const [toUpdateCollection, setToUpdateCollection] = useState<number>();
 	const [opened, { open, close }] = useDisclosure(false);
+	const user = useUser();
 
 	const form = useForm<FormSchema>({
 		validate: zodResolver(formSchema),
@@ -124,10 +126,21 @@ const Page: NextPageWithLayout = () => {
 							>
 								<Box>
 									<Flex align={"center"} gap="xs">
-										<Title order={4}>{c.collectionDetails.name}</Title>
+										<Link
+											href={withQuery(ROUTES.collections.details, {
+												collectionName: c.collectionDetails?.name,
+												userId: user?.id,
+											})}
+											passHref
+											legacyBehavior
+										>
+											<Anchor color="gray">
+												<Title order={4}>{c.collectionDetails?.name}</Title>
+											</Anchor>
+										</Link>
 										<Text color="dimmed" size={"xs"}>
-											{c.collectionDetails.numItems} items,{" "}
-											{changeCase(c.collectionDetails.visibility)}
+											{c.collectionDetails?.numItems} items,{" "}
+											{changeCase(c.collectionDetails?.visibility || "")}
 										</Text>
 									</Flex>
 									{c.collectionDetails.description ? (
@@ -149,7 +162,7 @@ const Page: NextPageWithLayout = () => {
 											open();
 										}}
 									>
-										<IconWritingSign size="1.125rem" />
+										<IconEdit size="1.125rem" />
 									</ActionIcon>
 									<ActionIcon
 										color="red"
@@ -190,13 +203,6 @@ const Page: NextPageWithLayout = () => {
 								<Title order={3}>
 									{toUpdateCollection ? "Update" : "Create"} collection
 								</Title>
-								{toUpdateCollection ? (
-									<input
-										hidden
-										name="updateId"
-										defaultValue={toUpdateCollection}
-									/>
-								) : null}
 								<TextInput
 									label="Name"
 									required
