@@ -26,11 +26,11 @@ import { useForm, zodResolver } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	CollectionsDocument,
 	CreateOrUpdateCollectionDocument,
 	type CreateOrUpdateCollectionMutationVariables,
 	DeleteCollectionDocument,
 	type DeleteCollectionMutationVariables,
-	PartialCollectionsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
@@ -58,10 +58,7 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const collections = useQuery(["collections"], async () => {
-		const { collections } = await gqlClient.request(
-			PartialCollectionsDocument,
-			{},
-		);
+		const { collections } = await gqlClient.request(CollectionsDocument, {});
 		return collections;
 	});
 
@@ -129,7 +126,7 @@ const Page: NextPageWithLayout = () => {
 					<SimpleGrid cols={1} breakpoints={[{ minWidth: "md", cols: 2 }]}>
 						{collections.data.map((c) => (
 							<Flex
-								key={c.collectionDetails.id}
+								key={c?.id}
 								align={"center"}
 								justify={"space-between"}
 								gap="md"
@@ -139,36 +136,32 @@ const Page: NextPageWithLayout = () => {
 									<Flex align={"center"} gap="xs">
 										<Link
 											href={withQuery(ROUTES.collections.details, {
-												collectionName: c.collectionDetails?.name,
+												collectionName: c?.name,
 												userId: user?.id,
 											})}
 											passHref
 											legacyBehavior
 										>
 											<Anchor color="gray">
-												<Title order={4}>{c.collectionDetails?.name}</Title>
+												<Title order={4}>{c?.name}</Title>
 											</Anchor>
 										</Link>
 										<Text color="dimmed" size={"xs"}>
-											{c.collectionDetails?.numItems} items,{" "}
-											{changeCase(c.collectionDetails?.visibility || "")}
+											{c?.numItems} items, {changeCase(c?.visibility || "")}
 										</Text>
 									</Flex>
-									{c.collectionDetails.description ? (
-										<Text>{c.collectionDetails.description}</Text>
-									) : null}
+									{c?.description ? <Text>{c?.description}</Text> : null}
 								</Box>
 								<Flex gap="sm" style={{ flex: 0 }}>
 									<ActionIcon
 										color="blue"
 										variant="outline"
 										onClick={() => {
-											setToUpdateCollection(c.collectionDetails.id);
+											setToUpdateCollection(c?.id);
 											form.setValues({
-												name: c.collectionDetails.name,
-												description:
-													c.collectionDetails.description ?? undefined,
-												visibility: c.collectionDetails.visibility,
+												name: c?.name,
+												description: c?.description ?? undefined,
+												visibility: c?.visibility,
 											});
 											open();
 										}}
@@ -184,7 +177,7 @@ const Page: NextPageWithLayout = () => {
 											);
 											if (yes)
 												deleteCollection.mutate({
-													collectionName: c.collectionDetails.name,
+													collectionName: c?.name,
 												});
 										}}
 									>

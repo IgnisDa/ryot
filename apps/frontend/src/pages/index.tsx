@@ -23,6 +23,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import {
+	CollectionContentsDocument,
 	CollectionsDocument,
 	MetadataLot,
 	UserSummaryDocument,
@@ -105,9 +106,16 @@ const Page: NextPageWithLayout = () => {
 	);
 	const inProgressCollection = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument, {
-			input: { mediaLimit: 8, name: "In Progress" },
+			input: { name: "In Progress" },
 		});
-		return collections[0];
+		const id = collections[0].id;
+		const { collectionContents } = await gqlClient.request(
+			CollectionContentsDocument,
+			{
+				input: { collectionId: id, mediaLimit: 8 },
+			},
+		);
+		return collectionContents;
 	});
 
 	return inProgressCollection.data && userSummary.data ? (
@@ -117,11 +125,11 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection.data.mediaDetails?.length > 0 ? (
+					{inProgressCollection.data.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
 							<Grid>
-								{inProgressCollection.data.mediaDetails.map((lm) => (
+								{inProgressCollection.data.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}

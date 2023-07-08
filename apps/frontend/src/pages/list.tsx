@@ -31,6 +31,7 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
+	CollectionsDocument,
 	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
@@ -38,7 +39,6 @@ import {
 	MediaSortOrder,
 	MediaSourcesForLotDocument,
 	MetadataSource,
-	PartialCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconFilter,
@@ -162,10 +162,7 @@ const Page: NextPageWithLayout = () => {
 	const partialCollections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(
-				PartialCollectionsDocument,
-				{},
-			);
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
 			return collections;
 		},
 		staleTime: Infinity,
@@ -398,8 +395,8 @@ const Page: NextPageWithLayout = () => {
 													placeholder="Select a collection"
 													value={mineCollectionFilter}
 													data={(partialCollections.data || []).map((c) => ({
-														value: c.collectionDetails.id.toString(),
-														label: c.collectionDetails.name,
+														value: c.id.toString(),
+														label: c.name,
 														group: "My collections",
 													}))}
 													onChange={(v) => {

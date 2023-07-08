@@ -1,0 +1,9 @@
+query CollectionContents($input: CollectionContentsInput!) {
+  collectionContents(input: $input) {
+    identifier
+    lot
+    title
+    image
+    publishYear
+  }
+}

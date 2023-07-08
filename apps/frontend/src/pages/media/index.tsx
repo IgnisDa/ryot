@@ -244,7 +244,7 @@ function SelectCollectionModal(props: {
 					<Title order={3}>Select collection</Title>
 					<Select
 						withinPortal
-						data={props.collections.map((c) => c.collectionDetails.name)}
+						data={props.collections.map((c) => c?.name)}
 						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
@@ -566,7 +566,7 @@ const Page: NextPageWithLayout = () => {
 		?.filter((c) =>
 			c.mediaDetails?.some((m) => m.identifier === metadataId.toString()),
 		)
-		.map((c) => c.collectionDetails.name);
+		.map((c) => c?.name);
 
 	// the next episode if it is a show or podcast
 	const nextEpisode = match(seenHistory.data?.at(0))

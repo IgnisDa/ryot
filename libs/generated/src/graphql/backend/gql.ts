@@ -37,6 +37,8 @@ const documents = {
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserFeaturePreference($input: UpdateUserFeaturePreferenceInput!) {\n  updateUserFeaturePreference(input: $input)\n}": types.UpdateUserFeaturePreferenceDocument,
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
+    "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    identifier\n    lot\n    title\n    image\n    publishYear\n  }\n}": types.CollectionContentsDocument,
+    "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    id\n    name\n    attributes {\n      force\n      level\n      mechanic\n      equipment\n      primaryMuscles\n      secondaryMuscles\n      category\n      instructions\n      images\n      alternateNames\n    }\n  }\n}": types.ExercisesListDocument,
@@ -47,7 +49,6 @@ const documents = {
     "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    nextPage\n    items {\n      averageRating\n      data {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaListDocument,
     "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}": types.MediaSourcesForLotDocument,
-    "query PartialCollections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.PartialCollectionsDocument,
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query ReviewById($reviewId: Identifier!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}": types.ReviewByIdDocument,
     "query SeenHistory($metadataId: Identifier!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
@@ -170,6 +171,14 @@ export function graphql(source: "mutation YankIntegrationData {\n  yankIntegrati
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    identifier\n    lot\n    title\n    image\n    publishYear\n  }\n}"): (typeof documents)["query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    identifier\n    lot\n    title\n    image\n    publishYear\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"): (typeof documents)["query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -207,10 +216,6 @@ export function graphql(source: "query MediaSearch($lot: MetadataLot!, $source: 
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}"): (typeof documents)["query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "query PartialCollections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"): (typeof documents)["query PartialCollections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
