@@ -2138,6 +2138,7 @@ impl MiscellaneousService {
     async fn collections(&self, user_id: &i32, limit: Option<u64>) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(*user_id))
+            .order_by_asc(collection::Column::CreatedOn)
             .all(&self.db)
             .await
             .unwrap();
