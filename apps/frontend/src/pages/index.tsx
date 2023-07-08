@@ -133,15 +133,14 @@ const Page: NextPageWithLayout = () => {
 		(c) => c.collectionDetails.name === "In Progress",
 	);
 
-	return collections.data && userSummary.data ? (
+	return collections.data && userSummary.data && inProgressCollection ? (
 		<>
 			<Head>
 				<title>Dashboard | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection &&
-					inProgressCollection.mediaDetails.length > 0 ? (
+					{inProgressCollection.mediaDetails?.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
 							<Grid>
