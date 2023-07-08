@@ -58,7 +58,10 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const collections = useQuery(["collections"], async () => {
-		const { collections } = await gqlClient.request(PartialCollectionsDocument);
+		const { collections } = await gqlClient.request(
+			PartialCollectionsDocument,
+			{},
+		);
 		return collections;
 	});
 

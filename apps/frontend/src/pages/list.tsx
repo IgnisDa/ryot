@@ -164,6 +164,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { collections } = await gqlClient.request(
 				PartialCollectionsDocument,
+				{},
 			);
 			return collections;
 		},

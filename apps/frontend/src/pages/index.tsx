@@ -103,29 +103,25 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ retry: false },
 	);
-	const collections = useQuery(["collections"], async () => {
+	const inProgressCollection = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument, {
-			limit: 8,
+			input: { mediaLimit: 8, name: "In Progress" },
 		});
-		return collections;
+		return collections[0];
 	});
 
-	const inProgressCollection = (collections.data || [])?.find(
-		(c) => c.collectionDetails.name === "In Progress",
-	);
-
-	return collections.data && userSummary.data && inProgressCollection ? (
+	return inProgressCollection.data && userSummary.data ? (
 		<>
 			<Head>
 				<title>Dashboard | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection.mediaDetails?.length > 0 ? (
+					{inProgressCollection.data.mediaDetails?.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
 							<Grid>
-								{inProgressCollection.mediaDetails.map((lm) => (
+								{inProgressCollection.data.mediaDetails.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}
