@@ -161,7 +161,7 @@ const Page: NextPageWithLayout = () => {
 						Calculated{" "}
 						{humaizer.humanize(
 							new Date().getTime() - userSummary.data.calculatedOn.getTime(),
-							{ units: ["d", "h", "m"], round: true },
+							{ units: ["h", "m"], round: true },
 						)}{" "}
 						ago
 					</Text>
