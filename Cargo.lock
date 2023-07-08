@@ -1745,6 +1745,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum_meta"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66766e489640531c2663bb422bb689e32d5ac7dd15975c4928c10317d6f42fbd"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3929,6 +3938,7 @@ dependencies = [
  "convert_case",
  "cookie 0.17.0",
  "dotenvy",
+ "enum_meta",
  "futures 0.3.28",
  "graphql_client",
  "http",
