@@ -49,8 +49,6 @@ import {
 	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
 	type CollectionsQuery,
-	CreateCollectionDocument,
-	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
@@ -220,18 +218,6 @@ function SelectCollectionModal(props: {
 		null,
 	);
 
-	const createCollection = useMutation({
-		mutationFn: async (variables: CreateCollectionMutationVariables) => {
-			const { createCollection } = await gqlClient.request(
-				CreateCollectionDocument,
-				variables,
-			);
-			return createCollection;
-		},
-		onSuccess: () => {
-			props.refetchCollections();
-		},
-	});
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
 			const { addMediaToCollection } = await gqlClient.request(
@@ -262,12 +248,6 @@ function SelectCollectionModal(props: {
 						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
-						creatable
-						getCreateLabel={(query) => `+ Create ${query}`}
-						onCreate={(query) => {
-							createCollection.mutate({ input: { name: query } });
-							return { value: "1", label: query }; // technically this should return the id of the new collection but it works fine
-						}}
 					/>
 					<Button
 						data-autofocus
