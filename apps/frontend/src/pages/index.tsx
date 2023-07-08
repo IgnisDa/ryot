@@ -22,16 +22,13 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import {
 	CollectionsDocument,
-	CreateCollectionDocument,
-	type CreateCollectionMutationVariables,
 	MetadataLot,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconList, IconPhotoPlus } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { IconPhotoPlus } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
@@ -111,22 +108,6 @@ const Page: NextPageWithLayout = () => {
 			limit: 8,
 		});
 		return collections;
-	});
-	const createCollection = useMutation({
-		mutationFn: async (variables: CreateCollectionMutationVariables) => {
-			const { createCollection } = await gqlClient.request(
-				CreateCollectionDocument,
-				variables,
-			);
-			return createCollection;
-		},
-		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "Collection created successfully",
-				color: "green",
-			});
-		},
 	});
 
 	const inProgressCollection = (collections.data || [])?.find(
@@ -314,16 +295,6 @@ const Page: NextPageWithLayout = () => {
 							{ minWidth: "lg", cols: 3 },
 						]}
 					>
-						<Button
-							variant="outline"
-							leftIcon={<IconList />}
-							onClick={() => {
-								const name = prompt("Please enter name of the new list");
-								if (name) createCollection.mutate({ input: { name } });
-							}}
-						>
-							Create a collection
-						</Button>
 						<Link passHref legacyBehavior href={ROUTES.media.create}>
 							<Button
 								variant="outline"
