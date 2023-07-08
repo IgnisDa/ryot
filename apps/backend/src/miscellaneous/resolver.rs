@@ -14,12 +14,12 @@ use markdown::{
     Options,
 };
 use rust_decimal::Decimal;
-use sea_orm::Iterable;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait,
     Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
+use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
     Alias, BinOper, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
     PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, SqliteQueryBuilder, UnionType,
@@ -411,6 +411,12 @@ struct MediaListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CollectionInput {
+    media_limit: Option<u64>,
+    name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaConsumedInput {
     identifier: String,
     lot: MetadataLot,
@@ -450,12 +456,12 @@ impl MiscellaneousQuery {
     async fn collections(
         &self,
         gql_ctx: &Context<'_>,
-        limit: Option<u64>,
+        input: Option<CollectionInput>,
     ) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .collections(&user_id, limit)
+            .collections(&user_id, input)
             .await
     }
 
@@ -2139,9 +2145,16 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn collections(&self, user_id: &i32, limit: Option<u64>) -> Result<Vec<CollectionItem>> {
+    async fn collections(
+        &self,
+        user_id: &i32,
+        input: Option<CollectionInput>,
+    ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(*user_id))
+            .apply_if(input.clone().map(|i| i.name).flatten(), |query, v| {
+                query.filter(collection::Column::Name.eq(v))
+            })
             .order_by_asc(collection::Column::CreatedOn)
             .all(&self.db)
             .await
@@ -2151,7 +2164,7 @@ impl MiscellaneousService {
             let num_items = collection.find_related(Metadata).count(&self.db).await?;
             let metas = collection
                 .find_related(Metadata)
-                .limit(limit)
+                .limit(input.clone().map(|i| i.media_limit).flatten())
                 .all(&self.db)
                 .await?;
             let mut meta_data = vec![];
