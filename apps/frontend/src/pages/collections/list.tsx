@@ -2,6 +2,7 @@ import type { NextPageWithLayout } from "../_app";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { changeCase } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -22,8 +23,8 @@ import { useForm, zodResolver } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	CreateCollectionDocument,
-	type CreateCollectionMutationVariables,
+	CreateOrUpdateCollectionDocument,
+	type CreateOrUpdateCollectionMutationVariables,
 	DeleteCollectionDocument,
 	type DeleteCollectionMutationVariables,
 	PartialCollectionsDocument,
@@ -36,7 +37,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
-import { useState, type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -47,7 +48,7 @@ const formSchema = z.object({
 type FormSchema = z.infer<typeof formSchema>;
 
 const Page: NextPageWithLayout = () => {
-	const [toUpdateCollection, setToUpdateCollection] = useState<string>();
+	const [toUpdateCollection, setToUpdateCollection] = useState<number>();
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const form = useForm<FormSchema>({
@@ -59,18 +60,21 @@ const Page: NextPageWithLayout = () => {
 		return collections;
 	});
 
-	const createCollection = useMutation({
-		mutationFn: async (variables: CreateCollectionMutationVariables) => {
-			const { createCollection } = await gqlClient.request(
-				CreateCollectionDocument,
+	const createOrUpdateCollection = useMutation({
+		mutationFn: async (
+			variables: CreateOrUpdateCollectionMutationVariables,
+		) => {
+			const { createOrUpdateCollection } = await gqlClient.request(
+				CreateOrUpdateCollectionDocument,
 				variables,
 			);
-			return createCollection;
+			return createOrUpdateCollection;
 		},
 		onSuccess: () => {
+			collections.refetch();
 			notifications.show({
 				title: "Success",
-				message: "Collection created successfully",
+				message: "Collection created/updated successfully",
 				color: "green",
 			});
 		},
@@ -122,7 +126,8 @@ const Page: NextPageWithLayout = () => {
 									<Flex align={"center"} gap="xs">
 										<Title order={4}>{c.collectionDetails.name}</Title>
 										<Text color="dimmed" size={"xs"}>
-											({c.collectionDetails.numItems})
+											{c.collectionDetails.numItems} items,{" "}
+											{changeCase(c.collectionDetails.visibility)}
 										</Text>
 									</Flex>
 									{c.collectionDetails.description ? (
@@ -130,7 +135,20 @@ const Page: NextPageWithLayout = () => {
 									) : null}
 								</Box>
 								<Flex gap="sm" style={{ flex: 0 }}>
-									<ActionIcon color="blue" variant="outline">
+									<ActionIcon
+										color="blue"
+										variant="outline"
+										onClick={() => {
+											setToUpdateCollection(c.collectionDetails.id);
+											form.setValues({
+												name: c.collectionDetails.name,
+												description:
+													c.collectionDetails.description ?? undefined,
+												visibility: c.collectionDetails.visibility,
+											});
+											open();
+										}}
+									>
 										<IconWritingSign size="1.125rem" />
 									</ActionIcon>
 									<ActionIcon
@@ -161,7 +179,9 @@ const Page: NextPageWithLayout = () => {
 						<Box
 							component="form"
 							onSubmit={form.onSubmit((values) => {
-								createCollection.mutate({ input: values });
+								createOrUpdateCollection.mutate({
+									input: { ...values, updateId: toUpdateCollection },
+								});
 								form.reset();
 								close();
 							})}
@@ -170,6 +190,13 @@ const Page: NextPageWithLayout = () => {
 								<Title order={3}>
 									{toUpdateCollection ? "Update" : "Create"} collection
 								</Title>
+								{toUpdateCollection ? (
+									<input
+										hidden
+										name="updateId"
+										defaultValue={toUpdateCollection}
+									/>
+								) : null}
 								<TextInput
 									label="Name"
 									required
