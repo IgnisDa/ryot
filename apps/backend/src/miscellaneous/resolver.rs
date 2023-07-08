@@ -166,10 +166,11 @@ struct UserInput {
 }
 
 #[derive(Debug, InputObject, Default)]
-struct CreateCollectionInput {
+struct CreateOrUpdateCollectionInput {
     name: String,
     description: Option<String>,
     visibility: Option<Visibility>,
+    update_id: Option<Identifier>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -622,16 +623,16 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Create a new collection for the logged in user.
-    async fn create_collection(
+    /// Create a new collection for the logged in user or edit details of an existing one.
+    async fn create_or_update_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateCollectionInput,
+        input: CreateOrUpdateCollectionInput,
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .create_collection(&user_id, input)
+            .create_or_update_collection(&user_id, input)
             .await
     }
 
@@ -2251,10 +2252,10 @@ impl MiscellaneousService {
         }
     }
 
-    async fn create_collection(
+    async fn create_or_update_collection(
         &self,
         user_id: &i32,
-        input: CreateCollectionInput,
+        input: CreateOrUpdateCollectionInput,
     ) -> Result<IdObject> {
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
@@ -2262,26 +2263,30 @@ impl MiscellaneousService {
             .one(&self.db)
             .await
             .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.id.into() })
-        } else {
-            let col = collection::ActiveModel {
-                name: ActiveValue::Set(input.name),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                description: ActiveValue::Set(input.description),
-                visibility: match input.visibility {
-                    None => ActiveValue::NotSet,
-                    Some(v) => ActiveValue::Set(v),
-                },
-                ..Default::default()
-            };
-            let inserted = col
-                .insert(&self.db)
-                .await
-                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
-            Ok(IdObject {
-                id: inserted.id.into(),
-            })
+        match meta {
+            Some(m) if input.update_id.is_none() => Ok(IdObject { id: m.id.into() }),
+            _ => {
+                let col = collection::ActiveModel {
+                    id: match input.update_id {
+                        Some(i) => ActiveValue::Unchanged(i.into()),
+                        None => ActiveValue::NotSet,
+                    },
+                    name: ActiveValue::Set(input.name),
+                    user_id: ActiveValue::Set(user_id.to_owned()),
+                    description: ActiveValue::Set(input.description),
+                    visibility: match input.visibility {
+                        None => ActiveValue::NotSet,
+                        Some(v) => ActiveValue::Set(v),
+                    },
+                    ..Default::default()
+                };
+                let inserted = col.save(&self.db).await.map_err(|_| {
+                    Error::new("There was an error creating the collection".to_owned())
+                })?;
+                Ok(IdObject {
+                    id: inserted.id.unwrap().into(),
+                })
+            }
         }
     }
 
@@ -2732,9 +2737,9 @@ impl MiscellaneousService {
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
         for (collection, description) in DEFAULT_COLLECTIONS {
-            self.create_collection(
+            self.create_or_update_collection(
                 user_id,
-                CreateCollectionInput {
+                CreateOrUpdateCollectionInput {
                     name: collection.to_owned(),
                     description: Some(description.to_owned()),
                     ..Default::default()
