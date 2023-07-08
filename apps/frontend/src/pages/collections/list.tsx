@@ -36,7 +36,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
-import { type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -47,6 +47,7 @@ const formSchema = z.object({
 type FormSchema = z.infer<typeof formSchema>;
 
 const Page: NextPageWithLayout = () => {
+	const [toUpdateCollection, setToUpdateCollection] = useState<string>();
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const form = useForm<FormSchema>({
@@ -166,7 +167,9 @@ const Page: NextPageWithLayout = () => {
 							})}
 						>
 							<Stack>
-								<Title order={3}>Create collection</Title>
+								<Title order={3}>
+									{toUpdateCollection ? "Update" : "Create"} collection
+								</Title>
 								<TextInput
 									label="Name"
 									required
@@ -194,7 +197,7 @@ const Page: NextPageWithLayout = () => {
 									{...form.getInputProps("description")}
 								/>
 								<Button variant="outline" type="submit">
-									Create
+									{toUpdateCollection ? "Update" : "Create"}
 								</Button>
 							</Stack>
 						</Box>
