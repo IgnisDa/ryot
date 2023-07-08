@@ -25,7 +25,6 @@ use sea_query::{
     Values,
 };
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
@@ -49,9 +48,9 @@ use crate::{
         Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{
-        CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
-        MetadataImage, MetadataImageUrl, MetadataImages, SeenExtraInformation,
-        SeenPodcastExtraInformation, SeenShowExtraInformation,
+        CustomService, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
+        MetadataImageUrl, MetadataImages, SeenExtraInformation, SeenPodcastExtraInformation,
+        SeenShowExtraInformation, DEFAULT_COLLECTIONS,
     },
     models::media::{
         AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExportMedia,
@@ -2287,7 +2286,10 @@ impl MiscellaneousService {
     }
 
     pub async fn delete_collection(&self, user_id: &i32, name: &str) -> Result<bool> {
-        if DefaultCollection::iter().any(|n| n.to_string() == name) {
+        if DEFAULT_COLLECTIONS
+            .iter()
+            .any(|(col_name, _)| col_name == &name)
+        {
             return Err(Error::new("Can not delete a default collection".to_owned()));
         }
         let collection = Collection::find()
@@ -2400,7 +2402,7 @@ impl MiscellaneousService {
                 self.remove_media_item_from_collection(
                     &user_id,
                     &metadata_id,
-                    &DefaultCollection::InProgress.to_string(),
+                    DEFAULT_COLLECTIONS[1].0,
                 )
                 .await
                 .ok();
@@ -2729,11 +2731,12 @@ impl MiscellaneousService {
 
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
-        for collection in DefaultCollection::iter() {
+        for (collection, description) in DEFAULT_COLLECTIONS {
             self.create_collection(
                 user_id,
                 CreateCollectionInput {
-                    name: collection.to_string(),
+                    name: collection.to_owned(),
+                    description: Some(description.to_owned()),
                     ..Default::default()
                 },
             )
@@ -2864,7 +2867,7 @@ impl MiscellaneousService {
         self.add_media_to_collection(
             user_id,
             AddMediaToCollection {
-                collection_name: DefaultCollection::Custom.to_string(),
+                collection_name: DEFAULT_COLLECTIONS[0].0.to_string(),
                 media_id: media.id,
             },
         )

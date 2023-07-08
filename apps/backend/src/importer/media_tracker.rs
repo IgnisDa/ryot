@@ -185,7 +185,7 @@ fn convert_item(
         source_id: d.id.to_string(),
         source,
         lot,
-        default_collections: vec![],
+        collections: vec![],
         identifier: match need_details {
             false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                 identifier,

@@ -1,7 +1,6 @@
 use async_graphql::SimpleObject;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter};
 
 use crate::{
     migrator::MetadataImageLot,
@@ -74,14 +73,6 @@ pub struct MetadataCreator {
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
 )]
 pub struct MetadataCreators(pub Vec<MetadataCreator>);
-
-#[derive(Display, Debug, EnumIter)]
-pub enum DefaultCollection {
-    Custom,
-    #[strum(serialize = "In Progress")]
-    InProgress,
-    Watchlist,
-}
 
 pub static DEFAULT_COLLECTIONS: [(&str, &str); 3] = [
     ("Custom", "Items that I have created manually"),
