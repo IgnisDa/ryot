@@ -114,7 +114,7 @@ export default function ({ children }: { children: ReactElement }) {
 				href: undefined,
 			})) || []),
 		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
-		{ icon: IconArchive, label: "Collections", href: ROUTES.collections },
+		{ icon: IconArchive, label: "Collections", href: ROUTES.collections.list },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
