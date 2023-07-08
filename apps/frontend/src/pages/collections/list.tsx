@@ -11,6 +11,7 @@ import {
 	Input,
 	Modal,
 	SegmentedControl,
+	SimpleGrid,
 	Stack,
 	Text,
 	TextInput,
@@ -99,54 +100,57 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Collections | Ryot</title>
 			</Head>
-			<Container size={"xs"}>
+			<Container>
 				<Stack>
-					<Flex align={"center"} justify={"space-between"}>
+					<Flex align={"center"} gap={"md"}>
 						<Title>Collections</Title>
 						<ActionIcon color="green" variant="outline" onClick={open}>
 							<IconPlus size="1.125rem" />
 						</ActionIcon>
 					</Flex>
-					{collections.data.map((c) => (
-						<Flex
-							key={c.collectionDetails.id}
-							align={"center"}
-							justify={"space-between"}
-							gap="md"
-						>
-							<Box>
-								<Flex align={"center"} gap="xs">
-									<Title order={4}>{c.collectionDetails.name}</Title>
-									<Text color="dimmed" size={"xs"}>
-										({c.collectionDetails.numItems})
-									</Text>
+					<SimpleGrid cols={1} breakpoints={[{ minWidth: "md", cols: 2 }]}>
+						{collections.data.map((c) => (
+							<Flex
+								key={c.collectionDetails.id}
+								align={"center"}
+								justify={"space-between"}
+								gap="md"
+								mr="lg"
+							>
+								<Box>
+									<Flex align={"center"} gap="xs">
+										<Title order={4}>{c.collectionDetails.name}</Title>
+										<Text color="dimmed" size={"xs"}>
+											({c.collectionDetails.numItems})
+										</Text>
+									</Flex>
+									{c.collectionDetails.description ? (
+										<Text>{c.collectionDetails.description}</Text>
+									) : null}
+								</Box>
+								<Flex gap="sm" style={{ flex: 0 }}>
+									<ActionIcon color="blue" variant="outline">
+										<IconWritingSign size="1.125rem" />
+									</ActionIcon>
+									<ActionIcon
+										color="red"
+										variant="outline"
+										onClick={() => {
+											const yes = confirm(
+												"Are you sure you want to delete this collection?",
+											);
+											if (yes)
+												deleteCollection.mutate({
+													collectionName: c.collectionDetails.name,
+												});
+										}}
+									>
+										<IconTrashFilled size="1.125rem" />
+									</ActionIcon>
 								</Flex>
-								{c.collectionDetails.description ? (
-									<Text>{c.collectionDetails.description}</Text>
-								) : null}
-							</Box>
-							<Flex gap="sm" style={{ flex: 0 }}>
-								<ActionIcon color="blue" variant="outline">
-									<IconWritingSign size="1.125rem" />
-								</ActionIcon>
-								<ActionIcon
-									color="red"
-									variant="outline"
-									onClick={() => {
-										const yes = confirm(
-											"Are you sure you want to delete this collection?",
-										);
-										if (yes)
-											deleteCollection.mutate({
-												collectionName: c.collectionDetails.name,
-											});
-									}}
-								>
-									<IconTrashFilled size="1.125rem" />
-								</ActionIcon>
 							</Flex>
-						</Flex>
-					))}
+						))}
+					</SimpleGrid>
 					<Modal
 						opened={opened}
 						onClose={close}
