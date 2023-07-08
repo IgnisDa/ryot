@@ -1,4 +1,4 @@
-query Collections($input: CollectionInput) {
+query Collections($input: CollectionInput!) {
   collections(input: $input) {
     collectionDetails {
       id

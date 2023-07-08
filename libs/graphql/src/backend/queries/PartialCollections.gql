@@ -1,4 +1,4 @@
-query PartialCollections($input: CollectionInput) {
+query PartialCollections($input: CollectionInput!) {
   collections(input: $input) {
     collectionDetails {
       id

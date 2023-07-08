@@ -400,6 +400,8 @@ const Page: NextPageWithLayout = () => {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
+
+	const user = useUser();
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const theme = useMantineTheme();
@@ -429,7 +431,10 @@ const Page: NextPageWithLayout = () => {
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
+			invariant(user);
+			const { collections } = await gqlClient.request(CollectionsDocument, {
+				input: { userId: user.id },
+			});
 			return collections;
 		},
 	});

@@ -412,6 +412,7 @@ struct MediaListInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CollectionInput {
+    user_id: i32,
     media_limit: Option<u64>,
     name: Option<String>,
 }
@@ -452,16 +453,15 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all collections for the currently logged in user.
+    /// Get all collections for a given user.
     async fn collections(
         &self,
         gql_ctx: &Context<'_>,
-        input: Option<CollectionInput>,
+        input: CollectionInput,
     ) -> Result<Vec<CollectionItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .collections(&user_id, input)
+            .collections(input)
             .await
     }
 
@@ -2145,14 +2145,10 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn collections(
-        &self,
-        user_id: &i32,
-        input: Option<CollectionInput>,
-    ) -> Result<Vec<CollectionItem>> {
+    async fn collections(&self, input: CollectionInput) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(*user_id))
-            .apply_if(input.clone().map(|i| i.name).flatten(), |query, v| {
+            .filter(collection::Column::UserId.eq(input.user_id))
+            .apply_if(input.name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_asc(collection::Column::CreatedOn)
@@ -2164,14 +2160,14 @@ impl MiscellaneousService {
             let num_items = collection.find_related(Metadata).count(&self.db).await?;
             let metas = collection
                 .find_related(Metadata)
-                .limit(input.clone().map(|i| i.media_limit).flatten())
+                .limit(input.media_limit)
                 .all(&self.db)
                 .await?;
             let mut meta_data = vec![];
             for meta in metas.iter() {
                 let m = self.generic_metadata(meta.id).await?;
                 let u_t_m = UserToMetadata::find()
-                    .filter(user_to_metadata::Column::UserId.eq(*user_id))
+                    .filter(user_to_metadata::Column::UserId.eq(input.user_id))
                     .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
                     .one(&self.db)
                     .await?

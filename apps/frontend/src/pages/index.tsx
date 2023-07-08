@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
 import { ROUTES } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import { useUser, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -37,6 +37,7 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement } from "react";
+import invariant from "tiny-invariant";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
@@ -95,6 +96,7 @@ const DisplayStatForMediaType = (props: {
 const Page: NextPageWithLayout = () => {
 	const service = new HumanizeDurationLanguage();
 	const humaizer = new HumanizeDuration(service);
+	const user = useUser();
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -104,8 +106,9 @@ const Page: NextPageWithLayout = () => {
 		{ retry: false },
 	);
 	const inProgressCollection = useQuery(["collections"], async () => {
+		invariant(user);
 		const { collections } = await gqlClient.request(CollectionsDocument, {
-			input: { mediaLimit: 8, name: "In Progress" },
+			input: { mediaLimit: 8, name: "In Progress", userId: user.id },
 		});
 		return collections[0];
 	});
