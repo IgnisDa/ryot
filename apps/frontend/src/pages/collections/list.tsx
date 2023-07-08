@@ -105,7 +105,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return collections.data ? (
+	return collections.data && collections.data.length >= 1 ? (
 		<>
 			<Head>
 				<title>Collections | Ryot</title>
@@ -114,8 +114,16 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Flex align={"center"} gap={"md"}>
 						<Title>Collections</Title>
-						<ActionIcon color="green" variant="outline" onClick={open}>
-							<IconPlus size="1.125rem" />
+						<ActionIcon
+							color="green"
+							variant="outline"
+							onClick={() => {
+								setToUpdateCollection(undefined);
+								form.reset();
+								open();
+							}}
+						>
+							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
 					<SimpleGrid cols={1} breakpoints={[{ minWidth: "md", cols: 2 }]}>
