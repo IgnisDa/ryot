@@ -10,7 +10,7 @@ use crate::{
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     migrator::MetadataLot,
-    miscellaneous::{resolver::MiscellaneousService, DEFAULT_COLLECTIONS},
+    miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
     models::{fitness::Exercise, media::AddMediaToCollection},
 };
 
@@ -156,7 +156,7 @@ pub async fn after_media_seen_job(
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
-                DEFAULT_COLLECTIONS[2].0,
+                &DefaultCollection::Watchlist.to_string(),
             )
             .await
             .ok();
@@ -164,7 +164,7 @@ pub async fn after_media_seen_job(
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
-                DEFAULT_COLLECTIONS[1].0,
+                &DefaultCollection::InProgress.to_string(),
             )
             .await
             .ok();
@@ -175,7 +175,7 @@ pub async fn after_media_seen_job(
             .add_media_to_collection(
                 &information.seen.user_id,
                 AddMediaToCollection {
-                    collection_name: DEFAULT_COLLECTIONS[1].0.to_owned(),
+                    collection_name: DefaultCollection::InProgress.to_string(),
                     media_id: information.seen.metadata_id.into(),
                 },
             )
@@ -186,7 +186,7 @@ pub async fn after_media_seen_job(
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
-                DEFAULT_COLLECTIONS[2].0,
+                &DefaultCollection::Watchlist.to_string(),
             )
             .await
             .ok();
@@ -194,7 +194,7 @@ pub async fn after_media_seen_job(
             .remove_media_item_from_collection(
                 &information.seen.user_id,
                 &information.seen.metadata_id,
-                DEFAULT_COLLECTIONS[1].0,
+                &DefaultCollection::InProgress.to_string(),
             )
             .await
             .ok();
@@ -203,7 +203,7 @@ pub async fn after_media_seen_job(
             .add_media_to_collection(
                 &information.seen.user_id,
                 AddMediaToCollection {
-                    collection_name: DEFAULT_COLLECTIONS[1].0.to_owned(),
+                    collection_name: DefaultCollection::InProgress.to_string(),
                     media_id: information.seen.metadata_id.into(),
                 },
             )

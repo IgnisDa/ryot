@@ -5,6 +5,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
+use enum_meta::Meta;
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
@@ -25,6 +26,7 @@ use sea_query::{
     Values,
 };
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
@@ -50,7 +52,7 @@ use crate::{
     miscellaneous::{
         CustomService, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
         MetadataImageUrl, MetadataImages, SeenExtraInformation, SeenPodcastExtraInformation,
-        SeenShowExtraInformation, DEFAULT_COLLECTIONS,
+        SeenShowExtraInformation,
     },
     models::media::{
         AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExportMedia,
@@ -76,6 +78,8 @@ use crate::{
         user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
 };
+
+use super::DefaultCollection;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -2292,10 +2296,7 @@ impl MiscellaneousService {
     }
 
     pub async fn delete_collection(&self, user_id: &i32, name: &str) -> Result<bool> {
-        if DEFAULT_COLLECTIONS
-            .iter()
-            .any(|(col_name, _)| col_name == &name)
-        {
+        if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
             return Err(Error::new("Can not delete a default collection".to_owned()));
         }
         let collection = Collection::find()
@@ -2408,7 +2409,7 @@ impl MiscellaneousService {
                 self.remove_media_item_from_collection(
                     &user_id,
                     &metadata_id,
-                    DEFAULT_COLLECTIONS[1].0,
+                    &DefaultCollection::InProgress.to_string(),
                 )
                 .await
                 .ok();
@@ -2737,12 +2738,12 @@ impl MiscellaneousService {
 
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
-        for (collection, description) in DEFAULT_COLLECTIONS {
+        for col in DefaultCollection::iter() {
             self.create_or_update_collection(
                 user_id,
                 CreateOrUpdateCollectionInput {
-                    name: collection.to_owned(),
-                    description: Some(description.to_owned()),
+                    name: col.to_string(),
+                    description: Some(col.meta().to_owned()),
                     ..Default::default()
                 },
             )
@@ -2873,7 +2874,7 @@ impl MiscellaneousService {
         self.add_media_to_collection(
             user_id,
             AddMediaToCollection {
-                collection_name: DEFAULT_COLLECTIONS[0].0.to_string(),
+                collection_name: DefaultCollection::Custom.to_string(),
                 media_id: media.id,
             },
         )

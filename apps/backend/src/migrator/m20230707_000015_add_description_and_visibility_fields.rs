@@ -1,10 +1,12 @@
+use enum_meta::Meta;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use sea_orm_migration::prelude::*;
+use strum::IntoEnumIterator;
 
 use crate::{
     entities::{collection, prelude::Collection as CollectionModel},
     migrator::m20230507_000007_create_collection::Collection,
-    miscellaneous::DEFAULT_COLLECTIONS,
+    miscellaneous::DefaultCollection,
     models::media::Visibility,
 };
 
@@ -35,14 +37,14 @@ impl MigrationTrait for Migration {
             .await
             .ok();
         let db = manager.get_connection();
-        for (name, description) in DEFAULT_COLLECTIONS {
+        for def_col in DefaultCollection::iter() {
             let cols = CollectionModel::find()
-                .filter(collection::Column::Name.eq(name))
+                .filter(collection::Column::Name.eq(def_col.to_string()))
                 .all(db)
                 .await?;
             for col in cols {
                 let mut col: collection::ActiveModel = col.into();
-                col.description = ActiveValue::Set(Some(description.to_owned()));
+                col.description = ActiveValue::Set(Some(def_col.meta().to_owned()));
                 col.update(db).await?;
             }
         }

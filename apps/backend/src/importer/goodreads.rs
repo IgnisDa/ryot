@@ -10,7 +10,7 @@ use crate::{
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, DEFAULT_COLLECTIONS,
+        DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     models::media::{BookSpecifics, MediaDetails},
 };
@@ -98,7 +98,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
 
                 let mut default_collections = vec![];
                 if d.user_shelves == "to-read" {
-                    default_collections.push(DEFAULT_COLLECTIONS[2].0.to_owned());
+                    default_collections.push(DefaultCollection::Watchlist.to_string());
                 }
 
                 ImportItem {
