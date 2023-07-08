@@ -2,7 +2,7 @@ import type { NextPageWithLayout } from "./_app";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, Flex, SimpleGrid, Text, Title } from "@mantine/core";
+import { Box, Container, Flex, Stack, Text, Title } from "@mantine/core";
 import { PartialCollectionsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
@@ -20,7 +20,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Collections | Ryot</title>
 			</Head>
 			<Container>
-				<SimpleGrid cols={2} breakpoints={[{ minWidth: "lg", cols: 3 }]}>
+				<Stack>
 					{collections.data.map((c) => (
 						<Box key={c.collectionDetails.id}>
 							<Flex align={"center"} gap="xs">
@@ -29,9 +29,12 @@ const Page: NextPageWithLayout = () => {
 									({c.collectionDetails.numItems})
 								</Text>
 							</Flex>
+							{c.collectionDetails.description ? (
+								<Text>{c.collectionDetails.description}</Text>
+							) : null}
 						</Box>
 					))}
-				</SimpleGrid>
+				</Stack>
 			</Container>
 		</>
 	) : (
