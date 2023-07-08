@@ -159,7 +159,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: lot !== undefined && activeTab === "mine",
 	});
-	const partialCollections = useQuery({
+	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
@@ -251,7 +251,7 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return lot ? (
+	return lot && collections.data ? (
 		<>
 			<Head>
 				<title>List {changeCase(lot).toLowerCase()}s | Ryot</title>
@@ -394,9 +394,9 @@ const Page: NextPageWithLayout = () => {
 													withinPortal
 													placeholder="Select a collection"
 													value={mineCollectionFilter}
-													data={(partialCollections.data || []).map((c) => ({
-														value: c.id.toString(),
-														label: c.name,
+													data={(collections.data || []).map((c) => ({
+														value: c?.id?.toString(),
+														label: c?.name,
 														group: "My collections",
 													}))}
 													onChange={(v) => {

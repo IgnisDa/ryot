@@ -47,8 +47,8 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
+	CollectionContentsDocument,
 	CollectionsDocument,
-	type CollectionsQuery,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
@@ -212,7 +212,7 @@ function SelectCollectionModal(props: {
 	onClose: () => void;
 	metadataId: number;
 	refetchCollections: () => void;
-	collections: CollectionsQuery["collections"];
+	collections: string[];
 }) {
 	const [selectedCollection, setSelectedCollection] = useState<string | null>(
 		null,
@@ -244,7 +244,7 @@ function SelectCollectionModal(props: {
 					<Title order={3}>Select collection</Title>
 					<Select
 						withinPortal
-						data={props.collections.map((c) => c?.name)}
+						data={props.collections || []}
 						onChange={setSelectedCollection}
 						searchable
 						nothingFound="Nothing found"
@@ -430,7 +430,16 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["collections"],
 		queryFn: async () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections;
+			const inCols = [];
+			for (const col of collections) {
+				const { collectionContents } = await gqlClient.request(
+					CollectionContentsDocument,
+					{ input: { collectionId: col.id } },
+				);
+				if (collectionContents.some((c) => Number(c.identifier) === metadataId))
+					inCols.push(col.name);
+			}
+			return [collections, inCols] as const;
 		},
 	});
 	const reviews = useQuery({
@@ -561,13 +570,6 @@ const Page: NextPageWithLayout = () => {
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = seenHistory.data?.find((h) => h.progress < 100);
 
-	// all the collections that the user has added this media to
-	const mediaCollections = (collections.data || [])
-		?.filter((c) =>
-			c.mediaDetails?.some((m) => m.identifier === metadataId.toString()),
-		)
-		.map((c) => c?.name);
-
 	// the next episode if it is a show or podcast
 	const nextEpisode = match(seenHistory.data?.at(0))
 		.with(undefined, () => undefined)
@@ -630,9 +632,11 @@ const Page: NextPageWithLayout = () => {
 							{changeCase(mediaDetails.data.lot)}
 						</Badge>
 					</Group>
-					{mediaCollections && mediaCollections.length > 0 ? (
+					{collections.data &&
+					collections.data[1] &&
+					collections.data[1].length > 0 ? (
 						<Group id="media-collections">
-							{mediaCollections.map((collectionName) => (
+							{collections.data[1].map((collectionName) => (
 								<Badge
 									key={collectionName}
 									color={
@@ -959,12 +963,12 @@ const Page: NextPageWithLayout = () => {
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
 										</Button>
-										{collections.data ? (
+										{collections.data && collections.data[0].length > 0 ? (
 											<SelectCollectionModal
 												onClose={collectionModalClose}
 												opened={collectionModalOpened}
 												metadataId={metadataId}
-												collections={collections.data}
+												collections={collections.data[0].map((c) => c.name)}
 												refetchCollections={collections.refetch}
 											/>
 										) : null}
