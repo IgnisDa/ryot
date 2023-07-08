@@ -83,6 +83,12 @@ pub enum DefaultCollection {
     Watchlist,
 }
 
+pub static DEFAULT_COLLECTIONS: [(&str, &str); 3] = [
+    ("Custom", "Items that I have created manually"),
+    ("In Progress", "Media items that I am currently watching"),
+    ("Watchlist", "Things I want to watch in the future"),
+];
+
 #[derive(Debug, Clone)]
 pub struct CustomService {}
 

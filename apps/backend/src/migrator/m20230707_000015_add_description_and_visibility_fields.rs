@@ -1,8 +1,12 @@
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use sea_orm_migration::prelude::*;
 
-use crate::models::media::Visibility;
-
-use super::m20230507_000007_create_collection::Collection;
+use crate::{
+    entities::{collection, prelude::Collection as CollectionModel},
+    migrator::m20230507_000007_create_collection::Collection,
+    miscellaneous::DEFAULT_COLLECTIONS,
+    models::media::Visibility,
+};
 
 pub struct Migration;
 
@@ -30,6 +34,18 @@ impl MigrationTrait for Migration {
             )
             .await
             .ok();
+        let db = manager.get_connection();
+        for (name, description) in DEFAULT_COLLECTIONS {
+            let cols = CollectionModel::find()
+                .filter(collection::Column::Name.eq(name))
+                .all(db)
+                .await?;
+            for col in cols {
+                let mut col: collection::ActiveModel = col.into();
+                col.description = ActiveValue::Set(Some(description.to_owned()));
+                col.update(db).await?;
+            }
+        }
         Ok(())
     }
 
