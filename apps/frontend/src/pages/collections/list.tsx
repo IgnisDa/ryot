@@ -38,7 +38,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement, useState } from "react";
-import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
@@ -59,10 +58,9 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const collections = useQuery(["collections"], async () => {
-		invariant(user);
 		const { collections } = await gqlClient.request(
 			PartialCollectionsDocument,
-			{ input: { userId: user.id } },
+			{},
 		);
 		return collections;
 	});
@@ -107,7 +105,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return (collections.data?.length || 0 >= 1) && collections.data ? (
+	return collections.data ? (
 		<>
 			<Head>
 				<title>Collections | Ryot</title>

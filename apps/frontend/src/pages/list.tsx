@@ -4,7 +4,6 @@ import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
 import { ROUTES } from "@/lib/constants";
-import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -127,7 +126,6 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
-	const user = useUser();
 
 	const listMedia = useQuery({
 		queryKey: [
@@ -164,10 +162,9 @@ const Page: NextPageWithLayout = () => {
 	const partialCollections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			invariant(user);
 			const { collections } = await gqlClient.request(
 				PartialCollectionsDocument,
-				{ input: { userId: user.id } },
+				{},
 			);
 			return collections;
 		},
