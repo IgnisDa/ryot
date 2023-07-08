@@ -113,8 +113,8 @@ export default function ({ children }: { children: ReactElement }) {
 				icon: getMetadataIcon(f.name),
 				href: undefined,
 			})) || []),
-		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
 		{ icon: IconArchive, label: "Collections", href: ROUTES.collections.list },
+		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
 	].map((link, _index) => (
 		<NavbarButton
 			{...link}
