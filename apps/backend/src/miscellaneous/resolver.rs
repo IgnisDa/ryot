@@ -241,8 +241,9 @@ struct CollectionContentsInput {
 
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
-    collection_details: collection::Model,
+    details: collection::Model,
     media: Vec<MediaSearchItem>,
+    user: user::Model,
 }
 
 fn create_cookie(
@@ -2269,9 +2270,11 @@ impl MiscellaneousService {
         }
         meta_data.sort_by_key(|item| item.1);
         let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
+        let user = collection.find_related(User).one(&self.db).await?.unwrap();
         Ok(CollectionContents {
-            collection_details: collection,
+            details: collection,
             media: media_details,
+            user,
         })
     }
 

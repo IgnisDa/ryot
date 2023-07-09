@@ -37,7 +37,7 @@ const documents = {
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserFeaturePreference($input: UpdateUserFeaturePreferenceInput!) {\n  updateUserFeaturePreference(input: $input)\n}": types.UpdateUserFeaturePreferenceDocument,
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
-    "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    collectionDetails {\n      name\n      description\n      visibility\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}": types.CollectionContentsDocument,
+    "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    details {\n      name\n      description\n      visibility\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}": types.CollectionContentsDocument,
     "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    usernameChangeAllowed\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
@@ -172,7 +172,7 @@ export function graphql(source: "mutation YankIntegrationData {\n  yankIntegrati
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    collectionDetails {\n      name\n      description\n      visibility\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}"): (typeof documents)["query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    collectionDetails {\n      name\n      description\n      visibility\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}"];
+export function graphql(source: "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    details {\n      name\n      description\n      visibility\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}"): (typeof documents)["query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    details {\n      name\n      description\n      visibility\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

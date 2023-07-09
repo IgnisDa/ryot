@@ -1,6 +1,9 @@
 query CollectionContents($input: CollectionContentsInput!) {
   collectionContents(input: $input) {
-    collectionDetails {
+    user {
+      name
+    }
+    details {
       name
       description
       visibility
