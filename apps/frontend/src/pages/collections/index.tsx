@@ -5,8 +5,9 @@ import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Container, Stack, Text, Title } from "@mantine/core";
+import { Box, Container, Flex, Stack, Text, Title } from "@mantine/core";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/utilities";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -35,7 +36,13 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<Title>{collectionContents.data.collectionDetails.name}</Title>
+					<Box>
+						<Text color="dimmed" size="xs" mb={-10}>
+							{changeCase(collectionContents.data.collectionDetails.visibility)}
+						</Text>
+						<Title>{collectionContents.data.collectionDetails.name}</Title>
+					</Box>
+					<Text>{collectionContents.data.collectionDetails.description}</Text>
 					{collectionContents.data.media.length > 0 ? (
 						<>
 							<Grid>

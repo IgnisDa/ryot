@@ -2,6 +2,8 @@ query CollectionContents($input: CollectionContentsInput!) {
   collectionContents(input: $input) {
     collectionDetails {
       name
+      description
+      visibility
     }
     media {
       identifier
