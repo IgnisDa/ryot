@@ -6,10 +6,7 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Container, Stack, Text, Title } from "@mantine/core";
-import {
-	CollectionContentsDocument,
-	CollectionsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -26,9 +23,7 @@ const Page: NextPageWithLayout = () => {
 				CollectionContentsDocument,
 				{ input: { collectionId } },
 			);
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			const currentCollection = collections.find((c) => c.id === collectionId)!;
-			return { currentCollection, collectionContents };
+			return collectionContents;
 		},
 		{ enabled: !!collectionId },
 	);
@@ -36,15 +31,15 @@ const Page: NextPageWithLayout = () => {
 	return collectionId && collectionContents.data ? (
 		<>
 			<Head>
-				<title>{collectionContents.data.currentCollection.name} | Ryot</title>
+				<title>{collectionContents.data.collectionDetails.name} | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
-					<Title>{collectionContents.data.currentCollection.name}</Title>
-					{collectionContents.data.collectionContents.length > 0 ? (
+					<Title>{collectionContents.data.collectionDetails.name}</Title>
+					{collectionContents.data.media.length > 0 ? (
 						<>
 							<Grid>
-								{collectionContents.data.collectionContents.map((lm) => (
+								{collectionContents.data.media.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}

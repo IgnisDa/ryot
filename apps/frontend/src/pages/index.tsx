@@ -125,11 +125,11 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection.data.length > 0 ? (
+					{inProgressCollection.data.media.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
 							<Grid>
-								{inProgressCollection.data.map((lm) => (
+								{inProgressCollection.data.media.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}

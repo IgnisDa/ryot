@@ -1,6 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
 import { ROUTES } from "@/lib/constants";
-import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -51,7 +50,6 @@ type FormSchema = z.infer<typeof formSchema>;
 const Page: NextPageWithLayout = () => {
 	const [toUpdateCollection, setToUpdateCollection] = useState<number>();
 	const [opened, { open, close }] = useDisclosure(false);
-	const _user = useUser();
 
 	const form = useForm<FormSchema>({
 		validate: zodResolver(formSchema),
