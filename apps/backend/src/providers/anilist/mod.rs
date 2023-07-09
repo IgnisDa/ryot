@@ -67,14 +67,10 @@ impl MediaProvider for AnilistAnimeService {
     }
 
     async fn search(
-
         &self,
-
         query: &str,
-
         page: Option<i32>,
-    ,
-    ) -> Result<SearchResults<MediaSearchItem><MediaSearchItem>> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = utils::search(
             &self.base.client,
             search_query::MediaType::ANIME,
@@ -112,14 +108,10 @@ impl MediaProvider for AnilistMangaService {
     }
 
     async fn search(
-
         &self,
-
         query: &str,
-
         page: Option<i32>,
-    ,
-    ) -> Result<SearchResults<MediaSearchItem><MediaSearchItem>> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = utils::search(
             &self.base.client,
             search_query::MediaType::MANGA,

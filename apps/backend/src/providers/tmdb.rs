@@ -10,22 +10,14 @@ use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
-    models::media::{
-        MediaDetails, MediaSearchItem, MediaSearchResults, MovieSpecifics, ShowEpisode, ShowSeason,
-        ShowSpecifics,
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
-    },
     models::{
-        media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
+        media::{
+            MediaDetails, MediaSearchItem, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+        },
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{
-        convert_date_to_year, convert_string_to_date, get_base_http_client_config,
-        read_file_to_json, NamedObject,
-    },
+    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
 };
 
 pub static URL: &str = "https://api.themoviedb.org/3/";
@@ -178,7 +170,7 @@ impl MediaProvider for TmdbMovieService {
         &self,
         query: &str,
         page: Option<i32>,
-    ) -> Result<MediaSearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbMovie {

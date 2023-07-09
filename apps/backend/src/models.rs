@@ -1,13 +1,19 @@
-use async_graphql::{InputObject, OutputType, SimpleObject};
+use async_graphql::{Enum, InputObject, OutputType, SimpleObject};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
-use crate::{entities::exercise::Model as ExerciseModel, miscellaneous::resolver::MediaSearchItem};
+use crate::{
+    entities::{exercise::Model as ExerciseModel, review, seen},
+    graphql::Identifier,
+    migrator::{MetadataLot, MetadataSource},
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
+};
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "MediaSearchResults", params(MediaSearchItem)))]
+#[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItem)))]
+#[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
 #[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
     pub total: i32,
@@ -17,6 +23,12 @@ pub struct SearchResults<T: OutputType> {
 
 pub mod media {
     use super::*;
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct MediaListItem {
+        pub data: MediaSearchItem,
+        pub average_rating: Option<Decimal>,
+    }
 
     #[derive(
         Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
@@ -410,16 +422,6 @@ pub mod media {
     pub struct UserSummary {
         pub media: UserMediaSummary,
         pub calculated_on: DateTimeUtc,
-    }
-
-    #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-    pub struct MediaSearchResults<T>
-    where
-        T: OutputType,
-    {
-        pub total: i32,
-        pub items: Vec<T>,
-        pub next_page: Option<i32>,
     }
 
     #[derive(Debug, InputObject)]

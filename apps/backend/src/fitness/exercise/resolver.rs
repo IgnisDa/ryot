@@ -14,12 +14,11 @@ use crate::{
     background::UpdateExerciseJob,
     entities::{exercise, prelude::Exercise},
     file_storage::FileStorageService,
-    miscellaneous::PAGE_LIMIT,
     models::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
     },
-    utils::get_case_insensitive_like_query,
+    utils::{get_case_insensitive_like_query, PAGE_LIMIT},
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

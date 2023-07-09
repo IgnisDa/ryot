@@ -13,12 +13,9 @@ use surf::Client;
 use crate::{
     config::PodcastConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
-    },
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
-        media::{PodcastEpisode, PodcastSpecifics},
+        media::{MediaDetails, MediaSearchItem, PodcastEpisode, PodcastSpecifics},
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},

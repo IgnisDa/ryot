@@ -9,11 +9,11 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use crate::{
     config::VideoGameConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::{
+        media::{MediaDetails, MediaSearchItem, VideoGameSpecifics},
+        SearchResults,
     },
-    models::{media::VideoGameSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{NamedObject, PAGE_LIMIT},
 };

@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::models::media::MediaListItem;
 use crate::models::SearchResults;
 use crate::utils::get_case_insensitive_like_query;
 use crate::{
@@ -57,9 +58,9 @@ use crate::{
     },
     models::media::{
         AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExportMedia,
-        MangaSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults, MovieSpecifics,
-        PodcastSpecifics, PostReviewInput, ProgressUpdateInput, ShowSpecifics, UserSummary,
-        VideoGameSpecifics, Visibility,
+        MangaSpecifics, MediaDetails, MediaSearchItem, MovieSpecifics, PodcastSpecifics,
+        PostReviewInput, ProgressUpdateInput, ShowSpecifics, UserSummary, VideoGameSpecifics,
+        Visibility,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -313,12 +314,6 @@ struct MediaBaseData {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct MediaListItem {
-    data: MediaSearchItem,
-    average_rating: Option<Decimal>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct MediaSearchItemResponse {
     item: MediaSearchItem,
     database_id: Option<Identifier>,
@@ -545,7 +540,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MediaListInput,
-    ) -> Result<MediaSearchResults<MediaListItem>> {
+    ) -> Result<SearchResults<MediaListItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -1221,7 +1216,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: MediaListInput,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MediaListItem>> {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)

@@ -8,11 +8,11 @@ use surf::{Client, Url};
 use crate::{
     config::GoogleBooksConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::{
+        media::{BookSpecifics, MediaDetails, MediaSearchItem},
+        SearchResults,
     },
-    models::{media::BookSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client_config, PAGE_LIMIT},
 };

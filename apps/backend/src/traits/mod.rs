@@ -1,16 +1,19 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::models::media::{MediaDetails, MediaSearchItem, MediaSearchResults};
-use crate::{
-    miscellaneous::resolver::{MediaDetails, MediaSearchItem},
-    models::SearchResults,
+use crate::models::{
+    media::{MediaDetails, MediaSearchItem},
+    SearchResults,
 };
 
 #[async_trait]
 pub trait MediaProvider {
     /// Search for something using a particular query and offset.
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults>;
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MediaSearchItem>>;
 
     /// Get details about a media item for the particular identifier.
     async fn details(&self, identifier: &str) -> Result<MediaDetails>;

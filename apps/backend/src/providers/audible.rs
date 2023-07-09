@@ -8,11 +8,11 @@ use surf::{Client, Url};
 use crate::{
     config::AudibleConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::{
+        media::{AudioBookSpecifics, MediaDetails, MediaSearchItem},
+        SearchResults,
     },
-    models::{media::AudioBookSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{
         convert_date_to_year, convert_string_to_date, get_base_http_client_config, NamedObject,
