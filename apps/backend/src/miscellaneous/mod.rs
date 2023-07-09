@@ -86,9 +86,9 @@ pub enum DefaultCollection {
 
 meta! {
     DefaultCollection, &'static str;
-    Custom, "Items that I have created manually";
-    InProgress, "Media items that I am currently watching";
-    Watchlist, "Things I want to watch in the future";
+    Custom, "Items that I have created manually.";
+    InProgress, "Media items that I am currently watching.";
+    Watchlist, "Things I want to watch in the future.";
 }
 
 #[derive(Debug, Clone)]
