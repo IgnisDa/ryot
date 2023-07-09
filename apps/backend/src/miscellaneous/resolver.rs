@@ -2168,7 +2168,7 @@ impl MiscellaneousService {
             .apply_if(input.clone().and_then(|i| i.name), |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
-            .order_by_asc(collection::Column::Name)
+            .order_by_asc(collection::Column::CreatedOn)
             .all(&self.db)
             .await
             .unwrap();
