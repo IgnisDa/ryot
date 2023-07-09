@@ -14,13 +14,8 @@ use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
     migrator::{MediaImportSource, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{
-            AddMediaToCollection, MediaDetails, MiscellaneousService, PostReviewInput,
-            ProgressUpdateInput,
-        },
-        DefaultCollection,
-    },
+    miscellaneous::resolver::MiscellaneousService,
+    models::media::{AddMediaToCollection, MediaDetails, PostReviewInput, ProgressUpdateInput},
     utils::user_id_from_ctx,
 };
 
@@ -87,7 +82,7 @@ pub struct ImportItem {
     identifier: ImportItemIdentifier,
     seen_history: Vec<ImportItemSeen>,
     reviews: Vec<ImportItemRating>,
-    default_collections: Vec<DefaultCollection>,
+    collections: Vec<String>,
 }
 
 /// The various steps in which media importing can fail
@@ -306,7 +301,7 @@ impl ImporterService {
                     )
                     .await?;
             }
-            for col in item.default_collections.iter() {
+            for col in item.collections.iter() {
                 self.media_service
                     .add_media_to_collection(
                         &user_id,

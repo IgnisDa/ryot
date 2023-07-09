@@ -15,7 +15,7 @@ use crate::{
     },
     models::{media::VideoGameSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::NamedObject,
+    utils::{NamedObject, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://api.igdb.com/v4/";
@@ -162,14 +162,16 @@ offset: {offset};
                     identifier: a.identifier,
                     lot: MetadataLot::VideoGame,
                     title: a.title,
-                    images: a
+                    image: a
                         .images
                         .into_iter()
                         .map(|i| match i.url {
                             MetadataImageUrl::S3(_u) => unreachable!(),
                             MetadataImageUrl::Url(u) => u,
                         })
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .get(0)
+                        .cloned(),
                     publish_year: a.publish_year,
                 }
             })

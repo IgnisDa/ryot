@@ -6,12 +6,10 @@ use surf::Client;
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
     migrator::MetadataLot,
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem},
-        PAGE_LIMIT,
-    },
+    models::media::{MediaDetails, MediaSearchItem},
     models::SearchResults,
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::PAGE_LIMIT,
 };
 
 static URL: &str = "https://graphql.anilist.co";
@@ -69,10 +67,14 @@ impl MediaProvider for AnilistAnimeService {
     }
 
     async fn search(
+
         &self,
+
         query: &str,
+
         page: Option<i32>,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ,
+    ) -> Result<SearchResults<MediaSearchItem><MediaSearchItem>> {
         let (items, total, next_page) = utils::search(
             &self.base.client,
             search_query::MediaType::ANIME,
@@ -110,10 +112,14 @@ impl MediaProvider for AnilistMangaService {
     }
 
     async fn search(
+
         &self,
+
         query: &str,
+
         page: Option<i32>,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ,
+    ) -> Result<SearchResults<MediaSearchItem><MediaSearchItem>> {
         let (items, total, next_page) = utils::search(
             &self.base.client,
             search_query::MediaType::MANGA,
@@ -285,20 +291,14 @@ mod utils {
             .unwrap()
             .into_iter()
             .flatten()
-            .map(|b| {
-                let mut images = Vec::from_iter(b.banner_image);
-                if let Some(i) = b.cover_image.unwrap().extra_large {
-                    images.push(i);
-                }
-                MediaSearchItem {
-                    identifier: b.id.to_string(),
-                    lot: MetadataLot::Anime,
-                    title: b.title.unwrap().user_preferred.unwrap(),
-                    images,
-                    publish_year: b
-                        .start_date
-                        .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
-                }
+            .map(|b| MediaSearchItem {
+                identifier: b.id.to_string(),
+                lot: MetadataLot::Anime,
+                title: b.title.unwrap().user_preferred.unwrap(),
+                image: b.banner_image,
+                publish_year: b
+                    .start_date
+                    .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
             })
             .collect();
         Ok((media, total, next_page))

@@ -7,7 +7,7 @@ query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchIn
       item {
         identifier
         title
-        images
+        image
         publishYear
       }
     }

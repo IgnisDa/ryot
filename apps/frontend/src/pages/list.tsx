@@ -31,6 +31,7 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
+	CollectionsDocument,
 	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
@@ -38,14 +39,11 @@ import {
 	MediaSortOrder,
 	MediaSourcesForLotDocument,
 	MetadataSource,
-	PartialCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/utilities";
 import {
 	IconFilter,
 	IconFilterOff,
-	IconGridDots,
-	IconLayoutRows,
 	IconListCheck,
 	IconRefresh,
 	IconSearch,
@@ -118,11 +116,6 @@ const Page: NextPageWithLayout = () => {
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
 	});
-	const [activeListType, setListType] = useLocalStorage<"poster" | "grid">({
-		key: "savedListType",
-		getInitialValueInEffect: false,
-		defaultValue: "grid",
-	});
 	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
 		key: "savedActiveTab",
 		getInitialValueInEffect: false,
@@ -166,12 +159,10 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: lot !== undefined && activeTab === "mine",
 	});
-	const partialCollections = useQuery({
+	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(
-				PartialCollectionsDocument,
-			);
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
 			return collections;
 		},
 		staleTime: Infinity,
@@ -260,7 +251,7 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return lot ? (
+	return lot && collections.data ? (
 		<>
 			<Head>
 				<title>List {changeCase(lot).toLowerCase()}s | Ryot</title>
@@ -313,18 +304,6 @@ const Page: NextPageWithLayout = () => {
 											color={isFilterChanged ? "blue" : undefined}
 										>
 											<IconFilter size="1.5rem" />
-										</ActionIcon>
-										<ActionIcon
-											onClick={() => {
-												if (activeListType === "poster") setListType("grid");
-												else setListType("poster");
-											}}
-										>
-											{activeListType === "poster" ? (
-												<IconGridDots size="1.5rem" />
-											) : (
-												<IconLayoutRows size="1.5rem" />
-											)}
 										</ActionIcon>
 										<Modal
 											opened={filtersModalOpened}
@@ -411,20 +390,22 @@ const Page: NextPageWithLayout = () => {
 														}
 													/>
 												</Flex>
-												<Select
-													withinPortal
-													placeholder="Select a collection"
-													value={mineCollectionFilter}
-													data={(partialCollections.data || []).map((c) => ({
-														value: c.collectionDetails.id.toString(),
-														label: c.collectionDetails.name,
-														group: "My collections",
-													}))}
-													onChange={(v) => {
-														setMineCollectionFilter(v || "non");
-													}}
-													clearable
-												/>
+												{collections.data.length > 0 ? (
+													<Select
+														withinPortal
+														placeholder="Select a collection"
+														value={mineCollectionFilter}
+														data={collections.data.map((c) => ({
+															value: c?.id?.toString(),
+															label: c?.name,
+															group: "My collections",
+														}))}
+														onChange={(v) => {
+															setMineCollectionFilter(v || "non");
+														}}
+														clearable
+													/>
+												) : null}
 											</Stack>
 										</Modal>
 									</Flex>
@@ -438,14 +419,14 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid listType={activeListType}>
+									<Grid>
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
-												listType={activeListType}
-												key={lm.identifier}
-												item={lm}
+												key={lm.data.identifier}
+												item={lm.data}
+												averageRating={lm.averageRating}
 												lot={lot}
-												href={`${ROUTES.media.details}?item=${lm.identifier}`}
+												href={`${ROUTES.media.details}?item=${lm.data.identifier}`}
 											/>
 										))}
 									</Grid>
@@ -481,7 +462,7 @@ const Page: NextPageWithLayout = () => {
 									<Select
 										w="37%"
 										value={searchSource?.toString()}
-										data={(mediaSources.data || []).map((o) => ({
+										data={mediaSources.data.map((o) => ({
 											value: o.toString(),
 											label: startCase(o.toLowerCase()),
 										}))}
@@ -499,10 +480,9 @@ const Page: NextPageWithLayout = () => {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid listType={"poster"}>
+									<Grid>
 										{searchQuery.data.items.map((b, idx) => (
 											<MediaItem
-												listType={"poster"}
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}
@@ -510,7 +490,7 @@ const Page: NextPageWithLayout = () => {
 												query={query}
 												offset={offset}
 												lot={lot}
-												refetch={searchQuery.refetch}
+												searchQueryRefetch={searchQuery.refetch}
 												source={searchSource as unknown as MetadataSource}
 											/>
 										))}

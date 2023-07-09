@@ -1,6 +1,9 @@
 use sea_orm_migration::prelude::*;
 
-use crate::migrator::{m20230417_000002_create_user::User, Metadata};
+use crate::{
+    migrator::{m20230417_000002_create_user::User, Metadata},
+    models::media::Visibility,
+};
 
 pub struct Migration;
 
@@ -24,6 +27,8 @@ pub enum Collection {
     CreatedOn,
     Name,
     UserId,
+    Description,
+    Visibility,
 }
 
 #[async_trait::async_trait]
@@ -47,7 +52,14 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Collection::Name).string().not_null())
+                    .col(ColumnDef::new(Collection::Description).string())
                     .col(ColumnDef::new(Collection::UserId).integer().not_null())
+                    .col(
+                        ColumnDef::new(Collection::Visibility)
+                            .string_len(2)
+                            .not_null()
+                            .default(Visibility::Private),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_user_foreign_key")

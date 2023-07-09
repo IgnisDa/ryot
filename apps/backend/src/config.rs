@@ -7,18 +7,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     graphql::PROJECT_NAME,
     providers::{audible::AudibleService, itunes::ITunesService, tmdb::TmdbService},
-    traits::MediaProviderLanguages,
+    traits::{IsFeatureEnabled, MediaProviderLanguages},
 };
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
-}
-
-/// Determine whether a feature is enabled
-pub trait IsFeatureEnabled {
-    fn is_enabled(&self) -> bool {
-        true
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

@@ -1,0 +1,14 @@
+query CollectionContents($input: CollectionContentsInput!) {
+  collectionContents(input: $input) {
+    collectionDetails {
+      name
+    }
+    media {
+      identifier
+      lot
+      title
+      image
+      publishYear
+    }
+  }
+}

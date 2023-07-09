@@ -15,13 +15,14 @@ mod m20230616_000011_remove_goodreads_source;
 mod m20230621_000012_add_metadata_unique_index;
 mod m20230622_000013_create_exercise;
 mod m20230702_000014_add_user_integrations_field;
+mod m20230707_000015_add_description_and_visibility_fields;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
 };
 pub use m20230417_000002_create_user::{UserLot, UserToMetadata};
 pub use m20230419_000003_create_seen::Seen;
-pub use m20230505_000006_create_review::{Review, ReviewVisibility};
+pub use m20230505_000006_create_review::Review;
 pub use m20230509_000008_create_media_import_report::MediaImportSource;
 
 pub struct Migrator;
@@ -44,6 +45,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230621_000012_add_metadata_unique_index::Migration),
             Box::new(m20230622_000013_create_exercise::Migration),
             Box::new(m20230702_000014_add_user_integrations_field::Migration),
+            Box::new(m20230707_000015_add_description_and_visibility_fields::Migration),
         ]
     }
 }

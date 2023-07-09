@@ -17,7 +17,7 @@ use crate::{
     },
     models::{media::BookSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, get_data_parallelly_from_sources},
+    utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://openlibrary.org";
@@ -313,7 +313,7 @@ impl MediaProvider for OpenlibraryService {
                     identifier: b.identifier,
                     lot: MetadataLot::Book,
                     title: b.title,
-                    images: b.images,
+                    image: b.images.get(0).cloned(),
                     publish_year: b.publish_year,
                 })
                 .collect(),

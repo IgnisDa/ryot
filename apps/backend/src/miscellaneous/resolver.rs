@@ -5,6 +5,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
+use enum_meta::Meta;
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
@@ -13,12 +14,12 @@ use markdown::{
     Options,
 };
 use rust_decimal::Decimal;
-use sea_orm::Iterable;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, EntityTrait, FromJsonQueryResult, FromQueryResult, Iden,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
+    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait,
+    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
+use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
     Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
@@ -31,7 +32,7 @@ use crate::models::SearchResults;
 use crate::utils::get_case_insensitive_like_query;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
-    config::{AppConfig, IsFeatureEnabled},
+    config::AppConfig,
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
         metadata_to_genre,
@@ -40,7 +41,6 @@ use crate::{
             Summary, User, UserToMetadata,
         },
         review, seen, summary, user, user_to_metadata,
-        utils::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
     },
     file_storage::FileStorageService,
     graphql::{IdObject, Identifier},
@@ -48,12 +48,18 @@ use crate::{
     integrations::IntegrationService,
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
-        Review as TempReview, ReviewVisibility, Seen as TempSeen, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
+    },
+    miscellaneous::{
+        CustomService, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
+        MetadataImageUrl, MetadataImages, SeenExtraInformation, SeenPodcastExtraInformation,
+        SeenShowExtraInformation,
     },
     models::media::{
-        AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-        PodcastSpecifics, ShowSpecifics, VideoGameSpecifics,
+        AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExportMedia,
+        MangaSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults, MovieSpecifics,
+        PodcastSpecifics, PostReviewInput, ProgressUpdateInput, ShowSpecifics, UserSummary,
+        VideoGameSpecifics, Visibility,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -65,38 +71,36 @@ use crate::{
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
-    traits::{MediaProvider, MediaProviderLanguages},
-    users::UserPreferences,
-    users::{UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations},
-    utils::{user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, NamedObject},
+    traits::{IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
+    users::{
+        UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
+    },
+    utils::{
+        user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
+    },
 };
 
-use super::{
-    CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
-    MetadataImage, MetadataImageUrl, MetadataImages, PAGE_LIMIT,
-};
+use super::DefaultCollection;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
-pub static COOKIE_NAME: &str = "auth";
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateCustomMediaInput {
-    pub title: String,
-    pub lot: MetadataLot,
-    pub description: Option<String>,
-    pub creators: Option<Vec<String>>,
-    pub genres: Option<Vec<String>>,
-    pub images: Option<Vec<String>>,
-    pub publish_year: Option<i32>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub manga_specifics: Option<MangaSpecifics>,
-    pub anime_specifics: Option<AnimeSpecifics>,
+struct CreateCustomMediaInput {
+    title: String,
+    lot: MetadataLot,
+    description: Option<String>,
+    creators: Option<Vec<String>>,
+    genres: Option<Vec<String>>,
+    images: Option<Vec<String>>,
+    publish_year: Option<i32>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -105,7 +109,7 @@ enum UserYankIntegrationLot {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct GraphqlUserYankIntegration {
+struct GraphqlUserYankIntegration {
     id: usize,
     lot: UserYankIntegrationLot,
     description: String,
@@ -113,7 +117,7 @@ pub struct GraphqlUserYankIntegration {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateUserYankIntegrationInput {
+struct CreateUserYankIntegrationInput {
     lot: UserYankIntegrationLot,
     base_url: String,
     #[graphql(secret)]
@@ -144,17 +148,17 @@ enum CreateCustomMediaResult {
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum UserDetailsErrorVariant {
+enum UserDetailsErrorVariant {
     AuthTokenInvalid,
 }
 
 #[derive(Debug, SimpleObject)]
-pub struct UserDetailsError {
+struct UserDetailsError {
     error: UserDetailsErrorVariant,
 }
 
 #[derive(Union)]
-pub enum UserDetailsResult {
+enum UserDetailsResult {
     Ok(user::Model),
     Error(UserDetailsError),
 }
@@ -164,6 +168,14 @@ struct UserInput {
     username: String,
     #[graphql(secret)]
     password: String,
+}
+
+#[derive(Debug, InputObject, Default)]
+struct CreateOrUpdateCollectionInput {
+    name: String,
+    description: Option<String>,
+    visibility: Option<Visibility>,
+    update_id: Option<Identifier>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -214,29 +226,22 @@ struct UpdateUserInput {
     password: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ExportMedia {
-    ryot_id: i32,
-    title: String,
-    #[serde(rename = "type")]
-    lot: MetadataLot,
-    audible_id: Option<String>,
-    custom_id: Option<String>,
-    igdb_id: Option<String>,
-    listennotes_id: Option<String>,
-    google_books_id: Option<String>,
-    openlibrary_id: Option<String>,
-    tmdb_id: Option<String>,
-    itunes_id: Option<String>,
-    anilist_id: Option<String>,
-    seen_history: Vec<seen::Model>,
-    user_reviews: Vec<review::Model>,
-}
-
 #[derive(Debug, InputObject)]
 struct UpdateUserFeaturePreferenceInput {
     property: MetadataLot,
     value: bool,
+}
+
+#[derive(Debug, InputObject)]
+struct CollectionContentsInput {
+    collection_id: i32,
+    media_limit: Option<u64>,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CollectionContents {
+    collection_details: collection::Model,
+    media: Vec<MediaSearchItem>,
 }
 
 fn create_cookie(
@@ -263,86 +268,6 @@ fn get_hasher() -> Argon2<'static> {
     Argon2::default()
 }
 
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AudioBooksSummary {
-    runtime: i32,
-    played: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct VideoGamesSummary {
-    played: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct BooksSummary {
-    pages: i32,
-    read: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MoviesSummary {
-    runtime: i32,
-    watched: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct PodcastsSummary {
-    runtime: i32,
-    played: i32,
-    played_episodes: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct ShowsSummary {
-    runtime: i32,
-    watched: i32,
-    watched_episodes: i32,
-    watched_seasons: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MangaSummary {
-    chapters: i32,
-    read: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AnimeSummary {
-    episodes: i32,
-    watched: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserSummary {
-    books: BooksSummary,
-    movies: MoviesSummary,
-    podcasts: PodcastsSummary,
-    shows: ShowsSummary,
-    video_games: VideoGamesSummary,
-    audio_books: AudioBooksSummary,
-    anime: AnimeSummary,
-    manga: MangaSummary,
-}
-
 #[derive(Debug, SimpleObject)]
 struct ReviewPostedBy {
     id: Identifier,
@@ -355,7 +280,7 @@ struct ReviewItem {
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
     text: Option<String>,
-    visibility: ReviewVisibility,
+    visibility: Visibility,
     spoiler: bool,
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -363,128 +288,78 @@ struct ReviewItem {
     podcast_episode_id: Option<i32>,
 }
 
-#[derive(Debug, InputObject)]
-pub struct PostReviewInput {
-    pub rating: Option<Decimal>,
-    pub text: Option<String>,
-    pub visibility: Option<ReviewVisibility>,
-    pub spoiler: Option<bool>,
-    pub metadata_id: Identifier,
-    pub date: Option<DateTimeUtc>,
-    /// If this review comes from a different source, this should be set
-    pub identifier: Option<String>,
-    /// ID of the review if this is an update to an existing review
-    pub review_id: Option<Identifier>,
-    pub season_number: Option<i32>,
-    pub episode_number: Option<i32>,
-}
-
 #[derive(Debug, SimpleObject)]
 struct CollectionItem {
-    collection_details: collection::Model,
-    media_details: Vec<MediaSearchItem>,
-}
-
-#[derive(Debug, InputObject)]
-pub struct AddMediaToCollection {
-    pub collection_name: String,
-    pub media_id: Identifier,
+    id: i32,
+    name: String,
+    num_items: u64,
+    description: Option<String>,
+    visibility: Visibility,
 }
 
 #[derive(SimpleObject)]
-pub struct GeneralFeatures {
+struct GeneralFeatures {
     file_storage: bool,
     signup_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaBaseData {
-    pub model: metadata::Model,
-    pub creators: Vec<MetadataCreator>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
-    pub genres: Vec<String>,
+struct MediaBaseData {
+    model: metadata::Model,
+    creators: Vec<MetadataCreator>,
+    poster_images: Vec<String>,
+    backdrop_images: Vec<String>,
+    genres: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSearchItem {
-    pub identifier: String,
-    pub lot: MetadataLot,
-    pub title: String,
-    pub images: Vec<String>,
-    pub publish_year: Option<i32>,
+struct MediaListItem {
+    data: MediaSearchItem,
+    average_rating: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MediaSearchItemResponse {
-    pub item: MediaSearchItem,
-    pub database_id: Option<Identifier>,
+struct MediaSearchItemResponse {
+    item: MediaSearchItem,
+    database_id: Option<Identifier>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct DetailedMediaSearchResults {
-    pub total: i32,
-    pub items: Vec<MediaSearchItemResponse>,
-    pub next_page: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateInput {
-    pub metadata_id: Identifier,
-    pub progress: Option<i32>,
-    pub date: Option<NaiveDate>,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    /// If this update comes from a different source, this should be set
-    pub identifier: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MediaDetails {
-    pub identifier: String,
-    pub title: String,
-    pub source: MetadataSource,
-    pub description: Option<String>,
-    pub lot: MetadataLot,
-    pub creators: Vec<MetadataCreator>,
-    pub genres: Vec<String>,
-    pub images: Vec<MetadataImage>,
-    pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub specifics: MediaSpecifics,
+struct DetailedMediaSearchResults {
+    total: i32,
+    items: Vec<MediaSearchItemResponse>,
+    next_page: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-
-pub struct GraphqlMediaDetails {
-    pub id: i32,
-    pub title: String,
-    pub identifier: String,
-    pub description: Option<String>,
-    pub lot: MetadataLot,
-    pub source: MetadataSource,
-    pub creators: Vec<MetadataCreator>,
-    pub genres: Vec<String>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
-    pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
-    pub manga_specifics: Option<MangaSpecifics>,
-    pub anime_specifics: Option<AnimeSpecifics>,
-    pub source_url: Option<String>,
+struct GraphqlMediaDetails {
+    id: i32,
+    title: String,
+    identifier: String,
+    description: Option<String>,
+    lot: MetadataLot,
+    source: MetadataSource,
+    creators: Vec<MetadataCreator>,
+    genres: Vec<String>,
+    poster_images: Vec<String>,
+    backdrop_images: Vec<String>,
+    publish_year: Option<i32>,
+    publish_date: Option<NaiveDate>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
+    source_url: Option<String>,
     /// The number of users who have seen this media
-    pub seen_by: i32,
+    seen_by: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum MediaSortOrder {
+enum MediaSortOrder {
     Desc,
     #[default]
     Asc,
@@ -500,7 +375,7 @@ impl From<MediaSortOrder> for Order {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum MediaSortBy {
+enum MediaSortBy {
     Title,
     #[default]
     ReleaseDate,
@@ -510,15 +385,15 @@ pub enum MediaSortBy {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaSortInput {
+struct MediaSortInput {
     #[graphql(default)]
-    pub order: MediaSortOrder,
+    order: MediaSortOrder,
     #[graphql(default)]
-    pub by: MediaSortBy,
+    by: MediaSortBy,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
-pub enum MediaGeneralFilter {
+enum MediaGeneralFilter {
     All,
     Rated,
     Unrated,
@@ -528,30 +403,29 @@ pub enum MediaGeneralFilter {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaFilter {
-    pub general: Option<MediaGeneralFilter>,
-    pub collection: Option<i32>,
+struct MediaFilter {
+    general: Option<MediaGeneralFilter>,
+    collection: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaListInput {
-    pub page: i32,
-    pub lot: MetadataLot,
-    pub sort: Option<MediaSortInput>,
-    pub query: Option<String>,
-    pub filter: Option<MediaFilter>,
+struct MediaListInput {
+    page: i32,
+    lot: MetadataLot,
+    sort: Option<MediaSortInput>,
+    query: Option<String>,
+    filter: Option<MediaFilter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaConsumedInput {
-    pub identifier: String,
-    pub lot: MetadataLot,
+struct CollectionInput {
+    name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct SearchInput {
-    pub query: String,
-    pub page: Option<i32>,
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MediaConsumedInput {
+    identifier: String,
+    lot: MetadataLot,
 }
 
 #[derive(Default)]
@@ -588,17 +462,43 @@ impl MiscellaneousQuery {
     async fn collections(
         &self,
         gql_ctx: &Context<'_>,
-        limit: Option<u64>,
+        input: Option<CollectionInput>,
     ) -> Result<Vec<CollectionItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .collections(&user_id, limit)
+            .collections(&user_id, input)
+            .await
+    }
+
+    /// Get a list of collections in which a media is present.
+    async fn media_in_collections(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: Identifier,
+    ) -> Result<Vec<collection::Model>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_in_collections(user_id, metadata_id.into())
+            .await
+    }
+
+    /// Get the contents of a collection and respect visibility.
+    async fn collection_contents(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CollectionContentsInput,
+    ) -> Result<CollectionContents> {
+        let user_id = user_id_from_ctx(gql_ctx).await.ok();
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .collection_contents(user_id, input)
             .await
     }
 
     /// Get details about the currently logged in user.
-    pub async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
+    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let token = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -607,7 +507,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    pub async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -645,7 +545,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MediaListInput,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<MediaSearchResults<MediaListItem>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -765,16 +665,16 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Create a new collection for the logged in user.
-    async fn create_collection(
+    /// Create a new collection for the logged in user or edit details of an existing one.
+    async fn create_or_update_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: NamedObject,
+        input: CreateOrUpdateCollectionInput,
     ) -> Result<IdObject> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .create_collection(&user_id, input)
+            .create_or_update_collection(&user_id, input)
             .await
     }
 
@@ -1128,7 +1028,7 @@ impl MiscellaneousService {
         Ok((poster_images, backdrop_images))
     }
 
-    pub async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
+    async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
         let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -1317,7 +1217,7 @@ impl MiscellaneousService {
         Ok(seen)
     }
 
-    pub async fn media_list(
+    async fn media_list(
         &self,
         user_id: i32,
         input: MediaListInput,
@@ -1442,14 +1342,7 @@ impl MiscellaneousService {
                         let alias_name = "average_rating";
                         main_select = main_select
                             .expr_as(
-                                Func::coalesce([
-                                    Func::avg(Expr::col((
-                                        review_alias.clone(),
-                                        TempReview::Rating,
-                                    )))
-                                    .into(),
-                                    Expr::value(0),
-                                ]),
+                                Func::avg(Expr::col((review_alias.clone(), TempReview::Rating))),
                                 Alias::new(alias_name),
                             )
                             .join_as(
@@ -1464,7 +1357,11 @@ impl MiscellaneousService {
                                     ),
                             )
                             .group_by_col((metadata_alias.clone(), TempMetadata::Id))
-                            .order_by_expr(Expr::cust(alias_name), order_by)
+                            .order_by_expr_with_nulls(
+                                Expr::cust(alias_name),
+                                order_by,
+                                NullOrdering::Last,
+                            )
                             .to_owned();
                     }
                 };
@@ -1603,6 +1500,25 @@ impl MiscellaneousService {
             .collect();
         let mut items = vec![];
         for m in metas {
+            let avg_select = Query::select()
+                .expr(Func::avg(Expr::col((
+                    TempReview::Table,
+                    TempReview::Rating,
+                ))))
+                .from(TempReview::Table)
+                .cond_where(
+                    Cond::all()
+                        .add(Expr::col((TempReview::Table, TempReview::UserId)).eq(user_id))
+                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(m.id)),
+                )
+                .to_owned();
+            let stmt = self.get_db_stmt(avg_select);
+            let avg = self
+                .db
+                .query_one(stmt)
+                .await?
+                .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
+                .unwrap();
             let images = serde_json::from_value(m.images).unwrap();
             let (poster_images, _) = self
                 .metadata_images(&metadata::Model {
@@ -1610,12 +1526,15 @@ impl MiscellaneousService {
                     ..Default::default()
                 })
                 .await?;
-            let m_small = MediaSearchItem {
-                identifier: m.id.to_string(),
-                lot: m.lot,
-                title: m.title,
-                images: poster_images,
-                publish_year: m.publish_year,
+            let m_small = MediaListItem {
+                data: MediaSearchItem {
+                    identifier: m.id.to_string(),
+                    lot: m.lot,
+                    title: m.title,
+                    image: poster_images.get(0).cloned(),
+                    publish_year: m.publish_year,
+                },
+                average_rating: avg,
             };
             items.push(m_small);
         }
@@ -2232,7 +2151,7 @@ impl MiscellaneousService {
         let all_reviews = all_reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                ReviewVisibility::Private => i32::from(r.posted_by.id) == *user_id,
+                Visibility::Private => i32::from(r.posted_by.id) == *user_id,
                 _ => true,
             })
             .map(|r| ReviewItem {
@@ -2243,47 +2162,122 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn collections(&self, user_id: &i32, limit: Option<u64>) -> Result<Vec<CollectionItem>> {
+    async fn collections(
+        &self,
+        user_id: &i32,
+        input: Option<CollectionInput>,
+    ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(*user_id))
+            .apply_if(input.clone().and_then(|i| i.name), |query, v| {
+                query.filter(collection::Column::Name.eq(v))
+            })
+            .order_by_asc(collection::Column::CreatedOn)
             .all(&self.db)
             .await
             .unwrap();
         let mut data = vec![];
-        for collection_details in collections.into_iter() {
-            let metas = collection_details
-                .find_related(Metadata)
-                .limit(limit)
-                .all(&self.db)
-                .await?;
-            let mut meta_data = vec![];
-            for meta in metas.iter() {
-                let m = self.generic_metadata(meta.id).await?;
-                let u_t_m = UserToMetadata::find()
-                    .filter(user_to_metadata::Column::UserId.eq(*user_id))
-                    .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
-                    .one(&self.db)
-                    .await?
-                    .unwrap();
-                meta_data.push((
-                    MediaSearchItem {
-                        identifier: m.model.id.to_string(),
-                        lot: m.model.lot,
-                        title: m.model.title,
-                        images: m.poster_images,
-                        publish_year: m.model.publish_year,
-                    },
-                    u_t_m.last_updated_on,
-                ));
-            }
-            meta_data.sort_by_key(|item| item.1);
-            let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
+        for collection in collections.into_iter() {
+            let num_items = collection.find_related(Metadata).count(&self.db).await?;
             data.push(CollectionItem {
-                collection_details,
-                media_details,
+                id: collection.id,
+                name: collection.name,
+                description: collection.description,
+                visibility: collection.visibility,
+                num_items,
             });
         }
         Ok(data)
+    }
+
+    async fn media_in_collections(
+        &self,
+        user_id: i32,
+        metadata_id: i32,
+    ) -> Result<Vec<collection::Model>> {
+        let user_collections = Collection::find()
+            .filter(collection::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mtc = MetadataToCollection::find()
+            .filter(metadata_to_collection::Column::MetadataId.eq(metadata_id))
+            .filter(
+                metadata_to_collection::Column::CollectionId.is_in(
+                    user_collections
+                        .into_iter()
+                        .map(|c| c.id)
+                        .collect::<Vec<_>>(),
+                ),
+            )
+            .find_also_related(Collection)
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mut resp = vec![];
+        mtc.into_iter().for_each(|(_, b)| {
+            if let Some(m) = b {
+                resp.push(m);
+            }
+        });
+        Ok(resp)
+    }
+
+    async fn collection_contents(
+        &self,
+        user_id: Option<i32>,
+        input: CollectionContentsInput,
+    ) -> Result<CollectionContents> {
+        let collection = Collection::find_by_id(input.collection_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        if collection.visibility != Visibility::Public {
+            match user_id {
+                None => {
+                    return Err(Error::new(
+                        "Need to be logged in to view a private collection".to_owned(),
+                    ));
+                }
+                Some(u) => {
+                    if u != collection.user_id {
+                        return Err(Error::new("This collection is not public".to_owned()));
+                    }
+                }
+            }
+        }
+        let metas = collection
+            .find_related(Metadata)
+            .limit(input.media_limit)
+            .all(&self.db)
+            .await?;
+        let mut meta_data = vec![];
+        for meta in metas.iter() {
+            let m = self.generic_metadata(meta.id).await?;
+            let u_t_m = UserToMetadata::find()
+                .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
+                .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
+                .one(&self.db)
+                .await?
+                .unwrap();
+            meta_data.push((
+                MediaSearchItem {
+                    identifier: m.model.id.to_string(),
+                    lot: m.model.lot,
+                    title: m.model.title,
+                    image: m.poster_images.get(0).cloned(),
+                    publish_year: m.model.publish_year,
+                },
+                u_t_m.last_updated_on,
+            ));
+        }
+        meta_data.sort_by_key(|item| item.1);
+        let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
+        Ok(CollectionContents {
+            collection_details: collection,
+            media: media_details,
+        })
     }
 
     pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
@@ -2353,33 +2347,46 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn create_collection(&self, user_id: &i32, input: NamedObject) -> Result<IdObject> {
+    async fn create_or_update_collection(
+        &self,
+        user_id: &i32,
+        input: CreateOrUpdateCollectionInput,
+    ) -> Result<IdObject> {
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await
             .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.id.into() })
-        } else {
-            let col = collection::ActiveModel {
-                name: ActiveValue::Set(input.name),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                ..Default::default()
-            };
-            let inserted = col
-                .insert(&self.db)
-                .await
-                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
-            Ok(IdObject {
-                id: inserted.id.into(),
-            })
+        match meta {
+            Some(m) if input.update_id.is_none() => Ok(IdObject { id: m.id.into() }),
+            _ => {
+                let col = collection::ActiveModel {
+                    id: match input.update_id {
+                        Some(i) => ActiveValue::Unchanged(i.into()),
+                        None => ActiveValue::NotSet,
+                    },
+                    name: ActiveValue::Set(input.name),
+                    user_id: ActiveValue::Set(user_id.to_owned()),
+                    description: ActiveValue::Set(input.description),
+                    visibility: match input.visibility {
+                        None => ActiveValue::NotSet,
+                        Some(v) => ActiveValue::Set(v),
+                    },
+                    ..Default::default()
+                };
+                let inserted = col.save(&self.db).await.map_err(|_| {
+                    Error::new("There was an error creating the collection".to_owned())
+                })?;
+                Ok(IdObject {
+                    id: inserted.id.unwrap().into(),
+                })
+            }
         }
     }
 
     pub async fn delete_collection(&self, user_id: &i32, name: &str) -> Result<bool> {
-        if DefaultCollection::iter().any(|n| n.to_string() == name) {
+        if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
             return Err(Error::new("Can not delete a default collection".to_owned()));
         }
         let collection = Collection::find()
@@ -2596,7 +2603,10 @@ impl MiscellaneousService {
 
     async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
         let ls = self.latest_user_summary(user_id).await?;
-        Ok(ls.data)
+        Ok(UserSummary {
+            media: ls.data,
+            calculated_on: ls.created_on,
+        })
     }
 
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
@@ -2818,11 +2828,13 @@ impl MiscellaneousService {
 
     // this job is run when a user is created for the first time
     pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
-        for collection in DefaultCollection::iter() {
-            self.create_collection(
+        for col in DefaultCollection::iter() {
+            self.create_or_update_collection(
                 user_id,
-                NamedObject {
-                    name: collection.to_string(),
+                CreateOrUpdateCollectionInput {
+                    name: col.to_string(),
+                    description: Some(col.meta().to_owned()),
+                    ..Default::default()
                 },
             )
             .await

@@ -18,7 +18,7 @@ use crate::{
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, NamedObject},
+    utils::{get_base_http_client_config, NamedObject, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://itunes.apple.com/";
@@ -136,7 +136,7 @@ impl MediaProvider for ITunesService {
             .await
             .map_err(|e| anyhow!(e))?;
         let images = details
-            .images
+            .image
             .into_iter()
             .map(|a| MetadataImage {
                 url: MetadataImageUrl::Url(a),
@@ -239,7 +239,7 @@ fn get_search_response(item: ITunesItem) -> MediaSearchItem {
         identifier: item.collection_id.to_string(),
         lot: MetadataLot::Podcast,
         title: item.collection_name,
-        images,
+        image: images.get(0).cloned(),
         publish_year,
     }
 }

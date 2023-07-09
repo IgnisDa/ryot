@@ -1,6 +1,7 @@
 use async_graphql::{InputObject, OutputType, SimpleObject};
 use chrono::NaiveDate;
-use sea_orm::FromJsonQueryResult;
+use rust_decimal::Decimal;
+use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{entities::exercise::Model as ExerciseModel, miscellaneous::resolver::MediaSearchItem};
@@ -202,6 +203,272 @@ pub mod media {
     pub struct MangaSpecifics {
         pub chapters: Option<i32>,
         pub volumes: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct MediaSearchItem {
+        pub identifier: String,
+        pub lot: MetadataLot,
+        pub title: String,
+        pub image: Option<String>,
+        pub publish_year: Option<i32>,
+    }
+
+    #[derive(
+        Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    )]
+    #[sea_orm(rs_type = "String", db_type = "String(None)")]
+    pub enum Visibility {
+        #[sea_orm(string_value = "PU")]
+        Public,
+        #[sea_orm(string_value = "PR")]
+        Private,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct ExportMedia {
+        pub ryot_id: i32,
+        pub title: String,
+        #[serde(rename = "type")]
+        pub lot: MetadataLot,
+        pub audible_id: Option<String>,
+        pub custom_id: Option<String>,
+        pub igdb_id: Option<String>,
+        pub listennotes_id: Option<String>,
+        pub google_books_id: Option<String>,
+        pub openlibrary_id: Option<String>,
+        pub tmdb_id: Option<String>,
+        pub itunes_id: Option<String>,
+        pub anilist_id: Option<String>,
+        pub seen_history: Vec<seen::Model>,
+        pub user_reviews: Vec<review::Model>,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct AudioBooksSummary {
+        pub runtime: i32,
+        pub played: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct VideoGamesSummary {
+        pub played: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct BooksSummary {
+        pub pages: i32,
+        pub read: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct MoviesSummary {
+        pub runtime: i32,
+        pub watched: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct PodcastsSummary {
+        pub runtime: i32,
+        pub played: i32,
+        pub played_episodes: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct ShowsSummary {
+        pub runtime: i32,
+        pub watched: i32,
+        pub watched_episodes: i32,
+        pub watched_seasons: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct MangaSummary {
+        pub chapters: i32,
+        pub read: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct AnimeSummary {
+        pub episodes: i32,
+        pub watched: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct UserMediaSummary {
+        pub books: BooksSummary,
+        pub movies: MoviesSummary,
+        pub podcasts: PodcastsSummary,
+        pub shows: ShowsSummary,
+        pub video_games: VideoGamesSummary,
+        pub audio_books: AudioBooksSummary,
+        pub anime: AnimeSummary,
+        pub manga: MangaSummary,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct UserSummary {
+        pub media: UserMediaSummary,
+        pub calculated_on: DateTimeUtc,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+    pub struct MediaSearchResults<T>
+    where
+        T: OutputType,
+    {
+        pub total: i32,
+        pub items: Vec<T>,
+        pub next_page: Option<i32>,
+    }
+
+    #[derive(Debug, InputObject)]
+    pub struct AddMediaToCollection {
+        pub collection_name: String,
+        pub media_id: Identifier,
+    }
+
+    #[derive(Debug, InputObject)]
+    pub struct PostReviewInput {
+        pub rating: Option<Decimal>,
+        pub text: Option<String>,
+        pub visibility: Option<Visibility>,
+        pub spoiler: Option<bool>,
+        pub metadata_id: Identifier,
+        pub date: Option<DateTimeUtc>,
+        /// If this review comes from a different source, this should be set
+        pub identifier: Option<String>,
+        /// ID of the review if this is an update to an existing review
+        pub review_id: Option<Identifier>,
+        pub season_number: Option<i32>,
+        pub episode_number: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+    pub struct ProgressUpdateInput {
+        pub metadata_id: Identifier,
+        pub progress: Option<i32>,
+        pub date: Option<NaiveDate>,
+        pub show_season_number: Option<i32>,
+        pub show_episode_number: Option<i32>,
+        pub podcast_episode_number: Option<i32>,
+        /// If this update comes from a different source, this should be set
+        pub identifier: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct MediaDetails {
+        pub identifier: String,
+        pub title: String,
+        pub source: MetadataSource,
+        pub description: Option<String>,
+        pub lot: MetadataLot,
+        pub creators: Vec<MetadataCreator>,
+        pub genres: Vec<String>,
+        pub images: Vec<MetadataImage>,
+        pub publish_year: Option<i32>,
+        pub publish_date: Option<NaiveDate>,
+        pub specifics: MediaSpecifics,
     }
 }
 

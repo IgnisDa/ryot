@@ -4,6 +4,8 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::models::media::Visibility;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "collection")]
 #[graphql(name = "Collection")]
@@ -12,8 +14,10 @@ pub struct Model {
     pub id: i32,
     pub created_on: DateTimeUtc,
     pub name: String,
+    pub description: Option<String>,
     #[graphql(skip)]
     pub user_id: i32,
+    pub visibility: Visibility,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

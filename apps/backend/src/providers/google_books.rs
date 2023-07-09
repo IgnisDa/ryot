@@ -14,7 +14,7 @@ use crate::{
     },
     models::{media::BookSpecifics, SearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client_config},
+    utils::{convert_date_to_year, get_base_http_client_config, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
@@ -125,18 +125,20 @@ impl MediaProvider for GoogleBooksService {
                     publish_year,
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
-                let images = images
+                let image = images
                     .into_iter()
                     .map(|i| match i.url {
                         MetadataImageUrl::S3(_u) => unreachable!(),
                         MetadataImageUrl::Url(u) => u,
                     })
-                    .collect();
+                    .collect::<Vec<_>>()
+                    .get(0)
+                    .cloned();
                 MediaSearchItem {
                     identifier,
                     lot,
                     title,
-                    images,
+                    image,
                     publish_year,
                 }
             })

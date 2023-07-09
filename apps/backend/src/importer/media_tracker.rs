@@ -17,8 +17,8 @@ use crate::{
         DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    miscellaneous::{resolver::MediaDetails, MediaSpecifics, MetadataCreator},
-    models::media::BookSpecifics,
+    miscellaneous::{MediaSpecifics, MetadataCreator},
+    models::media::{BookSpecifics, MediaDetails},
     providers::openlibrary::utils::get_key,
 };
 
@@ -185,7 +185,7 @@ fn convert_item(
         source_id: d.id.to_string(),
         source,
         lot,
-        default_collections: vec![],
+        collections: vec![],
         identifier: match need_details {
             false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                 identifier,
