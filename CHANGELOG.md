@@ -1,4 +1,15 @@
 
+# Version 1.7.1 (2023-07-09)
+
+## Bug Fixes
+
+* **frontend:** handle cases when element is not defined
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.7.0 (2023-07-09)
 
 
