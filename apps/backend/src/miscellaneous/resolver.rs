@@ -237,6 +237,12 @@ struct CollectionContentsInput {
     media_limit: Option<u64>,
 }
 
+#[derive(Debug, SimpleObject)]
+struct CollectionContents {
+    collection_details: collection::Model,
+    media: Vec<MediaSearchItem>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -482,7 +488,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: CollectionContentsInput,
-    ) -> Result<Vec<MediaSearchItem>> {
+    ) -> Result<CollectionContents> {
         let user_id = user_id_from_ctx(gql_ctx).await.ok();
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -2235,7 +2241,7 @@ impl MiscellaneousService {
         &self,
         user_id: Option<i32>,
         input: CollectionContentsInput,
-    ) -> Result<Vec<MediaSearchItem>> {
+    ) -> Result<CollectionContents> {
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
             .await
@@ -2282,7 +2288,10 @@ impl MiscellaneousService {
         }
         meta_data.sort_by_key(|item| item.1);
         let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
-        Ok(media_details)
+        Ok(CollectionContents {
+            collection_details: collection,
+            media: media_details,
+        })
     }
 
     pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
