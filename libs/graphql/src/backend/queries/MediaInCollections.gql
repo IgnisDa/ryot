@@ -1,0 +1,6 @@
+query MediaInCollections($metadataId: Identifier!) {
+  mediaInCollections(metadataId: $metadataId) {
+    id
+    name
+  }
+}

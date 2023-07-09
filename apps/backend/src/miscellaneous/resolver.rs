@@ -464,6 +464,19 @@ impl MiscellaneousQuery {
             .await
     }
 
+    /// Get a list of collections in which a media is present.
+    async fn media_in_collections(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: Identifier,
+    ) -> Result<Vec<collection::Model>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .media_in_collections(user_id, metadata_id.into())
+            .await
+    }
+
     /// Get the contents of a collection and respect visibility.
     async fn collection_contents(
         &self,
@@ -2164,7 +2177,7 @@ impl MiscellaneousService {
     ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(*user_id))
-            .apply_if(input.clone().map(|i| i.name).flatten(), |query, v| {
+            .apply_if(input.clone().and_then(|i| i.name), |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_asc(collection::Column::CreatedOn)
@@ -2183,6 +2196,39 @@ impl MiscellaneousService {
             });
         }
         Ok(data)
+    }
+
+    async fn media_in_collections(
+        &self,
+        user_id: i32,
+        metadata_id: i32,
+    ) -> Result<Vec<collection::Model>> {
+        let user_collections = Collection::find()
+            .filter(collection::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mtc = MetadataToCollection::find()
+            .filter(metadata_to_collection::Column::MetadataId.eq(metadata_id))
+            .filter(
+                metadata_to_collection::Column::CollectionId.is_in(
+                    user_collections
+                        .into_iter()
+                        .map(|c| c.id)
+                        .collect::<Vec<_>>(),
+                ),
+            )
+            .find_also_related(Collection)
+            .all(&self.db)
+            .await
+            .unwrap();
+        let mut resp = vec![];
+        mtc.into_iter().for_each(|(_, b)| {
+            if let Some(m) = b {
+                resp.push(m);
+            }
+        });
+        Ok(resp)
     }
 
     async fn collection_contents(
