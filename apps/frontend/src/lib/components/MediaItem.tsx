@@ -70,7 +70,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 						height={250}
 						width={167}
 						withPlaceholder
-						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
+						placeholder={
+							<Text size={60}>{getInitials(props.item?.title || "")}</Text>
+						}
 						style={{ cursor: "pointer" }}
 						alt={`Image for ${props.item.title}`}
 						sx={(_t) => ({
@@ -113,7 +115,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						position="right"
 					>
 						<Text c={props.existsInDatabase ? "yellow" : "dimmed"}>
-							{changeCase(props.lot)}
+							{changeCase(props.lot || "")}
 						</Text>
 					</Tooltip>
 				</Flex>
