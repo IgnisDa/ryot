@@ -6,11 +6,9 @@ To start importing, go to the settings page and select the "Import" tab.
 
 ## MediaTracker
 
-The [MediaTracker](https://github.com/bonukai/MediaTracker) API is pretty
-primitive and as a result the following things can not be imported.
+Importing from [MediaTracker](https://github.com/bonukai/MediaTracker) does not
+support the following due to lack of 100% feature parity:
 
-- Items in progress
-- Lists
 - Calendar
 
 ### Steps
