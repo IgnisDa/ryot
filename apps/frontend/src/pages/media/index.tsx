@@ -47,13 +47,13 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
-	CollectionContentsDocument,
 	CollectionsDocument,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
 	MediaDetailsDocument,
+	MediaInCollectionsDocument,
 	MediaItemReviewsDocument,
 	type MediaItemReviewsQuery,
 	MergeMetadataDocument,
@@ -430,16 +430,17 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["collections"],
 		queryFn: async () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			const inCols = [];
-			for (const col of collections) {
-				const { collectionContents } = await gqlClient.request(
-					CollectionContentsDocument,
-					{ input: { collectionId: col.id } },
-				);
-				if (collectionContents.some((c) => Number(c.identifier) === metadataId))
-					inCols.push(col.name);
-			}
-			return [collections, inCols] as const;
+			return collections;
+		},
+	});
+	const mediaInCollections = useQuery({
+		queryKey: ["mediaInCollections"],
+		queryFn: async () => {
+			const { mediaInCollections } = await gqlClient.request(
+				MediaInCollectionsDocument,
+				{ metadataId },
+			);
+			return mediaInCollections;
 		},
 	});
 	const reviews = useQuery({
@@ -632,23 +633,21 @@ const Page: NextPageWithLayout = () => {
 							{changeCase(mediaDetails.data.lot)}
 						</Badge>
 					</Group>
-					{collections.data &&
-					collections.data[1] &&
-					collections.data[1].length > 0 ? (
+					{mediaInCollections.data && mediaInCollections.data.length > 0 ? (
 						<Group id="media-collections">
-							{collections.data[1].map((collectionName) => (
+							{mediaInCollections.data.map((col) => (
 								<Badge
-									key={collectionName}
+									key={col.id}
 									color={
 										colors[
 											// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-											(getStringAsciiValue(collectionName) + colors.length) %
+											(getStringAsciiValue(col.name) + colors.length) %
 												colors.length
 										]
 									}
 								>
 									<Flex gap={2}>
-										<Text truncate>{collectionName}</Text>
+										<Text truncate>{col.name}</Text>
 										<ActionIcon
 											size="1rem"
 											onClick={() => {
@@ -657,7 +656,7 @@ const Page: NextPageWithLayout = () => {
 												);
 												if (yes)
 													removeMediaFromCollection.mutate({
-														collectionName,
+														collectionName: col.name,
 														metadataId,
 													});
 											}}
@@ -963,12 +962,12 @@ const Page: NextPageWithLayout = () => {
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
 										</Button>
-										{collections.data && collections.data[0].length > 0 ? (
+										{collections.data && collections.data.length > 0 ? (
 											<SelectCollectionModal
 												onClose={collectionModalClose}
 												opened={collectionModalOpened}
 												metadataId={metadataId}
-												collections={collections.data[0].map((c) => c.name)}
+												collections={collections.data.map((c) => c.name)}
 												refetchCollections={collections.refetch}
 											/>
 										) : null}
