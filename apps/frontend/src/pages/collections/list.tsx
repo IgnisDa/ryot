@@ -51,7 +51,7 @@ type FormSchema = z.infer<typeof formSchema>;
 const Page: NextPageWithLayout = () => {
 	const [toUpdateCollection, setToUpdateCollection] = useState<number>();
 	const [opened, { open, close }] = useDisclosure(false);
-	const user = useUser();
+	const _user = useUser();
 
 	const form = useForm<FormSchema>({
 		validate: zodResolver(formSchema),
@@ -136,8 +136,7 @@ const Page: NextPageWithLayout = () => {
 									<Flex align={"center"} gap="xs">
 										<Link
 											href={withQuery(ROUTES.collections.details, {
-												collectionName: c?.name,
-												userId: user?.id,
+												collectionId: c?.id,
 											})}
 											passHref
 											legacyBehavior
