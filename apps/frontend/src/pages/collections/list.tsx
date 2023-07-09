@@ -3,7 +3,6 @@ import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { changeCase } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
@@ -32,6 +31,7 @@ import {
 	type DeleteCollectionMutationVariables,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/utilities";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";

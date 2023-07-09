@@ -410,6 +410,12 @@ export type MediaListItem = {
   data: MediaSearchItem;
 };
 
+export type MediaListResults = {
+  items: Array<MediaListItem>;
+  nextPage?: Maybe<Scalars['Int']>;
+  total: Scalars['Int'];
+};
+
 export type MediaSearchItem = {
   identifier: Scalars['String'];
   image?: Maybe<Scalars['String']>;
@@ -421,12 +427,6 @@ export type MediaSearchItem = {
 export type MediaSearchItemResponse = {
   databaseId?: Maybe<Scalars['Identifier']>;
   item: MediaSearchItem;
-};
-
-export type MediaSearchResults = {
-  items: Array<MediaListItem>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
 };
 
 export enum MediaSortBy {
@@ -739,7 +739,7 @@ export type QueryRoot = {
   /** Get all the public reviews for a media item. */
   mediaItemReviews: Array<ReviewItem>;
   /** Get all the media items related to a user for a specific media type. */
-  mediaList: MediaSearchResults;
+  mediaList: MediaListResults;
   /** Search for a list of media for a given type. */
   mediaSearch: DetailedMediaSearchResults;
   /** Get all the metadata sources possible for a lot. */
