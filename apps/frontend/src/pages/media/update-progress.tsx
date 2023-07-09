@@ -164,7 +164,7 @@ const Page: NextPageWithLayout = () => {
 									{onlySeason
 										? `This will mark all episodes for Season ${selectedShowSeasonNumber} as seen`
 										: completeShow
-										? `This will mark all episodes for this show as seen`
+										? "This will mark all episodes for this show as seen"
 										: null}
 								</Alert>
 							) : null}

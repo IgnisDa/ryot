@@ -10,11 +10,8 @@ use crate::{
     graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     migrator::MetadataLot,
-    miscellaneous::{
-        resolver::{AddMediaToCollection, MiscellaneousService},
-        DefaultCollection,
-    },
-    models::fitness::Exercise,
+    miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
+    models::{fitness::Exercise, media::AddMediaToCollection},
 };
 
 // Cron Jobs

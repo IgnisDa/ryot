@@ -10,10 +10,9 @@ use crate::{
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
-        resolver::MediaDetails, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage,
-        MetadataImageUrl,
+        DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    models::media::BookSpecifics,
+    models::media::{BookSpecifics, MediaDetails},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -99,7 +98,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
 
                 let mut default_collections = vec![];
                 if d.user_shelves == "to-read" {
-                    default_collections.push(DefaultCollection::Watchlist);
+                    default_collections.push(DefaultCollection::Watchlist.to_string());
                 }
 
                 ImportItem {
@@ -129,7 +128,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                         }),
                     })),
                     seen_history,
-                    default_collections,
+                    collections: default_collections,
                     reviews,
                 }
             })

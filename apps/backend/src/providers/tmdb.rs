@@ -9,13 +9,16 @@ use surf::Client;
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{
+        MediaDetails, MediaSearchItem, MediaSearchResults, MovieSpecifics, ShowEpisode, ShowSeason,
+        ShowSpecifics,
     },
-    models::media::{MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
+    utils::{
+        convert_date_to_year, convert_string_to_date, get_base_http_client_config,
+        read_file_to_json, NamedObject,
+    },
 };
 
 pub static URL: &str = "https://api.themoviedb.org/3/";
@@ -27,7 +30,7 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    fn get_cover_image_url(&self, c: &str) -> String {
+    fn get_cover_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.image_url, "original", c)
     }
 }
@@ -112,7 +115,7 @@ impl MediaProvider for TmdbMovieService {
                         name: n,
                         role: r,
                         image_urls: Vec::from_iter(
-                            g.profile_path.map(|p| self.base.get_cover_image_url(&p)),
+                            g.profile_path.map(|p| self.base.get_cover_image_url(p)),
                         ),
                     })
                 } else {
@@ -127,7 +130,7 @@ impl MediaProvider for TmdbMovieService {
                     name: n,
                     role: r,
                     image_urls: Vec::from_iter(
-                        g.profile_path.map(|p| self.base.get_cover_image_url(&p)),
+                        g.profile_path.map(|p| self.base.get_cover_image_url(p)),
                     ),
                 })
             } else {
@@ -151,7 +154,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImage {
-                    url: MetadataImageUrl::Url(self.base.get_cover_image_url(&p)),
+                    url: MetadataImageUrl::Url(self.base.get_cover_image_url(p)),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -164,7 +167,11 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbMovie {
@@ -197,16 +204,12 @@ impl MediaProvider for TmdbMovieService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| {
-                let images =
-                    Vec::from_iter(d.poster_path.map(|p| self.base.get_cover_image_url(&p)));
-                MediaSearchItem {
-                    identifier: d.id.to_string(),
-                    lot: MetadataLot::Movie,
-                    title: d.title,
-                    publish_year: convert_date_to_year(&d.release_date),
-                    images,
-                }
+            .map(|d| MediaSearchItem {
+                identifier: d.id.to_string(),
+                lot: MetadataLot::Movie,
+                title: d.title,
+                publish_year: convert_date_to_year(&d.release_date),
+                image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
             .collect::<Vec<_>>();
         let next_page = if page < search.total_pages {
@@ -333,7 +336,7 @@ impl MediaProvider for TmdbShowService {
                                         role: r,
                                         image_urls: Vec::from_iter(
                                             g.profile_path
-                                                .map(|p| self.base.get_cover_image_url(&p)),
+                                                .map(|p| self.base.get_cover_image_url(p)),
                                         ),
                                     })
                                 } else {
@@ -352,7 +355,7 @@ impl MediaProvider for TmdbShowService {
                                         role: r,
                                         image_urls: Vec::from_iter(
                                             g.profile_path
-                                                .map(|p| self.base.get_cover_image_url(&p)),
+                                                .map(|p| self.base.get_cover_image_url(p)),
                                         ),
                                     })
                                 } else {
@@ -380,7 +383,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImage {
-                    url: MetadataImageUrl::Url(self.base.get_cover_image_url(&p)),
+                    url: MetadataImageUrl::Url(self.base.get_cover_image_url(p)),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -389,11 +392,10 @@ impl MediaProvider for TmdbShowService {
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
-                        let poster_images = Vec::from_iter(
-                            s.poster_path.map(|p| self.base.get_cover_image_url(&p)),
-                        );
+                        let poster_images =
+                            Vec::from_iter(s.poster_path.map(|p| self.base.get_cover_image_url(p)));
                         let backdrop_images = Vec::from_iter(
-                            s.backdrop_path.map(|p| self.base.get_cover_image_url(&p)),
+                            s.backdrop_path.map(|p| self.base.get_cover_image_url(p)),
                         );
                         ShowSeason {
                             id: s.id,
@@ -408,7 +410,7 @@ impl MediaProvider for TmdbShowService {
                                 .into_iter()
                                 .map(|e| {
                                     let poster_images = Vec::from_iter(
-                                        e.still_path.map(|p| self.base.get_cover_image_url(&p)),
+                                        e.still_path.map(|p| self.base.get_cover_image_url(p)),
                                     );
                                     ShowEpisode {
                                         id: e.id,
@@ -430,7 +432,11 @@ impl MediaProvider for TmdbShowService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct TmdbShow {
@@ -463,16 +469,12 @@ impl MediaProvider for TmdbShowService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| {
-                let images =
-                    Vec::from_iter(d.poster_path.map(|p| self.base.get_cover_image_url(&p)));
-                MediaSearchItem {
-                    identifier: d.id.to_string(),
-                    lot: MetadataLot::Show,
-                    title: d.name,
-                    publish_year: convert_date_to_year(&d.first_air_date),
-                    images,
-                }
+            .map(|d| MediaSearchItem {
+                identifier: d.id.to_string(),
+                lot: MetadataLot::Show,
+                title: d.name,
+                publish_year: convert_date_to_year(&d.first_air_date),
+                image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
             .collect::<Vec<_>>();
         let next_page = if page < search.total_pages {
@@ -491,13 +493,7 @@ impl MediaProvider for TmdbShowService {
 mod utils {
     use std::{env, fs};
 
-    use surf::{
-        http::headers::{AUTHORIZATION}, Url,
-    };
-
-    use crate::{
-        utils::{get_base_http_client_config, read_file_to_json},
-    };
+    use surf::{http::headers::AUTHORIZATION, Url};
 
     use super::*;
 

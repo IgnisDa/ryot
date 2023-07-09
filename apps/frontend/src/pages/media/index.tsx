@@ -48,14 +48,12 @@ import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
-	type CollectionsQuery,
-	CreateCollectionDocument,
-	type CreateCollectionMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
 	MediaDetailsDocument,
+	MediaInCollectionsDocument,
 	MediaItemReviewsDocument,
 	type MediaItemReviewsQuery,
 	MergeMetadataDocument,
@@ -214,24 +212,12 @@ function SelectCollectionModal(props: {
 	onClose: () => void;
 	metadataId: number;
 	refetchCollections: () => void;
-	collections: CollectionsQuery["collections"];
+	collections: string[];
 }) {
 	const [selectedCollection, setSelectedCollection] = useState<string | null>(
 		null,
 	);
 
-	const createCollection = useMutation({
-		mutationFn: async (variables: CreateCollectionMutationVariables) => {
-			const { createCollection } = await gqlClient.request(
-				CreateCollectionDocument,
-				variables,
-			);
-			return createCollection;
-		},
-		onSuccess: () => {
-			props.refetchCollections();
-		},
-	});
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
 			const { addMediaToCollection } = await gqlClient.request(
@@ -256,19 +242,15 @@ function SelectCollectionModal(props: {
 			{props.collections ? (
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<Select
-						withinPortal
-						data={props.collections.map((c) => c.collectionDetails.name)}
-						onChange={setSelectedCollection}
-						searchable
-						nothingFound="Nothing found"
-						creatable
-						getCreateLabel={(query) => `+ Create ${query}`}
-						onCreate={(query) => {
-							createCollection.mutate({ input: { name: query } });
-							return { value: "1", label: query }; // technically this should return the id of the new collection but it works fine
-						}}
-					/>
+					{props.collections.length > 0 ? (
+						<Select
+							withinPortal
+							data={props.collections}
+							onChange={setSelectedCollection}
+							searchable
+							nothingFound="Nothing found"
+						/>
+					) : null}
 					<Button
 						data-autofocus
 						variant="outline"
@@ -453,6 +435,16 @@ const Page: NextPageWithLayout = () => {
 			return collections;
 		},
 	});
+	const mediaInCollections = useQuery({
+		queryKey: ["mediaInCollections"],
+		queryFn: async () => {
+			const { mediaInCollections } = await gqlClient.request(
+				MediaInCollectionsDocument,
+				{ metadataId },
+			);
+			return mediaInCollections;
+		},
+	});
 	const reviews = useQuery({
 		queryKey: ["reviews", metadataId],
 		queryFn: async () => {
@@ -581,13 +573,6 @@ const Page: NextPageWithLayout = () => {
 	// it is the job of the backend to ensure that this has only one item
 	const inProgressSeenItem = seenHistory.data?.find((h) => h.progress < 100);
 
-	// all the collections that the user has added this media to
-	const mediaCollections = (collections.data || [])
-		?.filter((c) =>
-			c.mediaDetails?.some((m) => m.identifier === metadataId.toString()),
-		)
-		.map((c) => c.collectionDetails.name);
-
 	// the next episode if it is a show or podcast
 	const nextEpisode = match(seenHistory.data?.at(0))
 		.with(undefined, () => undefined)
@@ -650,21 +635,21 @@ const Page: NextPageWithLayout = () => {
 							{changeCase(mediaDetails.data.lot)}
 						</Badge>
 					</Group>
-					{mediaCollections && mediaCollections.length > 0 ? (
+					{mediaInCollections.data && mediaInCollections.data.length > 0 ? (
 						<Group id="media-collections">
-							{mediaCollections.map((collectionName) => (
+							{mediaInCollections.data.map((col) => (
 								<Badge
-									key={collectionName}
+									key={col.id}
 									color={
 										colors[
 											// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-											(getStringAsciiValue(collectionName) + colors.length) %
+											(getStringAsciiValue(col.name) + colors.length) %
 												colors.length
 										]
 									}
 								>
 									<Flex gap={2}>
-										<Text truncate>{collectionName}</Text>
+										<Text truncate>{col.name}</Text>
 										<ActionIcon
 											size="1rem"
 											onClick={() => {
@@ -673,7 +658,7 @@ const Page: NextPageWithLayout = () => {
 												);
 												if (yes)
 													removeMediaFromCollection.mutate({
-														collectionName,
+														collectionName: col.name,
 														metadataId,
 													});
 											}}
@@ -979,12 +964,12 @@ const Page: NextPageWithLayout = () => {
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
 										</Button>
-										{collections.data ? (
+										{collections.data && collections.data.length > 0 ? (
 											<SelectCollectionModal
 												onClose={collectionModalClose}
 												opened={collectionModalOpened}
 												metadataId={metadataId}
-												collections={collections.data}
+												collections={collections.data.map((c) => c.name)}
 												refetchCollections={collections.refetch}
 											/>
 										) : null}

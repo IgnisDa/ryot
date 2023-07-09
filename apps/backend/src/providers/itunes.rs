@@ -9,13 +9,12 @@ use surf::{Client, Url};
 use crate::{
     config::ITunesConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{
+        MediaDetails, MediaSearchItem, MediaSearchResults, PodcastEpisode, PodcastSpecifics,
     },
-    models::media::{PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, NamedObject},
+    utils::{get_base_http_client_config, NamedObject, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://itunes.apple.com/";
@@ -133,7 +132,7 @@ impl MediaProvider for ITunesService {
             .await
             .map_err(|e| anyhow!(e))?;
         let images = details
-            .images
+            .image
             .into_iter()
             .map(|a| MetadataImage {
                 url: MetadataImageUrl::Url(a),
@@ -178,7 +177,11 @@ impl MediaProvider for ITunesService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -232,7 +235,7 @@ fn get_search_response(item: ITunesItem) -> MediaSearchItem {
         identifier: item.collection_id.to_string(),
         lot: MetadataLot::Podcast,
         title: item.collection_name,
-        images,
+        image: images.get(0).cloned(),
         publish_year,
     }
 }

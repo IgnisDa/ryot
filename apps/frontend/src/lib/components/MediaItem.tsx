@@ -10,6 +10,7 @@ import {
 } from "@/lib/utilities";
 import {
 	Anchor,
+	Box,
 	Button,
 	Flex,
 	Image,
@@ -25,6 +26,7 @@ import {
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconStarFilled } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -38,15 +40,15 @@ export const MediaItemWithoutUpdateModal = (props: {
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
-	listType: "grid" | "poster";
 	existsInDatabase?: boolean;
+	averageRating?: number;
 }) => {
 	return (
 		<Flex
 			key={props.item.identifier}
 			align="center"
-			justify={props.listType === "poster" ? "center" : "start"}
-			direction={props.listType === "poster" ? "column" : "row"}
+			justify={"center"}
+			direction={"column"}
 			pos={"relative"}
 		>
 			{props.imageOverlayForLoadingIndicator ? (
@@ -61,35 +63,51 @@ export const MediaItemWithoutUpdateModal = (props: {
 				/>
 			) : null}
 			<Link passHref legacyBehavior href={props.href}>
-				<Anchor style={{ flex: "none" }}>
+				<Anchor style={{ flex: "none" }} pos="relative">
 					<Image
-						src={props.item.images.at(0)}
+						src={props.item.image}
 						radius={"md"}
-						height={props.listType === "poster" ? 250 : 170}
-						width={props.listType === "poster" ? 167 : 120}
+						height={250}
+						width={167}
 						withPlaceholder
-						placeholder={<Text size={60}>{getInitials(props.item.title)}</Text>}
+						placeholder={
+							<Text size={60}>{getInitials(props.item?.title || "")}</Text>
+						}
 						style={{ cursor: "pointer" }}
 						alt={`Image for ${props.item.title}`}
 						sx={(_t) => ({
-							":hover": { transform: "scale(1.02)" },
+							":hover": { boxShadow: "0 0 15px black" },
 							transitionProperty: "transform",
 							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
 							transitionDuration: "150ms",
 						})}
 					/>
+					{props.averageRating ? (
+						<Box
+							p={2}
+							pos={"absolute"}
+							top={5}
+							right={5}
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.75)",
+								borderRadius: 3,
+							}}
+						>
+							<Flex align={"center"} gap={4}>
+								<IconStarFilled
+									size={"0.8rem"}
+									style={{ color: "#EBE600FF" }}
+								/>
+								<Text color="white" size="xs">
+									{(+props.averageRating).toFixed(1)}
+								</Text>
+							</Flex>
+						</Box>
+					) : null}
 				</Anchor>
 			</Link>
-			<Flex
-				w={props.listType === "poster" ? "100%" : undefined}
-				direction={props.listType === "poster" ? "column" : "column-reverse"}
-				ml={props.listType === "grid" ? "md" : 0}
-			>
-				<Flex
-					justify={"space-between"}
-					direction={props.listType === "poster" ? "row" : "column"}
-					w="100%"
-				>
+			<Flex w={"100%"} direction={"column"}>
+				<Flex justify={"space-between"} direction={"row"} w="100%">
 					<Text c="dimmed">{props.item.publishYear}</Text>
 					<Tooltip
 						label="This media exists in the database"
@@ -97,17 +115,12 @@ export const MediaItemWithoutUpdateModal = (props: {
 						position="right"
 					>
 						<Text c={props.existsInDatabase ? "yellow" : "dimmed"}>
-							{changeCase(props.lot)}
+							{changeCase(props.lot || "")}
 						</Text>
 					</Tooltip>
 				</Flex>
 				<Tooltip label={props.item.title} position="right">
-					<Text
-						w="100%"
-						truncate={props.listType === "poster" ? true : undefined}
-						fw={"bold"}
-						mb="xs"
-					>
+					<Text w="100%" truncate fw={"bold"} mb="xs">
 						{props.item.title}
 					</Text>
 				</Tooltip>
@@ -124,8 +137,7 @@ export default function (props: {
 	offset: number;
 	lot: MetadataLot;
 	source: MetadataSource;
-	listType: "grid" | "poster";
-	refetch: () => void;
+	searchQueryRefetch: () => void;
 	maybeItemId?: number;
 }) {
 	const router = useRouter();
@@ -141,7 +153,7 @@ export default function (props: {
 			return addMediaToCollection;
 		},
 		onSuccess: () => {
-			props.refetch();
+			props.searchQueryRefetch();
 			notifications.show({
 				title: "Success",
 				message: "Media added to watchlist successfully",
@@ -155,12 +167,12 @@ export default function (props: {
 			lot: props.lot,
 			source: props.source,
 		});
+		props.searchQueryRefetch();
 		return id;
 	};
 
 	return (
 		<MediaItemWithoutUpdateModal
-			listType={props.listType}
 			item={props.item}
 			lot={props.lot}
 			imageOverlayForLoadingIndicator={commitMedia.isLoading}

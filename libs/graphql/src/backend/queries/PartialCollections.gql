@@ -1,8 +1,0 @@
-query PartialCollections {
-  collections {
-    collectionDetails {
-      id
-      name
-    }
-  }
-}

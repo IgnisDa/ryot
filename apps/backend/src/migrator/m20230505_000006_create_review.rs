@@ -1,9 +1,9 @@
-use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
 
-use crate::migrator::{m20230417_000002_create_user::User, Metadata};
+use crate::{
+    migrator::{m20230417_000002_create_user::User, Metadata},
+    models::media::Visibility,
+};
 
 pub struct Migration;
 
@@ -11,17 +11,6 @@ impl MigrationName for Migration {
     fn name(&self) -> &str {
         "m20230505_000006_create_review"
     }
-}
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum ReviewVisibility {
-    #[sea_orm(string_value = "PU")]
-    Public,
-    #[sea_orm(string_value = "PR")]
-    Private,
 }
 
 #[derive(Iden)]
@@ -75,7 +64,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Review::Visibility)
                             .string_len(2)
                             .not_null()
-                            .default(ReviewVisibility::Private),
+                            .default(Visibility::Private),
                     )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
                     .col(ColumnDef::new(Review::MetadataId).integer().not_null())

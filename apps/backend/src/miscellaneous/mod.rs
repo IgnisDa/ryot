@@ -1,4 +1,5 @@
 use async_graphql::SimpleObject;
+use enum_meta::{meta, Meta};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
@@ -13,8 +14,6 @@ use crate::{
 };
 
 pub mod resolver;
-
-pub static PAGE_LIMIT: i32 = 20;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
 #[serde(tag = "t", content = "d")]
@@ -77,12 +76,19 @@ pub struct MetadataCreator {
 )]
 pub struct MetadataCreators(pub Vec<MetadataCreator>);
 
-#[derive(Display, Debug, EnumIter)]
+#[derive(Display, EnumIter)]
 pub enum DefaultCollection {
     Custom,
     #[strum(serialize = "In Progress")]
     InProgress,
     Watchlist,
+}
+
+meta! {
+    DefaultCollection, &'static str;
+    Custom, "Items that I have created manually";
+    InProgress, "Media items that I am currently watching";
+    Watchlist, "Things I want to watch in the future";
 }
 
 #[derive(Debug, Clone)]
@@ -96,4 +102,21 @@ impl MediaProviderLanguages for CustomService {
     fn default_language() -> String {
         "us".to_owned()
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct SeenShowExtraInformation {
+    pub season: i32,
+    pub episode: i32,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct SeenPodcastExtraInformation {
+    pub episode: i32,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
+pub enum SeenExtraInformation {
+    Show(SeenShowExtraInformation),
+    Podcast(SeenPodcastExtraInformation),
 }

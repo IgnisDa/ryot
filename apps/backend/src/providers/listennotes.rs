@@ -13,12 +13,12 @@ use surf::Client;
 use crate::{
     config::PodcastConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{
+        MediaDetails, MediaSearchItem, MediaSearchResults, PodcastEpisode, PodcastSpecifics,
     },
-    models::media::{PodcastEpisode, PodcastSpecifics},
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::PAGE_LIMIT,
 };
 
 pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -80,7 +80,11 @@ impl MediaProvider for ListennotesService {
         Ok(details)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
@@ -121,7 +125,7 @@ impl MediaProvider for ListennotesService {
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
                 title: r.title_original,
-                images: Vec::from_iter(r.image),
+                image: r.image,
                 publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect::<Vec<_>>();
@@ -212,11 +216,9 @@ impl ListennotesService {
 mod utils {
     use std::{collections::HashMap, env, fs};
 
-    use surf::{Url};
+    use surf::Url;
 
-    use crate::{
-        utils::{get_base_http_client_config, read_file_to_json},
-    };
+    use crate::utils::{get_base_http_client_config, read_file_to_json};
 
     use super::*;
 

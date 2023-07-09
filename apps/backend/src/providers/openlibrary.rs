@@ -11,13 +11,10 @@ use surf::{Client, Url};
 use crate::{
     config::OpenlibraryConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
-    },
-    models::media::BookSpecifics,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{BookSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, get_data_parallelly_from_sources},
+    utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://openlibrary.org";
@@ -231,7 +228,11 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize, SimpleObject)]
         pub struct OpenlibraryBook {
@@ -309,7 +310,7 @@ impl MediaProvider for OpenlibraryService {
                     identifier: b.identifier,
                     lot: MetadataLot::Book,
                     title: b.title,
-                    images: b.images,
+                    image: b.images.get(0).cloned(),
                     publish_year: b.publish_year,
                 })
                 .collect(),

@@ -14,8 +14,8 @@ use crate::{
     background::UpdateExerciseJob,
     entities::{exercise, prelude::Exercise},
     file_storage::FileStorageService,
-    miscellaneous::PAGE_LIMIT,
     models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
+    utils::PAGE_LIMIT,
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

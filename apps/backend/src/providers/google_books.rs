@@ -8,13 +8,10 @@ use surf::{Client, Url};
 use crate::{
     config::GoogleBooksConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        resolver::{MediaDetails, MediaSearchItem, MediaSearchResults},
-        MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, PAGE_LIMIT,
-    },
-    models::media::BookSpecifics,
+    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
+    models::media::{BookSpecifics, MediaDetails, MediaSearchItem, MediaSearchResults},
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client_config},
+    utils::{convert_date_to_year, get_base_http_client_config, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
@@ -92,7 +89,11 @@ impl MediaProvider for GoogleBooksService {
         Ok(d)
     }
 
-    async fn search(&self, query: &str, page: Option<i32>) -> Result<MediaSearchResults> {
+    async fn search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<MediaSearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_LIMIT;
         let mut rsp = self
@@ -121,18 +122,20 @@ impl MediaProvider for GoogleBooksService {
                     publish_year,
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
-                let images = images
+                let image = images
                     .into_iter()
                     .map(|i| match i.url {
                         MetadataImageUrl::S3(_u) => unreachable!(),
                         MetadataImageUrl::Url(u) => u,
                     })
-                    .collect();
+                    .collect::<Vec<_>>()
+                    .get(0)
+                    .cloned();
                 MediaSearchItem {
                     identifier,
                     lot,
                     title,
-                    images,
+                    image,
                     publish_year,
                 }
             })
@@ -218,9 +221,7 @@ impl GoogleBooksService {
             description: item.description,
             creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
-            publish_year: item
-                .published_date
-                .and_then(|d| convert_date_to_year(&d)),
+            publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: item.page_count,

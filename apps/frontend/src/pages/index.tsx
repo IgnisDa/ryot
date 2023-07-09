@@ -22,16 +22,14 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import {
+	CollectionContentsDocument,
 	CollectionsDocument,
-	CreateCollectionDocument,
-	type CreateCollectionMutationVariables,
 	MetadataLot,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconList, IconPhotoPlus } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { IconPhotoPlus } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
@@ -78,7 +76,10 @@ const DisplayStatForMediaType = (props: {
 								display={"inline"}
 							>
 								{d.type === "duration"
-									? humaizer.humanize(d.value * 1000 * 60)
+									? humaizer.humanize(d.value * 1000 * 60, {
+											round: true,
+											largest: 3,
+									  })
 									: humanFormat(d.value)}
 							</Text>
 							<Text display={"inline"} ml="4px">
@@ -93,6 +94,8 @@ const DisplayStatForMediaType = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
+	const service = new HumanizeDurationLanguage();
+	const humaizer = new HumanizeDuration(service);
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -101,48 +104,33 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ retry: false },
 	);
-	const collections = useQuery(["collections"], async () => {
+	const inProgressCollection = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument, {
-			limit: 8,
+			input: { name: "In Progress" },
 		});
-		return collections;
-	});
-	const createCollection = useMutation({
-		mutationFn: async (variables: CreateCollectionMutationVariables) => {
-			const { createCollection } = await gqlClient.request(
-				CreateCollectionDocument,
-				variables,
-			);
-			return createCollection;
-		},
-		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "Collection created successfully",
-				color: "green",
-			});
-		},
+		const id = collections[0].id;
+		const { collectionContents } = await gqlClient.request(
+			CollectionContentsDocument,
+			{
+				input: { collectionId: id, mediaLimit: 8 },
+			},
+		);
+		return collectionContents;
 	});
 
-	const inProgressCollection = (collections.data || [])?.find(
-		(c) => c.collectionDetails.name === "In Progress",
-	);
-
-	return collections.data && userSummary.data ? (
+	return inProgressCollection.data && userSummary.data ? (
 		<>
 			<Head>
 				<title>Dashboard | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection &&
-					inProgressCollection.mediaDetails.length > 0 ? (
+					{inProgressCollection.data.media.length > 0 ? (
 						<>
 							<Title>In Progress</Title>
-							<Grid listType="poster">
-								{inProgressCollection.mediaDetails.map((lm) => (
+							<Grid>
+								{inProgressCollection.data.media.map((lm) => (
 									<MediaItemWithoutUpdateModal
-										listType="poster"
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
@@ -154,6 +142,14 @@ const Page: NextPageWithLayout = () => {
 						</>
 					) : null}
 					<Title>Summary</Title>
+					<Text size="xs" mt={-15}>
+						Calculated{" "}
+						{humaizer.humanize(
+							new Date().getTime() - userSummary.data.calculatedOn.getTime(),
+							{ units: ["h", "m"], round: true },
+						)}{" "}
+						ago
+					</Text>
 					<SimpleGrid
 						cols={1}
 						spacing="lg"
@@ -167,12 +163,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Movies",
-									value: userSummary.data.movies.watched,
+									value: userSummary.data.media.movies.watched,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.movies.runtime,
+									value: userSummary.data.media.movies.runtime,
 									type: "duration",
 								},
 							]}
@@ -182,22 +178,22 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Shows",
-									value: userSummary.data.shows.watched,
+									value: userSummary.data.media.shows.watched,
 									type: "number",
 								},
 								{
 									label: "Seasons",
-									value: userSummary.data.shows.watchedSeasons,
+									value: userSummary.data.media.shows.watchedSeasons,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: userSummary.data.shows.watchedEpisodes,
+									value: userSummary.data.media.shows.watchedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.shows.runtime,
+									value: userSummary.data.media.shows.runtime,
 									type: "duration",
 								},
 							]}
@@ -207,7 +203,7 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Video games",
-									value: userSummary.data.videoGames.played,
+									value: userSummary.data.media.videoGames.played,
 									type: "number",
 								},
 							]}
@@ -217,12 +213,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Audiobooks",
-									value: userSummary.data.audioBooks.played,
+									value: userSummary.data.media.audioBooks.played,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.audioBooks.runtime,
+									value: userSummary.data.media.audioBooks.runtime,
 									type: "duration",
 								},
 							]}
@@ -232,12 +228,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Books",
-									value: userSummary.data.books.read,
+									value: userSummary.data.media.books.read,
 									type: "number",
 								},
 								{
 									label: "Pages",
-									value: userSummary.data.books.pages,
+									value: userSummary.data.media.books.pages,
 									type: "number",
 								},
 							]}
@@ -247,17 +243,17 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Podcasts",
-									value: userSummary.data.podcasts.played,
+									value: userSummary.data.media.podcasts.played,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: userSummary.data.podcasts.playedEpisodes,
+									value: userSummary.data.media.podcasts.playedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.podcasts.runtime,
+									value: userSummary.data.media.podcasts.runtime,
 									type: "duration",
 								},
 							]}
@@ -267,12 +263,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Manga",
-									value: userSummary.data.manga.read,
+									value: userSummary.data.media.manga.read,
 									type: "number",
 								},
 								{
 									label: "Chapters",
-									value: userSummary.data.manga.chapters,
+									value: userSummary.data.media.manga.chapters,
 									type: "number",
 								},
 							]}
@@ -282,12 +278,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Anime",
-									value: userSummary.data.anime.watched,
+									value: userSummary.data.media.anime.watched,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: userSummary.data.anime.episodes,
+									value: userSummary.data.media.anime.episodes,
 									type: "number",
 								},
 							]}
@@ -295,17 +291,14 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
-					<Grid listType="grid">
-						<Button
-							variant="outline"
-							leftIcon={<IconList />}
-							onClick={() => {
-								const name = prompt("Please enter name of the new list");
-								if (name) createCollection.mutate({ input: { name } });
-							}}
-						>
-							Create a collection
-						</Button>
+					<SimpleGrid
+						cols={1}
+						spacing="lg"
+						breakpoints={[
+							{ minWidth: "sm", cols: 2 },
+							{ minWidth: "lg", cols: 3 },
+						]}
+					>
 						<Link passHref legacyBehavior href={ROUTES.media.create}>
 							<Button
 								variant="outline"
@@ -315,7 +308,7 @@ const Page: NextPageWithLayout = () => {
 								Create a media item
 							</Button>
 						</Link>
-					</Grid>
+					</SimpleGrid>
 				</Stack>
 			</Container>
 		</>

@@ -1,15 +1,9 @@
-query Collections($limit: Int) {
-  collections(limit: $limit) {
-    collectionDetails {
-      id
-      name
-    }
-    mediaDetails {
-      identifier
-      lot
-      title
-      images
-      publishYear
-    }
+query Collections($input: CollectionInput) {
+  collections(input: $input) {
+    id
+    name
+    description
+    visibility
+    numItems
   }
 }
