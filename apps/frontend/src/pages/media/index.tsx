@@ -242,13 +242,15 @@ function SelectCollectionModal(props: {
 			{props.collections ? (
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<Select
-						withinPortal
-						data={props.collections || []}
-						onChange={setSelectedCollection}
-						searchable
-						nothingFound="Nothing found"
-					/>
+					{props.collections.length > 0 ? (
+						<Select
+							withinPortal
+							data={props.collections}
+							onChange={setSelectedCollection}
+							searchable
+							nothingFound="Nothing found"
+						/>
+					) : null}
 					<Button
 						data-autofocus
 						variant="outline"

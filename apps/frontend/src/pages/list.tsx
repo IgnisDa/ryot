@@ -390,20 +390,22 @@ const Page: NextPageWithLayout = () => {
 														}
 													/>
 												</Flex>
-												<Select
-													withinPortal
-													placeholder="Select a collection"
-													value={mineCollectionFilter}
-													data={(collections.data || []).map((c) => ({
-														value: c?.id?.toString(),
-														label: c?.name,
-														group: "My collections",
-													}))}
-													onChange={(v) => {
-														setMineCollectionFilter(v || "non");
-													}}
-													clearable
-												/>
+												{collections.data.length > 0 ? (
+													<Select
+														withinPortal
+														placeholder="Select a collection"
+														value={mineCollectionFilter}
+														data={collections.data.map((c) => ({
+															value: c?.id?.toString(),
+															label: c?.name,
+															group: "My collections",
+														}))}
+														onChange={(v) => {
+															setMineCollectionFilter(v || "non");
+														}}
+														clearable
+													/>
+												) : null}
 											</Stack>
 										</Modal>
 									</Flex>
@@ -460,7 +462,7 @@ const Page: NextPageWithLayout = () => {
 									<Select
 										w="37%"
 										value={searchSource?.toString()}
-										data={(mediaSources.data || []).map((o) => ({
+										data={mediaSources.data.map((o) => ({
 											value: o.toString(),
 											label: startCase(lowerCase(o)),
 										}))}
