@@ -2241,6 +2241,20 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
+        if collection.visibility != Visibility::Public {
+            match user_id {
+                None => {
+                    return Err(Error::new(
+                        "Need to be logged in to view a private collection".to_owned(),
+                    ));
+                }
+                Some(u) => {
+                    if u != collection.user_id {
+                        return Err(Error::new("This collection is not public".to_owned()));
+                    }
+                }
+            }
+        }
         let metas = collection
             .find_related(Metadata)
             .limit(input.media_limit)
@@ -2250,7 +2264,7 @@ impl MiscellaneousService {
         for meta in metas.iter() {
             let m = self.generic_metadata(meta.id).await?;
             let u_t_m = UserToMetadata::find()
-                .filter(user_to_metadata::Column::UserId.eq(user_id))
+                .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
                 .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
                 .one(&self.db)
                 .await?
