@@ -32,17 +32,20 @@ const Page: NextPageWithLayout = () => {
 	return collectionId && collectionContents.data ? (
 		<>
 			<Head>
-				<title>{collectionContents.data.collectionDetails.name} | Ryot</title>
+				<title>{collectionContents.data.details.name} | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
 					<Box>
 						<Text color="dimmed" size="xs" mb={-10}>
-							{changeCase(collectionContents.data.collectionDetails.visibility)}
+							{changeCase(collectionContents.data.details.visibility)}
 						</Text>
-						<Title>{collectionContents.data.collectionDetails.name}</Title>
+						<Flex align={"center"} gap="sm">
+							<Title>{collectionContents.data.details.name}</Title>{" "}
+							<Text size="sm">by {collectionContents.data.user.name}</Text>
+						</Flex>
+						<Text>{collectionContents.data.details.description}</Text>
 					</Box>
-					<Text>{collectionContents.data.collectionDetails.description}</Text>
 					{collectionContents.data.media.length > 0 ? (
 						<>
 							<Grid>
