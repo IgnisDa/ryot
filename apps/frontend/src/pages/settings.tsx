@@ -75,11 +75,16 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { DateTime } from "luxon";
+import TimeAgo from "javascript-time-ago";
+import en from "javascript-time-ago/locale/en.json";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
+TimeAgo.addDefaultLocale(en);
+
+const timeAgo = new TimeAgo("en-US");
 
 const message = {
 	title: "Success",
@@ -580,10 +585,7 @@ const Page: NextPageWithLayout = () => {
 											<Box>
 												<Text>{a.token.padStart(32, "*")}</Text>
 												<Text size="xs">
-													last used on{" "}
-													{DateTime.fromJSDate(a.lastUsedOn).toLocaleString(
-														DateTime.DATETIME_MED,
-													)}
+													last used {timeAgo.format(a.lastUsedOn)}
 												</Text>
 											</Box>
 											<ActionIcon
@@ -717,12 +719,7 @@ const Page: NextPageWithLayout = () => {
 															{i.description}{" "}
 														</Anchor>
 													</Text>
-													<Text size="xs">
-														on{" "}
-														{DateTime.fromJSDate(i.timestamp).toLocaleString(
-															DateTime.DATE_MED,
-														)}
-													</Text>
+													<Text size="xs">{timeAgo.format(i.timestamp)}</Text>
 												</Box>
 												<Button
 													color="red"
