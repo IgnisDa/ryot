@@ -15,7 +15,8 @@ COPY --from=frontend-workspace /app/.moon/docker/sources .
 RUN moon run frontend:build
 
 FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef:0.1.61-rust-1.70.0 AS chef
-RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev clang llvm
+RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev clang llvm ca-certificates
+RUN update-ca-certificates
 WORKDIR app
 
 FROM chef AS planner
@@ -37,7 +38,17 @@ COPY . .
 COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
 RUN ./apps/backend/ci/build-app.sh
 
-FROM alpine:3.18
-COPY --from=app-builder /app/ryot /app
+# taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
+FROM ubuntu:latest as user-creator
+RUN useradd -u 1001 ryot
+
+FROM scratch
+COPY --from=chef /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=user-creator /etc/passwd /etc/passwd
+USER ryot
+# This is actually a hack to ensure that the `/data` directory exists in the image
+# since we can not use `RUN` directly (there is no shell to execute it).
+WORKDIR /data
+COPY --from=app-builder --chown=ryot:ryot /app/ryot /app
 COPY apps/backend/CHECKS ./CHECKS
 ENTRYPOINT ["/app"]
