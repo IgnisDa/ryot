@@ -6,10 +6,12 @@ To start importing, go to the settings page and select the "Import" tab.
 
 ## MediaTracker
 
-Importing from [MediaTracker](https://github.com/bonukai/MediaTracker) does not
-support the following due to lack of 100% feature parity:
+You can import from [MediaTracker](https://github.com/bonukai/MediaTracker), with
+the following caveats:
 
-- Calendar
+- Items that are in progress are not imported properly, though they are added
+  to the correct collection.
+- Ryot does not support calendars yet
 
 ### Steps
 
