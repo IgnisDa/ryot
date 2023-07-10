@@ -371,8 +371,8 @@ pub struct UsersConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "WEB_")]
-pub struct WebConfig {
+#[config(rename_all = "snake_case", env_prefix = "SERVER_")]
+pub struct ServerConfig {
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
@@ -380,6 +380,9 @@ pub struct WebConfig {
     /// are running the server on `localhost`.
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
+    /// The path where the config file will be written once the server boots up.
+    #[setting(default = format!("sqlite:/data/{}-config.json", PROJECT_NAME))]
+    pub config_dump_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -430,9 +433,9 @@ pub struct AppConfig {
     /// Settings related to video games.
     #[setting(nested)]
     pub video_games: VideoGameConfig,
-    /// Settings related to website.
+    /// Settings related to server.
     #[setting(nested)]
-    pub web: WebConfig,
+    pub server: ServerConfig,
 }
 
 impl AppConfig {
@@ -453,7 +456,7 @@ impl AppConfig {
         cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
-        cl.web.cors_origins = vec![gt()];
+        cl.server.cors_origins = vec![gt()];
         cl
     }
 }

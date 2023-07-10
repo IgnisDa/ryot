@@ -749,7 +749,7 @@ impl MiscellaneousMutation {
                 gql_ctx,
                 api_key,
                 false,
-                config.web.insecure_cookie,
+                config.server.insecure_cookie,
                 config.users.token_valid_for_days,
             )?;
         };
@@ -763,7 +763,7 @@ impl MiscellaneousMutation {
             gql_ctx,
             "",
             true,
-            config.web.insecure_cookie,
+            config.server.insecure_cookie,
             config.users.token_valid_for_days,
         )?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;

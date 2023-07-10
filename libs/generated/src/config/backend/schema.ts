@@ -159,6 +159,19 @@ export interface SchedulerConfig {
 	user_cleanup_every: number;
 }
 
+export interface ServerConfig {
+	/** The path where the config file will be written once the server boots up. */
+	config_dump_path: string;
+	/** An array of URLs for CORS. */
+	cors_origins: string[];
+	/**
+	 * This will make auth cookies insecure and should be set to `true` if you
+	 * are running the server on `localhost`.
+	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
+	 */
+	insecure_cookie: boolean;
+}
+
 export interface ShowsTmdbConfig {
 	/** The access token for the TMDB API. */
 	access_token: string;
@@ -217,17 +230,6 @@ export interface VideoGameConfig {
 	twitch: TwitchConfig;
 }
 
-export interface WebConfig {
-	/** An array of URLs for CORS. */
-	cors_origins: string[];
-	/**
-	 * This will make auth cookies insecure and should be set to `true` if you
-	 * are running the server on `localhost`.
-	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
-	 */
-	insecure_cookie: boolean;
-}
-
 export interface AppConfig {
 	/** Settings related to anime. */
 	anime: AnimeConfig;
@@ -253,12 +255,12 @@ export interface AppConfig {
 	podcasts: PodcastConfig;
 	/** Settings related to scheduler. */
 	scheduler: SchedulerConfig;
+	/** Settings related to server. */
+	server: ServerConfig;
 	/** Settings related to shows. */
 	shows: ShowConfig;
 	/** Settings related to users. */
 	users: UsersConfig;
 	/** Settings related to video games. */
 	video_games: VideoGameConfig;
-	/** Settings related to website. */
-	web: WebConfig;
 }

@@ -1,5 +1,5 @@
 use std::{
-    env,
+    env, fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     path::PathBuf,
@@ -97,7 +97,12 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    let config = Arc::new(get_app_config()?);
+    let config = get_app_config()?;
+    fs::write(
+        &config.server.config_dump_path,
+        serde_json::to_string_pretty(&config)?,
+    )?;
+    let config = Arc::new(config);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -189,7 +194,7 @@ async fn main() -> Result<()> {
         .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
         .allow_origin(
             config
-                .web
+                .server
                 .cors_origins
                 .iter()
                 .map(|f| f.parse().unwrap())
