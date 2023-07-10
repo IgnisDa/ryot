@@ -114,6 +114,7 @@ pub struct ImportDetails {
 
 #[derive(Debug)]
 pub struct ImportResult {
+    collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportItem>,
     failed_items: Vec<ImportFailedItem>,
 }
@@ -238,6 +239,11 @@ impl ImporterService {
             }
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
         };
+        for col_details in import.collections.into_iter() {
+            self.media_service
+                .create_or_update_collection(&user_id, col_details)
+                .await?;
+        }
         for (idx, item) in import.media.iter().enumerate() {
             tracing::trace!(
                 "Importing media with identifier = {iden}",

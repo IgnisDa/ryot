@@ -134,5 +134,6 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
             })
             .collect(),
         failed_items: vec![],
+        collections: vec![],
     })
 }

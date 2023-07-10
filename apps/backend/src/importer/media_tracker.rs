@@ -19,7 +19,7 @@ use crate::{
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator},
-    models::media::{BookSpecifics, MediaDetails},
+    models::media::{BookSpecifics, CreateOrUpdateCollectionInput, MediaDetails, Visibility},
     providers::openlibrary::utils::get_key,
 };
 
@@ -46,12 +46,21 @@ impl From<MediaType> for MetadataLot {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ListPrivacy {
+    Private,
+    Public,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ListResponse {
     id: i32,
     name: String,
     #[serde(default)]
     items: Vec<ListItemResponse>,
+    description: Option<String>,
+    privacy: ListPrivacy,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -139,6 +148,25 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         .unwrap();
     let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
 
+    let all_collections = lists
+        .iter()
+        .map(|l| CreateOrUpdateCollectionInput {
+            name: l.name.clone(),
+            description: l
+                .description
+                .as_ref()
+                .map(|s| match s.as_str() {
+                    "" => None,
+                    x => Some(x.to_owned()),
+                })
+                .flatten(),
+            visibility: Some(match l.privacy {
+                ListPrivacy::Private => Visibility::Private,
+                ListPrivacy::Public => Visibility::Public,
+            }),
+            update_id: None,
+        })
+        .collect();
     for list in lists.iter_mut() {
         let mut rsp = client
             .get("list/items")
@@ -304,6 +332,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     Ok(ImportResult {
         media: final_data,
         failed_items,
+        collections: all_collections,
     })
 }
 
