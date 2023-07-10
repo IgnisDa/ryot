@@ -503,24 +503,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get details about the currently logged in user.
-    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
-        let token = user_auth_token_from_ctx(gql_ctx)?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_details(&token)
-            .await
-    }
-
-    /// Get a summary of all the media items that have been consumed by this user.
-    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_summary(&user_id)
-            .await
-    }
-
     /// Get details about a media present in the database.
     async fn media_details(
         &self,
@@ -633,6 +615,24 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .providers_language_information()
+    }
+
+    /// Get details about the currently logged in user.
+    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
+        let token = user_auth_token_from_ctx(gql_ctx)?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_details(&token)
+            .await
+    }
+
+    /// Get a summary of all the media items that have been consumed by this user.
+    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_summary(&user_id)
+            .await
     }
 
     /// Get all the yank based integrations for the currently logged in user.
@@ -750,54 +750,6 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Create a new user for the service. Also set their `lot` as admin if
-    /// they are the first user.
-    async fn register_user(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UserInput,
-    ) -> Result<RegisterResult> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .register_user(&input.username, &input.password)
-            .await
-    }
-
-    /// Login a user using their username and password and return an API key.
-    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .login_user(&input.username, &input.password, gql_ctx)
-            .await
-    }
-
-    /// Logout a user from the server, deleting their login token.
-    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_auth_token_from_ctx(gql_ctx)?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .logout_user(&user_id, gql_ctx)
-            .await
-    }
-
-    /// Update a user's profile details.
-    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user(&user_id, input)
-            .await
-    }
-
-    /// Delete all summaries for the currently logged in user and then generate one from scratch.
-    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .regenerate_user_summary(user_id)
-            .await
-    }
-
     /// Create a custom media item.
     async fn create_custom_media(
         &self,
@@ -861,6 +813,54 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .commit_media(lot, source, &identifier)
+            .await
+    }
+
+    /// Create a new user for the service. Also set their `lot` as admin if
+    /// they are the first user.
+    async fn register_user(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserInput,
+    ) -> Result<RegisterResult> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .register_user(&input.username, &input.password)
+            .await
+    }
+
+    /// Login a user using their username and password and return an API key.
+    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .login_user(&input.username, &input.password, gql_ctx)
+            .await
+    }
+
+    /// Logout a user from the server, deleting their login token.
+    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let user_id = user_auth_token_from_ctx(gql_ctx)?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .logout_user(&user_id, gql_ctx)
+            .await
+    }
+
+    /// Update a user's profile details.
+    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .update_user(&user_id, input)
+            .await
+    }
+
+    /// Delete all summaries for the currently logged in user and then generate one from scratch.
+    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .regenerate_user_summary(user_id)
             .await
     }
 
