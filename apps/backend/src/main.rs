@@ -132,7 +132,7 @@ async fn main() -> Result<()> {
     let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
-    let darkdb = Arc::new(
+    let auth_db = Arc::new(
         Storage::<String, MemoryAuthData>::open(DarkbirdOptions::new(
             &config.database.auth_db_path,
             &format!("{}-auth.db", PROJECT_NAME),
@@ -165,7 +165,7 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
-        darkdb.clone(),
+        auth_db.clone(),
         s3_client,
         config.clone(),
         &import_media_storage,
@@ -200,7 +200,7 @@ async fn main() -> Result<()> {
             .unwrap();
     }
 
-    let schema = get_schema(&app_services, db.clone(), darkdb.clone(), config.clone()).await;
+    let schema = get_schema(&app_services, db.clone(), auth_db.clone(), config.clone()).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -225,7 +225,7 @@ async fn main() -> Result<()> {
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
-        .layer(Extension(darkdb.clone()))
+        .layer(Extension(auth_db.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -475,10 +475,10 @@ async fn upload_handler(
 
 async fn export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
-    Extension(darkdb): Extension<MemoryAuthDb>,
+    Extension(auth_db): Extension<MemoryAuthDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &darkdb)
+    let user_id = user_id_from_token(authorization.token().to_owned(), &auth_db)
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();

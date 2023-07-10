@@ -46,7 +46,7 @@ pub struct AppServices {
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
-    darkdb: MemoryAuthDb,
+    auth_db: MemoryAuthDb,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
@@ -71,7 +71,7 @@ pub async fn create_app_services(
     let media_service = Arc::new(
         MiscellaneousService::new(
             &db,
-            &darkdb,
+            &auth_db,
             config,
             file_storage_service.clone(),
             after_media_seen_job,
@@ -127,20 +127,20 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 }
 
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let darkdb = ctx.data_unchecked::<MemoryAuthDb>();
+    let auth_db = ctx.data_unchecked::<MemoryAuthDb>();
     let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_token(token, darkdb).await
+    user_id_from_token(token, auth_db).await
 }
 
-pub async fn user_id_from_token(token: String, darkdb: &MemoryAuthDb) -> Result<i32> {
-    let found_token = darkdb.lookup(&token);
+pub async fn user_id_from_token(token: String, auth_db: &MemoryAuthDb) -> Result<i32> {
+    let found_token = auth_db.lookup(&token);
     match found_token {
         Some(t) => {
             let mut val = t.value().clone();
             drop(t); // since `t` is a references, we can not update it before dropping
             let return_value = val.user_id.clone();
             val.last_used_on = Utc::now();
-            darkdb.insert(token, val).await.unwrap();
+            auth_db.insert(token, val).await.unwrap();
             Ok(return_value)
         }
         None => Err(Error::new("The auth token was incorrect")),

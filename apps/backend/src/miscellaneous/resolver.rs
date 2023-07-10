@@ -943,7 +943,7 @@ impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
-        darkdb: &MemoryAuthDb,
+        auth_db: &MemoryAuthDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
@@ -965,7 +965,7 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            auth_db: darkdb.clone(),
+            auth_db: auth_db.clone(),
             config,
             file_storage,
             audible_service,
