@@ -488,7 +488,7 @@ async fn export(
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MemoryAuthData {
     pub user_id: i32,
-    pub updated_on: DateTimeUtc,
+    pub last_used_on: DateTimeUtc,
 }
 
 impl document::Document for MemoryAuthData {}

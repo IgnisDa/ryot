@@ -3098,7 +3098,7 @@ impl MiscellaneousService {
                 api_key.to_owned(),
                 MemoryAuthData {
                     user_id: user_id.to_owned(),
-                    updated_on: Utc::now(),
+                    last_used_on: Utc::now(),
                 },
             )
             .await
@@ -3237,7 +3237,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
+    async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
         let tokens = self
             .auth_db
             .iter()
@@ -3249,7 +3249,7 @@ impl MiscellaneousService {
                     // taken from https://stackoverflow.com/a/50458236/11667450
                     Some(UserAuthToken {
                         token: format!("{:*>28}", key),
-                        last_used_on: r.updated_on.clone(),
+                        last_used_on: r.last_used_on.clone(),
                     })
                 } else {
                     None
