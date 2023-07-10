@@ -1,14 +1,13 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
 use darkbird::Storage;
-use scdb::Store;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::de::{self, DeserializeOwned};
@@ -34,8 +33,7 @@ use crate::{
 
 pub static PAGE_LIMIT: i32 = 20;
 pub static COOKIE_NAME: &str = "auth";
-pub type MemoryDb = Arc<Mutex<Store>>;
-pub type DarkDb = Arc<Storage<String, MemoryAuthData>>;
+pub type MemoryAuthDb = Arc<Storage<String, MemoryAuthData>>;
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -48,8 +46,7 @@ pub struct AppServices {
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
-    scdb: MemoryDb,
-    darkdb: DarkDb,
+    darkdb: MemoryAuthDb,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
@@ -74,7 +71,6 @@ pub async fn create_app_services(
     let media_service = Arc::new(
         MiscellaneousService::new(
             &db,
-            &scdb,
             &darkdb,
             config,
             file_storage_service.clone(),
@@ -131,20 +127,15 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 }
 
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let scdb = ctx.data_unchecked::<MemoryDb>();
+    let darkdb = ctx.data_unchecked::<MemoryAuthDb>();
     let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_token(token, scdb)
+    user_id_from_token(token, darkdb)
 }
 
-pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
-    let found_token = match scdb.try_lock() {
-        Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-        Err(_) => {
-            return Err(Error::new("Could not lock user database"));
-        }
-    };
+pub fn user_id_from_token(token: String, darkdb: &MemoryAuthDb) -> Result<i32> {
+    let found_token = darkdb.lookup(&token);
     match found_token {
-        Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
+        Some(t) => Ok(t.value().user_id.to_owned()),
         None => Err(Error::new("The auth token was incorrect")),
     }
 }

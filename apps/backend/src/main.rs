@@ -4,7 +4,7 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 
@@ -36,7 +36,6 @@ use darkbird::{
 };
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
-use scdb::Store;
 use sea_orm::{prelude::DateTimeUtc, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use serde::{Deserialize, Serialize};
@@ -48,6 +47,7 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
+use utils::MemoryAuthDb;
 use uuid::Uuid;
 
 use crate::{
@@ -62,7 +62,7 @@ use crate::{
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     miscellaneous::resolver::MiscellaneousService,
-    utils::{create_app_services, user_id_from_token, MemoryDb, COOKIE_NAME},
+    utils::{create_app_services, user_id_from_token, COOKIE_NAME},
 };
 
 mod background;
@@ -132,9 +132,6 @@ async fn main() -> Result<()> {
     let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
-    let scdb = Arc::new(Mutex::new(
-        Store::new(&config.database.auth_db_url, None, None, None, None, false).unwrap(),
-    ));
     let darkdb = Arc::new(
         Storage::<String, MemoryAuthData>::open(DarkbirdOptions::new(
             &config.database.auth_db_url,
@@ -168,7 +165,6 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
-        scdb.clone(),
         darkdb.clone(),
         s3_client,
         config.clone(),
@@ -204,7 +200,7 @@ async fn main() -> Result<()> {
             .unwrap();
     }
 
-    let schema = get_schema(&app_services, db.clone(), scdb.clone(), config.clone()).await;
+    let schema = get_schema(&app_services, db.clone(), darkdb.clone(), config.clone()).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -229,7 +225,7 @@ async fn main() -> Result<()> {
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
-        .layer(Extension(scdb.clone()))
+        .layer(Extension(darkdb.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -479,10 +475,10 @@ async fn upload_handler(
 
 async fn export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
-    Extension(scdb): Extension<MemoryDb>,
+    Extension(darkdb): Extension<MemoryAuthDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &scdb)
+    let user_id = user_id_from_token(authorization.token().to_owned(), &darkdb)
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))

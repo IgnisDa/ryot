@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -77,9 +77,10 @@ use crate::{
         UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx, DarkDb,
-        MemoryDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
+        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
+        user_id_from_token, MemoryAuthDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
+    MemoryAuthData,
 };
 
 use super::DefaultCollection;
@@ -738,11 +739,7 @@ impl MiscellaneousMutation {
         let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         let maybe_api_key = gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .login_user(
-                &input.username,
-                &input.password,
-                config.users.token_valid_for_days,
-            )
+            .login_user(&input.username, &input.password)
             .await?;
         if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
             create_cookie(
@@ -917,8 +914,7 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     db: DatabaseConnection,
-    scdb: MemoryDb,
-    darkdb: DarkDb,
+    darkdb: MemoryAuthDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: AudibleService,
@@ -942,8 +938,7 @@ impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
-        scdb: &MemoryDb,
-        darkdb: &DarkDb,
+        darkdb: &MemoryAuthDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
@@ -965,7 +960,6 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            scdb: scdb.clone(),
             darkdb: darkdb.clone(),
             config,
             file_storage,
@@ -2539,14 +2533,8 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = match self.scdb.try_lock() {
-            Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(_) => {
-                return Err(Error::new("Could not lock user database"));
-            }
-        };
-        if let Some(t) = found_token {
-            let user_id = std::str::from_utf8(&t).unwrap().parse::<i32>().unwrap();
+        let found_token = user_id_from_token(token.to_owned(), &self.darkdb);
+        if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(user))
         } else {
@@ -2728,12 +2716,7 @@ impl MiscellaneousService {
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
-    async fn login_user(
-        &self,
-        username: &str,
-        password: &str,
-        valid_for_days: i32,
-    ) -> Result<LoginResult> {
+    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -2756,19 +2739,7 @@ impl MiscellaneousService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        if self
-            .set_auth_token(
-                &api_key,
-                &user.id,
-                Some(
-                    ChronoDuration::days(valid_for_days.into())
-                        .num_seconds()
-                        .try_into()
-                        .unwrap(),
-                ),
-            )
-            .is_err()
-        {
+        if self.set_auth_token(&api_key, &user.id).await.is_err() {
             return Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::MutexError,
             }));
@@ -2777,19 +2748,9 @@ impl MiscellaneousService {
     }
 
     async fn logout_user(&self, token: &str) -> Result<bool> {
-        let found_token = match self.scdb.try_lock() {
-            Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(_) => {
-                return Err(Error::new("Could not lock user database"));
-            }
-        };
-        if let Some(t) = found_token {
-            match self.scdb.try_lock() {
-                Ok(mut d) => d.delete(&t)?,
-                Err(_) => {
-                    return Err(Error::new("Could not lock user database"));
-                }
-            };
+        let found_token = user_id_from_token(token.to_owned(), &self.darkdb);
+        if let Ok(_) = found_token {
+            self.darkdb.remove(token.to_owned()).await.unwrap();
             Ok(true)
         } else {
             Ok(false)
@@ -3044,7 +3005,8 @@ impl MiscellaneousService {
 
     async fn generate_application_token(&self, user_id: i32) -> Result<String> {
         let api_token = Uuid::new_v4().to_string();
-        self.set_auth_token(&api_token, &user_id, None)
+        self.set_auth_token(&api_token, &user_id)
+            .await
             .map_err(|_| Error::new("Could not set auth token"))?;
         Ok(api_token)
     }
@@ -3134,13 +3096,17 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
-        match self.scdb.lock() {
-            Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
-            Err(_) => Err(anyhow::anyhow!(
-                "Could not lock auth database due to mutex poisoning"
-            ))?,
-        };
+    async fn set_auth_token(&self, api_key: &str, user_id: &i32) -> anyhow::Result<()> {
+        self.darkdb
+            .insert(
+                api_key.to_owned(),
+                MemoryAuthData {
+                    user_id: user_id.to_owned(),
+                    updated_on: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
         Ok(())
     }
 

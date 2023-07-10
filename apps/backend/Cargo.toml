@@ -45,7 +45,6 @@ schematic = { version = "0.11.0", features = [
     "yaml",
     "valid_url"
 ] }
-scdb = "0.2.1"
 sea-orm = { version = "0.11.1", features = [
     "debug-print",
     "macros",

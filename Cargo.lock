@@ -1270,15 +1270,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clokwerk"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd108d365fcb6d7eddf17a6718eb6a33db18ba4178f8cc6b667f480710f10d76"
-dependencies = [
- "chrono",
-]
-
-[[package]]
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4091,7 +4082,6 @@ dependencies = [
  "rust-embed",
  "rust_decimal",
  "rust_decimal_macros",
- "scdb",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
@@ -4124,19 +4114,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "scdb"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6acc81dd109772f5e3f5dadc6c029896e90e2409f2a792a79d044dbdd0534146"
-dependencies = [
- "clokwerk",
- "libc",
- "memchr",
- "twox-hash",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -5739,7 +5716,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if 1.0.0",
- "rand 0.8.5",
  "static_assertions",
 ]
 
