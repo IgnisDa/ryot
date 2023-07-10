@@ -9,7 +9,7 @@ const timeAgo = new TimeAgo("en-US");
 /**
  * Format a `Date` into a human readable format
  */
-export const formatTime = (time: Date) => {
+export const formatTimeAgo = (time: Date) => {
 	return timeAgo.format(time);
 };
 

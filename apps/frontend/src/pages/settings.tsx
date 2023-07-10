@@ -62,7 +62,7 @@ import {
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTime } from "@ryot/utilities";
+import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import {
 	IconAnalyze,
 	IconApps,
@@ -579,7 +579,7 @@ const Page: NextPageWithLayout = () => {
 											<Box>
 												<Text>{a.token.padStart(32, "*")}</Text>
 												<Text size="xs">
-													last used {formatTime(a.lastUsedOn)}
+													last used {formatTimeAgo(a.lastUsedOn)}
 												</Text>
 											</Box>
 											<ActionIcon
@@ -713,7 +713,7 @@ const Page: NextPageWithLayout = () => {
 															{i.description}{" "}
 														</Anchor>
 													</Text>
-													<Text size="xs">{formatTime(i.timestamp)}</Text>
+													<Text size="xs">{formatTimeAgo(i.timestamp)}</Text>
 												</Box>
 												<Button
 													color="red"

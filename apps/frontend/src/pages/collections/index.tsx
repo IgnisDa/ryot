@@ -7,7 +7,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Box, Container, Stack, Text, Title } from "@mantine/core";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTime } from "@ryot/utilities";
+import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -43,7 +43,7 @@ const Page: NextPageWithLayout = () => {
 						<Title>{collectionContents.data.details.name}</Title>{" "}
 						<Text size="sm" mt={-10}>
 							Created by {collectionContents.data.user.name}{" "}
-							{formatTime(collectionContents.data.details.createdOn)}
+							{formatTimeAgo(collectionContents.data.details.createdOn)}
 						</Text>
 					</Box>
 					<Text>{collectionContents.data.details.description}</Text>
