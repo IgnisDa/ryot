@@ -486,7 +486,7 @@ const Page: NextPageWithLayout = () => {
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}
-												maybeItemId={b.databaseId}
+												maybeItemId={b.databaseId ?? undefined}
 												query={query}
 												offset={offset}
 												lot={lot}
