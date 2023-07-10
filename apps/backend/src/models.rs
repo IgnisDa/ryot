@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{exercise::Model as ExerciseModel, review, seen},
-    graphql::Identifier,
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
@@ -29,7 +28,7 @@ pub mod media {
         pub name: String,
         pub description: Option<String>,
         pub visibility: Option<Visibility>,
-        pub update_id: Option<Identifier>,
+        pub update_id: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -435,7 +434,7 @@ pub mod media {
     #[derive(Debug, InputObject)]
     pub struct AddMediaToCollection {
         pub collection_name: String,
-        pub media_id: Identifier,
+        pub media_id: i32,
     }
 
     #[derive(Debug, InputObject)]
@@ -444,19 +443,19 @@ pub mod media {
         pub text: Option<String>,
         pub visibility: Option<Visibility>,
         pub spoiler: Option<bool>,
-        pub metadata_id: Identifier,
+        pub metadata_id: i32,
         pub date: Option<DateTimeUtc>,
         /// If this review comes from a different source, this should be set
         pub identifier: Option<String>,
         /// ID of the review if this is an update to an existing review
-        pub review_id: Option<Identifier>,
+        pub review_id: Option<i32>,
         pub season_number: Option<i32>,
         pub episode_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
     pub struct ProgressUpdateInput {
-        pub metadata_id: Identifier,
+        pub metadata_id: i32,
         pub progress: Option<i32>,
         pub date: Option<NaiveDate>,
         pub show_season_number: Option<i32>,
