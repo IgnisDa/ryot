@@ -15,7 +15,10 @@ use crate::{
     entities::{media_import_report, prelude::MediaImportReport},
     migrator::{MediaImportSource, MetadataLot, MetadataSource},
     miscellaneous::resolver::MiscellaneousService,
-    models::media::{AddMediaToCollection, MediaDetails, PostReviewInput, ProgressUpdateInput},
+    models::media::{
+        AddMediaToCollection, CreateOrUpdateCollectionInput, MediaDetails, PostReviewInput,
+        ProgressUpdateInput,
+    },
     utils::user_id_from_ctx,
 };
 
@@ -302,6 +305,15 @@ impl ImporterService {
                     .await?;
             }
             for col in item.collections.iter() {
+                self.media_service
+                    .create_or_update_collection(
+                        &user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
                 self.media_service
                     .add_media_to_collection(
                         &user_id,

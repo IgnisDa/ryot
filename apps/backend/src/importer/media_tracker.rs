@@ -166,6 +166,8 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         })
     });
 
+    tracing::trace!("Loaded data for {total:?} lists", total = lists.len());
+
     let data_len = data.len();
 
     let mut final_data = vec![];
@@ -294,7 +296,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 })
                 .collect(),
         };
-        dbg!(&item);
         final_data.push(item);
     }
     Ok(ImportResult {

@@ -28,9 +28,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::models::media::MediaListItem;
-use crate::models::SearchResults;
-use crate::utils::get_case_insensitive_like_query;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
@@ -56,11 +53,14 @@ use crate::{
         MetadataImageUrl, MetadataImages, SeenExtraInformation, SeenPodcastExtraInformation,
         SeenShowExtraInformation,
     },
-    models::media::{
-        AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExportMedia,
-        MangaSpecifics, MediaDetails, MediaSearchItem, MovieSpecifics, PodcastSpecifics,
-        PostReviewInput, ProgressUpdateInput, ShowSpecifics, UserSummary, VideoGameSpecifics,
-        Visibility,
+    models::{
+        media::{
+            AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
+            CreateOrUpdateCollectionInput, ExportMedia, MangaSpecifics, MediaDetails,
+            MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateInput, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
+        },
+        SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -77,7 +77,8 @@ use crate::{
         UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        user_auth_token_from_ctx, user_id_from_ctx, MemoryDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
+        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx, MemoryDb,
+        SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
 };
 
@@ -169,14 +170,6 @@ struct UserInput {
     username: String,
     #[graphql(secret)]
     password: String,
-}
-
-#[derive(Debug, InputObject, Default)]
-struct CreateOrUpdateCollectionInput {
-    name: String,
-    description: Option<String>,
-    visibility: Option<Visibility>,
-    update_id: Option<Identifier>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -2345,7 +2338,7 @@ impl MiscellaneousService {
         }
     }
 
-    async fn create_or_update_collection(
+    pub async fn create_or_update_collection(
         &self,
         user_id: &i32,
         input: CreateOrUpdateCollectionInput,

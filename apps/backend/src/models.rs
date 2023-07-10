@@ -24,6 +24,14 @@ pub struct SearchResults<T: OutputType> {
 pub mod media {
     use super::*;
 
+    #[derive(Debug, InputObject, Default)]
+    pub struct CreateOrUpdateCollectionInput {
+        pub name: String,
+        pub description: Option<String>,
+        pub visibility: Option<Visibility>,
+        pub update_id: Option<Identifier>,
+    }
+
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaListItem {
         pub data: MediaSearchItem,
