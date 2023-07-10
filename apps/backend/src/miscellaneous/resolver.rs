@@ -1990,8 +1990,8 @@ impl MiscellaneousService {
                     database_id: identifiers
                         .iter()
                         .find(|&f| f.identifier == i.identifier)
-                        .unwrap()
-                        .id,
+                        .map(|i| i.id)
+                        .flatten(),
                     item: i,
                 })
                 .collect()
