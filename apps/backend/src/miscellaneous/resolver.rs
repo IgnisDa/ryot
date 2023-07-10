@@ -1,10 +1,10 @@
 use std::{collections::HashSet, sync::Arc};
 
-use apalis::{prelude::Storage, sqlite::SqliteStorage};
+use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
-use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
+use chrono::{NaiveDate, Utc};
+use cookie::{time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
@@ -49,9 +49,9 @@ use crate::{
         Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{
-        CustomService, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
-        MetadataImageUrl, MetadataImages, SeenExtraInformation, SeenPodcastExtraInformation,
-        SeenShowExtraInformation,
+        CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
+        MetadataImage, MetadataImageUrl, MetadataImages, SeenExtraInformation,
+        SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
     models::{
         media::{
@@ -77,12 +77,11 @@ use crate::{
         UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx, MemoryDb,
-        SearchInput, COOKIE_NAME, PAGE_LIMIT,
+        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
+        user_id_from_token, MemoryAuthDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
+    MemoryAuthData,
 };
-
-use super::DefaultCollection;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -239,30 +238,6 @@ struct CollectionContents {
     user: user::Model,
 }
 
-fn create_cookie(
-    ctx: &Context<'_>,
-    api_key: &str,
-    expires: bool,
-    insecure_cookie: bool,
-    token_valid_till: i32,
-) -> Result<()> {
-    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
-    cookie = if expires {
-        cookie.expires(OffsetDateTime::now_utc())
-    } else {
-        cookie.expires(
-            OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till.into())),
-        )
-    };
-    let cookie = cookie.finish();
-    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
-    Ok(())
-}
-
-fn get_hasher() -> Argon2<'static> {
-    Argon2::default()
-}
-
 #[derive(Debug, SimpleObject)]
 struct ReviewPostedBy {
     id: i32,
@@ -415,6 +390,31 @@ struct CollectionInput {
 struct MediaConsumedInput {
     identifier: String,
     lot: MetadataLot,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserAuthToken {
+    token: String,
+    last_used_on: DateTimeUtc,
+}
+
+fn create_cookie(
+    ctx: &Context<'_>,
+    api_key: &str,
+    expires: bool,
+    insecure_cookie: bool,
+) -> Result<()> {
+    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
+    if expires {
+        cookie = cookie.expires(OffsetDateTime::now_utc())
+    };
+    let cookie = cookie.finish();
+    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
+    Ok(())
+}
+
+fn get_hasher() -> Argon2<'static> {
+    Argon2::default()
 }
 
 #[derive(Default)]
@@ -625,6 +625,15 @@ impl MiscellaneousQuery {
             .user_yank_integrations(user_id)
             .await
     }
+
+    /// Get all the auth tokens issued to the currently logged in user.
+    async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<UserAuthToken>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_auth_tokens(user_id)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -738,20 +747,10 @@ impl MiscellaneousMutation {
         let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
         let maybe_api_key = gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .login_user(
-                &input.username,
-                &input.password,
-                config.users.token_valid_for_days,
-            )
+            .login_user(&input.username, &input.password)
             .await?;
         if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
-            create_cookie(
-                gql_ctx,
-                api_key,
-                false,
-                config.web.insecure_cookie,
-                config.users.token_valid_for_days,
-            )?;
+            create_cookie(gql_ctx, api_key, false, config.server.insecure_cookie)?;
         };
         Ok(maybe_api_key)
     }
@@ -759,13 +758,7 @@ impl MiscellaneousMutation {
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
-        create_cookie(
-            gql_ctx,
-            "",
-            true,
-            config.web.insecure_cookie,
-            config.users.token_valid_for_days,
-        )?;
+        create_cookie(gql_ctx, "", true, config.server.insecure_cookie)?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -913,12 +906,20 @@ impl MiscellaneousMutation {
             .yank_integrations_data_for_user(user_id)
             .await
     }
+
+    /// Delete an auth token for the currently logged in user.
+    async fn delete_user_auth_token(&self, gql_ctx: &Context<'_>, token: String) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .delete_user_auth_token(user_id, token)
+            .await
+    }
 }
 
-#[derive(Debug)]
 pub struct MiscellaneousService {
     db: DatabaseConnection,
-    scdb: MemoryDb,
+    auth_db: MemoryAuthDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: AudibleService,
@@ -942,7 +943,7 @@ impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
-        scdb: &MemoryDb,
+        auth_db: &MemoryAuthDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
@@ -964,7 +965,7 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            scdb: scdb.clone(),
+            auth_db: auth_db.clone(),
             config,
             file_storage,
             audible_service,
@@ -2537,14 +2538,8 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = match self.scdb.try_lock() {
-            Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(_) => {
-                return Err(Error::new("Could not lock user database"));
-            }
-        };
-        if let Some(t) = found_token {
-            let user_id = std::str::from_utf8(&t).unwrap().parse::<i32>().unwrap();
+        let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
+        if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(user))
         } else {
@@ -2726,12 +2721,7 @@ impl MiscellaneousService {
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
-    async fn login_user(
-        &self,
-        username: &str,
-        password: &str,
-        valid_for_days: i32,
-    ) -> Result<LoginResult> {
+    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -2754,19 +2744,7 @@ impl MiscellaneousService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        if self
-            .set_auth_token(
-                &api_key,
-                &user.id,
-                Some(
-                    ChronoDuration::days(valid_for_days.into())
-                        .num_seconds()
-                        .try_into()
-                        .unwrap(),
-                ),
-            )
-            .is_err()
-        {
+        if self.set_auth_token(&api_key, &user.id).await.is_err() {
             return Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::MutexError,
             }));
@@ -2775,19 +2753,9 @@ impl MiscellaneousService {
     }
 
     async fn logout_user(&self, token: &str) -> Result<bool> {
-        let found_token = match self.scdb.try_lock() {
-            Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-            Err(_) => {
-                return Err(Error::new("Could not lock user database"));
-            }
-        };
-        if let Some(t) = found_token {
-            match self.scdb.try_lock() {
-                Ok(mut d) => d.delete(&t)?,
-                Err(_) => {
-                    return Err(Error::new("Could not lock user database"));
-                }
-            };
+        let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
+        if let Ok(_) = found_token {
+            self.auth_db.remove(token.to_owned()).await.unwrap();
             Ok(true)
         } else {
             Ok(false)
@@ -3042,7 +3010,8 @@ impl MiscellaneousService {
 
     async fn generate_application_token(&self, user_id: i32) -> Result<String> {
         let api_token = Uuid::new_v4().to_string();
-        self.set_auth_token(&api_token, &user_id, None)
+        self.set_auth_token(&api_token, &user_id)
+            .await
             .map_err(|_| Error::new("Could not set auth token"))?;
         Ok(api_token)
     }
@@ -3132,13 +3101,17 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    fn set_auth_token(&self, api_key: &str, user_id: &i32, ttl: Option<u64>) -> anyhow::Result<()> {
-        match self.scdb.lock() {
-            Ok(mut d) => d.set(api_key.as_bytes(), user_id.to_string().as_bytes(), ttl)?,
-            Err(_) => Err(anyhow::anyhow!(
-                "Could not lock auth database due to mutex poisoning"
-            ))?,
-        };
+    async fn set_auth_token(&self, api_key: &str, user_id: &i32) -> anyhow::Result<()> {
+        self.auth_db
+            .insert(
+                api_key.to_owned(),
+                MemoryAuthData {
+                    user_id: user_id.to_owned(),
+                    last_used_on: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
         Ok(())
     }
 
@@ -3271,6 +3244,44 @@ impl MiscellaneousService {
             self.yank_integrations_data_for_user(user.id).await?;
         }
         Ok(())
+    }
+
+    async fn all_user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
+        let tokens = self
+            .auth_db
+            .iter()
+            .filter_map(|r| {
+                if r.user_id == user_id {
+                    Some(UserAuthToken {
+                        token: r.key().clone(),
+                        last_used_on: r.last_used_on.clone(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(tokens)
+    }
+
+    async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
+        let mut tokens = self.all_user_auth_tokens(user_id).await?;
+        tokens.iter_mut().for_each(|t| {
+            // taken from https://users.rust-lang.org/t/take-last-n-characters-from-string/44638/4
+            t.token.drain(0..t.token.len() - 6);
+        });
+        Ok(tokens)
+    }
+
+    async fn delete_user_auth_token(&self, user_id: i32, token: String) -> Result<bool> {
+        let tokens = self.all_user_auth_tokens(user_id).await?;
+        let resp = if let Some(t) = tokens.into_iter().find(|t| t.token.ends_with(&token)) {
+            self.auth_db.remove(t.token).await.unwrap();
+            true
+        } else {
+            false
+        };
+        Ok(resp)
     }
 }
 

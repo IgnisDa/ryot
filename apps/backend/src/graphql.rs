@@ -9,7 +9,7 @@ use crate::{
     fitness::exercise::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
-    utils::{AppServices, MemoryDb},
+    utils::{AppServices, MemoryAuthDb},
     VERSION,
 };
 
@@ -59,7 +59,7 @@ pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 pub async fn get_schema(
     app_services: &AppServices,
     db: DatabaseConnection,
-    scdb: MemoryDb,
+    auth_db: MemoryAuthDb,
     config: Arc<AppConfig>,
 ) -> GraphqlSchema {
     Schema::build(
@@ -69,7 +69,7 @@ pub async fn get_schema(
     )
     .data(config)
     .data(db)
-    .data(scdb)
+    .data(auth_db)
     .data(app_services.media_service.clone())
     .data(app_services.importer_service.clone())
     .data(app_services.exercise_service.clone())

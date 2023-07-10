@@ -144,7 +144,8 @@ To set the equivalent environment variables, join keys by `_` (underscore) and
 _UPPER_SNAKE_CASE_ the characters.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
-([example](https://ryot.fly.dev/config)).
+([example](https://ryot.fly.dev/config)). This can also be treated as a [health
+endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
 
 **Note**: You can see all possible configuration parameters in
 the [generated schema](libs/generated/src/config/backend/schema.ts). The defaults

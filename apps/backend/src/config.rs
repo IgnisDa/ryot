@@ -97,9 +97,9 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
-    /// The path where [SCDB](https://docs.rs/scdb) will persist its storage.
-    #[setting(default = format!("/data/{}-scdb.db", PROJECT_NAME))]
-    pub scdb_url: String,
+    /// The directory where user auth tokens will be persisted.
+    #[setting(default = "/data")]
+    pub auth_db_path: String,
     /// The database connection string. Supports SQLite, MySQL and Postgres.
     /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
@@ -362,17 +362,14 @@ pub struct UsersConfig {
     /// settings.
     #[setting(default = true)]
     pub allow_changing_username: bool,
-    /// The number of days till login auth token is valid.
-    #[setting(default = 90)]
-    pub token_valid_for_days: i32,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "WEB_")]
-pub struct WebConfig {
+#[config(rename_all = "snake_case", env_prefix = "SERVER_")]
+pub struct ServerConfig {
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
@@ -380,6 +377,9 @@ pub struct WebConfig {
     /// are running the server on `localhost`.
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
+    /// The path where the config file will be written once the server boots up.
+    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
+    pub config_dump_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -430,9 +430,9 @@ pub struct AppConfig {
     /// Settings related to video games.
     #[setting(nested)]
     pub video_games: VideoGameConfig,
-    /// Settings related to website.
+    /// Settings related to server.
     #[setting(nested)]
-    pub web: WebConfig,
+    pub server: ServerConfig,
 }
 
 impl AppConfig {
@@ -441,7 +441,7 @@ impl AppConfig {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
         cl.database.url = gt();
-        cl.database.scdb_url = gt();
+        cl.database.auth_db_path = gt();
         cl.file_storage.s3_region = gt();
         cl.file_storage.s3_bucket_name = gt();
         cl.file_storage.s3_access_key_id = gt();
@@ -453,7 +453,7 @@ impl AppConfig {
         cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
-        cl.web.cors_origins = vec![gt()];
+        cl.server.cors_origins = vec![gt()];
         cl
     }
 }

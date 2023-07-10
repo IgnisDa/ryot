@@ -21,6 +21,7 @@ const documents = {
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
     "mutation DeleteReview($reviewId: Int!) {\n  deleteReview(reviewId: $reviewId)\n}": types.DeleteReviewDocument,
     "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
+    "mutation DeleteUserAuthToken($token: String!) {\n  deleteUserAuthToken(token: $token)\n}": types.DeleteUserAuthTokenDocument,
     "mutation DeleteUserYankIntegration($yankIntegrationId: Int!) {\n  deleteUserYankIntegration(yankIntegrationId: $yankIntegrationId)\n}": types.DeleteUserYankIntegrationDocument,
     "mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}": types.DeployImportDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
@@ -53,6 +54,7 @@ const documents = {
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query ReviewById($reviewId: Int!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n  }\n}": types.ReviewByIdDocument,
     "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
+    "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}": types.UserAuthTokensDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
     "query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}": types.UserPreferencesDocument,
     "query UserSummary {\n  userSummary {\n    calculatedOn\n    media {\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}": types.UserSummaryDocument,
@@ -105,6 +107,10 @@ export function graphql(source: "mutation DeleteReview($reviewId: Int!) {\n  del
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}"): (typeof documents)["mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeleteUserAuthToken($token: String!) {\n  deleteUserAuthToken(token: $token)\n}"): (typeof documents)["mutation DeleteUserAuthToken($token: String!) {\n  deleteUserAuthToken(token: $token)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -233,6 +239,10 @@ export function graphql(source: "query ReviewById($reviewId: Int!) {\n  reviewBy
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}"): (typeof documents)["query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}"): (typeof documents)["query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

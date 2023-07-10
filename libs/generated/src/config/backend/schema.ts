@@ -40,8 +40,11 @@ export interface BookConfig {
 }
 
 export interface DatabaseConfig {
-	/** The path where [SCDB](https://docs.rs/scdb) will persist its storage. */
-	scdb_url: string;
+	/**
+	 * The directory where user auth tokens will be persisted.
+	 * @default '/data'
+	 */
+	auth_db_path: string;
 	/**
 	 * The database connection string. Supports SQLite, MySQL and Postgres.
 	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
@@ -159,6 +162,19 @@ export interface SchedulerConfig {
 	user_cleanup_every: number;
 }
 
+export interface ServerConfig {
+	/** The path where the config file will be written once the server boots up. */
+	config_dump_path: string;
+	/** An array of URLs for CORS. */
+	cors_origins: string[];
+	/**
+	 * This will make auth cookies insecure and should be set to `true` if you
+	 * are running the server on `localhost`.
+	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
+	 */
+	insecure_cookie: boolean;
+}
+
 export interface ShowsTmdbConfig {
 	/** The access token for the TMDB API. */
 	access_token: string;
@@ -183,11 +199,6 @@ export interface UsersConfig {
 	 * @default true
 	 */
 	allow_registration: boolean;
-	/**
-	 * The number of days till login auth token is valid.
-	 * @default 90
-	 */
-	token_valid_for_days: number;
 }
 
 export type IgdbImageSize = 't_original';
@@ -217,17 +228,6 @@ export interface VideoGameConfig {
 	twitch: TwitchConfig;
 }
 
-export interface WebConfig {
-	/** An array of URLs for CORS. */
-	cors_origins: string[];
-	/**
-	 * This will make auth cookies insecure and should be set to `true` if you
-	 * are running the server on `localhost`.
-	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
-	 */
-	insecure_cookie: boolean;
-}
-
 export interface AppConfig {
 	/** Settings related to anime. */
 	anime: AnimeConfig;
@@ -253,12 +253,12 @@ export interface AppConfig {
 	podcasts: PodcastConfig;
 	/** Settings related to scheduler. */
 	scheduler: SchedulerConfig;
+	/** Settings related to server. */
+	server: ServerConfig;
 	/** Settings related to shows. */
 	shows: ShowConfig;
 	/** Settings related to users. */
 	users: UsersConfig;
 	/** Settings related to video games. */
 	video_games: VideoGameConfig;
-	/** Settings related to website. */
-	web: WebConfig;
 }

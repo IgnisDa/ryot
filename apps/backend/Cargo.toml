@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.7.5"
+version = "1.8.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -23,6 +23,7 @@ chrono = "0.4.24"
 convert_case = "0.6.0"
 const-str = "0.5.5"
 cookie = "0.17.0"
+darkbird = { git = "https://github.com/Rustixir/darkbird.git" }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 futures = "0.3.28"
@@ -44,7 +45,6 @@ schematic = { version = "0.11.0", features = [
     "yaml",
     "valid_url"
 ] }
-scdb = "0.2.1"
 sea-orm = { version = "0.11.1", features = [
     "debug-print",
     "macros",

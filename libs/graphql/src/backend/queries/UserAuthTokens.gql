@@ -1,0 +1,6 @@
+query UserAuthTokens {
+  userAuthTokens {
+    lastUsedOn
+    token
+  }
+}

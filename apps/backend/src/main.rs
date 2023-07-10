@@ -1,10 +1,10 @@
 use std::{
-    env,
+    env, fs,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 
@@ -30,11 +30,15 @@ use axum::{
     routing::{get, post, Router},
     Extension, Json, Server, TypedHeader,
 };
+use darkbird::{
+    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
+    Options, Storage, StorageType,
+};
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
-use scdb::Store;
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{prelude::DateTimeUtc, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use tokio::try_join;
@@ -43,6 +47,7 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
+use utils::MemoryAuthDb;
 use uuid::Uuid;
 
 use crate::{
@@ -57,7 +62,7 @@ use crate::{
     graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
     migrator::Migrator,
     miscellaneous::resolver::MiscellaneousService,
-    utils::{create_app_services, user_id_from_token, MemoryDb, COOKIE_NAME},
+    utils::{create_app_services, user_id_from_token, COOKIE_NAME},
 };
 
 mod background;
@@ -97,7 +102,12 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    let config = Arc::new(get_app_config()?);
+    let config = get_app_config()?;
+    fs::write(
+        &config.server.config_dump_path,
+        serde_json::to_string_pretty(&config)?,
+    )?;
+    let config = Arc::new(config);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -122,9 +132,17 @@ async fn main() -> Result<()> {
     let db = Database::connect(&config.database.url)
         .await
         .expect("Database connection failed");
-    let scdb = Arc::new(Mutex::new(
-        Store::new(&config.database.scdb_url, None, None, None, None, false).unwrap(),
-    ));
+    let auth_db = Arc::new(
+        Storage::<String, MemoryAuthData>::open(Options::new(
+            &config.database.auth_db_path,
+            &format!("{}-auth.db", PROJECT_NAME),
+            1000,
+            StorageType::DiskCopies,
+            true,
+        ))
+        .await
+        .unwrap(),
+    );
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -147,7 +165,7 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
-        scdb.clone(),
+        auth_db.clone(),
         s3_client,
         config.clone(),
         &import_media_storage,
@@ -182,14 +200,14 @@ async fn main() -> Result<()> {
             .unwrap();
     }
 
-    let schema = get_schema(&app_services, db.clone(), scdb.clone(), config.clone()).await;
+    let schema = get_schema(&app_services, db.clone(), auth_db.clone(), config.clone()).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
         .allow_origin(
             config
-                .web
+                .server
                 .cors_origins
                 .iter()
                 .map(|f| f.parse().unwrap())
@@ -207,7 +225,7 @@ async fn main() -> Result<()> {
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
-        .layer(Extension(scdb.clone()))
+        .layer(Extension(auth_db.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -457,11 +475,50 @@ async fn upload_handler(
 
 async fn export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
-    Extension(scdb): Extension<MemoryDb>,
+    Extension(auth_db): Extension<MemoryAuthDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &scdb)
+    let user_id = user_id_from_token(authorization.token().to_owned(), &auth_db)
+        .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MemoryAuthData {
+    pub user_id: i32,
+    pub last_used_on: DateTimeUtc,
+}
+
+impl Document for MemoryAuthData {}
+
+impl Indexer for MemoryAuthData {
+    fn extract(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl Tags for MemoryAuthData {
+    fn get_tags(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl Range for MemoryAuthData {
+    fn get_fields(&self) -> Vec<RangeField> {
+        vec![]
+    }
+}
+
+impl MaterializedView for MemoryAuthData {
+    fn filter(&self) -> Option<String> {
+        None
+    }
+}
+
+impl FullText for MemoryAuthData {
+    fn get_content(&self) -> Option<String> {
+        None
+    }
 }

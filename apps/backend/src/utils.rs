@@ -1,13 +1,13 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
-use chrono::NaiveDate;
-use scdb::Store;
+use chrono::{NaiveDate, Utc};
+use darkbird::Storage;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::de::{self, DeserializeOwned};
@@ -28,12 +28,12 @@ use crate::{
     graphql::USER_AGENT_STR,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
-    GqlCtx,
+    GqlCtx, MemoryAuthData,
 };
 
 pub static PAGE_LIMIT: i32 = 20;
 pub static COOKIE_NAME: &str = "auth";
-pub type MemoryDb = Arc<Mutex<Store>>;
+pub type MemoryAuthDb = Arc<Storage<String, MemoryAuthData>>;
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -46,7 +46,7 @@ pub struct AppServices {
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
-    scdb: MemoryDb,
+    auth_db: MemoryAuthDb,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
@@ -71,7 +71,7 @@ pub async fn create_app_services(
     let media_service = Arc::new(
         MiscellaneousService::new(
             &db,
-            &scdb,
+            &auth_db,
             config,
             file_storage_service.clone(),
             after_media_seen_job,
@@ -127,20 +127,22 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 }
 
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let scdb = ctx.data_unchecked::<MemoryDb>();
+    let auth_db = ctx.data_unchecked::<MemoryAuthDb>();
     let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_token(token, scdb)
+    user_id_from_token(token, auth_db).await
 }
 
-pub fn user_id_from_token(token: String, scdb: &MemoryDb) -> Result<i32> {
-    let found_token = match scdb.try_lock() {
-        Ok(mut t) => t.get(token.as_bytes()).unwrap(),
-        Err(_) => {
-            return Err(Error::new("Could not lock user database"));
-        }
-    };
+pub async fn user_id_from_token(token: String, auth_db: &MemoryAuthDb) -> Result<i32> {
+    let found_token = auth_db.lookup(&token);
     match found_token {
-        Some(t) => Ok(std::str::from_utf8(&t).unwrap().parse().unwrap()),
+        Some(t) => {
+            let mut val = t.value().clone();
+            drop(t); // since `t` is a references, we can not update it before dropping
+            let return_value = val.user_id.clone();
+            val.last_used_on = Utc::now();
+            auth_db.insert(token, val).await.unwrap();
+            Ok(return_value)
+        }
         None => Err(Error::new("The auth token was incorrect")),
     }
 }

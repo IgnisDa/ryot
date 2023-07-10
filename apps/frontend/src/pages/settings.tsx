@@ -37,6 +37,8 @@ import {
 	CoreDetailsDocument,
 	CreateUserYankIntegrationDocument,
 	type CreateUserYankIntegrationMutationVariables,
+	DeleteUserAuthTokenDocument,
+	type DeleteUserAuthTokenMutationVariables,
 	DeleteUserYankIntegrationDocument,
 	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
@@ -53,6 +55,7 @@ import {
 	UpdateUserFeaturePreferenceDocument,
 	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
+	UserAuthTokensDocument,
 	UserDetailsDocument,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
@@ -68,6 +71,7 @@ import {
 	IconDatabaseImport,
 	IconNeedleThread,
 	IconSignature,
+	IconTrash,
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -214,6 +218,37 @@ const Page: NextPageWithLayout = () => {
 		return userYankIntegrations;
 	});
 
+	const userAuthTokens = useQuery(
+		["userAuthTokens"],
+		async () => {
+			const { userAuthTokens } = await gqlClient.request(
+				UserAuthTokensDocument,
+			);
+			return userAuthTokens;
+		},
+		{ staleTime: Infinity },
+	);
+
+	const deleteUserAuthToken = useMutation({
+		mutationFn: async (variables: DeleteUserAuthTokenMutationVariables) => {
+			const { deleteUserAuthToken } = await gqlClient.request(
+				DeleteUserAuthTokenDocument,
+				variables,
+			);
+			return deleteUserAuthToken;
+		},
+		onSuccess: (data) => {
+			if (data) {
+				userAuthTokens.refetch();
+				notifications.show({
+					title: "Success",
+					message: "Auth token deleted successfully",
+					color: "green",
+				});
+			}
+		},
+	});
+
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
 			const { updateUser } = await gqlClient.request(
@@ -350,6 +385,9 @@ const Page: NextPageWithLayout = () => {
 			);
 			return generateApplicationToken;
 		},
+		onSuccess: () => {
+			userAuthTokens.refetch();
+		},
 	});
 
 	const openProfileUpdateModal = () =>
@@ -399,6 +437,7 @@ const Page: NextPageWithLayout = () => {
 		});
 
 	return languageInformation.data &&
+		userAuthTokens.data &&
 		userPrefs.data &&
 		userYankIntegrations.data ? (
 		<>
@@ -535,6 +574,34 @@ const Page: NextPageWithLayout = () => {
 										</Alert>
 									</Box>
 								)}
+								{userAuthTokens.data.map((a, idx) => (
+									<Paper p="xs" withBorder key={idx}>
+										<Flex align={"center"} justify={"space-between"}>
+											<Box>
+												<Text>{a.token.padStart(32, "*")}</Text>
+												<Text size="xs">
+													last used on{" "}
+													{DateTime.fromJSDate(a.lastUsedOn).toLocaleString(
+														DateTime.DATETIME_MED,
+													)}
+												</Text>
+											</Box>
+											<ActionIcon
+												color={"red"}
+												variant="outline"
+												onClick={() => {
+													const yes = confirm(
+														"Deleting this token will logout all devices authorized using this token. Are you sure?",
+													);
+													if (yes)
+														deleteUserAuthToken.mutate({ token: a.token });
+												}}
+											>
+												<IconTrash size="1rem" />
+											</ActionIcon>
+										</Flex>
+									</Paper>
+								))}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
