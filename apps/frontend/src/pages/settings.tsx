@@ -61,6 +61,7 @@ import {
 	UserYankIntegrationsDocument,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
+	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import {
@@ -73,6 +74,7 @@ import {
 	IconSignature,
 	IconTrash,
 	IconUser,
+	IconUsers,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
@@ -435,7 +437,8 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	return languageInformation.data &&
+	return userDetails.data &&
+		languageInformation.data &&
 		userAuthTokens.data &&
 		userPrefs.data &&
 		userYankIntegrations.data ? (
@@ -474,6 +477,12 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
 								Miscellaneous
 							</Tabs.Tab>
+							{userDetails.data.__typename === "User" &&
+							userDetails.data.lot === UserLot.Admin ? (
+								<Tabs.Tab value="users" icon={<IconUsers size="1rem" />}>
+									Users
+								</Tabs.Tab>
+							) : null}
 						</Tabs.List>
 
 						<Tabs.Panel value="profile">
@@ -811,6 +820,14 @@ const Page: NextPageWithLayout = () => {
 								</Box>
 							</Stack>
 						</Tabs.Panel>
+						{userDetails.data.__typename === "User" &&
+						userDetails.data.lot === UserLot.Admin ? (
+							<Tabs.Panel value="users">
+								<Stack>
+									<Text>All users here</Text>
+								</Stack>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</Stack>
 			</Container>
