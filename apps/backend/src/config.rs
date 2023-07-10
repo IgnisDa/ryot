@@ -362,6 +362,9 @@ pub struct UsersConfig {
     /// settings.
     #[setting(default = true)]
     pub allow_changing_username: bool,
+    /// The number of days till login auth token is valid.
+    #[setting(default = 90)]
+    pub token_valid_for_days: i32,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,

@@ -4,7 +4,7 @@ use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{NaiveDate, Utc};
-use cookie::{time::OffsetDateTime, Cookie};
+use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
@@ -411,10 +411,15 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
+    token_valid_till: i32,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
-    if expires {
-        cookie = cookie.expires(OffsetDateTime::now_utc())
+    cookie = if expires {
+        cookie.expires(OffsetDateTime::now_utc())
+    } else {
+        cookie.expires(
+            OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till.into())),
+        )
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -2772,12 +2777,24 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::MutexError,
             }));
         };
-        create_cookie(gql_ctx, &api_key, false, self.config.server.insecure_cookie)?;
+        create_cookie(
+            gql_ctx,
+            &api_key,
+            false,
+            self.config.server.insecure_cookie,
+            self.config.users.token_valid_for_days,
+        )?;
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
     async fn logout_user(&self, token: &str, gql_ctx: &Context<'_>) -> Result<bool> {
-        create_cookie(gql_ctx, "", true, self.config.server.insecure_cookie)?;
+        create_cookie(
+            gql_ctx,
+            "",
+            true,
+            self.config.server.insecure_cookie,
+            self.config.users.token_valid_for_days,
+        )?;
         let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(_) = found_token {
             self.auth_db.remove(token.to_owned()).await.unwrap();
