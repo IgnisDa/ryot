@@ -134,8 +134,8 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
     let darkdb = Arc::new(
         Storage::<String, MemoryAuthData>::open(DarkbirdOptions::new(
-            &config.database.auth_db_url,
-            PROJECT_NAME,
+            &config.database.auth_db_path,
+            &format!("{}-auth.db", PROJECT_NAME),
             1000,
             StorageType::DiskCopies,
             true,

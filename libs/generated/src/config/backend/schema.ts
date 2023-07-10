@@ -40,8 +40,11 @@ export interface BookConfig {
 }
 
 export interface DatabaseConfig {
-	/** The path where user auth tokens will be persisted. */
-	auth_db_url: string;
+	/**
+	 * The directory where user auth tokens will be persisted.
+	 * @default '/data'
+	 */
+	auth_db_path: string;
 	/**
 	 * The database connection string. Supports SQLite, MySQL and Postgres.
 	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
