@@ -1,7 +1,6 @@
 use std::{env, sync::Arc};
 
 use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject};
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -58,7 +57,6 @@ pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub async fn get_schema(
     app_services: &AppServices,
-    db: DatabaseConnection,
     auth_db: MemoryAuthDb,
     config: Arc<AppConfig>,
 ) -> GraphqlSchema {
@@ -68,7 +66,6 @@ pub async fn get_schema(
         EmptySubscription,
     )
     .data(config)
-    .data(db)
     .data(auth_db)
     .data(app_services.media_service.clone())
     .data(app_services.importer_service.clone())
