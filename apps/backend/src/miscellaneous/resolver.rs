@@ -621,6 +621,15 @@ impl MiscellaneousQuery {
             .user_yank_integrations(user_id)
             .await
     }
+
+    /// Get all the auth tokens issued to the currently logged in user.
+    async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<String>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_auth_tokens(user_id)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -897,7 +906,7 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     db: DatabaseConnection,
-    darkdb: MemoryAuthDb,
+    auth_db: MemoryAuthDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: AudibleService,
@@ -943,7 +952,7 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            darkdb: darkdb.clone(),
+            auth_db: darkdb.clone(),
             config,
             file_storage,
             audible_service,
@@ -2516,7 +2525,7 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token.to_owned(), &self.darkdb).await;
+        let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(user))
@@ -2731,9 +2740,9 @@ impl MiscellaneousService {
     }
 
     async fn logout_user(&self, token: &str) -> Result<bool> {
-        let found_token = user_id_from_token(token.to_owned(), &self.darkdb).await;
+        let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(_) = found_token {
-            self.darkdb.remove(token.to_owned()).await.unwrap();
+            self.auth_db.remove(token.to_owned()).await.unwrap();
             Ok(true)
         } else {
             Ok(false)
@@ -3080,7 +3089,7 @@ impl MiscellaneousService {
     }
 
     async fn set_auth_token(&self, api_key: &str, user_id: &i32) -> anyhow::Result<()> {
-        self.darkdb
+        self.auth_db
             .insert(
                 api_key.to_owned(),
                 MemoryAuthData {
@@ -3222,6 +3231,25 @@ impl MiscellaneousService {
             self.yank_integrations_data_for_user(user.id).await?;
         }
         Ok(())
+    }
+
+    pub async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<String>> {
+        let tokens = self
+            .auth_db
+            .iter()
+            .filter_map(|r| {
+                if r.user_id == user_id {
+                    // taken from https://users.rust-lang.org/t/take-last-n-characters-from-string/44638/4
+                    let mut key = r.key().clone();
+                    key.drain(0..key.len() - 4);
+                    // taken from https://stackoverflow.com/a/50458236/11667450
+                    Some(format!("{:*>28}", key))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        Ok(tokens)
     }
 }
 
