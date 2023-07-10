@@ -6,6 +6,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
+use uuid::Uuid;
 
 use crate::{
     graphql::{IdObject, USER_AGENT_STR},
@@ -191,8 +192,8 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         };
         let (identifier, source) = match d.media_type.clone() {
             MediaType::Book => {
-                if let Some(g_id) = details.goodreads_id {
-                    (g_id.to_string(), MetadataSource::Custom)
+                if let Some(_g_id) = details.goodreads_id {
+                    (Uuid::new_v4().to_string(), MetadataSource::Custom)
                 } else {
                     (
                         get_key(&details.openlibrary_id.clone().unwrap()),
