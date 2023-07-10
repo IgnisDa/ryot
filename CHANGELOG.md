@@ -1,4 +1,15 @@
 
+# Version 1.8.2 (2023-07-10)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **frontend:** use new func to format time
+
+
 # Version 1.8.1 (2023-07-10)
 
 ## Build
