@@ -128,7 +128,7 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
     let scdb = Arc::new(Mutex::new(
-        Store::new(&config.database.scdb_url, None, None, None, None, false).unwrap(),
+        Store::new(&config.database.auth_db_url, None, None, None, None, false).unwrap(),
     ));
 
     let selected_database = match db {
