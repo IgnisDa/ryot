@@ -1,4 +1,16 @@
 
+# Version 1.8.1 (2023-07-10)
+
+## Build
+
+* **backend:** bump version
+* **frontend:** add `time-ago` deps
+
+## Features
+
+* **frontend:** display time ago for last used/added fields
+
+
 # Version 1.8.0 (2023-07-10)
 
 
