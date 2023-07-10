@@ -559,7 +559,7 @@ const Page: NextPageWithLayout = () => {
 												<Text size="xs">
 													last used on{" "}
 													{DateTime.fromJSDate(a.lastUsedOn).toLocaleString(
-														DateTime.DATETIME_FULL,
+														DateTime.DATETIME_MED,
 													)}
 												</Text>
 											</Box>
