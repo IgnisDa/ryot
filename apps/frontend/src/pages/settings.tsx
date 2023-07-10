@@ -53,6 +53,7 @@ import {
 	UpdateUserFeaturePreferenceDocument,
 	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
+	UserAuthTokensDocument,
 	UserDetailsDocument,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
@@ -214,6 +215,17 @@ const Page: NextPageWithLayout = () => {
 		return userYankIntegrations;
 	});
 
+	const userAuthTokens = useQuery(
+		["userAuthTokens"],
+		async () => {
+			const { userAuthTokens } = await gqlClient.request(
+				UserAuthTokensDocument,
+			);
+			return userAuthTokens;
+		},
+		{ staleTime: Infinity },
+	);
+
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
 			const { updateUser } = await gqlClient.request(
@@ -350,6 +362,9 @@ const Page: NextPageWithLayout = () => {
 			);
 			return generateApplicationToken;
 		},
+		onSuccess: () => {
+			userAuthTokens.refetch();
+		},
 	});
 
 	const openProfileUpdateModal = () =>
@@ -399,6 +414,7 @@ const Page: NextPageWithLayout = () => {
 		});
 
 	return languageInformation.data &&
+		userAuthTokens.data &&
 		userPrefs.data &&
 		userYankIntegrations.data ? (
 		<>
@@ -535,6 +551,21 @@ const Page: NextPageWithLayout = () => {
 										</Alert>
 									</Box>
 								)}
+								{userAuthTokens.data.map((a, idx) => (
+									<Paper p="xs" withBorder key={idx}>
+										<Flex align={"center"} justify={"space-between"}>
+											<Box>
+												<Text>{a.token}</Text>
+												<Text size="xs">
+													last used on{" "}
+													{DateTime.fromJSDate(a.lastUsedOn).toLocaleString(
+														DateTime.DATETIME_FULL,
+													)}
+												</Text>
+											</Box>
+										</Flex>
+									</Paper>
+								))}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
