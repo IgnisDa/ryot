@@ -3245,10 +3245,9 @@ impl MiscellaneousService {
                 if r.user_id == user_id {
                     // taken from https://users.rust-lang.org/t/take-last-n-characters-from-string/44638/4
                     let mut key = r.key().clone();
-                    key.drain(0..key.len() - 4);
-                    // taken from https://stackoverflow.com/a/50458236/11667450
+                    key.drain(0..key.len() - 6);
                     Some(UserAuthToken {
-                        token: format!("{:*>28}", key),
+                        token: key,
                         last_used_on: r.last_used_on.clone(),
                     })
                 } else {

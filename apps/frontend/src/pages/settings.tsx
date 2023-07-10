@@ -555,7 +555,7 @@ const Page: NextPageWithLayout = () => {
 									<Paper p="xs" withBorder key={idx}>
 										<Flex align={"center"} justify={"space-between"}>
 											<Box>
-												<Text>{a.token}</Text>
+												<Text>{a.token.padStart(32, "*")}</Text>
 												<Text size="xs">
 													last used on{" "}
 													{DateTime.fromJSDate(a.lastUsedOn).toLocaleString(
