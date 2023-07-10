@@ -7,6 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::NaiveDate;
+use darkbird::Storage;
 use scdb::Store;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
@@ -28,12 +29,13 @@ use crate::{
     graphql::USER_AGENT_STR,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
-    GqlCtx,
+    GqlCtx, MemoryAuthData,
 };
 
 pub static PAGE_LIMIT: i32 = 20;
 pub static COOKIE_NAME: &str = "auth";
 pub type MemoryDb = Arc<Mutex<Store>>;
+pub type DarkDb = Arc<Storage<String, MemoryAuthData>>;
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -47,6 +49,7 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     scdb: MemoryDb,
+    darkdb: DarkDb,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
@@ -72,6 +75,7 @@ pub async fn create_app_services(
         MiscellaneousService::new(
             &db,
             &scdb,
+            &darkdb,
             config,
             file_storage_service.clone(),
             after_media_seen_job,

@@ -30,11 +30,16 @@ use axum::{
     routing::{get, post, Router},
     Extension, Json, Server, TypedHeader,
 };
+use darkbird::{
+    document::{self, RangeField},
+    Options as DarkbirdOptions, Storage, StorageType,
+};
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use scdb::Store;
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{prelude::DateTimeUtc, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use tokio::try_join;
@@ -130,6 +135,17 @@ async fn main() -> Result<()> {
     let scdb = Arc::new(Mutex::new(
         Store::new(&config.database.auth_db_url, None, None, None, None, false).unwrap(),
     ));
+    let darkdb = Arc::new(
+        Storage::<String, MemoryAuthData>::open(DarkbirdOptions::new(
+            &config.database.auth_db_url,
+            PROJECT_NAME,
+            1000,
+            StorageType::DiskCopies,
+            true,
+        ))
+        .await
+        .unwrap(),
+    );
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -153,6 +169,7 @@ async fn main() -> Result<()> {
     let app_services = create_app_services(
         db.clone(),
         scdb.clone(),
+        darkdb.clone(),
         s3_client,
         config.clone(),
         &import_media_storage,
@@ -469,4 +486,42 @@ async fn export(
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MemoryAuthData {
+    pub user_id: i32,
+    pub updated_on: DateTimeUtc,
+}
+
+impl document::Document for MemoryAuthData {}
+
+impl document::Indexer for MemoryAuthData {
+    fn extract(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl document::Tags for MemoryAuthData {
+    fn get_tags(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl document::Range for MemoryAuthData {
+    fn get_fields(&self) -> Vec<RangeField> {
+        vec![]
+    }
+}
+
+impl document::MaterializedView for MemoryAuthData {
+    fn filter(&self) -> Option<String> {
+        None
+    }
+}
+
+impl document::FullText for MemoryAuthData {
+    fn get_content(&self) -> Option<String> {
+        None
+    }
 }

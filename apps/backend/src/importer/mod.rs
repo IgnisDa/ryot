@@ -165,7 +165,6 @@ impl ImporterMutation {
     }
 }
 
-#[derive(Debug)]
 pub struct ImporterService {
     db: DatabaseConnection,
     media_service: Arc<MiscellaneousService>,

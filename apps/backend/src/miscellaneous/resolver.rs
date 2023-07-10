@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use apalis::{prelude::Storage, sqlite::SqliteStorage};
+use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
@@ -77,8 +77,8 @@ use crate::{
         UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx, MemoryDb,
-        SearchInput, COOKIE_NAME, PAGE_LIMIT,
+        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx, DarkDb,
+        MemoryDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
 };
 
@@ -915,10 +915,10 @@ impl MiscellaneousMutation {
     }
 }
 
-#[derive(Debug)]
 pub struct MiscellaneousService {
     db: DatabaseConnection,
     scdb: MemoryDb,
+    darkdb: DarkDb,
     config: Arc<AppConfig>,
     file_storage: Arc<FileStorageService>,
     audible_service: AudibleService,
@@ -943,6 +943,7 @@ impl MiscellaneousService {
     pub async fn new(
         db: &DatabaseConnection,
         scdb: &MemoryDb,
+        darkdb: &DarkDb,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
@@ -965,6 +966,7 @@ impl MiscellaneousService {
         Self {
             db: db.clone(),
             scdb: scdb.clone(),
+            darkdb: darkdb.clone(),
             config,
             file_storage,
             audible_service,
