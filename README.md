@@ -46,9 +46,12 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
   and fitness.
-- ✅ Import data
+- ✅ [Import data](/docs/guides/importing.md)
   - Goodreads
   - MediaTracker
+- ✅ [Integrations](/docs/guides/integrations.md)
+  - Kodi
+  - Audiobookshelf
 - ✅ Self-hosted
 - ✅ PWA enabled
 - ✅ Documented GraphQL API
