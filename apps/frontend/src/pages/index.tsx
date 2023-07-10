@@ -28,6 +28,7 @@ import {
 	MetadataLot,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { formatTime } from "@ryot/utilities";
 import { IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
@@ -146,12 +147,7 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
-						Calculated{" "}
-						{humaizer.humanize(
-							new Date().getTime() - userSummary.data.calculatedOn.getTime(),
-							{ units: ["h", "m"], round: true },
-						)}{" "}
-						ago
+						Calculated {formatTime(userSummary.data.calculatedOn)}
 					</Text>
 					<SimpleGrid
 						cols={1}
