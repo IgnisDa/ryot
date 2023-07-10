@@ -1,4 +1,15 @@
 
+# Version 1.7.3 (2023-07-10)
+
+## Bug Fixes
+
+* **backend:** incorrect unwrap
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.7.2 (2023-07-10)
 
 
