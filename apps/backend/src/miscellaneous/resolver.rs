@@ -619,6 +619,15 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about the currently logged in user.
+    async fn users(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .users(user_id)
+            .await
+    }
+
+    /// Get details about the currently logged in user.
     async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let token = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
@@ -3325,6 +3334,17 @@ impl MiscellaneousService {
             false
         };
         Ok(resp)
+    }
+
+    async fn users(&self, user_id: i32) -> Result<Vec<user::Model>> {
+        let main_user = self.user_by_id(user_id).await?;
+        if main_user.lot != UserLot::Admin {
+            return Err(Error::new("Only admins can perform this operation."));
+        }
+        Ok(User::find()
+            .order_by_asc(user::Column::Id)
+            .all(&self.db)
+            .await?)
     }
 }
 
