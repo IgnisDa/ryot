@@ -95,8 +95,6 @@ const DisplayStatForMediaType = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
-	const service = new HumanizeDurationLanguage();
-	const humaizer = new HumanizeDuration(service);
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
