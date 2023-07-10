@@ -4,7 +4,7 @@ use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{NaiveDate, Utc};
-use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
+use cookie::{time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
@@ -245,15 +245,10 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
-    token_valid_till: i32,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
-    cookie = if expires {
-        cookie.expires(OffsetDateTime::now_utc())
-    } else {
-        cookie.expires(
-            OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till.into())),
-        )
+    if expires {
+        cookie = cookie.expires(OffsetDateTime::now_utc())
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -742,13 +737,7 @@ impl MiscellaneousMutation {
             .login_user(&input.username, &input.password)
             .await?;
         if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
-            create_cookie(
-                gql_ctx,
-                api_key,
-                false,
-                config.server.insecure_cookie,
-                config.users.token_valid_for_days,
-            )?;
+            create_cookie(gql_ctx, api_key, false, config.server.insecure_cookie)?;
         };
         Ok(maybe_api_key)
     }
@@ -756,13 +745,7 @@ impl MiscellaneousMutation {
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
-        create_cookie(
-            gql_ctx,
-            "",
-            true,
-            config.server.insecure_cookie,
-            config.users.token_valid_for_days,
-        )?;
+        create_cookie(gql_ctx, "", true, config.server.insecure_cookie)?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
