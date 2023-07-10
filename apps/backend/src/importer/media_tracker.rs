@@ -171,6 +171,8 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     let data_len = data.len();
 
     let mut final_data = vec![];
+    // TODO: Technically this can be done in parallel, by executing requests in
+    // batches. Example: https://users.rust-lang.org/t/can-tokio-semaphore-be-used-to-limit-spawned-tasks/59899.
     for (idx, d) in data.into_iter().enumerate() {
         let lot = MetadataLot::from(d.media_type.clone());
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
