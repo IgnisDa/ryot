@@ -906,6 +906,15 @@ impl MiscellaneousMutation {
             .yank_integrations_data_for_user(user_id)
             .await
     }
+
+    /// Delete an auth token for the currently logged in user.
+    async fn delete_user_auth_token(&self, gql_ctx: &Context<'_>, token: String) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .delete_user_auth_token(user_id, token)
+            .await
+    }
 }
 
 pub struct MiscellaneousService {
@@ -3237,25 +3246,42 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
+    async fn all_user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
         let tokens = self
             .auth_db
             .iter()
             .filter_map(|r| {
                 if r.user_id == user_id {
-                    // taken from https://users.rust-lang.org/t/take-last-n-characters-from-string/44638/4
-                    let mut key = r.key().clone();
-                    key.drain(0..key.len() - 6);
                     Some(UserAuthToken {
-                        token: key,
+                        token: r.key().clone(),
                         last_used_on: r.last_used_on.clone(),
                     })
                 } else {
                     None
                 }
             })
-            .collect::<Vec<_>>();
+            .collect();
         Ok(tokens)
+    }
+
+    async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
+        let mut tokens = self.all_user_auth_tokens(user_id).await?;
+        tokens.iter_mut().for_each(|t| {
+            // taken from https://users.rust-lang.org/t/take-last-n-characters-from-string/44638/4
+            t.token.drain(0..t.token.len() - 6);
+        });
+        Ok(tokens)
+    }
+
+    async fn delete_user_auth_token(&self, user_id: i32, token: String) -> Result<bool> {
+        let tokens = self.all_user_auth_tokens(user_id).await?;
+        let resp = if let Some(t) = tokens.into_iter().find(|t| t.token.ends_with(&token)) {
+            self.auth_db.remove(t.token).await.unwrap();
+            true
+        } else {
+            false
+        };
+        Ok(resp)
     }
 }
 
