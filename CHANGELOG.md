@@ -1,4 +1,15 @@
 
+# Version 1.7.4 (2023-07-10)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **backend:** fix list importing from MediaTracker
+
+
 # Version 1.7.3 (2023-07-10)
 
 ## Bug Fixes
