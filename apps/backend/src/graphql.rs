@@ -45,7 +45,7 @@ pub struct CoreDetails {
     username_change_allowed: bool,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct IdObject {
     pub id: Identifier,
 }

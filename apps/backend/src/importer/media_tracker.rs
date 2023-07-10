@@ -8,7 +8,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
-    graphql::USER_AGENT_STR,
+    graphql::{IdObject, USER_AGENT_STR},
     importer::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
@@ -46,13 +46,24 @@ impl From<MediaType> for MetadataLot {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ListResponse {
+    id: i32,
+    name: String,
+    #[serde(default)]
+    items: Vec<ListItemResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListItemResponse {
+    media_item: Item,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Item {
     id: i32,
     media_type: MediaType,
-    audible_id: Option<String>,
-    igdb_id: Option<i32>,
-    tmdb_id: Option<i32>,
-    openlibrary_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -93,6 +104,10 @@ struct ItemDetails {
     seen_history: Vec<ItemSeen>,
     seasons: Vec<ItemSeason>,
     user_rating: Option<ItemReview>,
+    audible_id: Option<String>,
+    igdb_id: Option<i32>,
+    tmdb_id: Option<i32>,
+    openlibrary_id: Option<String>,
     goodreads_id: Option<i32>,
     title: String,
     overview: Option<String>,
@@ -110,12 +125,48 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         .try_into()
         .unwrap();
 
+    let mut rsp = client.get("user").await.unwrap();
+    let data: IdObject = rsp.body_json().await.unwrap();
+
+    let user_id: i32 = data.id.into();
+
+    let mut rsp = client
+        .get("lists")
+        .query(&serde_json::json!({ "userId": user_id }))
+        .unwrap()
+        .await
+        .unwrap();
+    let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
+
+    for list in lists.iter_mut() {
+        let mut rsp = client
+            .get("list/items")
+            .query(&serde_json::json!({ "listId": list.id }))
+            .unwrap()
+            .await
+            .unwrap();
+        let items: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        list.items = items;
+    }
+
     let mut failed_items = vec![];
 
     // all items returned here are seen atleast once
     let mut rsp = client.get("items").await.unwrap();
-    let data: Vec<Item> = rsp.body_json().await.unwrap();
-    let len = data.len();
+    let mut data: Vec<Item> = rsp.body_json().await.unwrap();
+
+    // There are a few items that are added to lists but have not been seen, so will
+    // add them manually.
+    lists.iter().for_each(|l| {
+        l.items.iter().for_each(|i| {
+            data.push(Item {
+                id: i.media_item.id,
+                media_type: i.media_item.media_type.clone(),
+            })
+        })
+    });
+
+    let data_len = data.len();
 
     let mut final_data = vec![];
     for (idx, d) in data.into_iter().enumerate() {
@@ -140,121 +191,116 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     (g_id.to_string(), MetadataSource::Custom)
                 } else {
                     (
-                        get_key(&d.openlibrary_id.clone().unwrap()),
+                        get_key(&details.openlibrary_id.clone().unwrap()),
                         MetadataSource::Openlibrary,
                     )
                 }
             }
-            MediaType::Movie => (d.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
-            MediaType::Tv => (d.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
-            MediaType::VideoGame => (d.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
-            MediaType::Audiobook => (d.audible_id.clone().unwrap(), MetadataSource::Audible),
+            MediaType::Movie => (details.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
+            MediaType::Tv => (details.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
+            MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
+            MediaType::Audiobook => (details.audible_id.clone().unwrap(), MetadataSource::Audible),
         };
         tracing::trace!(
             "Got details for {type:?}: {id} ({idx}/{total})",
             type = d.media_type,
             id = d.id,
             idx = idx,
-            total = len
+            total = data_len
         );
         let need_details = details.goodreads_id.is_none();
-        final_data.push(convert_item(
-            d,
-            details,
-            identifier,
-            lot,
+
+        let mut collections = vec![];
+        for list in lists.iter() {
+            for item in list.items.iter() {
+                if i32::from(item.media_item.id) == d.id {
+                    collections.push(list.name.clone());
+                }
+            }
+        }
+
+        let item = ImportItem {
+            source_id: d.id.to_string(),
             source,
-            need_details,
-        ));
+            lot,
+            collections,
+            identifier: match need_details {
+                false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
+                    identifier,
+                    title: details.title,
+                    description: details.overview,
+                    lot,
+                    source: MetadataSource::Custom,
+                    creators: details
+                        .authors
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|a| MetadataCreator {
+                            name: a,
+                            role: "Author".to_owned(),
+                            image_urls: vec![],
+                        })
+                        .collect(),
+                    genres: vec![],
+                    images: vec![],
+                    publish_year: None,
+                    publish_date: None,
+                    specifics: MediaSpecifics::Book(BookSpecifics {
+                        pages: details.number_of_pages,
+                    }),
+                })),
+                true => ImportItemIdentifier::NeedsDetails(identifier),
+            },
+            reviews: Vec::from_iter(details.user_rating.map(|r| {
+                let review =
+                    if let Some(s) = r.clone().review.map(|s| extract_review_information(&s)) {
+                        s
+                    } else {
+                        Some(super::ImportItemReview {
+                            date: None,
+                            spoiler: false,
+                            text: r.review.unwrap_or_default(),
+                        })
+                    };
+                ImportItemRating {
+                    id: Some(r.id.to_string()),
+                    review,
+                    rating: r.rating,
+                }
+            })),
+            seen_history: details
+                .seen_history
+                .iter()
+                .map(|s| {
+                    let (season_number, episode_number) = if let Some(c) = s.episode_id {
+                        let episode = details
+                            .seasons
+                            .iter()
+                            .flat_map(|e| e.episodes.to_owned())
+                            .find(|e| e.id == c)
+                            .unwrap();
+                        (Some(episode.season_number), Some(episode.episode_number))
+                    } else {
+                        (None, None)
+                    };
+                    ImportItemSeen {
+                        id: Some(s.id.to_string()),
+                        ended_on: s.date,
+                        show_season_number: season_number,
+                        show_episode_number: episode_number,
+                        // DEV: Since this source does not support podcasts
+                        podcast_episode_number: None,
+                    }
+                })
+                .collect(),
+        };
+        dbg!(&item);
+        final_data.push(item);
     }
     Ok(ImportResult {
         media: final_data,
         failed_items,
     })
-}
-
-fn convert_item(
-    d: Item,
-    details: ItemDetails,
-    identifier: String,
-    lot: MetadataLot,
-    source: MetadataSource,
-    need_details: bool,
-) -> ImportItem {
-    ImportItem {
-        source_id: d.id.to_string(),
-        source,
-        lot,
-        collections: vec![],
-        identifier: match need_details {
-            false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
-                identifier,
-                title: details.title,
-                description: details.overview,
-                lot,
-                source: MetadataSource::Custom,
-                creators: details
-                    .authors
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|a| MetadataCreator {
-                        name: a,
-                        role: "Author".to_owned(),
-                        image_urls: vec![],
-                    })
-                    .collect(),
-                genres: vec![],
-                images: vec![],
-                publish_year: None,
-                publish_date: None,
-                specifics: MediaSpecifics::Book(BookSpecifics {
-                    pages: details.number_of_pages,
-                }),
-            })),
-            true => ImportItemIdentifier::NeedsDetails(identifier),
-        },
-        reviews: Vec::from_iter(details.user_rating.map(|r| {
-            let review = if let Some(s) = r.clone().review.map(|s| extract_review_information(&s)) {
-                s
-            } else {
-                Some(super::ImportItemReview {
-                    date: None,
-                    spoiler: false,
-                    text: r.review.unwrap_or_default(),
-                })
-            };
-            ImportItemRating {
-                id: Some(r.id.to_string()),
-                review,
-                rating: r.rating,
-            }
-        })),
-        seen_history: details
-            .seen_history
-            .iter()
-            .map(|s| {
-                let (season_number, episode_number) = if let Some(c) = s.episode_id {
-                    let episode = details
-                        .seasons
-                        .iter()
-                        .flat_map(|e| e.episodes.to_owned())
-                        .find(|e| e.id == c)
-                        .unwrap();
-                    (Some(episode.season_number), Some(episode.episode_number))
-                } else {
-                    (None, None)
-                };
-                ImportItemSeen {
-                    id: Some(s.id.to_string()),
-                    ended_on: s.date,
-                    show_season_number: season_number,
-                    show_episode_number: episode_number,
-                    // DEV: Since this source does not support podcasts
-                    podcast_episode_number: None,
-                }
-            })
-            .collect(),
-    }
 }
 
 pub mod utils {
