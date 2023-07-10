@@ -1,4 +1,4 @@
-query MediaDetails($metadataId: Identifier!) {
+query MediaDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
     title
     description
