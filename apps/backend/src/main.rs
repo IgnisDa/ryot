@@ -31,8 +31,8 @@ use axum::{
     Extension, Json, Server, TypedHeader,
 };
 use darkbird::{
-    document::{self, RangeField},
-    Options as DarkbirdOptions, Storage, StorageType,
+    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
+    Options, Storage, StorageType,
 };
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
     let auth_db = Arc::new(
-        Storage::<String, MemoryAuthData>::open(DarkbirdOptions::new(
+        Storage::<String, MemoryAuthData>::open(Options::new(
             &config.database.auth_db_path,
             &format!("{}-auth.db", PROJECT_NAME),
             1000,
@@ -491,33 +491,33 @@ pub struct MemoryAuthData {
     pub last_used_on: DateTimeUtc,
 }
 
-impl document::Document for MemoryAuthData {}
+impl Document for MemoryAuthData {}
 
-impl document::Indexer for MemoryAuthData {
+impl Indexer for MemoryAuthData {
     fn extract(&self) -> Vec<String> {
         vec![]
     }
 }
 
-impl document::Tags for MemoryAuthData {
+impl Tags for MemoryAuthData {
     fn get_tags(&self) -> Vec<String> {
         vec![]
     }
 }
 
-impl document::Range for MemoryAuthData {
+impl Range for MemoryAuthData {
     fn get_fields(&self) -> Vec<RangeField> {
         vec![]
     }
 }
 
-impl document::MaterializedView for MemoryAuthData {
+impl MaterializedView for MemoryAuthData {
     fn filter(&self) -> Option<String> {
         None
     }
 }
 
-impl document::FullText for MemoryAuthData {
+impl FullText for MemoryAuthData {
     fn get_content(&self) -> Option<String> {
         None
     }
