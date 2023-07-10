@@ -62,7 +62,7 @@ import {
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/utilities";
+import { changeCase, formatTime } from "@ryot/utilities";
 import {
 	IconAnalyze,
 	IconApps,
@@ -75,16 +75,10 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import TimeAgo from "javascript-time-ago";
-import en from "javascript-time-ago/locale/en.json";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
-
-TimeAgo.addDefaultLocale(en);
-
-const timeAgo = new TimeAgo("en-US");
 
 const message = {
 	title: "Success",
@@ -585,7 +579,7 @@ const Page: NextPageWithLayout = () => {
 											<Box>
 												<Text>{a.token.padStart(32, "*")}</Text>
 												<Text size="xs">
-													last used {timeAgo.format(a.lastUsedOn)}
+													last used {formatTime(a.lastUsedOn)}
 												</Text>
 											</Box>
 											<ActionIcon
@@ -719,7 +713,7 @@ const Page: NextPageWithLayout = () => {
 															{i.description}{" "}
 														</Anchor>
 													</Text>
-													<Text size="xs">{timeAgo.format(i.timestamp)}</Text>
+													<Text size="xs">{formatTime(i.timestamp)}</Text>
 												</Box>
 												<Button
 													color="red"
