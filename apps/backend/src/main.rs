@@ -479,6 +479,7 @@ async fn export(
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user_id_from_token(authorization.token().to_owned(), &darkdb)
+        .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))

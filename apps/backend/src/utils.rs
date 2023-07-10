@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use darkbird::Storage;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
@@ -129,13 +129,19 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
     let darkdb = ctx.data_unchecked::<MemoryAuthDb>();
     let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_token(token, darkdb)
+    user_id_from_token(token, darkdb).await
 }
 
-pub fn user_id_from_token(token: String, darkdb: &MemoryAuthDb) -> Result<i32> {
+pub async fn user_id_from_token(token: String, darkdb: &MemoryAuthDb) -> Result<i32> {
     let found_token = darkdb.lookup(&token);
     match found_token {
-        Some(t) => Ok(t.value().user_id.to_owned()),
+        Some(t) => {
+            let mut val = t.value().clone();
+            let return_value = val.user_id.clone();
+            val.updated_on = Utc::now();
+            darkdb.insert(token, val).await.unwrap();
+            Ok(return_value)
+        }
         None => Err(Error::new("The auth token was incorrect")),
     }
 }

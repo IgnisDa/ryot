@@ -2516,7 +2516,7 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token.to_owned(), &self.darkdb);
+        let found_token = user_id_from_token(token.to_owned(), &self.darkdb).await;
         if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(user))
@@ -2731,7 +2731,7 @@ impl MiscellaneousService {
     }
 
     async fn logout_user(&self, token: &str) -> Result<bool> {
-        let found_token = user_id_from_token(token.to_owned(), &self.darkdb);
+        let found_token = user_id_from_token(token.to_owned(), &self.darkdb).await;
         if let Ok(_) = found_token {
             self.darkdb.remove(token.to_owned()).await.unwrap();
             Ok(true)
