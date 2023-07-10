@@ -158,6 +158,7 @@ const Page: NextPageWithLayout = () => {
 			if (!activeMinePage) setMinePage("1");
 		},
 		enabled: lot !== undefined && activeTab === "mine",
+		staleTime: Infinity,
 	});
 	const collections = useQuery({
 		queryKey: ["collections"],
@@ -165,7 +166,6 @@ const Page: NextPageWithLayout = () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
 			return collections;
 		},
-		staleTime: Infinity,
 	});
 	const mediaSources = useQuery({
 		queryKey: ["sources", lot],
@@ -390,7 +390,7 @@ const Page: NextPageWithLayout = () => {
 														}
 													/>
 												</Flex>
-												{collections.data.length > 0 ? (
+												{collections.data && collections.data.length > 0 ? (
 													<Select
 														withinPortal
 														placeholder="Select a collection"
