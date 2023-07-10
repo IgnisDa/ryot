@@ -49,9 +49,9 @@ use crate::{
         Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{
-        CustomService, MediaSpecifics, MetadataCreator, MetadataCreators, MetadataImage,
-        MetadataImageUrl, MetadataImages, SeenExtraInformation, SeenPodcastExtraInformation,
-        SeenShowExtraInformation,
+        CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
+        MetadataImage, MetadataImageUrl, MetadataImages, SeenExtraInformation,
+        SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
     models::{
         media::{
@@ -82,8 +82,6 @@ use crate::{
     },
     MemoryAuthData,
 };
-
-use super::DefaultCollection;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -240,25 +238,6 @@ struct CollectionContents {
     user: user::Model,
 }
 
-fn create_cookie(
-    ctx: &Context<'_>,
-    api_key: &str,
-    expires: bool,
-    insecure_cookie: bool,
-) -> Result<()> {
-    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
-    if expires {
-        cookie = cookie.expires(OffsetDateTime::now_utc())
-    };
-    let cookie = cookie.finish();
-    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
-    Ok(())
-}
-
-fn get_hasher() -> Argon2<'static> {
-    Argon2::default()
-}
-
 #[derive(Debug, SimpleObject)]
 struct ReviewPostedBy {
     id: i32,
@@ -411,6 +390,31 @@ struct CollectionInput {
 struct MediaConsumedInput {
     identifier: String,
     lot: MetadataLot,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserAuthToken {
+    token: String,
+    last_used_on: DateTimeUtc,
+}
+
+fn create_cookie(
+    ctx: &Context<'_>,
+    api_key: &str,
+    expires: bool,
+    insecure_cookie: bool,
+) -> Result<()> {
+    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
+    if expires {
+        cookie = cookie.expires(OffsetDateTime::now_utc())
+    };
+    let cookie = cookie.finish();
+    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
+    Ok(())
+}
+
+fn get_hasher() -> Argon2<'static> {
+    Argon2::default()
 }
 
 #[derive(Default)]
@@ -623,7 +627,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the auth tokens issued to the currently logged in user.
-    async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<String>> {
+    async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<UserAuthToken>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -3233,7 +3237,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<String>> {
+    pub async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
         let tokens = self
             .auth_db
             .iter()
@@ -3243,7 +3247,10 @@ impl MiscellaneousService {
                     let mut key = r.key().clone();
                     key.drain(0..key.len() - 4);
                     // taken from https://stackoverflow.com/a/50458236/11667450
-                    Some(format!("{:*>28}", key))
+                    Some(UserAuthToken {
+                        token: format!("{:*>28}", key),
+                        last_used_on: r.updated_on.clone(),
+                    })
                 } else {
                     None
                 }
