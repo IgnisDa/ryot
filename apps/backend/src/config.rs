@@ -381,7 +381,7 @@ pub struct ServerConfig {
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
     /// The path where the config file will be written once the server boots up.
-    #[setting(default = format!("sqlite:/data/{}-config.json", PROJECT_NAME))]
+    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
     pub config_dump_path: String,
 }
 
