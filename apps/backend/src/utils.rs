@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use darkbird::Storage;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
@@ -136,13 +136,11 @@ pub async fn user_id_from_token(token: String, darkdb: &MemoryAuthDb) -> Result<
     let found_token = darkdb.lookup(&token);
     match found_token {
         Some(t) => {
-            let val = t.value().clone();
+            let mut val = t.value().clone();
+            drop(t); // since `t` is a references, we can not update it before dropping
             let return_value = val.user_id.clone();
-            // FIXME: Updating this makes it hang indefinitely
-            // darkdb.remove(token.clone()).await.unwrap();
-            // val.updated_on = Utc::now();
-            // dbg!(&val);
-            // darkdb.insert(token, val).await.unwrap();
+            val.last_used_on = Utc::now();
+            darkdb.insert(token, val).await.unwrap();
             Ok(return_value)
         }
         None => Err(Error::new("The auth token was incorrect")),
