@@ -1,4 +1,15 @@
 
+# Version 1.7.5 (2023-07-10)
+
+## Bug Fixes
+
+* **frontend:** collections not being loaded properly
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.7.4 (2023-07-10)
 
 ## Build
