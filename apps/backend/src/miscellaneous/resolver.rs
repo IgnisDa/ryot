@@ -41,7 +41,7 @@ use crate::{
         review, seen, summary, user, user_to_metadata,
     },
     file_storage::FileStorageService,
-    graphql::IdObject,
+    graphql::{IdObject, AUTHOR, REPOSITORY_LINK},
     importer::ImportResultResponse,
     integrations::IntegrationService,
     migrator::{
@@ -80,7 +80,7 @@ use crate::{
         get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
         user_id_from_token, MemoryAuthDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
     },
-    MemoryAuthData,
+    MemoryAuthData, VERSION,
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
@@ -398,6 +398,14 @@ struct UserAuthToken {
     last_used_on: DateTimeUtc,
 }
 
+#[derive(SimpleObject)]
+struct CoreDetails {
+    version: String,
+    author_name: String,
+    repository_link: String,
+    username_change_allowed: bool,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -422,6 +430,14 @@ pub struct MiscellaneousQuery;
 
 #[Object]
 impl MiscellaneousQuery {
+    /// Get some primary information about the service
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .core_details()
+            .await
+    }
+
     /// Get a review by its ID
     async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<review::Model> {
         gql_ctx
@@ -744,25 +760,18 @@ impl MiscellaneousMutation {
 
     /// Login a user using their username and password and return an API key.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
-        let maybe_api_key = gql_ctx
+        gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .login_user(&input.username, &input.password)
-            .await?;
-        if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
-            create_cookie(gql_ctx, api_key, false, config.server.insecure_cookie)?;
-        };
-        Ok(maybe_api_key)
+            .login_user(&input.username, &input.password, gql_ctx)
+            .await
     }
 
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
-        create_cookie(gql_ctx, "", true, config.server.insecure_cookie)?;
         let user_id = user_auth_token_from_ctx(gql_ctx)?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .logout_user(&user_id)
+            .logout_user(&user_id, gql_ctx)
             .await
     }
 
@@ -988,6 +997,15 @@ impl MiscellaneousService {
 }
 
 impl MiscellaneousService {
+    async fn core_details(&self) -> CoreDetails {
+        CoreDetails {
+            version: VERSION.to_owned(),
+            author_name: AUTHOR.to_owned(),
+            repository_link: REPOSITORY_LINK.to_owned(),
+            username_change_allowed: self.config.users.allow_changing_username,
+        }
+    }
+
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
@@ -2721,7 +2739,12 @@ impl MiscellaneousService {
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
-    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
+    async fn login_user(
+        &self,
+        username: &str,
+        password: &str,
+        gql_ctx: &Context<'_>,
+    ) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -2749,10 +2772,12 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::MutexError,
             }));
         };
+        create_cookie(gql_ctx, &api_key, false, self.config.server.insecure_cookie)?;
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
-    async fn logout_user(&self, token: &str) -> Result<bool> {
+    async fn logout_user(&self, token: &str, gql_ctx: &Context<'_>) -> Result<bool> {
+        create_cookie(gql_ctx, "", true, self.config.server.insecure_cookie)?;
         let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(_) = found_token {
             self.auth_db.remove(token.to_owned()).await.unwrap();
