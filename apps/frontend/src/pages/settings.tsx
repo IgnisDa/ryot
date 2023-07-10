@@ -37,6 +37,8 @@ import {
 	CoreDetailsDocument,
 	CreateUserYankIntegrationDocument,
 	type CreateUserYankIntegrationMutationVariables,
+	DeleteUserAuthTokenDocument,
+	type DeleteUserAuthTokenMutationVariables,
 	DeleteUserYankIntegrationDocument,
 	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
@@ -69,6 +71,7 @@ import {
 	IconDatabaseImport,
 	IconNeedleThread,
 	IconSignature,
+	IconTrash,
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -225,6 +228,26 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ staleTime: Infinity },
 	);
+
+	const deleteUserAuthToken = useMutation({
+		mutationFn: async (variables: DeleteUserAuthTokenMutationVariables) => {
+			const { deleteUserAuthToken } = await gqlClient.request(
+				DeleteUserAuthTokenDocument,
+				variables,
+			);
+			return deleteUserAuthToken;
+		},
+		onSuccess: (data) => {
+			if (data) {
+				userAuthTokens.refetch();
+				notifications.show({
+					title: "Success",
+					message: "Auth token deleted successfully",
+					color: "green",
+				});
+			}
+		},
+	});
 
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
@@ -563,6 +586,19 @@ const Page: NextPageWithLayout = () => {
 													)}
 												</Text>
 											</Box>
+											<ActionIcon
+												color={"red"}
+												variant="outline"
+												onClick={() => {
+													const yes = confirm(
+														"Deleting this token will logout all devices authorized using this token. Are you sure?",
+													);
+													if (yes)
+														deleteUserAuthToken.mutate({ token: a.token });
+												}}
+											>
+												<IconTrash size="1rem" />
+											</ActionIcon>
 										</Flex>
 									</Paper>
 								))}
