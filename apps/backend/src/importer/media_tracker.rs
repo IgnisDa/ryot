@@ -9,7 +9,7 @@ use surf::{http::headers::USER_AGENT, Client, Config, Url};
 use uuid::Uuid;
 
 use crate::{
-    graphql::{IdObject, USER_AGENT_STR},
+    graphql::IdObject,
     importer::{
         media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
         ImportItemSeen,
@@ -21,6 +21,7 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::media::{BookSpecifics, CreateOrUpdateCollectionInput, MediaDetails, Visibility},
     providers::openlibrary::utils::get_key,
+    utils::USER_AGENT_STR,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

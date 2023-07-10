@@ -59,10 +59,12 @@ use crate::{
     config::get_app_config,
     config::AppConfig,
     file_storage::FileStorageService,
-    graphql::{get_schema, GraphqlSchema, PROJECT_NAME},
+    graphql::{get_schema, GraphqlSchema},
     migrator::Migrator,
     miscellaneous::resolver::MiscellaneousService,
-    utils::{create_app_services, user_id_from_token, COOKIE_NAME},
+    utils::{
+        create_app_services, user_id_from_token, BASE_DIR, COOKIE_NAME, PROJECT_NAME, VERSION,
+    },
 };
 
 mod background;
@@ -80,9 +82,6 @@ mod providers;
 mod traits;
 mod users;
 mod utils;
-
-pub static VERSION: &str = env!("CARGO_PKG_VERSION");
-pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[derive(Debug)]
 pub struct GqlCtx {

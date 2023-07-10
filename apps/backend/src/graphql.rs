@@ -1,5 +1,3 @@
-use std::env;
-
 use async_graphql::{EmptySubscription, MergedObject, Schema, SimpleObject};
 use serde::{Deserialize, Serialize};
 
@@ -9,11 +7,6 @@ use crate::{
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
     utils::{AppServices, MemoryAuthDb},
 };
-
-pub const AUTHOR: &str = "ignisda";
-pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
-pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
-pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct IdObject {

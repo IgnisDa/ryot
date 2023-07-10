@@ -41,7 +41,7 @@ use crate::{
         review, seen, summary, user, user_to_metadata,
     },
     file_storage::FileStorageService,
-    graphql::{IdObject, AUTHOR, REPOSITORY_LINK},
+    graphql::IdObject,
     importer::ImportResultResponse,
     integrations::IntegrationService,
     migrator::{
@@ -78,9 +78,10 @@ use crate::{
     },
     utils::{
         get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
-        user_id_from_token, MemoryAuthDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
+        user_id_from_token, MemoryAuthDb, SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT,
+        REPOSITORY_LINK, VERSION,
     },
-    MemoryAuthData, VERSION,
+    MemoryAuthData,
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;

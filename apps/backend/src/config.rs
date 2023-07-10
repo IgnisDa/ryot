@@ -5,9 +5,9 @@ use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader, ValidateError};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    graphql::PROJECT_NAME,
     providers::{audible::AudibleService, itunes::ITunesService, tmdb::TmdbService},
     traits::{IsFeatureEnabled, MediaProviderLanguages},
+    utils::PROJECT_NAME,
 };
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
