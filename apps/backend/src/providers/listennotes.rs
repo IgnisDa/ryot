@@ -14,8 +14,9 @@ use crate::{
     config::PodcastConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
-    models::media::{
-        MediaDetails, MediaSearchItem, MediaSearchResults, PodcastEpisode, PodcastSpecifics,
+    models::{
+        media::{MediaDetails, MediaSearchItem, PodcastEpisode, PodcastSpecifics},
+        SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::PAGE_LIMIT,
@@ -84,7 +85,7 @@ impl MediaProvider for ListennotesService {
         &self,
         query: &str,
         page: Option<i32>,
-    ) -> Result<MediaSearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
@@ -129,7 +130,7 @@ impl MediaProvider for ListennotesService {
                 publish_year: r.publish_date.map(|r| r.year()),
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total,
             items: resp,
             next_page,

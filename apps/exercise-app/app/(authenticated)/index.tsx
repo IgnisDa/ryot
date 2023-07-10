@@ -1,66 +1,76 @@
 import { getGraphqlClient } from "@/api";
-import { Box, Button, Input } from "@/components";
-import { ROUTES } from "@/constants";
-import { useAuth } from "@/hooks";
-import { useDebouncedState } from "@mantine/hooks";
+import { BasePage } from "@/components";
+import { SearchBar } from "@rneui/base";
+import { Avatar } from "@rneui/themed";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { changeCase } from "@ryot/utilities";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { FlatList, ScrollView, Text, View } from "react-native";
+import { FlatList, Text, View } from "react-native";
 
 export default function Page() {
-	const { signOut } = useAuth();
-	const router = useRouter();
-	const [query, setQuery] = useDebouncedState("", 1000);
-	const [page, _setpage] = useState(1);
+	const [query, setQuery] = useState("");
 
-	const exercises = useQuery({
-		queryKey: ["exercises", query, page],
-		queryFn: async () => {
+	const exercises = useInfiniteQuery({
+		queryKey: ["exercises", query],
+		queryFn: async ({ pageParam: page = 1 }) => {
 			const client = await getGraphqlClient();
 			const { exercisesList } = await client.request(ExercisesListDocument, {
 				input: { page, query },
 			});
 			return exercisesList;
 		},
+		getNextPageParam: (lastPage) => lastPage.nextPage,
 	});
 
+	const loadMore = () => {
+		if (exercises.hasNextPage) exercises.fetchNextPage();
+	};
+
 	return (
-		<View>
-			<Box marginHorizontal="$2" marginVertical="$2">
-				<Input>
-					<Input.Input
-						placeholder="Search for an exercise"
-						autoCapitalize="none"
-						onChange={({ nativeEvent: { text } }) => setQuery(text)}
-					/>
-				</Input>
-				<Box>
-					{exercises.data ? (
-						<FlatList
-							data={exercises.data}
-							keyExtractor={(item) => item.name}
-							renderItem={({ item }) => (
-								<View>
-									<Box marginVertical="$2">
-										<Text>{item.name}</Text>
-										<Text>{JSON.stringify(item.attributes)}</Text>
-									</Box>
+		<BasePage>
+			<SearchBar
+				placeholder="Search for an exercise"
+				autoCapitalize="none"
+				onChangeText={setQuery}
+				value={query}
+				showLoading={exercises.isFetching}
+			/>
+			{exercises.data ? (
+				<FlatList
+					data={exercises.data.pages.flatMap((p) => p.items)}
+					onEndReached={loadMore}
+					onEndReachedThreshold={0.3}
+					showsVerticalScrollIndicator={false}
+					keyExtractor={(item) => item.name}
+					renderItem={({ item }) => (
+						<View
+							style={{
+								flex: 1,
+								flexDirection: "row",
+								marginVertical: 10,
+								alignItems: "center",
+								gap: 10,
+							}}
+						>
+							<Avatar
+								source={{ uri: item.attributes.images[1] }}
+								size={55}
+								rounded
+							/>
+							<View>
+								<Text style={{ fontWeight: "bold", fontSize: 16 }}>
+									{item.name}
+								</Text>
+								<View style={{ flexDirection: "row", gap: 5 }}>
+									<Text>{changeCase(item.attributes.primaryMuscles[0])}</Text>
+									<Text>• {changeCase(item.attributes.category)}</Text>
 								</View>
-							)}
-						/>
-					) : null}
-				</Box>
-				<Button
-					onPress={async () => {
-						await signOut();
-						router.push(ROUTES.setup);
-					}}
-				>
-					<Button.Text color="$white">Sign out</Button.Text>
-				</Button>
-			</Box>
-		</View>
+							</View>
+						</View>
+					)}
+				/>
+			) : null}
+		</BasePage>
 	);
 }

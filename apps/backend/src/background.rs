@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{metadata, seen},
     fitness::exercise::resolver::ExerciseService,
-    graphql::Identifier,
     importer::{DeployImportInput, ImporterService},
     migrator::MetadataLot,
     miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
@@ -84,7 +83,7 @@ pub async fn yank_integrations_data(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImportMedia {
-    pub user_id: Identifier,
+    pub user_id: i32,
     pub input: DeployImportInput,
 }
 
@@ -96,7 +95,7 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
     tracing::info!("Importing media");
     ctx.data::<Arc<ImporterService>>()
         .unwrap()
-        .import_from_source(information.user_id.into(), information.input)
+        .import_from_source(information.user_id, information.input)
         .await
         .unwrap();
     Ok(())
@@ -104,7 +103,7 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserCreatedJob {
-    pub user_id: Identifier,
+    pub user_id: i32,
 }
 
 impl Job for UserCreatedJob {
@@ -118,11 +117,11 @@ pub async fn user_created_job(
     tracing::info!("Running jobs after user creation");
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service
-        .user_created_job(&information.user_id.into())
+        .user_created_job(&information.user_id)
         .await
         .unwrap();
     service
-        .calculate_user_summary(&information.user_id.into())
+        .calculate_user_summary(&information.user_id)
         .await
         .unwrap();
     Ok(())
@@ -176,7 +175,7 @@ pub async fn after_media_seen_job(
                 &information.seen.user_id,
                 AddMediaToCollection {
                     collection_name: DefaultCollection::InProgress.to_string(),
-                    media_id: information.seen.metadata_id.into(),
+                    media_id: information.seen.metadata_id,
                 },
             )
             .await
@@ -204,7 +203,7 @@ pub async fn after_media_seen_job(
                 &information.seen.user_id,
                 AddMediaToCollection {
                     collection_name: DefaultCollection::InProgress.to_string(),
-                    media_id: information.seen.metadata_id.into(),
+                    media_id: information.seen.metadata_id,
                 },
             )
             .await
@@ -215,7 +214,7 @@ pub async fn after_media_seen_job(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RecalculateUserSummaryJob {
-    pub user_id: Identifier,
+    pub user_id: i32,
 }
 
 impl Job for RecalculateUserSummaryJob {
@@ -229,7 +228,7 @@ pub async fn recalculate_user_summary_job(
     tracing::info!("Calculating summary for user {:?}", information.user_id);
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
-        .calculate_user_summary(&information.user_id.into())
+        .calculate_user_summary(&information.user_id)
         .await
         .unwrap();
     tracing::info!(

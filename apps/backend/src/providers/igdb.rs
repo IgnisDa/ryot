@@ -10,7 +10,10 @@ use crate::{
     config::VideoGameConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
-    models::media::{MediaDetails, MediaSearchItem, MediaSearchResults, VideoGameSpecifics},
+    models::{
+        media::{MediaDetails, MediaSearchItem, VideoGameSpecifics},
+        SearchResults,
+    },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{NamedObject, PAGE_LIMIT},
 };
@@ -126,7 +129,7 @@ where id = {id};
         &self,
         query: &str,
         page: Option<i32>,
-    ) -> Result<MediaSearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let client = utils::get_client(&self.config).await;
         let req_body = format!(
@@ -173,7 +176,7 @@ offset: {offset};
                 }
             })
             .collect::<Vec<_>>();
-        Ok(MediaSearchResults {
+        Ok(SearchResults {
             total,
             items: resp,
             next_page: Some(page + 1),

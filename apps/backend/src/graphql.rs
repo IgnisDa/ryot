@@ -1,8 +1,6 @@
 use std::{env, sync::Arc};
 
-use async_graphql::{
-    scalar, Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject,
-};
+use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema, SimpleObject};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
@@ -20,23 +18,6 @@ pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
 pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct Identifier(i32);
-
-impl From<Identifier> for i32 {
-    fn from(value: Identifier) -> Self {
-        value.0
-    }
-}
-
-impl From<i32> for Identifier {
-    fn from(value: i32) -> Self {
-        Self(value)
-    }
-}
-
-scalar!(Identifier);
-
 #[derive(SimpleObject)]
 pub struct CoreDetails {
     version: String,
@@ -45,9 +26,9 @@ pub struct CoreDetails {
     username_change_allowed: bool,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct IdObject {
-    pub id: Identifier,
+    pub id: i32,
 }
 
 #[derive(Default)]

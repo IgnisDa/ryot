@@ -1,4 +1,4 @@
-query MediaItemReviews($metadataId: Identifier!) {
+query MediaItemReviews($metadataId: Int!) {
   mediaItemReviews(metadataId: $metadataId) {
     id
     rating

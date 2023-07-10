@@ -1,4 +1,4 @@
-query ReviewById($reviewId: Identifier!) {
+query ReviewById($reviewId: Int!) {
   reviewById(reviewId: $reviewId) {
     rating
     text

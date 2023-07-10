@@ -378,7 +378,7 @@ pub struct WebConfig {
     pub cors_origins: Vec<String>,
     /// This will make auth cookies insecure and should be set to `true` if you
     /// are running the server on `localhost`.
-    /// [More information](https://github.com/IgnisDa/ryot/issues/23#)
+    /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
 }
 

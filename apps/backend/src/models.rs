@@ -5,14 +5,37 @@ use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryRes
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{review, seen},
-    graphql::Identifier,
+    entities::{exercise::Model as ExerciseModel, review, seen},
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
 
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItem)))]
+#[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
+#[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
+pub struct SearchResults<T: OutputType> {
+    pub total: i32,
+    pub items: Vec<T>,
+    pub next_page: Option<i32>,
+}
+
 pub mod media {
     use super::*;
+
+    #[derive(Debug, InputObject, Default)]
+    pub struct CreateOrUpdateCollectionInput {
+        pub name: String,
+        pub description: Option<String>,
+        pub visibility: Option<Visibility>,
+        pub update_id: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct MediaListItem {
+        pub data: MediaSearchItem,
+        pub average_rating: Option<Decimal>,
+    }
 
     #[derive(
         Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
@@ -408,20 +431,10 @@ pub mod media {
         pub calculated_on: DateTimeUtc,
     }
 
-    #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-    pub struct MediaSearchResults<T>
-    where
-        T: OutputType,
-    {
-        pub total: i32,
-        pub items: Vec<T>,
-        pub next_page: Option<i32>,
-    }
-
     #[derive(Debug, InputObject)]
     pub struct AddMediaToCollection {
         pub collection_name: String,
-        pub media_id: Identifier,
+        pub media_id: i32,
     }
 
     #[derive(Debug, InputObject)]
@@ -430,19 +443,19 @@ pub mod media {
         pub text: Option<String>,
         pub visibility: Option<Visibility>,
         pub spoiler: Option<bool>,
-        pub metadata_id: Identifier,
+        pub metadata_id: i32,
         pub date: Option<DateTimeUtc>,
         /// If this review comes from a different source, this should be set
         pub identifier: Option<String>,
         /// ID of the review if this is an update to an existing review
-        pub review_id: Option<Identifier>,
+        pub review_id: Option<i32>,
         pub season_number: Option<i32>,
         pub episode_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
     pub struct ProgressUpdateInput {
-        pub metadata_id: Identifier,
+        pub metadata_id: i32,
         pub progress: Option<i32>,
         pub date: Option<NaiveDate>,
         pub show_season_number: Option<i32>,

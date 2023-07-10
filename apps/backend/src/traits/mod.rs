@@ -1,7 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::models::media::{MediaDetails, MediaSearchItem, MediaSearchResults};
+use crate::models::{
+    media::{MediaDetails, MediaSearchItem},
+    SearchResults,
+};
 
 #[async_trait]
 pub trait MediaProvider {
@@ -10,7 +13,7 @@ pub trait MediaProvider {
         &self,
         query: &str,
         page: Option<i32>,
-    ) -> Result<MediaSearchResults<MediaSearchItem>>;
+    ) -> Result<SearchResults<MediaSearchItem>>;
 
     /// Get details about a media item for the particular identifier.
     async fn details(&self, identifier: &str) -> Result<MediaDetails>;

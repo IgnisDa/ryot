@@ -6,12 +6,12 @@ To start importing, go to the settings page and select the "Import" tab.
 
 ## MediaTracker
 
-The [MediaTracker](https://github.com/bonukai/MediaTracker) API is pretty
-primitive and as a result the following things can not be imported.
+You can import from [MediaTracker](https://github.com/bonukai/MediaTracker), with
+the following caveats:
 
-- Items in progress
-- Lists
-- Calendar
+- Items that are in progress are always imported with 100% progress regardless.
+  They are added to the "In Progress" collection as expected.
+- Ryot does not support calendars yet
 
 ### Steps
 

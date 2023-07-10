@@ -1,18 +1,22 @@
 query ExercisesList($input: ExercisesListInput!) {
   exercisesList(input: $input) {
-    id
-    name
-    attributes {
-      force
-      level
-      mechanic
-      equipment
-      primaryMuscles
-      secondaryMuscles
-      category
-      instructions
-      images
-      alternateNames
+    total
+    nextPage
+    items {
+      id
+      name
+      attributes {
+        force
+        level
+        mechanic
+        equipment
+        primaryMuscles
+        secondaryMuscles
+        category
+        instructions
+        images
+        alternateNames
+      }
     }
   }
 }

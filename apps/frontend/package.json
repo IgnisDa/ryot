@@ -14,13 +14,13 @@
 		"@mantine/notifications": "6.0.8",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
+		"@ryot/utilities": "workspace:*",
 		"@tabler/icons-react": "2.16.0",
 		"@tanstack/react-query": "4.29.15",
 		"dayjs": "1.11.7",
 		"embla-carousel-react": "7.1.0",
 		"human-format": "1.2.0",
 		"humanize-duration-ts": "2.1.1",
-		"lodash": "4.17.21",
 		"luxon": "3.3.0",
 		"next": "13.4.6",
 		"next-pwa": "5.6.0",
@@ -34,7 +34,6 @@
 		"zod": "3.21.4"
 	},
 	"devDependencies": {
-		"@types/lodash": "4.14.194",
 		"@types/luxon": "3.3.0",
 		"@types/node": "18.15.11",
 		"@types/react": "18.0.33",

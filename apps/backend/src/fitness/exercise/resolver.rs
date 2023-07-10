@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::Path, sync::Arc};
+use std::{env, ffi::OsStr, path::Path, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Error, InputObject, Object, Result};
@@ -6,7 +6,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QueryTrait,
 };
-use sea_query::{BinOper, Condition, Expr, Func, SimpleExpr};
+use sea_query::{Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 
@@ -14,8 +14,11 @@ use crate::{
     background::UpdateExerciseJob,
     entities::{exercise, prelude::Exercise},
     file_storage::FileStorageService,
-    models::fitness::{Exercise as GithubExercise, ExerciseAttributes},
-    utils::PAGE_LIMIT,
+    models::{
+        fitness::{Exercise as GithubExercise, ExerciseAttributes},
+        SearchResults,
+    },
+    utils::{get_case_insensitive_like_query, PAGE_LIMIT},
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -34,7 +37,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
-    ) -> Result<Vec<exercise::Model>> {
+    ) -> Result<SearchResults<exercise::Model>> {
         gql_ctx
             .data_unchecked::<Arc<ExerciseService>>()
             .exercises_list(input)
@@ -109,17 +112,21 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercises_list(&self, input: ExercisesListInput) -> Result<Vec<exercise::Model>> {
-        let data = Exercise::find()
+    async fn exercises_list(
+        &self,
+        input: ExercisesListInput,
+    ) -> Result<SearchResults<exercise::Model>> {
+        let query = Exercise::find()
             .apply_if(input.query, |query, v| {
-                query.filter(Condition::all().add(SimpleExpr::Binary(
-                    Box::new(Func::lower(Expr::col(exercise::Column::Name)).into()),
-                    BinOper::Like,
-                    Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
+                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                    Func::lower(Expr::col(exercise::Column::Name)),
+                    &v,
                 )))
             })
-            .order_by_asc(exercise::Column::Name)
-            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+            .order_by_asc(exercise::Column::Name);
+        let total = query.clone().count(&self.db).await?;
+        let total: i32 = total.try_into().unwrap();
+        let data = query.paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
         let mut resp = vec![];
         for ex in data
             .fetch_page((input.page - 1).try_into().unwrap())
@@ -128,12 +135,33 @@ impl ExerciseService {
             let mut ex_new = ex.clone();
             let mut images = vec![];
             for i in ex.attributes.images {
-                images.push(self.file_storage.get_presigned_url(i).await);
+                let mut link = self.file_storage.get_presigned_url(i).await;
+                // DEV: For the Expo app, since we are accessing the images on a
+                // mobile device, we need to expose the minio instance and refer
+                // to that in all images.
+                if cfg!(feature = "development") {
+                    let minio_url = env::var("S3_URL").unwrap();
+                    let minio_public_url = env::var("S3_PUBLIC_URL").unwrap();
+                    link = link.replace(&minio_url, &minio_public_url);
+                    if let Some((m, _)) = link.split_once("?") {
+                        link = m.to_owned();
+                    }
+                }
+                images.push(link);
             }
             ex_new.attributes.images = images;
             resp.push(ex_new);
         }
-        Ok(resp)
+        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+            Some(input.page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            total,
+            items: resp,
+            next_page,
+        })
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {

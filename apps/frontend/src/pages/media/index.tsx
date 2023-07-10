@@ -5,13 +5,7 @@ import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import {
-	Verb,
-	changeCase,
-	getInitials,
-	getStringAsciiValue,
-	getVerb,
-} from "@/lib/utilities";
+import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
 import {
 	Accordion,
 	ActionIcon,
@@ -66,6 +60,7 @@ import {
 	type RemoveMediaFromCollectionMutationVariables,
 	SeenHistoryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, getInitials } from "@ryot/utilities";
 import {
 	IconAlertCircle,
 	IconBook,

@@ -1,4 +1,4 @@
-query SeenHistory($metadataId: Identifier!) {
+query SeenHistory($metadataId: Int!) {
   seenHistory(metadataId: $metadataId) {
     id
     progress

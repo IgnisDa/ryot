@@ -121,7 +121,7 @@ const Page: NextPageWithLayout = () => {
 	return userSummary.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.media &&
-		inProgressCollection.data.collectionDetails ? (
+		inProgressCollection.data.details ? (
 		<>
 			<Head>
 				<title>Dashboard | Ryot</title>
@@ -130,7 +130,7 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					{inProgressCollection.data.media.length > 0 ? (
 						<>
-							<Title>{inProgressCollection.data.collectionDetails.name}</Title>
+							<Title>{inProgressCollection.data.details.name}</Title>
 							<Grid>
 								{inProgressCollection.data.media.map((lm) => (
 									<MediaItemWithoutUpdateModal
