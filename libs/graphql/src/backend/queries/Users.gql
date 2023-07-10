@@ -1,0 +1,7 @@
+query Users {
+  users {
+    id
+    name
+    lot
+  }
+}
