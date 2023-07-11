@@ -95,20 +95,34 @@ $ docker run \
   ghcr.io/ignisda/ryot:latest
 ```
 
-<details>
-  <summary><code>docker-compose</code></summary>
-  <br>
-  <pre>version: '3.9'
+`docker-compose` with PostgreSQL
+
+```yaml
+version: '3.9'
 services:
-  ignisda:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+
+  ryot:
     image: 'ghcr.io/ignisda/ryot:latest'
     environment:
         - WEB_INSECURE_COOKIE=true
+        - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
     ports:
         - '8000:8000'
     pull_policy: always
-    container_name: ryot</pre>
-</details>
+    container_name: ryot
+
+volumes:
+  postgres_storage:
+```
 
 **NOTE**: The `WEB_INSECURE_COOKIE` is only required if you are not running HTTPs.
 
