@@ -939,6 +939,15 @@ impl MiscellaneousMutation {
             .delete_user_auth_token(user_id, token)
             .await
     }
+
+    /// Delete a user. The account making the user must an Admin.
+    async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .delete_user(user_id, to_delete_user_id)
+            .await
+    }
 }
 
 pub struct MiscellaneousService {
@@ -3336,15 +3345,31 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    async fn users(&self, user_id: i32) -> Result<Vec<user::Model>> {
+    async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
         let main_user = self.user_by_id(user_id).await?;
         if main_user.lot != UserLot::Admin {
             return Err(Error::new("Only admins can perform this operation."));
         }
+        Ok(())
+    }
+
+    async fn users(&self, user_id: i32) -> Result<Vec<user::Model>> {
+        self.admin_account_guard(user_id).await?;
         Ok(User::find()
             .order_by_asc(user::Column::Id)
             .all(&self.db)
             .await?)
+    }
+
+    async fn delete_user(&self, user_id: i32, to_delete_user_id: i32) -> Result<bool> {
+        self.admin_account_guard(user_id).await?;
+        let us = User::find_by_id(to_delete_user_id).one(&self.db).await?;
+        if let Some(u) = us {
+            u.delete(&self.db).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
