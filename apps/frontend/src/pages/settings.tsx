@@ -10,7 +10,6 @@ import {
 	Anchor,
 	Box,
 	Button,
-	Card,
 	Code,
 	Container,
 	CopyButton,
@@ -129,34 +128,21 @@ type CreateUserYankIntegationSchema = z.infer<
 
 export const ImportSource = (props: {
 	onSubmit: () => void;
-	title: string;
-	children: JSX.Element[];
+	children: JSX.Element | JSX.Element[];
 }) => {
 	return (
 		<Box>
-			<Card
-				shadow="sm"
+			{props.children}
+			<Button
+				variant="light"
+				color="blue"
+				fullWidth
+				mt="md"
+				type="submit"
 				radius="md"
-				withBorder
-				padding={"sm"}
-				component="form"
-				onSubmit={props.onSubmit}
 			>
-				<Title order={3} mb="md">
-					{props.title}
-				</Title>
-				{props.children}
-				<Button
-					variant="light"
-					color="blue"
-					fullWidth
-					mt="md"
-					type="submit"
-					radius="md"
-				>
-					Import
-				</Button>
-			</Card>
+				Import
+			</Button>
 		</Box>
 	);
 };
@@ -175,6 +161,8 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationLot>();
+	const [deployImportSource, setDeployImportSource] =
+		useState<MediaImportSource>();
 
 	const registerUserForm = useForm<RegisterUserFormSchema>({
 		validate: zodResolver(registerFormSchema),
@@ -667,7 +655,8 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
 							<Stack>
-								<Flex justify={"end"}>
+								<Flex justify={"space-between"}>
+									<Title order={3}>Import data</Title>
 									<Anchor
 										size="xs"
 										href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
@@ -676,37 +665,52 @@ const Page: NextPageWithLayout = () => {
 										Docs
 									</Anchor>
 								</Flex>
-								<ImportSource
-									onSubmit={mediaTrackerImportForm.onSubmit((_values) => {
-										openMediaTrackerImportModal();
-									})}
-									title="Media Tracker"
-								>
-									<TextInput
-										label="Instance Url"
-										required
-										{...mediaTrackerImportForm.getInputProps("apiUrl")}
-									/>
-									<PasswordInput
-										mt="sm"
-										label="API Key"
-										required
-										{...mediaTrackerImportForm.getInputProps("apiKey")}
-									/>
-								</ImportSource>
-								<ImportSource
-									onSubmit={goodreadsImportForm.onSubmit((_values) => {
-										openGoodreadsImportModal();
-									})}
-									title="Goodreads"
-								>
-									<TextInput
-										label="RSS URL"
-										required
-										{...goodreadsImportForm.getInputProps("rssUrl")}
-									/>
-									<></>
-								</ImportSource>
+								<Select
+									label="Select a source"
+									required
+									data={Object.values(MediaImportSource)}
+									onChange={(v) => {
+										const t = match(v)
+											.with("GOODREADS", () => MediaImportSource.Goodreads)
+											.with(
+												"MEDIA_TRACKER",
+												() => MediaImportSource.MediaTracker,
+											)
+											.run();
+										if (t) setDeployImportSource(t);
+									}}
+								/>
+								{deployImportSource === MediaImportSource.MediaTracker ? (
+									<ImportSource
+										onSubmit={mediaTrackerImportForm.onSubmit((_values) => {
+											openMediaTrackerImportModal();
+										})}
+									>
+										<TextInput
+											label="Instance Url"
+											required
+											{...mediaTrackerImportForm.getInputProps("apiUrl")}
+										/>
+										<PasswordInput
+											mt="sm"
+											label="API Key"
+											required
+											{...mediaTrackerImportForm.getInputProps("apiKey")}
+										/>
+									</ImportSource>
+								) : deployImportSource === MediaImportSource.Goodreads ? (
+									<ImportSource
+										onSubmit={goodreadsImportForm.onSubmit((_values) => {
+											openGoodreadsImportModal();
+										})}
+									>
+										<TextInput
+											label="RSS URL"
+											required
+											{...goodreadsImportForm.getInputProps("rssUrl")}
+										/>
+									</ImportSource>
+								) : null}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="misc">
@@ -836,6 +840,7 @@ const Page: NextPageWithLayout = () => {
 											<Stack>
 												<Select
 													label="Select a source"
+													required
 													withinPortal
 													data={Object.values(UserYankIntegrationLot)}
 													onChange={(v) => {
