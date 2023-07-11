@@ -28,7 +28,7 @@ import {
 	MetadataLot,
 	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatTime } from "@ryot/utilities";
+import { formatTimeAgo } from "@ryot/utilities";
 import { IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
@@ -95,8 +95,6 @@ const DisplayStatForMediaType = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
-	const service = new HumanizeDurationLanguage();
-	const humaizer = new HumanizeDuration(service);
 	const userSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -147,7 +145,7 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
-						Calculated {formatTime(userSummary.data.calculatedOn)}
+						Calculated {formatTimeAgo(userSummary.data.calculatedOn)}
 					</Text>
 					<SimpleGrid
 						cols={1}

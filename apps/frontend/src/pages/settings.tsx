@@ -39,6 +39,8 @@ import {
 	type CreateUserYankIntegrationMutationVariables,
 	DeleteUserAuthTokenDocument,
 	type DeleteUserAuthTokenMutationVariables,
+	DeleteUserDocument,
+	type DeleteUserMutationVariables,
 	DeleteUserYankIntegrationDocument,
 	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
@@ -49,6 +51,7 @@ import {
 	ProvidersLanguageInformationDocument,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
+	RegisterUserDocument,
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
@@ -57,12 +60,15 @@ import {
 	type UpdateUserMutationVariables,
 	UserAuthTokensDocument,
 	UserDetailsDocument,
+	type UserInput,
+	UserLot,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
+	UsersDocument,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTime } from "@ryot/utilities";
+import { changeCase, formatTimeAgo, randomString } from "@ryot/utilities";
 import {
 	IconAnalyze,
 	IconApps,
@@ -70,15 +76,24 @@ import {
 	IconCopy,
 	IconDatabaseImport,
 	IconNeedleThread,
+	IconPlus,
+	IconRefresh,
 	IconSignature,
 	IconTrash,
 	IconUser,
+	IconUsers,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
+const registerFormSchema = z.object({
+	username: z.string(),
+	password: z.string(),
+});
+type RegisterUserFormSchema = z.infer<typeof registerFormSchema>;
 
 const message = {
 	title: "Success",
@@ -155,9 +170,16 @@ const Page: NextPageWithLayout = () => {
 			close: closeCreateUserYankIntegrationModal,
 		},
 	] = useDisclosure(false);
+	const [
+		registerUserModalOpened,
+		{ open: openRegisterUserModal, close: closeRegisterUserModal },
+	] = useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationLot>();
 
+	const registerUserForm = useForm<RegisterUserFormSchema>({
+		validate: zodResolver(registerFormSchema),
+	});
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
 	});
@@ -168,9 +190,7 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(goodreadsImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
-		{
-			validate: zodResolver(createUserYankIntegrationSchema),
-		},
+		{ validate: zodResolver(createUserYankIntegrationSchema) },
 	);
 
 	const userDetails = useQuery({
@@ -210,13 +230,6 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
-	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
-		const { userYankIntegrations } = await gqlClient.request(
-			UserYankIntegrationsDocument,
-		);
-		return userYankIntegrations;
-	});
-
 	const userAuthTokens = useQuery(
 		["userAuthTokens"],
 		async () => {
@@ -227,6 +240,39 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ staleTime: Infinity },
 	);
+
+	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
+		const { userYankIntegrations } = await gqlClient.request(
+			UserYankIntegrationsDocument,
+		);
+		return userYankIntegrations;
+	});
+
+	const users = useQuery(["users"], async () => {
+		const { users } = await gqlClient.request(UsersDocument);
+		return users;
+	});
+
+	const registerUser = useMutation({
+		mutationFn: async (input: UserInput) => {
+			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
+				input,
+			});
+			return registerUser;
+		},
+		onSuccess(data) {
+			users.refetch();
+			if (data.__typename === "RegisterError") {
+				notifications.show({
+					title: "Error with registration",
+					message: data.error,
+					color: "red",
+				});
+			} else {
+				closeRegisterUserModal();
+			}
+		},
+	});
 
 	const deleteUserAuthToken = useMutation({
 		mutationFn: async (variables: DeleteUserAuthTokenMutationVariables) => {
@@ -242,6 +288,26 @@ const Page: NextPageWithLayout = () => {
 				notifications.show({
 					title: "Success",
 					message: "Auth token deleted successfully",
+					color: "green",
+				});
+			}
+		},
+	});
+
+	const deleteUser = useMutation({
+		mutationFn: async (variables: DeleteUserMutationVariables) => {
+			const { deleteUser } = await gqlClient.request(
+				DeleteUserDocument,
+				variables,
+			);
+			return deleteUser;
+		},
+		onSuccess: (data) => {
+			if (data) {
+				users.refetch();
+				notifications.show({
+					title: "Success",
+					message: "User token deleted successfully",
 					color: "green",
 				});
 			}
@@ -435,7 +501,8 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	return languageInformation.data &&
+	return userDetails.data &&
+		languageInformation.data &&
 		userAuthTokens.data &&
 		userPrefs.data &&
 		userYankIntegrations.data ? (
@@ -474,6 +541,12 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="misc" icon={<IconAnalyze size="1rem" />}>
 								Miscellaneous
 							</Tabs.Tab>
+							{userDetails.data.__typename === "User" &&
+							userDetails.data.lot === UserLot.Admin ? (
+								<Tabs.Tab value="users" icon={<IconUsers size="1rem" />}>
+									Users
+								</Tabs.Tab>
+							) : null}
 						</Tabs.List>
 
 						<Tabs.Panel value="profile">
@@ -579,7 +652,7 @@ const Page: NextPageWithLayout = () => {
 											<Box>
 												<Text>{a.token.padStart(32, "*")}</Text>
 												<Text size="xs">
-													last used {formatTime(a.lastUsedOn)}
+													last used {formatTimeAgo(a.lastUsedOn)}
 												</Text>
 											</Box>
 											<ActionIcon
@@ -713,7 +786,7 @@ const Page: NextPageWithLayout = () => {
 															{i.description}{" "}
 														</Anchor>
 													</Text>
-													<Text size="xs">{formatTime(i.timestamp)}</Text>
+													<Text size="xs">{formatTimeAgo(i.timestamp)}</Text>
 												</Box>
 												<Button
 													color="red"
@@ -811,6 +884,100 @@ const Page: NextPageWithLayout = () => {
 								</Box>
 							</Stack>
 						</Tabs.Panel>
+						{userDetails.data.__typename === "User" &&
+						userDetails.data.lot === UserLot.Admin ? (
+							<Tabs.Panel value="users">
+								<Stack>
+									<Flex align={"center"} gap={"md"}>
+										<Title order={2}>Users</Title>
+										<ActionIcon
+											color="green"
+											variant="outline"
+											onClick={() => {
+												registerUserForm.reset();
+												openRegisterUserModal();
+											}}
+										>
+											<IconPlus size="1.25rem" />
+										</ActionIcon>
+									</Flex>
+
+									<Modal
+										opened={registerUserModalOpened}
+										onClose={closeRegisterUserModal}
+										withCloseButton={false}
+										centered
+									>
+										<Box
+											component="form"
+											onSubmit={registerUserForm.onSubmit((values) => {
+												registerUser.mutate(values);
+												registerUserForm.reset();
+												close();
+											})}
+										>
+											<Stack>
+												<Title order={3}>Create User</Title>
+												<TextInput
+													label="Name"
+													required
+													{...registerUserForm.getInputProps("username")}
+												/>
+												<TextInput
+													label="Password"
+													required
+													rightSection={
+														<ActionIcon
+															onClick={() => {
+																registerUserForm.setFieldValue(
+																	"password",
+																	randomString(5),
+																);
+															}}
+														>
+															<IconRefresh size="1rem" />
+														</ActionIcon>
+													}
+													{...registerUserForm.getInputProps("password")}
+												/>
+												<Button variant="outline" type="submit">
+													Create
+												</Button>
+											</Stack>
+										</Box>
+									</Modal>
+									{users.data
+										? users.data.map((user, idx) => (
+												<Paper p="xs" withBorder key={idx}>
+													<Flex align={"center"} justify={"space-between"}>
+														<Box>
+															<Text>{user.name}</Text>
+															<Text size="xs">
+																Role: {changeCase(user.lot)}
+															</Text>
+														</Box>
+														<ActionIcon
+															color={"red"}
+															variant="outline"
+															onClick={() => {
+																const yes = confirm(
+																	"Are you sure you want to delete this user?",
+																);
+																if (yes)
+																	deleteUser.mutate({
+																		toDeleteUserId: user.id,
+																	});
+															}}
+														>
+															<IconTrash size="1rem" />
+														</ActionIcon>
+													</Flex>
+												</Paper>
+										  ))
+										: null}
+								</Stack>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</Stack>
 			</Container>

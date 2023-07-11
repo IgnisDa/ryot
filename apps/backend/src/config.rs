@@ -5,9 +5,9 @@ use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader, ValidateError};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    graphql::PROJECT_NAME,
     providers::{audible::AudibleService, itunes::ITunesService, tmdb::TmdbService},
     traits::{IsFeatureEnabled, MediaProviderLanguages},
+    utils::PROJECT_NAME,
 };
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
@@ -362,6 +362,9 @@ pub struct UsersConfig {
     /// settings.
     #[setting(default = true)]
     pub allow_changing_username: bool,
+    /// The number of days till login auth token is valid.
+    #[setting(default = 90)]
+    pub token_valid_for_days: i32,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,

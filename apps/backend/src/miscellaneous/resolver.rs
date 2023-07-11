@@ -4,7 +4,7 @@ use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{NaiveDate, Utc};
-use cookie::{time::OffsetDateTime, Cookie};
+use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use http::header::SET_COOKIE;
@@ -78,7 +78,8 @@ use crate::{
     },
     utils::{
         get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
-        user_id_from_token, MemoryAuthDb, SearchInput, COOKIE_NAME, PAGE_LIMIT,
+        user_id_from_token, MemoryAuthDb, SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT,
+        REPOSITORY_LINK, VERSION,
     },
     MemoryAuthData,
 };
@@ -398,15 +399,28 @@ struct UserAuthToken {
     last_used_on: DateTimeUtc,
 }
 
+#[derive(SimpleObject)]
+struct CoreDetails {
+    version: String,
+    author_name: String,
+    repository_link: String,
+    username_change_allowed: bool,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
+    token_valid_till: i32,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
-    if expires {
-        cookie = cookie.expires(OffsetDateTime::now_utc())
+    cookie = if expires {
+        cookie.expires(OffsetDateTime::now_utc())
+    } else {
+        cookie.expires(
+            OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till.into())),
+        )
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -422,6 +436,14 @@ pub struct MiscellaneousQuery;
 
 #[Object]
 impl MiscellaneousQuery {
+    /// Get some primary information about the service
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .core_details()
+            .await
+    }
+
     /// Get a review by its ID
     async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<review::Model> {
         gql_ctx
@@ -479,24 +501,6 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .collection_contents(user_id, input)
-            .await
-    }
-
-    /// Get details about the currently logged in user.
-    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
-        let token = user_auth_token_from_ctx(gql_ctx)?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_details(&token)
-            .await
-    }
-
-    /// Get a summary of all the media items that have been consumed by this user.
-    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_summary(&user_id)
             .await
     }
 
@@ -614,6 +618,33 @@ impl MiscellaneousQuery {
             .providers_language_information()
     }
 
+    /// Get details about the currently logged in user.
+    async fn users(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .users(user_id)
+            .await
+    }
+
+    /// Get details about the currently logged in user.
+    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
+        let token = user_auth_token_from_ctx(gql_ctx)?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_details(&token)
+            .await
+    }
+
+    /// Get a summary of all the media items that have been consumed by this user.
+    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .user_summary(&user_id)
+            .await
+    }
+
     /// Get all the yank based integrations for the currently logged in user.
     async fn user_yank_integrations(
         &self,
@@ -729,61 +760,6 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Create a new user for the service. Also set their `lot` as admin if
-    /// they are the first user.
-    async fn register_user(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UserInput,
-    ) -> Result<RegisterResult> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .register_user(&input.username, &input.password)
-            .await
-    }
-
-    /// Login a user using their username and password and return an API key.
-    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
-        let maybe_api_key = gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .login_user(&input.username, &input.password)
-            .await?;
-        if let LoginResult::Ok(LoginResponse { api_key }) = &maybe_api_key {
-            create_cookie(gql_ctx, api_key, false, config.server.insecure_cookie)?;
-        };
-        Ok(maybe_api_key)
-    }
-
-    /// Logout a user from the server, deleting their login token.
-    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let config = gql_ctx.data_unchecked::<Arc<AppConfig>>();
-        create_cookie(gql_ctx, "", true, config.server.insecure_cookie)?;
-        let user_id = user_auth_token_from_ctx(gql_ctx)?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .logout_user(&user_id)
-            .await
-    }
-
-    /// Update a user's profile details.
-    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user(&user_id, input)
-            .await
-    }
-
-    /// Delete all summaries for the currently logged in user and then generate one from scratch.
-    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .regenerate_user_summary(user_id)
-            .await
-    }
-
     /// Create a custom media item.
     async fn create_custom_media(
         &self,
@@ -850,6 +826,54 @@ impl MiscellaneousMutation {
             .await
     }
 
+    /// Create a new user for the service. Also set their `lot` as admin if
+    /// they are the first user.
+    async fn register_user(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserInput,
+    ) -> Result<RegisterResult> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .register_user(&input.username, &input.password)
+            .await
+    }
+
+    /// Login a user using their username and password and return an API key.
+    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .login_user(&input.username, &input.password, gql_ctx)
+            .await
+    }
+
+    /// Logout a user from the server, deleting their login token.
+    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let user_id = user_auth_token_from_ctx(gql_ctx)?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .logout_user(&user_id, gql_ctx)
+            .await
+    }
+
+    /// Update a user's profile details.
+    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .update_user(&user_id, input)
+            .await
+    }
+
+    /// Delete all summaries for the currently logged in user and then generate one from scratch.
+    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .regenerate_user_summary(user_id)
+            .await
+    }
+
     /// Change a user's feature preferences
     async fn update_user_feature_preference(
         &self,
@@ -913,6 +937,15 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .delete_user_auth_token(user_id, token)
+            .await
+    }
+
+    /// Delete a user. The account making the user must an Admin.
+    async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .delete_user(user_id, to_delete_user_id)
             .await
     }
 }
@@ -988,6 +1021,15 @@ impl MiscellaneousService {
 }
 
 impl MiscellaneousService {
+    async fn core_details(&self) -> CoreDetails {
+        CoreDetails {
+            version: VERSION.to_owned(),
+            author_name: AUTHOR.to_owned(),
+            repository_link: REPOSITORY_LINK.to_owned(),
+            username_change_allowed: self.config.users.allow_changing_username,
+        }
+    }
+
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
@@ -2721,7 +2763,12 @@ impl MiscellaneousService {
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
-    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
+    async fn login_user(
+        &self,
+        username: &str,
+        password: &str,
+        gql_ctx: &Context<'_>,
+    ) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -2749,10 +2796,24 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::MutexError,
             }));
         };
+        create_cookie(
+            gql_ctx,
+            &api_key,
+            false,
+            self.config.server.insecure_cookie,
+            self.config.users.token_valid_for_days,
+        )?;
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
 
-    async fn logout_user(&self, token: &str) -> Result<bool> {
+    async fn logout_user(&self, token: &str, gql_ctx: &Context<'_>) -> Result<bool> {
+        create_cookie(
+            gql_ctx,
+            "",
+            true,
+            self.config.server.insecure_cookie,
+            self.config.users.token_valid_for_days,
+        )?;
         let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(_) = found_token {
             self.auth_db.remove(token.to_owned()).await.unwrap();
@@ -3282,6 +3343,33 @@ impl MiscellaneousService {
             false
         };
         Ok(resp)
+    }
+
+    async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
+        let main_user = self.user_by_id(user_id).await?;
+        if main_user.lot != UserLot::Admin {
+            return Err(Error::new("Only admins can perform this operation."));
+        }
+        Ok(())
+    }
+
+    async fn users(&self, user_id: i32) -> Result<Vec<user::Model>> {
+        self.admin_account_guard(user_id).await?;
+        Ok(User::find()
+            .order_by_asc(user::Column::Id)
+            .all(&self.db)
+            .await?)
+    }
+
+    async fn delete_user(&self, user_id: i32, to_delete_user_id: i32) -> Result<bool> {
+        self.admin_account_guard(user_id).await?;
+        let us = User::find_by_id(to_delete_user_id).one(&self.db).await?;
+        if let Some(u) = us {
+            u.delete(&self.db).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

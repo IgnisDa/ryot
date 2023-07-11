@@ -199,6 +199,11 @@ export interface UsersConfig {
 	 * @default true
 	 */
 	allow_registration: boolean;
+	/**
+	 * The number of days till login auth token is valid.
+	 * @default 90
+	 */
+	token_valid_for_days: number;
 }
 
 export type IgdbImageSize = 't_original';

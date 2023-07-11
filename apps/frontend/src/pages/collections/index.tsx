@@ -5,9 +5,9 @@ import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, Flex, Stack, Text, Title } from "@mantine/core";
+import { Box, Container, Stack, Text, Title } from "@mantine/core";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/utilities";
+import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -40,12 +40,13 @@ const Page: NextPageWithLayout = () => {
 						<Text color="dimmed" size="xs" mb={-10}>
 							{changeCase(collectionContents.data.details.visibility)}
 						</Text>
-						<Flex align={"center"} gap="sm">
-							<Title>{collectionContents.data.details.name}</Title>{" "}
-							<Text size="sm">by {collectionContents.data.user.name}</Text>
-						</Flex>
-						<Text>{collectionContents.data.details.description}</Text>
+						<Title>{collectionContents.data.details.name}</Title>{" "}
+						<Text size="sm" mt={-10}>
+							Created by {collectionContents.data.user.name}{" "}
+							{formatTimeAgo(collectionContents.data.details.createdOn)}
+						</Text>
 					</Box>
+					<Text>{collectionContents.data.details.description}</Text>
 					{collectionContents.data.media.length > 0 ? (
 						<>
 							<Grid>
