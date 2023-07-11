@@ -49,6 +49,7 @@ import {
 	ProvidersLanguageInformationDocument,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
+	RegisterUserDocument,
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
@@ -57,13 +58,14 @@ import {
 	type UpdateUserMutationVariables,
 	UserAuthTokensDocument,
 	UserDetailsDocument,
+	type UserInput,
+	UserLot,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
-	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTimeAgo } from "@ryot/utilities";
+import { changeCase, formatTimeAgo, randomString } from "@ryot/utilities";
 import {
 	IconAnalyze,
 	IconApps,
@@ -71,6 +73,8 @@ import {
 	IconCopy,
 	IconDatabaseImport,
 	IconNeedleThread,
+	IconPlus,
+	IconRefresh,
 	IconSignature,
 	IconTrash,
 	IconUser,
@@ -81,6 +85,12 @@ import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
+const registerFormSchema = z.object({
+	username: z.string(),
+	password: z.string(),
+});
+type RegisterUserFormSchema = z.infer<typeof registerFormSchema>;
 
 const message = {
 	title: "Success",
@@ -157,9 +167,16 @@ const Page: NextPageWithLayout = () => {
 			close: closeCreateUserYankIntegrationModal,
 		},
 	] = useDisclosure(false);
+	const [
+		registerUserModalOpened,
+		{ open: openRegisterUserModal, close: closeRegisterUserModal },
+	] = useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationLot>();
 
+	const registerUserForm = useForm<RegisterUserFormSchema>({
+		validate: zodResolver(registerFormSchema),
+	});
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
 	});
@@ -170,10 +187,28 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(goodreadsImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
-		{
-			validate: zodResolver(createUserYankIntegrationSchema),
-		},
+		{ validate: zodResolver(createUserYankIntegrationSchema) },
 	);
+
+	const registerUser = useMutation({
+		mutationFn: async (input: UserInput) => {
+			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
+				input,
+			});
+			return registerUser;
+		},
+		onSuccess(data) {
+			if (data.__typename === "RegisterError") {
+				notifications.show({
+					title: "Error with registration",
+					message: data.error,
+					color: "red",
+				});
+			} else {
+				closeRegisterUserModal();
+			}
+		},
+	});
 
 	const userDetails = useQuery({
 		queryKey: ["userDetails"],
@@ -824,7 +859,64 @@ const Page: NextPageWithLayout = () => {
 						userDetails.data.lot === UserLot.Admin ? (
 							<Tabs.Panel value="users">
 								<Stack>
-									<Text>All users here</Text>
+									<Flex align={"center"} gap={"md"}>
+										<Title order={2}>Users</Title>
+										<ActionIcon
+											color="green"
+											variant="outline"
+											onClick={() => {
+												registerUserForm.reset();
+												openRegisterUserModal();
+											}}
+										>
+											<IconPlus size="1.25rem" />
+										</ActionIcon>
+									</Flex>
+
+									<Modal
+										opened={registerUserModalOpened}
+										onClose={closeRegisterUserModal}
+										withCloseButton={false}
+										centered
+									>
+										<Box
+											component="form"
+											onSubmit={registerUserForm.onSubmit((values) => {
+												registerUser.mutate(values);
+												registerUserForm.reset();
+												close();
+											})}
+										>
+											<Stack>
+												<Title order={3}>Create User</Title>
+												<TextInput
+													label="Name"
+													required
+													{...registerUserForm.getInputProps("username")}
+												/>
+												<TextInput
+													label="Password"
+													required
+													rightSection={
+														<ActionIcon
+															onClick={() => {
+																registerUserForm.setFieldValue(
+																	"password",
+																	randomString(5),
+																);
+															}}
+														>
+															<IconRefresh size="1rem" />
+														</ActionIcon>
+													}
+													{...registerUserForm.getInputProps("password")}
+												/>
+												<Button variant="outline" type="submit">
+													Create
+												</Button>
+											</Stack>
+										</Box>
+									</Modal>
 								</Stack>
 							</Tabs.Panel>
 						) : null}
