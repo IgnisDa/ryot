@@ -39,6 +39,8 @@ import {
 	type CreateUserYankIntegrationMutationVariables,
 	DeleteUserAuthTokenDocument,
 	type DeleteUserAuthTokenMutationVariables,
+	DeleteUserDocument,
+	type DeleteUserMutationVariables,
 	DeleteUserYankIntegrationDocument,
 	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportDocument,
@@ -286,6 +288,26 @@ const Page: NextPageWithLayout = () => {
 				notifications.show({
 					title: "Success",
 					message: "Auth token deleted successfully",
+					color: "green",
+				});
+			}
+		},
+	});
+
+	const deleteUser = useMutation({
+		mutationFn: async (variables: DeleteUserMutationVariables) => {
+			const { deleteUser } = await gqlClient.request(
+				DeleteUserDocument,
+				variables,
+			);
+			return deleteUser;
+		},
+		onSuccess: (data) => {
+			if (data) {
+				users.refetch();
+				notifications.show({
+					title: "Success",
+					message: "User token deleted successfully",
 					color: "green",
 				});
 			}
@@ -942,8 +964,8 @@ const Page: NextPageWithLayout = () => {
 																	"Are you sure you want to delete this user?",
 																);
 																if (yes)
-																	deleteUserAuthToken.mutate({
-																		token: user.token,
+																	deleteUser.mutate({
+																		toDeleteUserId: user.id,
 																	});
 															}}
 														>
