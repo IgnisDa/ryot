@@ -405,6 +405,7 @@ struct CoreDetails {
     author_name: String,
     repository_link: String,
     username_change_allowed: bool,
+    default_credentials: bool,
 }
 
 fn create_cookie(
@@ -1027,6 +1028,7 @@ impl MiscellaneousService {
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
             username_change_allowed: self.config.users.allow_changing_username,
+            default_credentials: self.config.server.default_credentials,
         }
     }
 

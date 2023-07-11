@@ -168,6 +168,11 @@ export interface ServerConfig {
 	/** An array of URLs for CORS. */
 	cors_origins: string[];
 	/**
+	 * Whether default credentials will be populated on the login page of the
+	 * instance.
+	 */
+	default_credentials: boolean;
+	/**
 	 * This will make auth cookies insecure and should be set to `true` if you
 	 * are running the server on `localhost`.
 	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
