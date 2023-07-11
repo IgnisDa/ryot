@@ -131,7 +131,7 @@ export const ImportSource = (props: {
 	children: JSX.Element | JSX.Element[];
 }) => {
 	return (
-		<Box>
+		<Box component="form" onSubmit={props.onSubmit}>
 			{props.children}
 			<Button
 				variant="light"
