@@ -62,6 +62,7 @@ import {
 	UserLot,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
+	UsersDocument,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -190,26 +191,6 @@ const Page: NextPageWithLayout = () => {
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
 	);
 
-	const registerUser = useMutation({
-		mutationFn: async (input: UserInput) => {
-			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
-				input,
-			});
-			return registerUser;
-		},
-		onSuccess(data) {
-			if (data.__typename === "RegisterError") {
-				notifications.show({
-					title: "Error with registration",
-					message: data.error,
-					color: "red",
-				});
-			} else {
-				closeRegisterUserModal();
-			}
-		},
-	});
-
 	const userDetails = useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
@@ -247,13 +228,6 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
-	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
-		const { userYankIntegrations } = await gqlClient.request(
-			UserYankIntegrationsDocument,
-		);
-		return userYankIntegrations;
-	});
-
 	const userAuthTokens = useQuery(
 		["userAuthTokens"],
 		async () => {
@@ -264,6 +238,39 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ staleTime: Infinity },
 	);
+
+	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
+		const { userYankIntegrations } = await gqlClient.request(
+			UserYankIntegrationsDocument,
+		);
+		return userYankIntegrations;
+	});
+
+	const users = useQuery(["users"], async () => {
+		const { users } = await gqlClient.request(UsersDocument);
+		return users;
+	});
+
+	const registerUser = useMutation({
+		mutationFn: async (input: UserInput) => {
+			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
+				input,
+			});
+			return registerUser;
+		},
+		onSuccess(data) {
+			users.refetch();
+			if (data.__typename === "RegisterError") {
+				notifications.show({
+					title: "Error with registration",
+					message: data.error,
+					color: "red",
+				});
+			} else {
+				closeRegisterUserModal();
+			}
+		},
+	});
 
 	const deleteUserAuthToken = useMutation({
 		mutationFn: async (variables: DeleteUserAuthTokenMutationVariables) => {
@@ -917,6 +924,35 @@ const Page: NextPageWithLayout = () => {
 											</Stack>
 										</Box>
 									</Modal>
+									{users.data
+										? users.data.map((user, idx) => (
+												<Paper p="xs" withBorder key={idx}>
+													<Flex align={"center"} justify={"space-between"}>
+														<Box>
+															<Text>{user.name}</Text>
+															<Text size="xs">
+																Role: {changeCase(user.lot)}
+															</Text>
+														</Box>
+														<ActionIcon
+															color={"red"}
+															variant="outline"
+															onClick={() => {
+																const yes = confirm(
+																	"Are you sure you want to delete this user?",
+																);
+																if (yes)
+																	deleteUserAuthToken.mutate({
+																		token: user.token,
+																	});
+															}}
+														>
+															<IconTrash size="1rem" />
+														</ActionIcon>
+													</Flex>
+												</Paper>
+										  ))
+										: null}
 								</Stack>
 							</Tabs.Panel>
 						) : null}
