@@ -1,4 +1,5 @@
 import { ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
@@ -12,6 +13,7 @@ import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useEffect } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 
@@ -23,6 +25,7 @@ type FormSchema = z.infer<typeof formSchema>;
 
 export default function Page() {
 	const router = useRouter();
+	const coreDetails = useCoreDetails();
 	const loginUser = useMutation({
 		mutationFn: async (input: UserInput) => {
 			const { loginUser } = await gqlClient.request(LoginUserDocument, {
@@ -57,7 +60,14 @@ export default function Page() {
 			}
 		},
 	});
-	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
+	const form = useForm<FormSchema>({
+		validate: zodResolver(formSchema),
+	});
+
+	useEffect(() => {
+		if (coreDetails.data?.defaultCredentials)
+			form.setValues({ password: "demo-password", username: "demo" });
+	}, [coreDetails.data]);
 
 	return (
 		<>

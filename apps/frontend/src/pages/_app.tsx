@@ -1,9 +1,9 @@
-import { gqlClient, queryClient } from "@/lib/services/api";
+import { useCoreDetails } from "@/lib/hooks/graphql";
+import { queryClient } from "@/lib/services/api";
 import { Anchor, Container, Flex, MantineProvider, Text } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
-import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import type { NextPage } from "next";
 import { NextSeo } from "next-seo";
 import type { AppProps } from "next/app";
@@ -19,14 +19,7 @@ type AppPropsWithLayout = AppProps & {
 };
 
 const Footer = () => {
-	const coreDetails = useQuery(
-		["coreDetails"],
-		async () => {
-			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
-			return coreDetails;
-		},
-		{ staleTime: Infinity },
-	);
+	const coreDetails = useCoreDetails();
 
 	return (
 		<Container p={"md"} style={{ textAlign: "center" }}>

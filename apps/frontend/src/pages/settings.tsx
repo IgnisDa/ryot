@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "./_app";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -34,7 +34,6 @@ import { useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
-	CoreDetailsDocument,
 	CreateUserYankIntegrationDocument,
 	type CreateUserYankIntegrationMutationVariables,
 	DeleteUserAuthTokenDocument,
@@ -210,14 +209,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const coreDetails = useQuery(
-		["coreDetails"],
-		async () => {
-			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
-			return coreDetails;
-		},
-		{ staleTime: Infinity },
-	);
+	const coreDetails = useCoreDetails();
 
 	const languageInformation = useQuery(
 		["languageInformation"],

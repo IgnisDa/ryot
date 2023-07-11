@@ -2,6 +2,7 @@ import { gqlClient } from "../services/api";
 import {
 	CommitMediaDocument,
 	type CommitMediaMutationVariables,
+	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	MetadataLot,
 	UserDetailsDocument,
@@ -67,4 +68,16 @@ export function useCommitMedia(
 		},
 	});
 	return commitMedia;
+}
+
+export function useCoreDetails() {
+	const coreDetails = useQuery(
+		["coreDetails"],
+		async () => {
+			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
+			return coreDetails;
+		},
+		{ staleTime: Infinity },
+	);
+	return coreDetails;
 }

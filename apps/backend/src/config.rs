@@ -373,16 +373,19 @@ pub struct UsersConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
+    /// The path where the config file will be written once the server boots up.
+    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
+    pub config_dump_path: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
+    /// Whether default credentials will be populated on the login page of the
+    /// instance.
+    pub default_credentials: bool,
     /// This will make auth cookies insecure and should be set to `true` if you
     /// are running the server on `localhost`.
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
-    /// The path where the config file will be written once the server boots up.
-    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
-    pub config_dump_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
