@@ -204,7 +204,7 @@ impl ImporterService {
         }
         let job = storage
             .push(ImportMedia {
-                user_id: user_id.into(),
+                user_id,
                 input,
             })
             .await
@@ -301,7 +301,7 @@ impl ImporterService {
                     .await?;
             }
             for review in item.reviews.iter() {
-                let text = review.review.clone().map(|r| r.text).flatten();
+                let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);
                 self.media_service

@@ -139,7 +139,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     let mut rsp = client.get("user").await.unwrap();
     let data: IdObject = rsp.body_json().await.unwrap();
 
-    let user_id: i32 = data.id.into();
+    let user_id: i32 = data.id;
 
     let mut rsp = client
         .get("lists")
@@ -153,14 +153,10 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         .iter()
         .map(|l| CreateOrUpdateCollectionInput {
             name: l.name.clone(),
-            description: l
-                .description
-                .as_ref()
-                .map(|s| match s.as_str() {
-                    "" => None,
-                    x => Some(x.to_owned()),
-                })
-                .flatten(),
+            description: l.description.as_ref().and_then(|s| match s.as_str() {
+                "" => None,
+                x => Some(x.to_owned()),
+            }),
             visibility: Some(match l.privacy {
                 ListPrivacy::Private => Visibility::Private,
                 ListPrivacy::Public => Visibility::Public,
@@ -247,7 +243,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         let mut collections = vec![];
         for list in lists.iter() {
             for item in list.items.iter() {
-                if i32::from(item.media_item.id) == d.id {
+                if item.media_item.id == d.id {
                     collections.push(list.name.clone());
                 }
             }
@@ -427,7 +423,7 @@ pub mod utils {
             let info = info.unwrap();
             assert_eq!(info.date.unwrap(), expected_date);
             assert_eq!(info.spoiler, expected_is_spoiler);
-            assert_eq!(info.text, expected_text);
+            assert_eq!(info.text, Some(expected_text));
         }
 
         #[test]

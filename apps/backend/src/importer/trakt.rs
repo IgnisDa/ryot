@@ -77,7 +77,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         list.items = items;
     }
     for list in ["watchlist", "favorites"] {
-        let mut rsp = client.get(&format!("{}", list)).await.unwrap();
+        let mut rsp = client.get(list).await.unwrap();
         let items: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
         lists.push(ListResponse {
             name: list.to_owned(),
@@ -109,8 +109,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             description: l
                 .description
                 .as_ref()
-                .map(|s| if s == "" { None } else { Some(s.to_owned()) })
-                .flatten(),
+                .and_then(|s| if s.is_empty() { None } else { Some(s.to_owned()) }),
             ..Default::default()
         })
         .collect::<Vec<_>>();
@@ -124,8 +123,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     rating: item
                         .rating
                         // DEV: Trakt rates items out of 10
-                        .map(|e| Decimal::from_f32_retain((e / 2).into()))
-                        .flatten(),
+                        .and_then(|e| Decimal::from_f32_retain((e / 2).into())),
                     review: Some(ImportItemReview {
                         spoiler: false,
                         text: Some("".to_owned()),
@@ -187,9 +185,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
 fn process_item(i: &ListItemResponse) -> std::result::Result<ImportItem, ImportFailedItem> {
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
-        (d.ids.trakt.clone(), d.ids.tmdb.clone(), MetadataLot::Movie)
+        (d.ids.trakt, d.ids.tmdb, MetadataLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
-        (d.ids.trakt.clone(), d.ids.tmdb.clone(), MetadataLot::Show)
+        (d.ids.trakt, d.ids.tmdb, MetadataLot::Show)
     } else {
         return Err(ImportFailedItem {
             lot: MetadataLot::Book,

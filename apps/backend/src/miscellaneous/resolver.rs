@@ -1585,7 +1585,7 @@ impl MiscellaneousService {
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::Dropped.ne(true))
-            .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
+            .filter(seen::Column::MetadataId.eq(input.metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
@@ -1639,7 +1639,7 @@ impl MiscellaneousService {
                 let last_seen = Seen::find()
                     .filter(seen::Column::UserId.eq(user_id))
                     .filter(seen::Column::Dropped.ne(true))
-                    .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
+                    .filter(seen::Column::MetadataId.eq(input.metadata_id))
                     .order_by_desc(seen::Column::LastUpdatedOn)
                     .one(&self.db)
                     .await
@@ -1678,7 +1678,7 @@ impl MiscellaneousService {
                 let mut seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
-                    metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
+                    metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
@@ -2025,8 +2025,7 @@ impl MiscellaneousService {
                     database_id: identifiers
                         .iter()
                         .find(|&f| f.identifier == i.identifier)
-                        .map(|i| i.id)
-                        .flatten(),
+                        .and_then(|i| i.id),
                     item: i,
                 })
                 .collect()
@@ -2158,7 +2157,7 @@ impl MiscellaneousService {
         let all_reviews = all_reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                Visibility::Private => i32::from(r.posted_by.id) == *user_id,
+                Visibility::Private => r.posted_by.id == *user_id,
                 _ => true,
             })
             .map(|r| ReviewItem {
@@ -2291,7 +2290,7 @@ impl MiscellaneousService {
 
     pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
         let review_id = match input.review_id {
-            Some(i) => ActiveValue::Set(i32::from(i)),
+            Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
         };
         let mut review_obj = review::ActiveModel {
@@ -2299,7 +2298,7 @@ impl MiscellaneousService {
             rating: ActiveValue::Set(input.rating),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
-            metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
+            metadata_id: ActiveValue::Set(input.metadata_id),
             extra_information: ActiveValue::NotSet,
             ..Default::default()
         };
@@ -2434,7 +2433,7 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let col = metadata_to_collection::ActiveModel {
-            metadata_id: ActiveValue::Set(i32::from(input.media_id)),
+            metadata_id: ActiveValue::Set(input.media_id),
             collection_id: ActiveValue::Set(collection.id),
         };
         Ok(col.clone().insert(&self.db).await.is_ok())
@@ -2797,7 +2796,7 @@ impl MiscellaneousService {
             self.config.users.token_valid_for_days,
         )?;
         let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
-        if let Ok(_) = found_token {
+        if found_token.is_ok() {
             self.auth_db.remove(token.to_owned()).await.unwrap();
             Ok(true)
         } else {
@@ -3297,7 +3296,7 @@ impl MiscellaneousService {
                 if r.user_id == user_id {
                     Some(UserAuthToken {
                         token: r.key().clone(),
-                        last_used_on: r.last_used_on.clone(),
+                        last_used_on: r.last_used_on,
                     })
                 } else {
                     None
@@ -3355,7 +3354,7 @@ impl MiscellaneousService {
     }
 }
 
-fn modify_seen_elements(all_seen: &mut Vec<seen::Model>) {
+fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {

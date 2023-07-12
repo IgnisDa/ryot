@@ -143,7 +143,7 @@ impl ExerciseService {
                     let minio_url = env::var("S3_URL").unwrap();
                     let minio_public_url = env::var("S3_PUBLIC_URL").unwrap();
                     link = link.replace(&minio_url, &minio_public_url);
-                    if let Some((m, _)) = link.split_once("?") {
+                    if let Some((m, _)) = link.split_once('?') {
                         link = m.to_owned();
                     }
                 }
