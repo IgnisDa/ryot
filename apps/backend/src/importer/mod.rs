@@ -61,7 +61,7 @@ pub struct DeployTraktImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployImportInput {
+pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
@@ -160,15 +160,15 @@ pub struct ImporterMutation;
 #[Object]
 impl ImporterMutation {
     /// Add job to import data from various sources.
-    async fn deploy_import(
+    async fn deploy_import_job(
         &self,
         gql_ctx: &Context<'_>,
-        input: DeployImportInput,
+        input: DeployImportJobInput,
     ) -> Result<String> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<ImporterService>>()
-            .deploy_import(user_id, input)
+            .deploy_import_job(user_id, input)
             .await
     }
 }
@@ -193,10 +193,10 @@ impl ImporterService {
         }
     }
 
-    pub async fn deploy_import(
+    pub async fn deploy_import_job(
         &self,
         user_id: i32,
-        mut input: DeployImportInput,
+        mut input: DeployImportJobInput,
     ) -> Result<String> {
         let mut storage = self.import_media.clone();
         if let Some(s) = input.media_tracker.as_mut() {
@@ -235,7 +235,11 @@ impl ImporterService {
         self.media_service.media_import_reports(user_id).await
     }
 
-    pub async fn import_from_source(&self, user_id: i32, input: DeployImportInput) -> Result<()> {
+    pub async fn import_from_source(
+        &self,
+        user_id: i32,
+        input: DeployImportJobInput,
+    ) -> Result<()> {
         let db_import_job = self
             .media_service
             .start_import_job(user_id, input.source)

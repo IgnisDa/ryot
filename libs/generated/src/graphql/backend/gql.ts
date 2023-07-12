@@ -24,7 +24,7 @@ const documents = {
     "mutation DeleteUser($toDeleteUserId: Int!) {\n  deleteUser(toDeleteUserId: $toDeleteUserId)\n}": types.DeleteUserDocument,
     "mutation DeleteUserAuthToken($token: String!) {\n  deleteUserAuthToken(token: $token)\n}": types.DeleteUserAuthTokenDocument,
     "mutation DeleteUserYankIntegration($yankIntegrationId: Int!) {\n  deleteUserYankIntegration(yankIntegrationId: $yankIntegrationId)\n}": types.DeleteUserYankIntegrationDocument,
-    "mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}": types.DeployImportDocument,
+    "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
     "mutation GenerateApplicationToken {\n  generateApplicationToken\n}": types.GenerateApplicationTokenDocument,
     "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
@@ -124,7 +124,7 @@ export function graphql(source: "mutation DeleteUserYankIntegration($yankIntegra
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}"): (typeof documents)["mutation DeployImport($input: DeployImportInput!) {\n  deployImport(input: $input)\n}"];
+export function graphql(source: "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}"): (typeof documents)["mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
