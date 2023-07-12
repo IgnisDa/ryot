@@ -77,7 +77,7 @@ You can create `/var/lib/dokku/storage/$APPNAME/config/ryot.{json,toml,yaml}`
 files to configure the instance. Make sure to restart the server after you change
 the configuration.
 
-### Fly
+## Fly
 
 The demo Ryot instance is deployed to [Fly](https://fly.io). The following steps
 are required to deploy to Fly.
@@ -107,9 +107,3 @@ fly postgres attach --app ryot ryot-db
 ```bash
 fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
 ```
-
-### Railway
-
-You can use the following button to deploy Ryot using a Railway template:
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/lwzKXe?referralCode=h1y1KK)
