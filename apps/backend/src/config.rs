@@ -459,6 +459,7 @@ impl AppConfig {
         cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
+        cl.server.config_dump_path = gt();
         cl.server.cors_origins = vec![gt()];
         cl
     }
