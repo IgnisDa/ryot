@@ -1107,6 +1107,7 @@ const Page: NextPageWithLayout = () => {
 														{...s}
 														name={`${s.seasonNumber}. ${s.name}`}
 														displayIndicator={
+															s.episodes.length > 0 &&
 															s.episodes.every((e) =>
 																seenHistory.data.some(
 																	(h) =>
