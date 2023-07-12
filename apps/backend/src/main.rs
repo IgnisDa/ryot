@@ -36,7 +36,7 @@ use darkbird::{
 };
 use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
-use sea_orm::{prelude::DateTimeUtc, Database, DatabaseConnection};
+use sea_orm::{prelude::DateTimeUtc, ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -128,7 +128,10 @@ async fn main() -> Result<()> {
     let aws_conf = aws_conf.build();
     let s3_client = aws_sdk_s3::Client::from_conf(aws_conf);
 
-    let db = Database::connect(&config.database.url)
+    let opt = ConnectOptions::new(config.database.url.clone())
+        .min_connections(5)
+        .to_owned();
+    let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
     let auth_db = Arc::new(
