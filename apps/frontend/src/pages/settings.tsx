@@ -132,11 +132,10 @@ type CreateUserYankIntegationSchema = z.infer<
 >;
 
 export const ImportSource = (props: {
-	onSubmit: () => void;
 	children: JSX.Element | JSX.Element[];
 }) => {
 	return (
-		<Box component="form" onSubmit={props.onSubmit}>
+		<>
 			{props.children}
 			<Button
 				variant="light"
@@ -148,7 +147,7 @@ export const ImportSource = (props: {
 			>
 				Import
 			</Button>
-		</Box>
+		</>
 	);
 };
 
@@ -453,60 +452,6 @@ const Page: NextPageWithLayout = () => {
 			},
 		});
 
-	const openGoodreadsImportModal = () =>
-		modals.openConfirmModal({
-			children: (
-				<Text size="sm">
-					Are you sure you want to import from Goodreads? This action is
-					irreversible.
-				</Text>
-			),
-			onConfirm: () => {
-				deployImportJob.mutate({
-					input: {
-						goodreads: goodreadsImportForm.values,
-						source: MediaImportSource.Goodreads,
-					},
-				});
-			},
-		});
-
-	const openMediaTrackerImportModal = () =>
-		modals.openConfirmModal({
-			children: (
-				<Text size="sm">
-					Are you sure you want to import from Media Tracker? This action is
-					irreversible.
-				</Text>
-			),
-			onConfirm: () => {
-				deployImportJob.mutate({
-					input: {
-						mediaTracker: mediaTrackerImportForm.values,
-						source: MediaImportSource.MediaTracker,
-					},
-				});
-			},
-		});
-
-	const openTraktImportModal = () =>
-		modals.openConfirmModal({
-			children: (
-				<Text size="sm">
-					Are you sure you want to import from Trakt? This action is
-					irreversible.
-				</Text>
-			),
-			onConfirm: () => {
-				deployImportJob.mutate({
-					input: {
-						trakt: traktImportForm.values,
-						source: MediaImportSource.Trakt,
-					},
-				});
-			},
-		});
-
 	return userDetails.data &&
 		languageInformation.data &&
 		userAuthTokens.data &&
@@ -680,77 +625,95 @@ const Page: NextPageWithLayout = () => {
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
-							<Stack>
-								<Flex justify={"space-between"}>
-									<Title order={3}>Import data</Title>
-									<Anchor
-										size="xs"
-										href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Flex>
-								<Select
-									label="Select a source"
-									required
-									data={Object.values(MediaImportSource)}
-									onChange={(v) => {
-										const t = match(v)
-											.with("GOODREADS", () => MediaImportSource.Goodreads)
-											.with(
-												"MEDIA_TRACKER",
-												() => MediaImportSource.MediaTracker,
-											)
-											.with("TRAKT", () => MediaImportSource.Trakt)
-											.run();
-										if (t) setDeployImportSource(t);
-									}}
-								/>
-								{deployImportSource === MediaImportSource.MediaTracker ? (
-									<ImportSource
-										onSubmit={mediaTrackerImportForm.onSubmit((_values) => {
-											openMediaTrackerImportModal();
-										})}
-									>
-										<TextInput
-											label="Instance Url"
-											required
-											{...mediaTrackerImportForm.getInputProps("apiUrl")}
-										/>
-										<PasswordInput
-											mt="sm"
-											label="API Key"
-											required
-											{...mediaTrackerImportForm.getInputProps("apiKey")}
-										/>
-									</ImportSource>
-								) : deployImportSource === MediaImportSource.Goodreads ? (
-									<ImportSource
-										onSubmit={goodreadsImportForm.onSubmit((_values) => {
-											openGoodreadsImportModal();
-										})}
-									>
-										<TextInput
-											label="RSS URL"
-											required
-											{...goodreadsImportForm.getInputProps("rssUrl")}
-										/>
-									</ImportSource>
-								) : deployImportSource === MediaImportSource.Trakt ? (
-									<ImportSource
-										onSubmit={traktImportForm.onSubmit((_values) => {
-											openTraktImportModal();
-										})}
-									>
-										<TextInput
-											label="Username"
-											required
-											{...traktImportForm.getInputProps("username")}
-										/>
-									</ImportSource>
-								) : null}
-							</Stack>
+							<Box
+								component="form"
+								onSubmit={(e) => {
+									e.preventDefault();
+									const yes = confirm(
+										"Are you sure you want to deploy an import job? This action is irreversible.",
+									);
+									if (yes) {
+										if (deployImportSource) {
+											const values = match(deployImportSource)
+												.with(MediaImportSource.Goodreads, () => ({
+													goodreads: goodreadsImportForm.values,
+												}))
+												.with(MediaImportSource.Trakt, () => ({
+													trakt: traktImportForm.values,
+												}))
+												.with(MediaImportSource.MediaTracker, () => ({
+													mediaTracker: mediaTrackerImportForm.values,
+												}))
+												.exhaustive();
+											if (values) {
+												deployImportJob.mutate({
+													input: { source: deployImportSource, ...values },
+												});
+											}
+										}
+									}
+								}}
+							>
+								<Stack>
+									<Flex justify={"space-between"}>
+										<Title order={3}>Import data</Title>
+										<Anchor
+											size="xs"
+											href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
+											target="_blank"
+										>
+											Docs
+										</Anchor>
+									</Flex>
+									<Select
+										label="Select a source"
+										required
+										data={Object.values(MediaImportSource)}
+										onChange={(v) => {
+											const t = match(v)
+												.with("GOODREADS", () => MediaImportSource.Goodreads)
+												.with(
+													"MEDIA_TRACKER",
+													() => MediaImportSource.MediaTracker,
+												)
+												.with("TRAKT", () => MediaImportSource.Trakt)
+												.run();
+											if (t) setDeployImportSource(t);
+										}}
+									/>
+									{deployImportSource === MediaImportSource.MediaTracker ? (
+										<ImportSource>
+											<TextInput
+												label="Instance Url"
+												required
+												{...mediaTrackerImportForm.getInputProps("apiUrl")}
+											/>
+											<PasswordInput
+												mt="sm"
+												label="API Key"
+												required
+												{...mediaTrackerImportForm.getInputProps("apiKey")}
+											/>
+										</ImportSource>
+									) : deployImportSource === MediaImportSource.Goodreads ? (
+										<ImportSource>
+											<TextInput
+												label="RSS URL"
+												required
+												{...goodreadsImportForm.getInputProps("rssUrl")}
+											/>
+										</ImportSource>
+									) : deployImportSource === MediaImportSource.Trakt ? (
+										<ImportSource>
+											<TextInput
+												label="Username"
+												required
+												{...traktImportForm.getInputProps("username")}
+											/>
+										</ImportSource>
+									) : null}
+								</Stack>
+							</Box>
 						</Tabs.Panel>
 						<Tabs.Panel value="misc">
 							<Stack>
