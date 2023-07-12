@@ -1,16 +1,17 @@
 # Importing
 
-Ryot supports importing media from a number of sources. Here are a few pointers.
-
-To start importing, go to the settings page and select the "Import" tab.
+Imports are meant to be a one-time operation. They are irreversible. Ryot
+supports importing media from a number of sources. To start importing, go to
+the settings page and select the "Imports" tab.
 
 ## MediaTracker
 
 You can import from [MediaTracker](https://github.com/bonukai/MediaTracker), with
 the following caveats:
 
-- Items that are in progress are always imported with 100% progress regardless.
-  They are added to the "In Progress" collection as expected.
+- Items that are in progress are always imported with 100% progress. They are
+  added to the "In Progress" collection so you can manually fix their progress
+  if needed.
 - Ryot does not support calendars yet
 
 ### Steps
@@ -39,17 +40,20 @@ Ryot translates Goodreads shelves in the following manner:
 ## Trakt
 
 All movies and shows can be imported from [Trakt](https://trakt.tv) along with
-their ratings, history, comments and lists.
+their ratings, history, comments and lists. A few points to note.
 
+- It is necessary to set your account's privacy to public during the
+  duration of the import because the authentication flow of Trakt is pretty
+  complicated and I don't think it would be worth implementing.
+- Items that have been "checked-in" will not be imported.
+  
 ### Steps
 
 - Login to your Trakt account and go to the settings page.
 - If your account is set to private, uncheck the box next to it. You can revert
-  this once import is complete. **NOTE**: It is necessary to set your account
-  public during the duration of the import because the authentication flow of
-  Trakt is pretty complicated and I don't think it would be worth implementing.
-- Find your user slug. This is usually your username. You can find it by going to
-  your profile page, and checking the URL.
+  this change once the import is complete.
+- Find your profile slug. This is usually your username. You can find it by
+  going to your profile page, and checking the URL.
 - Enter this username in the input.
 
 ## Notes
