@@ -36,6 +36,22 @@ Ryot translates Goodreads shelves in the following manner:
 
 - Enter this URL in the input.
 
+## Trakt
+
+All movies and shows can be imported from [Trakt](https://trakt.tv) along with
+their ratings, history, comments and lists.
+
+### Steps
+
+- Login to your Trakt account and go to the settings page.
+- If your account is set to private, uncheck the box next to it. You can revert
+  this once import is complete. **NOTE**: It is necessary to set your account
+  public during the duration of the import because the authentication flow of
+  Trakt is pretty complicated and I don't think it would be worth implementing.
+- Find your user slug. This is usually your username. You can find it by going to
+  your profile page, and checking the URL.
+- Enter this username in the input.
+
 ## Notes
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
