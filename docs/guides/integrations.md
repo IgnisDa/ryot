@@ -1,6 +1,6 @@
 # Integrations
 
-Integrations can be used to continuosly updated your media progress. They can
+Integrations can be used to continuously update your media progress. They can
 be of two types:
 
 - _Yank_: Progress data is downloaded from an externally running server at a

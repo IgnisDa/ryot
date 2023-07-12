@@ -338,13 +338,13 @@ impl ImporterService {
                     .ok();
             }
             tracing::trace!(
-                "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, reviews count: {rev}, collections count: {col_count}",
+                "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx,
+                total = import.media.len(),
                 lot = item.lot,
                 hist = item.seen_history.len(),
                 rev = item.reviews.len(),
-                col_count = item.collections.len(),
-                total = import.media.len(),
+                col = item.collections.len(),
             );
         }
         self.media_service

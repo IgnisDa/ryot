@@ -143,7 +143,9 @@ pub async fn user_id_from_token(token: String, auth_db: &MemoryAuthDb) -> Result
     match found_token {
         Some(t) => {
             let mut val = t.value().clone();
-            drop(t); // since `t` is a references, we can not update it before dropping
+            // DEV: since `t` is a reference to the actual data, we can not
+            // update it before dropping
+            drop(t);
             let return_value = val.user_id;
             val.last_used_on = Utc::now();
             auth_db.insert(token, val).await.unwrap();
