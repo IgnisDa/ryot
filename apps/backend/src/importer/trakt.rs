@@ -106,10 +106,13 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         .iter()
         .map(|l| CreateOrUpdateCollectionInput {
             name: l.name.to_case(Case::Title),
-            description: l
-                .description
-                .as_ref()
-                .and_then(|s| if s.is_empty() { None } else { Some(s.to_owned()) }),
+            description: l.description.as_ref().and_then(|s| {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_owned())
+                }
+            }),
             ..Default::default()
         })
         .collect::<Vec<_>>();
@@ -137,7 +140,12 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     }
 
     let mut histories = vec![];
-    let rsp = client.get("history").await.unwrap();
+    let rsp = client
+        .get("history")
+        .query(&serde_json::json!({ "limit": 1000 }))
+        .unwrap()
+        .await
+        .unwrap();
     let total_history = rsp
         .header("x-pagination-page-count")
         .expect("pagination to be present")
@@ -146,9 +154,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         .parse::<usize>()
         .unwrap();
     for page in 1..total_history + 1 {
+        tracing::trace!("Fetching user history {page:?}/{total_history:?}");
         let mut rsp = client
             .get("history")
-            .query(&serde_json::json!({ "page": page }))
+            .query(&serde_json::json!({ "page": page, "limit": 1000 }))
             .unwrap()
             .await
             .unwrap();
@@ -196,13 +205,21 @@ fn process_item(i: &ListItemResponse) -> std::result::Result<ImportItem, ImportF
             error: Some("Item is neither a movie or a show".to_owned()),
         });
     };
-    Ok(ImportItem {
-        source_id: source_id.to_string(),
-        lot,
-        identifier: ImportItemIdentifier::NeedsDetails(identifier.unwrap().to_string()),
-        source: MetadataSource::Tmdb,
-        seen_history: vec![],
-        reviews: vec![],
-        collections: vec![],
-    })
+    match identifier {
+        Some(i) => Ok(ImportItem {
+            source_id: source_id.to_string(),
+            lot,
+            identifier: ImportItemIdentifier::NeedsDetails(i.to_string()),
+            source: MetadataSource::Tmdb,
+            seen_history: vec![],
+            reviews: vec![],
+            collections: vec![],
+        }),
+        None => Err(ImportFailedItem {
+            lot: MetadataLot::Book,
+            step: ImportFailStep::ItemDetailsFromSource,
+            identifier: "".to_owned(),
+            error: Some("Item does not have an associated TMDB id".to_owned()),
+        }),
+    }
 }
