@@ -2290,49 +2290,39 @@ impl MiscellaneousService {
     }
 
     pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
-        let meta = Review::find()
-            .filter(review::Column::Identifier.eq(input.identifier.clone()))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
-        } else {
-            let review_id = match input.review_id {
-                Some(i) => ActiveValue::Set(i32::from(i)),
-                None => ActiveValue::NotSet,
-            };
-            let mut review_obj = review::ActiveModel {
-                id: review_id,
-                rating: ActiveValue::Set(input.rating),
-                text: ActiveValue::Set(input.text),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
-                extra_information: ActiveValue::NotSet,
-                identifier: ActiveValue::Set(input.identifier),
-                ..Default::default()
-            };
-            if let Some(s) = input.spoiler {
-                review_obj.spoiler = ActiveValue::Set(s);
-            }
-            if let Some(v) = input.visibility {
-                review_obj.visibility = ActiveValue::Set(v);
-            }
-            if let Some(d) = input.date {
-                review_obj.posted_on = ActiveValue::Set(d);
-            }
-            if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
-                review_obj.extra_information =
-                    ActiveValue::Set(Some(SeenExtraInformation::Show(SeenShowExtraInformation {
-                        season: s,
-                        episode: e,
-                    })));
-            }
-            let insert = review_obj.save(&self.db).await.unwrap();
-            Ok(IdObject {
-                id: insert.id.unwrap(),
-            })
+        let review_id = match input.review_id {
+            Some(i) => ActiveValue::Set(i32::from(i)),
+            None => ActiveValue::NotSet,
+        };
+        let mut review_obj = review::ActiveModel {
+            id: review_id,
+            rating: ActiveValue::Set(input.rating),
+            text: ActiveValue::Set(input.text),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
+            extra_information: ActiveValue::NotSet,
+            ..Default::default()
+        };
+        if let Some(s) = input.spoiler {
+            review_obj.spoiler = ActiveValue::Set(s);
         }
+        if let Some(v) = input.visibility {
+            review_obj.visibility = ActiveValue::Set(v);
+        }
+        if let Some(d) = input.date {
+            review_obj.posted_on = ActiveValue::Set(d);
+        }
+        if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
+            review_obj.extra_information =
+                ActiveValue::Set(Some(SeenExtraInformation::Show(SeenShowExtraInformation {
+                    season: s,
+                    episode: e,
+                })));
+        }
+        let insert = review_obj.save(&self.db).await.unwrap();
+        Ok(IdObject {
+            id: insert.id.unwrap(),
+        })
     }
 
     pub async fn delete_review(&self, user_id: &i32, review_id: i32) -> Result<bool> {

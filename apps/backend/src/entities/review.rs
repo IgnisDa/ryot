@@ -28,8 +28,6 @@ pub struct Model {
     pub metadata_id: i32,
     #[graphql(skip)]
     pub extra_information: Option<SeenExtraInformation>,
-    #[graphql(skip)]
-    pub identifier: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
