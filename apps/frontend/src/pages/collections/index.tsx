@@ -41,7 +41,7 @@ const Page: NextPageWithLayout = () => {
 							{changeCase(collectionContents.data.details.visibility)}
 						</Text>
 						<Title>{collectionContents.data.details.name}</Title>{" "}
-						<Text size="sm" mt={-10}>
+						<Text size="sm">
 							Created by {collectionContents.data.user.name}{" "}
 							{formatTimeAgo(collectionContents.data.details.createdOn)}
 						</Text>
