@@ -133,7 +133,11 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         date: item.rated_at,
                     }),
                 });
-                media_items.push(d)
+                if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                    a.reviews = d.reviews;
+                } else {
+                    media_items.push(d)
+                }
             }
             Err(d) => failed_items.push(d),
         }
@@ -180,7 +184,11 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     show_season_number,
                     show_episode_number,
                 });
-                media_items.push(d)
+                if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                    a.seen_history = d.seen_history;
+                } else {
+                    media_items.push(d)
+                }
             }
             Err(d) => failed_items.push(d),
         }

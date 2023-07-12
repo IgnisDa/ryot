@@ -141,6 +141,7 @@ impl Job for AfterMediaSeenJob {
 // and "Watchlist". Podcasts and shows can not be removed from "In Progress" since
 // it is not easy to determine which episode is the last one. That needs to be done
 // manually.
+// FIXME: Exclude season 0 from shows and then calculate if completed
 pub async fn after_media_seen_job(
     information: AfterMediaSeenJob,
     ctx: JobContext,
