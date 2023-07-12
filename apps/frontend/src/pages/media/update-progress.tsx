@@ -153,16 +153,10 @@ const Page: NextPageWithLayout = () => {
 					<Title>{title}</Title>
 					{mediaDetails.data.showSpecifics ? (
 						<>
-							{onlySeason ? (
-								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
-									This will mark all episodes for Season{" "}
-									{selectedShowSeasonNumber} as seen
-								</Alert>
-							) : null}
 							{onlySeason || completeShow ? (
 								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
 									{onlySeason
-										? `This will mark all episodes for Season ${selectedShowSeasonNumber} as seen`
+										? `This will mark all episodes of season ${selectedShowSeasonNumber} as seen`
 										: completeShow
 										? "This will mark all episodes for this show as seen"
 										: null}
