@@ -141,7 +141,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
     let mut histories = vec![];
     let rsp = client
-        .get("history")
+        .head("history")
         .query(&serde_json::json!({ "limit": 1000 }))
         .unwrap()
         .await

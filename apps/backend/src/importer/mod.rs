@@ -202,13 +202,7 @@ impl ImporterService {
         if let Some(s) = input.media_tracker.as_mut() {
             s.api_url = s.api_url.trim_end_matches('/').to_owned()
         }
-        let job = storage
-            .push(ImportMedia {
-                user_id,
-                input,
-            })
-            .await
-            .unwrap();
+        let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
         Ok(job.to_string())
     }
 
@@ -344,11 +338,13 @@ impl ImporterService {
                     .ok();
             }
             tracing::trace!(
-                "Imported item: {idx}, lot: {lot}, history count: {hist}, reviews count: {rev}",
+                "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, reviews count: {rev}, collections count: {col_count}",
                 idx = idx,
                 lot = item.lot,
                 hist = item.seen_history.len(),
-                rev = item.reviews.len()
+                rev = item.reviews.len(),
+                col_count = item.collections.len(),
+                total = import.media.len(),
             );
         }
         self.media_service
