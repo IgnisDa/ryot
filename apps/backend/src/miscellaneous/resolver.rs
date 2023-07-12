@@ -1623,106 +1623,96 @@ impl MiscellaneousService {
                 }
             }
         };
-        let meta = Seen::find()
-            .filter(seen::Column::Identifier.eq(input.identifier.clone()))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if let Some(m) = meta {
-            Ok(IdObject { id: m.metadata_id })
-        } else {
-            let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
-            let seen_item = match action {
-                ProgressUpdateAction::Update => {
-                    let progress = input.progress.unwrap();
-                    let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
-                    last_seen.progress = ActiveValue::Set(progress);
-                    last_seen.last_updated_on = ActiveValue::Set(Utc::now());
-                    if progress == 100 {
-                        last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
-                    }
-                    last_seen.update(&self.db).await.unwrap()
+        let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
+        let seen_item = match action {
+            ProgressUpdateAction::Update => {
+                let progress = input.progress.unwrap();
+                let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                last_seen.progress = ActiveValue::Set(progress);
+                last_seen.last_updated_on = ActiveValue::Set(Utc::now());
+                if progress == 100 {
+                    last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
                 }
-                ProgressUpdateAction::Drop => {
-                    let last_seen = Seen::find()
-                        .filter(seen::Column::UserId.eq(user_id))
-                        .filter(seen::Column::Dropped.ne(true))
-                        .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
-                        .order_by_desc(seen::Column::LastUpdatedOn)
-                        .one(&self.db)
-                        .await
-                        .unwrap();
-                    match last_seen {
-                        Some(ls) => {
-                            let mut last_seen: seen::ActiveModel = ls.into();
-                            last_seen.dropped = ActiveValue::Set(true);
-                            last_seen.last_updated_on = ActiveValue::Set(Utc::now());
-                            last_seen.update(&self.db).await.unwrap()
-                        }
-                        None => {
-                            return err();
-                        }
+                last_seen.update(&self.db).await.unwrap()
+            }
+            ProgressUpdateAction::Drop => {
+                let last_seen = Seen::find()
+                    .filter(seen::Column::UserId.eq(user_id))
+                    .filter(seen::Column::Dropped.ne(true))
+                    .filter(seen::Column::MetadataId.eq(i32::from(input.metadata_id)))
+                    .order_by_desc(seen::Column::LastUpdatedOn)
+                    .one(&self.db)
+                    .await
+                    .unwrap();
+                match last_seen {
+                    Some(ls) => {
+                        let mut last_seen: seen::ActiveModel = ls.into();
+                        last_seen.dropped = ActiveValue::Set(true);
+                        last_seen.last_updated_on = ActiveValue::Set(Utc::now());
+                        last_seen.update(&self.db).await.unwrap()
+                    }
+                    None => {
+                        return err();
                     }
                 }
-                ProgressUpdateAction::Now
-                | ProgressUpdateAction::InThePast
-                | ProgressUpdateAction::JustStarted => {
-                    let meta = Metadata::find_by_id(input.metadata_id)
-                        .one(&self.db)
-                        .await
-                        .unwrap()
-                        .unwrap();
-                    let finished_on = if action == ProgressUpdateAction::JustStarted {
-                        None
-                    } else {
-                        input.date
-                    };
-                    let (progress, started_on) =
-                        if matches!(action, ProgressUpdateAction::JustStarted) {
-                            (0, Some(Utc::now().date_naive()))
-                        } else {
-                            (100, None)
-                        };
-                    let mut seen_insert = seen::ActiveModel {
-                        progress: ActiveValue::Set(progress),
-                        user_id: ActiveValue::Set(user_id),
-                        metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
-                        started_on: ActiveValue::Set(started_on),
-                        finished_on: ActiveValue::Set(finished_on),
-                        last_updated_on: ActiveValue::Set(Utc::now()),
-                        identifier: ActiveValue::Set(input.identifier),
-                        ..Default::default()
-                    };
-                    if meta.lot == MetadataLot::Show {
-                        seen_insert.extra_information = ActiveValue::Set(Some(
-                            SeenExtraInformation::Show(SeenShowExtraInformation {
-                                season: input.show_season_number.unwrap(),
-                                episode: input.show_episode_number.unwrap(),
-                            }),
-                        ));
-                    } else if meta.lot == MetadataLot::Podcast {
-                        seen_insert.extra_information = ActiveValue::Set(Some(
-                            SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
-                                episode: input.podcast_episode_number.unwrap(),
-                            }),
-                        ))
-                    }
+            }
+            ProgressUpdateAction::Now
+            | ProgressUpdateAction::InThePast
+            | ProgressUpdateAction::JustStarted => {
+                let meta = Metadata::find_by_id(input.metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let finished_on = if action == ProgressUpdateAction::JustStarted {
+                    None
+                } else {
+                    input.date
+                };
+                let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
+                {
+                    (0, Some(Utc::now().date_naive()))
+                } else {
+                    (100, None)
+                };
+                let mut seen_insert = seen::ActiveModel {
+                    progress: ActiveValue::Set(progress),
+                    user_id: ActiveValue::Set(user_id),
+                    metadata_id: ActiveValue::Set(i32::from(input.metadata_id)),
+                    started_on: ActiveValue::Set(started_on),
+                    finished_on: ActiveValue::Set(finished_on),
+                    last_updated_on: ActiveValue::Set(Utc::now()),
+                    ..Default::default()
+                };
+                if meta.lot == MetadataLot::Show {
+                    seen_insert.extra_information = ActiveValue::Set(Some(
+                        SeenExtraInformation::Show(SeenShowExtraInformation {
+                            season: input.show_season_number.unwrap(),
+                            episode: input.show_episode_number.unwrap(),
+                        }),
+                    ));
+                } else if meta.lot == MetadataLot::Podcast {
+                    seen_insert.extra_information = ActiveValue::Set(Some(
+                        SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
+                            episode: input.podcast_episode_number.unwrap(),
+                        }),
+                    ))
+                }
 
-                    seen_insert.insert(&self.db).await.unwrap()
-                }
-            };
-            let id = seen_item.id;
-            let metadata = self.generic_metadata(input.metadata_id).await?;
-            let mut storage = self.after_media_seen.clone();
-            storage
-                .push(AfterMediaSeenJob {
-                    seen: seen_item,
-                    metadata_lot: metadata.model.lot,
-                })
-                .await
-                .ok();
-            Ok(IdObject { id })
-        }
+                seen_insert.insert(&self.db).await.unwrap()
+            }
+        };
+        let id = seen_item.id;
+        let metadata = self.generic_metadata(input.metadata_id).await?;
+        let mut storage = self.after_media_seen.clone();
+        storage
+            .push(AfterMediaSeenJob {
+                seen: seen_item,
+                metadata_lot: metadata.model.lot,
+            })
+            .await
+            .ok();
+        Ok(IdObject { id })
     }
 
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {

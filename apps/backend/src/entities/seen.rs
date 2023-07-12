@@ -32,9 +32,6 @@ pub struct Model {
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]
     pub podcast_information: Option<SeenPodcastExtraInformation>,
-    #[graphql(skip)]
-    #[serde(skip)]
-    pub identifier: Option<String>,
     pub dropped: bool,
 }
 
