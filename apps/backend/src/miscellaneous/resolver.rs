@@ -3346,6 +3346,17 @@ impl MiscellaneousService {
         self.admin_account_guard(user_id).await?;
         let us = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = us {
+            if self
+                .users(user_id)
+                .await?
+                .into_iter()
+                .filter(|u| u.lot == UserLot::Admin)
+                .collect_vec()
+                .len()
+                == 1
+            {
+                return Ok(false);
+            }
             u.delete(&self.db).await?;
             Ok(true)
         } else {
