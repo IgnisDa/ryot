@@ -22,6 +22,8 @@ pub enum MediaImportSource {
     MediaTracker,
     #[sea_orm(string_value = "GO")]
     Goodreads,
+    #[sea_orm(string_value = "TR")]
+    Trakt,
 }
 
 #[derive(Iden)]

@@ -24,6 +24,7 @@ use crate::{
 
 mod goodreads;
 mod media_tracker;
+mod trakt;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemReview {
@@ -54,10 +55,17 @@ pub struct DeployGoodreadsImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployTraktImportInput {
+    // The public username in Trakt.
+    username: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
+    pub trakt: Option<DeployTraktImportInput>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -237,6 +245,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
+            MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
         };
         for col_details in import.collections.into_iter() {
             self.media_service
