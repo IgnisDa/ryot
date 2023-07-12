@@ -423,7 +423,7 @@ pub mod utils {
             let info = info.unwrap();
             assert_eq!(info.date.unwrap(), expected_date);
             assert_eq!(info.spoiler, expected_is_spoiler);
-            assert_eq!(info.text, Some(expected_text));
+            assert_eq!(info.text.unwrap(), expected_text.to_owned());
         }
 
         #[test]
