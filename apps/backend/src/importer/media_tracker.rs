@@ -293,7 +293,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         Some(super::ImportItemReview {
                             date: None,
                             spoiler: false,
-                            text: r.review.unwrap_or_default(),
+                            text: r.review,
                         })
                     };
                 ImportItemRating {
@@ -364,7 +364,7 @@ pub mod utils {
             Some(ImportItemReview {
                 date: Some(date),
                 spoiler,
-                text,
+                text: Some(text),
             })
         } else {
             None

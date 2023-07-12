@@ -30,7 +30,7 @@ mod trakt;
 pub struct ImportItemReview {
     date: Option<DateTimeUtc>,
     spoiler: bool,
-    text: String,
+    text: Option<String>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
@@ -301,7 +301,7 @@ impl ImporterService {
                     .await?;
             }
             for review in item.reviews.iter() {
-                let text = review.review.clone().map(|r| r.text);
+                let text = review.review.clone().map(|r| r.text).flatten();
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);
                 self.media_service
