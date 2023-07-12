@@ -294,8 +294,14 @@ const Page: NextPageWithLayout = () => {
 				users.refetch();
 				notifications.show({
 					title: "Success",
-					message: "User token deleted successfully",
+					message: "User deleted successfully",
 					color: "green",
+				});
+			} else {
+				notifications.show({
+					title: "Unsucessful",
+					message: "There was a problem in deleting the user",
+					color: "red",
 				});
 			}
 		},
