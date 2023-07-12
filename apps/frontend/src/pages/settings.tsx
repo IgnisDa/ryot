@@ -41,8 +41,8 @@ import {
 	type DeleteUserMutationVariables,
 	DeleteUserYankIntegrationDocument,
 	type DeleteUserYankIntegrationMutationVariables,
-	DeployImportDocument,
-	type DeployImportMutationVariables,
+	DeployImportJobDocument,
+	type DeployImportJobMutationVariables,
 	GenerateApplicationTokenDocument,
 	type GenerateApplicationTokenMutationVariables,
 	MediaImportSource,
@@ -113,6 +113,11 @@ type MediaTrackerImportFormSchema = z.infer<
 	typeof mediaTrackerImportFormSchema
 >;
 
+const traktImportFormSchema = z.object({
+	username: z.string(),
+});
+type TraktImportFormSchema = z.infer<typeof traktImportFormSchema>;
+
 const goodreadsImportFormSchema = z.object({
 	rssUrl: z.string().url(),
 });
@@ -175,6 +180,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
 		validate: zodResolver(goodreadsImportFormSchema),
+	});
+	const traktImportForm = useForm<TraktImportFormSchema>({
+		validate: zodResolver(traktImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
@@ -342,13 +350,13 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const deployImport = useMutation({
-		mutationFn: async (variables: DeployImportMutationVariables) => {
-			const { deployImport } = await gqlClient.request(
-				DeployImportDocument,
+	const deployImportJob = useMutation({
+		mutationFn: async (variables: DeployImportJobMutationVariables) => {
+			const { deployImportJob } = await gqlClient.request(
+				DeployImportJobDocument,
 				variables,
 			);
-			return deployImport;
+			return deployImportJob;
 		},
 		onSuccess: () => {
 			notifications.show(message);
@@ -454,7 +462,7 @@ const Page: NextPageWithLayout = () => {
 				</Text>
 			),
 			onConfirm: () => {
-				deployImport.mutate({
+				deployImportJob.mutate({
 					input: {
 						goodreads: goodreadsImportForm.values,
 						source: MediaImportSource.Goodreads,
@@ -472,10 +480,28 @@ const Page: NextPageWithLayout = () => {
 				</Text>
 			),
 			onConfirm: () => {
-				deployImport.mutate({
+				deployImportJob.mutate({
 					input: {
 						mediaTracker: mediaTrackerImportForm.values,
 						source: MediaImportSource.MediaTracker,
+					},
+				});
+			},
+		});
+
+	const openTraktImportModal = () =>
+		modals.openConfirmModal({
+			children: (
+				<Text size="sm">
+					Are you sure you want to import from Trakt? This action is
+					irreversible.
+				</Text>
+			),
+			onConfirm: () => {
+				deployImportJob.mutate({
+					input: {
+						trakt: traktImportForm.values,
+						source: MediaImportSource.Trakt,
 					},
 				});
 			},
@@ -676,6 +702,7 @@ const Page: NextPageWithLayout = () => {
 												"MEDIA_TRACKER",
 												() => MediaImportSource.MediaTracker,
 											)
+											.with("TRAKT", () => MediaImportSource.Trakt)
 											.run();
 										if (t) setDeployImportSource(t);
 									}}
@@ -708,6 +735,18 @@ const Page: NextPageWithLayout = () => {
 											label="RSS URL"
 											required
 											{...goodreadsImportForm.getInputProps("rssUrl")}
+										/>
+									</ImportSource>
+								) : deployImportSource === MediaImportSource.Trakt ? (
+									<ImportSource
+										onSubmit={traktImportForm.onSubmit((_values) => {
+											openTraktImportModal();
+										})}
+									>
+										<TextInput
+											label="Username"
+											required
+											{...traktImportForm.getInputProps("username")}
 										/>
 									</ImportSource>
 								) : null}
