@@ -1,4 +1,20 @@
 
+# Version 1.9.1 (2023-07-12)
+
+## Bug Fixes
+
+* **backend:** hide config dump path
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* fix heading error in deployment docs
+* add trakt feature
+
+
 # Version 1.9.0 (2023-07-12)
 
 
