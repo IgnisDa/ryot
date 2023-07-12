@@ -1,6 +1,7 @@
 # Integrations
 
-Integrations can be of two types:
+Integrations can be used to continuosly updated your media progress. They can
+be of two types:
 
 - _Yank_: Progress data is downloaded from an externally running server at a
 periodic interval.

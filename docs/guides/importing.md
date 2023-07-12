@@ -1,6 +1,6 @@
 # Importing
 
-Imports are meant to be a one-time operation. They are irreversible. Ryot
+Importing is meant to be a one-time operation. They are irreversible. Ryot
 supports importing media from a number of sources. To start importing, go to
 the settings page and select the "Imports" tab.
 
@@ -43,15 +43,17 @@ All movies and shows can be imported from [Trakt](https://trakt.tv) along with
 their ratings, history, comments and lists. A few points to note.
 
 - It is necessary to set your account's privacy to public during the
-  duration of the import because the authentication flow of Trakt is pretty
-  complicated and I don't think it would be worth implementing.
-- Items that have been "checked-in" will not be imported.
+  duration of the import. The Trakt authentication flow is pretty complicated
+  and I don't think it would be worth implementing.
+- Items that have been "check(ed) in" will not be imported.
   
 ### Steps
 
 - Login to your Trakt account and go to the settings page.
 - If your account is set to private, uncheck the box next to it. You can revert
   this change once the import is complete.
+- If you have any lists that are private, you need to change them to public.
+  Otherwise they will not be imported.
 - Find your profile slug. This is usually your username. You can find it by
   going to your profile page, and checking the URL.
 - Enter this username in the input.
