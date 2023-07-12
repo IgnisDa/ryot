@@ -1,0 +1,3 @@
+mutation DeployImportJob($input: DeployImportJobInput!) {
+  deployImportJob(input: $input) 
+}

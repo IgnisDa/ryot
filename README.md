@@ -99,6 +99,7 @@ $ docker run \
 
 ```yaml
 version: '3.9'
+
 services:
   postgres:
     image: postgres:15-alpine

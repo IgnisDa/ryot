@@ -159,10 +159,11 @@ export type DeployGoodreadsImportInput = {
   rssUrl: Scalars['String'];
 };
 
-export type DeployImportInput = {
+export type DeployImportJobInput = {
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   source: MediaImportSource;
+  trakt?: InputMaybe<DeployTraktImportInput>;
 };
 
 export type DeployMediaTrackerImportInput = {
@@ -170,6 +171,10 @@ export type DeployMediaTrackerImportInput = {
   apiKey: Scalars['String'];
   /** The base url where the resource is present at */
   apiUrl: Scalars['String'];
+};
+
+export type DeployTraktImportInput = {
+  username: Scalars['String'];
 };
 
 export type DetailedMediaSearchResults = {
@@ -395,7 +400,8 @@ export type MediaImportReport = {
 
 export enum MediaImportSource {
   Goodreads = 'GOODREADS',
-  MediaTracker = 'MEDIA_TRACKER'
+  MediaTracker = 'MEDIA_TRACKER',
+  Trakt = 'TRAKT'
 }
 
 export type MediaListInput = {
@@ -514,7 +520,7 @@ export type MutationRoot = {
   /** Delete a yank based integrations for the currently logged in user. */
   deleteUserYankIntegration: Scalars['Boolean'];
   /** Add job to import data from various sources. */
-  deployImport: Scalars['String'];
+  deployImportJob: Scalars['String'];
   /** Deploy a job to download update the exercise library */
   deployUpdateExerciseLibraryJob: Scalars['Int'];
   /** Deploy a job to update a media item's metadata. */
@@ -611,8 +617,8 @@ export type MutationRootDeleteUserYankIntegrationArgs = {
 };
 
 
-export type MutationRootDeployImportArgs = {
-  input: DeployImportInput;
+export type MutationRootDeployImportJobArgs = {
+  input: DeployImportJobInput;
 };
 
 
@@ -1144,12 +1150,12 @@ export type DeleteUserYankIntegrationMutationVariables = Exact<{
 
 export type DeleteUserYankIntegrationMutation = { deleteUserYankIntegration: boolean };
 
-export type DeployImportMutationVariables = Exact<{
-  input: DeployImportInput;
+export type DeployImportJobMutationVariables = Exact<{
+  input: DeployImportJobInput;
 }>;
 
 
-export type DeployImportMutation = { deployImport: string };
+export type DeployImportJobMutation = { deployImportJob: string };
 
 export type DeployUpdateMetadataJobMutationVariables = Exact<{
   metadataId: Scalars['Int'];
@@ -1389,7 +1395,7 @@ export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":
 export const DeleteUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"toDeleteUserId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}}}]}]}}]} as unknown as DocumentNode<DeleteUserMutation, DeleteUserMutationVariables>;
 export const DeleteUserAuthTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserAuthToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"token"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserAuthToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"token"},"value":{"kind":"Variable","name":{"kind":"Name","value":"token"}}}]}]}}]} as unknown as DocumentNode<DeleteUserAuthTokenMutation, DeleteUserAuthTokenMutationVariables>;
 export const DeleteUserYankIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserYankIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"yankIntegrationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserYankIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"yankIntegrationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"yankIntegrationId"}}}]}]}}]} as unknown as DocumentNode<DeleteUserYankIntegrationMutation, DeleteUserYankIntegrationMutationVariables>;
-export const DeployImportDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployImport"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeployImportInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployImport"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployImportMutation, DeployImportMutationVariables>;
+export const DeployImportJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployImportJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeployImportJobInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployImportJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployImportJobMutation, DeployImportJobMutationVariables>;
 export const DeployUpdateMetadataJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdateMetadataJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdateMetadataJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DeployUpdateMetadataJobMutation, DeployUpdateMetadataJobMutationVariables>;
 export const GenerateApplicationTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GenerateApplicationToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateApplicationToken"}}]}}]} as unknown as DocumentNode<GenerateApplicationTokenMutation, GenerateApplicationTokenMutationVariables>;
 export const LoginUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"LoginUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"loginUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}}]}}]}}]}}]} as unknown as DocumentNode<LoginUserMutation, LoginUserMutationVariables>;

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{metadata, seen},
     fitness::exercise::resolver::ExerciseService,
-    importer::{DeployImportInput, ImporterService},
+    importer::{DeployImportJobInput, ImporterService},
     migrator::MetadataLot,
     miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
     models::{fitness::Exercise, media::AddMediaToCollection},
@@ -84,7 +84,7 @@ pub async fn yank_integrations_data(
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImportMedia {
     pub user_id: i32,
-    pub input: DeployImportInput,
+    pub input: DeployImportJobInput,
 }
 
 impl Job for ImportMedia {

@@ -24,12 +24,13 @@ use crate::{
 
 mod goodreads;
 mod media_tracker;
+mod trakt;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct ImportItemReview {
     date: Option<DateTimeUtc>,
     spoiler: bool,
-    text: String,
+    text: Option<String>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
@@ -54,10 +55,17 @@ pub struct DeployGoodreadsImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployImportInput {
+pub struct DeployTraktImportInput {
+    // The public username in Trakt.
+    username: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
+    pub trakt: Option<DeployTraktImportInput>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -152,15 +160,15 @@ pub struct ImporterMutation;
 #[Object]
 impl ImporterMutation {
     /// Add job to import data from various sources.
-    async fn deploy_import(
+    async fn deploy_import_job(
         &self,
         gql_ctx: &Context<'_>,
-        input: DeployImportInput,
+        input: DeployImportJobInput,
     ) -> Result<String> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<ImporterService>>()
-            .deploy_import(user_id, input)
+            .deploy_import_job(user_id, input)
             .await
     }
 }
@@ -185,22 +193,16 @@ impl ImporterService {
         }
     }
 
-    pub async fn deploy_import(
+    pub async fn deploy_import_job(
         &self,
         user_id: i32,
-        mut input: DeployImportInput,
+        mut input: DeployImportJobInput,
     ) -> Result<String> {
         let mut storage = self.import_media.clone();
         if let Some(s) = input.media_tracker.as_mut() {
             s.api_url = s.api_url.trim_end_matches('/').to_owned()
         }
-        let job = storage
-            .push(ImportMedia {
-                user_id: user_id.into(),
-                input,
-            })
-            .await
-            .unwrap();
+        let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
         Ok(job.to_string())
     }
 
@@ -227,7 +229,11 @@ impl ImporterService {
         self.media_service.media_import_reports(user_id).await
     }
 
-    pub async fn import_from_source(&self, user_id: i32, input: DeployImportInput) -> Result<()> {
+    pub async fn import_from_source(
+        &self,
+        user_id: i32,
+        input: DeployImportJobInput,
+    ) -> Result<()> {
         let db_import_job = self
             .media_service
             .start_import_job(user_id, input.source)
@@ -237,6 +243,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
+            MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
         };
         for col_details in import.collections.into_iter() {
             self.media_service
@@ -288,7 +295,7 @@ impl ImporterService {
                     .await?;
             }
             for review in item.reviews.iter() {
-                let text = review.review.clone().map(|r| r.text);
+                let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);
                 self.media_service
@@ -331,11 +338,13 @@ impl ImporterService {
                     .ok();
             }
             tracing::trace!(
-                "Imported item: {idx}, lot: {lot}, history count: {hist}, reviews count: {rev}",
+                "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx,
+                total = import.media.len(),
                 lot = item.lot,
                 hist = item.seen_history.len(),
-                rev = item.reviews.len()
+                rev = item.reviews.len(),
+                col = item.collections.len(),
             );
         }
         self.media_service

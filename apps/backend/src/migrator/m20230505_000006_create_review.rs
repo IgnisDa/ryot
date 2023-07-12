@@ -26,8 +26,6 @@ pub enum Review {
     UserId,
     MetadataId,
     Spoiler,
-    // This will store the ID in case this review was imported
-    Identifier,
 }
 
 #[async_trait::async_trait]
@@ -58,7 +56,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Review::Identifier).string())
                     .col(ColumnDef::new(Review::ExtraInformation).json())
                     .col(
                         ColumnDef::new(Review::Visibility)
