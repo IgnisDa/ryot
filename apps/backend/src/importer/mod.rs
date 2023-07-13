@@ -25,6 +25,7 @@ use crate::{
 
 mod goodreads;
 mod media_tracker;
+mod movary;
 mod trakt;
 
 #[derive(Debug, Clone, SimpleObject)]
@@ -62,11 +63,20 @@ pub struct DeployTraktImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMovaryImportInput {
+    // The CSV contents of the history file.
+    history: String,
+    // The CSV contents of the ratings file.
+    ratings: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
+    pub movary: Option<DeployMovaryImportInput>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -245,6 +255,7 @@ impl ImporterService {
             }
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
+            MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
         };
         import.media = import
             .media
