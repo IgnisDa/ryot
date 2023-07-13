@@ -48,6 +48,17 @@ their ratings, history, comments and lists. A few points to note.
   and I don't think it would be worth implementing.
 - Items that have been "check(ed) in" will not be imported.
 
+### Steps
+
+- Login to your Trakt account and go to the settings page.
+- If your account is set to private, uncheck the box next to it. You can revert
+  this change once the import is complete.
+- If you have any lists that are private, you need to change them to public.
+  Otherwise they will not be imported.
+- Find your profile slug. This is usually your username. You can find it by
+  going to your profile page, and checking the URL.
+- Enter this username in the input.
+
 ## Movary
 
 All movies can be imported from [Movary](https://movary.org) along with
