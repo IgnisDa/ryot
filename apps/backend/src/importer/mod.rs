@@ -245,6 +245,10 @@ impl ImporterService {
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
         };
+        import
+            .media
+            .sort_unstable_by_key(|m| m.seen_history.len() + m.reviews.len() + m.collections.len());
+        import.media.reverse();
         for col_details in import.collections.into_iter() {
             self.media_service
                 .create_or_update_collection(&user_id, col_details)
