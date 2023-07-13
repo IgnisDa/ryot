@@ -46,17 +46,18 @@ their ratings, history, comments and lists. A few points to note.
   duration of the import. The Trakt authentication flow is pretty complicated
   and I don't think it would be worth implementing.
 - Items that have been "check(ed) in" will not be imported.
+
+## Movary
+
+All movies can be imported from [Movary](https://movary.org) along with
+their ratings, history, and comments.
   
 ### Steps
 
-- Login to your Trakt account and go to the settings page.
-- If your account is set to private, uncheck the box next to it. You can revert
-  this change once the import is complete.
-- If you have any lists that are private, you need to change them to public.
-  Otherwise they will not be imported.
-- Find your profile slug. This is usually your username. You can find it by
-  going to your profile page, and checking the URL.
-- Enter this username in the input.
+- Login to your Movary account and go to the settings page. Go to "Personal data"
+  under the "Account" section.
+- Export "history.csv" and "ratings.csv".
+- Upload these files in the input.
 
 ## Notes
 
