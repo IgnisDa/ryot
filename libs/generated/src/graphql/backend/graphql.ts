@@ -164,6 +164,7 @@ export type DeployImportJobInput = {
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: MediaImportSource;
+  storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
 };
 
@@ -177,6 +178,10 @@ export type DeployMediaTrackerImportInput = {
 export type DeployMovaryImportInput = {
   history: Scalars['String'];
   ratings: Scalars['String'];
+};
+
+export type DeployStoryGraphImportInput = {
+  export: Scalars['String'];
 };
 
 export type DeployTraktImportInput = {
@@ -330,10 +335,16 @@ export type ImportDetails = {
 
 /** The various steps in which media importing can fail */
 export enum ImportFailStep {
+  /** Failed to transform the data into the required format */
+  InputTransformation = 'INPUT_TRANSFORMATION',
   /** Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.) */
   ItemDetailsFromSource = 'ITEM_DETAILS_FROM_SOURCE',
   /** Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.) */
-  MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER'
+  MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER',
+  /** Failed to save a review/rating item */
+  ReviewConversion = 'REVIEW_CONVERSION',
+  /** Failed to save a seen history item */
+  SeenHistoryConversion = 'SEEN_HISTORY_CONVERSION'
 }
 
 export type ImportFailedItem = {
@@ -408,6 +419,7 @@ export enum MediaImportSource {
   Goodreads = 'GOODREADS',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
+  StoryGraph = 'STORY_GRAPH',
   Trakt = 'TRAKT'
 }
 

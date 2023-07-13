@@ -26,6 +26,8 @@ pub enum MediaImportSource {
     Trakt,
     #[sea_orm(string_value = "MO")]
     Movary,
+    #[sea_orm(string_value = "ST")]
+    StoryGraph,
 }
 
 #[derive(Iden)]
