@@ -1,4 +1,15 @@
 
+# Version 1.10.2 (2023-07-13)
+
+## Bug Fixes
+
+* **backend:** quick fix
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.10.1 (2023-07-13)
 
 
