@@ -114,6 +114,8 @@ pub enum ImportFailStep {
     ItemDetailsFromSource,
     /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
+    /// Failed to transform the data into the required format
+    InputTransformation,
 }
 
 #[derive(
