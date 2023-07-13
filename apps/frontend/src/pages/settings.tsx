@@ -125,8 +125,8 @@ const goodreadsImportFormSchema = z.object({
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
 const movaryImportFormSchema = z.object({
-	ratings: z.instanceof(File),
-	history: z.instanceof(File),
+	ratings: z.any(),
+	history: z.any(),
 });
 type MovaryImportFormSchema = z.infer<typeof movaryImportFormSchema>;
 
