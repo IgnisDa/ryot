@@ -18,6 +18,8 @@ use crate::{
 enum ReadStatus {
     #[serde(rename = "to-read")]
     ToRead,
+    #[serde(rename = "currently-reading")]
+    CurrentlyReading,
     Other(String),
 }
 
@@ -78,6 +80,7 @@ pub async fn import(input: DeployStoryGraphImportInput) -> Result<ImportResult> 
             let mut collections = vec![];
             collections.push(match record.read_status {
                 ReadStatus::ToRead => "Watchlist".to_owned(),
+                ReadStatus::CurrentlyReading => "In Progress".to_owned(),
                 ReadStatus::Other(s) => s.to_case(Case::Title),
             });
             if let Some(t) = record.tags {
