@@ -179,7 +179,6 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         match process_item(item) {
             Ok(mut d) => {
                 d.seen_history.push(ImportItemSeen {
-                    id: None,
                     podcast_episode_number: None,
                     ended_on: item.watched_at,
                     show_season_number,

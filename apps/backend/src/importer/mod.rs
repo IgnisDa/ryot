@@ -89,7 +89,6 @@ pub struct DeployImportJobInput {
 
 #[derive(Debug, SimpleObject, Clone, Default)]
 pub struct ImportItemSeen {
-    id: Option<String>,
     ended_on: Option<DateTimeUtc>,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
@@ -320,7 +319,6 @@ impl ImporterService {
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
-                            identifier: seen.id.clone(),
                             metadata_id: metadata.id,
                             progress: Some(100),
                             date: seen.ended_on.map(|d| d.date_naive()),

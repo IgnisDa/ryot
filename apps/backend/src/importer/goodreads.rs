@@ -87,7 +87,6 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                 let mut seen_history = vec![];
                 if !d.user_read_at.is_empty() {
                     seen_history.push(ImportItemSeen {
-                        id: None,
                         ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
                             .ok()
                             .map(|d| d.with_timezone(&Utc)),

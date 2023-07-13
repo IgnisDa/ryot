@@ -3272,7 +3272,6 @@ impl MiscellaneousService {
                         show_season_number: None,
                         show_episode_number: None,
                         podcast_episode_number: None,
-                        identifier: None,
                     },
                     user_id,
                 )
