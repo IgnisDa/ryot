@@ -230,7 +230,7 @@ impl ImporterService {
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > Duration::hours(24) {
-                tracing::info!("Invalidating job with id = {id}", id = job.id);
+                tracing::trace!("Invalidating job with id = {id}", id = job.id);
                 let mut job: media_import_report::ActiveModel = job.into();
                 job.success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
@@ -277,7 +277,7 @@ impl ImporterService {
                 .await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
-            tracing::trace!(
+            tracing::debug!(
                 "Importing media with identifier = {iden}",
                 iden = item.source_id
             );
@@ -383,7 +383,7 @@ impl ImporterService {
                     .await
                     .ok();
             }
-            tracing::trace!(
+            tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx,
                 total = import.media.len(),
@@ -397,7 +397,7 @@ impl ImporterService {
             .deploy_recalculate_summary_job(user_id)
             .await
             .ok();
-        tracing::info!(
+        tracing::trace!(
             "Imported {total} media items from {source}",
             total = import.media.len(),
             source = db_import_job.source

@@ -32,13 +32,13 @@ pub async fn general_media_cleanup_jobs(
     _information: ScheduledJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Invalidating invalid media import jobs");
+    tracing::trace!("Invalidating invalid media import jobs");
     ctx.data::<Arc<ImporterService>>()
         .unwrap()
         .invalidate_import_jobs()
         .await
         .unwrap();
-    tracing::info!("Cleaning up media items without associated user activities");
+    tracing::trace!("Cleaning up media items without associated user activities");
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .cleanup_metadata_with_associated_user_activities()
@@ -51,13 +51,13 @@ pub async fn general_user_cleanup(
     _information: ScheduledJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Cleaning up user and metadata association");
+    tracing::trace!("Cleaning up user and metadata association");
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
-    tracing::info!("Removing old user summaries and regenerating them");
+    tracing::trace!("Removing old user summaries and regenerating them");
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .regenerate_user_summaries()
@@ -70,7 +70,7 @@ pub async fn yank_integrations_data(
     _information: ScheduledJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Getting data from yanked integrations for all users");
+    tracing::trace!("Getting data from yanked integrations for all users");
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .yank_integrations_data()
@@ -92,7 +92,7 @@ impl Job for ImportMedia {
 }
 
 pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
-    tracing::info!("Importing media");
+    tracing::trace!("Importing media");
     ctx.data::<Arc<ImporterService>>()
         .unwrap()
         .import_from_source(information.user_id, information.input)
@@ -114,7 +114,7 @@ pub async fn user_created_job(
     information: UserCreatedJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Running jobs after user creation");
+    tracing::trace!("Running jobs after user creation");
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service
         .user_created_job(&information.user_id)
@@ -146,7 +146,7 @@ pub async fn after_media_seen_job(
     information: AfterMediaSeenJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!(
+    tracing::trace!(
         "Running jobs after media item seen {:?}",
         information.seen.id
     );
@@ -226,13 +226,13 @@ pub async fn recalculate_user_summary_job(
     information: RecalculateUserSummaryJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Calculating summary for user {:?}", information.user_id);
+    tracing::trace!("Calculating summary for user {:?}", information.user_id);
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
         .calculate_user_summary(&information.user_id)
         .await
         .unwrap();
-    tracing::info!(
+    tracing::trace!(
         "Summary calculation complete for user {:?}",
         information.user_id
     );
@@ -273,7 +273,7 @@ pub async fn update_exercise_job(
     information: UpdateExerciseJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::info!("Updating {:?}", information.exercise.name);
+    tracing::trace!("Updating {:?}", information.exercise.name);
     ctx.data::<Arc<ExerciseService>>()
         .unwrap()
         .update_exercise(information.exercise)

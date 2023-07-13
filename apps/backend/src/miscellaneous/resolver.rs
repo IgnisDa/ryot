@@ -2458,7 +2458,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let model = model.insert(&self.db).await.unwrap();
-        tracing::info!("Started import job with id = {id}", id = model.id);
+        tracing::trace!("Started import job with id = {id}", id = model.id);
         Ok(model)
     }
 
@@ -2530,7 +2530,7 @@ impl MiscellaneousService {
 
     pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
         let metadata_id = metadata.id;
-        tracing::info!("Updating metadata for {:?}", metadata_id);
+        tracing::trace!("Updating metadata for {:?}", metadata_id);
         let maybe_details = self
             .details_from_provider_for_existing_media(metadata_id)
             .await;
@@ -2552,7 +2552,7 @@ impl MiscellaneousService {
                 tracing::error!("Error while updating: {:?}", e);
             }
         }
-        tracing::info!("Updated metadata for {:?}", metadata_id);
+        tracing::trace!("Updated metadata for {:?}", metadata_id);
         Ok(())
     }
 

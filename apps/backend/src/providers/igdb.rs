@@ -313,7 +313,7 @@ mod utils {
         let access_token =
             if let Some(mut credential_details) = read_file_to_json::<Credentials>(&path) {
                 if credential_details.expires_at < get_now_timestamp() {
-                    tracing::info!("Access token has expired, refreshing...");
+                    tracing::debug!("Access token has expired, refreshing...");
                     credential_details = get_access_token(config).await;
                     fs::write(path, serde_json::to_string(&credential_details).unwrap()).ok();
                 }
