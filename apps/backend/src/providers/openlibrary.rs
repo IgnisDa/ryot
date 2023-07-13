@@ -140,7 +140,7 @@ impl MediaProvider for OpenlibraryService {
         let all_pages = entries
             .iter()
             .filter_map(|f| f.number_of_pages)
-            .collect::<Vec<_>>();
+            .collect_vec();
         let num_pages = if all_pages.is_empty() {
             0
         } else {
@@ -207,12 +207,8 @@ impl MediaProvider for OpenlibraryService {
             .subjects
             .unwrap_or_default()
             .into_iter()
-            .flat_map(|s| {
-                s.split(", ")
-                    .map(|d| d.to_case(Case::Title))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+            .flat_map(|s| s.split(", ").map(|d| d.to_case(Case::Title)).collect_vec())
+            .collect_vec();
 
         Ok(MediaDetails {
             identifier: utils::get_key(&data.key),
@@ -293,7 +289,7 @@ impl MediaProvider for OpenlibraryService {
                     images,
                 }
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         let data = BookSearchResults {
             total: search.num_found,
             items: resp,
@@ -341,9 +337,11 @@ impl OpenlibraryService {
 }
 
 pub mod utils {
+    use super::*;
+
     pub fn get_key(key: &str) -> String {
         key.split('/')
-            .collect::<Vec<_>>()
+            .collect_vec()
             .last()
             .cloned()
             .unwrap()

@@ -131,7 +131,7 @@ impl MediaProvider for GoogleBooksService {
                         MetadataImageUrl::S3(_u) => unreachable!(),
                         MetadataImageUrl::Url(u) => u,
                     })
-                    .collect::<Vec<_>>()
+                    .collect_vec()
                     .get(0)
                     .cloned();
                 MediaSearchItem {
@@ -195,7 +195,7 @@ impl GoogleBooksService {
                 role: "Author".to_owned(),
                 image_urls: vec![],
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         if let Some(p) = item.publisher {
             creators.push(MetadataCreator {
                 name: p,
@@ -207,12 +207,8 @@ impl GoogleBooksService {
             .categories
             .unwrap_or_default()
             .into_iter()
-            .flat_map(|c| {
-                c.split(" / ")
-                    .map(|g| g.to_case(Case::Title))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+            .flat_map(|c| c.split(" / ").map(|g| g.to_case(Case::Title)).collect_vec())
+            .collect_vec();
         if let Some(g) = item.main_category {
             genres.push(g);
         }

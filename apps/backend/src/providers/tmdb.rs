@@ -122,7 +122,7 @@ impl MediaProvider for TmdbMovieService {
                 }
             })
             .unique()
-            .collect::<Vec<_>>();
+            .collect_vec();
         all_creators.extend(credits.crew.into_iter().flat_map(|g| {
             if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
                 Some(MetadataCreator {
@@ -210,7 +210,7 @@ impl MediaProvider for TmdbMovieService {
                 publish_year: convert_date_to_year(&d.release_date),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         let next_page = if page < search.total_pages {
             Some(page + 1)
         } else {
@@ -342,7 +342,7 @@ impl MediaProvider for TmdbShowService {
                                     None
                                 }
                             })
-                            .collect::<Vec<_>>();
+                            .collect_vec();
                         let crew = e
                             .crew
                             .clone()
@@ -361,14 +361,14 @@ impl MediaProvider for TmdbShowService {
                                     None
                                 }
                             })
-                            .collect::<Vec<_>>();
+                            .collect_vec();
                         gs.extend(crew);
                         Vec::from_iter(gs)
                     })
-                    .collect::<Vec<_>>()
+                    .collect_vec()
             })
             .unique()
-            .collect::<Vec<_>>();
+            .collect_vec();
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             title: data.name,
@@ -475,7 +475,7 @@ impl MediaProvider for TmdbShowService {
                 publish_year: convert_date_to_year(&d.first_air_date),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         let next_page = if page < search.total_pages {
             Some(page + 1)
         } else {

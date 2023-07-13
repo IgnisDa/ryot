@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +56,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
         .await
         .unwrap();
     let books: RssDetail = quick_xml::de::from_str(&content).unwrap();
-    let books = books.channel.item.into_iter().collect::<Vec<_>>();
+    let books = books.channel.item.into_iter().collect_vec();
     Ok(ImportResult {
         media: books
             .into_iter()

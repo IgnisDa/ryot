@@ -24,7 +24,8 @@ the following caveats:
 
 ## Goodreads
 
-Ryot translates Goodreads shelves in the following manner:
+Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
+following manner:
 
 - Want To Read -> Watchlist
 
@@ -46,7 +47,7 @@ their ratings, history, comments and lists. A few points to note.
   duration of the import. The Trakt authentication flow is pretty complicated
   and I don't think it would be worth implementing.
 - Items that have been "check(ed) in" will not be imported.
-  
+
 ### Steps
 
 - Login to your Trakt account and go to the settings page.
@@ -58,14 +59,26 @@ their ratings, history, comments and lists. A few points to note.
   going to your profile page, and checking the URL.
 - Enter this username in the input.
 
+## Movary
+
+All movies can be imported from [Movary](https://movary.org) along with
+their ratings, history, and comments.
+  
+### Steps
+
+- Login to your Movary account and go to the settings page. Go to "Personal data"
+  under the "Account" section.
+- Export "history.csv" and "ratings.csv".
+- Upload these files in the input.
+
 ## Notes
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
 - Ryot creates a report when an import is complete, but does not provide a UI
-  to view this information ([yet](https://github.com/IgnisDa/ryot/issues/27)).
-  Once an import is complete, you can run the following SQL query in the connected
-  database to get more information about which items failed and why.
+  to view this information yet. Once an import is complete, you can run the
+  following SQL query in the connected database to get more information about
+  which items failed and why.
 
   ```sql
   SELECT * FROM media_import_report;

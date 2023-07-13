@@ -3,7 +3,7 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
+import { fileToText, getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
@@ -14,6 +14,7 @@ import {
 	Container,
 	CopyButton,
 	Divider,
+	FileInput,
 	Flex,
 	Modal,
 	Paper,
@@ -123,6 +124,12 @@ const goodreadsImportFormSchema = z.object({
 });
 type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 
+const movaryImportFormSchema = z.object({
+	ratings: z.instanceof(File),
+	history: z.instanceof(File),
+});
+type MovaryImportFormSchema = z.infer<typeof movaryImportFormSchema>;
+
 const createUserYankIntegrationSchema = z.object({
 	baseUrl: z.string().url(),
 	token: z.string(),
@@ -182,6 +189,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const traktImportForm = useForm<TraktImportFormSchema>({
 		validate: zodResolver(traktImportFormSchema),
+	});
+	const movaryImportForm = useForm<MovaryImportFormSchema>({
+		validate: zodResolver(movaryImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
@@ -633,14 +643,14 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="import">
 							<Box
 								component="form"
-								onSubmit={(e) => {
+								onSubmit={async (e) => {
 									e.preventDefault();
 									const yes = confirm(
 										"Are you sure you want to deploy an import job? This action is irreversible.",
 									);
 									if (yes) {
 										if (deployImportSource) {
-											const values = match(deployImportSource)
+											const values = await match(deployImportSource)
 												.with(MediaImportSource.Goodreads, () => ({
 													goodreads: goodreadsImportForm.values,
 												}))
@@ -649,6 +659,16 @@ const Page: NextPageWithLayout = () => {
 												}))
 												.with(MediaImportSource.MediaTracker, () => ({
 													mediaTracker: mediaTrackerImportForm.values,
+												}))
+												.with(MediaImportSource.Movary, async () => ({
+													movary: {
+														ratings: await fileToText(
+															movaryImportForm.values.ratings,
+														),
+														history: await fileToText(
+															movaryImportForm.values.history,
+														),
+													},
 												}))
 												.exhaustive();
 											if (values) {
@@ -683,39 +703,68 @@ const Page: NextPageWithLayout = () => {
 													() => MediaImportSource.MediaTracker,
 												)
 												.with("TRAKT", () => MediaImportSource.Trakt)
+												.with("MOVARY", () => MediaImportSource.Movary)
 												.run();
 											if (t) setDeployImportSource(t);
 										}}
 									/>
-									{deployImportSource === MediaImportSource.MediaTracker ? (
+									{deployImportSource ? (
 										<ImportSource>
-											<TextInput
-												label="Instance Url"
-												required
-												{...mediaTrackerImportForm.getInputProps("apiUrl")}
-											/>
-											<PasswordInput
-												mt="sm"
-												label="API Key"
-												required
-												{...mediaTrackerImportForm.getInputProps("apiKey")}
-											/>
-										</ImportSource>
-									) : deployImportSource === MediaImportSource.Goodreads ? (
-										<ImportSource>
-											<TextInput
-												label="RSS URL"
-												required
-												{...goodreadsImportForm.getInputProps("rssUrl")}
-											/>
-										</ImportSource>
-									) : deployImportSource === MediaImportSource.Trakt ? (
-										<ImportSource>
-											<TextInput
-												label="Username"
-												required
-												{...traktImportForm.getInputProps("username")}
-											/>
+											{match(deployImportSource)
+												.with(MediaImportSource.MediaTracker, () => (
+													<>
+														<TextInput
+															label="Instance Url"
+															required
+															{...mediaTrackerImportForm.getInputProps(
+																"apiUrl",
+															)}
+														/>
+														<PasswordInput
+															mt="sm"
+															label="API Key"
+															required
+															{...mediaTrackerImportForm.getInputProps(
+																"apiKey",
+															)}
+														/>
+													</>
+												))
+												.with(MediaImportSource.Goodreads, () => (
+													<>
+														<TextInput
+															label="RSS URL"
+															required
+															{...goodreadsImportForm.getInputProps("rssUrl")}
+														/>
+													</>
+												))
+												.with(MediaImportSource.Trakt, () => (
+													<>
+														<TextInput
+															label="Username"
+															required
+															{...traktImportForm.getInputProps("username")}
+														/>
+													</>
+												))
+												.with(MediaImportSource.Movary, () => (
+													<>
+														<FileInput
+															label="History CSV file"
+															accept=".csv"
+															required
+															{...movaryImportForm.getInputProps("history")}
+														/>
+														<FileInput
+															label="Ratings CSV file"
+															accept=".csv"
+															required
+															{...movaryImportForm.getInputProps("ratings")}
+														/>
+													</>
+												))
+												.exhaustive()}
 										</ImportSource>
 									) : null}
 								</Stack>
@@ -906,7 +955,6 @@ const Page: NextPageWithLayout = () => {
 											<IconPlus size="1.25rem" />
 										</ActionIcon>
 									</Flex>
-
 									<Modal
 										opened={registerUserModalOpened}
 										onClose={closeRegisterUserModal}

@@ -35,6 +35,7 @@ use darkbird::{
     Options, Storage, StorageType,
 };
 use http::header::AUTHORIZATION;
+use itertools::Itertools;
 use rust_embed::RustEmbed;
 use sea_orm::{prelude::DateTimeUtc, ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -213,7 +214,7 @@ async fn main() -> Result<()> {
                 .cors_origins
                 .iter()
                 .map(|f| f.parse().unwrap())
-                .collect::<Vec<_>>(),
+                .collect_vec(),
         )
         .allow_credentials(true);
 

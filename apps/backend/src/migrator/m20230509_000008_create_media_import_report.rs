@@ -24,6 +24,8 @@ pub enum MediaImportSource {
     Goodreads,
     #[sea_orm(string_value = "TR")]
     Trakt,
+    #[sea_orm(string_value = "MO")]
+    Movary,
 }
 
 #[derive(Iden)]

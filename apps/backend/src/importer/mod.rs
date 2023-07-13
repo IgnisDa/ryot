@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -24,6 +25,7 @@ use crate::{
 
 mod goodreads;
 mod media_tracker;
+mod movary;
 mod trakt;
 
 #[derive(Debug, Clone, SimpleObject)]
@@ -61,11 +63,20 @@ pub struct DeployTraktImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMovaryImportInput {
+    // The CSV contents of the history file.
+    history: String,
+    // The CSV contents of the ratings file.
+    ratings: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
+    pub movary: Option<DeployMovaryImportInput>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -103,6 +114,12 @@ pub enum ImportFailStep {
     ItemDetailsFromSource,
     /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
+    /// Failed to transform the data into the required format
+    InputTransformation,
+    /// Failed to save a seen history item
+    SeenHistoryConversion,
+    /// Failed to save a review/rating item
+    ReviewConversion,
 }
 
 #[derive(
@@ -244,7 +261,16 @@ impl ImporterService {
             }
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
+            MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
         };
+        import.media = import
+            .media
+            .into_iter()
+            .sorted_unstable_by_key(|m| {
+                m.seen_history.len() + m.reviews.len() + m.collections.len()
+            })
+            .rev()
+            .collect_vec();
         for col_details in import.collections.into_iter() {
             self.media_service
                 .create_or_update_collection(&user_id, col_details)
@@ -279,7 +305,8 @@ impl ImporterService {
                 }
             };
             for seen in item.seen_history.iter() {
-                self.media_service
+                match self
+                    .media_service
                     .progress_update(
                         ProgressUpdateInput {
                             identifier: seen.id.clone(),
@@ -292,13 +319,23 @@ impl ImporterService {
                         },
                         user_id,
                     )
-                    .await?;
+                    .await
+                {
+                    Ok(_) => {}
+                    Err(e) => import.failed_items.push(ImportFailedItem {
+                        lot: item.lot,
+                        step: ImportFailStep::SeenHistoryConversion,
+                        identifier: item.source_id.to_owned(),
+                        error: Some(e.message),
+                    }),
+                };
             }
             for review in item.reviews.iter() {
                 let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);
-                self.media_service
+                match self
+                    .media_service
                     .post_review(
                         &user_id,
                         PostReviewInput {
@@ -314,7 +351,16 @@ impl ImporterService {
                             episode_number: None,
                         },
                     )
-                    .await?;
+                    .await
+                {
+                    Ok(_) => {}
+                    Err(e) => import.failed_items.push(ImportFailedItem {
+                        lot: item.lot,
+                        step: ImportFailStep::ReviewConversion,
+                        identifier: item.source_id.to_owned(),
+                        error: Some(e.message),
+                    }),
+                };
             }
             for col in item.collections.iter() {
                 self.media_service
