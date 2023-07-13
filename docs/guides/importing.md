@@ -24,7 +24,8 @@ the following caveats:
 
 ## Goodreads
 
-Ryot translates Goodreads shelves in the following manner:
+Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
+following manner:
 
 - Want To Read -> Watchlist
 
