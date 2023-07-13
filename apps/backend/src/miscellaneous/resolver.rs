@@ -1661,6 +1661,36 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
+                let extra_infomation = match meta.lot {
+                    MetadataLot::Show => {
+                        if let (Some(season), Some(episode)) =
+                            (input.show_season_number, input.show_episode_number)
+                        {
+                            Some(SeenExtraInformation::Show(SeenShowExtraInformation {
+                                season,
+                                episode,
+                            }))
+                        } else {
+                            return Err(Error::new(
+                                "Tried to update show progress without season or episode number"
+                                    .to_owned(),
+                            ));
+                        }
+                    }
+                    MetadataLot::Podcast => {
+                        if let Some(episode) = input.podcast_episode_number {
+                            Some(SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
+                                episode,
+                            }))
+                        } else {
+                            return Err(Error::new(
+                                "Tried to update podcast progress without episode number"
+                                    .to_owned(),
+                            ));
+                        }
+                    }
+                    _ => None,
+                };
                 let finished_on = if action == ProgressUpdateAction::JustStarted {
                     None
                 } else {
@@ -1672,30 +1702,16 @@ impl MiscellaneousService {
                 } else {
                     (100, None)
                 };
-                let mut seen_insert = seen::ActiveModel {
+                let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
                     metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
+                    extra_information: ActiveValue::Set(extra_infomation),
                     ..Default::default()
                 };
-                if meta.lot == MetadataLot::Show {
-                    seen_insert.extra_information = ActiveValue::Set(Some(
-                        SeenExtraInformation::Show(SeenShowExtraInformation {
-                            season: input.show_season_number.unwrap(),
-                            episode: input.show_episode_number.unwrap(),
-                        }),
-                    ));
-                } else if meta.lot == MetadataLot::Podcast {
-                    seen_insert.extra_information = ActiveValue::Set(Some(
-                        SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
-                            episode: input.podcast_episode_number.unwrap(),
-                        }),
-                    ))
-                }
-
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
