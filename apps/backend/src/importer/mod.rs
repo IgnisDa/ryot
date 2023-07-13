@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -245,10 +246,14 @@ impl ImporterService {
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
         };
-        import
+        import.media = import
             .media
-            .sort_unstable_by_key(|m| m.seen_history.len() + m.reviews.len() + m.collections.len());
-        import.media.reverse();
+            .into_iter()
+            .sorted_unstable_by_key(|m| {
+                m.seen_history.len() + m.reviews.len() + m.collections.len()
+            })
+            .rev()
+            .collect_vec();
         for col_details in import.collections.into_iter() {
             self.media_service
                 .create_or_update_collection(&user_id, col_details)

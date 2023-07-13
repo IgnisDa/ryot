@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -115,7 +116,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             }),
             ..Default::default()
         })
-        .collect::<Vec<_>>();
+        .collect_vec();
     let mut rsp = client.get("ratings").await.unwrap();
     let ratings: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
     for item in ratings.iter() {

@@ -186,7 +186,7 @@ mod utils {
             .into_iter()
             .flatten()
             .map(|t| t.unwrap())
-            .collect::<Vec<_>>();
+            .collect_vec();
         genres.extend(
             details
                 .tags
@@ -208,7 +208,7 @@ mod utils {
                 }
             })
             .unique()
-            .collect::<Vec<_>>();
+            .collect_vec();
         let (specifics, lot) = match details.type_.unwrap() {
             details_query::MediaType::ANIME => (
                 MediaSpecifics::Anime(AnimeSpecifics {

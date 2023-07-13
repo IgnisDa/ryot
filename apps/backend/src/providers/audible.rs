@@ -182,13 +182,13 @@ impl MediaProvider for AudibleService {
                             MetadataImageUrl::S3(_u) => unreachable!(),
                             MetadataImageUrl::Url(u) => u,
                         })
-                        .collect::<Vec<_>>()
+                        .collect_vec()
                         .get(0)
                         .cloned(),
                     publish_year: a.publish_year,
                 }
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         let next_page = if search.total_results - ((page) * PAGE_LIMIT) > 0 {
             Some(page + 1)
         } else {
@@ -218,7 +218,7 @@ impl AudibleService {
                 role: "Author".to_owned(),
                 image_urls: vec![],
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         creators.extend(
             item.narrators
                 .unwrap_or_default()

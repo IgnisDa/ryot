@@ -129,7 +129,7 @@ impl MediaProvider for ListennotesService {
                 image: r.image,
                 publish_year: r.publish_date.map(|r| r.year()),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         Ok(SearchResults {
             total,
             items: resp,

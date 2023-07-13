@@ -169,13 +169,13 @@ offset: {offset};
                             MetadataImageUrl::S3(_u) => unreachable!(),
                             MetadataImageUrl::Url(u) => u,
                         })
-                        .collect::<Vec<_>>()
+                        .collect_vec()
                         .get(0)
                         .cloned(),
                     publish_year: a.publish_year,
                 }
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         Ok(SearchResults {
             total,
             items: resp,

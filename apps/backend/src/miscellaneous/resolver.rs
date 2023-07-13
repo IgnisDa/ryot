@@ -1253,7 +1253,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await
             .unwrap();
-        let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect::<Vec<_>>();
+        let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect_vec();
 
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
@@ -1400,10 +1400,7 @@ impl MiscellaneousService {
                     .filter(metadata_to_collection::Column::CollectionId.eq(s))
                     .all(&self.db)
                     .await?;
-                let collections = all_media
-                    .into_iter()
-                    .map(|m| m.metadata_id)
-                    .collect::<Vec<_>>();
+                let collections = all_media.into_iter().map(|m| m.metadata_id).collect_vec();
                 main_select = main_select
                     .and_where(
                         Expr::col((metadata_alias.clone(), TempMetadata::Id)).is_in(collections),
@@ -1420,7 +1417,7 @@ impl MiscellaneousService {
                         .await?
                         .into_iter()
                         .map(|r| r.metadata_id)
-                        .collect::<Vec<_>>()
+                        .collect_vec()
                 };
                 match s {
                     MediaGeneralFilter::All => {}
@@ -1448,7 +1445,7 @@ impl MiscellaneousService {
                             .await?
                             .into_iter()
                             .map(|r| r.metadata_id)
-                            .collect::<Vec<_>>();
+                            .collect_vec();
                         main_select = main_select
                             .and_where(
                                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
@@ -1464,7 +1461,7 @@ impl MiscellaneousService {
                             .await?
                             .into_iter()
                             .map(|r| r.metadata_id)
-                            .collect::<Vec<_>>();
+                            .collect_vec();
                         main_select = main_select
                             .and_where(
                                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
@@ -1951,7 +1948,7 @@ impl MiscellaneousService {
             .items
             .iter()
             .map(|i| i.identifier.to_owned())
-            .collect::<Vec<_>>();
+            .collect_vec();
         let data = if all_idens.is_empty() {
             vec![]
         } else {
@@ -1965,7 +1962,7 @@ impl MiscellaneousService {
             let metadata_alias = Alias::new("m");
             // This can be done with `select id from metadata where identifier = '...'
             // and lot = '...'` in a loop. But, I wanted to write a performant query.
-            let first_iden = all_idens.drain(..1).collect::<Vec<_>>().pop().unwrap();
+            let first_iden = all_idens.drain(..1).collect_vec().pop().unwrap();
             let mut subquery = Query::select()
                 .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
                 .to_owned();
@@ -2153,7 +2150,7 @@ impl MiscellaneousService {
                     },
                 }
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         let all_reviews = all_reviews
             .into_iter()
             .filter(|r| match r.visibility {
@@ -2209,12 +2206,8 @@ impl MiscellaneousService {
         let mtc = MetadataToCollection::find()
             .filter(metadata_to_collection::Column::MetadataId.eq(metadata_id))
             .filter(
-                metadata_to_collection::Column::CollectionId.is_in(
-                    user_collections
-                        .into_iter()
-                        .map(|c| c.id)
-                        .collect::<Vec<_>>(),
-                ),
+                metadata_to_collection::Column::CollectionId
+                    .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
             )
             .find_also_related(Collection)
             .all(&self.db)
@@ -2957,7 +2950,7 @@ impl MiscellaneousService {
         let distinct_meta_ids = related_metadata
             .into_iter()
             .map(|m| m.metadata_id)
-            .collect::<Vec<_>>();
+            .collect_vec();
         let metas = Metadata::find()
             .filter(metadata::Column::Id.is_in(distinct_meta_ids))
             .order_by(metadata::Column::Id, Order::Asc)
