@@ -683,39 +683,53 @@ const Page: NextPageWithLayout = () => {
 													() => MediaImportSource.MediaTracker,
 												)
 												.with("TRAKT", () => MediaImportSource.Trakt)
+												.with("MOVARY", () => MediaImportSource.Movary)
 												.run();
 											if (t) setDeployImportSource(t);
 										}}
 									/>
-									{deployImportSource === MediaImportSource.MediaTracker ? (
+									{deployImportSource ? (
 										<ImportSource>
-											<TextInput
-												label="Instance Url"
-												required
-												{...mediaTrackerImportForm.getInputProps("apiUrl")}
-											/>
-											<PasswordInput
-												mt="sm"
-												label="API Key"
-												required
-												{...mediaTrackerImportForm.getInputProps("apiKey")}
-											/>
-										</ImportSource>
-									) : deployImportSource === MediaImportSource.Goodreads ? (
-										<ImportSource>
-											<TextInput
-												label="RSS URL"
-												required
-												{...goodreadsImportForm.getInputProps("rssUrl")}
-											/>
-										</ImportSource>
-									) : deployImportSource === MediaImportSource.Trakt ? (
-										<ImportSource>
-											<TextInput
-												label="Username"
-												required
-												{...traktImportForm.getInputProps("username")}
-											/>
+											{match(deployImportSource)
+												.with(MediaImportSource.MediaTracker, () => (
+													<>
+														<TextInput
+															label="Instance Url"
+															required
+															{...mediaTrackerImportForm.getInputProps(
+																"apiUrl",
+															)}
+														/>
+														<PasswordInput
+															mt="sm"
+															label="API Key"
+															required
+															{...mediaTrackerImportForm.getInputProps(
+																"apiKey",
+															)}
+														/>
+													</>
+												))
+												.with(MediaImportSource.Goodreads, () => (
+													<>
+														<TextInput
+															label="RSS URL"
+															required
+															{...goodreadsImportForm.getInputProps("rssUrl")}
+														/>
+													</>
+												))
+												.with(MediaImportSource.Trakt, () => (
+													<>
+														<TextInput
+															label="Username"
+															required
+															{...traktImportForm.getInputProps("username")}
+														/>
+													</>
+												))
+												.with(MediaImportSource.Movary, () => <>Hello</>)
+												.exhaustive()}
 										</ImportSource>
 									) : null}
 								</Stack>
@@ -906,7 +920,6 @@ const Page: NextPageWithLayout = () => {
 											<IconPlus size="1.25rem" />
 										</ActionIcon>
 									</Flex>
-
 									<Modal
 										opened={registerUserModalOpened}
 										onClose={closeRegisterUserModal}
