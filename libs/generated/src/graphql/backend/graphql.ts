@@ -162,6 +162,7 @@ export type DeployGoodreadsImportInput = {
 export type DeployImportJobInput = {
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
+  movary?: InputMaybe<DeployMovaryImportInput>;
   source: MediaImportSource;
   trakt?: InputMaybe<DeployTraktImportInput>;
 };
@@ -171,6 +172,11 @@ export type DeployMediaTrackerImportInput = {
   apiKey: Scalars['String'];
   /** The base url where the resource is present at */
   apiUrl: Scalars['String'];
+};
+
+export type DeployMovaryImportInput = {
+  history: Scalars['String'];
+  ratings: Scalars['String'];
 };
 
 export type DeployTraktImportInput = {
@@ -401,6 +407,7 @@ export type MediaImportReport = {
 export enum MediaImportSource {
   Goodreads = 'GOODREADS',
   MediaTracker = 'MEDIA_TRACKER',
+  Movary = 'MOVARY',
   Trakt = 'TRAKT'
 }
 
