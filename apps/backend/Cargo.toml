@@ -23,6 +23,7 @@ chrono = "0.4.24"
 convert_case = "0.6.0"
 const-str = "0.5.5"
 cookie = "0.17.0"
+csv = "1.2.2"
 darkbird = { git = "https://github.com/Rustixir/darkbird.git" }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
