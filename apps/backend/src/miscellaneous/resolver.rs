@@ -2274,8 +2274,7 @@ impl MiscellaneousService {
                 .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
                 .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
                 .one(&self.db)
-                .await?
-                .unwrap();
+                .await?;
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.model.id.to_string(),
@@ -2284,7 +2283,7 @@ impl MiscellaneousService {
                     image: m.poster_images.get(0).cloned(),
                     publish_year: m.model.publish_year,
                 },
-                u_t_m.last_updated_on,
+                u_t_m.map(|d| d.last_updated_on).unwrap_or_default(),
             ));
         }
         meta_data.sort_by_key(|item| item.1);
