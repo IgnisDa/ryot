@@ -1,4 +1,15 @@
 
+# Version 1.11.2 (2023-07-14)
+
+## Bug Fixes
+
+* **backend:** only drop when required
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.11.1 (2023-07-14)
 
 ## Bug Fixes
