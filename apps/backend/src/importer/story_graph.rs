@@ -75,7 +75,7 @@ pub async fn import(
             title = record.title
         );
         if let Some(isbn) = record.isbn {
-            if let Some(identifier) = openlibrary_service.id_from_isbn(isbn).await {
+            if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
                 let mut seen_history = vec![
                     ImportItemSeen {
                         ..Default::default()
@@ -121,9 +121,19 @@ pub async fn import(
                     lot,
                     step: ImportFailStep::InputTransformation,
                     identifier: record.title,
-                    error: Some("No ISBN found".to_owned()),
+                    error: Some(format!(
+                        "Could not convert ISBN: {} to Openlibrary ID",
+                        isbn
+                    )),
                 })
             }
+        } else {
+            failed_items.push(ImportFailedItem {
+                lot,
+                step: ImportFailStep::InputTransformation,
+                identifier: record.title,
+                error: Some("No ISBN found".to_owned()),
+            })
         }
     }
     Ok(ImportResult {

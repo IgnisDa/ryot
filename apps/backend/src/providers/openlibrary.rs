@@ -339,7 +339,7 @@ impl OpenlibraryService {
     }
 
     /// Get a book's ID from its ISBN
-    pub async fn id_from_isbn(&self, isbn: String) -> Option<String> {
+    pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
         let mut resp = self
             .client
             .clone()
