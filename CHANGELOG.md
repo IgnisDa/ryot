@@ -1,4 +1,16 @@
 
+# Version 1.11.1 (2023-07-14)
+
+## Bug Fixes
+
+* **backend:** remove useless code
+
+## Build
+
+* **backend:** bump version
+* **backend:** remove useless deps
+
+
 # Version 1.11.0 (2023-07-14)
 
 
