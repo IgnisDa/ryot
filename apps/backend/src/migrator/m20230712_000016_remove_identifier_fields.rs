@@ -14,24 +14,26 @@ impl MigrationName for Migration {
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let alias = Alias::new("identifier");
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Review::Table)
-                    .drop_column(alias.clone())
-                    .to_owned(),
-            )
-            .await
-            .ok();
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Seen::Table)
-                    .drop_column(alias.clone())
-                    .to_owned(),
-            )
-            .await
-            .ok();
+        if manager.has_column("review", "identifier").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Review::Table)
+                        .drop_column(alias.clone())
+                        .to_owned(),
+                )
+                .await?;
+        }
+        if manager.has_column("seen", "identifier").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Seen::Table)
+                        .drop_column(alias.clone())
+                        .to_owned(),
+                )
+                .await?;
+        }
         Ok(())
     }
 
