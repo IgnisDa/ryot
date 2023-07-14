@@ -461,8 +461,6 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
-        /// If this update comes from a different source, this should be set
-        pub identifier: Option<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -26,6 +26,7 @@ use crate::{
 mod goodreads;
 mod media_tracker;
 mod movary;
+mod story_graph;
 mod trakt;
 
 #[derive(Debug, Clone, SimpleObject)]
@@ -71,17 +72,23 @@ pub struct DeployMovaryImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployStoryGraphImportInput {
+    // The CSV contents of the export file.
+    export: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
+    pub story_graph: Option<DeployStoryGraphImportInput>,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, Clone, Default)]
 pub struct ImportItemSeen {
-    id: Option<String>,
     ended_on: Option<DateTimeUtc>,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
@@ -262,6 +269,13 @@ impl ImporterService {
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
+            MediaImportSource::StoryGraph => {
+                story_graph::import(
+                    input.story_graph.unwrap(),
+                    &self.media_service.openlibrary_service,
+                )
+                .await?
+            }
         };
         import.media = import
             .media
@@ -309,7 +323,6 @@ impl ImporterService {
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
-                            identifier: seen.id.clone(),
                             metadata_id: metadata.id,
                             progress: Some(100),
                             date: seen.ended_on.map(|d| d.date_naive()),
@@ -331,6 +344,10 @@ impl ImporterService {
                 };
             }
             for review in item.reviews.iter() {
+                if review.review.is_none() && review.rating.is_none() {
+                    tracing::debug!("Skipping review since it has no content");
+                    continue;
+                }
                 let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler);
                 let date = review.review.clone().map(|r| r.date);

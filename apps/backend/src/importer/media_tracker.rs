@@ -20,7 +20,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::media::{BookSpecifics, CreateOrUpdateCollectionInput, MediaDetails, Visibility},
-    providers::openlibrary::utils::get_key,
+    providers::openlibrary::get_key,
     utils::USER_AGENT_STR,
 };
 
@@ -314,7 +314,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         (None, None)
                     };
                     ImportItemSeen {
-                        id: Some(s.id.to_string()),
                         ended_on: s.date,
                         show_season_number: season_number,
                         show_episode_number: episode_number,

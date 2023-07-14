@@ -130,6 +130,11 @@ const movaryImportFormSchema = z.object({
 });
 type MovaryImportFormSchema = z.infer<typeof movaryImportFormSchema>;
 
+const storyGraphImportFormSchema = z.object({
+	export: z.any(),
+});
+type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
+
 const createUserYankIntegrationSchema = z.object({
 	baseUrl: z.string().url(),
 	token: z.string(),
@@ -192,6 +197,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const movaryImportForm = useForm<MovaryImportFormSchema>({
 		validate: zodResolver(movaryImportFormSchema),
+	});
+	const storyGraphImportForm = useForm<StoryGraphImportFormSchema>({
+		validate: zodResolver(storyGraphImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
@@ -670,6 +678,13 @@ const Page: NextPageWithLayout = () => {
 														),
 													},
 												}))
+												.with(MediaImportSource.StoryGraph, async () => ({
+													storyGraph: {
+														export: await fileToText(
+															storyGraphImportForm.values.export,
+														),
+													},
+												}))
 												.exhaustive();
 											if (values) {
 												deployImportJob.mutate({
@@ -704,6 +719,7 @@ const Page: NextPageWithLayout = () => {
 												)
 												.with("TRAKT", () => MediaImportSource.Trakt)
 												.with("MOVARY", () => MediaImportSource.Movary)
+												.with("STORY_GRAPH", () => MediaImportSource.StoryGraph)
 												.run();
 											if (t) setDeployImportSource(t);
 										}}
@@ -761,6 +777,16 @@ const Page: NextPageWithLayout = () => {
 															accept=".csv"
 															required
 															{...movaryImportForm.getInputProps("ratings")}
+														/>
+													</>
+												))
+												.with(MediaImportSource.StoryGraph, () => (
+													<>
+														<FileInput
+															label="CSV export file"
+															accept=".csv"
+															required
+															{...storyGraphImportForm.getInputProps("export")}
 														/>
 													</>
 												))

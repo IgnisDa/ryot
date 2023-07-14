@@ -337,7 +337,7 @@ const ReviewItem = ({
 	const user = useUser();
 
 	return (
-		<Box key={r.id}>
+		<Box key={r.id} data-review-id={r.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
 					{getInitials(r.postedBy.name)}{" "}

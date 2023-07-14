@@ -6,7 +6,9 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{Client, Url};
+use surf::{middleware::Redirect, Client, Url};
+use surf_governor::GovernorMiddleware;
+use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -20,8 +22,8 @@ use crate::{
     utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
-pub static URL: &str = "https://openlibrary.org";
-pub static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
+static URL: &str = "https://openlibrary.org/";
+static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct BookSearchResults {
@@ -40,6 +42,11 @@ pub struct BookSearchItem {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub book_specifics: BookSpecifics,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct OpenlibraryKey {
+    key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -76,10 +83,6 @@ impl OpenlibraryService {
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryKey {
-            key: String,
-        }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
@@ -211,7 +214,7 @@ impl MediaProvider for OpenlibraryService {
             .collect_vec();
 
         Ok(MediaDetails {
-            identifier: utils::get_key(&data.key),
+            identifier: get_key(&data.key),
             title: data.title,
             description,
             lot: MetadataLot::Book,
@@ -276,7 +279,7 @@ impl MediaProvider for OpenlibraryService {
             .map(|d| {
                 let images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
-                    identifier: utils::get_key(&d.key),
+                    identifier: get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
@@ -334,17 +337,36 @@ impl OpenlibraryService {
         }
         None
     }
+
+    /// Get a book's ID from its ISBN
+    pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
+        let mut resp = self
+            .client
+            .clone()
+            .with(Redirect::new(5))
+            .with(GovernorMiddleware::per_second(1).ok()?)
+            .with(RetryMiddleware::new(
+                3,
+                ExponentialBackoff::builder().build_with_max_retries(3),
+                1,
+            ))
+            .get(format!("isbn/{}.json", isbn))
+            .await
+            .ok()?;
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct Response {
+            works: Vec<OpenlibraryKey>,
+        }
+        let details: Response = resp.body_json().await.ok()?;
+        details.works.first().map(|k| get_key(&k.key))
+    }
 }
 
-pub mod utils {
-    use super::*;
-
-    pub fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect_vec()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
-    }
+pub fn get_key(key: &str) -> String {
+    key.split('/')
+        .collect_vec()
+        .last()
+        .cloned()
+        .unwrap()
+        .to_owned()
 }

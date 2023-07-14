@@ -89,7 +89,6 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             Utc,
         ));
         let seen_item = ImportItemSeen {
-            id: None,
             ended_on: watched_at,
             show_season_number: None,
             show_episode_number: None,
