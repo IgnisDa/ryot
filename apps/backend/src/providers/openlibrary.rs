@@ -6,7 +6,7 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::LOCATION, Client, Url};
+use surf::{middleware::Redirect, Client, Url};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -20,8 +20,8 @@ use crate::{
     utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
-pub static URL: &str = "https://openlibrary.org/";
-pub static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
+static URL: &str = "https://openlibrary.org/";
+static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 pub struct BookSearchResults {
@@ -40,6 +40,11 @@ pub struct BookSearchItem {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub book_specifics: BookSpecifics,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct OpenlibraryKey {
+    key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -76,10 +81,6 @@ impl OpenlibraryService {
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryKey {
-            key: String,
-        }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
@@ -337,14 +338,19 @@ impl OpenlibraryService {
 
     /// Get a book's ID from its ISBN
     pub async fn id_from_isbn(&self, isbn: String) -> Option<String> {
-        let resp = self.client.head(format!("isbn/{}", isbn)).await.ok()?;
-        resp.header(LOCATION).map(|h| {
-            h.get(0)
-                .unwrap()
-                .as_str()
-                .replace(URL, "")
-                .replace("books/", "")
-        })
+        let mut resp = self
+            .client
+            .clone()
+            .with(Redirect::new(2))
+            .get(format!("isbn/{}.json", isbn))
+            .await
+            .ok()?;
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct Response {
+            works: Vec<OpenlibraryKey>,
+        }
+        let details: Response = resp.body_json().await.ok()?;
+        details.works.first().map(|k| get_key(&k.key))
     }
 }
 

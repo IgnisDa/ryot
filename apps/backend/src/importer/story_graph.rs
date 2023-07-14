@@ -2,6 +2,7 @@ use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
+use itertools::Itertools;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 
@@ -48,12 +49,15 @@ pub async fn import(
     input: DeployStoryGraphImportInput,
     openlibrary_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
-    let lot = MetadataLot::Movie;
+    let lot = MetadataLot::Book;
     let source = MetadataSource::Openlibrary;
     let mut media = vec![];
     let mut failed_items = vec![];
-    let mut ratings_reader = Reader::from_reader(input.export.as_bytes());
-    for (idx, result) in ratings_reader.deserialize().enumerate() {
+    let ratings_reader = Reader::from_reader(input.export.as_bytes())
+        .deserialize()
+        .collect_vec();
+    let total = ratings_reader.len();
+    for (idx, result) in ratings_reader.into_iter().enumerate() {
         let record: History = match result {
             Ok(r) => r,
             Err(e) => {
@@ -66,6 +70,10 @@ pub async fn import(
                 continue;
             }
         };
+        tracing::debug!(
+            "Getting details for {title:?} ({idx}/{total})",
+            title = record.title
+        );
         if let Some(isbn) = record.isbn {
             if let Some(identifier) = openlibrary_service.id_from_isbn(isbn).await {
                 let mut seen_history = vec![
