@@ -7,8 +7,6 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{middleware::Redirect, Client, Url};
-use surf_governor::GovernorMiddleware;
-use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -344,12 +342,6 @@ impl OpenlibraryService {
             .client
             .clone()
             .with(Redirect::new(5))
-            .with(GovernorMiddleware::per_second(1).ok()?)
-            .with(RetryMiddleware::new(
-                3,
-                ExponentialBackoff::builder().build_with_max_retries(3),
-                1,
-            ))
             .get(format!("isbn/{}.json", isbn))
             .await
             .ok()?;
