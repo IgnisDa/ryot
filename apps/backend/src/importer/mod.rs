@@ -270,7 +270,11 @@ impl ImporterService {
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
             MediaImportSource::StoryGraph => {
-                story_graph::import(input.story_graph.unwrap()).await?
+                story_graph::import(
+                    input.story_graph.unwrap(),
+                    &self.media_service.openlibrary_service,
+                )
+                .await?
             }
         };
         import.media = import

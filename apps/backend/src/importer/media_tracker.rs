@@ -20,7 +20,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::media::{BookSpecifics, CreateOrUpdateCollectionInput, MediaDetails, Visibility},
-    providers::openlibrary::utils::get_key,
+    providers::openlibrary::get_key,
     utils::USER_AGENT_STR,
 };
 

@@ -6,7 +6,7 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{Client, Url};
+use surf::{http::headers::LOCATION, Client, Url};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -20,7 +20,7 @@ use crate::{
     utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
-pub static URL: &str = "https://openlibrary.org";
+pub static URL: &str = "https://openlibrary.org/";
 pub static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -211,7 +211,7 @@ impl MediaProvider for OpenlibraryService {
             .collect_vec();
 
         Ok(MediaDetails {
-            identifier: utils::get_key(&data.key),
+            identifier: get_key(&data.key),
             title: data.title,
             description,
             lot: MetadataLot::Book,
@@ -276,7 +276,7 @@ impl MediaProvider for OpenlibraryService {
             .map(|d| {
                 let images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
                 BookSearchItem {
-                    identifier: utils::get_key(&d.key),
+                    identifier: get_key(&d.key),
                     title: d.title,
                     description: None,
                     author_names: d.author_name.unwrap_or_default(),
@@ -334,17 +334,25 @@ impl OpenlibraryService {
         }
         None
     }
+
+    /// Get a book's ID from its ISBN
+    pub async fn id_from_isbn(&self, isbn: String) -> Option<String> {
+        let resp = self.client.head(format!("isbn/{}", isbn)).await.ok()?;
+        resp.header(LOCATION).map(|h| {
+            h.get(0)
+                .unwrap()
+                .as_str()
+                .replace(URL, "")
+                .replace("books/", "")
+        })
+    }
 }
 
-pub mod utils {
-    use super::*;
-
-    pub fn get_key(key: &str) -> String {
-        key.split('/')
-            .collect_vec()
-            .last()
-            .cloned()
-            .unwrap()
-            .to_owned()
-    }
+pub fn get_key(key: &str) -> String {
+    key.split('/')
+        .collect_vec()
+        .last()
+        .cloned()
+        .unwrap()
+        .to_owned()
 }
