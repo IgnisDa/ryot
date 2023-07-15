@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Ryot
+site_description: Ryot Documentation
+repo_url: https://github.com/ignisda/ryot
+
+theme:
+  name: material
+  language: en
+  logo: https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png
+  favicon: https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/favicon-32x32.png

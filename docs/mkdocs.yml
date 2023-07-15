@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-
-site_name: Ryot
-
-theme:
-  name: material
