@@ -44,3 +44,4 @@ web-build/
 .nuxt
 .nitro
 .cache
+docs/site
