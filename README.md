@@ -87,7 +87,7 @@ $ docker run \
   --name ryot \
   --pull always \
   --publish 8000:8000 \
-  --env "WEB_INSECURE_COOKIE=true" \
+  --env "SERVER_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```
 
@@ -110,7 +110,7 @@ services:
   ryot:
     image: 'ghcr.io/ignisda/ryot:latest'
     environment:
-        - WEB_INSECURE_COOKIE=true
+        - SERVER_INSECURE_COOKIE=true
         - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
     ports:
         - '8000:8000'
@@ -121,7 +121,7 @@ volumes:
   postgres_storage:
 ```
 
-**NOTE**: The `WEB_INSECURE_COOKIE` is only required if you are not running HTTPs.
+**NOTE**: The `SERVER_INSECURE_COOKIE` is only required if you are not running HTTPs.
 
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
 pre-release (or release, whichever is newer).
@@ -176,7 +176,7 @@ some important ones:
 | `file_storage.s3_bucket_name` / `FILE_STORAGE_S3_BUCKET_NAME`             | The name of the S3 compatible bucket. **Required** to enable file storage.                                                                                                    |
 | `file_storage.s3_secret_access_key` / `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                |
 | `file_storage.s3_url` / `FILE_STORAGE_S3_URL`                             | The URL for the S3 compatible file storage.                                                                                                                                   |
-| `web.insecure_cookie` / `WEB_INSECURE_COOKIE`                             | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
+| `server.insecure_cookie` / `SERVER_INSECURE_COOKIE`                       | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
 ## 🤓 Developer notes
 
