@@ -96,6 +96,9 @@ const Page: NextPageWithLayout = () => {
 				text: data?.text ?? undefined,
 				visibility: data?.visibility,
 				spoiler: data?.spoiler,
+				podcastEpisodeNumber: data?.podcastEpisode ?? undefined,
+				showSeasonNumber: data.showSeason ?? undefined,
+				showEpisodeNumber: data?.showEpisode ?? undefined,
 			});
 			form.resetDirty();
 		},
