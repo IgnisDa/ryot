@@ -449,8 +449,9 @@ pub mod media {
         pub identifier: Option<String>,
         /// ID of the review if this is an update to an existing review
         pub review_id: Option<i32>,
-        pub season_number: Option<i32>,
-        pub episode_number: Option<i32>,
+        pub show_season_number: Option<i32>,
+        pub show_episode_number: Option<i32>,
+        pub podcast_episode_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
