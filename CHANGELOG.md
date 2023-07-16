@@ -1,4 +1,15 @@
 
+# Version 1.11.4 (2023-07-16)
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* enable documentation features
+
+
 # Version 1.11.3 (2023-07-16)
 
 ## Documentation
