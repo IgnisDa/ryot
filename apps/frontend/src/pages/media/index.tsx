@@ -327,28 +327,28 @@ const MediaScrollArea = ({
 };
 
 const ReviewItem = ({
-	r,
+	review: review,
 	metadataId,
 }: {
-	r: MediaItemReviewsQuery["mediaItemReviews"][number];
+	review: MediaItemReviewsQuery["mediaItemReviews"][number];
 	metadataId: number;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const user = useUser();
 
 	return (
-		<Box key={r.id} data-review-id={r.id}>
+		<Box key={review.id} data-review-id={review.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
-					{getInitials(r.postedBy.name)}{" "}
+					{getInitials(review.postedBy.name)}{" "}
 				</Avatar>
 				<Box>
-					<Text>{r.postedBy.name}</Text>
-					<Text>{DateTime.fromJSDate(r.postedOn).toLocaleString()}</Text>
+					<Text>{review.postedBy.name}</Text>
+					<Text>{DateTime.fromJSDate(review.postedOn).toLocaleString()}</Text>
 				</Box>
-				{user && user.id === r.postedBy.id ? (
+				{user && user.id === review.postedBy.id ? (
 					<Link
-						href={`${ROUTES.media.postReview}?item=${metadataId}&reviewId=${r.id}`}
+						href={`${ROUTES.media.postReview}?item=${metadataId}&reviewId=${review.id}`}
 						passHref
 						legacyBehavior
 					>
@@ -361,15 +361,24 @@ const ReviewItem = ({
 				) : null}
 			</Flex>
 			<Box ml={"sm"} mt={"xs"}>
-				{r.rating > 0 ? (
+				{typeof review.showSeason === "number" ? (
+					<Text color="dimmed">
+						S{review.showSeason}-E
+						{review.showEpisode}
+					</Text>
+				) : null}
+				{typeof review.podcastEpisode === "number" ? (
+					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
+				) : null}
+				{review.rating > 0 ? (
 					<>
-						<Rating value={Number(r.rating)} fractions={2} readOnly />
+						<Rating value={Number(review.rating)} fractions={2} readOnly />
 						<Space h="xs" />
 					</>
 				) : null}
-				{r.text ? (
-					!r.spoiler ? (
-						<Text dangerouslySetInnerHTML={{ __html: r.text }} />
+				{review.text ? (
+					!review.spoiler ? (
+						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 					) : (
 						<>
 							{!opened ? (
@@ -378,7 +387,7 @@ const ReviewItem = ({
 								</Button>
 							) : null}
 							<Collapse in={opened}>
-								<Text dangerouslySetInnerHTML={{ __html: r.text }} />
+								<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 							</Collapse>
 						</>
 					)
@@ -1239,7 +1248,11 @@ const Page: NextPageWithLayout = () => {
 								<MediaScrollArea>
 									<Stack>
 										{reviews.data.map((r) => (
-											<ReviewItem r={r} key={r.id} metadataId={metadataId} />
+											<ReviewItem
+												review={r}
+												key={r.id}
+												metadataId={metadataId}
+											/>
 										))}
 									</Stack>
 								</MediaScrollArea>

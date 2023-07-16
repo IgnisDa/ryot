@@ -40,9 +40,18 @@ const formSchema = z.object({
 	text: z.string().optional(),
 	visibility: z.nativeEnum(Visibility).default(Visibility.Public).optional(),
 	spoiler: z.boolean().optional(),
-	showSeasonNumber: z.number().optional(),
-	showEpisodeNumber: z.number().optional(),
-	podcastEpisodeNumber: z.number().optional(),
+	showSeasonNumber: z
+		.any()
+		.optional()
+		.transform((t) => (typeof t === "number" ? t : undefined)),
+	showEpisodeNumber: z
+		.any()
+		.optional()
+		.transform((t) => (typeof t === "number" ? t : undefined)),
+	podcastEpisodeNumber: z
+		.any()
+		.optional()
+		.transform((t) => (typeof t === "number" ? t : undefined)),
 });
 type FormSchema = z.infer<typeof formSchema>;
 
