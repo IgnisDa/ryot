@@ -38,7 +38,7 @@ fi
 # pull the latest image
 docker rmi -f "$IMAGE_NAME" || true
 docker pull "$IMAGE_NAME:latest"
-image_sha="$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_NAME)"
+image_sha="$(docker inspect --format={{ '"{{index .RepoDigests 0}}"' }} $IMAGE_NAME)"
 echo "Calculated image sha: $image_sha"
 
 if dokku apps:exists $APPNAME; then

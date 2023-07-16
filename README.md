@@ -54,55 +54,14 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
   and fitness.
-- ✅ [Import data](/docs/guides/importing.md) from Goodreads, MediaTracker, Trakt, Movary, StoryGraph
-- ✅ [Integration](/docs/guides/integrations.md) with Kodi, Audiobookshelf
+- ✅ Import data from Goodreads, MediaTracker, Trakt, Movary, StoryGraph
+- ✅ Integration with Kodi, Audiobookshelf
 - ✅ Self-hosted
 - ✅ PWA enabled
 - ✅ Documented GraphQL API
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
-
-## 📖 Guides
-
-Some things might not be obvious on how to setup or get working. I have written
-a number of guides to make thing easier.
-
-- [Deployment](/docs/guides/deployment.md): Deploy Ryot to various platforms
-- [Exporting](/docs/guides/exporting.md): Export your data from Ryot
-- [Fitness](/docs/guides/fitness.md): Fitness tracking with Ryot
-- [Importing](/docs/guides/importing.md): Import data from various sources
-- [Integrations](/docs/guides/integrations.md): Integrations with various platforms
-- [Video Games](/docs/guides/video-games.md): Get video games tracking working
-
-## 🔧 Configuration options
-
-You can specify configuration options via files (loaded from `config/ryot.json`,
-`config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
-
-To set the equivalent environment variables, join keys by `_` (underscore) and
-_UPPER_SNAKE_CASE_ the characters.
-
-Ryot serves the final configuration loaded at the `/config` endpoint as JSON
-([example](https://ryot.fly.dev/config)). This can also be treated as a [health
-endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
-
-**Note**: You can see all possible configuration parameters in
-the [generated schema](libs/generated/src/config/backend/schema.ts). The defaults
-can be inspected in the [config](/apps/backend/src/config.rs) builder. Here are
-some important ones:
-
-| Key / Environment variable                                                | Description                                                                                                                                                                   |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| - / `PORT`                                                                | The port to listen on.                                                                                                                                                        |
-| `database.url` / `DATABASE_URL`                                           | The database connection string. Supports SQLite, MySQL and Postgres.                                                                                                          |
-| `video_games.twitch.client_id` / `VIDEO_GAMES_TWITCH_CLIENT_ID`           | The client ID issues by Twitch. **Required** to enable video games tracking. [More information](/docs/guides/video-games.md)                                                  |
-| `video_games.twitch.client_secret` / `VIDEO_GAMES_TWITCH_CLIENT_SECRET`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                                                              |
-| `file_storage.s3_access_key_id` / `FILE_STORAGE_S3_ACCESS_KEY_ID`         | The access key ID for the S3 compatible file storage. **Required** to enable file storage. [More information](/docs/guides/fitness.md)                                        |
-| `file_storage.s3_bucket_name` / `FILE_STORAGE_S3_BUCKET_NAME`             | The name of the S3 compatible bucket. **Required** to enable file storage.                                                                                                    |
-| `file_storage.s3_secret_access_key` / `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | The secret access key for the S3 compatible file storage. **Required** to enable file storage.                                                                                |
-| `file_storage.s3_url` / `FILE_STORAGE_S3_URL`                             | The URL for the S3 compatible file storage.                                                                                                                                   |
-| `server.insecure_cookie` / `SERVER_INSECURE_COOKIE`                       | This will make auth cookies insecure and should be set to `true` if you are running the server on `localhost`. [More information](https://github.com/IgnisDa/ryot/issues/23#) |
 
 ## 🤓 Developer notes
 

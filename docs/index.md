@@ -2,7 +2,7 @@
 
 The first user you register is automatically set as admin of the instance.
 
-## Option 1: Use Docker
+## Using Docker
 
 !!! note "Production Usage"
 
@@ -53,12 +53,13 @@ volumes:
 
 !!! note
 
-    The `SERVER_INSECURE_COOKIE` is only required if you are not running HTTPs.
+    The `SERVER_INSECURE_COOKIE` configuration is only required if you are not
+    running HTTPs.
 
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
 pre-release (or release, whichever is newer).
 
-## Option 2: Quick-run a release
+## Quick-run a release
 
 Each release has an installation script that can be used to install the `ryot`
 binary. Follow the instructions in the release to use this script.
@@ -69,7 +70,7 @@ binary. Follow the instructions in the release to use this script.
 $ eget ignisda/ryot
 ```
 
-## Option 3: Compile and run from source
+## Compile and run from source
 
 - Install [moonrepo](https://moonrepo.dev/)
 

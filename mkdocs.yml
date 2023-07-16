@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 
 site_name: Ryot
+site_url: https://ignisda.github.io/ryot
 site_description: Ryot Documentation
 repo_url: https://github.com/ignisda/ryot
 dev_addr: '0.0.0.0:8000'
@@ -24,7 +25,14 @@ theme:
       primary: indigo
       accent: indigo
 
+plugins:
+  - search
+  - macros
+
 markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
+
+extra:
+  file_path: https://github.com/ignisda/ryot/tree/main
