@@ -1,7 +1,9 @@
-# Development
+# Architecture
 
 In production, the frontend is a pre-rendered Nextjs app served statically by the Axum
 backend server.
+
+## Development
 
 In development, both servers are started independently running on `:3000` and `:8000`
 respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs), and
