@@ -35,23 +35,19 @@ import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
+const numberOrUndefined = z
+	.any()
+	.optional()
+	.transform((t) => (typeof t === "number" ? t : undefined));
+
 const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(5)).optional(),
 	text: z.string().optional(),
 	visibility: z.nativeEnum(Visibility).default(Visibility.Public).optional(),
 	spoiler: z.boolean().optional(),
-	showSeasonNumber: z
-		.any()
-		.optional()
-		.transform((t) => (typeof t === "number" ? t : undefined)),
-	showEpisodeNumber: z
-		.any()
-		.optional()
-		.transform((t) => (typeof t === "number" ? t : undefined)),
-	podcastEpisodeNumber: z
-		.any()
-		.optional()
-		.transform((t) => (typeof t === "number" ? t : undefined)),
+	showSeasonNumber: numberOrUndefined,
+	showEpisodeNumber: numberOrUndefined,
+	podcastEpisodeNumber: numberOrUndefined,
 });
 type FormSchema = z.infer<typeof formSchema>;
 
