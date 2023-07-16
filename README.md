@@ -20,6 +20,7 @@
 
 <p align="center">
     <a href="https://ignisda.github.io/ryot" target="_blank" rel="noopener noreferrer">Documentation</a> •
+    <a href="https://ignisda.github.io/ryot/configuration" target="_blank" rel="noopener noreferrer">Configuration</a> •
     <a href="https://ryot.fly.dev" target="_blank" rel="noopener noreferrer">Demo</a>
 </p>
 
