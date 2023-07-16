@@ -25,10 +25,13 @@ theme:
         name: Switch to light mode
       primary: indigo
       accent: indigo
+  features:
+    - navigation.instant
 
 plugins:
-  - search
   - macros
+  - offline
+  - search
 
 markdown_extensions:
   - admonition
