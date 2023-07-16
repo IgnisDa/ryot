@@ -945,6 +945,16 @@ const Page: NextPageWithLayout = () => {
 									<Link
 										href={withQuery(ROUTES.media.postReview, {
 											item: metadataId,
+											selectedShowSeasonNumber:
+												nextEpisode?.season ?? undefined,
+											selectedShowEpisodeNumber:
+												mediaDetails.data.lot === MetadataLot.Show
+													? nextEpisode?.episode ?? undefined
+													: undefined,
+											selectedPodcastEpisodeNumber:
+												mediaDetails.data.lot === MetadataLot.Podcast
+													? nextEpisode?.episode ?? undefined
+													: undefined,
 										})}
 										passHref
 										legacyBehavior
