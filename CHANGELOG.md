@@ -1,4 +1,11 @@
 
+# Version 1.12.0 (2023-07-16)
+
+## Documentation
+
+* enable navigation tracking
+
+
 # Version 1.11.4 (2023-07-16)
 
 ## Build
