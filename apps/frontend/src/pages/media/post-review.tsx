@@ -8,7 +8,9 @@ import {
 	Button,
 	Checkbox,
 	Container,
+	Flex,
 	Input,
+	NumberInput,
 	Rating,
 	SegmentedControl,
 	Stack,
@@ -36,8 +38,11 @@ import { z } from "zod";
 const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(5)).optional(),
 	text: z.string().optional(),
-	visibility: z.nativeEnum(Visibility).default(Visibility.Public),
+	visibility: z.nativeEnum(Visibility).default(Visibility.Public).optional(),
 	spoiler: z.boolean().optional(),
+	showSeasonNumber: z.number().optional(),
+	showEpisodeNumber: z.number().optional(),
+	podcastEpisodeNumber: z.number().optional(),
 });
 type FormSchema = z.infer<typeof formSchema>;
 
@@ -45,11 +50,18 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.item?.toString() || "0");
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
-	const seasonNumber = Number(router.query.seasonNumber?.toString()) || null;
-	const episodeNumber = Number(router.query.episodeNumber?.toString()) || null;
+	const showSeasonNumber = Number(router.query.showSeasonNumber) || undefined;
+	const showEpisodeNumber = Number(router.query.showEpisodeNumber) || undefined;
+	const podcastEpisodeNumber =
+		Number(router.query.podcastEpisodeNumber) || undefined;
 
 	const form = useForm<FormSchema>({
 		validate: zodResolver(formSchema),
+		initialValues: {
+			showSeasonNumber,
+			showEpisodeNumber,
+			podcastEpisodeNumber,
+		},
 	});
 
 	const mediaDetails = useQuery({
@@ -62,6 +74,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 	});
+
 	useQuery({
 		enabled: reviewId !== undefined,
 		queryKey: ["reviewDetails", reviewId],
@@ -83,6 +96,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 	});
+
 	const postReview = useMutation({
 		mutationFn: async (variables: PostReviewMutationVariables) => {
 			const { postReview } = await gqlClient.request(
@@ -95,6 +109,7 @@ const Page: NextPageWithLayout = () => {
 			router.push(withQuery(ROUTES.media.details, { item: metadataId }));
 		},
 	});
+
 	const deleteReview = useMutation({
 		mutationFn: async (variables: DeleteReviewMutationVariables) => {
 			const { deleteReview } = await gqlClient.request(
@@ -127,19 +142,33 @@ const Page: NextPageWithLayout = () => {
 							input: {
 								metadataId,
 								...values,
-								seasonNumber,
-								episodeNumber,
 								reviewId,
 							},
 						});
 					})}
 				>
 					<Stack>
-						<Title order={3}>
-							Reviewing "{title}
-							{seasonNumber ? ` (S${seasonNumber}` : null}
-							{episodeNumber ? `-E${episodeNumber})` : null}"
-						</Title>
+						<Title order={3}>Reviewing "{title}"</Title>
+						{mediaDetails.data.showSpecifics ? (
+							<Flex gap="md">
+								<NumberInput
+									label="Season"
+									{...form.getInputProps("showSeasonNumber")}
+								/>
+								<NumberInput
+									label="Episode"
+									{...form.getInputProps("showEpisodeNumber")}
+								/>
+							</Flex>
+						) : null}
+						{mediaDetails.data.podcastSpecifics ? (
+							<Flex gap="md">
+								<NumberInput
+									label="Episode"
+									{...form.getInputProps("podcastEpisodeNumber")}
+								/>
+							</Flex>
+						) : null}
 						<Box>
 							<Input.Label>Rating</Input.Label>
 							<Rating {...form.getInputProps("rating")} fractions={2} />

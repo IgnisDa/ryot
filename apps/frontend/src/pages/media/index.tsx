@@ -945,13 +945,12 @@ const Page: NextPageWithLayout = () => {
 									<Link
 										href={withQuery(ROUTES.media.postReview, {
 											item: metadataId,
-											selectedShowSeasonNumber:
-												nextEpisode?.season ?? undefined,
-											selectedShowEpisodeNumber:
+											showSeasonNumber: nextEpisode?.season ?? undefined,
+											showEpisodeNumber:
 												mediaDetails.data.lot === MetadataLot.Show
 													? nextEpisode?.episode ?? undefined
 													: undefined,
-											selectedPodcastEpisodeNumber:
+											podcastEpisodeNumber:
 												mediaDetails.data.lot === MetadataLot.Podcast
 													? nextEpisode?.episode ?? undefined
 													: undefined,
