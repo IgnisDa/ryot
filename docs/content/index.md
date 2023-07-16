@@ -83,4 +83,3 @@ $ moon run frontend:build
 # Run it
 $ cargo run --bin ryot --release
 ```
-
