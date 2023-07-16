@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "docs"
+version = "0.1.0"
+description = "Documentation website for Ryot"
+authors = ["Diptesh Choudhuri <ignisda2001@gmail.com>"]
+license = "GPL-v3"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+mkdocs-macros-plugin = "^1.0.2"
+mkdocs-material = "^9.1.18"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

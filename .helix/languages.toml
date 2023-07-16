@@ -22,3 +22,7 @@ formatter = { command = "npx", args = ["rome", "format", "--stdin-file-path", "s
 name = "jsx"
 auto-format = true
 formatter = { command = "npx", args = ["rome", "format", "--stdin-file-path", "source.jsx"] }
+
+[language-server.yaml-language-server.config.yaml]
+format = { enable = true }
+validation = true

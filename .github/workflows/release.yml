@@ -130,6 +130,23 @@ jobs:
         run: |
           gh release edit ${{ github.ref_name }} --draft=false
 
+  deploy-docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+      - name: Install dependencies
+        run: poetry install
+      - name: Deploy to github pages
+        run: poetry run mkdocs gh-deploy --force
+
   docker-release:
     runs-on: ubuntu-latest
     needs: create-release

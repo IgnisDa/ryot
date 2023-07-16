@@ -33,9 +33,6 @@ following manner:
 
 - Login to your Goodreads account and go to the "My Books" section.
 - Right click on the RSS Link on the bottom right of the screen and copy it.
-
-  ![RSS URL image](/docs/assets/goodreads-rss-url.png)
-
 - Enter this URL in the input.
 
 ## Trakt

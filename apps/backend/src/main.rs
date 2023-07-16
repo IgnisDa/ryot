@@ -187,12 +187,9 @@ async fn main() -> Result<()> {
             .unwrap()
             .parent()
             .unwrap()
-            .join("libs")
-            .join("generated")
-            .join("src")
-            .join("config")
-            .join("backend")
-            .join("schema.ts");
+            .join("docs")
+            .join("includes")
+            .join("backend-config-schema.ts");
         let mut generator = schematic::schema::SchemaGenerator::default();
         generator.add::<AppConfig>();
         generator

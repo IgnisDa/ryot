@@ -38,7 +38,7 @@ fi
 # pull the latest image
 docker rmi -f "$IMAGE_NAME" || true
 docker pull "$IMAGE_NAME:latest"
-image_sha="$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_NAME)"
+image_sha="$(docker inspect --format={{ '"{{index .RepoDigests 0}}"' }} $IMAGE_NAME)"
 echo "Calculated image sha: $image_sha"
 
 if dokku apps:exists $APPNAME; then
@@ -88,9 +88,9 @@ are required to deploy to Fly.
 flyctl postgres create ryot-db
 ```
 
-2. Copy the [`fly.toml`](/fly.toml) in the root of this repository to your own
-repository. You **WILL** have to change the `app` key to a name of your choosing.
-Deploy it using the below command.
+2. Copy the [`fly.toml`]({{ extra.file_path }}/fly.toml) in the root of this
+repository to your own repository. You **WILL** have to change the `app` key to
+a name of your choosing. Deploy it using the below command.
 
 ```bash
 flyctl launch
