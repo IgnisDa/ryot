@@ -116,7 +116,7 @@ pub struct SeenPodcastExtraInformation {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
-pub enum SeenExtraInformation {
+pub enum SeenOrReviewExtraInformation {
     Show(SeenShowExtraInformation),
     Podcast(SeenPodcastExtraInformation),
 }
