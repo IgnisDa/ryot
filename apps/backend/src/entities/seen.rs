@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{prelude::UserToMetadata, user_to_metadata},
-    miscellaneous::{SeenExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation},
+    miscellaneous::{
+        SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    },
     utils::associate_user_with_metadata,
 };
 
@@ -27,7 +29,7 @@ pub struct Model {
     pub metadata_id: i32,
     #[graphql(skip)]
     #[serde(skip)]
-    pub extra_information: Option<SeenExtraInformation>,
+    pub extra_information: Option<SeenOrReviewExtraInformation>,
     #[sea_orm(ignore)]
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]

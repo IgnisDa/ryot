@@ -327,28 +327,28 @@ const MediaScrollArea = ({
 };
 
 const ReviewItem = ({
-	r,
+	review: review,
 	metadataId,
 }: {
-	r: MediaItemReviewsQuery["mediaItemReviews"][number];
+	review: MediaItemReviewsQuery["mediaItemReviews"][number];
 	metadataId: number;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const user = useUser();
 
 	return (
-		<Box key={r.id} data-review-id={r.id}>
+		<Box key={review.id} data-review-id={review.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
-					{getInitials(r.postedBy.name)}{" "}
+					{getInitials(review.postedBy.name)}{" "}
 				</Avatar>
 				<Box>
-					<Text>{r.postedBy.name}</Text>
-					<Text>{DateTime.fromJSDate(r.postedOn).toLocaleString()}</Text>
+					<Text>{review.postedBy.name}</Text>
+					<Text>{DateTime.fromJSDate(review.postedOn).toLocaleString()}</Text>
 				</Box>
-				{user && user.id === r.postedBy.id ? (
+				{user && user.id === review.postedBy.id ? (
 					<Link
-						href={`${ROUTES.media.postReview}?item=${metadataId}&reviewId=${r.id}`}
+						href={`${ROUTES.media.postReview}?item=${metadataId}&reviewId=${review.id}`}
 						passHref
 						legacyBehavior
 					>
@@ -361,15 +361,24 @@ const ReviewItem = ({
 				) : null}
 			</Flex>
 			<Box ml={"sm"} mt={"xs"}>
-				{r.rating > 0 ? (
+				{typeof review.showSeason === "number" ? (
+					<Text color="dimmed">
+						S{review.showSeason}-E
+						{review.showEpisode}
+					</Text>
+				) : null}
+				{typeof review.podcastEpisode === "number" ? (
+					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
+				) : null}
+				{review.rating > 0 ? (
 					<>
-						<Rating value={Number(r.rating)} fractions={2} readOnly />
+						<Rating value={Number(review.rating)} fractions={2} readOnly />
 						<Space h="xs" />
 					</>
 				) : null}
-				{r.text ? (
-					!r.spoiler ? (
-						<Text dangerouslySetInnerHTML={{ __html: r.text }} />
+				{review.text ? (
+					!review.spoiler ? (
+						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 					) : (
 						<>
 							{!opened ? (
@@ -378,7 +387,7 @@ const ReviewItem = ({
 								</Button>
 							) : null}
 							<Collapse in={opened}>
-								<Text dangerouslySetInnerHTML={{ __html: r.text }} />
+								<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 							</Collapse>
 						</>
 					)
@@ -945,6 +954,15 @@ const Page: NextPageWithLayout = () => {
 									<Link
 										href={withQuery(ROUTES.media.postReview, {
 											item: metadataId,
+											showSeasonNumber: nextEpisode?.season ?? undefined,
+											showEpisodeNumber:
+												mediaDetails.data.lot === MetadataLot.Show
+													? nextEpisode?.episode ?? undefined
+													: undefined,
+											podcastEpisodeNumber:
+												mediaDetails.data.lot === MetadataLot.Podcast
+													? nextEpisode?.episode ?? undefined
+													: undefined,
 										})}
 										passHref
 										legacyBehavior
@@ -1142,43 +1160,47 @@ const Page: NextPageWithLayout = () => {
 													</AccordionLabel>
 												</Accordion.Control>
 												<Accordion.Panel>
-													{s.episodes.map((e) => (
-														<Box mb={"xs"} ml={"md"} key={e.id}>
-															<AccordionLabel
-																{...e}
-																key={e.episodeNumber}
-																name={`${e.episodeNumber}. ${e.name}`}
-																displayIndicator={
-																	seenHistory.data.filter(
-																		(h) =>
-																			h.progress === 100 &&
-																			h.showInformation &&
-																			h.showInformation.episode ===
-																				e.episodeNumber &&
-																			h.showInformation.season ===
-																				s.seasonNumber,
-																	).length
-																}
-															>
-																<Button
-																	variant="outline"
-																	onClick={() => {
-																		router.push(
-																			withQuery(ROUTES.media.updateProgress, {
-																				item: metadataId,
-																				selectedShowSeasonNumber:
+													{s.episodes.length > 0 ? (
+														s.episodes.map((e) => (
+															<Box mb={"xs"} ml={"md"} key={e.id}>
+																<AccordionLabel
+																	{...e}
+																	key={e.episodeNumber}
+																	name={`${e.episodeNumber}. ${e.name}`}
+																	displayIndicator={
+																		seenHistory.data.filter(
+																			(h) =>
+																				h.progress === 100 &&
+																				h.showInformation &&
+																				h.showInformation.episode ===
+																					e.episodeNumber &&
+																				h.showInformation.season ===
 																					s.seasonNumber,
-																				selectedShowEpisodeNumber:
-																					e.episodeNumber,
-																			}),
-																		);
-																	}}
+																		).length
+																	}
 																>
-																	Mark as seen
-																</Button>
-															</AccordionLabel>
-														</Box>
-													))}
+																	<Button
+																		variant="outline"
+																		onClick={() => {
+																			router.push(
+																				withQuery(ROUTES.media.updateProgress, {
+																					item: metadataId,
+																					selectedShowSeasonNumber:
+																						s.seasonNumber,
+																					selectedShowEpisodeNumber:
+																						e.episodeNumber,
+																				}),
+																			);
+																		}}
+																	>
+																		Mark as seen
+																	</Button>
+																</AccordionLabel>
+															</Box>
+														))
+													) : (
+														<Text>No episodes in this season</Text>
+													)}
 												</Accordion.Panel>
 											</Accordion.Item>
 										))}
@@ -1226,7 +1248,11 @@ const Page: NextPageWithLayout = () => {
 								<MediaScrollArea>
 									<Stack>
 										{reviews.data.map((r) => (
-											<ReviewItem r={r} key={r.id} metadataId={metadataId} />
+											<ReviewItem
+												review={r}
+												key={r.id}
+												metadataId={metadataId}
+											/>
 										))}
 									</Stack>
 								</MediaScrollArea>

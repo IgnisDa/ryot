@@ -50,7 +50,7 @@ use crate::{
     },
     miscellaneous::{
         CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
-        MetadataImage, MetadataImageUrl, MetadataImages, SeenExtraInformation,
+        MetadataImage, MetadataImageUrl, MetadataImages, SeenOrReviewExtraInformation,
         SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
     models::{
@@ -253,10 +253,10 @@ struct ReviewItem {
     text: Option<String>,
     visibility: Visibility,
     spoiler: bool,
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
-    podcast_episode_id: Option<i32>,
+    show_season: Option<i32>,
+    show_episode: Option<i32>,
+    podcast_episode: Option<i32>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -437,7 +437,7 @@ pub struct MiscellaneousQuery;
 
 #[Object]
 impl MiscellaneousQuery {
-    /// Get some primary information about the service
+    /// Get some primary information about the service.
     async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -445,8 +445,8 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get a review by its ID
-    async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<review::Model> {
+    /// Get a review by its ID.
+    async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .review_by_id(review_id)
@@ -1666,10 +1666,9 @@ impl MiscellaneousService {
                         if let (Some(season), Some(episode)) =
                             (input.show_season_number, input.show_episode_number)
                         {
-                            Some(SeenExtraInformation::Show(SeenShowExtraInformation {
-                                season,
-                                episode,
-                            }))
+                            Some(SeenOrReviewExtraInformation::Show(
+                                SeenShowExtraInformation { season, episode },
+                            ))
                         } else {
                             return Err(Error::new(
                                 "Tried to update show progress without season or episode number"
@@ -1679,9 +1678,9 @@ impl MiscellaneousService {
                     }
                     MetadataLot::Podcast => {
                         if let Some(episode) = input.podcast_episode_number {
-                            Some(SeenExtraInformation::Podcast(SeenPodcastExtraInformation {
-                                episode,
-                            }))
+                            Some(SeenOrReviewExtraInformation::Podcast(
+                                SeenPodcastExtraInformation { episode },
+                            ))
                         } else {
                             return Err(Error::new(
                                 "Tried to update podcast progress without episode number"
@@ -2120,10 +2119,36 @@ impl MiscellaneousService {
         }
     }
 
-    async fn review_by_id(&self, review_id: i32) -> Result<review::Model> {
+    async fn review_by_id(&self, review_id: i32) -> Result<ReviewItem> {
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
-            Some(r) => Ok(r),
+            Some(r) => {
+                let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
+                let (show_se, show_ep, podcast_ep) = match r.extra_information {
+                    Some(s) => match s {
+                        SeenOrReviewExtraInformation::Show(d) => {
+                            (Some(d.season), Some(d.episode), None)
+                        }
+                        SeenOrReviewExtraInformation::Podcast(d) => (None, None, Some(d.episode)),
+                    },
+                    None => (None, None, None),
+                };
+                Ok(ReviewItem {
+                    id: r.id,
+                    posted_on: r.posted_on,
+                    rating: r.rating,
+                    spoiler: r.spoiler,
+                    text: r.text,
+                    visibility: r.visibility,
+                    show_season: show_se,
+                    show_episode: show_ep,
+                    podcast_episode: podcast_ep,
+                    posted_by: ReviewPostedBy {
+                        id: user.id,
+                        name: user.name,
+                    },
+                })
+            }
             None => Err(Error::new("Unable to find review".to_owned())),
         }
     }
@@ -2136,38 +2161,14 @@ impl MiscellaneousService {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
-            .find_also_related(User)
             .all(&self.db)
             .await
-            .unwrap()
-            .into_iter()
-            .map(|(r, u)| {
-                let (show_se, show_ep, podcast_ep) = match r.extra_information {
-                    Some(s) => match s {
-                        SeenExtraInformation::Show(d) => (Some(d.season), Some(d.episode), None),
-                        SeenExtraInformation::Podcast(d) => (None, None, Some(d.episode)),
-                    },
-                    None => (None, None, None),
-                };
-                let user = u.unwrap();
-                ReviewItem {
-                    id: r.id,
-                    posted_on: r.posted_on,
-                    rating: r.rating,
-                    spoiler: r.spoiler,
-                    text: r.text,
-                    visibility: r.visibility,
-                    season_number: show_se,
-                    episode_number: show_ep,
-                    podcast_episode_id: podcast_ep,
-                    posted_by: ReviewPostedBy {
-                        id: user.id,
-                        name: user.name,
-                    },
-                }
-            })
-            .collect_vec();
-        let all_reviews = all_reviews
+            .unwrap();
+        let mut reviews = vec![];
+        for r in all_reviews {
+            reviews.push(self.review_by_id(r.id).await?);
+        }
+        let all_reviews = reviews
             .into_iter()
             .filter(|r| match r.visibility {
                 Visibility::Private => r.posted_by.id == *user_id,
@@ -2301,13 +2302,26 @@ impl MiscellaneousService {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
         };
+        let extra_infomation = if let (Some(season), Some(episode)) =
+            (input.show_season_number, input.show_episode_number)
+        {
+            Some(SeenOrReviewExtraInformation::Show(
+                SeenShowExtraInformation { season, episode },
+            ))
+        } else if let Some(episode) = input.podcast_episode_number {
+            Some(SeenOrReviewExtraInformation::Podcast(
+                SeenPodcastExtraInformation { episode },
+            ))
+        } else {
+            None
+        };
         let mut review_obj = review::ActiveModel {
             id: review_id,
             rating: ActiveValue::Set(input.rating),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
-            extra_information: ActiveValue::NotSet,
+            extra_information: ActiveValue::Set(extra_infomation),
             ..Default::default()
         };
         if let Some(s) = input.spoiler {
@@ -2318,13 +2332,6 @@ impl MiscellaneousService {
         }
         if let Some(d) = input.date {
             review_obj.posted_on = ActiveValue::Set(d);
-        }
-        if let (Some(s), Some(e)) = (input.season_number, input.episode_number) {
-            review_obj.extra_information =
-                ActiveValue::Set(Some(SeenExtraInformation::Show(SeenShowExtraInformation {
-                    season: s,
-                    episode: e,
-                })));
         }
         let insert = review_obj.save(&self.db).await.unwrap();
         Ok(IdObject {
@@ -2654,8 +2661,8 @@ impl MiscellaneousService {
                         match seen.extra_information.to_owned() {
                             None => continue,
                             Some(sei) => match sei {
-                                SeenExtraInformation::Show(_) => unreachable!(),
-                                SeenExtraInformation::Podcast(s) => {
+                                SeenOrReviewExtraInformation::Show(_) => unreachable!(),
+                                SeenOrReviewExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
                                             ls.data.podcasts.runtime += r;
@@ -2678,8 +2685,8 @@ impl MiscellaneousService {
                     for season in item.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
-                                SeenExtraInformation::Podcast(_) => unreachable!(),
-                                SeenExtraInformation::Show(s) => {
+                                SeenOrReviewExtraInformation::Podcast(_) => unreachable!(),
+                                SeenOrReviewExtraInformation::Show(s) => {
                                     if s.season == season.season_number
                                         && s.episode == episode.episode_number
                                     {
@@ -3376,10 +3383,10 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
-                SeenExtraInformation::Show(sea) => {
+                SeenOrReviewExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }
-                SeenExtraInformation::Podcast(sea) => {
+                SeenOrReviewExtraInformation::Podcast(sea) => {
                     s.podcast_information = Some(sea.clone());
                 }
             };

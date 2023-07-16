@@ -7,7 +7,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    miscellaneous::SeenExtraInformation, models::media::Visibility,
+    miscellaneous::SeenOrReviewExtraInformation, models::media::Visibility,
     utils::associate_user_with_metadata,
 };
 
@@ -27,7 +27,7 @@ pub struct Model {
     #[graphql(skip)]
     pub metadata_id: i32,
     #[graphql(skip)]
-    pub extra_information: Option<SeenExtraInformation>,
+    pub extra_information: Option<SeenOrReviewExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
