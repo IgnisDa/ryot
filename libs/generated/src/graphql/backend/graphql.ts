@@ -725,14 +725,15 @@ export type PodcastsSummary = {
 
 export type PostReviewInput = {
   date?: InputMaybe<Scalars['DateTime']>;
-  episodeNumber?: InputMaybe<Scalars['Int']>;
   /** If this review comes from a different source, this should be set */
   identifier?: InputMaybe<Scalars['String']>;
   metadataId: Scalars['Int'];
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']>;
   rating?: InputMaybe<Scalars['Decimal']>;
   /** ID of the review if this is an update to an existing review */
   reviewId?: InputMaybe<Scalars['Int']>;
-  seasonNumber?: InputMaybe<Scalars['Int']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']>;
   spoiler?: InputMaybe<Scalars['Boolean']>;
   text?: InputMaybe<Scalars['String']>;
   visibility?: InputMaybe<Visibility>;
@@ -740,8 +741,6 @@ export type PostReviewInput = {
 
 export type ProgressUpdateInput = {
   date?: InputMaybe<Scalars['NaiveDate']>;
-  /** If this update comes from a different source, this should be set */
-  identifier?: InputMaybe<Scalars['String']>;
   metadataId: Scalars['Int'];
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']>;
   progress?: InputMaybe<Scalars['Int']>;
