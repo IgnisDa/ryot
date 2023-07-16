@@ -1,7 +1,6 @@
 # Exporting
 
-Users can export their media history using the `/export` endpoint. We do not have
-a custom interface to perform exports, so you will have to do some steps manually.
+Users can export their media history using the `/export` endpoint.
 
 1. Login to your Ryot instance and go to the "Tokens" section in the "Settings"
 	page.	Generate a new application token.
