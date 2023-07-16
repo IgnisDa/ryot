@@ -1,4 +1,11 @@
 
+# Version 1.11.3 (2023-07-16)
+
+## Documentation
+
+* fix incorrect config parameter
+
+
 # Version 1.11.2 (2023-07-14)
 
 ## Bug Fixes
