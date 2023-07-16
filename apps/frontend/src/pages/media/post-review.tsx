@@ -154,15 +154,21 @@ const Page: NextPageWithLayout = () => {
 				>
 					<Stack>
 						<Title order={3}>Reviewing "{title}"</Title>
+						<Box>
+							<Input.Label>Rating</Input.Label>
+							<Rating {...form.getInputProps("rating")} fractions={2} />
+						</Box>
 						{mediaDetails.data.showSpecifics ? (
 							<Flex gap="md">
 								<NumberInput
 									label="Season"
 									{...form.getInputProps("showSeasonNumber")}
+									hideControls
 								/>
 								<NumberInput
 									label="Episode"
 									{...form.getInputProps("showEpisodeNumber")}
+									hideControls
 								/>
 							</Flex>
 						) : null}
@@ -171,13 +177,10 @@ const Page: NextPageWithLayout = () => {
 								<NumberInput
 									label="Episode"
 									{...form.getInputProps("podcastEpisodeNumber")}
+									hideControls
 								/>
 							</Flex>
 						) : null}
-						<Box>
-							<Input.Label>Rating</Input.Label>
-							<Rating {...form.getInputProps("rating")} fractions={2} />
-						</Box>
 						<Textarea
 							label="Review"
 							{...form.getInputProps("text")}
