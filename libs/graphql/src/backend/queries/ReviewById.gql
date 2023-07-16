@@ -4,5 +4,8 @@ query ReviewById($reviewId: Int!) {
     text
     visibility
     spoiler
+    showSeason
+    showEpisode
+    podcastEpisode
   }
 }
