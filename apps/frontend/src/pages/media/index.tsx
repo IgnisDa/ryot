@@ -1152,43 +1152,47 @@ const Page: NextPageWithLayout = () => {
 													</AccordionLabel>
 												</Accordion.Control>
 												<Accordion.Panel>
-													{s.episodes.map((e) => (
-														<Box mb={"xs"} ml={"md"} key={e.id}>
-															<AccordionLabel
-																{...e}
-																key={e.episodeNumber}
-																name={`${e.episodeNumber}. ${e.name}`}
-																displayIndicator={
-																	seenHistory.data.filter(
-																		(h) =>
-																			h.progress === 100 &&
-																			h.showInformation &&
-																			h.showInformation.episode ===
-																				e.episodeNumber &&
-																			h.showInformation.season ===
-																				s.seasonNumber,
-																	).length
-																}
-															>
-																<Button
-																	variant="outline"
-																	onClick={() => {
-																		router.push(
-																			withQuery(ROUTES.media.updateProgress, {
-																				item: metadataId,
-																				selectedShowSeasonNumber:
+													{s.episodes.length > 0 ? (
+														s.episodes.map((e) => (
+															<Box mb={"xs"} ml={"md"} key={e.id}>
+																<AccordionLabel
+																	{...e}
+																	key={e.episodeNumber}
+																	name={`${e.episodeNumber}. ${e.name}`}
+																	displayIndicator={
+																		seenHistory.data.filter(
+																			(h) =>
+																				h.progress === 100 &&
+																				h.showInformation &&
+																				h.showInformation.episode ===
+																					e.episodeNumber &&
+																				h.showInformation.season ===
 																					s.seasonNumber,
-																				selectedShowEpisodeNumber:
-																					e.episodeNumber,
-																			}),
-																		);
-																	}}
+																		).length
+																	}
 																>
-																	Mark as seen
-																</Button>
-															</AccordionLabel>
-														</Box>
-													))}
+																	<Button
+																		variant="outline"
+																		onClick={() => {
+																			router.push(
+																				withQuery(ROUTES.media.updateProgress, {
+																					item: metadataId,
+																					selectedShowSeasonNumber:
+																						s.seasonNumber,
+																					selectedShowEpisodeNumber:
+																						e.episodeNumber,
+																				}),
+																			);
+																		}}
+																	>
+																		Mark as seen
+																	</Button>
+																</AccordionLabel>
+															</Box>
+														))
+													) : (
+														<Text>No episodes in this season</Text>
+													)}
 												</Accordion.Panel>
 											</Accordion.Item>
 										))}
