@@ -5,8 +5,9 @@ query MediaItemReviews($metadataId: Int!) {
     text
     spoiler
     visibility
-    seasonNumber
-    episodeNumber
+    showSeason
+    showEpisode
+    podcastEpisode
     postedOn
     postedBy {
       id

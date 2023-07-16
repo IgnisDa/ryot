@@ -253,10 +253,10 @@ struct ReviewItem {
     text: Option<String>,
     visibility: Visibility,
     spoiler: bool,
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
     posted_by: ReviewPostedBy,
-    podcast_episode_id: Option<i32>,
+    show_season: Option<i32>,
+    show_episode: Option<i32>,
+    podcast_episode: Option<i32>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -2158,9 +2158,9 @@ impl MiscellaneousService {
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
-                    season_number: show_se,
-                    episode_number: show_ep,
-                    podcast_episode_id: podcast_ep,
+                    show_season: show_se,
+                    show_episode: show_ep,
+                    podcast_episode: podcast_ep,
                     posted_by: ReviewPostedBy {
                         id: user.id,
                         name: user.name,
