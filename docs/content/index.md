@@ -7,7 +7,7 @@ The first user you register is automatically set as admin of the instance.
 !!! danger "Production Usage"
 
     You will have to mount a directory to `/data`, giving it `1001:1001` permissions.
-    It is also recommended to use PostgreSQL or MySQL in production.
+    It is also recommended to use PostgreSQL in production.
 
 To get a demo server running, use the docker image:
 
