@@ -4,7 +4,7 @@ The first user you register is automatically set as admin of the instance.
 
 ## Using Docker
 
-!!! note "Production Usage"
+!!! danger "Production Usage"
 
     You will have to mount a directory to `/data`, giving it `1001:1001` permissions.
     It is also recommended to use PostgreSQL or MySQL in production.
@@ -44,6 +44,8 @@ services:
         - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
     ports:
         - '8000:8000'
+    volumes:
+        - ./ryot-data:/data
     pull_policy: always
     container_name: ryot
 
@@ -51,7 +53,7 @@ volumes:
   postgres_storage:
 ```
 
-!!! note
+!!! warning
 
     The `SERVER_INSECURE_COOKIE` configuration is only required if you are not
     running HTTPs.

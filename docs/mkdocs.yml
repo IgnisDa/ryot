@@ -5,6 +5,7 @@ site_url: https://ignisda.github.io/ryot
 site_description: Ryot Documentation
 repo_url: https://github.com/ignisda/ryot
 dev_addr: '0.0.0.0:8000'
+docs_dir: content
 
 theme:
   name: material
