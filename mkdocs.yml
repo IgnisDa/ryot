@@ -3,9 +3,28 @@
 site_name: Ryot
 site_description: Ryot Documentation
 repo_url: https://github.com/ignisda/ryot
+dev_addr: '0.0.0.0:8000'
 
 theme:
   name: material
   language: en
   logo: https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png
   favicon: https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/favicon-32x32.png
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+      primary: indigo
+      accent: indigo
+    - scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+      primary: indigo
+      accent: indigo
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
