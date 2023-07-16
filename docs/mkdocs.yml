@@ -27,6 +27,7 @@ theme:
       accent: indigo
   features:
     - navigation.instant
+    - navigation.tracking
 
 plugins:
   - macros
