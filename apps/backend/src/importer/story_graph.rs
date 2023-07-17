@@ -107,7 +107,10 @@ pub async fn import(
                     seen_history,
                     reviews: vec![ImportItemRating {
                         id: None,
-                        rating: record.rating.map(|d| d / Decimal::from_u16(2).unwrap()),
+                        rating: record
+                            .rating
+                            // DEV: Rates items out of 10
+                            .map(|d| d.saturating_mul(Decimal::from_u8(10).unwrap())),
                         review: record.review.map(|r| ImportItemReview {
                             date: None,
                             spoiler: false,

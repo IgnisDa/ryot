@@ -11,7 +11,6 @@ import {
 	Flex,
 	Input,
 	NumberInput,
-	Rating,
 	SegmentedControl,
 	Stack,
 	Textarea,
@@ -27,6 +26,7 @@ import {
 	ReviewByIdDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconPercentage } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -41,7 +41,7 @@ const numberOrUndefined = z
 	.transform((t) => (typeof t === "number" ? t : undefined));
 
 const formSchema = z.object({
-	rating: z.preprocess(Number, z.number().min(0).max(5)).optional(),
+	rating: z.preprocess(Number, z.number().min(0).max(100)).optional(),
 	text: z.string().optional(),
 	visibility: z.nativeEnum(Visibility).default(Visibility.Public).optional(),
 	spoiler: z.boolean().optional(),
@@ -157,10 +157,23 @@ const Page: NextPageWithLayout = () => {
 				>
 					<Stack>
 						<Title order={3}>Reviewing "{title}"</Title>
-						<Box>
-							<Input.Label>Rating</Input.Label>
-							<Rating {...form.getInputProps("rating")} fractions={2} />
-						</Box>
+						<Flex align={"center"} gap="xl">
+							<NumberInput
+								label="Rating"
+								{...form.getInputProps("rating")}
+								min={0}
+								max={100}
+								step={1}
+								w={"40%"}
+								hideControls
+								rightSection={<IconPercentage size="1rem" />}
+							/>
+							<Checkbox
+								label="This review is a spoiler"
+								mt="lg"
+								{...form.getInputProps("spoiler", { type: "checkbox" })}
+							/>
+						</Flex>
 						{mediaDetails.data.showSpecifics ? (
 							<Flex gap="md">
 								<NumberInput
@@ -207,10 +220,6 @@ const Page: NextPageWithLayout = () => {
 								{...form.getInputProps("visibility")}
 							/>
 						</Box>
-						<Checkbox
-							label="This review is a spoiler"
-							{...form.getInputProps("spoiler", { type: "checkbox" })}
-						/>
 						<Button
 							mt="md"
 							type="submit"

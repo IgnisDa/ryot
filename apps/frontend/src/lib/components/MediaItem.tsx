@@ -93,8 +93,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 									size={"0.8rem"}
 									style={{ color: "#EBE600FF" }}
 								/>
-								<Text color="white" size="xs">
-									{(+props.averageRating).toFixed(1)}
+								<Text color="white" size="xs" fw="bold">
+									{props.averageRating} %
 								</Text>
 							</Flex>
 						</Box>

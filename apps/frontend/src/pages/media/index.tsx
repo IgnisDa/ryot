@@ -23,12 +23,10 @@ import {
 	type MantineGradient,
 	Modal,
 	NumberInput,
-	Rating,
 	ScrollArea,
 	Select,
 	SimpleGrid,
 	Slider,
-	Space,
 	Spoiler,
 	Stack,
 	Tabs,
@@ -73,6 +71,7 @@ import {
 	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
+	IconStarFilled,
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
@@ -327,7 +326,7 @@ const MediaScrollArea = ({
 };
 
 const ReviewItem = ({
-	review: review,
+	review,
 	metadataId,
 }: {
 	review: MediaItemReviewsQuery["mediaItemReviews"][number];
@@ -371,10 +370,12 @@ const ReviewItem = ({
 					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
 				) : null}
 				{review.rating > 0 ? (
-					<>
-						<Rating value={Number(review.rating)} fractions={2} readOnly />
-						<Space h="xs" />
-					</>
+					<Flex align={"center"} gap={4}>
+						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
+						<Text color="white" fw="bold">
+							{review.rating} %
+						</Text>
+					</Flex>
 				) : null}
 				{review.text ? (
 					!review.spoiler ? (

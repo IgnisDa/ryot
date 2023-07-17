@@ -1,7 +1,7 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
@@ -295,7 +295,9 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 ImportItemRating {
                     id: Some(r.id.to_string()),
                     review,
-                    rating: r.rating,
+                    rating: r
+                        .rating
+                        .map(|d| d.saturating_mul(Decimal::from_u8(20).unwrap())),
                 }
             })),
             seen_history: details
