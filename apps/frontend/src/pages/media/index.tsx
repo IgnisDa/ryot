@@ -23,12 +23,10 @@ import {
 	type MantineGradient,
 	Modal,
 	NumberInput,
-	Rating,
 	ScrollArea,
 	Select,
 	SimpleGrid,
 	Slider,
-	Space,
 	Spoiler,
 	Stack,
 	Tabs,
@@ -327,7 +325,7 @@ const MediaScrollArea = ({
 };
 
 const ReviewItem = ({
-	review: review,
+	review,
 	metadataId,
 }: {
 	review: MediaItemReviewsQuery["mediaItemReviews"][number];
@@ -370,12 +368,7 @@ const ReviewItem = ({
 				{typeof review.podcastEpisode === "number" ? (
 					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
 				) : null}
-				{review.rating > 0 ? (
-					<>
-						<Rating value={Number(review.rating)} fractions={2} readOnly />
-						<Space h="xs" />
-					</>
-				) : null}
+				{review.rating > 0 ? <>Rated {review.rating}%</> : null}
 				{review.text ? (
 					!review.spoiler ? (
 						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
