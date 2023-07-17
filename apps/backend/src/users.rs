@@ -55,3 +55,20 @@ pub struct UserYankIntegration {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserYankIntegrations(pub Vec<UserYankIntegration>);
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[serde(tag = "t", content = "d")]
+pub enum UserSinkIntegrationSetting {
+    Jellyfin { slug: String },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+pub struct UserSinkIntegration {
+    pub id: usize,
+    pub settings: UserSinkIntegrationSetting,
+    /// the date and time it was added on
+    pub timestamp: DateTimeUtc,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+pub struct UserSinkIntegrations(pub Vec<UserSinkIntegration>);
