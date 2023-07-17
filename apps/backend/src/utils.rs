@@ -8,12 +8,17 @@ use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
 use darkbird::Storage;
+use http_types::headers::HeaderName;
 use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
-use serde::de::{self, DeserializeOwned};
-use serde::{Deserialize, Serialize};
-use surf::http::headers::USER_AGENT;
-use surf::{Client, Config};
+use serde::{
+    de::{self, DeserializeOwned},
+    Deserialize, Serialize,
+};
+use surf::{
+    http::headers::{ToHeaderValues, USER_AGENT},
+    Client, Config, Url,
+};
 use tokio::task::JoinSet;
 
 use crate::{
@@ -204,9 +209,19 @@ pub fn get_now_timestamp() -> u128 {
         .as_millis()
 }
 
-pub fn get_base_http_client_config() -> Config {
-    Config::new()
+pub fn get_base_http_client(
+    url: &str,
+    headers: Vec<(impl Into<HeaderName>, impl ToHeaderValues)>,
+) -> Client {
+    let mut config = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
+        .unwrap();
+    for (header, value) in headers.into_iter() {
+        config = config.add_header(header, value).unwrap();
+    }
+    config
+        .set_base_url(Url::parse(url).unwrap())
+        .try_into()
         .unwrap()
 }
 

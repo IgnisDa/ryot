@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::AUTHORIZATION, Client, Url};
+use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     migrator::{MetadataLot, MetadataSource},
-    utils::get_base_http_client_config,
+    utils::get_base_http_client,
 };
 
 #[derive(Debug, Clone)]
@@ -54,13 +54,10 @@ impl IntegrationService {
                 pub library_items: Vec<Item>,
             }
         }
-
-        let client: Client = get_base_http_client_config()
-            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-            .unwrap()
-            .set_base_url(Url::parse(&format!("{}/api/", base_url)).unwrap())
-            .try_into()
-            .unwrap();
+        let client: Client = get_base_http_client(
+            &format!("{}/api/", base_url),
+            vec![(AUTHORIZATION, format!("Bearer {access_token}"))],
+        );
         let resp: models::Response = client
             .get("me/items-in-progress")
             .await

@@ -129,25 +129,19 @@ impl MediaProvider for AnilistMangaService {
 
 mod utils {
     use itertools::Itertools;
-    use surf::{http::headers::ACCEPT, Url};
+    use surf::http::headers::ACCEPT;
 
     use crate::{
         migrator::{MetadataImageLot, MetadataSource},
         miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
         models::media::{AnimeSpecifics, MangaSpecifics},
-        utils::get_base_http_client_config,
+        utils::get_base_http_client,
     };
 
     use super::*;
 
     pub async fn get_client_config(url: &str) -> Client {
-        let client: Client = get_base_http_client_config()
-            .add_header(ACCEPT, "application/json")
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
-        client
+        get_base_http_client(url, vec![(ACCEPT, "application/json")])
     }
 
     pub async fn details(client: &Client, id: &str) -> Result<MediaDetails> {

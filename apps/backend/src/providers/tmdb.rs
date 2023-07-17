@@ -492,9 +492,9 @@ impl MediaProvider for TmdbShowService {
 mod utils {
     use std::{env, fs};
 
-    use surf::{http::headers::AUTHORIZATION, Url};
+    use surf::http::headers::AUTHORIZATION;
 
-    use crate::utils::{get_base_http_client_config, read_file_to_json};
+    use crate::utils::{get_base_http_client, read_file_to_json};
 
     use super::*;
 
@@ -518,12 +518,8 @@ mod utils {
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
         let path = env::temp_dir().join("tmdb-config.json");
-        let client: Client = get_base_http_client_config()
-            .add_header(AUTHORIZATION, format!("Bearer {access_token}"))
-            .unwrap()
-            .set_base_url(Url::parse(url).unwrap())
-            .try_into()
-            .unwrap();
+        let client: Client =
+            get_base_http_client(url, vec![(AUTHORIZATION, format!("Bearer {access_token}"))]);
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbImageConfiguration {
             secure_base_url: String,

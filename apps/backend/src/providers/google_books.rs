@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use surf::{Client, Url};
+use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::GoogleBooksConfig,
@@ -14,7 +14,7 @@ use crate::{
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client_config, PAGE_LIMIT},
+    utils::{convert_date_to_year, get_base_http_client, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
@@ -36,10 +36,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 
 impl GoogleBooksService {
     pub async fn new(_config: &GoogleBooksConfig) -> Self {
-        let client = get_base_http_client_config()
-            .set_base_url(Url::parse(URL).unwrap())
-            .try_into()
-            .unwrap();
+        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
         Self { client }
     }
 }

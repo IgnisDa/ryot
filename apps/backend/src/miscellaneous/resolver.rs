@@ -2338,13 +2338,12 @@ impl MiscellaneousService {
             Some(SeenOrReviewExtraInformation::Show(
                 SeenShowExtraInformation { season, episode },
             ))
-        } else if let Some(episode) = input.podcast_episode_number {
-            Some(SeenOrReviewExtraInformation::Podcast(
-                SeenPodcastExtraInformation { episode },
-            ))
         } else {
-            None
+            input.podcast_episode_number.map(|episode| {
+                SeenOrReviewExtraInformation::Podcast(SeenPodcastExtraInformation { episode })
+            })
         };
+
         let mut review_obj = review::ActiveModel {
             id: review_id,
             rating: ActiveValue::Set(input.rating),

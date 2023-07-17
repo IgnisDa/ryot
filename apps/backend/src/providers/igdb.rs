@@ -264,12 +264,12 @@ mod utils {
     use std::{env, fs};
 
     use serde_json::json;
-    use surf::{http::headers::AUTHORIZATION, Client, Url};
+    use surf::{http::headers::AUTHORIZATION, Client};
 
     use super::*;
     use crate::{
         config::VideoGameConfig,
-        utils::{get_base_http_client_config, get_now_timestamp, read_file_to_json},
+        utils::{get_base_http_client, get_now_timestamp, read_file_to_json},
     };
 
     #[derive(Deserialize, Debug, Serialize)]
@@ -323,13 +323,12 @@ mod utils {
                 fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
                 creds.access_token
             };
-        get_base_http_client_config()
-            .add_header("Client-ID", config.twitch.client_id.to_owned())
-            .unwrap()
-            .add_header(AUTHORIZATION, access_token)
-            .unwrap()
-            .set_base_url(Url::parse(URL).unwrap())
-            .try_into()
-            .unwrap()
+        get_base_http_client(
+            URL,
+            vec![
+                ("Client-ID".into(), config.twitch.client_id.to_owned()),
+                (AUTHORIZATION, access_token),
+            ],
+        )
     }
 }

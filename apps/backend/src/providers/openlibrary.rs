@@ -6,7 +6,9 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{middleware::Redirect, Client, Url};
+use surf::{http::headers::ACCEPT, middleware::Redirect, Client};
+use surf_governor::GovernorMiddleware;
+use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
@@ -17,7 +19,7 @@ use crate::{
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, get_data_parallelly_from_sources, PAGE_LIMIT},
+    utils::{get_base_http_client, get_data_parallelly_from_sources, PAGE_LIMIT},
 };
 
 static URL: &str = "https://openlibrary.org/";
@@ -66,10 +68,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig) -> Self {
-        let client: Client = get_base_http_client_config()
-            .set_base_url(Url::parse(URL).unwrap())
-            .try_into()
-            .unwrap();
+        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
         Self {
             image_url: IMAGE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
@@ -342,6 +341,12 @@ impl OpenlibraryService {
             .client
             .clone()
             .with(Redirect::new(5))
+            .with(GovernorMiddleware::per_second(1).ok()?)
+            .with(RetryMiddleware::new(
+                3,
+                ExponentialBackoff::builder().build_with_max_retries(3),
+                1,
+            ))
             .get(format!("isbn/{}.json", isbn))
             .await
             .ok()?;
