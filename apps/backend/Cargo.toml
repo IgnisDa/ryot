@@ -35,6 +35,7 @@ isolang = { version = "2.3.0", features = ["list_languages"] }
 itertools = "0.10.5"
 markdown = "1.0.0-alpha.10"
 mime_guess = "2.0.4"
+nanoid = "0.4.0"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
 regex = "1.8.1"
 rust-embed = "6.6.1"
