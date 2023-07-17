@@ -13,6 +13,7 @@ use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
     Options,
 };
+use nanoid::nanoid;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -3095,7 +3096,7 @@ impl MiscellaneousService {
     }
 
     async fn generate_application_token(&self, user_id: i32) -> Result<String> {
-        let api_token = Uuid::new_v4().to_string();
+        let api_token = nanoid!(10);
         self.set_auth_token(&api_token, &user_id)
             .await
             .map_err(|_| Error::new("Could not set auth token"))?;
