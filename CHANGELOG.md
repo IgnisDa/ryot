@@ -1,4 +1,15 @@
 
+# Version 1.13.2 (2023-07-17)
+
+## Bug Fixes
+
+* **frontend:** allow editing exiting ratings
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.13.1 (2023-07-17)
 
 
