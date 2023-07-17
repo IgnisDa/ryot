@@ -542,8 +542,8 @@ export type MutationRoot = {
   deleteUser: Scalars['Boolean'];
   /** Delete an auth token for the currently logged in user. */
   deleteUserAuthToken: Scalars['Boolean'];
-  /** Delete a yank based integrations for the currently logged in user. */
-  deleteUserYankIntegration: Scalars['Boolean'];
+  /** Delete an integration for the currently logged in user. */
+  deleteUserIntegration: Scalars['Boolean'];
   /** Add job to import data from various sources. */
   deployImportJob: Scalars['String'];
   /** Deploy a job to download update the exercise library */
@@ -642,8 +642,9 @@ export type MutationRootDeleteUserAuthTokenArgs = {
 };
 
 
-export type MutationRootDeleteUserYankIntegrationArgs = {
-  yankIntegrationId: Scalars['Int'];
+export type MutationRootDeleteUserIntegrationArgs = {
+  integrationId: Scalars['Int'];
+  integrationLot: UserIntegrationLot;
 };
 
 
@@ -1045,6 +1046,11 @@ export type UserInput = {
   username: Scalars['String'];
 };
 
+export enum UserIntegrationLot {
+  Sink = 'SINK',
+  Yank = 'YANK'
+}
+
 export enum UserLot {
   Admin = 'ADMIN',
   Normal = 'NORMAL'
@@ -1174,12 +1180,13 @@ export type DeleteUserAuthTokenMutationVariables = Exact<{
 
 export type DeleteUserAuthTokenMutation = { deleteUserAuthToken: boolean };
 
-export type DeleteUserYankIntegrationMutationVariables = Exact<{
-  yankIntegrationId: Scalars['Int'];
+export type DeleteUserIntegrationMutationVariables = Exact<{
+  integrationId: Scalars['Int'];
+  integrationLot: UserIntegrationLot;
 }>;
 
 
-export type DeleteUserYankIntegrationMutation = { deleteUserYankIntegration: boolean };
+export type DeleteUserIntegrationMutation = { deleteUserIntegration: boolean };
 
 export type DeployImportJobMutationVariables = Exact<{
   input: DeployImportJobInput;
@@ -1426,7 +1433,7 @@ export const DeleteReviewDocument = {"kind":"Document","definitions":[{"kind":"O
 export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
 export const DeleteUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"toDeleteUserId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}}}]}]}}]} as unknown as DocumentNode<DeleteUserMutation, DeleteUserMutationVariables>;
 export const DeleteUserAuthTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserAuthToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"token"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserAuthToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"token"},"value":{"kind":"Variable","name":{"kind":"Name","value":"token"}}}]}]}}]} as unknown as DocumentNode<DeleteUserAuthTokenMutation, DeleteUserAuthTokenMutationVariables>;
-export const DeleteUserYankIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserYankIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"yankIntegrationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserYankIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"yankIntegrationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"yankIntegrationId"}}}]}]}}]} as unknown as DocumentNode<DeleteUserYankIntegrationMutation, DeleteUserYankIntegrationMutationVariables>;
+export const DeleteUserIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"integrationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"integrationLot"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserIntegrationLot"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"integrationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"integrationId"}}},{"kind":"Argument","name":{"kind":"Name","value":"integrationLot"},"value":{"kind":"Variable","name":{"kind":"Name","value":"integrationLot"}}}]}]}}]} as unknown as DocumentNode<DeleteUserIntegrationMutation, DeleteUserIntegrationMutationVariables>;
 export const DeployImportJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployImportJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeployImportJobInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployImportJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployImportJobMutation, DeployImportJobMutationVariables>;
 export const DeployUpdateMetadataJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdateMetadataJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdateMetadataJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DeployUpdateMetadataJobMutation, DeployUpdateMetadataJobMutationVariables>;
 export const GenerateApplicationTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GenerateApplicationToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateApplicationToken"}}]}}]} as unknown as DocumentNode<GenerateApplicationTokenMutation, GenerateApplicationTokenMutationVariables>;

@@ -108,6 +108,12 @@ struct CreateCustomMediaInput {
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserIntegrationLot {
+    Yank,
+    Sink,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserYankIntegrationLot {
     Audiobookshelf,
 }
@@ -935,16 +941,17 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Delete a yank based integrations for the currently logged in user.
-    async fn delete_user_yank_integration(
+    /// Delete an integration for the currently logged in user.
+    async fn delete_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        yank_integration_id: usize,
+        integration_id: usize,
+        integration_lot: UserIntegrationLot,
     ) -> Result<bool> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_user_yank_integration(user_id, yank_integration_id)
+            .delete_user_integration(user_id, integration_id, integration_lot)
             .await
     }
 
@@ -3214,29 +3221,51 @@ impl MiscellaneousService {
         Ok(new_integration_id)
     }
 
-    async fn delete_user_yank_integration(
+    async fn delete_user_integration(
         &self,
         user_id: i32,
-        yank_integration_id: usize,
+        integration_id: usize,
+        integration_type: UserIntegrationLot,
     ) -> Result<bool> {
         let user = self.user_by_id(user_id).await?;
-        let integrations = if let Some(i) = user.yank_integrations.clone() {
-            i.0
-        } else {
-            vec![]
+        let mut user_db: user::ActiveModel = user.clone().into();
+        match integration_type {
+            UserIntegrationLot::Yank => {
+                let integrations = if let Some(i) = user.yank_integrations.clone() {
+                    i.0
+                } else {
+                    vec![]
+                };
+                let remaining_integrations = integrations
+                    .into_iter()
+                    .filter(|i| i.id != integration_id)
+                    .collect_vec();
+                let update_value = if remaining_integrations.is_empty() {
+                    None
+                } else {
+                    Some(UserYankIntegrations(remaining_integrations))
+                };
+                user_db.yank_integrations = ActiveValue::Set(update_value);
+            }
+            UserIntegrationLot::Sink => {
+                let integrations = if let Some(i) = user.sink_integrations.clone() {
+                    i.0
+                } else {
+                    vec![]
+                };
+                let remaining_integrations = integrations
+                    .into_iter()
+                    .filter(|i| i.id != integration_id)
+                    .collect_vec();
+                let update_value = if remaining_integrations.is_empty() {
+                    None
+                } else {
+                    Some(UserSinkIntegrations(remaining_integrations))
+                };
+                user_db.sink_integrations = ActiveValue::Set(update_value);
+            }
         };
-        let remaining_integrations = integrations
-            .into_iter()
-            .filter(|i| i.id != yank_integration_id)
-            .collect_vec();
-        let update_value = if remaining_integrations.is_empty() {
-            None
-        } else {
-            Some(UserYankIntegrations(remaining_integrations))
-        };
-        let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(update_value);
-        user.update(&self.db).await?;
+        user_db.update(&self.db).await?;
         Ok(true)
     }
 
