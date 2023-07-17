@@ -41,17 +41,18 @@ to their metadata.
 
 !!! info
 
-    Requires the [webhook plugin](https://github.com/jellyfin/jellyfin-plugin-webhook)
+    Requires the
+    [unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
     to be installed and active in Jellyfin.
 
-1. Generate a webhook url in your user settings on the integration settings page.
-Copy the newly generated slug. It will be 10 characters long.
-2. In the Jellyfin webhook plugin settings, `Add Generic Destination` and
-use the following settings:
+1. Generate a slug in the integration settings page. Copy the newly generated
+slug. It will be 10 characters long.
+2. In the Jellyfin webhook plugin settings, add a new webhook using the
+following settings:
     - Webhook Url => `<instance_url>/webhooks/jellyfin/<slug>`
-    - Notification Type => `Playback Start` and `Playback Stop`
-    - User Filter => Choose your user
-    - Item Type => `Movies`, `Series` + `Send All Properties (ignores template)`
+    - Payload format => `Default`
+    - Listen to events only for => Choose your user
+    - Events => `Play`, `Pause`, `Resume`, and `Stop`
 
 !!! tip
 
