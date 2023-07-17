@@ -139,8 +139,8 @@ const storyGraphImportFormSchema = z.object({
 type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
 
 const createUserYankIntegrationSchema = z.object({
-	baseUrl: z.string().url(),
-	token: z.string(),
+	baseUrl: z.string().url().optional(),
+	token: z.string().optional(),
 });
 type CreateUserYankIntegationSchema = z.infer<
 	typeof createUserYankIntegrationSchema
@@ -922,8 +922,8 @@ const Page: NextPageWithLayout = () => {
 													if (createUserYankIntegrationLot) {
 														createUserYankIntegration.mutate({
 															input: {
-																baseUrl: values.baseUrl,
-																token: values.token,
+																baseUrl: values.baseUrl!,
+																token: values.token!,
 																lot: createUserYankIntegrationLot,
 															},
 														});
@@ -969,12 +969,14 @@ const Page: NextPageWithLayout = () => {
 													<>
 														<TextInput
 															label="Base Url"
+															required
 															{...createUserYankIntegrationForm.getInputProps(
 																"baseUrl",
 															)}
 														/>
 														<TextInput
 															label="Token"
+															required
 															{...createUserYankIntegrationForm.getInputProps(
 																"token",
 															)}
