@@ -35,10 +35,7 @@ import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
-const numberOrUndefined = z
-	.any()
-	.optional()
-	.transform((t) => (typeof t === "number" ? t : undefined));
+const numberOrUndefined = z.any().optional();
 
 const formSchema = z.object({
 	rating: z.preprocess(Number, z.number().min(0).max(100)).optional(),
@@ -107,6 +104,12 @@ const Page: NextPageWithLayout = () => {
 
 	const postReview = useMutation({
 		mutationFn: async (variables: PostReviewMutationVariables) => {
+			if (variables.input.podcastEpisodeNumber?.toString() === "")
+				variables.input.podcastEpisodeNumber = undefined;
+			if (variables.input.showSeasonNumber?.toString() === "")
+				variables.input.showSeasonNumber = undefined;
+			if (variables.input.showEpisodeNumber?.toString() === "")
+				variables.input.showEpisodeNumber = undefined;
 			const { postReview } = await gqlClient.request(
 				PostReviewDocument,
 				variables,
