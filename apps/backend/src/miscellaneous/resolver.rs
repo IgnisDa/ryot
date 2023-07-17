@@ -3145,7 +3145,7 @@ impl MiscellaneousService {
         yank_integrations.into_iter().for_each(|i| {
             let description = match i.settings {
                 UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                    format!("Audiobookshelf connected to {}", base_url)
+                    format!("Audiobookshelf URL: {}", base_url)
                 }
             };
             all_integrations.push(GraphqlUserIntegration {
@@ -3163,7 +3163,7 @@ impl MiscellaneousService {
         sink_integrations.into_iter().for_each(|i| {
             let description = match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    format!("Connected to {}", slug)
+                    format!("Jellyfin slug: {}", slug)
                 }
             };
             all_integrations.push(GraphqlUserIntegration {
