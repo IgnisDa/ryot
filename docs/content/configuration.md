@@ -10,7 +10,7 @@ Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 ([example](https://ryot.fly.dev/config)). This can also be treated as a [health
 endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
 
-!!! note
+!!! info
 
     The defaults can be inspected in the
     [config]({{ extra.file_path }}/apps/backend/src/config.rs) builder.

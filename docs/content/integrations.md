@@ -7,16 +7,16 @@ be of two types:
 periodic interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
 
+!!! info
+
+    An item is marked as started when it has more than _2%_ progress and
+    marked as completed when it has more than _95%_ progress.
+
 ## Yank plugins
 
 For each integration you want to enable, credentials for the external server
 must be saved to your profile. To do so, go to the "Settings" tab and add a
 new integration under the "Integrations" tab.
-
-!!!note
-
-    An item is marked as started when it has more than _2%_ progress and
-    marked as completed when it has more than _95%_ progress.
 
 ### Audiobookshelf
 

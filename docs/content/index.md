@@ -59,7 +59,7 @@ volumes:
     running HTTPs.
 
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
-pre-release (or release, whichever is newer).
+pre-release or release, whichever is newer.
 
 ## Quick-run a release
 
