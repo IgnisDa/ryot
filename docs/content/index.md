@@ -74,7 +74,7 @@ $ eget ignisda/ryot
 
 ## Compile and run from source
 
-- Install [moonrepo](https://moonrepo.dev/)
+First install [moonrepo](https://moonrepo.dev/)
 
 ```bash
 # Build the frontend
