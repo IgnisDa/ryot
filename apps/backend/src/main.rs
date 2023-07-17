@@ -48,7 +48,6 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use utils::MemoryAuthDb;
 use uuid::Uuid;
 
 use crate::{
@@ -225,7 +224,6 @@ async fn main() -> Result<()> {
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
-        .layer(Extension(auth_db.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -475,10 +473,9 @@ async fn upload_handler(
 
 async fn export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
-    Extension(auth_db): Extension<MemoryAuthDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &auth_db)
+    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
