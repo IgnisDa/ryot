@@ -92,7 +92,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: (data) => {
 			form.setValues({
-				rating: data?.rating,
+				rating: Number(data?.rating) ?? undefined,
 				text: data?.text ?? undefined,
 				visibility: data?.visibility,
 				spoiler: data?.spoiler,
@@ -165,6 +165,7 @@ const Page: NextPageWithLayout = () => {
 								max={100}
 								step={1}
 								w={"40%"}
+								type="number"
 								hideControls
 								rightSection={<IconPercentage size="1rem" />}
 							/>
