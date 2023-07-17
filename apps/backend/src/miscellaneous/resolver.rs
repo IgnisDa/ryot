@@ -3358,8 +3358,8 @@ impl MiscellaneousService {
 
     async fn delete_user(&self, user_id: i32, to_delete_user_id: i32) -> Result<bool> {
         self.admin_account_guard(user_id).await?;
-        let us = User::find_by_id(to_delete_user_id).one(&self.db).await?;
-        if let Some(u) = us {
+        let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
+        if let Some(u) = maybe_user {
             if self
                 .users(user_id)
                 .await?
@@ -3368,6 +3368,7 @@ impl MiscellaneousService {
                 .collect_vec()
                 .len()
                 == 1
+                && u.lot == UserLot::Admin
             {
                 return Ok(false);
             }
