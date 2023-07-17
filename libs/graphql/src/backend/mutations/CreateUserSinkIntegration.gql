@@ -1,0 +1,3 @@
+mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
+  createUserSinkIntegration(input: $input)
+}

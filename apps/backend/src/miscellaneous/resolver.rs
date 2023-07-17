@@ -75,7 +75,8 @@ use crate::{
     },
     traits::{IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
+        UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations,
+        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
         get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
@@ -111,6 +112,11 @@ enum UserYankIntegrationLot {
     Audiobookshelf,
 }
 
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserSinkIntegrationLot {
+    Jellyfin,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlUserYankIntegration {
     id: usize,
@@ -125,6 +131,11 @@ struct CreateUserYankIntegrationInput {
     base_url: String,
     #[graphql(secret)]
     token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateUserSinkIntegrationInput {
+    lot: UserSinkIntegrationLot,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -895,6 +906,19 @@ impl MiscellaneousMutation {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .generate_application_token(user_id)
+            .await
+    }
+
+    /// Create a sink based integrations for the currently logged in user.
+    async fn create_user_sink_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserSinkIntegrationInput,
+    ) -> Result<usize> {
+        let user_id = user_id_from_ctx(gql_ctx).await?;
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .create_user_sink_integration(user_id, input)
             .await
     }
 
@@ -3129,6 +3153,34 @@ impl MiscellaneousService {
                 }
             })
             .collect())
+    }
+
+    async fn create_user_sink_integration(
+        &self,
+        user_id: i32,
+        input: CreateUserSinkIntegrationInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut integrations = if let Some(i) = user.sink_integrations.clone() {
+            i.0
+        } else {
+            vec![]
+        };
+        let new_integration_id = integrations.len() + 1;
+        let new_integration = UserSinkIntegration {
+            id: new_integration_id,
+            timestamp: Utc::now(),
+            settings: match input.lot {
+                UserSinkIntegrationLot::Jellyfin => {
+                    UserSinkIntegrationSetting::Jellyfin { slug: nanoid!(10) }
+                }
+            },
+        };
+        integrations.push(new_integration);
+        let mut user: user::ActiveModel = user.into();
+        user.sink_integrations = ActiveValue::Set(Some(UserSinkIntegrations(integrations)));
+        user.update(&self.db).await?;
+        Ok(new_integration_id)
     }
 
     async fn create_user_yank_integration(

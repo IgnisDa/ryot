@@ -17,6 +17,7 @@ const documents = {
     "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
     "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}": types.CreateCustomMediaDocument,
     "mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {\n  createOrUpdateCollection(input: $input) {\n    id\n  }\n}": types.CreateOrUpdateCollectionDocument,
+    "mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}": types.CreateUserSinkIntegrationDocument,
     "mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {\n  createUserYankIntegration(input: $input)\n}": types.CreateUserYankIntegrationDocument,
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
     "mutation DeleteReview($reviewId: Int!) {\n  deleteReview(reviewId: $reviewId)\n}": types.DeleteReviewDocument,
@@ -93,6 +94,10 @@ export function graphql(source: "mutation CreateCustomMedia($input: CreateCustom
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {\n  createOrUpdateCollection(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {\n  createOrUpdateCollection(input: $input) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}"): (typeof documents)["mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
