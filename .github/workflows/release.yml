@@ -131,6 +131,7 @@ jobs:
           gh release edit ${{ github.ref_name }} --draft=false
 
   deploy-docs:
+    needs: create-release
     runs-on: ubuntu-latest
     defaults:
       run:
