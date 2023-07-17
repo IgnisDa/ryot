@@ -3,7 +3,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use surf::{Client, Url};
+use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::AudibleConfig,
@@ -15,8 +15,7 @@ use crate::{
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{
-        convert_date_to_year, convert_string_to_date, get_base_http_client_config, NamedObject,
-        PAGE_LIMIT,
+        convert_date_to_year, convert_string_to_date, get_base_http_client, NamedObject, PAGE_LIMIT,
     },
 };
 
@@ -114,10 +113,7 @@ impl AudibleService {
 
     pub async fn new(config: &AudibleConfig) -> Self {
         let url = Self::url_from_locale(&config.locale);
-        let client = get_base_http_client_config()
-            .set_base_url(Url::parse(&url).unwrap())
-            .try_into()
-            .unwrap();
+        let client = get_base_http_client(&url, vec![(ACCEPT, "application/json")]);
         Self { client }
     }
 }

@@ -4,7 +4,7 @@ use chrono::Datelike;
 use itertools::Itertools;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
-use surf::{Client, Url};
+use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::ITunesConfig,
@@ -15,7 +15,7 @@ use crate::{
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_config, NamedObject, PAGE_LIMIT},
+    utils::{get_base_http_client, NamedObject, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://itunes.apple.com/";
@@ -38,10 +38,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &ITunesConfig) -> Self {
-        let client = get_base_http_client_config()
-            .set_base_url(Url::parse(URL).unwrap())
-            .try_into()
-            .unwrap();
+        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
         Self {
             client,
             language: config.locale.clone(),

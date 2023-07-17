@@ -4,7 +4,7 @@ use itertools::Itertools;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::CONTENT_TYPE, Client, Url};
+use surf::http::headers::CONTENT_TYPE;
 
 use crate::{
     importer::{
@@ -13,7 +13,7 @@ use crate::{
     },
     migrator::{MetadataLot, MetadataSource},
     models::media::CreateOrUpdateCollectionInput,
-    utils::get_base_http_client_config,
+    utils::get_base_http_client,
 };
 
 const API_URL: &str = "https://api.trakt.tv";
@@ -56,16 +56,14 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let mut media_items = vec![];
     let mut failed_items = vec![];
 
-    let client: Client = get_base_http_client_config()
-        .add_header(CONTENT_TYPE, "application/json")
-        .unwrap()
-        .add_header("trakt-api-key", CLIENT_ID)
-        .unwrap()
-        .add_header("trakt-api-version", API_VERSION)
-        .unwrap()
-        .set_base_url(Url::parse(&format!("{}/users/{}/", API_URL, input.username)).unwrap())
-        .try_into()
-        .unwrap();
+    let client = get_base_http_client(
+        &format!("{}/users/{}/", API_URL, input.username),
+        vec![
+            (CONTENT_TYPE, "application/json"),
+            ("trakt-api-key".into(), CLIENT_ID),
+            ("trakt-api-version".into(), API_VERSION),
+        ],
+    );
     let mut rsp = client.get("lists").await.unwrap();
     let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
 
