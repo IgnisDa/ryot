@@ -39,9 +39,9 @@ import {
 	DeleteUserAuthTokenDocument,
 	type DeleteUserAuthTokenMutationVariables,
 	DeleteUserDocument,
+	DeleteUserIntegrationDocument,
+	type DeleteUserIntegrationMutationVariables,
 	type DeleteUserMutationVariables,
-	DeleteUserYankIntegrationDocument,
-	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
 	GenerateApplicationTokenDocument,
@@ -60,6 +60,7 @@ import {
 	UserAuthTokensDocument,
 	UserDetailsDocument,
 	type UserInput,
+	UserIntegrationLot,
 	UserLot,
 	UserYankIntegrationLot,
 	UserYankIntegrationsDocument,
@@ -358,15 +359,13 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const deleteUserYankIntegration = useMutation({
-		mutationFn: async (
-			variables: DeleteUserYankIntegrationMutationVariables,
-		) => {
-			const { deleteUserYankIntegration } = await gqlClient.request(
-				DeleteUserYankIntegrationDocument,
+	const deleteUserIntegration = useMutation({
+		mutationFn: async (variables: DeleteUserIntegrationMutationVariables) => {
+			const { deleteUserIntegration } = await gqlClient.request(
+				DeleteUserIntegrationDocument,
 				variables,
 			);
-			return deleteUserYankIntegration;
+			return deleteUserIntegration;
 		},
 		onSuccess: () => {
 			userYankIntegrations.refetch();
@@ -875,8 +874,9 @@ const Page: NextPageWithLayout = () => {
 															"Are you sure you want to delete this integration?",
 														);
 														if (yes)
-															deleteUserYankIntegration.mutate({
-																yankIntegrationId: i.id,
+															deleteUserIntegration.mutate({
+																integrationId: i.id,
+																integrationLot: UserIntegrationLot.Yank,
 															});
 													}}
 												>
