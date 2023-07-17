@@ -1663,9 +1663,25 @@ impl MiscellaneousService {
                     .unwrap();
                 let extra_infomation = match meta.lot {
                     MetadataLot::Show => {
-                        if let (Some(season), Some(episode)) =
-                            (input.show_season_number, input.show_episode_number)
-                        {
+                        if let (Some(season), Some(episode), MediaSpecifics::Show(spec)) = (
+                            input.show_season_number,
+                            input.show_episode_number,
+                            meta.specifics,
+                        ) {
+                            let mut is_there = false;
+                            for s in spec.seasons.iter() {
+                                for e in s.episodes.iter() {
+                                    if s.season_number == season && e.episode_number == episode {
+                                        is_there = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !is_there {
+                                return Err(Error::new(
+                                    "Tried to set progress on a show episode that does not exist",
+                                ));
+                            }
                             Some(SeenOrReviewExtraInformation::Show(
                                 SeenShowExtraInformation { season, episode },
                             ))
@@ -1677,7 +1693,21 @@ impl MiscellaneousService {
                         }
                     }
                     MetadataLot::Podcast => {
-                        if let Some(episode) = input.podcast_episode_number {
+                        if let (Some(episode), MediaSpecifics::Podcast(spec)) =
+                            (input.podcast_episode_number, meta.specifics)
+                        {
+                            let mut is_there = false;
+                            for e in spec.episodes.iter() {
+                                if e.number == episode {
+                                    is_there = true;
+                                    break;
+                                }
+                            }
+                            if !is_there {
+                                return Err(Error::new(
+                                    "Tried to set progress on a podcast episode that does not exist",
+                                ));
+                            }
                             Some(SeenOrReviewExtraInformation::Podcast(
                                 SeenPodcastExtraInformation { episode },
                             ))
