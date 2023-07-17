@@ -71,6 +71,7 @@ import {
 	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
+	IconStarFilled,
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
@@ -368,7 +369,14 @@ const ReviewItem = ({
 				{typeof review.podcastEpisode === "number" ? (
 					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
 				) : null}
-				{review.rating > 0 ? <>Rated {review.rating}%</> : null}
+				{review.rating > 0 ? (
+					<Flex align={"center"} gap={4}>
+						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
+						<Text color="white" fw="bold">
+							{review.rating} %
+						</Text>
+					</Flex>
+				) : null}
 				{review.text ? (
 					!review.spoiler ? (
 						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
