@@ -4169,6 +4169,7 @@ dependencies = [
  "futures 0.3.28",
  "graphql_client",
  "http",
+ "http-types",
  "isolang",
  "itertools",
  "markdown",
