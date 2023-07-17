@@ -1,6 +1,7 @@
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
@@ -75,9 +76,11 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                     });
                 };
                 if !d.user_rating.is_empty() {
-                    let rating = d.user_rating.parse().unwrap();
+                    let rating: Decimal = d.user_rating.parse().unwrap();
                     if rating != dec!(0) {
-                        single_review.rating = Some(rating)
+                        // DEV: Rates items out of 5
+                        single_review.rating =
+                            Some(rating.saturating_mul(Decimal::from_u8(20).unwrap()))
                     }
                 };
                 if single_review.review.is_some() || single_review.rating.is_some() {

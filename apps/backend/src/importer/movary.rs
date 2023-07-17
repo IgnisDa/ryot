@@ -63,8 +63,12 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             seen_history: vec![],
             reviews: vec![ImportItemRating {
                 id: None,
-                // DEV: Movary rates items out of 10
-                rating: Some(record.user_rating / Decimal::from_u16(2).unwrap()),
+                // DEV: Rates items out of 10
+                rating: Some(
+                    record
+                        .user_rating
+                        .saturating_mul(Decimal::from_u16(10).unwrap()),
+                ),
                 review: None,
             }],
             collections: vec![],
