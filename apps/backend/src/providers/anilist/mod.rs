@@ -141,8 +141,7 @@ mod utils {
     use super::*;
 
     pub async fn get_client_config(url: &str) -> Client {
-        let client = get_base_http_client(url, vec![(ACCEPT, "application/json")]);
-        client
+        get_base_http_client(url, vec![(ACCEPT, "application/json")])
     }
 
     pub async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
