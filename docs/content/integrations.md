@@ -33,6 +33,30 @@ media which have a match from _Audible_.
 To start, go to the "Settings" tab and generate a new application token from under
 the "Tokens" tab. It will look like this: `e96fca00-18b1-467c-80f0-8534e09ed790`.
 
+### Jellyfin
+
+Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to
+Movary. It will work for all the media that have been a valid TMDb ID attached
+to their metadata.
+
+!!! info
+
+    Requires the [webhook plugin](https://github.com/jellyfin/jellyfin-plugin-webhook)
+    to be installed and active in Jellyfin.
+
+1. Generate a webhook url in your user settings on the integration settings page.
+Copy the newly generated slug. It will be 10 characters long.
+2. In the Jellyfin webhook plugin settings, `Add Generic Destination` and
+use the following settings:
+    - Webhook Url => `<instance_url>/webhooks/jellyfin/<slug>`
+    - Notification Type => `Playback Start` and `Playback Stop`
+    - User Filter => Choose your user
+    - Item Type => `Movies`, `Series` + `Send All Properties (ignores template)`
+
+!!! tip
+
+    Keep your webhook url private to prevent abuse.
+
 ### Kodi
 
 The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
