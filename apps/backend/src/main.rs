@@ -23,7 +23,7 @@ use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use aws_sdk_s3::config::Region;
 use axum::{
     body::{boxed, Full},
-    extract::Multipart,
+    extract::{Multipart, Path},
     headers::{authorization::Bearer, Authorization},
     http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
@@ -214,7 +214,10 @@ async fn main() -> Result<()> {
         )
         .allow_credentials(true);
 
-    let app = Router::new()
+    let webhook_routes = Router::new().route("/jellyfin/:integration_slug", post(jellyfin_webhook));
+
+    let app_routes = Router::new()
+        .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
@@ -350,7 +353,7 @@ async fn main() -> Result<()> {
 
     let http = async {
         Server::bind(&addr)
-            .serve(app.into_make_service())
+            .serve(app_routes.into_make_service())
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };
@@ -480,6 +483,14 @@ async fn export(
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
+}
+
+async fn jellyfin_webhook(
+    Path(integration_slug): Path<String>,
+    Extension(media_service): Extension<Arc<MiscellaneousService>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    dbg!(&integration_slug);
+    todo!()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
