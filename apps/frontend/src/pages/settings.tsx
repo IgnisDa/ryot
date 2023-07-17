@@ -34,6 +34,8 @@ import { useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
+	CreateUserSinkIntegrationDocument,
+	type CreateUserSinkIntegrationMutationVariables,
 	CreateUserYankIntegrationDocument,
 	type CreateUserYankIntegrationMutationVariables,
 	DeleteUserAuthTokenDocument,
@@ -60,10 +62,10 @@ import {
 	UserAuthTokensDocument,
 	UserDetailsDocument,
 	type UserInput,
-	UserIntegrationLot,
+	UserIntegrationsDocument,
 	UserLot,
+	UserSinkIntegrationLot,
 	UserYankIntegrationLot,
-	UserYankIntegrationsDocument,
 	UsersDocument,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
@@ -178,6 +180,8 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationLot>();
+	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
+		useState<UserSinkIntegrationLot>();
 	const [deployImportSource, setDeployImportSource] =
 		useState<MediaImportSource>();
 
@@ -247,11 +251,11 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
-	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
-		const { userYankIntegrations } = await gqlClient.request(
-			UserYankIntegrationsDocument,
+	const userIntegrations = useQuery(["userIntegrations"], async () => {
+		const { userIntegrations } = await gqlClient.request(
+			UserIntegrationsDocument,
 		);
-		return userYankIntegrations;
+		return userIntegrations;
 	});
 
 	const users = useQuery(["users"], async () => {
@@ -355,7 +359,22 @@ const Page: NextPageWithLayout = () => {
 			return createUserYankIntegration;
 		},
 		onSuccess: () => {
-			userYankIntegrations.refetch();
+			userIntegrations.refetch();
+		},
+	});
+
+	const createUserSinkIntegration = useMutation({
+		mutationFn: async (
+			variables: CreateUserSinkIntegrationMutationVariables,
+		) => {
+			const { createUserSinkIntegration } = await gqlClient.request(
+				CreateUserSinkIntegrationDocument,
+				variables,
+			);
+			return createUserSinkIntegration;
+		},
+		onSuccess: () => {
+			userIntegrations.refetch();
 		},
 	});
 
@@ -368,7 +387,7 @@ const Page: NextPageWithLayout = () => {
 			return deleteUserIntegration;
 		},
 		onSuccess: () => {
-			userYankIntegrations.refetch();
+			userIntegrations.refetch();
 		},
 	});
 
@@ -479,7 +498,7 @@ const Page: NextPageWithLayout = () => {
 		languageInformation.data &&
 		userAuthTokens.data &&
 		userPrefs.data &&
-		userYankIntegrations.data ? (
+		userIntegrations.data ? (
 		<>
 			<Head>
 				<title>Settings | Ryot</title>
@@ -852,18 +871,12 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="integrations">
 							<Stack>
-								{userYankIntegrations.data.length > 0 ? (
-									userYankIntegrations.data.map((i, idx) => (
+								{userIntegrations.data.length > 0 ? (
+									userIntegrations.data.map((i, idx) => (
 										<Paper p="xs" withBorder key={idx}>
 											<Flex align={"center"} justify={"space-between"}>
 												<Box>
-													<Text>{i.lot}</Text>
-													<Text size="xs">
-														Connected to{" "}
-														<Anchor href={i.description}>
-															{i.description}{" "}
-														</Anchor>
-													</Text>
+													<Text size="xs">{i.description}</Text>
 													<Text size="xs">{formatTimeAgo(i.timestamp)}</Text>
 												</Box>
 												<Button
@@ -876,7 +889,7 @@ const Page: NextPageWithLayout = () => {
 														if (yes)
 															deleteUserIntegration.mutate({
 																integrationId: i.id,
-																integrationLot: UserIntegrationLot.Yank,
+																integrationLot: i.lot,
 															});
 													}}
 												>
@@ -914,9 +927,15 @@ const Page: NextPageWithLayout = () => {
 																lot: createUserYankIntegrationLot,
 															},
 														});
-														closeCreateUserYankIntegrationModal();
-														setCreateUserYankIntegrationLot(undefined);
+													} else if (createUserSinkIntegrationLot) {
+														createUserSinkIntegration.mutate({
+															input: { lot: createUserSinkIntegrationLot },
+														});
 													}
+													closeCreateUserYankIntegrationModal();
+													createUserYankIntegrationForm.reset();
+													setCreateUserYankIntegrationLot(undefined);
+													setCreateUserSinkIntegrationLot(undefined);
 												},
 											)}
 										>
@@ -925,15 +944,25 @@ const Page: NextPageWithLayout = () => {
 													label="Select a source"
 													required
 													withinPortal
-													data={Object.values(UserYankIntegrationLot)}
+													data={[
+														...Object.values(UserYankIntegrationLot),
+														...Object.values(UserSinkIntegrationLot),
+													]}
 													onChange={(v) => {
 														const t = match(v)
 															.with(
 																"AUDIOBOOKSHELF",
 																() => UserYankIntegrationLot.Audiobookshelf,
 															)
-															.run();
+															.otherwise(() => undefined);
 														if (t) setCreateUserYankIntegrationLot(t);
+														const r = match(v)
+															.with(
+																"JELLYFIN",
+																() => UserSinkIntegrationLot.Jellyfin,
+															)
+															.otherwise(() => undefined);
+														if (r) setCreateUserSinkIntegrationLot(r);
 													}}
 												/>
 												{createUserYankIntegrationLot ? (
@@ -950,14 +979,17 @@ const Page: NextPageWithLayout = () => {
 																"token",
 															)}
 														/>
-														<Button
-															type="submit"
-															loading={createUserYankIntegration.isLoading}
-														>
-															Submit
-														</Button>
 													</>
 												) : null}
+												<Button
+													type="submit"
+													loading={
+														createUserYankIntegration.isLoading ||
+														createUserSinkIntegration.isLoading
+													}
+												>
+													Submit
+												</Button>
 											</Stack>
 										</Box>
 									</Modal>
