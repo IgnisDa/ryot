@@ -58,9 +58,9 @@ const documents = {
     "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    dropped\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
     "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}": types.UserAuthTokensDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
+    "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}": types.UserIntegrationsDocument,
     "query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}": types.UserPreferencesDocument,
     "query UserSummary {\n  userSummary {\n    calculatedOn\n    media {\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}": types.UserSummaryDocument,
-    "query UserYankIntegrations {\n  userYankIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}": types.UserYankIntegrationsDocument,
     "query Users {\n  users {\n    id\n    name\n    lot\n  }\n}": types.UsersDocument,
 };
 
@@ -261,15 +261,15 @@ export function graphql(source: "query UserDetails {\n  userDetails {\n    __typ
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"): (typeof documents)["query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}"): (typeof documents)["query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query UserSummary {\n  userSummary {\n    calculatedOn\n    media {\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}"): (typeof documents)["query UserSummary {\n  userSummary {\n    calculatedOn\n    media {\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "query UserYankIntegrations {\n  userYankIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"): (typeof documents)["query UserYankIntegrations {\n  userYankIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

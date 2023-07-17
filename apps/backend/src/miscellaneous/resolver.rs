@@ -124,11 +124,11 @@ enum UserSinkIntegrationLot {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserYankIntegration {
+struct GraphqlUserIntegration {
     id: usize,
-    lot: UserYankIntegrationLot,
     description: String,
     timestamp: DateTimeUtc,
+    lot: UserIntegrationLot,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -664,15 +664,15 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all the yank based integrations for the currently logged in user.
-    async fn user_yank_integrations(
+    /// Get all the integrations for the currently logged in user.
+    async fn user_integrations(
         &self,
         gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+    ) -> Result<Vec<GraphqlUserIntegration>> {
         let user_id = user_id_from_ctx(gql_ctx).await?;
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_yank_integrations(user_id)
+            .user_integrations(user_id)
             .await
     }
 
@@ -3134,32 +3134,46 @@ impl MiscellaneousService {
         Ok(api_token)
     }
 
-    async fn user_yank_integrations(
-        &self,
-        user_id: i32,
-    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+    async fn user_integrations(&self, user_id: i32) -> Result<Vec<GraphqlUserIntegration>> {
         let user = self.user_by_id(user_id).await?;
-        let integrations = if let Some(i) = user.yank_integrations {
+        let mut all_integrations = vec![];
+        let yank_integrations = if let Some(i) = user.yank_integrations {
             i.0
         } else {
             vec![]
         };
-        Ok(integrations
-            .into_iter()
-            .map(|i| {
-                let (lot, description) = match i.settings {
-                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                        (UserYankIntegrationLot::Audiobookshelf, base_url)
-                    }
-                };
-                GraphqlUserYankIntegration {
-                    id: i.id,
-                    lot,
-                    description,
-                    timestamp: i.timestamp,
+        yank_integrations.into_iter().for_each(|i| {
+            let description = match i.settings {
+                UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
+                    format!("Audiobookshelf connected to {}", base_url)
                 }
+            };
+            all_integrations.push(GraphqlUserIntegration {
+                id: i.id,
+                lot: UserIntegrationLot::Yank,
+                description,
+                timestamp: i.timestamp,
             })
-            .collect())
+        });
+        let sink_integrations = if let Some(i) = user.sink_integrations {
+            i.0
+        } else {
+            vec![]
+        };
+        sink_integrations.into_iter().for_each(|i| {
+            let description = match i.settings {
+                UserSinkIntegrationSetting::Jellyfin { slug } => {
+                    format!("Connected to {}", slug)
+                }
+            };
+            all_integrations.push(GraphqlUserIntegration {
+                id: i.id,
+                lot: UserIntegrationLot::Sink,
+                description,
+                timestamp: i.timestamp,
+            })
+        });
+        Ok(all_integrations)
     }
 
     async fn create_user_sink_integration(

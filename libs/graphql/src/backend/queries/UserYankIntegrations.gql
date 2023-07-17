@@ -1,8 +1,0 @@
-query UserYankIntegrations {
-  userYankIntegrations {
-    id
-    lot
-    description
-    timestamp
-  }
-}
