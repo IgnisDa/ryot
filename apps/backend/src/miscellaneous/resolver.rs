@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result as AnyhowResult};
+use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
@@ -3204,6 +3204,7 @@ impl MiscellaneousService {
                 UserSinkIntegrationLot::Jellyfin => {
                     let slug = get_id_hasher(&self.config.integration.hasher_salt)
                         .encode(&[user_id.try_into().unwrap()]);
+                    let slug = format!("{}--{}", slug, nanoid!(5));
                     UserSinkIntegrationSetting::Jellyfin { slug }
                 }
             },
@@ -3519,14 +3520,18 @@ impl MiscellaneousService {
         &self,
         user_hash_id: String,
         payload: String,
-    ) -> AnyhowResult<()> {
+    ) -> Result<()> {
+        let (user_hash_id, slug) = user_hash_id
+            .split_once("--")
+            .ok_or(anyhow!("Unexpected format"))?;
         let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash_id)?;
         let user_id: i32 = user_id
             .get(0)
             .ok_or(anyhow!("Incorrect hash id provided"))?
             .to_owned()
             .try_into()?;
-        dbg!(user_id);
+        let user = self.user_by_id(user_id).await?;
+        dbg!(user_id, slug);
         #[derive(Serialize, Deserialize, Debug, Clone)]
         #[serde(rename_all = "PascalCase")]
         struct JellyfinWebhookItemUserDataPayload {
