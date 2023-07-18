@@ -3530,7 +3530,25 @@ impl MiscellaneousService {
                 }
             }
         }
-        dbg!(&all_progress);
+        for pu in all_progress.into_iter() {
+            if !(1..=95).contains(&pu.progress) {
+                continue;
+            }
+            let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+            self.progress_update(
+                ProgressUpdateInput {
+                    metadata_id: id,
+                    progress: Some(pu.progress),
+                    date: Some(Utc::now().date_naive()),
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
+                },
+                user_id,
+            )
+            .await
+            .ok();
+        }
         Ok(())
     }
 }

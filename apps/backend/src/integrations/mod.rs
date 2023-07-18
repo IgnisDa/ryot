@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Result};
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
@@ -61,14 +61,18 @@ impl IntegrationService {
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
         if let Some(progress) = payload.item.user_data.played_percentage {
             if let Some(identifier) = payload.item.provider_ids.tmdb {
-                dbg!(&identifier, &progress);
+                Ok(IntegrationMedia {
+                    identifier,
+                    lot: MetadataLot::Movie,
+                    source: MetadataSource::Tmdb,
+                    progress: progress.to_i32().unwrap(),
+                })
             } else {
                 bail!("No TMDb ID associated with this media")
             }
         } else {
             bail!("No progress specified")
         }
-        todo!()
     }
 
     pub async fn audiobookshelf_progress(
