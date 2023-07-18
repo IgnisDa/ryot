@@ -3394,9 +3394,9 @@ impl MiscellaneousService {
                         metadata_id: id,
                         progress: Some(pu.progress),
                         date: Some(Utc::now().date_naive()),
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
+                        show_season_number: pu.show_season_number,
+                        show_episode_number: pu.show_episode_number,
+                        podcast_episode_number: pu.podcast_episode_number,
                     },
                     user_id,
                 )
@@ -3524,7 +3524,10 @@ impl MiscellaneousService {
                     if slug == user_hash_id && integration == UserSinkIntegrationLot::Jellyfin {
                         match self.integration_service.jellyfin_progress(&payload).await {
                             Ok(p) => all_progress.push(p),
-                            Err(_e) => continue,
+                            Err(e) => {
+                                tracing::error!("{:?}", e);
+                                continue;
+                            }
                         }
                     }
                 }
@@ -3540,9 +3543,9 @@ impl MiscellaneousService {
                     metadata_id: id,
                     progress: Some(pu.progress),
                     date: Some(Utc::now().date_naive()),
-                    show_season_number: None,
-                    show_episode_number: None,
-                    podcast_episode_number: None,
+                    show_season_number: pu.show_season_number,
+                    show_episode_number: pu.show_episode_number,
+                    podcast_episode_number: pu.podcast_episode_number,
                 },
                 user_id,
             )

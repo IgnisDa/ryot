@@ -14,6 +14,9 @@ pub struct IntegrationMedia {
     pub lot: MetadataLot,
     pub source: MetadataSource,
     pub progress: i32,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -37,6 +40,7 @@ impl IntegrationService {
             #[serde(rename_all = "PascalCase")]
             pub struct JellyfinWebhookItemUserDataPayload {
                 pub played_percentage: Option<Decimal>,
+                pub played: bool,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
@@ -55,17 +59,35 @@ impl IntegrationService {
             pub struct JellyfinWebhookPayload {
                 pub event: Option<String>,
                 pub item: JellyfinWebhookItemPayload,
+                pub series: Option<JellyfinWebhookItemPayload>,
             }
         }
-
+        // std::fs::write("tmp/output.json", payload)?;
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
+        let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
+            Some(id.clone())
+        } else {
+            payload
+                .series
+                .as_ref()
+                .map(|s| s.provider_ids.tmdb.clone())
+                .flatten()
+        };
         if let Some(progress) = payload.item.user_data.played_percentage {
-            if let Some(identifier) = payload.item.provider_ids.tmdb {
+            if let Some(identifier) = identifier {
+                let lot = match payload.item.item_type.as_str() {
+                    "Episode" => MetadataLot::Show,
+                    "Movie" => MetadataLot::Movie,
+                    _ => bail!("Only movies and shows supported"),
+                };
                 Ok(IntegrationMedia {
                     identifier,
-                    lot: MetadataLot::Movie,
+                    lot,
                     source: MetadataSource::Tmdb,
                     progress: progress.to_i32().unwrap(),
+                    podcast_episode_number: None,
+                    show_season_number: payload.item.season_number,
+                    show_episode_number: payload.item.episode_number,
                 })
             } else {
                 bail!("No TMDb ID associated with this media")
@@ -132,6 +154,9 @@ impl IntegrationService {
                     lot: MetadataLot::AudioBook,
                     source: MetadataSource::Audible,
                     progress: (resp.progress * 100_f32) as i32,
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 });
             }
         }
