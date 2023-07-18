@@ -2259,6 +2259,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "harsh"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6fce2283849822530a18d7d8eeb1719ac65a27cfb6649c0dc8dfd2d2cc5edfb"
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4177,6 +4183,7 @@ dependencies = [
  "enum_meta",
  "futures 0.3.28",
  "graphql_client",
+ "harsh",
  "http",
  "http-types",
  "isolang",
