@@ -488,9 +488,18 @@ async fn export(
 async fn jellyfin_webhook(
     Path(integration_slug): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    dbg!(&integration_slug);
-    todo!()
+    // DEV: jellyfin does not send the `Content-Type: application/json` header,
+    // so we consume the body as a string
+    payload: String,
+) -> std::result::Result<StatusCode, StatusCode> {
+    media_service
+        .process_jellyfin_event(payload, integration_slug)
+        .await
+        .map_err(|e| {
+            tracing::error!("{:?}", e);
+            StatusCode::UNPROCESSABLE_ENTITY
+        })?;
+    Ok(StatusCode::OK)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

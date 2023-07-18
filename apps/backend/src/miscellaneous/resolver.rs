@@ -1,5 +1,9 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
+use anyhow::Result as AnyhowResult;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
@@ -3502,6 +3506,36 @@ impl MiscellaneousService {
         } else {
             Ok(false)
         }
+    }
+
+    pub async fn process_jellyfin_event(
+        &self,
+        payload: String,
+        integration_slug: String,
+    ) -> AnyhowResult<()> {
+        #[derive(Serialize, Deserialize, Debug, Clone)]
+        #[serde(rename_all = "PascalCase")]
+        struct JellyfinWebhookItemUserDataPayload {
+            played_percentage: Option<Decimal>,
+        }
+        #[derive(Serialize, Deserialize, Debug, Clone)]
+        #[serde(rename_all = "PascalCase")]
+        struct JellyfinWebhookItemPayload {
+            #[serde(rename = "Type")]
+            item_type: String,
+            provider_ids: HashMap<String, String>,
+            user_data: JellyfinWebhookItemUserDataPayload,
+        }
+        #[derive(Serialize, Deserialize, Debug, Clone)]
+        #[serde(rename_all = "PascalCase")]
+        struct JellyfinWebhookPayload {
+            event: Option<String>,
+            item: JellyfinWebhookItemPayload,
+        }
+
+        let payload = serde_json::from_str::<JellyfinWebhookPayload>(&payload)?;
+        dbg!(&payload, &integration_slug);
+        Ok(())
     }
 }
 
