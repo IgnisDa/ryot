@@ -34,7 +34,7 @@ pub struct Model {
     #[graphql(skip)]
     pub yank_integrations: Option<UserYankIntegrations>,
     #[graphql(skip)]
-    pub sink_integrations: Option<UserSinkIntegrations>,
+    pub sink_integrations: UserSinkIntegrations,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

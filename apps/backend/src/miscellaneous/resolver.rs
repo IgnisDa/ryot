@@ -2822,6 +2822,7 @@ impl MiscellaneousService {
             password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
+            sink_integrations: ActiveValue::Set(UserSinkIntegrations(vec![])),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -3164,11 +3165,7 @@ impl MiscellaneousService {
                 timestamp: i.timestamp,
             })
         });
-        let sink_integrations = if let Some(i) = user.sink_integrations {
-            i.0
-        } else {
-            vec![]
-        };
+        let sink_integrations = user.sink_integrations.0;
         sink_integrations.into_iter().for_each(|i| {
             let description = match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
@@ -3191,11 +3188,7 @@ impl MiscellaneousService {
         input: CreateUserSinkIntegrationInput,
     ) -> Result<usize> {
         let user = self.user_by_id(user_id).await?;
-        let mut integrations = if let Some(i) = user.sink_integrations.clone() {
-            i.0
-        } else {
-            vec![]
-        };
+        let mut integrations = user.sink_integrations.clone().0;
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserSinkIntegration {
             id: new_integration_id,
@@ -3211,7 +3204,7 @@ impl MiscellaneousService {
         };
         integrations.push(new_integration);
         let mut user: user::ActiveModel = user.into();
-        user.sink_integrations = ActiveValue::Set(Some(UserSinkIntegrations(integrations)));
+        user.sink_integrations = ActiveValue::Set(UserSinkIntegrations(integrations));
         user.update(&self.db).await?;
         Ok(new_integration_id)
     }
@@ -3274,20 +3267,12 @@ impl MiscellaneousService {
                 user_db.yank_integrations = ActiveValue::Set(update_value);
             }
             UserIntegrationLot::Sink => {
-                let integrations = if let Some(i) = user.sink_integrations.clone() {
-                    i.0
-                } else {
-                    vec![]
-                };
+                let integrations = user.sink_integrations.clone().0;
                 let remaining_integrations = integrations
                     .into_iter()
                     .filter(|i| i.id != integration_id)
                     .collect_vec();
-                let update_value = if remaining_integrations.is_empty() {
-                    None
-                } else {
-                    Some(UserSinkIntegrations(remaining_integrations))
-                };
+                let update_value = UserSinkIntegrations(remaining_integrations);
                 user_db.sink_integrations = ActiveValue::Set(update_value);
             }
         };
