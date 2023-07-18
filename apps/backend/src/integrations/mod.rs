@@ -34,22 +34,26 @@ impl IntegrationService {
 
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookSessionPlayStatePayload {
+                pub position_ticks: Decimal,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookSessionPayload {
+                pub play_state: JellyfinWebhookSessionPlayStatePayload,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
             pub struct JellyfinWebhookItemProviderIdsPayload {
                 pub tmdb: Option<String>,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookItemUserDataPayload {
-                pub played_percentage: Option<Decimal>,
-                pub played: bool,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
             pub struct JellyfinWebhookItemPayload {
+                pub run_time_ticks: Decimal,
                 #[serde(rename = "Type")]
                 pub item_type: String,
                 pub provider_ids: JellyfinWebhookItemProviderIdsPayload,
-                pub user_data: JellyfinWebhookItemUserDataPayload,
                 #[serde(rename = "ParentIndexNumber")]
                 pub season_number: Option<i32>,
                 #[serde(rename = "IndexNumber")]
@@ -61,6 +65,7 @@ impl IntegrationService {
                 pub event: Option<String>,
                 pub item: JellyfinWebhookItemPayload,
                 pub series: Option<JellyfinWebhookItemPayload>,
+                pub session: JellyfinWebhookSessionPayload,
             }
         }
         // std::fs::write("tmp/output.json", payload)?;
@@ -74,27 +79,26 @@ impl IntegrationService {
                 .map(|s| s.provider_ids.tmdb.clone())
                 .flatten()
         };
-        if let Some(progress) = payload.item.user_data.played_percentage {
-            if let Some(identifier) = identifier {
-                let lot = match payload.item.item_type.as_str() {
-                    "Episode" => MetadataLot::Show,
-                    "Movie" => MetadataLot::Movie,
-                    _ => bail!("Only movies and shows supported"),
-                };
-                Ok(IntegrationMedia {
-                    identifier,
-                    lot,
-                    source: MetadataSource::Tmdb,
-                    progress: progress.to_i32().unwrap(),
-                    podcast_episode_number: None,
-                    show_season_number: payload.item.season_number,
-                    show_episode_number: payload.item.episode_number,
-                })
-            } else {
-                bail!("No TMDb ID associated with this media")
-            }
+        if let Some(identifier) = identifier {
+            let lot = match payload.item.item_type.as_str() {
+                "Episode" => MetadataLot::Show,
+                "Movie" => MetadataLot::Movie,
+                _ => bail!("Only movies and shows supported"),
+            };
+            Ok(IntegrationMedia {
+                identifier,
+                lot,
+                source: MetadataSource::Tmdb,
+                progress: (payload.session.play_state.position_ticks / payload.item.run_time_ticks
+                    * dec!(100))
+                .to_i32()
+                .unwrap(),
+                podcast_episode_number: None,
+                show_season_number: payload.item.season_number,
+                show_episode_number: payload.item.episode_number,
+            })
         } else {
-            bail!("No progress specified")
+            bail!("No TMDb ID associated with this media")
         }
     }
 
