@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Result as AnyhowResult;
+use anyhow::{anyhow, Result as AnyhowResult};
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
@@ -11,6 +11,7 @@ use chrono::{NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
+use harsh::Harsh;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
 use markdown::{
@@ -450,8 +451,12 @@ fn create_cookie(
     Ok(())
 }
 
-fn get_hasher() -> Argon2<'static> {
+fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
+}
+
+fn get_id_hasher(salt: &str) -> Harsh {
+    Harsh::builder().length(10).salt(salt).build().unwrap()
 }
 
 #[derive(Default)]
@@ -2842,7 +2847,7 @@ impl MiscellaneousService {
         };
         let user = user.unwrap();
         let parsed_hash = PasswordHash::new(&user.password).unwrap();
-        if get_hasher()
+        if get_password_hasher()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_err()
         {
@@ -3197,7 +3202,9 @@ impl MiscellaneousService {
             timestamp: Utc::now(),
             settings: match input.lot {
                 UserSinkIntegrationLot::Jellyfin => {
-                    UserSinkIntegrationSetting::Jellyfin { slug: nanoid!(10) }
+                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
+                        .encode(&[user_id.try_into().unwrap()]);
+                    UserSinkIntegrationSetting::Jellyfin { slug }
                 }
             },
         };
@@ -3510,9 +3517,16 @@ impl MiscellaneousService {
 
     pub async fn process_jellyfin_event(
         &self,
+        user_hash_id: String,
         payload: String,
-        integration_slug: String,
     ) -> AnyhowResult<()> {
+        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash_id)?;
+        let user_id: i32 = user_id
+            .get(0)
+            .ok_or(anyhow!("Incorrect hash id provided"))?
+            .to_owned()
+            .try_into()?;
+        dbg!(user_id);
         #[derive(Serialize, Deserialize, Debug, Clone)]
         #[serde(rename_all = "PascalCase")]
         struct JellyfinWebhookItemUserDataPayload {
@@ -3533,8 +3547,13 @@ impl MiscellaneousService {
             item: JellyfinWebhookItemPayload,
         }
 
+        // std::fs::write(
+        //     "tmp/output.json",
+        //     serde_json::to_string_pretty(&payload).unwrap(),
+        // )
+        // .unwrap();
+
         let payload = serde_json::from_str::<JellyfinWebhookPayload>(&payload)?;
-        dbg!(&payload, &integration_slug);
         Ok(())
     }
 }

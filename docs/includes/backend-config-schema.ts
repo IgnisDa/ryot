@@ -92,6 +92,8 @@ export interface FileStorageConfig {
 }
 
 export interface IntegrationConfig {
+	/** The salt used to hash user IDs. */
+	hasher_salt: string;
 	/**
 	 * Sync data from [yank](/docs/guides/integrations.md) based integrations
 	 * every `n` hours.

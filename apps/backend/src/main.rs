@@ -214,7 +214,7 @@ async fn main() -> Result<()> {
         )
         .allow_credentials(true);
 
-    let webhook_routes = Router::new().route("/jellyfin/:integration_slug", post(jellyfin_webhook));
+    let webhook_routes = Router::new().route("/jellyfin/:user_hash_id", post(jellyfin_webhook));
 
     let app_routes = Router::new()
         .nest("/webhooks", webhook_routes)
@@ -486,14 +486,14 @@ async fn export(
 }
 
 async fn jellyfin_webhook(
-    Path(integration_slug): Path<String>,
+    Path(user_hash_id): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     // DEV: jellyfin does not send the `Content-Type: application/json` header,
     // so we consume the body as a string
     payload: String,
 ) -> std::result::Result<StatusCode, StatusCode> {
     media_service
-        .process_jellyfin_event(payload, integration_slug)
+        .process_jellyfin_event(user_hash_id, payload)
         .await
         .map_err(|e| {
             tracing::error!("{:?}", e);
