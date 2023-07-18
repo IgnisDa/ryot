@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
@@ -20,6 +17,7 @@ use markdown::{
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait,
@@ -3506,44 +3504,63 @@ impl MiscellaneousService {
         user_hash_id: String,
         payload: String,
     ) -> Result<()> {
-        let (user_hash_id, slug) = user_hash_id
+        let (user_hash, _) = user_hash_id
             .split_once("--")
             .ok_or(anyhow!("Unexpected format"))?;
-        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash_id)?;
+        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
         let user_id: i32 = user_id
             .get(0)
             .ok_or(anyhow!("Incorrect hash id provided"))?
             .to_owned()
             .try_into()?;
         let user = self.user_by_id(user_id).await?;
-        dbg!(user_id, slug);
-        #[derive(Serialize, Deserialize, Debug, Clone)]
-        #[serde(rename_all = "PascalCase")]
-        struct JellyfinWebhookItemUserDataPayload {
-            played_percentage: Option<Decimal>,
-        }
-        #[derive(Serialize, Deserialize, Debug, Clone)]
-        #[serde(rename_all = "PascalCase")]
-        struct JellyfinWebhookItemPayload {
-            #[serde(rename = "Type")]
-            item_type: String,
-            provider_ids: HashMap<String, String>,
-            user_data: JellyfinWebhookItemUserDataPayload,
-        }
-        #[derive(Serialize, Deserialize, Debug, Clone)]
-        #[serde(rename_all = "PascalCase")]
-        struct JellyfinWebhookPayload {
-            event: Option<String>,
-            item: JellyfinWebhookItemPayload,
-        }
+        if let Some(_i) = user
+            .sink_integrations
+            .0
+            .into_iter()
+            .find(|i| match &i.settings {
+                UserSinkIntegrationSetting::Jellyfin { slug } => slug == &user_hash_id,
+            })
+        {
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            struct JellyfinWebhookItemProviderIdsPayload {
+                tmdb: Option<String>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            struct JellyfinWebhookItemUserDataPayload {
+                played_percentage: Option<Decimal>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            struct JellyfinWebhookItemPayload {
+                #[serde(rename = "Type")]
+                item_type: String,
+                provider_ids: JellyfinWebhookItemProviderIdsPayload,
+                user_data: JellyfinWebhookItemUserDataPayload,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            struct JellyfinWebhookPayload {
+                event: Option<String>,
+                item: JellyfinWebhookItemPayload,
+            }
 
-        // std::fs::write(
-        //     "tmp/output.json",
-        //     serde_json::to_string_pretty(&payload).unwrap(),
-        // )
-        // .unwrap();
-
-        let payload = serde_json::from_str::<JellyfinWebhookPayload>(&payload)?;
+            let payload = serde_json::from_str::<JellyfinWebhookPayload>(&payload)?;
+            if let Some(progress) = payload.item.user_data.played_percentage {
+                if progress < dec!(2) && progress > dec!(95) {
+                    return Err(Error::new("Progress not within required range"));
+                }
+                if let Some(identifier) = payload.item.provider_ids.tmdb {
+                    dbg!(&identifier, &progress);
+                } else {
+                    return Err(Error::new("No TMDb ID associated with this media"));
+                }
+            } else {
+                return Err(Error::new("No progress specified"));
+            }
+        }
         Ok(())
     }
 }
