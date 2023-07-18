@@ -3517,40 +3517,38 @@ impl MiscellaneousService {
             .to_owned()
             .try_into()?;
         let user = self.user_by_id(user_id).await?;
-        let mut all_progress = vec![];
         for db_integration in user.sink_integrations.0.into_iter() {
-            match db_integration.settings {
+            let progress = match db_integration.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     if slug == user_hash_id && integration == UserSinkIntegrationLot::Jellyfin {
-                        match self.integration_service.jellyfin_progress(&payload).await {
-                            Ok(p) => all_progress.push(p),
-                            Err(e) => {
-                                tracing::error!("{:?}", e);
-                                continue;
-                            }
-                        }
+                        self.integration_service
+                            .jellyfin_progress(&payload)
+                            .await
+                            .ok()
+                    } else {
+                        None
                     }
                 }
+            };
+            if let Some(pu) = progress {
+                if !(1..=95).contains(&pu.progress) {
+                    continue;
+                }
+                let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+                self.progress_update(
+                    ProgressUpdateInput {
+                        metadata_id: id,
+                        progress: Some(pu.progress),
+                        date: Some(Utc::now().date_naive()),
+                        show_season_number: pu.show_season_number,
+                        show_episode_number: pu.show_episode_number,
+                        podcast_episode_number: pu.podcast_episode_number,
+                    },
+                    user_id,
+                )
+                .await
+                .ok();
             }
-        }
-        for pu in all_progress.into_iter() {
-            if !(1..=95).contains(&pu.progress) {
-                continue;
-            }
-            let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
-            self.progress_update(
-                ProgressUpdateInput {
-                    metadata_id: id,
-                    progress: Some(pu.progress),
-                    date: Some(Utc::now().date_naive()),
-                    show_season_number: pu.show_season_number,
-                    show_episode_number: pu.show_episode_number,
-                    podcast_episode_number: pu.podcast_episode_number,
-                },
-                user_id,
-            )
-            .await
-            .ok();
         }
         Ok(())
     }
