@@ -38,6 +38,7 @@ markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
+  - pymdownx.tilde
 
 extra:
   file_path: https://github.com/ignisda/ryot/tree/main

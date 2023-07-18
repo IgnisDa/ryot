@@ -35,7 +35,8 @@ the "Tokens" tab. It will look like this: `e96fca00-18b1-467c-80f0-8534e09ed790`
 
 ### Jellyfin
 
-Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to
+Automatically add new [Jellyin](https://jellyfin.org/) movie ~~and
+[show](https://github.com/shemanaev/jellyfin-plugin-webhooks/issues/5)~~ plays to
 Movary. It will work for all the media that have been a valid TMDb ID attached
 to their metadata.
 
