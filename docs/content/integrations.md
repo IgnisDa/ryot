@@ -46,7 +46,7 @@ to their metadata.
     to be installed and active in Jellyfin.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
-slug. It will be 10 characters long.
+slug.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
 following settings:
     - Webhook Url => `<instance_url>/webhooks/jellyfin/<slug>`
