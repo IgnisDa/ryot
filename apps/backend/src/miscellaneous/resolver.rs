@@ -46,7 +46,7 @@ use crate::{
     file_storage::FileStorageService,
     graphql::IdObject,
     importer::ImportResultResponse,
-    integrations::IntegrationService,
+    integrations::{IntegrationMedia, IntegrationService},
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
@@ -3382,26 +3382,11 @@ impl MiscellaneousService {
                 }
             }
             let mut updated_count = 0;
-            for pu in progress_updates.iter() {
-                if !(1..=95).contains(&pu.progress) {
-                    continue;
-                } else {
-                    updated_count += 1;
-                }
-                let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
-                self.progress_update(
-                    ProgressUpdateInput {
-                        metadata_id: id,
-                        progress: Some(pu.progress),
-                        date: Some(Utc::now().date_naive()),
-                        show_season_number: pu.show_season_number,
-                        show_episode_number: pu.show_episode_number,
-                        podcast_episode_number: pu.podcast_episode_number,
-                    },
-                    user_id,
-                )
-                .await
-                .ok();
+            for pu in progress_updates.into_iter() {
+                match self.integration_progress_update(pu, user_id).await.ok() {
+                    Some(_) => updated_count += 1,
+                    None => {}
+                };
             }
             Ok(updated_count)
         } else {
@@ -3531,25 +3516,30 @@ impl MiscellaneousService {
                 }
             };
             if let Some(pu) = progress {
-                if !(1..=95).contains(&pu.progress) {
-                    continue;
-                }
-                let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
-                self.progress_update(
-                    ProgressUpdateInput {
-                        metadata_id: id,
-                        progress: Some(pu.progress),
-                        date: Some(Utc::now().date_naive()),
-                        show_season_number: pu.show_season_number,
-                        show_episode_number: pu.show_episode_number,
-                        podcast_episode_number: pu.podcast_episode_number,
-                    },
-                    user_id,
-                )
-                .await
-                .ok();
+                self.integration_progress_update(pu, user_id).await.ok();
             }
         }
+        Ok(())
+    }
+
+    async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
+        if !(1..=95).contains(&pu.progress) {
+            return Err(Error::new("Progress outside bound"));
+        }
+        let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+        self.progress_update(
+            ProgressUpdateInput {
+                metadata_id: id,
+                progress: Some(pu.progress),
+                date: Some(Utc::now().date_naive()),
+                show_season_number: pu.show_season_number,
+                show_episode_number: pu.show_episode_number,
+                podcast_episode_number: pu.podcast_episode_number,
+            },
+            user_id,
+        )
+        .await
+        .ok();
         Ok(())
     }
 }
