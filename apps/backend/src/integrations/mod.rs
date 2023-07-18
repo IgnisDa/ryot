@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
@@ -107,7 +108,7 @@ impl IntegrationService {
 
             #[derive(Debug, Serialize, Deserialize)]
             pub struct ItemProgress {
-                pub progress: f32,
+                pub progress: Decimal,
             }
             #[derive(Debug, Serialize, Deserialize)]
             pub struct ItemMetadata {
@@ -153,7 +154,7 @@ impl IntegrationService {
                     identifier: asin,
                     lot: MetadataLot::AudioBook,
                     source: MetadataSource::Audible,
-                    progress: (resp.progress * 100_f32) as i32,
+                    progress: (resp.progress * dec!(100)).to_i32().unwrap(),
                     show_season_number: None,
                     show_episode_number: None,
                     podcast_episode_number: None,
