@@ -35,8 +35,7 @@ the "Tokens" tab. It will look like this: `e96fca00-18b1-467c-80f0-8534e09ed790`
 
 ### Jellyfin
 
-Automatically add new [Jellyin](https://jellyfin.org/) movie ~~and
-[show](https://github.com/shemanaev/jellyfin-plugin-webhooks/issues/5)~~ plays to
+Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to
 Movary. It will work for all the media that have been a valid TMDb ID attached
 to their metadata.
 
@@ -50,7 +49,7 @@ to their metadata.
 slug.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
 following settings:
-    - Webhook Url => `<instance_url>/webhooks/jellyfin/<slug>`
+    - Webhook Url => `<instance_url>/integration-webhooks/jellyfin/<slug>`
     - Payload format => `Default`
     - Listen to events only for => Choose your user
     - Events => `Play`, `Pause`, `Resume`, and `Stop`
