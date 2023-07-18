@@ -1,4 +1,5 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
@@ -8,7 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct YankIntegrationMedia {
+pub struct IntegrationMedia {
     pub identifier: String,
     pub lot: MetadataLot,
     pub source: MetadataSource,
@@ -23,11 +24,58 @@ impl IntegrationService {
         Self
     }
 
+    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+        mod models {
+            use super::*;
+
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookItemProviderIdsPayload {
+                pub tmdb: Option<String>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookItemUserDataPayload {
+                pub played_percentage: Option<Decimal>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookItemPayload {
+                #[serde(rename = "Type")]
+                pub item_type: String,
+                pub provider_ids: JellyfinWebhookItemProviderIdsPayload,
+                pub user_data: JellyfinWebhookItemUserDataPayload,
+                #[serde(rename = "ParentIndexNumber")]
+                pub season_number: Option<i32>,
+                #[serde(rename = "IndexNumber")]
+                pub episode_number: Option<i32>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookPayload {
+                pub event: Option<String>,
+                pub item: JellyfinWebhookItemPayload,
+            }
+        }
+
+        let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
+        if let Some(progress) = payload.item.user_data.played_percentage {
+            if let Some(identifier) = payload.item.provider_ids.tmdb {
+                dbg!(&identifier, &progress);
+            } else {
+                bail!("No TMDb ID associated with this media")
+            }
+        } else {
+            bail!("No progress specified")
+        }
+        todo!()
+    }
+
     pub async fn audiobookshelf_progress(
         &self,
         base_url: &str,
         access_token: &str,
-    ) -> Result<Vec<YankIntegrationMedia>> {
+    ) -> Result<Vec<IntegrationMedia>> {
         mod models {
             use super::*;
 
@@ -75,7 +123,7 @@ impl IntegrationService {
                     .body_json()
                     .await
                     .unwrap();
-                media_items.push(YankIntegrationMedia {
+                media_items.push(IntegrationMedia {
                     identifier: asin,
                     lot: MetadataLot::AudioBook,
                     source: MetadataSource::Audible,

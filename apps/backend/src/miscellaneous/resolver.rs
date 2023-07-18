@@ -17,7 +17,6 @@ use markdown::{
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait,
@@ -125,7 +124,6 @@ enum UserYankIntegrationLot {
 enum UserSinkIntegrationLot {
     Jellyfin,
 }
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlUserIntegration {
     id: usize,
@@ -3499,11 +3497,16 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn process_jellyfin_event(
+    pub async fn process_integration_webhook(
         &self,
         user_hash_id: String,
+        integration: String,
         payload: String,
     ) -> Result<()> {
+        let integration = match integration.as_str() {
+            "jellyfin" => UserSinkIntegrationLot::Jellyfin,
+            _ => return Err(anyhow!("Incorrect integration requested").into()),
+        };
         let (user_hash, _) = user_hash_id
             .split_once("--")
             .ok_or(anyhow!("Unexpected format"))?;
@@ -3514,53 +3517,20 @@ impl MiscellaneousService {
             .to_owned()
             .try_into()?;
         let user = self.user_by_id(user_id).await?;
-        if let Some(_i) = user
-            .sink_integrations
-            .0
-            .into_iter()
-            .find(|i| match &i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => slug == &user_hash_id,
-            })
-        {
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            struct JellyfinWebhookItemProviderIdsPayload {
-                tmdb: Option<String>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            struct JellyfinWebhookItemUserDataPayload {
-                played_percentage: Option<Decimal>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            struct JellyfinWebhookItemPayload {
-                #[serde(rename = "Type")]
-                item_type: String,
-                provider_ids: JellyfinWebhookItemProviderIdsPayload,
-                user_data: JellyfinWebhookItemUserDataPayload,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            struct JellyfinWebhookPayload {
-                event: Option<String>,
-                item: JellyfinWebhookItemPayload,
-            }
-
-            let payload = serde_json::from_str::<JellyfinWebhookPayload>(&payload)?;
-            if let Some(progress) = payload.item.user_data.played_percentage {
-                if progress < dec!(2) && progress > dec!(95) {
-                    return Err(Error::new("Progress not within required range"));
+        let mut all_progress = vec![];
+        for db_integration in user.sink_integrations.0.into_iter() {
+            match db_integration.settings {
+                UserSinkIntegrationSetting::Jellyfin { slug } => {
+                    if slug == user_hash_id && integration == UserSinkIntegrationLot::Jellyfin {
+                        match self.integration_service.jellyfin_progress(&payload).await {
+                            Ok(p) => all_progress.push(p),
+                            Err(_e) => continue,
+                        }
+                    }
                 }
-                if let Some(identifier) = payload.item.provider_ids.tmdb {
-                    dbg!(&identifier, &progress);
-                } else {
-                    return Err(Error::new("No TMDb ID associated with this media"));
-                }
-            } else {
-                return Err(Error::new("No progress specified"));
             }
         }
+        dbg!(&all_progress);
         Ok(())
     }
 }
