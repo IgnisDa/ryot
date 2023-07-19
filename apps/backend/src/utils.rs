@@ -1,8 +1,10 @@
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fs::File,
+    io::Read,
+    path::PathBuf,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
@@ -137,12 +139,6 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
         .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
 }
 
-pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let auth_db = ctx.data_unchecked::<MemoryDatabase>();
-    let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_token(token, auth_db).await
-}
-
 pub async fn user_id_from_token(token: String, auth_db: &MemoryDatabase) -> Result<i32> {
     let found_token = auth_db.lookup(&token);
     match found_token {
@@ -158,6 +154,12 @@ pub async fn user_id_from_token(token: String, auth_db: &MemoryDatabase) -> Resu
         }
         None => Err(Error::new("The auth token was incorrect")),
     }
+}
+
+pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
+    let auth_db = ctx.data_unchecked::<MemoryDatabase>();
+    let token = user_auth_token_from_ctx(ctx)?;
+    user_id_from_token(token, auth_db).await
 }
 
 pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {

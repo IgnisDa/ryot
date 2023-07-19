@@ -27,6 +27,7 @@ pub async fn get_schema(app_services: &AppServices, auth_db: MemoryDatabase) -> 
         MutationRoot::default(),
         EmptySubscription,
     )
+    // TODO: Remove auth db from graphql schema
     .data(auth_db)
     .data(app_services.media_service.clone())
     .data(app_services.importer_service.clone())
