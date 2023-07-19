@@ -35,7 +35,7 @@ use crate::{
     GqlCtx, MemoryAuthData,
 };
 
-pub type MemoryAuthDb = Arc<Storage<String, MemoryAuthData>>;
+pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -57,7 +57,7 @@ pub struct AppServices {
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
-    auth_db: MemoryAuthDb,
+    auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
@@ -138,12 +138,12 @@ pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
 }
 
 pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let auth_db = ctx.data_unchecked::<MemoryAuthDb>();
+    let auth_db = ctx.data_unchecked::<MemoryDatabase>();
     let token = user_auth_token_from_ctx(ctx)?;
     user_id_from_token(token, auth_db).await
 }
 
-pub async fn user_id_from_token(token: String, auth_db: &MemoryAuthDb) -> Result<i32> {
+pub async fn user_id_from_token(token: String, auth_db: &MemoryDatabase) -> Result<i32> {
     let found_token = auth_db.lookup(&token);
     match found_token {
         Some(t) => {

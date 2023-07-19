@@ -82,7 +82,7 @@ use crate::{
     },
     utils::{
         get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
-        user_id_from_token, MemoryAuthDb, SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT,
+        user_id_from_token, MemoryDatabase, SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT,
         REPOSITORY_LINK, VERSION,
     },
     MemoryAuthData,
@@ -990,7 +990,7 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub auth_db: MemoryAuthDb,
+    pub auth_db: MemoryDatabase,
     pub config: Arc<AppConfig>,
     pub file_storage: Arc<FileStorageService>,
     pub audible_service: AudibleService,
@@ -1014,7 +1014,7 @@ impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
-        auth_db: &MemoryAuthDb,
+        auth_db: &MemoryDatabase,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
@@ -1617,6 +1617,8 @@ impl MiscellaneousService {
         input: ProgressUpdateInput,
         user_id: i32,
     ) -> Result<IdObject> {
+        // TODO: Hash `input.{metadata_id,show_season_number,show_episode_number,podcast_episode_number},user_id`
+        // and store it in a database so that implement de-duplication.
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))

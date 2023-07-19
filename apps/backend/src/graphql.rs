@@ -5,7 +5,7 @@ use crate::{
     fitness::exercise::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
-    utils::{AppServices, MemoryAuthDb},
+    utils::{AppServices, MemoryDatabase},
 };
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
@@ -21,7 +21,7 @@ pub struct MutationRoot(MiscellaneousMutation, ImporterMutation, ExerciseMutatio
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-pub async fn get_schema(app_services: &AppServices, auth_db: MemoryAuthDb) -> GraphqlSchema {
+pub async fn get_schema(app_services: &AppServices, auth_db: MemoryDatabase) -> GraphqlSchema {
     Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
