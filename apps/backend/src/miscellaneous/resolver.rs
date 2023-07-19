@@ -120,10 +120,6 @@ enum UserYankIntegrationLot {
     Audiobookshelf,
 }
 
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserSinkIntegrationLot {
-    Jellyfin,
-}
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlUserIntegration {
     id: usize,
@@ -138,6 +134,11 @@ struct CreateUserYankIntegrationInput {
     base_url: String,
     #[graphql(secret)]
     token: String,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserSinkIntegrationLot {
+    Jellyfin,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
