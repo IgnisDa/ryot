@@ -49,7 +49,7 @@ to their metadata.
 slug.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
 following settings:
-    - Webhook Url => `<instance_url>/integration-webhooks/jellyfin/<slug>`
+    - Webhook Url => `<instance_url>/webhooks/integrations/jellyfin/<slug>`
     - Payload format => `Default`
     - Listen to events only for => Choose your user
     - Events => `Play`, `Pause`, `Resume`, and `Stop`

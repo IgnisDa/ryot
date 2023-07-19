@@ -214,11 +214,13 @@ async fn main() -> Result<()> {
         )
         .allow_credentials(true);
 
+    let webhook_routes = Router::new().route(
+        "/integrations/:integration/:user_hash_id",
+        post(integration_webhook),
+    );
+
     let app_routes = Router::new()
-        .route(
-            "/integration-webhooks/:integration/:user_hash_id",
-            post(integration_webhook),
-        )
+        .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
