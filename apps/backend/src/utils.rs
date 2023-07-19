@@ -9,9 +9,14 @@ use std::{
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, InputObject, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
-use darkbird::Storage;
+use darkbird::{
+    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
+    Storage,
+};
 use http_types::headers::HeaderName;
-use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
+use sea_orm::{
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection,
+};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::{
     de::{self, DeserializeOwned},
@@ -34,7 +39,6 @@ use crate::{
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
-    MemoryAuthData,
 };
 
 pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
@@ -223,4 +227,42 @@ where
         BinOper::Like,
         Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
     )
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MemoryAuthData {
+    pub user_id: i32,
+    pub last_used_on: DateTimeUtc,
+}
+
+impl Document for MemoryAuthData {}
+
+impl Indexer for MemoryAuthData {
+    fn extract(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl Tags for MemoryAuthData {
+    fn get_tags(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl Range for MemoryAuthData {
+    fn get_fields(&self) -> Vec<RangeField> {
+        vec![]
+    }
+}
+
+impl MaterializedView for MemoryAuthData {
+    fn filter(&self) -> Option<String> {
+        None
+    }
+}
+
+impl FullText for MemoryAuthData {
+    fn get_content(&self) -> Option<String> {
+        None
+    }
 }

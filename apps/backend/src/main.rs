@@ -30,16 +30,12 @@ use axum::{
     routing::{get, post, Router},
     Extension, Json, Server, TypedHeader,
 };
-use darkbird::{
-    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
-    Options, Storage, StorageType,
-};
+use darkbird::{Options, Storage, StorageType};
 use http::header::AUTHORIZATION;
 use itertools::Itertools;
 use rust_embed::RustEmbed;
-use sea_orm::{prelude::DateTimeUtc, ConnectOptions, Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use tokio::try_join;
@@ -63,7 +59,8 @@ use crate::{
     migrator::Migrator,
     miscellaneous::resolver::MiscellaneousService,
     utils::{
-        create_app_services, user_id_from_token, BASE_DIR, COOKIE_NAME, PROJECT_NAME, VERSION,
+        create_app_services, user_id_from_token, MemoryAuthData, BASE_DIR, COOKIE_NAME,
+        PROJECT_NAME, VERSION,
     },
 };
 
@@ -501,42 +498,4 @@ async fn integration_webhook(
             StatusCode::UNPROCESSABLE_ENTITY
         })?;
     Ok(StatusCode::OK)
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct MemoryAuthData {
-    pub user_id: i32,
-    pub last_used_on: DateTimeUtc,
-}
-
-impl Document for MemoryAuthData {}
-
-impl Indexer for MemoryAuthData {
-    fn extract(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
-impl Tags for MemoryAuthData {
-    fn get_tags(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
-impl Range for MemoryAuthData {
-    fn get_fields(&self) -> Vec<RangeField> {
-        vec![]
-    }
-}
-
-impl MaterializedView for MemoryAuthData {
-    fn filter(&self) -> Option<String> {
-        None
-    }
-}
-
-impl FullText for MemoryAuthData {
-    fn get_content(&self) -> Option<String> {
-        None
-    }
 }
