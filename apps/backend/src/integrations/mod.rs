@@ -82,8 +82,7 @@ impl IntegrationService {
             payload
                 .series
                 .as_ref()
-                .map(|s| s.provider_ids.tmdb.clone())
-                .flatten()
+                .and_then(|s| s.provider_ids.tmdb.clone())
         };
         if let Some(identifier) = identifier {
             let lot = match payload.item.item_type.as_str() {

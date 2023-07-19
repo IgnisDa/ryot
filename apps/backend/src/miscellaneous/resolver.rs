@@ -3334,10 +3334,9 @@ impl MiscellaneousService {
             }
             let mut updated_count = 0;
             for pu in progress_updates.into_iter() {
-                match self.integration_progress_update(pu, user_id).await.ok() {
-                    Some(_) => updated_count += 1,
-                    None => {}
-                };
+                if let Some(_) = self.integration_progress_update(pu, user_id).await.ok() {
+                    updated_count += 1
+                }
             }
             Ok(updated_count)
         } else {
@@ -3448,7 +3447,7 @@ impl MiscellaneousService {
             .ok_or(anyhow!("Unexpected format"))?;
         let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
         let user_id: i32 = user_id
-            .get(0)
+            .first()
             .ok_or(anyhow!("Incorrect hash id provided"))?
             .to_owned()
             .try_into()?;
