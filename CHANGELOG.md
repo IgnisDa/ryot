@@ -1,4 +1,11 @@
 
+# Version 1.14.0-beta.1 (2023-07-19)
+
+## Bug Fixes
+
+* **frontend:** handle empty season numbers
+
+
 # Version 1.13.2 (2023-07-17)
 
 ## Bug Fixes
