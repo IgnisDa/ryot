@@ -1,4 +1,15 @@
 
+# Version 1.14.0-beta.2 (2023-07-19)
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* incorrect name being used
+
+
 # Version 1.14.0-beta.1 (2023-07-19)
 
 ## Bug Fixes
