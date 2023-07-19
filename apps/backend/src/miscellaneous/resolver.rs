@@ -1,5 +1,6 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
@@ -7,12 +8,15 @@ use chrono::{NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
+use harsh::Harsh;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
     Options,
 };
+use nanoid::nanoid;
+use retainer::Cache;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -28,6 +32,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
+use crate::traits::AuthProvider;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
@@ -43,7 +48,7 @@ use crate::{
     file_storage::FileStorageService,
     graphql::IdObject,
     importer::ImportResultResponse,
-    integrations::IntegrationService,
+    integrations::{IntegrationMedia, IntegrationService},
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
@@ -74,12 +79,12 @@ use crate::{
     },
     traits::{IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserPreferences, UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
+        UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations,
+        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_auth_token_from_ctx, user_id_from_ctx,
-        user_id_from_token, MemoryAuthDb, SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT,
-        REPOSITORY_LINK, VERSION,
+        get_case_insensitive_like_query, user_id_from_token, MemoryDatabase, SearchInput, AUTHOR,
+        COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
     MemoryAuthData,
 };
@@ -106,16 +111,22 @@ struct CreateCustomMediaInput {
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserIntegrationLot {
+    Yank,
+    Sink,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserYankIntegrationLot {
     Audiobookshelf,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserYankIntegration {
+struct GraphqlUserIntegration {
     id: usize,
-    lot: UserYankIntegrationLot,
     description: String,
     timestamp: DateTimeUtc,
+    lot: UserIntegrationLot,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -124,6 +135,16 @@ struct CreateUserYankIntegrationInput {
     base_url: String,
     #[graphql(secret)]
     token: String,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserSinkIntegrationLot {
+    Jellyfin,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateUserSinkIntegrationInput {
+    lot: UserSinkIntegrationLot,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -408,6 +429,15 @@ struct CoreDetails {
     default_credentials: bool,
 }
 
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
+struct ProgressUpdateCache {
+    user_id: i32,
+    metadata_id: i32,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -428,8 +458,12 @@ fn create_cookie(
     Ok(())
 }
 
-fn get_hasher() -> Argon2<'static> {
+fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
+}
+
+fn get_id_hasher(salt: &str) -> Harsh {
+    Harsh::builder().length(10).salt(salt).build().unwrap()
 }
 
 #[derive(Default)]
@@ -459,11 +493,9 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<Vec<ReviewItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_item_reviews(&user_id, &metadata_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.media_item_reviews(&user_id, &metadata_id).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -472,11 +504,9 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         input: Option<CollectionInput>,
     ) -> Result<Vec<CollectionItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .collections(&user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.collections(&user_id, input).await
     }
 
     /// Get a list of collections in which a media is present.
@@ -485,11 +515,9 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<Vec<collection::Model>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_in_collections(user_id, metadata_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.media_in_collections(user_id, metadata_id).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -498,11 +526,9 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
-        let user_id = user_id_from_ctx(gql_ctx).await.ok();
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .collection_contents(user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await.ok();
+        service.collection_contents(user_id, input).await
     }
 
     /// Get details about a media present in the database.
@@ -523,11 +549,9 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<Vec<seen::Model>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .seen_history(metadata_id, user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.seen_history(metadata_id, user_id).await
     }
 
     /// Get all the media items related to a user for a specific media type.
@@ -536,11 +560,9 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         input: MediaListInput,
     ) -> Result<SearchResults<MediaListItem>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_list(user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.media_list(user_id, input).await
     }
 
     /// Get a presigned URL (valid for 90 minutes) for a given key.
@@ -562,11 +584,9 @@ impl MiscellaneousQuery {
 
     /// Get a user's preferences.
     async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_preferences(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_preferences(user_id).await
     }
 
     /// Search for a list of media for a given type.
@@ -621,50 +641,40 @@ impl MiscellaneousQuery {
 
     /// Get details about the currently logged in user.
     async fn users(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .users(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.users(user_id).await
     }
 
     /// Get details about the currently logged in user.
     async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
-        let token = user_auth_token_from_ctx(gql_ctx)?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_details(&token)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let token = service.user_auth_token_from_ctx(gql_ctx)?;
+        service.user_details(&token).await
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
     async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_summary(&user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_summary(&user_id).await
     }
 
-    /// Get all the yank based integrations for the currently logged in user.
-    async fn user_yank_integrations(
+    /// Get all the integrations for the currently logged in user.
+    async fn user_integrations(
         &self,
         gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserYankIntegration>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_yank_integrations(user_id)
-            .await
+    ) -> Result<Vec<GraphqlUserIntegration>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_integrations(user_id).await
     }
 
     /// Get all the auth tokens issued to the currently logged in user.
     async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<UserAuthToken>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .user_auth_tokens(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_auth_tokens(user_id).await
     }
 }
 
@@ -675,20 +685,16 @@ pub struct MiscellaneousMutation;
 impl MiscellaneousMutation {
     /// Create or update a review.
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .post_review(&user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.post_review(&user_id, input).await
     }
 
     /// Delete a review if it belongs to the user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_review(&user_id, review_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_review(&user_id, review_id).await
     }
 
     /// Create a new collection for the logged in user or edit details of an existing one.
@@ -697,11 +703,9 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .create_or_update_collection(&user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_or_update_collection(&user_id, input).await
     }
 
     /// Add a media item to a collection if it is not there, otherwise do nothing.
@@ -710,11 +714,9 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: AddMediaToCollection,
     ) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .add_media_to_collection(&user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.add_media_to_collection(&user_id, input).await
     }
 
     /// Remove a media item from a collection if it is not there, otherwise do nothing.
@@ -724,9 +726,9 @@ impl MiscellaneousMutation {
         metadata_id: i32,
         collection_name: String,
     ) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
             .remove_media_item_from_collection(&user_id, &metadata_id, &collection_name)
             .await
     }
@@ -737,20 +739,16 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         collection_name: String,
     ) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_collection(&user_id, &collection_name)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_collection(&user_id, &collection_name).await
     }
 
     /// Delete a seen item from a user's history.
     async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_seen_item(seen_id, user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_seen_item(seen_id, user_id).await
     }
 
     /// Deploy jobs to update all media item's metadata.
@@ -767,11 +765,9 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: CreateCustomMediaInput,
     ) -> Result<CreateCustomMediaResult> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .create_custom_media(input, &user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_custom_media(input, &user_id).await
     }
 
     /// Mark a user's progress on a specific media item.
@@ -780,11 +776,9 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: ProgressUpdateInput,
     ) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .progress_update(input, user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.progress_update(input, user_id).await
     }
 
     /// Deploy a job to update a media item's metadata.
@@ -850,29 +844,23 @@ impl MiscellaneousMutation {
 
     /// Logout a user from the server, deleting their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_auth_token_from_ctx(gql_ctx)?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .logout_user(&user_id, gql_ctx)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_auth_token_from_ctx(gql_ctx)?;
+        service.logout_user(&user_id, gql_ctx).await
     }
 
     /// Update a user's profile details.
     async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user(&user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.update_user(&user_id, input).await
     }
 
     /// Delete all summaries for the currently logged in user and then generate one from scratch.
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .regenerate_user_summary(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.regenerate_user_summary(user_id).await
     }
 
     /// Change a user's feature preferences
@@ -881,20 +869,27 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: UpdateUserFeaturePreferenceInput,
     ) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_user_feature_preference(input, user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.update_user_feature_preference(input, user_id).await
     }
 
     /// Generate an auth token without any expiry
     async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .generate_application_token(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.generate_application_token(user_id).await
+    }
+
+    /// Create a sink based integrations for the currently logged in user.
+    async fn create_user_sink_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserSinkIntegrationInput,
+    ) -> Result<usize> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_sink_integration(user_id, input).await
     }
 
     /// Create a yank based integrations for the currently logged in user.
@@ -903,57 +898,50 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .create_user_yank_integration(user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_yank_integration(user_id, input).await
     }
 
-    /// Delete a yank based integrations for the currently logged in user.
-    async fn delete_user_yank_integration(
+    /// Delete an integration for the currently logged in user.
+    async fn delete_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        yank_integration_id: usize,
+        integration_id: usize,
+        integration_lot: UserIntegrationLot,
     ) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_user_yank_integration(user_id, yank_integration_id)
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .delete_user_integration(user_id, integration_id, integration_lot)
             .await
     }
 
     /// Yank data from all integrations for the currently logged in user
     async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .yank_integrations_data_for_user(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.yank_integrations_data_for_user(user_id).await
     }
 
     /// Delete an auth token for the currently logged in user.
     async fn delete_user_auth_token(&self, gql_ctx: &Context<'_>, token: String) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_user_auth_token(user_id, token)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_user_auth_token(user_id, token).await
     }
 
     /// Delete a user. The account making the user must an Admin.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .delete_user(user_id, to_delete_user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_user(user_id, to_delete_user_id).await
     }
 }
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub auth_db: MemoryAuthDb,
+    pub auth_db: MemoryDatabase,
     pub config: Arc<AppConfig>,
     pub file_storage: Arc<FileStorageService>,
     pub audible_service: AudibleService,
@@ -971,13 +959,20 @@ pub struct MiscellaneousService {
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
+    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
+}
+
+impl AuthProvider for MiscellaneousService {
+    fn get_auth_db(&self) -> &MemoryDatabase {
+        &self.auth_db
+    }
 }
 
 impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
-        auth_db: &MemoryAuthDb,
+        auth_db: &MemoryDatabase,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
         after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
@@ -997,10 +992,16 @@ impl MiscellaneousService {
         let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
         let integration_service = IntegrationService::new().await;
 
+        let seen_progress_cache = Arc::new(Cache::new());
+        let cache_clone = seen_progress_cache.clone();
+
+        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+
         Self {
             db: db.clone(),
             auth_db: auth_db.clone(),
             config,
+            seen_progress_cache,
             file_storage,
             audible_service,
             google_books_service,
@@ -1573,11 +1574,25 @@ impl MiscellaneousService {
         })
     }
 
+    // DEV: First we update progress only if media has not been consumed for
+    // this user in the last `n` duration.
     pub async fn progress_update(
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
     ) -> Result<IdObject> {
+        let cache = ProgressUpdateCache {
+            user_id,
+            metadata_id: input.metadata_id,
+            show_season_number: input.show_season_number,
+            show_episode_number: input.show_episode_number,
+            podcast_episode_number: input.podcast_episode_number,
+        };
+
+        if self.seen_progress_cache.get(&cache).await.is_some() {
+            return Err(Error::new("Progress was updated within the specified threshold, will not continue with progress update"));
+        }
+
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
@@ -1747,6 +1762,15 @@ impl MiscellaneousService {
         let id = seen_item.id;
         let metadata = self.generic_metadata(input.metadata_id).await?;
         let mut storage = self.after_media_seen.clone();
+        if seen_item.progress == 100 {
+            self.seen_progress_cache
+                .insert(
+                    cache,
+                    (),
+                    Duration::from_secs(self.config.server.progress_update_threshold * 3600),
+                )
+                .await;
+        }
         storage
             .push(AfterMediaSeenJob {
                 seen: seen_item,
@@ -2781,6 +2805,7 @@ impl MiscellaneousService {
             password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
+            sink_integrations: ActiveValue::Set(UserSinkIntegrations(vec![])),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -2806,7 +2831,7 @@ impl MiscellaneousService {
         };
         let user = user.unwrap();
         let parsed_hash = PasswordHash::new(&user.password).unwrap();
-        if get_hasher()
+        if get_password_hasher()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_err()
         {
@@ -3095,39 +3120,76 @@ impl MiscellaneousService {
     }
 
     async fn generate_application_token(&self, user_id: i32) -> Result<String> {
-        let api_token = Uuid::new_v4().to_string();
+        let api_token = nanoid!(10);
         self.set_auth_token(&api_token, &user_id)
             .await
             .map_err(|_| Error::new("Could not set auth token"))?;
         Ok(api_token)
     }
 
-    async fn user_yank_integrations(
-        &self,
-        user_id: i32,
-    ) -> Result<Vec<GraphqlUserYankIntegration>> {
+    async fn user_integrations(&self, user_id: i32) -> Result<Vec<GraphqlUserIntegration>> {
         let user = self.user_by_id(user_id).await?;
-        let integrations = if let Some(i) = user.yank_integrations {
+        let mut all_integrations = vec![];
+        let yank_integrations = if let Some(i) = user.yank_integrations {
             i.0
         } else {
             vec![]
         };
-        Ok(integrations
-            .into_iter()
-            .map(|i| {
-                let (lot, description) = match i.settings {
-                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                        (UserYankIntegrationLot::Audiobookshelf, base_url)
-                    }
-                };
-                GraphqlUserYankIntegration {
-                    id: i.id,
-                    lot,
-                    description,
-                    timestamp: i.timestamp,
+        yank_integrations.into_iter().for_each(|i| {
+            let description = match i.settings {
+                UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
+                    format!("Audiobookshelf URL: {}", base_url)
                 }
+            };
+            all_integrations.push(GraphqlUserIntegration {
+                id: i.id,
+                lot: UserIntegrationLot::Yank,
+                description,
+                timestamp: i.timestamp,
             })
-            .collect())
+        });
+        let sink_integrations = user.sink_integrations.0;
+        sink_integrations.into_iter().for_each(|i| {
+            let description = match i.settings {
+                UserSinkIntegrationSetting::Jellyfin { slug } => {
+                    format!("Jellyfin slug: {}", slug)
+                }
+            };
+            all_integrations.push(GraphqlUserIntegration {
+                id: i.id,
+                lot: UserIntegrationLot::Sink,
+                description,
+                timestamp: i.timestamp,
+            })
+        });
+        Ok(all_integrations)
+    }
+
+    async fn create_user_sink_integration(
+        &self,
+        user_id: i32,
+        input: CreateUserSinkIntegrationInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut integrations = user.sink_integrations.clone().0;
+        let new_integration_id = integrations.len() + 1;
+        let new_integration = UserSinkIntegration {
+            id: new_integration_id,
+            timestamp: Utc::now(),
+            settings: match input.lot {
+                UserSinkIntegrationLot::Jellyfin => {
+                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
+                        .encode(&[user_id.try_into().unwrap()]);
+                    let slug = format!("{}--{}", slug, nanoid!(5));
+                    UserSinkIntegrationSetting::Jellyfin { slug }
+                }
+            },
+        };
+        integrations.push(new_integration);
+        let mut user: user::ActiveModel = user.into();
+        user.sink_integrations = ActiveValue::Set(UserSinkIntegrations(integrations));
+        user.update(&self.db).await?;
+        Ok(new_integration_id)
     }
 
     async fn create_user_yank_integration(
@@ -3161,29 +3223,43 @@ impl MiscellaneousService {
         Ok(new_integration_id)
     }
 
-    async fn delete_user_yank_integration(
+    async fn delete_user_integration(
         &self,
         user_id: i32,
-        yank_integration_id: usize,
+        integration_id: usize,
+        integration_type: UserIntegrationLot,
     ) -> Result<bool> {
         let user = self.user_by_id(user_id).await?;
-        let integrations = if let Some(i) = user.yank_integrations.clone() {
-            i.0
-        } else {
-            vec![]
+        let mut user_db: user::ActiveModel = user.clone().into();
+        match integration_type {
+            UserIntegrationLot::Yank => {
+                let integrations = if let Some(i) = user.yank_integrations.clone() {
+                    i.0
+                } else {
+                    vec![]
+                };
+                let remaining_integrations = integrations
+                    .into_iter()
+                    .filter(|i| i.id != integration_id)
+                    .collect_vec();
+                let update_value = if remaining_integrations.is_empty() {
+                    None
+                } else {
+                    Some(UserYankIntegrations(remaining_integrations))
+                };
+                user_db.yank_integrations = ActiveValue::Set(update_value);
+            }
+            UserIntegrationLot::Sink => {
+                let integrations = user.sink_integrations.clone().0;
+                let remaining_integrations = integrations
+                    .into_iter()
+                    .filter(|i| i.id != integration_id)
+                    .collect_vec();
+                let update_value = UserSinkIntegrations(remaining_integrations);
+                user_db.sink_integrations = ActiveValue::Set(update_value);
+            }
         };
-        let remaining_integrations = integrations
-            .into_iter()
-            .filter(|i| i.id != yank_integration_id)
-            .collect_vec();
-        let update_value = if remaining_integrations.is_empty() {
-            None
-        } else {
-            Some(UserYankIntegrations(remaining_integrations))
-        };
-        let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(update_value);
-        user.update(&self.db).await?;
+        user_db.update(&self.db).await?;
         Ok(true)
     }
 
@@ -3293,26 +3369,10 @@ impl MiscellaneousService {
                 }
             }
             let mut updated_count = 0;
-            for pu in progress_updates.iter() {
-                if !(1..=95).contains(&pu.progress) {
-                    continue;
-                } else {
-                    updated_count += 1;
+            for pu in progress_updates.into_iter() {
+                if let Some(_) = self.integration_progress_update(pu, user_id).await.ok() {
+                    updated_count += 1
                 }
-                let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
-                self.progress_update(
-                    ProgressUpdateInput {
-                        metadata_id: id,
-                        progress: Some(pu.progress),
-                        date: Some(Utc::now().date_naive()),
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
-                    },
-                    user_id,
-                )
-                .await
-                .ok();
             }
             Ok(updated_count)
         } else {
@@ -3406,6 +3466,68 @@ impl MiscellaneousService {
         } else {
             Ok(false)
         }
+    }
+
+    pub async fn process_integration_webhook(
+        &self,
+        user_hash_id: String,
+        integration: String,
+        payload: String,
+    ) -> Result<()> {
+        let integration = match integration.as_str() {
+            "jellyfin" => UserSinkIntegrationLot::Jellyfin,
+            _ => return Err(anyhow!("Incorrect integration requested").into()),
+        };
+        let (user_hash, _) = user_hash_id
+            .split_once("--")
+            .ok_or(anyhow!("Unexpected format"))?;
+        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
+        let user_id: i32 = user_id
+            .first()
+            .ok_or(anyhow!("Incorrect hash id provided"))?
+            .to_owned()
+            .try_into()?;
+        let user = self.user_by_id(user_id).await?;
+        for db_integration in user.sink_integrations.0.into_iter() {
+            let progress = match db_integration.settings {
+                UserSinkIntegrationSetting::Jellyfin { slug } => {
+                    if slug == user_hash_id && integration == UserSinkIntegrationLot::Jellyfin {
+                        self.integration_service
+                            .jellyfin_progress(&payload)
+                            .await
+                            .ok()
+                    } else {
+                        None
+                    }
+                }
+            };
+            if let Some(pu) = progress {
+                self.integration_progress_update(pu, user_id).await.ok();
+            }
+        }
+        Ok(())
+    }
+
+    async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
+        if pu.progress < 2 {
+            return Err(Error::new("Progress outside bound"));
+        }
+        let progress = if pu.progress > 95 { 100 } else { pu.progress };
+        let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+        self.progress_update(
+            ProgressUpdateInput {
+                metadata_id: id,
+                progress: Some(progress),
+                date: Some(Utc::now().date_naive()),
+                show_season_number: pu.show_season_number,
+                show_episode_number: pu.show_episode_number,
+                podcast_episode_number: pu.podcast_episode_number,
+            },
+            user_id,
+        )
+        .await
+        .ok();
+        Ok(())
     }
 }
 

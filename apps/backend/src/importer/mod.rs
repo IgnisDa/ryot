@@ -20,7 +20,8 @@ use crate::{
         AddMediaToCollection, CreateOrUpdateCollectionInput, MediaDetails, PostReviewInput,
         ProgressUpdateInput,
     },
-    utils::user_id_from_ctx,
+    traits::AuthProvider,
+    utils::MemoryDatabase,
 };
 
 mod goodreads;
@@ -170,11 +171,9 @@ impl ImporterQuery {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<media_import_report::Model>> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<ImporterService>>()
-            .media_import_reports(user_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.media_import_reports(user_id).await
     }
 }
 
@@ -189,11 +188,9 @@ impl ImporterMutation {
         gql_ctx: &Context<'_>,
         input: DeployImportJobInput,
     ) -> Result<String> {
-        let user_id = user_id_from_ctx(gql_ctx).await?;
-        gql_ctx
-            .data_unchecked::<Arc<ImporterService>>()
-            .deploy_import_job(user_id, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.deploy_import_job(user_id, input).await
     }
 }
 
@@ -201,6 +198,12 @@ pub struct ImporterService {
     db: DatabaseConnection,
     media_service: Arc<MiscellaneousService>,
     import_media: SqliteStorage<ImportMedia>,
+}
+
+impl AuthProvider for ImporterService {
+    fn get_auth_db(&self) -> &MemoryDatabase {
+        self.media_service.get_auth_db()
+    }
 }
 
 impl ImporterService {

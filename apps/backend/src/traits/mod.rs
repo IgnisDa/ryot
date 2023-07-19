@@ -1,9 +1,14 @@
 use anyhow::Result;
+use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
-use crate::models::{
-    media::{MediaDetails, MediaSearchItem},
-    SearchResults,
+use crate::{
+    models::{
+        media::{MediaDetails, MediaSearchItem},
+        SearchResults,
+    },
+    utils::{user_id_from_token, MemoryDatabase},
+    GqlCtx,
 };
 
 #[async_trait]
@@ -31,5 +36,22 @@ pub trait MediaProviderLanguages {
 pub trait IsFeatureEnabled {
     fn is_enabled(&self) -> bool {
         true
+    }
+}
+
+#[async_trait]
+pub trait AuthProvider {
+    fn get_auth_db(&self) -> &MemoryDatabase;
+
+    fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
+        let ctx = ctx.data_unchecked::<GqlCtx>();
+        ctx.auth_token
+            .clone()
+            .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
+    }
+
+    async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<i32> {
+        let token = self.user_auth_token_from_ctx(ctx)?;
+        user_id_from_token(token, self.get_auth_db()).await
     }
 }

@@ -23,23 +23,19 @@ use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use aws_sdk_s3::config::Region;
 use axum::{
     body::{boxed, Full},
-    extract::Multipart,
+    extract::{Multipart, Path},
     headers::{authorization::Bearer, Authorization},
     http::{header, HeaderMap, Method, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, post, Router},
     Extension, Json, Server, TypedHeader,
 };
-use darkbird::{
-    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
-    Options, Storage, StorageType,
-};
+use darkbird::{Options, Storage, StorageType};
 use http::header::AUTHORIZATION;
 use itertools::Itertools;
 use rust_embed::RustEmbed;
-use sea_orm::{prelude::DateTimeUtc, ConnectOptions, Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use tokio::try_join;
@@ -48,7 +44,6 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use utils::MemoryAuthDb;
 use uuid::Uuid;
 
 use crate::{
@@ -64,7 +59,8 @@ use crate::{
     migrator::Migrator,
     miscellaneous::resolver::MiscellaneousService,
     utils::{
-        create_app_services, user_id_from_token, BASE_DIR, COOKIE_NAME, PROJECT_NAME, VERSION,
+        create_app_services, user_id_from_token, MemoryAuthData, BASE_DIR, COOKIE_NAME,
+        PROJECT_NAME, VERSION,
     },
 };
 
@@ -200,7 +196,7 @@ async fn main() -> Result<()> {
             .unwrap();
     }
 
-    let schema = get_schema(&app_services, auth_db.clone()).await;
+    let schema = get_schema(&app_services).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -215,7 +211,13 @@ async fn main() -> Result<()> {
         )
         .allow_credentials(true);
 
-    let app = Router::new()
+    let webhook_routes = Router::new().route(
+        "/integrations/:integration/:user_hash_id",
+        post(integration_webhook),
+    );
+
+    let app_routes = Router::new()
+        .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
@@ -225,7 +227,6 @@ async fn main() -> Result<()> {
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
-        .layer(Extension(auth_db.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -352,7 +353,7 @@ async fn main() -> Result<()> {
 
     let http = async {
         Server::bind(&addr)
-            .serve(app.into_make_service())
+            .serve(app_routes.into_make_service())
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };
@@ -475,50 +476,26 @@ async fn upload_handler(
 
 async fn export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
-    Extension(auth_db): Extension<MemoryAuthDb>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &auth_db)
+    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.json_export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct MemoryAuthData {
-    pub user_id: i32,
-    pub last_used_on: DateTimeUtc,
-}
-
-impl Document for MemoryAuthData {}
-
-impl Indexer for MemoryAuthData {
-    fn extract(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
-impl Tags for MemoryAuthData {
-    fn get_tags(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
-impl Range for MemoryAuthData {
-    fn get_fields(&self) -> Vec<RangeField> {
-        vec![]
-    }
-}
-
-impl MaterializedView for MemoryAuthData {
-    fn filter(&self) -> Option<String> {
-        None
-    }
-}
-
-impl FullText for MemoryAuthData {
-    fn get_content(&self) -> Option<String> {
-        None
-    }
+async fn integration_webhook(
+    Path((integration, user_hash_id)): Path<(String, String)>,
+    Extension(media_service): Extension<Arc<MiscellaneousService>>,
+    payload: String,
+) -> std::result::Result<StatusCode, StatusCode> {
+    media_service
+        .process_integration_webhook(user_hash_id, integration, payload)
+        .await
+        .map_err(|e| {
+            tracing::error!("{:?}", e);
+            StatusCode::UNPROCESSABLE_ENTITY
+        })?;
+    Ok(StatusCode::OK)
 }

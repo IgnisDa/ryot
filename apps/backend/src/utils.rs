@@ -1,15 +1,22 @@
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fs::File,
+    io::Read,
+    path::PathBuf,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use apalis::sqlite::SqliteStorage;
-use async_graphql::{Context, Error, InputObject, Result, SimpleObject};
+use async_graphql::{Error, InputObject, Result, SimpleObject};
 use chrono::{NaiveDate, Utc};
-use darkbird::Storage;
+use darkbird::{
+    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
+    Storage,
+};
 use http_types::headers::HeaderName;
-use sea_orm::{ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection};
+use sea_orm::{
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection,
+};
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::{
     de::{self, DeserializeOwned},
@@ -32,10 +39,9 @@ use crate::{
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
-    GqlCtx, MemoryAuthData,
 };
 
-pub type MemoryAuthDb = Arc<Storage<String, MemoryAuthData>>;
+pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -57,7 +63,7 @@ pub struct AppServices {
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
-    auth_db: MemoryAuthDb,
+    auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
@@ -130,20 +136,7 @@ where
     Ok(())
 }
 
-pub fn user_auth_token_from_ctx(ctx: &Context<'_>) -> Result<String> {
-    let ctx = ctx.data_unchecked::<GqlCtx>();
-    ctx.auth_token
-        .clone()
-        .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
-}
-
-pub async fn user_id_from_ctx(ctx: &Context<'_>) -> Result<i32> {
-    let auth_db = ctx.data_unchecked::<MemoryAuthDb>();
-    let token = user_auth_token_from_ctx(ctx)?;
-    user_id_from_token(token, auth_db).await
-}
-
-pub async fn user_id_from_token(token: String, auth_db: &MemoryAuthDb) -> Result<i32> {
+pub async fn user_id_from_token(token: String, auth_db: &MemoryDatabase) -> Result<i32> {
     let found_token = auth_db.lookup(&token);
     match found_token {
         Some(t) => {
@@ -234,4 +227,42 @@ where
         BinOper::Like,
         Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
     )
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MemoryAuthData {
+    pub user_id: i32,
+    pub last_used_on: DateTimeUtc,
+}
+
+impl Document for MemoryAuthData {}
+
+impl Indexer for MemoryAuthData {
+    fn extract(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl Tags for MemoryAuthData {
+    fn get_tags(&self) -> Vec<String> {
+        vec![]
+    }
+}
+
+impl Range for MemoryAuthData {
+    fn get_fields(&self) -> Vec<RangeField> {
+        vec![]
+    }
+}
+
+impl MaterializedView for MemoryAuthData {
+    fn filter(&self) -> Option<String> {
+        None
+    }
+}
+
+impl FullText for MemoryAuthData {
+    fn get_content(&self) -> Option<String> {
+        None
+    }
 }

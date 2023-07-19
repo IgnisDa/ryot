@@ -7,16 +7,16 @@ be of two types:
 periodic interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
 
+!!! info
+
+    An item is marked as started when it has more than _2%_ progress and
+    marked as completed when it has more than _95%_ progress.
+
 ## Yank plugins
 
 For each integration you want to enable, credentials for the external server
 must be saved to your profile. To do so, go to the "Settings" tab and add a
 new integration under the "Integrations" tab.
-
-!!!note
-
-    An item is marked as started when it has more than _2%_ progress and
-    marked as completed when it has more than _95%_ progress.
 
 ### Audiobookshelf
 
@@ -32,6 +32,31 @@ media which have a match from _Audible_.
 
 To start, go to the "Settings" tab and generate a new application token from under
 the "Tokens" tab. It will look like this: `e96fca00-18b1-467c-80f0-8534e09ed790`.
+
+### Jellyfin
+
+Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to
+Movary. It will work for all the media that have been a valid TMDb ID attached
+to their metadata.
+
+!!! info
+
+    Requires the
+    [unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
+    to be installed and active in Jellyfin.
+
+1. Generate a slug in the integration settings page. Copy the newly generated
+slug.
+2. In the Jellyfin webhook plugin settings, add a new webhook using the
+following settings:
+    - Webhook Url => `<instance_url>/webhooks/integrations/jellyfin/<slug>`
+    - Payload format => `Default`
+    - Listen to events only for => Choose your user
+    - Events => `Play`, `Pause`, `Resume`, and `Stop`
+
+!!! tip
+
+    Keep your webhook url private to prevent abuse.
 
 ### Kodi
 

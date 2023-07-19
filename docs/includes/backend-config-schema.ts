@@ -92,6 +92,8 @@ export interface FileStorageConfig {
 }
 
 export interface IntegrationConfig {
+	/** The salt used to hash user IDs. */
+	hasher_salt: string;
 	/**
 	 * Sync data from [yank](/docs/guides/integrations.md) based integrations
 	 * every `n` hours.
@@ -178,6 +180,13 @@ export interface ServerConfig {
 	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
 	 */
 	insecure_cookie: boolean;
+	/**
+	 * The hours in which a media can be marked as seen again for a user. This
+	 * is used so that the same media can not be used marked as started when
+	 * it has been already marked as seen in the last `n` hours.
+	 * @default 2
+	 */
+	progress_update_threshold: number;
 }
 
 export interface ShowsTmdbConfig {

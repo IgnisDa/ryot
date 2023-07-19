@@ -1,0 +1,6 @@
+mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {
+  deleteUserIntegration(
+    integrationId: $integrationId
+    integrationLot: $integrationLot
+  )
+}

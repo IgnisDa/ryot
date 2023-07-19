@@ -3,7 +3,8 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
 use itertools::Itertools;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -110,7 +111,7 @@ pub async fn import(
                         rating: record
                             .rating
                             // DEV: Rates items out of 10
-                            .map(|d| d.saturating_mul(Decimal::from_u8(10).unwrap())),
+                            .map(|d| d.saturating_mul(dec!(10))),
                         review: record.review.map(|r| ImportItemReview {
                             date: None,
                             spoiler: false,

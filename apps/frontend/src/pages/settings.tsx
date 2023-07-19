@@ -34,14 +34,16 @@ import { useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
+	CreateUserSinkIntegrationDocument,
+	type CreateUserSinkIntegrationMutationVariables,
 	CreateUserYankIntegrationDocument,
 	type CreateUserYankIntegrationMutationVariables,
 	DeleteUserAuthTokenDocument,
 	type DeleteUserAuthTokenMutationVariables,
 	DeleteUserDocument,
+	DeleteUserIntegrationDocument,
+	type DeleteUserIntegrationMutationVariables,
 	type DeleteUserMutationVariables,
-	DeleteUserYankIntegrationDocument,
-	type DeleteUserYankIntegrationMutationVariables,
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
 	GenerateApplicationTokenDocument,
@@ -60,9 +62,10 @@ import {
 	UserAuthTokensDocument,
 	UserDetailsDocument,
 	type UserInput,
+	UserIntegrationsDocument,
 	UserLot,
+	UserSinkIntegrationLot,
 	UserYankIntegrationLot,
-	UserYankIntegrationsDocument,
 	UsersDocument,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
@@ -136,8 +139,8 @@ const storyGraphImportFormSchema = z.object({
 type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
 
 const createUserYankIntegrationSchema = z.object({
-	baseUrl: z.string().url(),
-	token: z.string(),
+	baseUrl: z.string().url().optional(),
+	token: z.string().optional(),
 });
 type CreateUserYankIntegationSchema = z.infer<
 	typeof createUserYankIntegrationSchema
@@ -177,6 +180,8 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationLot>();
+	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
+		useState<UserSinkIntegrationLot>();
 	const [deployImportSource, setDeployImportSource] =
 		useState<MediaImportSource>();
 
@@ -246,11 +251,11 @@ const Page: NextPageWithLayout = () => {
 		{ staleTime: Infinity },
 	);
 
-	const userYankIntegrations = useQuery(["userYankIntegrations"], async () => {
-		const { userYankIntegrations } = await gqlClient.request(
-			UserYankIntegrationsDocument,
+	const userIntegrations = useQuery(["userIntegrations"], async () => {
+		const { userIntegrations } = await gqlClient.request(
+			UserIntegrationsDocument,
 		);
-		return userYankIntegrations;
+		return userIntegrations;
 	});
 
 	const users = useQuery(["users"], async () => {
@@ -354,22 +359,35 @@ const Page: NextPageWithLayout = () => {
 			return createUserYankIntegration;
 		},
 		onSuccess: () => {
-			userYankIntegrations.refetch();
+			userIntegrations.refetch();
 		},
 	});
 
-	const deleteUserYankIntegration = useMutation({
+	const createUserSinkIntegration = useMutation({
 		mutationFn: async (
-			variables: DeleteUserYankIntegrationMutationVariables,
+			variables: CreateUserSinkIntegrationMutationVariables,
 		) => {
-			const { deleteUserYankIntegration } = await gqlClient.request(
-				DeleteUserYankIntegrationDocument,
+			const { createUserSinkIntegration } = await gqlClient.request(
+				CreateUserSinkIntegrationDocument,
 				variables,
 			);
-			return deleteUserYankIntegration;
+			return createUserSinkIntegration;
 		},
 		onSuccess: () => {
-			userYankIntegrations.refetch();
+			userIntegrations.refetch();
+		},
+	});
+
+	const deleteUserIntegration = useMutation({
+		mutationFn: async (variables: DeleteUserIntegrationMutationVariables) => {
+			const { deleteUserIntegration } = await gqlClient.request(
+				DeleteUserIntegrationDocument,
+				variables,
+			);
+			return deleteUserIntegration;
+		},
+		onSuccess: () => {
+			userIntegrations.refetch();
 		},
 	});
 
@@ -480,7 +498,7 @@ const Page: NextPageWithLayout = () => {
 		languageInformation.data &&
 		userAuthTokens.data &&
 		userPrefs.data &&
-		userYankIntegrations.data ? (
+		userIntegrations.data ? (
 		<>
 			<Head>
 				<title>Settings | Ryot</title>
@@ -853,18 +871,12 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="integrations">
 							<Stack>
-								{userYankIntegrations.data.length > 0 ? (
-									userYankIntegrations.data.map((i, idx) => (
+								{userIntegrations.data.length > 0 ? (
+									userIntegrations.data.map((i, idx) => (
 										<Paper p="xs" withBorder key={idx}>
 											<Flex align={"center"} justify={"space-between"}>
 												<Box>
-													<Text>{i.lot}</Text>
-													<Text size="xs">
-														Connected to{" "}
-														<Anchor href={i.description}>
-															{i.description}{" "}
-														</Anchor>
-													</Text>
+													<Text size="xs">{i.description}</Text>
 													<Text size="xs">{formatTimeAgo(i.timestamp)}</Text>
 												</Box>
 												<Button
@@ -875,8 +887,9 @@ const Page: NextPageWithLayout = () => {
 															"Are you sure you want to delete this integration?",
 														);
 														if (yes)
-															deleteUserYankIntegration.mutate({
-																yankIntegrationId: i.id,
+															deleteUserIntegration.mutate({
+																integrationId: i.id,
+																integrationLot: i.lot,
 															});
 													}}
 												>
@@ -909,14 +922,20 @@ const Page: NextPageWithLayout = () => {
 													if (createUserYankIntegrationLot) {
 														createUserYankIntegration.mutate({
 															input: {
-																baseUrl: values.baseUrl,
-																token: values.token,
+																baseUrl: values.baseUrl!,
+																token: values.token!,
 																lot: createUserYankIntegrationLot,
 															},
 														});
-														closeCreateUserYankIntegrationModal();
-														setCreateUserYankIntegrationLot(undefined);
+													} else if (createUserSinkIntegrationLot) {
+														createUserSinkIntegration.mutate({
+															input: { lot: createUserSinkIntegrationLot },
+														});
 													}
+													closeCreateUserYankIntegrationModal();
+													createUserYankIntegrationForm.reset();
+													setCreateUserYankIntegrationLot(undefined);
+													setCreateUserSinkIntegrationLot(undefined);
 												},
 											)}
 										>
@@ -925,39 +944,54 @@ const Page: NextPageWithLayout = () => {
 													label="Select a source"
 													required
 													withinPortal
-													data={Object.values(UserYankIntegrationLot)}
+													data={[
+														...Object.values(UserYankIntegrationLot),
+														...Object.values(UserSinkIntegrationLot),
+													]}
 													onChange={(v) => {
 														const t = match(v)
 															.with(
 																"AUDIOBOOKSHELF",
 																() => UserYankIntegrationLot.Audiobookshelf,
 															)
-															.run();
+															.otherwise(() => undefined);
 														if (t) setCreateUserYankIntegrationLot(t);
+														const r = match(v)
+															.with(
+																"JELLYFIN",
+																() => UserSinkIntegrationLot.Jellyfin,
+															)
+															.otherwise(() => undefined);
+														if (r) setCreateUserSinkIntegrationLot(r);
 													}}
 												/>
 												{createUserYankIntegrationLot ? (
 													<>
 														<TextInput
 															label="Base Url"
+															required
 															{...createUserYankIntegrationForm.getInputProps(
 																"baseUrl",
 															)}
 														/>
 														<TextInput
 															label="Token"
+															required
 															{...createUserYankIntegrationForm.getInputProps(
 																"token",
 															)}
 														/>
-														<Button
-															type="submit"
-															loading={createUserYankIntegration.isLoading}
-														>
-															Submit
-														</Button>
 													</>
 												) : null}
+												<Button
+													type="submit"
+													loading={
+														createUserYankIntegration.isLoading ||
+														createUserSinkIntegration.isLoading
+													}
+												>
+													Submit
+												</Button>
 											</Stack>
 										</Box>
 									</Modal>

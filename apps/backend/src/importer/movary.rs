@@ -1,7 +1,8 @@
 use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use csv::Reader;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -64,11 +65,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             reviews: vec![ImportItemRating {
                 id: None,
                 // DEV: Rates items out of 10
-                rating: Some(
-                    record
-                        .user_rating
-                        .saturating_mul(Decimal::from_u16(10).unwrap()),
-                ),
+                rating: Some(record.user_rating.saturating_mul(dec!(10))),
                 review: None,
             }],
             collections: vec![],

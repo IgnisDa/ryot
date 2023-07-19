@@ -324,6 +324,9 @@ pub struct IntegrationConfig {
     /// every `n` hours.
     #[setting(default = 2)]
     pub pull_every: i32,
+    /// The salt used to hash user IDs.
+    #[setting(default = format!("{}", PROJECT_NAME))]
+    pub hasher_salt: String,
 }
 
 impl IsFeatureEnabled for FileStorageConfig {
@@ -386,6 +389,11 @@ pub struct ServerConfig {
     /// are running the server on `localhost`.
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
+    /// The hours in which a media can be marked as seen again for a user. This
+    /// is used so that the same media can not be used marked as started when
+    /// it has been already marked as seen in the last `n` hours.
+    #[setting(default = 2)]
+    pub progress_update_threshold: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -453,6 +461,7 @@ impl AppConfig {
         cl.file_storage.s3_access_key_id = gt();
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
+        cl.integration.hasher_salt = gt();
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();

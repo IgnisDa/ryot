@@ -1,0 +1,8 @@
+query UserIntegrations {
+  userIntegrations {
+    id
+    lot
+    description
+    timestamp
+  }
+}

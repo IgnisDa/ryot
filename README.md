@@ -54,9 +54,9 @@ special tool on your computer or phone that lets you keep track of all these dig
 ## 🚀 Features
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
-  and fitness.
+  and fitness
 - ✅ Import data from Goodreads, MediaTracker, Trakt, Movary, StoryGraph
-- ✅ Integration with Kodi, Audiobookshelf
+- ✅ Integration with Jellyfin, Kodi, Audiobookshelf
 - ✅ Self-hosted
 - ✅ PWA enabled
 - ✅ Documented GraphQL API

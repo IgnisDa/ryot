@@ -13,15 +13,16 @@ impl MigrationName for Migration {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(User::Table)
-                    .add_column_if_not_exists(ColumnDef::new(User::YankIntegrations).json())
-                    .to_owned(),
-            )
-            .await
-            .ok();
+        if !manager.has_column("user", "yank_integrations").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(User::Table)
+                        .add_column_if_not_exists(ColumnDef::new(User::YankIntegrations).json())
+                        .to_owned(),
+                )
+                .await?;
+        }
         Ok(())
     }
 

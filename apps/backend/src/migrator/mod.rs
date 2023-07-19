@@ -18,6 +18,7 @@ mod m20230702_000014_add_user_integrations_field;
 mod m20230707_000015_add_description_and_visibility_fields;
 mod m20230712_000016_remove_identifier_fields;
 mod m20230717_000017_change_rating_value;
+mod m20230717_000018_add_user_sink_integrations_field;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -50,6 +51,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230707_000015_add_description_and_visibility_fields::Migration),
             Box::new(m20230712_000016_remove_identifier_fields::Migration),
             Box::new(m20230717_000017_change_rating_value::Migration),
+            Box::new(m20230717_000018_add_user_sink_integrations_field::Migration),
         ]
     }
 }

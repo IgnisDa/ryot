@@ -59,7 +59,7 @@ volumes:
     running HTTPs.
 
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
-pre-release (or release, whichever is newer).
+pre-release or release, whichever is newer.
 
 ## Quick-run a release
 
@@ -74,7 +74,7 @@ $ eget ignisda/ryot
 
 ## Compile and run from source
 
-- Install [moonrepo](https://moonrepo.dev/)
+First install [moonrepo](https://moonrepo.dev/)
 
 ```bash
 # Build the frontend

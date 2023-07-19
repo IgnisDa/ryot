@@ -1,4 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
+use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
@@ -8,11 +10,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct YankIntegrationMedia {
+pub struct IntegrationMedia {
     pub identifier: String,
     pub lot: MetadataLot,
     pub source: MetadataSource,
     pub progress: i32,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -23,17 +28,96 @@ impl IntegrationService {
         Self
     }
 
+    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+        mod models {
+            use super::*;
+
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookSessionPlayStatePayload {
+                pub position_ticks: Decimal,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookSessionPayload {
+                pub play_state: JellyfinWebhookSessionPlayStatePayload,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookItemProviderIdsPayload {
+                pub tmdb: Option<String>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookItemUserDataPayload {
+                pub played: bool,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookItemPayload {
+                pub run_time_ticks: Decimal,
+                #[serde(rename = "Type")]
+                pub item_type: String,
+                pub provider_ids: JellyfinWebhookItemProviderIdsPayload,
+                pub user_data: JellyfinWebhookItemUserDataPayload,
+                #[serde(rename = "ParentIndexNumber")]
+                pub season_number: Option<i32>,
+                #[serde(rename = "IndexNumber")]
+                pub episode_number: Option<i32>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct JellyfinWebhookPayload {
+                pub event: Option<String>,
+                pub item: JellyfinWebhookItemPayload,
+                pub series: Option<JellyfinWebhookItemPayload>,
+                pub session: JellyfinWebhookSessionPayload,
+            }
+        }
+        // std::fs::write("tmp/output.json", payload)?;
+        let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
+        let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
+            Some(id.clone())
+        } else {
+            payload
+                .series
+                .as_ref()
+                .and_then(|s| s.provider_ids.tmdb.clone())
+        };
+        if let Some(identifier) = identifier {
+            let lot = match payload.item.item_type.as_str() {
+                "Episode" => MetadataLot::Show,
+                "Movie" => MetadataLot::Movie,
+                _ => bail!("Only movies and shows supported"),
+            };
+            Ok(IntegrationMedia {
+                identifier,
+                lot,
+                source: MetadataSource::Tmdb,
+                progress: (payload.session.play_state.position_ticks / payload.item.run_time_ticks
+                    * dec!(100))
+                .to_i32()
+                .unwrap(),
+                podcast_episode_number: None,
+                show_season_number: payload.item.season_number,
+                show_episode_number: payload.item.episode_number,
+            })
+        } else {
+            bail!("No TMDb ID associated with this media")
+        }
+    }
+
     pub async fn audiobookshelf_progress(
         &self,
         base_url: &str,
         access_token: &str,
-    ) -> Result<Vec<YankIntegrationMedia>> {
+    ) -> Result<Vec<IntegrationMedia>> {
         mod models {
             use super::*;
 
             #[derive(Debug, Serialize, Deserialize)]
             pub struct ItemProgress {
-                pub progress: f32,
+                pub progress: Decimal,
             }
             #[derive(Debug, Serialize, Deserialize)]
             pub struct ItemMetadata {
@@ -75,11 +159,14 @@ impl IntegrationService {
                     .body_json()
                     .await
                     .unwrap();
-                media_items.push(YankIntegrationMedia {
+                media_items.push(IntegrationMedia {
                     identifier: asin,
                     lot: MetadataLot::AudioBook,
                     source: MetadataSource::Audible,
-                    progress: (resp.progress * 100_f32) as i32,
+                    progress: (resp.progress * dec!(100)).to_i32().unwrap(),
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 });
             }
         }
