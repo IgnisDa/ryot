@@ -180,6 +180,11 @@ export interface ServerConfig {
 	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
 	 */
 	insecure_cookie: boolean;
+	/**
+	 * The time in which a media can be marked as seen again for a user.
+	 * @default 2
+	 */
+	progress_update_threshold: number;
 }
 
 export interface ShowsTmdbConfig {

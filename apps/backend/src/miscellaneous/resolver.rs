@@ -1610,6 +1610,8 @@ impl MiscellaneousService {
         })
     }
 
+    // DEV: First we update progress only if media has not been consumed for
+    // this user in the last `n` duration.
     pub async fn progress_update(
         &self,
         input: ProgressUpdateInput,

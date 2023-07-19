@@ -389,6 +389,9 @@ pub struct ServerConfig {
     /// are running the server on `localhost`.
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
+    /// The time in which a media can be marked as seen again for a user.
+    #[setting(default = 2)]
+    pub progress_update_threshold: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
