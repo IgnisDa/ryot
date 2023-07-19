@@ -3527,14 +3527,15 @@ impl MiscellaneousService {
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
-        if !(1..=95).contains(&pu.progress) {
+        if pu.progress < 2 {
             return Err(Error::new("Progress outside bound"));
         }
+        let progress = if pu.progress > 95 { 100 } else { pu.progress };
         let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
         self.progress_update(
             ProgressUpdateInput {
                 metadata_id: id,
-                progress: Some(pu.progress),
+                progress: Some(progress),
                 date: Some(Utc::now().date_naive()),
                 show_season_number: pu.show_season_number,
                 show_episode_number: pu.show_episode_number,
