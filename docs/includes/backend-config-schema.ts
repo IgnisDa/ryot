@@ -181,7 +181,9 @@ export interface ServerConfig {
 	 */
 	insecure_cookie: boolean;
 	/**
-	 * The time in which a media can be marked as seen again for a user.
+	 * The hours in which a media can be marked as seen again for a user. This
+	 * is used so that the same media can not be used marked as started when
+	 * it has been already marked as seen in the last `n` hours.
 	 * @default 2
 	 */
 	progress_update_threshold: number;

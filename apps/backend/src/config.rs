@@ -389,7 +389,9 @@ pub struct ServerConfig {
     /// are running the server on `localhost`.
     /// [More information](https://github.com/IgnisDa/ryot/issues/23)
     pub insecure_cookie: bool,
-    /// The time in which a media can be marked as seen again for a user.
+    /// The hours in which a media can be marked as seen again for a user. This
+    /// is used so that the same media can not be used marked as started when
+    /// it has been already marked as seen in the last `n` hours.
     #[setting(default = 2)]
     pub progress_update_threshold: i32,
 }
