@@ -199,7 +199,7 @@ async fn main() -> Result<()> {
             .unwrap();
     }
 
-    let schema = get_schema(&app_services, auth_db.clone()).await;
+    let schema = get_schema(&app_services).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
