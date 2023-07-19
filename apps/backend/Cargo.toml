@@ -39,6 +39,7 @@ mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.28.2", features = ["serde", "serialize"] }
 regex = "1.8.1"
+retainer = "0.3.0"
 rust-embed = "6.6.1"
 rust_decimal = "1.29.1"
 rust_decimal_macros = "1.29.1"
