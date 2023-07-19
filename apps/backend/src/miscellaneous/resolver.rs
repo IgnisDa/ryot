@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
@@ -16,6 +16,7 @@ use markdown::{
     Options,
 };
 use nanoid::nanoid;
+use retainer::Cache;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -933,6 +934,7 @@ pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
     pub config: Arc<AppConfig>,
+    pub seen_progress_cache: Arc<Cache<Vec<u8>, bool>>,
     pub file_storage: Arc<FileStorageService>,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
@@ -981,10 +983,16 @@ impl MiscellaneousService {
         let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
         let integration_service = IntegrationService::new().await;
 
+        let seen_progress_cache = Arc::new(Cache::new());
+        let cache_clone = seen_progress_cache.clone();
+
+        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+
         Self {
             db: db.clone(),
             auth_db: auth_db.clone(),
             config,
+            seen_progress_cache,
             file_storage,
             audible_service,
             google_books_service,
