@@ -10,7 +10,6 @@ class Scrobbler:
     def __init__(self) -> None:
         self.__addon__ = xbmcaddon.Addon()
         self.media_cache = {}
-        self.seen_cache = {}
 
     def scrobble(self, player: xbmc.Player):
         if player.isPlaying() is False:
@@ -108,17 +107,11 @@ class Scrobbler:
             xbmc.LOGDEBUG,
         )
 
-        marked_as_seen = self.seen_cache.get(ryot_media_id)
-
         if progress > 90:
-            if not marked_as_seen:
-                self.seen_cache[ryot_media_id] = datetime.now()
-                ryot_tracker.update_progress(
-                    ryot_media_id, 100, season_number, episode_number
-                )
-                return
-            if (datetime.now() - marked_as_seen).seconds < 8 * 60 * 60:
-                return
+            ryot_tracker.update_progress(
+                ryot_media_id, 100, season_number, episode_number
+            )
+            return
 
         ryot_tracker.update_progress(
             ryot_media_id, progress, season_number, episode_number
