@@ -4228,7 +4228,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "sha2 0.10.7",
  "slug",
  "sqlx",
  "strum 0.24.1",
