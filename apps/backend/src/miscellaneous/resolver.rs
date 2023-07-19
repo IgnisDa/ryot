@@ -28,7 +28,6 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
@@ -1619,25 +1618,8 @@ impl MiscellaneousService {
         input: ProgressUpdateInput,
         user_id: i32,
     ) -> Result<IdObject> {
-        // Hash `input.{metadata_id,show_season_number,show_episode_number,podcast_episode_number},user_id`
-        // and store it in a memory database to implement de-duplication. Also
-        // set expiry for keys in the DB to the
-        // `config.server.progress_update_threshold` key.
-        let mut hasher = Sha256::new();
-        hasher.update(user_id.to_be_bytes());
-        hasher.update(input.metadata_id.to_be_bytes());
-        if let Some(s) = input.show_season_number {
-            hasher.update(s.to_be_bytes());
-        }
-        if let Some(s) = input.show_episode_number {
-            hasher.update(s.to_be_bytes());
-        }
-        if let Some(s) = input.podcast_episode_number {
-            hasher.update(s.to_be_bytes());
-        }
-        let result = hasher.finalize();
-        println!("{:?}", &result);
-
+        // TODO: Hash `input.{metadata_id,show_season_number,show_episode_number,podcast_episode_number},user_id`
+        // and store it in a database so that implement de-duplication.
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
