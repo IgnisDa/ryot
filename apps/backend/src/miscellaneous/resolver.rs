@@ -29,7 +29,6 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
@@ -428,6 +427,15 @@ struct CoreDetails {
     repository_link: String,
     username_change_allowed: bool,
     default_credentials: bool,
+}
+
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
+struct ProgressUpdateCache {
+    user_id: i32,
+    metadata_id: i32,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
 }
 
 fn create_cookie(
@@ -935,7 +943,6 @@ pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
     pub config: Arc<AppConfig>,
-    pub seen_progress_cache: Arc<Cache<Vec<u8>, bool>>,
     pub file_storage: Arc<FileStorageService>,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
@@ -952,6 +959,7 @@ pub struct MiscellaneousService {
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
+    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
 }
 
 impl AuthProvider for MiscellaneousService {
@@ -1573,24 +1581,17 @@ impl MiscellaneousService {
         input: ProgressUpdateInput,
         user_id: i32,
     ) -> Result<IdObject> {
-        // Hash `input.{metadata_id,show_season_number,show_episode_number,podcast_episode_number},user_id`
-        // and store it in a memory database to implement de-duplication. Also
-        // set expiry for keys in the DB to the
-        // `config.server.progress_update_threshold` key.
-        let mut hasher = Sha256::new();
-        hasher.update(user_id.to_be_bytes());
-        hasher.update(input.metadata_id.to_be_bytes());
-        if let Some(s) = input.show_season_number {
-            hasher.update(s.to_be_bytes());
+        let cache = ProgressUpdateCache {
+            user_id,
+            metadata_id: input.metadata_id,
+            show_season_number: input.show_season_number,
+            show_episode_number: input.show_episode_number,
+            podcast_episode_number: input.podcast_episode_number,
+        };
+
+        if self.seen_progress_cache.get(&cache).await.is_some() {
+            return Err(Error::new("Progress was updated within the specified threshold, will not continue with progress update"));
         }
-        if let Some(s) = input.show_episode_number {
-            hasher.update(s.to_be_bytes());
-        }
-        if let Some(s) = input.podcast_episode_number {
-            hasher.update(s.to_be_bytes());
-        }
-        let result = hasher.finalize();
-        println!("{:?}", &result);
 
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
@@ -1761,6 +1762,15 @@ impl MiscellaneousService {
         let id = seen_item.id;
         let metadata = self.generic_metadata(input.metadata_id).await?;
         let mut storage = self.after_media_seen.clone();
+        if seen_item.progress == 100 {
+            self.seen_progress_cache
+                .insert(
+                    cache,
+                    (),
+                    Duration::from_secs(self.config.server.progress_update_threshold * 3600),
+                )
+                .await;
+        }
         storage
             .push(AfterMediaSeenJob {
                 seen: seen_item,
