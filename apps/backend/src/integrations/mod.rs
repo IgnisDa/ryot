@@ -49,17 +49,11 @@ impl IntegrationService {
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookItemUserDataPayload {
-                pub played: bool,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
             pub struct JellyfinWebhookItemPayload {
                 pub run_time_ticks: Decimal,
                 #[serde(rename = "Type")]
                 pub item_type: String,
                 pub provider_ids: JellyfinWebhookItemProviderIdsPayload,
-                pub user_data: JellyfinWebhookItemUserDataPayload,
                 #[serde(rename = "ParentIndexNumber")]
                 pub season_number: Option<i32>,
                 #[serde(rename = "IndexNumber")]
