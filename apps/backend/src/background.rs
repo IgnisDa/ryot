@@ -63,6 +63,12 @@ pub async fn general_user_cleanup(
         .regenerate_user_summaries()
         .await
         .unwrap();
+    tracing::trace!("Removing old user authentication tokens");
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
+        .delete_expired_user_auth_tokens()
+        .await
+        .unwrap();
     Ok(())
 }
 
