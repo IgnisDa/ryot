@@ -1,5 +1,4 @@
-use async_graphql::{EmptySubscription, MergedObject, Schema, SimpleObject};
-use serde::{Deserialize, Serialize};
+use async_graphql::{EmptySubscription, MergedObject, Schema};
 
 use crate::{
     fitness::exercise::resolver::{ExerciseMutation, ExerciseQuery},
@@ -7,11 +6,6 @@ use crate::{
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
     utils::AppServices,
 };
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
-pub struct IdObject {
-    pub id: i32,
-}
 
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(MiscellaneousQuery, ImporterQuery, ExerciseQuery);

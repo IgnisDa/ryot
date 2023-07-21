@@ -1,4 +1,4 @@
-use async_graphql::{Enum, InputObject, OutputType, SimpleObject};
+use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
@@ -18,6 +18,11 @@ pub struct SearchResults<T: OutputType> {
     pub total: i32,
     pub items: Vec<T>,
     pub next_page: Option<i32>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct IdObject {
+    pub id: i32,
 }
 
 pub mod media {
@@ -462,6 +467,24 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
+    }
+
+    #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+    pub enum ProgressUpdateErrorVariant {
+        AlreadySeen,
+        NoSeenInProgress,
+        InvalidUpdate,
+    }
+
+    #[derive(Debug, SimpleObject)]
+    pub struct ProgressUpdateError {
+        pub error: ProgressUpdateErrorVariant,
+    }
+
+    #[derive(Union)]
+    pub enum ProgressUpdateResultUnion {
+        Ok(IdObject),
+        Error(ProgressUpdateError),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

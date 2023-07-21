@@ -32,7 +32,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::traits::AuthProvider;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
@@ -46,7 +45,6 @@ use crate::{
         review, seen, summary, user, user_to_metadata,
     },
     file_storage::FileStorageService,
-    graphql::IdObject,
     importer::ImportResultResponse,
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
@@ -63,9 +61,10 @@ use crate::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ExportMedia, MangaSpecifics, MediaDetails,
             MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateInput, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
         },
-        SearchResults,
+        IdObject, SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -77,7 +76,7 @@ use crate::{
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
-    traits::{IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
+    traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
         UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations,
         UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
@@ -776,7 +775,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: ProgressUpdateInput,
-    ) -> Result<IdObject> {
+    ) -> Result<ProgressUpdateResultUnion> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.progress_update(input, user_id).await
@@ -1582,7 +1581,7 @@ impl MiscellaneousService {
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
-    ) -> Result<IdObject> {
+    ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
             metadata_id: input.metadata_id,
@@ -1592,7 +1591,9 @@ impl MiscellaneousService {
         };
 
         if self.seen_progress_cache.get(&cache).await.is_some() {
-            return Err(Error::new("Progress was updated within the specified threshold, will not continue with progress update"));
+            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                error: ProgressUpdateErrorVariant::AlreadySeen,
+            }));
         }
 
         let prev_seen = Seen::find()
@@ -1637,7 +1638,11 @@ impl MiscellaneousService {
                 }
             }
         };
-        let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
+        let err = || {
+            Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                error: ProgressUpdateErrorVariant::NoSeenInProgress,
+            }))
+        };
         let seen_item = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
@@ -1695,18 +1700,17 @@ impl MiscellaneousService {
                                 }
                             }
                             if !is_there {
-                                return Err(Error::new(
-                                    "Tried to set progress on a show episode that does not exist",
-                                ));
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
                             }
                             Some(SeenOrReviewExtraInformation::Show(
                                 SeenShowExtraInformation { season, episode },
                             ))
                         } else {
-                            return Err(Error::new(
-                                "Tried to update show progress without season or episode number"
-                                    .to_owned(),
-                            ));
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::InvalidUpdate,
+                            }));
                         }
                     }
                     MetadataLot::Podcast => {
@@ -1721,18 +1725,17 @@ impl MiscellaneousService {
                                 }
                             }
                             if !is_there {
-                                return Err(Error::new(
-                                    "Tried to set progress on a podcast episode that does not exist",
-                                ));
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
                             }
                             Some(SeenOrReviewExtraInformation::Podcast(
                                 SeenPodcastExtraInformation { episode },
                             ))
                         } else {
-                            return Err(Error::new(
-                                "Tried to update podcast progress without episode number"
-                                    .to_owned(),
-                            ));
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::InvalidUpdate,
+                            }));
                         }
                     }
                     _ => None,
@@ -1780,7 +1783,7 @@ impl MiscellaneousService {
             })
             .await
             .ok();
-        Ok(IdObject { id })
+        Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
