@@ -534,11 +534,11 @@ export type MutationRoot = {
   createUserYankIntegration: Scalars['Int'];
   /** Delete a collection. */
   deleteCollection: Scalars['Boolean'];
-  /** Delete a review if it belongs to the user. */
+  /** Delete a review if it belongs to the currently logged in user. */
   deleteReview: Scalars['Boolean'];
   /** Delete a seen item from a user's history. */
   deleteSeenItem: IdObject;
-  /** Delete a user. The account making the user must an Admin. */
+  /** Delete a user. The account making the user must an `Admin`. */
   deleteUser: Scalars['Boolean'];
   /** Delete an auth token for the currently logged in user. */
   deleteUserAuthToken: Scalars['Boolean'];
@@ -550,11 +550,11 @@ export type MutationRoot = {
   deployUpdateExerciseLibraryJob: Scalars['Int'];
   /** Deploy a job to update a media item's metadata. */
   deployUpdateMetadataJob: Scalars['String'];
-  /** Generate an auth token without any expiry */
+  /** Generate an auth token without any expiry. */
   generateApplicationToken: Scalars['String'];
-  /** Login a user using their username and password and return an API key. */
+  /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
-  /** Logout a user from the server, deleting their login token. */
+  /** Logout a user from the server and delete their login token. */
   logoutUser: Scalars['Boolean'];
   /**
    * Merge a media item into another. This will move all `seen` and `review`
@@ -578,9 +578,9 @@ export type MutationRoot = {
   updateAllMetadata: Scalars['Boolean'];
   /** Update a user's profile details. */
   updateUser: IdObject;
-  /** Change a user's feature preferences */
+  /** Change a user's feature preferences. */
   updateUserFeaturePreference: Scalars['Boolean'];
-  /** Yank data from all integrations for the currently logged in user */
+  /** Yank data from all integrations for the currently logged in user. */
   yankIntegrationData: Scalars['Int'];
 };
 

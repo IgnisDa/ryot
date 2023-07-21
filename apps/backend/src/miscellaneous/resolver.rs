@@ -690,7 +690,7 @@ impl MiscellaneousMutation {
         service.post_review(&user_id, input).await
     }
 
-    /// Delete a review if it belongs to the user.
+    /// Delete a review if it belongs to the currently logged in user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -834,7 +834,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Login a user using their username and password and return an API key.
+    /// Login a user using their username and password and return an auth token.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -842,7 +842,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Logout a user from the server, deleting their login token.
+    /// Logout a user from the server and delete their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_auth_token_from_ctx(gql_ctx)?;
@@ -863,7 +863,7 @@ impl MiscellaneousMutation {
         service.regenerate_user_summary(user_id).await
     }
 
-    /// Change a user's feature preferences
+    /// Change a user's feature preferences.
     async fn update_user_feature_preference(
         &self,
         gql_ctx: &Context<'_>,
@@ -874,7 +874,7 @@ impl MiscellaneousMutation {
         service.update_user_feature_preference(input, user_id).await
     }
 
-    /// Generate an auth token without any expiry
+    /// Generate an auth token without any expiry.
     async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -917,7 +917,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Yank data from all integrations for the currently logged in user
+    /// Yank data from all integrations for the currently logged in user.
     async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -931,7 +931,7 @@ impl MiscellaneousMutation {
         service.delete_user_auth_token(user_id, token).await
     }
 
-    /// Delete a user. The account making the user must an Admin.
+    /// Delete a user. The account making the user must an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
