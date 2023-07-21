@@ -393,7 +393,7 @@ pub struct ServerConfig {
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
     #[setting(default = 2)]
-    pub progress_update_threshold: u64,
+    pub progress_update_threshold: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

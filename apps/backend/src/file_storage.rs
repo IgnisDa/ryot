@@ -1,7 +1,6 @@
-use std::time::Duration;
-
 use anyhow::{Context, Result};
 use aws_sdk_s3::{presigning::PresigningConfig, primitives::ByteStream};
+use chrono::Duration;
 
 #[derive(Debug)]
 pub struct FileStorageService {
@@ -10,10 +9,10 @@ pub struct FileStorageService {
 }
 
 impl FileStorageService {
-    pub fn new(s3_client: aws_sdk_s3::Client, bucket_name: &str) -> Self {
+    pub fn new(s3_client: aws_sdk_s3::Client, bucket_name: String) -> Self {
         Self {
             s3_client,
-            bucket_name: bucket_name.to_owned(),
+            bucket_name,
         }
     }
 
@@ -31,7 +30,9 @@ impl FileStorageService {
             .get_object()
             .bucket(&self.bucket_name)
             .key(key)
-            .presigned(PresigningConfig::expires_in(Duration::from_secs(90 * 60)).unwrap())
+            .presigned(
+                PresigningConfig::expires_in(Duration::minutes(90).to_std().unwrap()).unwrap(),
+            )
             .await
             .unwrap()
             .uri()

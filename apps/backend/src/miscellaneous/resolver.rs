@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
@@ -995,7 +995,11 @@ impl MiscellaneousService {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
 
-        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+        tokio::spawn(async move {
+            cache_clone
+                .monitor(4, 0.25, ChronoDuration::minutes(3).to_std().unwrap())
+                .await
+        });
 
         Self {
             db: db.clone(),
@@ -1771,7 +1775,9 @@ impl MiscellaneousService {
                 .insert(
                     cache,
                     (),
-                    Duration::from_secs(self.config.server.progress_update_threshold * 3600),
+                    ChronoDuration::hours(self.config.server.progress_update_threshold)
+                        .to_std()
+                        .unwrap(),
                 )
                 .await;
         }
