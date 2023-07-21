@@ -12,10 +12,10 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
         media::{MediaDetails, MediaSearchItem, PodcastEpisode, PodcastSpecifics},
-        SearchResults,
+        NamedObject, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, NamedObject, PAGE_LIMIT},
+    utils::{get_base_http_client, PAGE_LIMIT},
 };
 
 pub static URL: &str = "https://itunes.apple.com/";

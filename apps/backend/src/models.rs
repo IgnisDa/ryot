@@ -10,6 +10,18 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
+#[graphql(input_name = "NamedObjectInput")]
+pub struct NamedObject {
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, InputObject)]
+pub struct SearchInput {
+    pub query: String,
+    pub page: Option<i32>,
+}
+
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItem)))]
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]

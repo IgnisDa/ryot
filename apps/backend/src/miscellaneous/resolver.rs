@@ -64,7 +64,7 @@ use crate::{
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
         },
-        IdObject, SearchResults,
+        IdObject, SearchInput, SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -83,7 +83,7 @@ use crate::{
     },
     utils::{
         get_case_insensitive_like_query, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 

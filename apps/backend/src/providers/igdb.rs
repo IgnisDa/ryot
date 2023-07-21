@@ -12,10 +12,10 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
         media::{MediaDetails, MediaSearchItem, VideoGameSpecifics},
-        SearchResults,
+        NamedObject, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{NamedObject, PAGE_LIMIT},
+    utils::PAGE_LIMIT,
 };
 
 pub static URL: &str = "https://api.igdb.com/v4/";
