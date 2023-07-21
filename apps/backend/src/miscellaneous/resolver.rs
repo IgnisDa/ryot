@@ -82,10 +82,9 @@ use crate::{
         UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_id_from_token, MemoryDatabase, SearchInput, AUTHOR,
-        COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        get_case_insensitive_like_query, user_id_from_token, MemoryAuthData, MemoryDatabase,
+        SearchInput, AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
-    MemoryAuthData,
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
