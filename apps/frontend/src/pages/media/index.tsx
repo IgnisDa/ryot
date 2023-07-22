@@ -400,9 +400,15 @@ const ReviewItem = ({
 };
 
 const Page: NextPageWithLayout = () => {
+	const [changeState, setChangeState] = useState<SeenState>();
+
 	const [
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
+	] = useDisclosure(false);
+	const [
+		changeStateModalOpened,
+		{ open: changeStateModalOpen, close: changeStateModalClose },
 	] = useDisclosure(false);
 	const [
 		collectionModalOpened,
@@ -908,16 +914,57 @@ const Page: NextPageWithLayout = () => {
 									)}
 									{seenHistory.data.length > 0 &&
 									inProgressSeenItem?.state !== SeenState.Dropped ? (
-										<Button
-											variant="outline"
-											onClick={async () => {
-												await progressUpdate.mutateAsync({
-													input: { metadataId: metadataId },
-												});
-											}}
-										>
-											Mark as dropped
-										</Button>
+										<>
+											<Button variant="outline" onClick={changeStateModalOpen}>
+												Put on hold/drop
+											</Button>
+											<Modal
+												opened={changeStateModalOpened}
+												onClose={changeStateModalClose}
+												withCloseButton={false}
+												centered
+											>
+												<Stack>
+													<Title order={3}>Change state</Title>
+													<Select
+														withinPortal
+														data={["Drop", "Put on hold"]}
+														onChange={(v) => {
+															if (v) {
+																const state = match(v)
+																	.with("Drop", () => SeenState.Dropped)
+																	.with("Put on hold", () => SeenState.OnAHold)
+																	.otherwise(() => undefined);
+																if (state) setChangeState(state);
+															}
+														}}
+													/>
+													<Button
+														variant="outline"
+														onClick={() => {
+															if (changeState)
+																progressUpdate.mutate({
+																	input: {
+																		metadataId: metadataId,
+																		changeState: changeState,
+																	},
+																});
+															setChangeState(undefined);
+															changeStateModalClose();
+														}}
+													>
+														Set
+													</Button>
+													<Button
+														variant="outline"
+														color="red"
+														onClick={changeStateModalClose}
+													>
+														Cancel
+													</Button>
+												</Stack>
+											</Modal>
+										</>
 									) : mediaDetails.data.lot === MetadataLot.Show ||
 									  mediaDetails.data.lot === MetadataLot.Podcast ? (
 										<Button
