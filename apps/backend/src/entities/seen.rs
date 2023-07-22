@@ -28,8 +28,6 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
     pub metadata_id: i32,
-    // TODO: Remove this field
-    pub dropped: bool,
     pub state: SeenState,
     #[graphql(skip)]
     #[serde(skip)]

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{exercise::Model as ExerciseModel, review, seen},
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource, SeenState},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
 
@@ -489,6 +489,7 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
+        pub change_state: Option<SeenState>,
     }
 
     #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]

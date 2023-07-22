@@ -2,7 +2,7 @@ query SeenHistory($metadataId: Int!) {
   seenHistory(metadataId: $metadataId) {
     id
     progress
-		dropped
+		state
     startedOn
     finishedOn
     lastUpdatedOn

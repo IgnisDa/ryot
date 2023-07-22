@@ -8,7 +8,7 @@ use crate::{
     entities::{metadata, seen},
     fitness::exercise::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
-    migrator::MetadataLot,
+    migrator::{MetadataLot, SeenState},
     miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
     models::{fitness::Exercise, media::AddMediaToCollection},
 };
@@ -157,7 +157,7 @@ pub async fn after_media_seen_job(
         information.seen.id
     );
     let media_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    if information.seen.dropped {
+    if information.seen.state == SeenState::Dropped {
         media_service
             .remove_media_item_from_collection(
                 &information.seen.user_id,
