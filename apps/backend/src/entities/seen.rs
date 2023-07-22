@@ -76,8 +76,9 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
+        let state = self.state.clone().unwrap();
         let progress = self.progress.clone().unwrap();
-        if progress == 100 {
+        if progress == 100 && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
         }
         Ok(self)

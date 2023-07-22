@@ -1658,13 +1658,9 @@ impl MiscellaneousService {
                 last_seen.update(&self.db).await.unwrap()
             }
             ProgressUpdateAction::ChangeState => {
-                let new_state = match input.change_state {
-                    None => SeenState::Dropped,
-                    Some(s) => s,
-                };
+                let new_state = input.change_state.unwrap_or(SeenState::Dropped);
                 let last_seen = Seen::find()
                     .filter(seen::Column::UserId.eq(user_id))
-                    .filter(seen::Column::State.eq(SeenState::InProgress))
                     .filter(seen::Column::MetadataId.eq(input.metadata_id))
                     .order_by_desc(seen::Column::LastUpdatedOn)
                     .one(&self.db)
@@ -1774,7 +1770,7 @@ impl MiscellaneousService {
         let id = seen_item.id;
         let metadata = self.generic_metadata(input.metadata_id).await?;
         let mut storage = self.after_media_seen.clone();
-        if seen_item.progress == 100 {
+        if seen_item.state == SeenState::Completed {
             self.seen_progress_cache
                 .insert(
                     cache,
