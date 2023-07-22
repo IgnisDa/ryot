@@ -29,7 +29,7 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
-import { IconPhotoPlus } from "@tabler/icons-react";
+import { IconMessage2, IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -43,53 +43,72 @@ import { type ReactElement } from "react";
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
 
+const ActualDisplayStat = (props: {
+	icon: JSX.Element;
+	lot: string;
+	data: { type: "duration" | "number"; label: string; value: number }[];
+	color?: string;
+}) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+
+	return (
+		<Paper component={Flex} align={"center"}>
+			<RingProgress
+				size={60}
+				thickness={4}
+				sections={[]}
+				label={<Center>{props.icon}</Center>}
+				rootColor={props.color ?? colors[11]}
+			/>
+			<Flex wrap={"wrap"} ml="xs">
+				{props.data.map((d, idx) => (
+					<Box key={idx.toString()} mx={"xs"}>
+						<Text
+							fw={d.label !== "Runtime" ? "bold" : undefined}
+							display={"inline"}
+						>
+							{d.type === "duration"
+								? humaizer.humanize(d.value * 1000 * 60, {
+										round: true,
+										largest: 3,
+								  })
+								: humanFormat(d.value)}
+						</Text>
+						<Text display={"inline"} ml="4px">
+							{d.label === "Runtime" ? "" : d.label}
+						</Text>
+					</Box>
+				))}
+			</Flex>
+		</Paper>
+	);
+};
+
 const DisplayStatForMediaType = (props: {
 	lot: MetadataLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 }) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
 	const userPrefs = useUserPreferences();
 	const isEnabled = Object.entries(userPrefs.data?.featuresEnabled || {}).find(
 		([name, _]) => getLot(name) === props.lot,
 	)!;
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
 		isEnabled[1] ? (
-			<Paper component={Flex} align={"center"}>
-				<RingProgress
-					size={60}
-					thickness={4}
-					sections={[]}
-					label={<Center>{icon}</Center>}
-					rootColor={
-						colors[
-							(getStringAsciiValue(props.lot) + colors.length) % colors.length
-						]
-					}
-				/>
-				<Flex wrap={"wrap"} ml="xs">
-					{props.data.map((d, idx) => (
-						<Box key={idx.toString()} mx={"xs"}>
-							<Text
-								fw={d.label !== "Runtime" ? "bold" : undefined}
-								display={"inline"}
-							>
-								{d.type === "duration"
-									? humaizer.humanize(d.value * 1000 * 60, {
-											round: true,
-											largest: 3,
-									  })
-									: humanFormat(d.value)}
-							</Text>
-							<Text display={"inline"} ml="4px">
-								{d.label === "Runtime" ? "" : d.label}
-							</Text>
-						</Box>
-					))}
-				</Flex>
-			</Paper>
+			<ActualDisplayStat
+				data={props.data}
+				icon={icon}
+				lot={props.lot.toString()}
+				color={
+					colors[
+						(getStringAsciiValue(props.lot) + colors.length) % colors.length
+					]
+				}
+			/>
 		) : null
 	) : null;
 };
@@ -285,6 +304,17 @@ const Page: NextPageWithLayout = () => {
 								{
 									label: "Episodes",
 									value: latestUserSummary.data.data.media.anime.episodes,
+									type: "number",
+								},
+							]}
+						/>
+						<ActualDisplayStat
+							icon={<IconMessage2 />}
+							lot="Review"
+							data={[
+								{
+									label: "Reviews",
+									value: latestUserSummary.data.data.media.reviewsPosted,
 									type: "number",
 								},
 							]}
