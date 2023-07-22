@@ -95,6 +95,16 @@ export interface IntegrationConfig {
 	/** The salt used to hash user IDs. */
 	hasher_salt: string;
 	/**
+	 * The maximum progress limit after which a media is considered to be completed.
+	 * @default 95
+	 */
+	maximum_progress_limit: number;
+	/**
+	 * The minimum progress limit before which a media is considered to be started.
+	 * @default 2
+	 */
+	minimum_progress_limit: number;
+	/**
 	 * Sync data from [yank](/docs/guides/integrations.md) based integrations
 	 * every `n` hours.
 	 * @default 2

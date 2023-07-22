@@ -3536,10 +3536,14 @@ impl MiscellaneousService {
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
-        if pu.progress < 2 {
+        if pu.progress < self.config.integration.minimum_progress_limit {
             return Err(Error::new("Progress outside bound"));
         }
-        let progress = if pu.progress > 95 { 100 } else { pu.progress };
+        let progress = if pu.progress > self.config.integration.maximum_progress_limit {
+            100
+        } else {
+            pu.progress
+        };
         let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
         self.progress_update(
             ProgressUpdateInput {

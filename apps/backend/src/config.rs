@@ -327,6 +327,12 @@ pub struct IntegrationConfig {
     /// The salt used to hash user IDs.
     #[setting(default = format!("{}", PROJECT_NAME))]
     pub hasher_salt: String,
+    /// The minimum progress limit before which a media is considered to be started.
+    #[setting(default = 2)]
+    pub minimum_progress_limit: i32,
+    /// The maximum progress limit after which a media is considered to be completed.
+    #[setting(default = 95)]
+    pub maximum_progress_limit: i32,
 }
 
 impl IsFeatureEnabled for FileStorageConfig {
