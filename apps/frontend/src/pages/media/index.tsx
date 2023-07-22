@@ -57,6 +57,7 @@ import {
 	RemoveMediaFromCollectionDocument,
 	type RemoveMediaFromCollectionMutationVariables,
 	SeenHistoryDocument,
+	SeenState,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/utilities";
 import {
@@ -739,7 +740,8 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : null}
 					</Flex>
-					{inProgressSeenItem && !inProgressSeenItem.dropped ? (
+					{inProgressSeenItem &&
+					inProgressSeenItem.state !== SeenState.Dropped ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 							ing this ({inProgressSeenItem.progress}%)
@@ -824,7 +826,8 @@ const Page: NextPageWithLayout = () => {
 									spacing="lg"
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
-									{inProgressSeenItem && !inProgressSeenItem.dropped ? (
+									{inProgressSeenItem &&
+									inProgressSeenItem.state !== SeenState.Dropped ? (
 										<>
 											<Button variant="outline" onClick={progressModalOpen}>
 												Set progress
@@ -904,7 +907,7 @@ const Page: NextPageWithLayout = () => {
 										</Button>
 									)}
 									{seenHistory.data.length > 0 &&
-									!inProgressSeenItem?.dropped ? (
+									inProgressSeenItem?.state !== SeenState.Dropped ? (
 										<Button
 											variant="outline"
 											onClick={async () => {
@@ -1040,13 +1043,10 @@ const Page: NextPageWithLayout = () => {
 												data-seen-id={h.id}
 											>
 												<Flex gap="xl">
-													{h.dropped ? (
-														<Text fw="bold">Dropped at {h.progress}%</Text>
-													) : h.progress < 100 ? (
-														<Text fw="bold">Progress {h.progress}%</Text>
-													) : (
-														<Text fw="bold">Completed</Text>
-													)}
+													<Text fw="bold">
+														{changeCase(h.state)}{" "}
+														{h.progress !== 100 ? `(${h.progress}%)` : null}
+													</Text>
 													{h.showInformation ? (
 														<Text color="dimmed">
 															S{h.showInformation.season}-E
