@@ -1456,7 +1456,7 @@ impl MiscellaneousService {
                             MediaGeneralFilter::OnAHold => SeenState::OnAHold,
                             _ => unreachable!(),
                         };
-                        let dropped_ids = Seen::find()
+                        let filtered_ids = Seen::find()
                             .filter(seen::Column::UserId.eq(user_id))
                             .filter(seen::Column::State.eq(state))
                             .all(&self.db)
@@ -1467,7 +1467,7 @@ impl MiscellaneousService {
                         main_select = main_select
                             .and_where(
                                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .is_in(dropped_ids),
+                                    .is_in(filtered_ids),
                             )
                             .to_owned();
                     }
