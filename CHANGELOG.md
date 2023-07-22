@@ -1,4 +1,16 @@
 
+# Version 1.15.1 (2023-07-22)
+
+## Bug Fixes
+
+* **backend:** correct seen handling
+* **frontend:** display put on hold btn
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.15.0 (2023-07-22)
 
 
