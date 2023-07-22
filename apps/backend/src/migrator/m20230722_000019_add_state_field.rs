@@ -33,14 +33,19 @@ impl MigrationTrait for Migration {
                 .await?;
         }
         if manager.has_column("seen", "dropped").await? {
+            let dropped = Alias::new("dropped");
             let db = manager.get_connection();
             SeenModel::update_many()
-                .filter(seen::Column::Progress.lt(100))
                 .col_expr(seen::Column::State, Expr::val("IP").into())
                 .exec(db)
                 .await?;
             SeenModel::update_many()
-                .filter(Expr::col(Alias::new("dropped")).eq(true))
+                .filter(seen::Column::Progress.eq(100))
+                .col_expr(seen::Column::State, Expr::val("CO").into())
+                .exec(db)
+                .await?;
+            SeenModel::update_many()
+                .filter(Expr::col(dropped.clone()).eq(true))
                 .col_expr(seen::Column::State, Expr::val("DR").into())
                 .exec(db)
                 .await?;
@@ -48,7 +53,7 @@ impl MigrationTrait for Migration {
                 .alter_table(
                     Table::alter()
                         .table(Seen::Table)
-                        .drop_column(Alias::new("dropped"))
+                        .drop_column(dropped)
                         .to_owned(),
                 )
                 .await?;

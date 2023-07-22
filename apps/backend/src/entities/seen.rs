@@ -3,7 +3,7 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,17 @@ impl Related<super::user::Entity> for Entity {
 
 #[async_trait]
 impl ActiveModelBehavior for ActiveModel {
+    async fn before_save<C>(mut self, _db: &C, _insert: bool) -> Result<Self, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        let progress = self.progress.clone().unwrap();
+        if progress == 100 {
+            self.state = ActiveValue::Set(SeenState::Completed);
+        }
+        Ok(self)
+    }
+
     async fn after_save<C>(model: Model, db: &C, insert: bool) -> Result<Model, DbErr>
     where
         C: ConnectionTrait,
