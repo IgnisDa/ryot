@@ -1,4 +1,11 @@
 
+# Version 1.14.1 (2023-07-22)
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.14.0 (2023-07-22)
 
 
