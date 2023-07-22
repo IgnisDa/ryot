@@ -1595,8 +1595,9 @@ dependencies = [
 
 [[package]]
 name = "darkbird"
-version = "6.1.0"
-source = "git+https://github.com/Rustixir/darkbird.git#9b6231808bbc5377b2096df0026d46a4e7864e22"
+version = "6.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b32d38e77a8af8a84c8c22f5d5baa5a9daf798006f7b346847d25294ffe3f72"
 dependencies = [
  "anymap",
  "async-trait",
@@ -4186,7 +4187,7 @@ checksum = "dc31bd9b61a32c31f9650d18add92aa83a49ba979c143eefd27fe7177b05bd5f"
 
 [[package]]
 name = "ryot"
-version = "1.14.0-beta.2"
+version = "1.14.0"
 dependencies = [
  "anyhow",
  "apalis",

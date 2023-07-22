@@ -11,12 +11,10 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
         media::{AudioBookSpecifics, MediaDetails, MediaSearchItem},
-        SearchResults,
+        NamedObject, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{
-        convert_date_to_year, convert_string_to_date, get_base_http_client, NamedObject, PAGE_LIMIT,
-    },
+    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client, PAGE_LIMIT},
 };
 
 pub static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];

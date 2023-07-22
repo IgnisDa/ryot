@@ -829,7 +829,7 @@ const Page: NextPageWithLayout = () => {
 										onClick={() => deployUpdateAllMetadataJobs.mutate({})}
 										loading={deployUpdateAllMetadataJobs.isLoading}
 									>
-										Delpoy job
+										Deploy job
 									</Button>
 								</>
 								<Divider />

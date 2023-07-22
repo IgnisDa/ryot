@@ -7,7 +7,7 @@ use std::{
 };
 
 use apalis::sqlite::SqliteStorage;
-use async_graphql::{Error, InputObject, Result, SimpleObject};
+use async_graphql::{Error, Result};
 use chrono::{NaiveDate, Utc};
 use darkbird::{
     document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
@@ -75,7 +75,7 @@ pub async fn create_app_services(
 ) -> AppServices {
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
-        &config.file_storage.s3_bucket_name,
+        config.file_storage.s3_bucket_name.clone(),
     ));
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
@@ -109,18 +109,6 @@ pub async fn create_app_services(
         file_storage_service,
         exercise_service,
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
-#[graphql(input_name = "NamedObjectInput")]
-pub struct NamedObject {
-    pub name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, InputObject)]
-pub struct SearchInput {
-    pub query: String,
-    pub page: Option<i32>,
 }
 
 pub async fn associate_user_with_metadata<C>(user_id: &i32, metadata_id: &i32, db: &C) -> Result<()>

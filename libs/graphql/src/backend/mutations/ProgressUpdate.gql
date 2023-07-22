@@ -1,5 +1,10 @@
 mutation ProgressUpdate($input: ProgressUpdateInput!) {
   progressUpdate(input: $input) {
-    id
+    ... on IdObject {
+      id
+    }
+    ... on ProgressUpdateError {
+      error
+    }
   }
 }

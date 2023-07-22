@@ -14,10 +14,10 @@ use crate::{
         media::{
             MediaDetails, MediaSearchItem, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
-        SearchResults,
+        NamedObject, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, NamedObject},
+    utils::{convert_date_to_year, convert_string_to_date},
 };
 
 pub static URL: &str = "https://api.themoviedb.org/3/";

@@ -25,11 +25,11 @@ import {
 import {
 	CollectionContentsDocument,
 	CollectionsDocument,
+	LatestUserSummaryDocument,
 	MetadataLot,
-	UserSummaryDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
-import { IconPhotoPlus } from "@tabler/icons-react";
+import { IconMessage2, IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -43,63 +43,84 @@ import { type ReactElement } from "react";
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
 
+const ActualDisplayStat = (props: {
+	icon: JSX.Element;
+	lot: string;
+	data: { type: "duration" | "number"; label: string; value: number }[];
+	color?: string;
+}) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+
+	return (
+		<Paper component={Flex} align={"center"}>
+			<RingProgress
+				size={60}
+				thickness={4}
+				sections={[]}
+				label={<Center>{props.icon}</Center>}
+				rootColor={props.color ?? colors[11]}
+			/>
+			<Flex wrap={"wrap"} ml="xs">
+				{props.data.map((d, idx) => (
+					<Box key={idx.toString()} mx={"xs"}>
+						<Text
+							fw={d.label !== "Runtime" ? "bold" : undefined}
+							display={"inline"}
+						>
+							{d.type === "duration"
+								? humaizer.humanize(d.value * 1000 * 60, {
+										round: true,
+										largest: 3,
+								  })
+								: humanFormat(d.value)}
+						</Text>
+						<Text display={"inline"} ml="4px">
+							{d.label === "Runtime" ? "" : d.label}
+						</Text>
+					</Box>
+				))}
+			</Flex>
+		</Paper>
+	);
+};
+
 const DisplayStatForMediaType = (props: {
 	lot: MetadataLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 }) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
 	const userPrefs = useUserPreferences();
 	const isEnabled = Object.entries(userPrefs.data?.featuresEnabled || {}).find(
 		([name, _]) => getLot(name) === props.lot,
 	)!;
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
 		isEnabled[1] ? (
-			<Paper component={Flex} align={"center"}>
-				<RingProgress
-					size={60}
-					thickness={4}
-					sections={[]}
-					label={<Center>{icon}</Center>}
-					rootColor={
-						colors[
-							(getStringAsciiValue(props.lot) + colors.length) % colors.length
-						]
-					}
-				/>
-				<Flex wrap={"wrap"} ml="xs">
-					{props.data.map((d, idx) => (
-						<Box key={idx.toString()} mx={"xs"}>
-							<Text
-								fw={d.label !== "Runtime" ? "bold" : undefined}
-								display={"inline"}
-							>
-								{d.type === "duration"
-									? humaizer.humanize(d.value * 1000 * 60, {
-											round: true,
-											largest: 3,
-									  })
-									: humanFormat(d.value)}
-							</Text>
-							<Text display={"inline"} ml="4px">
-								{d.label === "Runtime" ? "" : d.label}
-							</Text>
-						</Box>
-					))}
-				</Flex>
-			</Paper>
+			<ActualDisplayStat
+				data={props.data}
+				icon={icon}
+				lot={props.lot.toString()}
+				color={
+					colors[
+						(getStringAsciiValue(props.lot) + colors.length) % colors.length
+					]
+				}
+			/>
 		) : null
 	) : null;
 };
 
 const Page: NextPageWithLayout = () => {
-	const userSummary = useQuery(
+	const latestUserSummary = useQuery(
 		["userSummary"],
 		async () => {
-			const { userSummary } = await gqlClient.request(UserSummaryDocument);
-			return userSummary;
+			const { latestUserSummary } = await gqlClient.request(
+				LatestUserSummaryDocument,
+			);
+			return latestUserSummary;
 		},
 		{ retry: false },
 	);
@@ -117,7 +138,7 @@ const Page: NextPageWithLayout = () => {
 		return collectionContents;
 	});
 
-	return userSummary.data &&
+	return latestUserSummary.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.media &&
 		inProgressCollection.data.details ? (
@@ -145,7 +166,7 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
-						Calculated {formatTimeAgo(userSummary.data.calculatedOn)}
+						Calculated {formatTimeAgo(latestUserSummary.data.createdOn)}
 					</Text>
 					<SimpleGrid
 						cols={1}
@@ -160,12 +181,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Movies",
-									value: userSummary.data.media.movies.watched,
+									value: latestUserSummary.data.data.media.movies.watched,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.media.movies.runtime,
+									value: latestUserSummary.data.data.media.movies.runtime,
 									type: "duration",
 								},
 							]}
@@ -175,22 +196,23 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Shows",
-									value: userSummary.data.media.shows.watched,
+									value: latestUserSummary.data.data.media.shows.watched,
 									type: "number",
 								},
 								{
 									label: "Seasons",
-									value: userSummary.data.media.shows.watchedSeasons,
+									value: latestUserSummary.data.data.media.shows.watchedSeasons,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: userSummary.data.media.shows.watchedEpisodes,
+									value:
+										latestUserSummary.data.data.media.shows.watchedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.media.shows.runtime,
+									value: latestUserSummary.data.data.media.shows.runtime,
 									type: "duration",
 								},
 							]}
@@ -200,7 +222,7 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Video games",
-									value: userSummary.data.media.videoGames.played,
+									value: latestUserSummary.data.data.media.videoGames.played,
 									type: "number",
 								},
 							]}
@@ -210,12 +232,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Audiobooks",
-									value: userSummary.data.media.audioBooks.played,
+									value: latestUserSummary.data.data.media.audioBooks.played,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.media.audioBooks.runtime,
+									value: latestUserSummary.data.data.media.audioBooks.runtime,
 									type: "duration",
 								},
 							]}
@@ -225,12 +247,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Books",
-									value: userSummary.data.media.books.read,
+									value: latestUserSummary.data.data.media.books.read,
 									type: "number",
 								},
 								{
 									label: "Pages",
-									value: userSummary.data.media.books.pages,
+									value: latestUserSummary.data.data.media.books.pages,
 									type: "number",
 								},
 							]}
@@ -240,17 +262,18 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Podcasts",
-									value: userSummary.data.media.podcasts.played,
+									value: latestUserSummary.data.data.media.podcasts.played,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: userSummary.data.media.podcasts.playedEpisodes,
+									value:
+										latestUserSummary.data.data.media.podcasts.playedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: userSummary.data.media.podcasts.runtime,
+									value: latestUserSummary.data.data.media.podcasts.runtime,
 									type: "duration",
 								},
 							]}
@@ -260,12 +283,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Manga",
-									value: userSummary.data.media.manga.read,
+									value: latestUserSummary.data.data.media.manga.read,
 									type: "number",
 								},
 								{
 									label: "Chapters",
-									value: userSummary.data.media.manga.chapters,
+									value: latestUserSummary.data.data.media.manga.chapters,
 									type: "number",
 								},
 							]}
@@ -275,12 +298,23 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Anime",
-									value: userSummary.data.media.anime.watched,
+									value: latestUserSummary.data.data.media.anime.watched,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: userSummary.data.media.anime.episodes,
+									value: latestUserSummary.data.data.media.anime.episodes,
+									type: "number",
+								},
+							]}
+						/>
+						<ActualDisplayStat
+							icon={<IconMessage2 />}
+							lot="Review"
+							data={[
+								{
+									label: "Reviews",
+									value: latestUserSummary.data.data.media.reviewsPosted,
 									type: "number",
 								},
 							]}

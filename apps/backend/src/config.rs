@@ -367,7 +367,7 @@ pub struct UsersConfig {
     pub allow_changing_username: bool,
     /// The number of days till login auth token is valid.
     #[setting(default = 90)]
-    pub token_valid_for_days: i32,
+    pub token_valid_for_days: i64,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
@@ -393,7 +393,7 @@ pub struct ServerConfig {
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
     #[setting(default = 2)]
-    pub progress_update_threshold: u64,
+    pub progress_update_threshold: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

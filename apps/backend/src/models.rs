@@ -1,4 +1,4 @@
-use async_graphql::{Enum, InputObject, OutputType, SimpleObject};
+use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
@@ -10,6 +10,18 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
+#[graphql(input_name = "NamedObjectInput")]
+pub struct NamedObject {
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, InputObject)]
+pub struct SearchInput {
+    pub query: String,
+    pub page: Option<i32>,
+}
+
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItem)))]
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
@@ -18,6 +30,11 @@ pub struct SearchResults<T: OutputType> {
     pub total: i32,
     pub items: Vec<T>,
     pub next_page: Option<i32>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct IdObject {
+    pub id: i32,
 }
 
 pub mod media {
@@ -405,14 +422,24 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct UserMediaSummary {
+        #[serde(default)]
         pub books: BooksSummary,
+        #[serde(default)]
         pub movies: MoviesSummary,
+        #[serde(default)]
         pub podcasts: PodcastsSummary,
+        #[serde(default)]
         pub shows: ShowsSummary,
+        #[serde(default)]
         pub video_games: VideoGamesSummary,
+        #[serde(default)]
         pub audio_books: AudioBooksSummary,
+        #[serde(default)]
         pub anime: AnimeSummary,
+        #[serde(default)]
         pub manga: MangaSummary,
+        #[serde(default)]
+        pub reviews_posted: u64,
     }
 
     #[derive(
@@ -462,6 +489,24 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
+    }
+
+    #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+    pub enum ProgressUpdateErrorVariant {
+        AlreadySeen,
+        NoSeenInProgress,
+        InvalidUpdate,
+    }
+
+    #[derive(Debug, SimpleObject)]
+    pub struct ProgressUpdateError {
+        pub error: ProgressUpdateErrorVariant,
+    }
+
+    #[derive(Union)]
+    pub enum ProgressUpdateResultUnion {
+        Ok(IdObject),
+        Error(ProgressUpdateError),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

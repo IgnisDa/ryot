@@ -1,10 +1,10 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::{NaiveDate, Utc};
+use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -32,7 +32,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::traits::AuthProvider;
 use crate::{
     background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
@@ -46,7 +45,6 @@ use crate::{
         review, seen, summary, user, user_to_metadata,
     },
     file_storage::FileStorageService,
-    graphql::IdObject,
     importer::ImportResultResponse,
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
@@ -63,9 +61,10 @@ use crate::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ExportMedia, MangaSpecifics, MediaDetails,
             MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateInput, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics, Visibility,
         },
-        SearchResults,
+        IdObject, SearchInput, SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -77,16 +76,15 @@ use crate::{
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
-    traits::{IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
+    traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
         UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations,
         UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_id_from_token, MemoryDatabase, SearchInput, AUTHOR,
-        COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        get_case_insensitive_like_query, user_id_from_token, MemoryAuthData, MemoryDatabase,
+        AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
-    MemoryAuthData,
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
@@ -443,7 +441,7 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
-    token_valid_till: i32,
+    token_valid_till: i64,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
     cookie = if expires {
@@ -639,11 +637,12 @@ impl MiscellaneousQuery {
             .providers_language_information()
     }
 
-    /// Get details about the currently logged in user.
+    /// Get details about all the users in the service.
     async fn users(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.users(user_id).await
+        service.admin_account_guard(user_id).await?;
+        service.users().await
     }
 
     /// Get details about the currently logged in user.
@@ -654,10 +653,10 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<summary::Model> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_summary(&user_id).await
+        service.latest_user_summary(&user_id).await
     }
 
     /// Get all the integrations for the currently logged in user.
@@ -690,7 +689,7 @@ impl MiscellaneousMutation {
         service.post_review(&user_id, input).await
     }
 
-    /// Delete a review if it belongs to the user.
+    /// Delete a review if it belongs to the currently logged in user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -775,7 +774,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: ProgressUpdateInput,
-    ) -> Result<IdObject> {
+    ) -> Result<ProgressUpdateResultUnion> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.progress_update(input, user_id).await
@@ -834,7 +833,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Login a user using their username and password and return an API key.
+    /// Login a user using their username and password and return an auth token.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
@@ -842,7 +841,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Logout a user from the server, deleting their login token.
+    /// Logout a user from the server and delete their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_auth_token_from_ctx(gql_ctx)?;
@@ -863,7 +862,7 @@ impl MiscellaneousMutation {
         service.regenerate_user_summary(user_id).await
     }
 
-    /// Change a user's feature preferences
+    /// Change a user's feature preferences.
     async fn update_user_feature_preference(
         &self,
         gql_ctx: &Context<'_>,
@@ -874,7 +873,7 @@ impl MiscellaneousMutation {
         service.update_user_feature_preference(input, user_id).await
     }
 
-    /// Generate an auth token without any expiry
+    /// Generate an auth token without any expiry.
     async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -917,7 +916,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Yank data from all integrations for the currently logged in user
+    /// Yank data from all integrations for the currently logged in user.
     async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -931,11 +930,12 @@ impl MiscellaneousMutation {
         service.delete_user_auth_token(user_id, token).await
     }
 
-    /// Delete a user. The account making the user must an Admin.
+    /// Delete a user. The account making the user must an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_user(user_id, to_delete_user_id).await
+        service.admin_account_guard(user_id).await?;
+        service.delete_user(to_delete_user_id).await
     }
 }
 
@@ -995,7 +995,11 @@ impl MiscellaneousService {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
 
-        tokio::spawn(async move { cache_clone.monitor(4, 0.25, Duration::from_secs(3)).await });
+        tokio::spawn(async move {
+            cache_clone
+                .monitor(4, 0.25, ChronoDuration::minutes(3).to_std().unwrap())
+                .await
+        });
 
         Self {
             db: db.clone(),
@@ -1580,7 +1584,7 @@ impl MiscellaneousService {
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
-    ) -> Result<IdObject> {
+    ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
             metadata_id: input.metadata_id,
@@ -1590,7 +1594,9 @@ impl MiscellaneousService {
         };
 
         if self.seen_progress_cache.get(&cache).await.is_some() {
-            return Err(Error::new("Progress was updated within the specified threshold, will not continue with progress update"));
+            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                error: ProgressUpdateErrorVariant::AlreadySeen,
+            }));
         }
 
         let prev_seen = Seen::find()
@@ -1635,7 +1641,11 @@ impl MiscellaneousService {
                 }
             }
         };
-        let err = || Err(Error::new("There is no `seen` item underway".to_owned()));
+        let err = || {
+            Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                error: ProgressUpdateErrorVariant::NoSeenInProgress,
+            }))
+        };
         let seen_item = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
@@ -1693,18 +1703,17 @@ impl MiscellaneousService {
                                 }
                             }
                             if !is_there {
-                                return Err(Error::new(
-                                    "Tried to set progress on a show episode that does not exist",
-                                ));
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
                             }
                             Some(SeenOrReviewExtraInformation::Show(
                                 SeenShowExtraInformation { season, episode },
                             ))
                         } else {
-                            return Err(Error::new(
-                                "Tried to update show progress without season or episode number"
-                                    .to_owned(),
-                            ));
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::InvalidUpdate,
+                            }));
                         }
                     }
                     MetadataLot::Podcast => {
@@ -1719,18 +1728,17 @@ impl MiscellaneousService {
                                 }
                             }
                             if !is_there {
-                                return Err(Error::new(
-                                    "Tried to set progress on a podcast episode that does not exist",
-                                ));
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
                             }
                             Some(SeenOrReviewExtraInformation::Podcast(
                                 SeenPodcastExtraInformation { episode },
                             ))
                         } else {
-                            return Err(Error::new(
-                                "Tried to update podcast progress without episode number"
-                                    .to_owned(),
-                            ));
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::InvalidUpdate,
+                            }));
                         }
                     }
                     _ => None,
@@ -1767,7 +1775,9 @@ impl MiscellaneousService {
                 .insert(
                     cache,
                     (),
-                    Duration::from_secs(self.config.server.progress_update_threshold * 3600),
+                    ChronoDuration::hours(self.config.server.progress_update_threshold)
+                        .to_std()
+                        .unwrap(),
                 )
                 .await;
         }
@@ -1778,7 +1788,7 @@ impl MiscellaneousService {
             })
             .await
             .ok();
-        Ok(IdObject { id })
+        Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
@@ -2659,16 +2669,16 @@ impl MiscellaneousService {
         Ok(ls)
     }
 
-    async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
-        let ls = self.latest_user_summary(user_id).await?;
-        Ok(UserSummary {
-            media: ls.data,
-            calculated_on: ls.created_on,
-        })
-    }
-
-    pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
+    pub async fn calculate_user_media_summary(&self, user_id: &i32) -> Result<IdObject> {
         let mut ls = summary::Model::default();
+
+        let num_reviews = Review::find()
+            .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .count(&self.db)
+            .await?;
+
+        ls.data.media.reviews_posted = num_reviews;
+
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -2685,27 +2695,27 @@ impl MiscellaneousService {
             let meta = metadata.to_owned().unwrap();
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
-                    ls.data.audio_books.played += 1;
+                    ls.data.media.audio_books.played += 1;
                     if let Some(r) = item.runtime {
-                        ls.data.audio_books.runtime += r;
+                        ls.data.media.audio_books.runtime += r;
                     }
                 }
                 MediaSpecifics::Anime(item) => {
-                    ls.data.anime.watched += 1;
+                    ls.data.media.anime.watched += 1;
                     if let Some(r) = item.episodes {
-                        ls.data.anime.episodes += r;
+                        ls.data.media.anime.episodes += r;
                     }
                 }
                 MediaSpecifics::Manga(item) => {
-                    ls.data.manga.read += 1;
+                    ls.data.media.manga.read += 1;
                     if let Some(r) = item.chapters {
-                        ls.data.manga.chapters += r;
+                        ls.data.media.manga.chapters += r;
                     }
                 }
                 MediaSpecifics::Book(item) => {
-                    ls.data.books.read += 1;
+                    ls.data.media.books.read += 1;
                     if let Some(pg) = item.pages {
-                        ls.data.books.pages += pg;
+                        ls.data.media.books.pages += pg;
                     }
                 }
                 MediaSpecifics::Podcast(item) => {
@@ -2718,7 +2728,7 @@ impl MiscellaneousService {
                                 SeenOrReviewExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
-                                            ls.data.podcasts.runtime += r;
+                                            ls.data.media.podcasts.runtime += r;
                                         }
                                         unique_podcast_episodes.insert((s.episode, episode.id));
                                     }
@@ -2728,9 +2738,9 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::Movie(item) => {
-                    ls.data.movies.watched += 1;
+                    ls.data.media.movies.watched += 1;
                     if let Some(r) = item.runtime {
-                        ls.data.movies.runtime += r;
+                        ls.data.media.movies.runtime += r;
                     }
                 }
                 MediaSpecifics::Show(item) => {
@@ -2744,9 +2754,9 @@ impl MiscellaneousService {
                                         && s.episode == episode.episode_number
                                     {
                                         if let Some(r) = episode.runtime {
-                                            ls.data.shows.runtime += r;
+                                            ls.data.media.shows.runtime += r;
                                         }
-                                        ls.data.shows.watched_episodes += 1;
+                                        ls.data.media.shows.watched_episodes += 1;
                                         unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
@@ -2755,17 +2765,18 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::VideoGame(_item) => {
-                    ls.data.video_games.played += 1;
+                    ls.data.media.video_games.played += 1;
                 }
                 MediaSpecifics::Unknown => {}
             }
         }
 
-        ls.data.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
-        ls.data.podcasts.played_episodes += i32::try_from(unique_podcast_episodes.len()).unwrap();
+        ls.data.media.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
+        ls.data.media.podcasts.played_episodes +=
+            i32::try_from(unique_podcast_episodes.len()).unwrap();
 
-        ls.data.shows.watched = i32::try_from(unique_shows.len()).unwrap();
-        ls.data.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
+        ls.data.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
+        ls.data.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
 
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
@@ -2916,7 +2927,7 @@ impl MiscellaneousService {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
             self.cleanup_summaries_for_user(&user.id).await?;
-            self.calculate_user_summary(&user.id).await?;
+            self.calculate_user_media_summary(&user.id).await?;
         }
         Ok(())
     }
@@ -3409,6 +3420,24 @@ impl MiscellaneousService {
         Ok(tokens)
     }
 
+    pub async fn delete_expired_user_auth_tokens(&self) -> Result<()> {
+        let mut deleted_tokens = 0;
+        for user in self.users().await? {
+            let tokens = self.all_user_auth_tokens(user.id).await?;
+            for token in tokens {
+                if Utc::now() - token.last_used_on
+                    > ChronoDuration::days(self.config.users.token_valid_for_days)
+                {
+                    if let Some(_) = self.auth_db.remove(token.token).await.ok() {
+                        deleted_tokens += 1;
+                    }
+                }
+            }
+        }
+        tracing::debug!("Deleted {} expired user auth tokens", deleted_tokens);
+        Ok(())
+    }
+
     async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
         let mut tokens = self.all_user_auth_tokens(user_id).await?;
         tokens.iter_mut().for_each(|t| {
@@ -3437,20 +3466,18 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn users(&self, user_id: i32) -> Result<Vec<user::Model>> {
-        self.admin_account_guard(user_id).await?;
+    async fn users(&self) -> Result<Vec<user::Model>> {
         Ok(User::find()
             .order_by_asc(user::Column::Id)
             .all(&self.db)
             .await?)
     }
 
-    async fn delete_user(&self, user_id: i32, to_delete_user_id: i32) -> Result<bool> {
-        self.admin_account_guard(user_id).await?;
+    async fn delete_user(&self, to_delete_user_id: i32) -> Result<bool> {
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = maybe_user {
             if self
-                .users(user_id)
+                .users()
                 .await?
                 .into_iter()
                 .filter(|u| u.lot == UserLot::Admin)
