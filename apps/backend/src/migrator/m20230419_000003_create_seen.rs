@@ -37,7 +37,6 @@ pub enum Seen {
     StartedOn,
     FinishedOn,
     State,
-    // Add field status: null, `dropped` or `on hold`
     UserId,
     MetadataId,
     LastUpdatedOn,
