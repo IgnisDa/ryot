@@ -18,11 +18,13 @@ impl MigrationName for Migration {
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum SeenStates {
+pub enum SeenState {
     #[sea_orm(string_value = "CO")]
     Completed,
     #[sea_orm(string_value = "DR")]
     Dropped,
+    #[sea_orm(string_value = "IP")]
+    InProgress,
     #[sea_orm(string_value = "OH")]
     OnAHold,
 }
@@ -34,10 +36,7 @@ pub enum Seen {
     Progress,
     StartedOn,
     FinishedOn,
-    // FIXME: Delete this field
-    // If the user abandoned this media item while consuming it
-    States,
-    Dropped,
+    State,
     // Add field status: null, `dropped` or `on hold`
     UserId,
     MetadataId,
@@ -70,8 +69,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
-                    .col(ColumnDef::new(Seen::Dropped).boolean().default(false))
-                    .col(ColumnDef::new(Seen::States).string_len(2))
+                    .col(
+                        ColumnDef::new(Seen::State)
+                            .string_len(2)
+                            .not_null()
+                            .default(SeenState::InProgress),
+                    )
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{prelude::UserToMetadata, user_to_metadata},
+    migrator::SeenState,
     miscellaneous::{
         SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
@@ -27,6 +28,9 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
     pub metadata_id: i32,
+    // TODO: Remove this field
+    pub dropped: bool,
+    pub state: SeenState,
     #[graphql(skip)]
     #[serde(skip)]
     pub extra_information: Option<SeenOrReviewExtraInformation>,
@@ -34,7 +38,6 @@ pub struct Model {
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]
     pub podcast_information: Option<SeenPodcastExtraInformation>,
-    pub dropped: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
