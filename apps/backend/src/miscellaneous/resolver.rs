@@ -49,7 +49,8 @@ use crate::{
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
         MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
-        Review as TempReview, Seen as TempSeen, UserLot, UserToMetadata as TempUserToMetadata,
+        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
+        UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{
         CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
@@ -381,8 +382,10 @@ enum MediaGeneralFilter {
     All,
     Rated,
     Unrated,
+    InProgress,
     Dropped,
-    Finished,
+    OnAHold,
+    Completed,
     Unseen,
 }
 
@@ -1442,10 +1445,20 @@ impl MiscellaneousService {
                             )
                             .to_owned();
                     }
-                    MediaGeneralFilter::Dropped => {
-                        let dropped_ids = Seen::find()
+                    MediaGeneralFilter::Dropped
+                    | MediaGeneralFilter::InProgress
+                    | MediaGeneralFilter::Completed
+                    | MediaGeneralFilter::OnAHold => {
+                        let state = match s {
+                            MediaGeneralFilter::Dropped => SeenState::Dropped,
+                            MediaGeneralFilter::InProgress => SeenState::InProgress,
+                            MediaGeneralFilter::Completed => SeenState::Completed,
+                            MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                            _ => unreachable!(),
+                        };
+                        let filtered_ids = Seen::find()
                             .filter(seen::Column::UserId.eq(user_id))
-                            .filter(seen::Column::Dropped.eq(true))
+                            .filter(seen::Column::State.eq(state))
                             .all(&self.db)
                             .await?
                             .into_iter()
@@ -1454,23 +1467,7 @@ impl MiscellaneousService {
                         main_select = main_select
                             .and_where(
                                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .is_in(dropped_ids),
-                            )
-                            .to_owned();
-                    }
-                    MediaGeneralFilter::Finished => {
-                        let finished_ids = Seen::find()
-                            .filter(seen::Column::UserId.eq(user_id))
-                            .filter(seen::Column::Progress.eq(100))
-                            .all(&self.db)
-                            .await?
-                            .into_iter()
-                            .map(|r| r.metadata_id)
-                            .collect_vec();
-                        main_select = main_select
-                            .and_where(
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .is_in(finished_ids),
+                                    .is_in(filtered_ids),
                             )
                             .to_owned();
                     }
@@ -1602,7 +1599,7 @@ impl MiscellaneousService {
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::Dropped.ne(true))
+            .filter(seen::Column::State.ne(SeenState::Dropped))
             .filter(seen::Column::MetadataId.eq(input.metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
@@ -1614,32 +1611,35 @@ impl MiscellaneousService {
             Now,
             InThePast,
             JustStarted,
-            Drop,
+            ChangeState,
         }
-        let action = match input.progress {
-            None => ProgressUpdateAction::Drop,
-            Some(p) => {
-                if p == 100 {
-                    match input.date {
-                        None => ProgressUpdateAction::InThePast,
-                        Some(u) => {
-                            if Utc::now().date_naive() == u {
-                                if prev_seen.is_empty() {
-                                    ProgressUpdateAction::Now
+        let action = match input.change_state {
+            None => match input.progress {
+                None => ProgressUpdateAction::ChangeState,
+                Some(p) => {
+                    if p == 100 {
+                        match input.date {
+                            None => ProgressUpdateAction::InThePast,
+                            Some(u) => {
+                                if Utc::now().date_naive() == u {
+                                    if prev_seen.is_empty() {
+                                        ProgressUpdateAction::Now
+                                    } else {
+                                        ProgressUpdateAction::Update
+                                    }
                                 } else {
-                                    ProgressUpdateAction::Update
+                                    ProgressUpdateAction::InThePast
                                 }
-                            } else {
-                                ProgressUpdateAction::InThePast
                             }
                         }
+                    } else if prev_seen.is_empty() {
+                        ProgressUpdateAction::JustStarted
+                    } else {
+                        ProgressUpdateAction::Update
                     }
-                } else if prev_seen.is_empty() {
-                    ProgressUpdateAction::JustStarted
-                } else {
-                    ProgressUpdateAction::Update
                 }
-            }
+            },
+            Some(_) => ProgressUpdateAction::ChangeState,
         };
         let err = || {
             Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -1657,10 +1657,14 @@ impl MiscellaneousService {
                 }
                 last_seen.update(&self.db).await.unwrap()
             }
-            ProgressUpdateAction::Drop => {
+            ProgressUpdateAction::ChangeState => {
+                let new_state = match input.change_state {
+                    None => SeenState::Dropped,
+                    Some(s) => s,
+                };
                 let last_seen = Seen::find()
                     .filter(seen::Column::UserId.eq(user_id))
-                    .filter(seen::Column::Dropped.ne(true))
+                    .filter(seen::Column::State.eq(SeenState::InProgress))
                     .filter(seen::Column::MetadataId.eq(input.metadata_id))
                     .order_by_desc(seen::Column::LastUpdatedOn)
                     .one(&self.db)
@@ -1669,7 +1673,7 @@ impl MiscellaneousService {
                 match last_seen {
                     Some(ls) => {
                         let mut last_seen: seen::ActiveModel = ls.into();
-                        last_seen.dropped = ActiveValue::Set(true);
+                        last_seen.state = ActiveValue::Set(new_state);
                         last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                         last_seen.update(&self.db).await.unwrap()
                     }
@@ -3553,6 +3557,7 @@ impl MiscellaneousService {
                 show_season_number: pu.show_season_number,
                 show_episode_number: pu.show_episode_number,
                 podcast_episode_number: pu.podcast_episode_number,
+                change_state: None,
             },
             user_id,
         )

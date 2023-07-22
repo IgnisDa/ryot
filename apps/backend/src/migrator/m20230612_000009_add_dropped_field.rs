@@ -1,7 +1,5 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230419_000003_create_seen::Seen;
-
 pub struct Migration;
 
 impl MigrationName for Migration {
@@ -12,18 +10,7 @@ impl MigrationName for Migration {
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Seen::Table)
-                    .add_column_if_not_exists(
-                        ColumnDef::new(Seen::Dropped).boolean().default(false),
-                    )
-                    .to_owned(),
-            )
-            .await
-            .ok();
+    async fn up(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
 

@@ -1,4 +1,7 @@
+use async_graphql::Enum;
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::migrator::{m20230417_000002_create_user::User, Metadata};
 
@@ -10,6 +13,22 @@ impl MigrationName for Migration {
     }
 }
 
+// The different possible states of a seen item.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+)]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+pub enum SeenState {
+    #[sea_orm(string_value = "CO")]
+    Completed,
+    #[sea_orm(string_value = "DR")]
+    Dropped,
+    #[sea_orm(string_value = "IP")]
+    InProgress,
+    #[sea_orm(string_value = "OH")]
+    OnAHold,
+}
+
 #[derive(Iden)]
 pub enum Seen {
     Table,
@@ -17,8 +36,7 @@ pub enum Seen {
     Progress,
     StartedOn,
     FinishedOn,
-    // If the user abandoned this media item while consuming it
-    Dropped,
+    State,
     UserId,
     MetadataId,
     LastUpdatedOn,
@@ -50,7 +68,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
-                    .col(ColumnDef::new(Seen::Dropped).boolean().default(false))
+                    .col(
+                        ColumnDef::new(Seen::State)
+                            .string_len(2)
+                            .not_null()
+                            .default(SeenState::InProgress),
+                    )
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()

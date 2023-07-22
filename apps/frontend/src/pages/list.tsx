@@ -333,8 +333,16 @@ const Page: NextPageWithLayout = () => {
 															.with("UNRATED", () => MediaGeneralFilter.Unrated)
 															.with("DROPPED", () => MediaGeneralFilter.Dropped)
 															.with(
-																"FINISHED",
-																() => MediaGeneralFilter.Finished,
+																"COMPLETED",
+																() => MediaGeneralFilter.Completed,
+															)
+															.with(
+																"ON_A_HOLD",
+																() => MediaGeneralFilter.OnAHold,
+															)
+															.with(
+																"IN_PROGRESS",
+																() => MediaGeneralFilter.InProgress,
 															)
 															.with("UNSEEN", () => MediaGeneralFilter.Unseen)
 															.otherwise((_v) => {

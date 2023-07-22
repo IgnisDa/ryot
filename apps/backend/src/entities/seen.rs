@@ -3,12 +3,13 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{prelude::UserToMetadata, user_to_metadata},
+    migrator::SeenState,
     miscellaneous::{
         SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
@@ -27,6 +28,7 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
     pub metadata_id: i32,
+    pub state: SeenState,
     #[graphql(skip)]
     #[serde(skip)]
     pub extra_information: Option<SeenOrReviewExtraInformation>,
@@ -34,7 +36,6 @@ pub struct Model {
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]
     pub podcast_information: Option<SeenPodcastExtraInformation>,
-    pub dropped: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -71,6 +72,17 @@ impl Related<super::user::Entity> for Entity {
 
 #[async_trait]
 impl ActiveModelBehavior for ActiveModel {
+    async fn before_save<C>(mut self, _db: &C, _insert: bool) -> Result<Self, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        let progress = self.progress.clone().unwrap();
+        if progress == 100 {
+            self.state = ActiveValue::Set(SeenState::Completed);
+        }
+        Ok(self)
+    }
+
     async fn after_save<C>(model: Model, db: &C, insert: bool) -> Result<Model, DbErr>
     where
         C: ConnectionTrait,
