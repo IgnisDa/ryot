@@ -127,7 +127,7 @@ pub async fn user_created_job(
         .await
         .unwrap();
     service
-        .calculate_user_summary(&information.user_id)
+        .calculate_user_media_summary(&information.user_id)
         .await
         .unwrap();
     Ok(())
@@ -147,7 +147,7 @@ impl Job for AfterMediaSeenJob {
 // and "Watchlist". Podcasts and shows can not be removed from "In Progress" since
 // it is not easy to determine which episode is the last one. That needs to be done
 // manually.
-// FIXME: Exclude season 0 from shows and then calculate if completed
+// FIXME: Exclude season 0 from shows and then calculate if completed.
 pub async fn after_media_seen_job(
     information: AfterMediaSeenJob,
     ctx: JobContext,
@@ -235,7 +235,7 @@ pub async fn recalculate_user_summary_job(
     tracing::trace!("Calculating summary for user {:?}", information.user_id);
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
-        .calculate_user_summary(&information.user_id)
+        .calculate_user_media_summary(&information.user_id)
         .await
         .unwrap();
     tracing::trace!(

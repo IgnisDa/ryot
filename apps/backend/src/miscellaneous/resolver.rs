@@ -62,7 +62,7 @@ use crate::{
             CreateOrUpdateCollectionInput, ExportMedia, MangaSpecifics, MediaDetails,
             MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
+            ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -653,10 +653,10 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    async fn user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<summary::Model> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_summary(&user_id).await
+        service.latest_user_summary(&user_id).await
     }
 
     /// Get all the integrations for the currently logged in user.
@@ -2669,15 +2669,7 @@ impl MiscellaneousService {
         Ok(ls)
     }
 
-    async fn user_summary(&self, user_id: &i32) -> Result<UserSummary> {
-        let ls = self.latest_user_summary(user_id).await?;
-        Ok(UserSummary {
-            media: ls.data,
-            calculated_on: ls.created_on,
-        })
-    }
-
-    pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
+    pub async fn calculate_user_media_summary(&self, user_id: &i32) -> Result<IdObject> {
         let mut ls = summary::Model::default();
 
         let num_reviews = Review::find()
@@ -2685,7 +2677,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        ls.data.reviews_posted = num_reviews;
+        ls.data.media.reviews_posted = num_reviews;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -2703,27 +2695,27 @@ impl MiscellaneousService {
             let meta = metadata.to_owned().unwrap();
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
-                    ls.data.audio_books.played += 1;
+                    ls.data.media.audio_books.played += 1;
                     if let Some(r) = item.runtime {
-                        ls.data.audio_books.runtime += r;
+                        ls.data.media.audio_books.runtime += r;
                     }
                 }
                 MediaSpecifics::Anime(item) => {
-                    ls.data.anime.watched += 1;
+                    ls.data.media.anime.watched += 1;
                     if let Some(r) = item.episodes {
-                        ls.data.anime.episodes += r;
+                        ls.data.media.anime.episodes += r;
                     }
                 }
                 MediaSpecifics::Manga(item) => {
-                    ls.data.manga.read += 1;
+                    ls.data.media.manga.read += 1;
                     if let Some(r) = item.chapters {
-                        ls.data.manga.chapters += r;
+                        ls.data.media.manga.chapters += r;
                     }
                 }
                 MediaSpecifics::Book(item) => {
-                    ls.data.books.read += 1;
+                    ls.data.media.books.read += 1;
                     if let Some(pg) = item.pages {
-                        ls.data.books.pages += pg;
+                        ls.data.media.books.pages += pg;
                     }
                 }
                 MediaSpecifics::Podcast(item) => {
@@ -2736,7 +2728,7 @@ impl MiscellaneousService {
                                 SeenOrReviewExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
-                                            ls.data.podcasts.runtime += r;
+                                            ls.data.media.podcasts.runtime += r;
                                         }
                                         unique_podcast_episodes.insert((s.episode, episode.id));
                                     }
@@ -2746,9 +2738,9 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::Movie(item) => {
-                    ls.data.movies.watched += 1;
+                    ls.data.media.movies.watched += 1;
                     if let Some(r) = item.runtime {
-                        ls.data.movies.runtime += r;
+                        ls.data.media.movies.runtime += r;
                     }
                 }
                 MediaSpecifics::Show(item) => {
@@ -2762,9 +2754,9 @@ impl MiscellaneousService {
                                         && s.episode == episode.episode_number
                                     {
                                         if let Some(r) = episode.runtime {
-                                            ls.data.shows.runtime += r;
+                                            ls.data.media.shows.runtime += r;
                                         }
-                                        ls.data.shows.watched_episodes += 1;
+                                        ls.data.media.shows.watched_episodes += 1;
                                         unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
@@ -2773,17 +2765,18 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::VideoGame(_item) => {
-                    ls.data.video_games.played += 1;
+                    ls.data.media.video_games.played += 1;
                 }
                 MediaSpecifics::Unknown => {}
             }
         }
 
-        ls.data.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
-        ls.data.podcasts.played_episodes += i32::try_from(unique_podcast_episodes.len()).unwrap();
+        ls.data.media.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
+        ls.data.media.podcasts.played_episodes +=
+            i32::try_from(unique_podcast_episodes.len()).unwrap();
 
-        ls.data.shows.watched = i32::try_from(unique_shows.len()).unwrap();
-        ls.data.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
+        ls.data.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
+        ls.data.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
 
         let summary_obj = summary::ActiveModel {
             id: ActiveValue::NotSet,
@@ -2934,7 +2927,7 @@ impl MiscellaneousService {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
             self.cleanup_summaries_for_user(&user.id).await?;
-            self.calculate_user_summary(&user.id).await?;
+            self.calculate_user_media_summary(&user.id).await?;
         }
         Ok(())
     }
