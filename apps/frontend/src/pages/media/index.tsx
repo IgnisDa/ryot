@@ -912,8 +912,7 @@ const Page: NextPageWithLayout = () => {
 											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}ing it
 										</Button>
 									)}
-									{seenHistory.data.length > 0 &&
-									inProgressSeenItem?.state === SeenState.InProgress ? (
+									{seenHistory.data.length > 0 ? (
 										<>
 											<Button variant="outline" onClick={changeStateModalOpen}>
 												Put on hold/drop
