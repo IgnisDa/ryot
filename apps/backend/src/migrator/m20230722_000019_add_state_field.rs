@@ -36,10 +36,6 @@ impl MigrationTrait for Migration {
             let dropped = Alias::new("dropped");
             let db = manager.get_connection();
             SeenModel::update_many()
-                .col_expr(seen::Column::State, Expr::val("IP").into())
-                .exec(db)
-                .await?;
-            SeenModel::update_many()
                 .filter(seen::Column::Progress.eq(100))
                 .col_expr(seen::Column::State, Expr::val("CO").into())
                 .exec(db)
