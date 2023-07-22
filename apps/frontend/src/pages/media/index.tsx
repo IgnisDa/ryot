@@ -747,7 +747,7 @@ const Page: NextPageWithLayout = () => {
 						) : null}
 					</Flex>
 					{inProgressSeenItem &&
-					inProgressSeenItem.state !== SeenState.Dropped ? (
+					inProgressSeenItem.state === SeenState.InProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 							ing this ({inProgressSeenItem.progress}%)
@@ -913,7 +913,7 @@ const Page: NextPageWithLayout = () => {
 										</Button>
 									)}
 									{seenHistory.data.length > 0 &&
-									inProgressSeenItem?.state !== SeenState.Dropped ? (
+									inProgressSeenItem?.state === SeenState.InProgress ? (
 										<>
 											<Button variant="outline" onClick={changeStateModalOpen}>
 												Put on hold/drop

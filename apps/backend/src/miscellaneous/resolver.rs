@@ -1664,7 +1664,7 @@ impl MiscellaneousService {
                 };
                 let last_seen = Seen::find()
                     .filter(seen::Column::UserId.eq(user_id))
-                    .filter(seen::Column::State.eq(SeenState::Dropped))
+                    .filter(seen::Column::State.eq(SeenState::InProgress))
                     .filter(seen::Column::MetadataId.eq(input.metadata_id))
                     .order_by_desc(seen::Column::LastUpdatedOn)
                     .one(&self.db)
