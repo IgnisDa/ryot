@@ -2679,6 +2679,14 @@ impl MiscellaneousService {
 
     pub async fn calculate_user_summary(&self, user_id: &i32) -> Result<IdObject> {
         let mut ls = summary::Model::default();
+
+        let num_reviews = Review::find()
+            .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .count(&self.db)
+            .await?;
+
+        ls.data.reviews_posted = num_reviews;
+
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))

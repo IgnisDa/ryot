@@ -2,6 +2,7 @@ query UserSummary {
   userSummary {
     calculatedOn
     media {
+      reviewsPosted
       manga {
         chapters
         read

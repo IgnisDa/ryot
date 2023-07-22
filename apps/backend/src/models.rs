@@ -422,14 +422,24 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct UserMediaSummary {
+        #[serde(default)]
         pub books: BooksSummary,
+        #[serde(default)]
         pub movies: MoviesSummary,
+        #[serde(default)]
         pub podcasts: PodcastsSummary,
+        #[serde(default)]
         pub shows: ShowsSummary,
+        #[serde(default)]
         pub video_games: VideoGamesSummary,
+        #[serde(default)]
         pub audio_books: AudioBooksSummary,
+        #[serde(default)]
         pub anime: AnimeSummary,
+        #[serde(default)]
         pub manga: MangaSummary,
+        #[serde(default)]
+        pub reviews_posted: u64,
     }
 
     #[derive(
