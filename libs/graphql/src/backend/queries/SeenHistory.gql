@@ -2,16 +2,16 @@ query SeenHistory($metadataId: Int!) {
   seenHistory(metadataId: $metadataId) {
     id
     progress
-		state
+    state
     startedOn
     finishedOn
     lastUpdatedOn
-		showInformation {
-			episode
-			season
-		}
-		podcastInformation {
-			episode
-		}
+    showInformation {
+      episode
+      season
+    }
+    podcastInformation {
+      episode
+    }
   }
 }
