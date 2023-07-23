@@ -1,4 +1,15 @@
 
+# Version 1.15.5 (2023-07-23)
+
+## Build
+
+* **backend:** bump version
+
+## Documentation
+
+* add info about MediaTracker
+
+
 # Version 1.15.4 (2023-07-23)
 
 ## Bug Fixes
