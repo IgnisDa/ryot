@@ -1,4 +1,15 @@
 
+# Version 1.15.4 (2023-07-23)
+
+## Bug Fixes
+
+* **backend:** handle after seen items for shows and podcasts
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.15.3 (2023-07-23)
 
 ## Bug Fixes
