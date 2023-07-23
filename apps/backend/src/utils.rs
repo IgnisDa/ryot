@@ -30,8 +30,8 @@ use tokio::task::JoinSet;
 
 use crate::{
     background::{
-        AfterMediaSeenJob, ImportMedia, RecalculateUserSummaryJob, UpdateExerciseJob,
-        UpdateMetadataJob, UserCreatedJob,
+        ImportMedia, RecalculateUserSummaryJob, UpdateExerciseJob, UpdateMetadataJob,
+        UserCreatedJob,
     },
     config::AppConfig,
     entities::user_to_metadata,
@@ -69,7 +69,6 @@ pub async fn create_app_services(
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
-    after_media_seen_job: &SqliteStorage<AfterMediaSeenJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) -> AppServices {
@@ -91,7 +90,6 @@ pub async fn create_app_services(
             &auth_db,
             config,
             file_storage_service.clone(),
-            after_media_seen_job,
             update_metadata_job,
             recalculate_user_summary_job,
             user_created_job,

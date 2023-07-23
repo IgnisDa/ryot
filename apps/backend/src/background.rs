@@ -5,12 +5,11 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{metadata, seen},
+    entities::metadata,
     fitness::exercise::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
-    migrator::{MetadataLot, SeenState},
-    miscellaneous::{resolver::MiscellaneousService, DefaultCollection},
-    models::{fitness::Exercise, media::AddMediaToCollection},
+    miscellaneous::resolver::MiscellaneousService,
+    models::fitness::Exercise,
 };
 
 // Cron Jobs
@@ -130,92 +129,6 @@ pub async fn user_created_job(
         .calculate_user_media_summary(&information.user_id)
         .await
         .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct AfterMediaSeenJob {
-    pub seen: seen::Model,
-    pub metadata_lot: MetadataLot,
-}
-
-impl Job for AfterMediaSeenJob {
-    const NAME: &'static str = "apalis::AfterMediaSeenJob";
-}
-
-// Everything except shows and podcasts are automatically removed from "In Progress"
-// and "Watchlist". Podcasts and shows can not be removed from "In Progress" since
-// it is not easy to determine which episode is the last one. That needs to be done
-// manually.
-// FIXME: Exclude season 0 from shows and then calculate if completed.
-pub async fn after_media_seen_job(
-    information: AfterMediaSeenJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::trace!(
-        "Running jobs after media item seen {:?}",
-        information.seen.id
-    );
-    let media_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    if information.seen.state == SeenState::Dropped {
-        media_service
-            .remove_media_item_from_collection(
-                &information.seen.user_id,
-                &information.seen.metadata_id,
-                &DefaultCollection::Watchlist.to_string(),
-            )
-            .await
-            .ok();
-        media_service
-            .remove_media_item_from_collection(
-                &information.seen.user_id,
-                &information.seen.metadata_id,
-                &DefaultCollection::InProgress.to_string(),
-            )
-            .await
-            .ok();
-    } else if matches!(information.metadata_lot, MetadataLot::Show,)
-        || matches!(information.metadata_lot, MetadataLot::Podcast)
-    {
-        media_service
-            .add_media_to_collection(
-                &information.seen.user_id,
-                AddMediaToCollection {
-                    collection_name: DefaultCollection::InProgress.to_string(),
-                    media_id: information.seen.metadata_id,
-                },
-            )
-            .await
-            .ok();
-    } else if information.seen.progress == 100 {
-        media_service
-            .remove_media_item_from_collection(
-                &information.seen.user_id,
-                &information.seen.metadata_id,
-                &DefaultCollection::Watchlist.to_string(),
-            )
-            .await
-            .ok();
-        media_service
-            .remove_media_item_from_collection(
-                &information.seen.user_id,
-                &information.seen.metadata_id,
-                &DefaultCollection::InProgress.to_string(),
-            )
-            .await
-            .ok();
-    } else {
-        media_service
-            .add_media_to_collection(
-                &information.seen.user_id,
-                AddMediaToCollection {
-                    collection_name: DefaultCollection::InProgress.to_string(),
-                    media_id: information.seen.metadata_id,
-                },
-            )
-            .await
-            .ok();
-    }
     Ok(())
 }
 

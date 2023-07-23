@@ -16,6 +16,9 @@ use crate::{
     utils::associate_user_with_metadata,
 };
 
+// When updating a media item's progress, here are the things that should happen:
+// - remove from watchlist if it was in there
+// - add to in progress
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Seen")]
 #[sea_orm(table_name = "seen")]

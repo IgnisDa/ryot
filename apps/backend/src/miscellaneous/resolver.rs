@@ -33,7 +33,7 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
-    background::{AfterMediaSeenJob, RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
+    background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
         collection, genre, media_import_report, metadata, metadata_to_collection,
@@ -450,9 +450,8 @@ fn create_cookie(
     cookie = if expires {
         cookie.expires(OffsetDateTime::now_utc())
     } else {
-        cookie.expires(
-            OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till.into())),
-        )
+        cookie
+            .expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till)))
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -958,7 +957,6 @@ pub struct MiscellaneousService {
     pub anilist_anime_service: AnilistAnimeService,
     pub anilist_manga_service: AnilistMangaService,
     pub integration_service: IntegrationService,
-    pub after_media_seen: SqliteStorage<AfterMediaSeenJob>,
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
@@ -978,7 +976,6 @@ impl MiscellaneousService {
         auth_db: &MemoryDatabase,
         config: Arc<AppConfig>,
         file_storage: Arc<FileStorageService>,
-        after_media_seen: &SqliteStorage<AfterMediaSeenJob>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
@@ -1021,7 +1018,6 @@ impl MiscellaneousService {
             anilist_anime_service,
             anilist_manga_service,
             integration_service,
-            after_media_seen: after_media_seen.clone(),
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
             user_created: user_created.clone(),
@@ -1769,7 +1765,6 @@ impl MiscellaneousService {
         };
         let id = seen_item.id;
         let metadata = self.generic_metadata(input.metadata_id).await?;
-        let mut storage = self.after_media_seen.clone();
         if seen_item.state == SeenState::Completed {
             self.seen_progress_cache
                 .insert(
@@ -1781,11 +1776,7 @@ impl MiscellaneousService {
                 )
                 .await;
         }
-        storage
-            .push(AfterMediaSeenJob {
-                seen: seen_item,
-                metadata_lot: metadata.model.lot,
-            })
+        self.after_media_seen(seen_item, metadata.model.lot)
             .await
             .ok();
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
@@ -3381,7 +3372,7 @@ impl MiscellaneousService {
             }
             let mut updated_count = 0;
             for pu in progress_updates.into_iter() {
-                if let Some(_) = self.integration_progress_update(pu, user_id).await.ok() {
+                if self.integration_progress_update(pu, user_id).await.is_ok() {
                     updated_count += 1
                 }
             }
@@ -3427,10 +3418,9 @@ impl MiscellaneousService {
             for token in tokens {
                 if Utc::now() - token.last_used_on
                     > ChronoDuration::days(self.config.users.token_valid_for_days)
+                    && self.auth_db.remove(token.token).await.is_ok()
                 {
-                    if let Some(_) = self.auth_db.remove(token.token).await.ok() {
-                        deleted_tokens += 1;
-                    }
+                    deleted_tokens += 1;
                 }
             }
         }
@@ -3559,6 +3549,73 @@ impl MiscellaneousService {
         )
         .await
         .ok();
+        Ok(())
+    }
+
+    // Everything except shows and podcasts are automatically removed from "In Progress"
+    // and "Watchlist". Podcasts and shows can not be removed from "In Progress" since
+    // it is not easy to determine which episode is the last one. That needs to be done
+    // manually.
+    // FIXME: Exclude season 0 from shows and then calculate if completed.
+    pub async fn after_media_seen(
+        &self,
+        seen: seen::Model,
+        metadata_lot: MetadataLot,
+    ) -> Result<()> {
+        tracing::trace!("Running jobs after media item seen {:?}", seen.id);
+        if seen.state == SeenState::Dropped {
+            self.remove_media_item_from_collection(
+                &seen.user_id,
+                &seen.metadata_id,
+                &DefaultCollection::Watchlist.to_string(),
+            )
+            .await
+            .ok();
+            self.remove_media_item_from_collection(
+                &seen.user_id,
+                &seen.metadata_id,
+                &DefaultCollection::InProgress.to_string(),
+            )
+            .await
+            .ok();
+        } else if matches!(metadata_lot, MetadataLot::Show,)
+            || matches!(metadata_lot, MetadataLot::Podcast)
+        {
+            self.add_media_to_collection(
+                &seen.user_id,
+                AddMediaToCollection {
+                    collection_name: DefaultCollection::InProgress.to_string(),
+                    media_id: seen.metadata_id,
+                },
+            )
+            .await
+            .ok();
+        } else if seen.progress == 100 {
+            self.remove_media_item_from_collection(
+                &seen.user_id,
+                &seen.metadata_id,
+                &DefaultCollection::Watchlist.to_string(),
+            )
+            .await
+            .ok();
+            self.remove_media_item_from_collection(
+                &seen.user_id,
+                &seen.metadata_id,
+                &DefaultCollection::InProgress.to_string(),
+            )
+            .await
+            .ok();
+        } else {
+            self.add_media_to_collection(
+                &seen.user_id,
+                AddMediaToCollection {
+                    collection_name: DefaultCollection::InProgress.to_string(),
+                    media_id: seen.metadata_id,
+                },
+            )
+            .await
+            .ok();
+        }
         Ok(())
     }
 }
