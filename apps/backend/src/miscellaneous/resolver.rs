@@ -3571,7 +3571,8 @@ impl MiscellaneousService {
             let metadata = self.media_details(seen.metadata_id).await?;
             let can_remove =
                 if metadata.lot == MetadataLot::Podcast || metadata.lot == MetadataLot::Show {
-                    todo!("Exclude season 0 from shows and then calculate if completed")
+                    false
+                    // todo!("Exclude season 0 from shows and then calculate if completed")
                 } else {
                     true
                 };
