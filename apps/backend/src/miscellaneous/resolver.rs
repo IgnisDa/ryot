@@ -1646,6 +1646,7 @@ impl MiscellaneousService {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
                 let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                 if progress == 100 {
