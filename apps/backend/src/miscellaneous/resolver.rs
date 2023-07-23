@@ -1758,13 +1758,13 @@ impl MiscellaneousService {
                     finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     extra_information: ActiveValue::Set(extra_infomation),
+                    state: ActiveValue::Set(SeenState::InProgress),
                     ..Default::default()
                 };
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
         let id = seen_item.id;
-        let metadata = self.generic_metadata(input.metadata_id).await?;
         if seen_item.state == SeenState::Completed {
             self.seen_progress_cache
                 .insert(
@@ -1776,9 +1776,7 @@ impl MiscellaneousService {
                 )
                 .await;
         }
-        self.after_media_seen(seen_item, metadata.model.lot)
-            .await
-            .ok();
+        self.after_media_seen_tasks(seen_item).await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 
@@ -3552,25 +3550,15 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    // Everything except shows and podcasts are automatically removed from "In Progress"
-    // and "Watchlist". Podcasts and shows can not be removed from "In Progress" since
-    // it is not easy to determine which episode is the last one. That needs to be done
-    // manually.
-    // FIXME: Exclude season 0 from shows and then calculate if completed.
-    pub async fn after_media_seen(
-        &self,
-        seen: seen::Model,
-        metadata_lot: MetadataLot,
-    ) -> Result<()> {
-        tracing::trace!("Running jobs after media item seen {:?}", seen.id);
-        if seen.state == SeenState::Dropped {
-            self.remove_media_item_from_collection(
-                &seen.user_id,
-                &seen.metadata_id,
-                &DefaultCollection::Watchlist.to_string(),
-            )
-            .await
-            .ok();
+    pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
+        self.remove_media_item_from_collection(
+            &seen.user_id,
+            &seen.metadata_id,
+            &DefaultCollection::Watchlist.to_string(),
+        )
+        .await
+        .ok();
+        if seen.state == SeenState::Dropped || seen.state == SeenState::OnAHold {
             self.remove_media_item_from_collection(
                 &seen.user_id,
                 &seen.metadata_id,
@@ -3578,43 +3566,23 @@ impl MiscellaneousService {
             )
             .await
             .ok();
-        } else if matches!(metadata_lot, MetadataLot::Show,)
-            || matches!(metadata_lot, MetadataLot::Podcast)
-        {
-            self.add_media_to_collection(
-                &seen.user_id,
-                AddMediaToCollection {
-                    collection_name: DefaultCollection::InProgress.to_string(),
-                    media_id: seen.metadata_id,
-                },
-            )
-            .await
-            .ok();
-        } else if seen.progress == 100 {
-            self.remove_media_item_from_collection(
-                &seen.user_id,
-                &seen.metadata_id,
-                &DefaultCollection::Watchlist.to_string(),
-            )
-            .await
-            .ok();
-            self.remove_media_item_from_collection(
-                &seen.user_id,
-                &seen.metadata_id,
-                &DefaultCollection::InProgress.to_string(),
-            )
-            .await
-            .ok();
-        } else {
-            self.add_media_to_collection(
-                &seen.user_id,
-                AddMediaToCollection {
-                    collection_name: DefaultCollection::InProgress.to_string(),
-                    media_id: seen.metadata_id,
-                },
-            )
-            .await
-            .ok();
+        } else if seen.state == SeenState::Completed {
+            let metadata = self.media_details(seen.metadata_id).await?;
+            let can_remove =
+                if metadata.lot == MetadataLot::Podcast || metadata.lot == MetadataLot::Show {
+                    todo!("Exclude season 0 from shows and then calculate if completed")
+                } else {
+                    true
+                };
+            if can_remove {
+                self.remove_media_item_from_collection(
+                    &seen.user_id,
+                    &seen.metadata_id,
+                    &DefaultCollection::InProgress.to_string(),
+                )
+                .await
+                .ok();
+            }
         }
         Ok(())
     }
