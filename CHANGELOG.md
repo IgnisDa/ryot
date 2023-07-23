@@ -1,4 +1,19 @@
 
+# Version 1.15.2 (2023-07-23)
+
+## Bug Fixes
+
+* **backend:** change after media seen behaviour
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* ***:** correct behaviour for seen items
+
+
 # Version 1.15.1 (2023-07-22)
 
 ## Bug Fixes
