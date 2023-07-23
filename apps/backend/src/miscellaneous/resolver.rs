@@ -3559,24 +3559,19 @@ impl MiscellaneousService {
         )
         .await
         .ok();
-        if seen.state == SeenState::Dropped || seen.state == SeenState::OnAHold {
-            self.remove_media_item_from_collection(
-                &seen.user_id,
-                &seen.metadata_id,
-                &DefaultCollection::InProgress.to_string(),
-            )
-            .await
-            .ok();
-        } else if seen.state == SeenState::Completed {
-            let metadata = self.media_details(seen.metadata_id).await?;
-            let can_remove =
-                if metadata.lot == MetadataLot::Podcast || metadata.lot == MetadataLot::Show {
-                    false
-                    // todo!("Exclude season 0 from shows and then calculate if completed")
-                } else {
-                    true
-                };
-            if can_remove {
+        match seen.state {
+            SeenState::InProgress => {
+                self.add_media_to_collection(
+                    &seen.user_id,
+                    AddMediaToCollection {
+                        collection_name: DefaultCollection::InProgress.to_string(),
+                        media_id: seen.metadata_id,
+                    },
+                )
+                .await
+                .ok();
+            }
+            SeenState::Dropped | SeenState::OnAHold => {
                 self.remove_media_item_from_collection(
                     &seen.user_id,
                     &seen.metadata_id,
@@ -3585,7 +3580,30 @@ impl MiscellaneousService {
                 .await
                 .ok();
             }
-        }
+            SeenState::Completed => {
+                let metadata = self.media_details(seen.metadata_id).await?;
+                if metadata.lot == MetadataLot::Podcast || metadata.lot == MetadataLot::Show {
+                    // todo!("Exclude season 0 from shows and then calculate if completed")
+                    self.add_media_to_collection(
+                        &seen.user_id,
+                        AddMediaToCollection {
+                            collection_name: DefaultCollection::InProgress.to_string(),
+                            media_id: seen.metadata_id,
+                        },
+                    )
+                    .await
+                    .ok();
+                } else {
+                    self.remove_media_item_from_collection(
+                        &seen.user_id,
+                        &seen.metadata_id,
+                        &DefaultCollection::InProgress.to_string(),
+                    )
+                    .await
+                    .ok();
+                };
+            }
+        };
         Ok(())
     }
 }
