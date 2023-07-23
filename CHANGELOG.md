@@ -1,4 +1,15 @@
 
+# Version 1.15.3 (2023-07-23)
+
+## Bug Fixes
+
+* **backend:** temporary solution
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.15.2 (2023-07-23)
 
 ## Bug Fixes
