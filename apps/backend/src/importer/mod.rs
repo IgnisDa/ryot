@@ -311,7 +311,7 @@ impl ImporterService {
                     continue;
                 }
                 let text = review.review.clone().and_then(|r| r.text);
-                let spoiler = review.review.clone().map(|r| r.spoiler);
+                let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
                 let date = review.review.clone().map(|r| r.date);
                 match self
                     .media_service

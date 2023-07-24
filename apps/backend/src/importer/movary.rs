@@ -100,7 +100,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             podcast_episode_number: None,
         };
         let review = record.comment.map(|c| ImportItemReview {
-            spoiler: false,
+            spoiler: Some(false),
             text: Some(c),
             date: watched_at,
         });

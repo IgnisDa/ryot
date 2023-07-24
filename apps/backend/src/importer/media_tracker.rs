@@ -293,7 +293,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 } else {
                     Some(ImportItemReview {
                         date: None,
-                        spoiler: false,
+                        spoiler: Some(false),
                         text: r.review,
                     })
                 };
@@ -366,7 +366,7 @@ pub mod utils {
             let text = captures.name("text").unwrap().as_str().to_owned();
             Some(ImportItemReview {
                 date: Some(date),
-                spoiler,
+                spoiler: Some(spoiler),
                 text: Some(text),
             })
         } else {
@@ -429,7 +429,7 @@ pub mod utils {
 
             let info = info.unwrap();
             assert_eq!(info.date.unwrap(), expected_date);
-            assert_eq!(info.spoiler, expected_is_spoiler);
+            assert_eq!(info.spoiler, Some(expected_is_spoiler));
             assert_eq!(info.text.unwrap(), expected_text.to_owned());
         }
 

@@ -128,7 +128,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         // DEV: Rates items out of 10
                         .and_then(|e| Decimal::from_f32_retain((e * 10).into())),
                     review: Some(ImportItemReview {
-                        spoiler: false,
+                        spoiler: Some(false),
                         text: Some("".to_owned()),
                         date: item.rated_at,
                     }),

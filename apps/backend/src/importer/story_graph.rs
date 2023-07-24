@@ -114,7 +114,7 @@ pub async fn import(
                             .map(|d| d.saturating_mul(dec!(10))),
                         review: record.review.map(|r| ImportItemReview {
                             date: None,
-                            spoiler: false,
+                            spoiler: Some(false),
                             text: Some(r),
                         }),
                         show_season_number: None,

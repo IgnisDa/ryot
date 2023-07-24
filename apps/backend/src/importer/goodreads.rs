@@ -72,7 +72,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                 if !d.user_review.is_empty() {
                     single_review.review = Some(ImportItemReview {
                         date: None,
-                        spoiler: false,
+                        spoiler: Some(false),
                         text: Some(d.user_review),
                     });
                 };

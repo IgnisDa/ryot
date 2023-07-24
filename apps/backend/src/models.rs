@@ -550,8 +550,8 @@ pub mod media {
     pub struct ImportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
-        /// Whether to mark the review as a spoiler.
-        pub spoiler: bool,
+        /// Whether to mark the review as a spoiler. Defaults to false.
+        pub spoiler: Option<bool>,
         /// Actual text for the review.
         pub text: Option<String>,
     }
