@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.16.1"
+version = "1.16.2"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -33,7 +33,7 @@ harsh = "0.2.2"
 http = "0.2.9"
 http-types = "2.12.0"
 isolang = { version = "2.3.0", features = ["list_languages"] }
-itertools = "0.10.5"
+itertools = "0.11.0"
 markdown = "1.0.0-alpha.10"
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
