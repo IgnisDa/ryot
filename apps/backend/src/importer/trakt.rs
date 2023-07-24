@@ -132,6 +132,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         text: Some("".to_owned()),
                         date: item.rated_at,
                     }),
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 });
                 if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
                     a.reviews = d.reviews;

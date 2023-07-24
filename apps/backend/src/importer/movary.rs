@@ -67,6 +67,9 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 // DEV: Rates items out of 10
                 rating: Some(record.user_rating.saturating_mul(dec!(10))),
                 review: None,
+                show_season_number: None,
+                show_episode_number: None,
+                podcast_episode_number: None,
             }],
             collections: vec![],
         })
@@ -112,6 +115,9 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     media.reviews.push(ImportItemRating {
                         review,
                         rating: None,
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
                     })
                 }
             }
@@ -122,6 +128,9 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 reviews.push(ImportItemRating {
                     review,
                     rating: None,
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 })
             }
             media.push(ImportItem {

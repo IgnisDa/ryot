@@ -117,6 +117,9 @@ pub async fn import(
                             spoiler: false,
                             text: Some(r),
                         }),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
                     }],
                     collections,
                 })

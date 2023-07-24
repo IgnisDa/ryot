@@ -300,6 +300,9 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 ImportItemRating {
                     review,
                     rating: r.rating.map(|d| d.saturating_mul(dec!(20))),
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 }
             })),
             seen_history: details

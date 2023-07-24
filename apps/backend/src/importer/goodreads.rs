@@ -65,6 +65,9 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                 let mut single_review = ImportItemRating {
                     review: None,
                     rating: None,
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 };
                 if !d.user_review.is_empty() {
                     single_review.review = Some(ImportItemReview {

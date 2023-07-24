@@ -325,9 +325,9 @@ impl ImporterService {
                             visibility: None,
                             metadata_id: metadata.id,
                             review_id: None,
-                            show_season_number: None,
-                            show_episode_number: None,
-                            podcast_episode_number: None,
+                            show_season_number: review.show_season_number,
+                            show_episode_number: review.show_episode_number,
+                            podcast_episode_number: review.podcast_episode_number,
                         },
                     )
                     .await

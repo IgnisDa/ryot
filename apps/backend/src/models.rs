@@ -552,6 +552,9 @@ pub mod media {
     pub struct ImportItemRating {
         pub review: Option<ImportItemReview>,
         pub rating: Option<Decimal>,
+        pub show_season_number: Option<i32>,
+        pub show_episode_number: Option<i32>,
+        pub podcast_episode_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
