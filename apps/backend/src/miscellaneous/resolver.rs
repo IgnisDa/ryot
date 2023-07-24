@@ -3638,19 +3638,20 @@ impl MiscellaneousService {
                     );
                     seen_history
                         .into_iter()
-                        .take(all_episodes.len())
-                        .for_each(|h| {
-                            let ep = if let Some(s) = h.show_information {
+                        .map(|h| {
+                            if let Some(s) = h.show_information {
                                 format!("{}-{}", s.season, s.episode)
                             } else if let Some(p) = h.podcast_information {
                                 format!("{}", p.episode)
                             } else {
                                 String::new()
-                            };
+                            }
+                        })
+                        .take_while_inclusive(|h| h != all_episodes.first().unwrap())
+                        .for_each(|ep| {
                             bag.entry(ep).and_modify(|c| *c += 1);
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
-                    dbg!(&bag);
                     if is_complete {
                         self.remove_media_item_from_collection(
                             &seen.user_id,
