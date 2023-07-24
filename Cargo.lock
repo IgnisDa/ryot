@@ -2708,6 +2708,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4242,7 +4251,7 @@ dependencies = [
  "http",
  "http-types",
  "isolang",
- "itertools",
+ "itertools 0.11.0",
  "markdown",
  "mime_guess",
  "nanoid",
@@ -4380,7 +4389,7 @@ dependencies = [
  "dashmap",
  "futures 0.3.28",
  "histogram",
- "itertools",
+ "itertools 0.10.5",
  "lz4_flex",
  "num-bigint 0.3.3",
  "num_enum",
@@ -4919,7 +4928,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4605306321c356e03873b8ee71d7592a5e7c508add325c3ed0677c16fdf1bcfb"
 dependencies = [
  "Inflector",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -4957,7 +4966,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c12bc9199d1db8234678b7051747c07f517cdcf019262d1847b94ec8b1aee3e"
 dependencies = [
- "itertools",
+ "itertools 0.10.5",
  "nom 7.1.3",
  "unicode_categories",
 ]
