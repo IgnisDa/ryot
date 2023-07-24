@@ -3427,6 +3427,11 @@ impl MiscellaneousService {
                     None
                 }
             })
+            .collect_vec();
+        let tokens = tokens
+            .into_iter()
+            .sorted_unstable_by_key(|t| t.last_used_on)
+            .rev()
             .collect();
         Ok(tokens)
     }
