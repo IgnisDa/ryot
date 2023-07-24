@@ -165,11 +165,16 @@ export type DeployGoodreadsImportInput = {
 
 export type DeployImportJobInput = {
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
+  mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: MediaImportSource;
   storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
+};
+
+export type DeployMediaJsonImportInput = {
+  export: Scalars['String'];
 };
 
 export type DeployMediaTrackerImportInput = {
@@ -423,6 +428,7 @@ export type MediaImportReport = {
 
 export enum MediaImportSource {
   Goodreads = 'GOODREADS',
+  MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
   StoryGraph = 'STORY_GRAPH',
@@ -739,8 +745,6 @@ export type PodcastsSummary = {
 
 export type PostReviewInput = {
   date?: InputMaybe<Scalars['DateTime']>;
-  /** If this review comes from a different source, this should be set */
-  identifier?: InputMaybe<Scalars['String']>;
   metadataId: Scalars['Int'];
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']>;
   rating?: InputMaybe<Scalars['Decimal']>;

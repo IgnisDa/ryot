@@ -24,6 +24,7 @@ use crate::{
 };
 
 mod goodreads;
+mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
@@ -64,6 +65,12 @@ pub struct DeployStoryGraphImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMediaJsonImportInput {
+    // The contents of the JSON export.
+    export: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
@@ -71,6 +78,7 @@ pub struct DeployImportJobInput {
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
+    pub media_json: Option<DeployMediaJsonImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -227,6 +235,7 @@ impl ImporterService {
             MediaImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
+            MediaImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
