@@ -175,23 +175,25 @@ async fn main() -> Result<()> {
     .await;
 
     if cfg!(debug_assertions) {
+        use specta::export;
+
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
-        let path = PathBuf::from(BASE_DIR)
+        let base_dir = PathBuf::from(BASE_DIR)
             .parent()
             .unwrap()
             .parent()
             .unwrap()
             .join("docs")
-            .join("includes")
-            .join("backend-config-schema.ts");
+            .join("includes");
         let mut generator = schematic::schema::SchemaGenerator::default();
         generator.add::<AppConfig>();
         generator
             .generate(
-                path,
+                base_dir.join("backend-config-schema.ts"),
                 schematic::schema::typescript::TypeScriptRenderer::default(),
             )
             .unwrap();
+        export::ts(base_dir.join("export-schema.ts").to_str().unwrap()).unwrap();
     }
 
     let schema = get_schema(&app_services).await;

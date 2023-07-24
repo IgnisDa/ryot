@@ -60,12 +60,11 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemIdentifier,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
-            MangaSpecifics, MediaDetails, MediaListItem, MediaSearchItem, MovieSpecifics,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics,
-            Visibility,
+            CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
+            MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -3020,7 +3019,7 @@ impl MiscellaneousService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    pub async fn export(&self, user_id: i32) -> Result<Vec<ImportOrExportItem>> {
+    pub async fn export(&self, user_id: i32) -> Result<Vec<ImportOrExportItem<String>>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -3094,7 +3093,7 @@ impl MiscellaneousService {
                 source_id: m.id.to_string(),
                 lot: m.lot,
                 source: m.source,
-                identifier: ImportOrExportItemIdentifier::NeedsDetails(m.identifier),
+                identifier: m.identifier,
                 seen_history,
                 reviews,
                 collections,

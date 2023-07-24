@@ -106,7 +106,7 @@ pub struct ImportDetails {
 #[derive(Debug)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
-    media: Vec<ImportOrExportItem>,
+    media: Vec<ImportOrExportItem<ImportOrExportItemIdentifier>>,
     failed_items: Vec<ImportFailedItem>,
 }
 

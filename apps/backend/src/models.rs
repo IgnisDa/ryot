@@ -505,7 +505,7 @@ pub mod media {
         pub specifics: MediaSpecifics,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     #[serde(untagged)]
     pub enum ImportOrExportItemIdentifier {
         // the identifier in case we need to fetch details
@@ -528,7 +528,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
@@ -538,14 +538,13 @@ pub mod media {
         pub text: Option<String>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
         /// The score of the review.
         pub rating: Option<Decimal>,
         /// If for a show, the season for which this review was for.
-        #[serde(flatten)]
         pub show_season_number: Option<i32>,
         /// If for a show, the episode for which this review was for.
         pub show_episode_number: Option<i32>,
@@ -554,8 +553,8 @@ pub mod media {
     }
 
     /// Details about a specific media item that needs to be imported.
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct ImportOrExportItem {
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportItem<T> {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
@@ -563,7 +562,7 @@ pub mod media {
         /// The source of media.
         pub source: MetadataSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-        pub identifier: ImportOrExportItemIdentifier,
+        pub identifier: T,
         /// The seen history for the user.
         pub seen_history: Vec<ImportOrExportItemSeen>,
         /// The review history for the user.
