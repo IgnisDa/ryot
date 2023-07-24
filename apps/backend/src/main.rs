@@ -193,7 +193,10 @@ async fn main() -> Result<()> {
                 schematic::schema::typescript::TypeScriptRenderer::default(),
             )
             .unwrap();
-        export::ts(base_dir.join("export-schema.ts").to_str().unwrap()).unwrap();
+        let export_path = base_dir.join("export-schema.ts");
+        if !export_path.exists() {
+            export::ts(export_path.to_str().unwrap()).unwrap();
+        }
     }
 
     let schema = get_schema(&app_services).await;
