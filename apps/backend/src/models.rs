@@ -3,6 +3,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::{
     entities::exercise::Model as ExerciseModel,
@@ -504,7 +505,7 @@ pub mod media {
         pub specifics: MediaSpecifics,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     #[serde(untagged)]
     pub enum ImportOrExportItemIdentifier {
         // the identifier in case we need to fetch details
@@ -513,7 +514,7 @@ pub mod media {
         AlreadyFilled(Box<MediaDetails>),
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportItemSeen {
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,

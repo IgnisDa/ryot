@@ -80,7 +80,11 @@ pub async fn import(
             if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
                 let mut seen_history = vec![
                     ImportOrExportItemSeen {
-                        ..Default::default()
+                        started_on: None,
+                        ended_on: None,
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None
                     };
                     record.read_count
                 ];
