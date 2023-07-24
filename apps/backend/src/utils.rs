@@ -222,6 +222,11 @@ where
     )
 }
 
+#[derive(Debug)]
+pub struct GqlCtx {
+    pub auth_token: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MemoryAuthData {
     pub user_id: i32,
