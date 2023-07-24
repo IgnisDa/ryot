@@ -16,8 +16,8 @@ use crate::{
     migrator::{MediaImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
-        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportItem, ImportItemIdentifier,
-        PostReviewInput, ProgressUpdateInput,
+        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
+        ImportOrExportItemIdentifier, PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
     utils::MemoryDatabase,
@@ -106,7 +106,7 @@ pub struct ImportDetails {
 #[derive(Debug)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
-    media: Vec<ImportItem>,
+    media: Vec<ImportOrExportItem>,
     failed_items: Vec<ImportFailedItem>,
 }
 
@@ -257,12 +257,12 @@ impl ImporterService {
                 iden = item.source_id
             );
             let data = match &item.identifier {
-                ImportItemIdentifier::NeedsDetails(i) => {
+                ImportOrExportItemIdentifier::NeedsDetails(i) => {
                     self.media_service
                         .commit_media(item.lot, item.source, i)
                         .await
                 }
-                ImportItemIdentifier::AlreadyFilled(a) => {
+                ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service.commit_media_internal(*a.clone()).await
                 }
             };

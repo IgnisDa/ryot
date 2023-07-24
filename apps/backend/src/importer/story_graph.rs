@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem, ImportItem,
-        ImportItemIdentifier, ImportResult,
+        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::{ImportItemRating, ImportItemReview, ImportItemSeen},
+    models::media::{ImportItemReview, ImportOrExportItemRating, ImportOrExportItemSeen},
     providers::openlibrary::OpenlibraryService,
 };
 
@@ -79,7 +79,7 @@ pub async fn import(
         if let Some(isbn) = record.isbn {
             if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
                 let mut seen_history = vec![
-                    ImportItemSeen {
+                    ImportOrExportItemSeen {
                         ..Default::default()
                     };
                     record.read_count
@@ -101,13 +101,13 @@ pub async fn import(
                 if let Some(t) = record.tags {
                     collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
                 }
-                media.push(ImportItem {
+                media.push(ImportOrExportItem {
                     source_id: record.title,
                     lot,
                     source,
-                    identifier: ImportItemIdentifier::NeedsDetails(identifier),
+                    identifier: ImportOrExportItemIdentifier::NeedsDetails(identifier),
                     seen_history,
-                    reviews: vec![ImportItemRating {
+                    reviews: vec![ImportOrExportItemRating {
                         rating: record
                             .rating
                             // DEV: Rates items out of 10

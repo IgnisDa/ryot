@@ -11,14 +11,16 @@ use uuid::Uuid;
 
 use crate::{
     importer::{
-        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
+        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::{
         media::{
-            BookSpecifics, CreateOrUpdateCollectionInput, ImportItemIdentifier, ImportItemRating,
-            ImportItemReview, ImportItemSeen, MediaDetails, Visibility,
+            BookSpecifics, CreateOrUpdateCollectionInput, ImportItemReview,
+            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemSeen,
+            MediaDetails, Visibility,
         },
         IdObject,
     },
@@ -251,13 +253,13 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             }
         }
 
-        let item = ImportItem {
+        let item = ImportOrExportItem {
             source_id: d.id.to_string(),
             source,
             lot,
             collections,
             identifier: match need_details {
-                false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
+                false => ImportOrExportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                     identifier,
                     title: details.title,
                     description: details.overview,
@@ -281,7 +283,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         pages: details.number_of_pages,
                     }),
                 })),
-                true => ImportItemIdentifier::NeedsDetails(identifier),
+                true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(s) = r
@@ -297,7 +299,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         text: r.review,
                     })
                 };
-                ImportItemRating {
+                ImportOrExportItemRating {
                     review,
                     rating: r.rating.map(|d| d.saturating_mul(dec!(20))),
                     show_season_number: None,
@@ -320,7 +322,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     } else {
                         (None, None)
                     };
-                    ImportItemSeen {
+                    ImportOrExportItemSeen {
                         started_on: None,
                         ended_on: s.date,
                         show_season_number: season_number,

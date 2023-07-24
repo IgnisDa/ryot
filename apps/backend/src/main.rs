@@ -219,7 +219,7 @@ async fn main() -> Result<()> {
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
-        .route("/export", get(export))
+        .route("/export", get(json_export))
         .fallback(static_handler)
         .layer(Extension(app_services.media_service.clone()))
         .layer(Extension(app_services.file_storage_service.clone()))
@@ -464,14 +464,14 @@ async fn upload_handler(
     Ok(Json(json!(res)))
 }
 
-async fn export(
+async fn json_export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
-    let resp = media_service.json_export(user_id).await.unwrap();
+    let resp = media_service.export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
 }
 

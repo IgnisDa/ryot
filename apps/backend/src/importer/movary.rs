@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportItem,
-        ImportItemIdentifier, ImportResult,
+        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::{ImportItemRating, ImportItemReview, ImportItemSeen},
+    models::media::{ImportItemReview, ImportOrExportItemRating, ImportOrExportItemSeen},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,13 +57,15 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportItem {
+        media.push(ImportOrExportItem {
             source_id: record.common.title,
             lot,
             source,
-            identifier: ImportItemIdentifier::NeedsDetails(record.common.tmdb_id.to_string()),
+            identifier: ImportOrExportItemIdentifier::NeedsDetails(
+                record.common.tmdb_id.to_string(),
+            ),
             seen_history: vec![],
-            reviews: vec![ImportItemRating {
+            reviews: vec![ImportOrExportItemRating {
                 // DEV: Rates items out of 10
                 rating: Some(record.user_rating.saturating_mul(dec!(10))),
                 review: None,
@@ -92,7 +94,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             NaiveDateTime::new(record.watched_at, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
             Utc,
         ));
-        let seen_item = ImportItemSeen {
+        let seen_item = ImportOrExportItemSeen {
             started_on: None,
             ended_on: watched_at,
             show_season_number: None,
@@ -112,7 +114,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 if let Some(rating) = media.reviews.last_mut() {
                     rating.review = review;
                 } else {
-                    media.reviews.push(ImportItemRating {
+                    media.reviews.push(ImportOrExportItemRating {
                         review,
                         rating: None,
                         show_season_number: None,
@@ -125,7 +127,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         } else {
             let mut reviews = vec![];
             if review.is_some() {
-                reviews.push(ImportItemRating {
+                reviews.push(ImportOrExportItemRating {
                     review,
                     rating: None,
                     show_season_number: None,
@@ -133,11 +135,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     podcast_episode_number: None,
                 })
             }
-            media.push(ImportItem {
+            media.push(ImportOrExportItem {
                 source_id: record.common.title,
                 lot,
                 source,
-                identifier: ImportItemIdentifier::NeedsDetails(record.common.tmdb_id.to_string()),
+                identifier: ImportOrExportItemIdentifier::NeedsDetails(
+                    record.common.tmdb_id.to_string(),
+                ),
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],

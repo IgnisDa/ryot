@@ -525,7 +525,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     #[serde(untagged)]
-    pub enum ImportItemIdentifier {
+    pub enum ImportOrExportItemIdentifier {
         // the identifier in case we need to fetch details
         NeedsDetails(String),
         // details are already filled and just need to be comitted to database
@@ -533,7 +533,7 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-    pub struct ImportItemSeen {
+    pub struct ImportOrExportItemSeen {
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
         /// The timestamp when finished watching.
@@ -557,12 +557,13 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct ImportItemRating {
+    pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportItemReview>,
         /// The score of the review.
         pub rating: Option<Decimal>,
         /// If for a show, the season for which this review was for.
+        #[serde(flatten)]
         pub show_season_number: Option<i32>,
         /// If for a show, the episode for which this review was for.
         pub show_episode_number: Option<i32>,
@@ -572,7 +573,7 @@ pub mod media {
 
     /// Details about a specific media item that needs to be imported.
     #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct ImportItem {
+    pub struct ImportOrExportItem {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
@@ -580,19 +581,17 @@ pub mod media {
         /// The source of media.
         pub source: MetadataSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-        pub identifier: ImportItemIdentifier,
+        pub identifier: ImportOrExportItemIdentifier,
         /// The seen history for the user.
-        pub seen_history: Vec<ImportItemSeen>,
+        pub seen_history: Vec<ImportOrExportItemSeen>,
         /// The review history for the user.
-        pub reviews: Vec<ImportItemRating>,
+        pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections to add this media to.
         pub collections: Vec<String>,
     }
 }
 
 pub mod fitness {
-    use async_graphql::Enum;
-
     use super::*;
 
     #[derive(

@@ -3018,7 +3018,7 @@ impl MiscellaneousService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    pub async fn json_export(&self, user_id: i32) -> Result<Vec<ExportMedia>> {
+    pub async fn export(&self, user_id: i32) -> Result<Vec<ExportMedia>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
