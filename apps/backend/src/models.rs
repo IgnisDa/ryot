@@ -534,37 +534,58 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct ImportItemSeen {
+        /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
+        /// The timestamp when finished watching.
         pub ended_on: Option<DateTimeUtc>,
+        /// If for a show, the season which was seen.
         pub show_season_number: Option<i32>,
+        /// If for a show, the episode which was seen.
         pub show_episode_number: Option<i32>,
+        /// If for a podcast, the episode which was seen.
         pub podcast_episode_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ImportItemReview {
+        /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
+        /// Whether to mark the review as a spoiler.
         pub spoiler: bool,
+        /// Actual text for the review.
         pub text: Option<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ImportItemRating {
+        /// Data about the review.
         pub review: Option<ImportItemReview>,
+        /// The score of the review.
         pub rating: Option<Decimal>,
+        /// If for a show, the season for which this review was for.
         pub show_season_number: Option<i32>,
+        /// If for a show, the episode for which this review was for.
         pub show_episode_number: Option<i32>,
+        /// If for a podcast, the episode for which this review was for.
         pub podcast_episode_number: Option<i32>,
     }
 
+    /// Details about a specific media item that needs to be imported.
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ImportItem {
+        /// An string to help identify it in the original source.
         pub source_id: String,
+        /// The type of media.
         pub lot: MetadataLot,
+        /// The source of media.
         pub source: MetadataSource,
+        /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
         pub identifier: ImportItemIdentifier,
+        /// The seen history for the user.
         pub seen_history: Vec<ImportItemSeen>,
+        /// The review history for the user.
         pub reviews: Vec<ImportItemRating>,
+        /// The collections to add this media to.
         pub collections: Vec<String>,
     }
 }
