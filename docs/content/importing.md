@@ -88,6 +88,15 @@ translates "Read Status" in the following manner:
 - Optionally, you can edit the CSV file and manually add the missing ISBN.
 - Upload this file in the input.
 
+## Media JSON
+
+This can be used to import data from a generic JSON file. The import format
+required is described in the [exporting](guides/exporting.md#type-definition)
+documentation.
+
+You can see an example file by exporting from the demo instance as described
+in the [exporting](guides/exporting.md) documentation.
+
 ## Notes
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
