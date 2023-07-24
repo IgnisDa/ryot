@@ -6,7 +6,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
-use enum_meta::Meta;
+use enum_meta::{HashMap, Meta};
 use futures::TryStreamExt;
 use harsh::Harsh;
 use http::header::SET_COOKIE;
@@ -3607,18 +3607,69 @@ impl MiscellaneousService {
                 .ok();
             }
             SeenState::Completed => {
-                let metadata = self.media_details(seen.metadata_id).await?;
-                if metadata.lot == MetadataLot::Podcast || metadata.lot == MetadataLot::Show {
-                    // todo!("Exclude season 0 from shows and then calculate if completed")
-                    self.add_media_to_collection(
-                        &seen.user_id,
-                        AddMediaToCollection {
-                            collection_name: DefaultCollection::InProgress.to_string(),
-                            media_id: seen.metadata_id,
-                        },
-                    )
-                    .await
-                    .ok();
+                let metadata = self.generic_metadata(seen.metadata_id).await?;
+                if metadata.model.lot == MetadataLot::Podcast
+                    || metadata.model.lot == MetadataLot::Show
+                {
+                    // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
+                    // correspond to each episode exactly once, it means the show can be removed
+                    // from the "In Progress" collection.
+                    let all_episodes = match metadata.model.specifics {
+                        MediaSpecifics::Show(s) => s
+                            .seasons
+                            .into_iter()
+                            .filter(|s| s.name != "Specials")
+                            .flat_map(|s| {
+                                s.episodes.into_iter().map(move |e| {
+                                    format!("{}-{}", s.season_number, e.episode_number)
+                                })
+                            })
+                            .collect_vec(),
+                        MediaSpecifics::Podcast(p) => p
+                            .episodes
+                            .into_iter()
+                            .map(|e| format!("{}", e.number))
+                            .collect_vec(),
+                        _ => unreachable!(),
+                    };
+                    let seen_history = self.seen_history(seen.metadata_id, seen.user_id).await?;
+                    let mut bag = HashMap::<String, i32>::from_iter(
+                        all_episodes.iter().cloned().map(|e| (e, 0)),
+                    );
+                    seen_history
+                        .into_iter()
+                        .take(all_episodes.len())
+                        .for_each(|h| {
+                            let ep = if let Some(s) = h.show_information {
+                                format!("{}-{}", s.season, s.episode)
+                            } else if let Some(p) = h.podcast_information {
+                                format!("{}", p.episode)
+                            } else {
+                                String::new()
+                            };
+                            bag.entry(ep).and_modify(|c| *c += 1);
+                        });
+                    let is_complete = bag.values().all(|&e| e == 1);
+                    dbg!(&bag);
+                    if is_complete {
+                        self.remove_media_item_from_collection(
+                            &seen.user_id,
+                            &seen.metadata_id,
+                            &DefaultCollection::InProgress.to_string(),
+                        )
+                        .await
+                        .ok();
+                    } else {
+                        self.add_media_to_collection(
+                            &seen.user_id,
+                            AddMediaToCollection {
+                                collection_name: DefaultCollection::InProgress.to_string(),
+                                media_id: seen.metadata_id,
+                            },
+                        )
+                        .await
+                        .ok();
+                    }
                 } else {
                     self.remove_media_item_from_collection(
                         &seen.user_id,
