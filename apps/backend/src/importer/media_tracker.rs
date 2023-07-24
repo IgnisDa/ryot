@@ -11,16 +11,15 @@ use uuid::Uuid;
 
 use crate::{
     importer::{
-        media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
-        ImportItemSeen,
-    },
-    importer::{
         DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::{
-        media::{BookSpecifics, CreateOrUpdateCollectionInput, MediaDetails, Visibility},
+        media::{
+            BookSpecifics, CreateOrUpdateCollectionInput, ImportItemIdentifier, ImportItemRating,
+            ImportItemReview, ImportItemSeen, MediaDetails, Visibility,
+        },
         IdObject,
     },
     providers::openlibrary::get_key,
@@ -285,16 +284,19 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 true => ImportItemIdentifier::NeedsDetails(identifier),
             },
             reviews: Vec::from_iter(details.user_rating.map(|r| {
-                let review =
-                    if let Some(s) = r.clone().review.map(|s| extract_review_information(&s)) {
-                        s
-                    } else {
-                        Some(super::ImportItemReview {
-                            date: None,
-                            spoiler: false,
-                            text: r.review,
-                        })
-                    };
+                let review = if let Some(s) = r
+                    .clone()
+                    .review
+                    .map(|s| utils::extract_review_information(&s))
+                {
+                    s
+                } else {
+                    Some(ImportItemReview {
+                        date: None,
+                        spoiler: false,
+                        text: r.review,
+                    })
+                };
                 ImportItemRating {
                     review,
                     rating: r.rating.map(|d| d.saturating_mul(dec!(20))),
@@ -336,10 +338,10 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
 }
 
 pub mod utils {
+    use super::*;
+
     use chrono::{NaiveDateTime, TimeZone, Utc};
     use regex::Regex;
-
-    use crate::importer::ImportItemReview;
 
     // Written with the help of ChatGPT.
     pub fn extract_review_information(input: &str) -> Option<ImportItemReview> {

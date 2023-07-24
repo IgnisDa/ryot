@@ -9,10 +9,12 @@ use surf::http::headers::CONTENT_TYPE;
 use crate::{
     importer::{
         DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportItemIdentifier,
-        ImportItemRating, ImportItemReview, ImportItemSeen, ImportResult,
+        ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::CreateOrUpdateCollectionInput,
+    models::media::{
+        CreateOrUpdateCollectionInput, ImportItemRating, ImportItemReview, ImportItemSeen,
+    },
     utils::get_base_http_client,
 };
 

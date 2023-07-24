@@ -4,21 +4,20 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
 use itertools::Itertools;
-use rust_decimal::Decimal;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, FromJsonQueryResult, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
+    FromJsonQueryResult, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
-    migrator::{MediaImportSource, MetadataLot, MetadataSource},
+    migrator::{MediaImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
-        AddMediaToCollection, CreateOrUpdateCollectionInput, MediaDetails, PostReviewInput,
-        ProgressUpdateInput,
+        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportItem, ImportItemIdentifier,
+        PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
     utils::MemoryDatabase,
@@ -72,48 +71,6 @@ pub struct DeployImportJobInput {
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum ImportItemIdentifier {
-    // the identifier in case we need to fetch details
-    NeedsDetails(String),
-    // details are already filled and just need to be comitted to database
-    AlreadyFilled(Box<MediaDetails>),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct ImportItemSeen {
-    started_on: Option<DateTimeUtc>,
-    ended_on: Option<DateTimeUtc>,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImportItemReview {
-    date: Option<DateTimeUtc>,
-    spoiler: bool,
-    text: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImportItemRating {
-    review: Option<ImportItemReview>,
-    rating: Option<Decimal>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImportItem {
-    source_id: String,
-    lot: MetadataLot,
-    source: MetadataSource,
-    identifier: ImportItemIdentifier,
-    seen_history: Vec<ImportItemSeen>,
-    reviews: Vec<ImportItemRating>,
-    collections: Vec<String>,
 }
 
 /// The various steps in which media importing can fail

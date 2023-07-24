@@ -522,6 +522,48 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
     }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[serde(untagged)]
+    pub enum ImportItemIdentifier {
+        // the identifier in case we need to fetch details
+        NeedsDetails(String),
+        // details are already filled and just need to be comitted to database
+        AlreadyFilled(Box<MediaDetails>),
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    pub struct ImportItemSeen {
+        pub started_on: Option<DateTimeUtc>,
+        pub ended_on: Option<DateTimeUtc>,
+        pub show_season_number: Option<i32>,
+        pub show_episode_number: Option<i32>,
+        pub podcast_episode_number: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct ImportItemReview {
+        pub date: Option<DateTimeUtc>,
+        pub spoiler: bool,
+        pub text: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct ImportItemRating {
+        pub review: Option<ImportItemReview>,
+        pub rating: Option<Decimal>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct ImportItem {
+        pub source_id: String,
+        pub lot: MetadataLot,
+        pub source: MetadataSource,
+        pub identifier: ImportItemIdentifier,
+        pub seen_history: Vec<ImportItemSeen>,
+        pub reviews: Vec<ImportItemRating>,
+        pub collections: Vec<String>,
+    }
 }
 
 pub mod fitness {

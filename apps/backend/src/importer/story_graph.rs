@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     importer::{
         DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem, ImportItem,
-        ImportItemIdentifier, ImportItemRating, ImportItemReview, ImportItemSeen, ImportResult,
+        ImportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
+    models::media::{ImportItemRating, ImportItemReview, ImportItemSeen},
     providers::openlibrary::OpenlibraryService,
 };
 
