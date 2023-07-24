@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "1.15.5"
+version = "1.16.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -68,6 +68,7 @@ serde_json = "1.0.96"
 serde_with = { version = "3.0.0", features = ["chrono_0_4"] }
 slug = "0.1.4"
 sqlx = "*"
+specta = { version = "1.0.5", features = ["typescript", "chrono", "rust_decimal", "export"] }
 strum = { version = "0.24.1", features = ["derive"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",

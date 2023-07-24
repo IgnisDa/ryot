@@ -2,6 +2,7 @@ use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 pub static UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
@@ -48,6 +49,7 @@ pub enum MetadataImageLot {
     Serialize,
     Enum,
     Default,
+    Type,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataSource {
@@ -92,6 +94,7 @@ pub enum MetadataImage {
     Serialize,
     Enum,
     Default,
+    Type,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataLot {

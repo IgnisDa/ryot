@@ -16,3 +16,11 @@ Users can export their media history using the `/export` endpoint.
   ```bash
   curl 'https://ryot.fly.dev/export' --header 'Authorization: Bearer 0ab88f6b-768a-4d65-885b-502016b634e0'
   ```
+	
+## Type definition
+
+The export has the following type: `ImportOrExportItem<String>[]`
+
+```ts
+{% include 'export-schema.ts' %}
+```

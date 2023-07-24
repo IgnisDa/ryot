@@ -7,8 +7,7 @@ use crate::{
         media::{MediaDetails, MediaSearchItem},
         SearchResults,
     },
-    utils::{user_id_from_token, MemoryDatabase},
-    GqlCtx,
+    utils::{user_id_from_token, GqlCtx, MemoryDatabase},
 };
 
 #[async_trait]

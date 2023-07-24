@@ -7,14 +7,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployGoodreadsImportInput, ImportItem, ImportItemIdentifier, ImportItemRating,
-        ImportItemReview, ImportItemSeen, ImportResult,
+        DeployGoodreadsImportInput, ImportOrExportItem, ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::{
         DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
-    models::media::{BookSpecifics, MediaDetails},
+    models::media::{
+        BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
+        MediaDetails,
+    },
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,15 +65,17 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
             .into_iter()
             .map(|d| {
                 let mut reviews = vec![];
-                let mut single_review = ImportItemRating {
-                    id: None,
+                let mut single_review = ImportOrExportItemRating {
                     review: None,
                     rating: None,
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 };
                 if !d.user_review.is_empty() {
-                    single_review.review = Some(ImportItemReview {
+                    single_review.review = Some(ImportOrExportItemReview {
                         date: None,
-                        spoiler: false,
+                        spoiler: Some(false),
                         text: Some(d.user_review),
                     });
                 };
@@ -88,7 +92,8 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
 
                 let mut seen_history = vec![];
                 if !d.user_read_at.is_empty() {
-                    seen_history.push(ImportItemSeen {
+                    seen_history.push(ImportOrExportItemSeen {
+                        started_on: None,
                         ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
                             .ok()
                             .map(|d| d.with_timezone(&Utc)),
@@ -103,32 +108,34 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                     default_collections.push(DefaultCollection::Watchlist.to_string());
                 }
 
-                ImportItem {
+                ImportOrExportItem {
                     source_id: d.book_id.to_string(),
                     source: MetadataSource::Custom,
                     lot: MetadataLot::Book,
-                    identifier: ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
-                        identifier: d.book_id.to_string(),
-                        title: d.title,
-                        description: Some(d.book_description),
-                        lot: MetadataLot::Book,
-                        source: MetadataSource::Custom,
-                        creators: vec![MetadataCreator {
-                            name: d.author_name,
-                            role: "Author".to_owned(),
-                            image_urls: vec![],
-                        }],
-                        genres: vec![],
-                        images: vec![MetadataImage {
-                            url: MetadataImageUrl::Url(d.book_large_image_url),
-                            lot: MetadataImageLot::Poster,
-                        }],
-                        publish_year: d.book_published.parse().ok(),
-                        publish_date: None,
-                        specifics: MediaSpecifics::Book(BookSpecifics {
-                            pages: d.book.num_pages.parse().ok(),
-                        }),
-                    })),
+                    identifier: ImportOrExportItemIdentifier::AlreadyFilled(Box::new(
+                        MediaDetails {
+                            identifier: d.book_id.to_string(),
+                            title: d.title,
+                            description: Some(d.book_description),
+                            lot: MetadataLot::Book,
+                            source: MetadataSource::Custom,
+                            creators: vec![MetadataCreator {
+                                name: d.author_name,
+                                role: "Author".to_owned(),
+                                image_urls: vec![],
+                            }],
+                            genres: vec![],
+                            images: vec![MetadataImage {
+                                url: MetadataImageUrl::Url(d.book_large_image_url),
+                                lot: MetadataImageLot::Poster,
+                            }],
+                            publish_year: d.book_published.parse().ok(),
+                            publish_date: None,
+                            specifics: MediaSpecifics::Book(BookSpecifics {
+                                pages: d.book.num_pages.parse().ok(),
+                            }),
+                        },
+                    )),
                     seen_history,
                     collections: default_collections,
                     reviews,

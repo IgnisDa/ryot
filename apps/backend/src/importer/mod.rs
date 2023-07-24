@@ -4,45 +4,31 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
 use itertools::Itertools;
-use rust_decimal::Decimal;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, FromJsonQueryResult, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
+    FromJsonQueryResult, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
-    migrator::{MediaImportSource, MetadataLot, MetadataSource},
+    migrator::{MediaImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
-        AddMediaToCollection, CreateOrUpdateCollectionInput, MediaDetails, PostReviewInput,
-        ProgressUpdateInput,
+        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
+        ImportOrExportItemIdentifier, PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
     utils::MemoryDatabase,
 };
 
 mod goodreads;
+mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
 mod trakt;
-
-#[derive(Debug, Clone, SimpleObject)]
-pub struct ImportItemReview {
-    date: Option<DateTimeUtc>,
-    spoiler: bool,
-    text: Option<String>,
-}
-
-#[derive(Debug, Clone, SimpleObject)]
-pub struct ImportItemRating {
-    id: Option<String>,
-    review: Option<ImportItemReview>,
-    rating: Option<Decimal>,
-}
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMediaTrackerImportInput {
@@ -79,6 +65,12 @@ pub struct DeployStoryGraphImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMediaJsonImportInput {
+    // The contents of the JSON export.
+    export: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: MediaImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
@@ -86,33 +78,7 @@ pub struct DeployImportJobInput {
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
-}
-
-#[derive(Debug, SimpleObject, Clone, Default)]
-pub struct ImportItemSeen {
-    ended_on: Option<DateTimeUtc>,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
-}
-
-#[derive(Debug)]
-pub enum ImportItemIdentifier {
-    // the identifier in case we need to fetch details
-    NeedsDetails(String),
-    // details are already filled and just need to be comitted to database
-    AlreadyFilled(Box<MediaDetails>),
-}
-
-#[derive(Debug)]
-pub struct ImportItem {
-    source_id: String,
-    lot: MetadataLot,
-    source: MetadataSource,
-    identifier: ImportItemIdentifier,
-    seen_history: Vec<ImportItemSeen>,
-    reviews: Vec<ImportItemRating>,
-    collections: Vec<String>,
+    pub media_json: Option<DeployMediaJsonImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -148,7 +114,7 @@ pub struct ImportDetails {
 #[derive(Debug)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
-    media: Vec<ImportItem>,
+    media: Vec<ImportOrExportItem<ImportOrExportItemIdentifier>>,
     failed_items: Vec<ImportFailedItem>,
 }
 
@@ -269,6 +235,7 @@ impl ImporterService {
             MediaImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
+            MediaImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
             MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
@@ -299,12 +266,12 @@ impl ImporterService {
                 iden = item.source_id
             );
             let data = match &item.identifier {
-                ImportItemIdentifier::NeedsDetails(i) => {
+                ImportOrExportItemIdentifier::NeedsDetails(i) => {
                     self.media_service
                         .commit_media(item.lot, item.source, i)
                         .await
                 }
-                ImportItemIdentifier::AlreadyFilled(a) => {
+                ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service.commit_media_internal(*a.clone()).await
                 }
             };
@@ -353,14 +320,13 @@ impl ImporterService {
                     continue;
                 }
                 let text = review.review.clone().and_then(|r| r.text);
-                let spoiler = review.review.clone().map(|r| r.spoiler);
+                let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
                 let date = review.review.clone().map(|r| r.date);
                 match self
                     .media_service
                     .post_review(
                         &user_id,
                         PostReviewInput {
-                            identifier: review.id.clone(),
                             rating: review.rating,
                             text,
                             spoiler,
@@ -368,9 +334,9 @@ impl ImporterService {
                             visibility: None,
                             metadata_id: metadata.id,
                             review_id: None,
-                            show_season_number: None,
-                            show_episode_number: None,
-                            podcast_episode_number: None,
+                            show_season_number: review.show_season_number,
+                            show_episode_number: review.show_episode_number,
+                            podcast_episode_number: review.podcast_episode_number,
                         },
                     )
                     .await

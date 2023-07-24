@@ -9,10 +9,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem, ImportItem,
-        ImportItemIdentifier, ImportItemRating, ImportItemReview, ImportItemSeen, ImportResult,
+        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
+    models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
     providers::openlibrary::OpenlibraryService,
 };
 
@@ -78,8 +79,12 @@ pub async fn import(
         if let Some(isbn) = record.isbn {
             if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
                 let mut seen_history = vec![
-                    ImportItemSeen {
-                        ..Default::default()
+                    ImportOrExportItemSeen {
+                        started_on: None,
+                        ended_on: None,
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None
                     };
                     record.read_count
                 ];
@@ -100,23 +105,25 @@ pub async fn import(
                 if let Some(t) = record.tags {
                     collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
                 }
-                media.push(ImportItem {
+                media.push(ImportOrExportItem {
                     source_id: record.title,
                     lot,
                     source,
-                    identifier: ImportItemIdentifier::NeedsDetails(identifier),
+                    identifier: ImportOrExportItemIdentifier::NeedsDetails(identifier),
                     seen_history,
-                    reviews: vec![ImportItemRating {
-                        id: None,
+                    reviews: vec![ImportOrExportItemRating {
                         rating: record
                             .rating
                             // DEV: Rates items out of 10
                             .map(|d| d.saturating_mul(dec!(10))),
-                        review: record.review.map(|r| ImportItemReview {
+                        review: record.review.map(|r| ImportOrExportItemReview {
                             date: None,
-                            spoiler: false,
+                            spoiler: Some(false),
                             text: Some(r),
                         }),
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
                     }],
                     collections,
                 })

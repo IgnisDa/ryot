@@ -11,16 +11,17 @@ use uuid::Uuid;
 
 use crate::{
     importer::{
-        media_tracker::utils::extract_review_information, ImportItemIdentifier, ImportItemRating,
-        ImportItemSeen,
-    },
-    importer::{
-        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportResult,
+        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::{
-        media::{BookSpecifics, CreateOrUpdateCollectionInput, MediaDetails, Visibility},
+        media::{
+            BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
+            MediaDetails, Visibility,
+        },
         IdObject,
     },
     providers::openlibrary::get_key,
@@ -252,13 +253,13 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             }
         }
 
-        let item = ImportItem {
+        let item = ImportOrExportItem {
             source_id: d.id.to_string(),
             source,
             lot,
             collections,
             identifier: match need_details {
-                false => ImportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
+                false => ImportOrExportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                     identifier,
                     title: details.title,
                     description: details.overview,
@@ -282,23 +283,28 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         pages: details.number_of_pages,
                     }),
                 })),
-                true => ImportItemIdentifier::NeedsDetails(identifier),
+                true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },
             reviews: Vec::from_iter(details.user_rating.map(|r| {
-                let review =
-                    if let Some(s) = r.clone().review.map(|s| extract_review_information(&s)) {
-                        s
-                    } else {
-                        Some(super::ImportItemReview {
-                            date: None,
-                            spoiler: false,
-                            text: r.review,
-                        })
-                    };
-                ImportItemRating {
-                    id: Some(r.id.to_string()),
+                let review = if let Some(s) = r
+                    .clone()
+                    .review
+                    .map(|s| utils::extract_review_information(&s))
+                {
+                    s
+                } else {
+                    Some(ImportOrExportItemReview {
+                        date: None,
+                        spoiler: Some(false),
+                        text: r.review,
+                    })
+                };
+                ImportOrExportItemRating {
                     review,
                     rating: r.rating.map(|d| d.saturating_mul(dec!(20))),
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 }
             })),
             seen_history: details
@@ -316,7 +322,8 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     } else {
                         (None, None)
                     };
-                    ImportItemSeen {
+                    ImportOrExportItemSeen {
+                        started_on: None,
                         ended_on: s.date,
                         show_season_number: season_number,
                         show_episode_number: episode_number,
@@ -336,13 +343,13 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
 }
 
 pub mod utils {
+    use super::*;
+
     use chrono::{NaiveDateTime, TimeZone, Utc};
     use regex::Regex;
 
-    use crate::importer::ImportItemReview;
-
     // Written with the help of ChatGPT.
-    pub fn extract_review_information(input: &str) -> Option<ImportItemReview> {
+    pub fn extract_review_information(input: &str) -> Option<ImportOrExportItemReview> {
         let regex_str =
             r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILERS\])?\n\n(?P<text>[\s\S]*)$";
         let regex = Regex::new(regex_str).unwrap();
@@ -359,9 +366,9 @@ pub mod utils {
                 .name("spoiler")
                 .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
             let text = captures.name("text").unwrap().as_str().to_owned();
-            Some(ImportItemReview {
+            Some(ImportOrExportItemReview {
                 date: Some(date),
-                spoiler,
+                spoiler: Some(spoiler),
                 text: Some(text),
             })
         } else {
@@ -424,7 +431,7 @@ pub mod utils {
 
             let info = info.unwrap();
             assert_eq!(info.date.unwrap(), expected_date);
-            assert_eq!(info.spoiler, expected_is_spoiler);
+            assert_eq!(info.spoiler, Some(expected_is_spoiler));
             assert_eq!(info.text.unwrap(), expected_text.to_owned());
         }
 

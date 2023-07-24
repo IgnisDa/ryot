@@ -60,7 +60,8 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, ExportMedia, MangaSpecifics, MediaDetails,
+            CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
             MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics, Visibility,
@@ -83,8 +84,8 @@ use crate::{
         UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        get_case_insensitive_like_query, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
+        MemoryDatabase, AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -3018,7 +3019,7 @@ impl MiscellaneousService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    pub async fn json_export(&self, user_id: i32) -> Result<Vec<ExportMedia>> {
+    pub async fn export(&self, user_id: i32) -> Result<Vec<ImportOrExportItem<String>>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -3037,45 +3038,65 @@ impl MiscellaneousService {
         let mut resp = vec![];
 
         for m in metas {
-            let mut seens = m
+            let mut seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
-            modify_seen_elements(&mut seens);
-            let reviews = m
+            modify_seen_elements(&mut seen_history);
+            let seen_history = seen_history
+                .into_iter()
+                .map(|s| {
+                    let (show_season_number, show_episode_number) = match s.show_information {
+                        Some(d) => (Some(d.season), Some(d.episode)),
+                        None => (None, None),
+                    };
+                    let podcast_episode_number = s.podcast_information.map(|d| d.episode);
+                    ImportOrExportItemSeen {
+                        started_on: s.started_on.map(convert_naive_to_utc),
+                        ended_on: s.finished_on.map(convert_naive_to_utc),
+                        show_season_number,
+                        show_episode_number,
+                        podcast_episode_number,
+                    }
+                })
+                .collect();
+            let db_reviews = m
                 .find_related(Review)
                 .filter(review::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
-            let mut exp = ExportMedia {
-                ryot_id: m.id,
-                title: m.title,
+            let mut reviews = vec![];
+            for r in db_reviews {
+                let rev = self.review_by_id(r.id).await.unwrap();
+                reviews.push(ImportOrExportItemRating {
+                    review: Some(ImportOrExportItemReview {
+                        date: Some(rev.posted_on),
+                        spoiler: Some(rev.spoiler),
+                        text: rev.text,
+                    }),
+                    rating: rev.rating,
+                    show_season_number: rev.show_season,
+                    show_episode_number: rev.show_episode,
+                    podcast_episode_number: rev.podcast_episode,
+                });
+            }
+            let collections = self
+                .media_in_collections(user_id, m.id)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
+            let exp = ImportOrExportItem {
+                source_id: m.id.to_string(),
                 lot: m.lot,
-                audible_id: None,
-                custom_id: None,
-                igdb_id: None,
-                listennotes_id: None,
-                google_books_id: None,
-                openlibrary_id: None,
-                tmdb_id: None,
-                itunes_id: None,
-                anilist_id: None,
-                seen_history: seens,
-                user_reviews: reviews,
-            };
-            match m.source {
-                MetadataSource::Audible => exp.audible_id = Some(m.identifier),
-                MetadataSource::Custom => exp.custom_id = Some(m.identifier),
-                MetadataSource::GoogleBooks => exp.google_books_id = Some(m.identifier),
-                MetadataSource::Igdb => exp.igdb_id = Some(m.identifier),
-                MetadataSource::Listennotes => exp.listennotes_id = Some(m.identifier),
-                MetadataSource::Openlibrary => exp.openlibrary_id = Some(m.identifier),
-                MetadataSource::Tmdb => exp.tmdb_id = Some(m.identifier),
-                MetadataSource::Anilist => exp.anilist_id = Some(m.identifier),
-                MetadataSource::Itunes => exp.itunes_id = Some(m.identifier),
+                source: m.source,
+                identifier: m.identifier,
+                seen_history,
+                reviews,
+                collections,
             };
             resp.push(exp);
         }

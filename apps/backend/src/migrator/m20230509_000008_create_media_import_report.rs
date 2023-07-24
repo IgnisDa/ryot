@@ -18,6 +18,8 @@ impl MigrationName for Migration {
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MediaImportSource {
+    #[sea_orm(string_value = "MJ")]
+    MediaJson,
     #[sea_orm(string_value = "MT")]
     MediaTracker,
     #[sea_orm(string_value = "GO")]

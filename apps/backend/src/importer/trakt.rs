@@ -8,11 +8,14 @@ use surf::http::headers::CONTENT_TYPE;
 
 use crate::{
     importer::{
-        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportItem, ImportItemIdentifier,
-        ImportItemRating, ImportItemReview, ImportItemSeen, ImportResult,
+        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::CreateOrUpdateCollectionInput,
+    models::media::{
+        CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
+        ImportOrExportItemSeen,
+    },
     utils::get_base_http_client,
 };
 
@@ -120,17 +123,19 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     for item in ratings.iter() {
         match process_item(item) {
             Ok(mut d) => {
-                d.reviews.push(ImportItemRating {
-                    id: None,
+                d.reviews.push(ImportOrExportItemRating {
                     rating: item
                         .rating
                         // DEV: Rates items out of 10
                         .and_then(|e| Decimal::from_f32_retain((e * 10).into())),
-                    review: Some(ImportItemReview {
-                        spoiler: false,
+                    review: Some(ImportOrExportItemReview {
+                        spoiler: Some(false),
                         text: Some("".to_owned()),
                         date: item.rated_at,
                     }),
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 });
                 if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
                     a.reviews = d.reviews;
@@ -176,7 +181,8 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         };
         match process_item(item) {
             Ok(mut d) => {
-                d.seen_history.push(ImportItemSeen {
+                d.seen_history.push(ImportOrExportItemSeen {
+                    started_on: None,
                     podcast_episode_number: None,
                     ended_on: item.watched_at,
                     show_season_number,
@@ -198,7 +204,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     })
 }
 
-fn process_item(i: &ListItemResponse) -> std::result::Result<ImportItem, ImportFailedItem> {
+fn process_item(
+    i: &ListItemResponse,
+) -> std::result::Result<ImportOrExportItem<ImportOrExportItemIdentifier>, ImportFailedItem> {
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MetadataLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
@@ -212,10 +220,10 @@ fn process_item(i: &ListItemResponse) -> std::result::Result<ImportItem, ImportF
         });
     };
     match identifier {
-        Some(i) => Ok(ImportItem {
+        Some(i) => Ok(ImportOrExportItem {
             source_id: source_id.to_string(),
             lot,
-            identifier: ImportItemIdentifier::NeedsDetails(i.to_string()),
+            identifier: ImportOrExportItemIdentifier::NeedsDetails(i.to_string()),
             source: MetadataSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],

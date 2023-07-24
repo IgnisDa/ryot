@@ -30,7 +30,8 @@ theme:
     - navigation.tracking
 
 plugins:
-  - macros
+  - macros:
+      include_dir: includes
   - offline
   - search
 

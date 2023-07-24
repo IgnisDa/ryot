@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::NaiveDate;
 use csv::Reader;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -7,10 +7,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportItem,
-        ImportItemIdentifier, ImportItemRating, ImportItemReview, ImportItemSeen, ImportResult,
+        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
+    models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
+    utils::convert_naive_to_utc,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,17 +58,21 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportItem {
+        media.push(ImportOrExportItem {
             source_id: record.common.title,
             lot,
             source,
-            identifier: ImportItemIdentifier::NeedsDetails(record.common.tmdb_id.to_string()),
+            identifier: ImportOrExportItemIdentifier::NeedsDetails(
+                record.common.tmdb_id.to_string(),
+            ),
             seen_history: vec![],
-            reviews: vec![ImportItemRating {
-                id: None,
+            reviews: vec![ImportOrExportItemRating {
                 // DEV: Rates items out of 10
                 rating: Some(record.user_rating.saturating_mul(dec!(10))),
                 review: None,
+                show_season_number: None,
+                show_episode_number: None,
+                podcast_episode_number: None,
             }],
             collections: vec![],
         })
@@ -85,18 +91,16 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        let watched_at = Some(DateTime::from_utc(
-            NaiveDateTime::new(record.watched_at, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
-            Utc,
-        ));
-        let seen_item = ImportItemSeen {
+        let watched_at = Some(convert_naive_to_utc(record.watched_at));
+        let seen_item = ImportOrExportItemSeen {
+            started_on: None,
             ended_on: watched_at,
             show_season_number: None,
             show_episode_number: None,
             podcast_episode_number: None,
         };
-        let review = record.comment.map(|c| ImportItemReview {
-            spoiler: false,
+        let review = record.comment.map(|c| ImportOrExportItemReview {
+            spoiler: Some(false),
             text: Some(c),
             date: watched_at,
         });
@@ -108,10 +112,12 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 if let Some(rating) = media.reviews.last_mut() {
                     rating.review = review;
                 } else {
-                    media.reviews.push(ImportItemRating {
-                        id: None,
+                    media.reviews.push(ImportOrExportItemRating {
                         review,
                         rating: None,
+                        show_season_number: None,
+                        show_episode_number: None,
+                        podcast_episode_number: None,
                     })
                 }
             }
@@ -119,17 +125,21 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         } else {
             let mut reviews = vec![];
             if review.is_some() {
-                reviews.push(ImportItemRating {
-                    id: None,
+                reviews.push(ImportOrExportItemRating {
                     review,
                     rating: None,
+                    show_season_number: None,
+                    show_episode_number: None,
+                    podcast_episode_number: None,
                 })
             }
-            media.push(ImportItem {
+            media.push(ImportOrExportItem {
                 source_id: record.common.title,
                 lot,
                 source,
-                identifier: ImportItemIdentifier::NeedsDetails(record.common.tmdb_id.to_string()),
+                identifier: ImportOrExportItemIdentifier::NeedsDetails(
+                    record.common.tmdb_id.to_string(),
+                ),
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],

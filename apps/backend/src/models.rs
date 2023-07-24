@@ -3,9 +3,10 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::{
-    entities::{exercise::Model as ExerciseModel, review, seen},
+    entities::exercise::Model as ExerciseModel,
     migrator::{MetadataLot, MetadataSource, SeenState},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
@@ -261,25 +262,6 @@ pub mod media {
         Private,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct ExportMedia {
-        pub ryot_id: i32,
-        pub title: String,
-        #[serde(rename = "type")]
-        pub lot: MetadataLot,
-        pub audible_id: Option<String>,
-        pub custom_id: Option<String>,
-        pub igdb_id: Option<String>,
-        pub listennotes_id: Option<String>,
-        pub google_books_id: Option<String>,
-        pub openlibrary_id: Option<String>,
-        pub tmdb_id: Option<String>,
-        pub itunes_id: Option<String>,
-        pub anilist_id: Option<String>,
-        pub seen_history: Vec<seen::Model>,
-        pub user_reviews: Vec<review::Model>,
-    }
-
     #[derive(
         SimpleObject,
         Debug,
@@ -472,8 +454,6 @@ pub mod media {
         pub spoiler: Option<bool>,
         pub metadata_id: i32,
         pub date: Option<DateTimeUtc>,
-        /// If this review comes from a different source, this should be set
-        pub identifier: Option<String>,
         /// ID of the review if this is an update to an existing review
         pub review_id: Option<i32>,
         pub show_season_number: Option<i32>,
@@ -524,11 +504,75 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
     }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[serde(untagged)]
+    pub enum ImportOrExportItemIdentifier {
+        // the identifier in case we need to fetch details
+        NeedsDetails(String),
+        // details are already filled and just need to be comitted to database
+        AlreadyFilled(Box<MediaDetails>),
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportItemSeen {
+        /// The timestamp when started watching.
+        pub started_on: Option<DateTimeUtc>,
+        /// The timestamp when finished watching.
+        pub ended_on: Option<DateTimeUtc>,
+        /// If for a show, the season which was seen.
+        pub show_season_number: Option<i32>,
+        /// If for a show, the episode which was seen.
+        pub show_episode_number: Option<i32>,
+        /// If for a podcast, the episode which was seen.
+        pub podcast_episode_number: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportItemReview {
+        /// The date the review was posted.
+        pub date: Option<DateTimeUtc>,
+        /// Whether to mark the review as a spoiler. Defaults to false.
+        pub spoiler: Option<bool>,
+        /// Actual text for the review.
+        pub text: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportItemRating {
+        /// Data about the review.
+        pub review: Option<ImportOrExportItemReview>,
+        /// The score of the review.
+        pub rating: Option<Decimal>,
+        /// If for a show, the season for which this review was for.
+        pub show_season_number: Option<i32>,
+        /// If for a show, the episode for which this review was for.
+        pub show_episode_number: Option<i32>,
+        /// If for a podcast, the episode for which this review was for.
+        pub podcast_episode_number: Option<i32>,
+    }
+
+    /// Details about a specific media item that needs to be imported.
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportItem<T> {
+        /// An string to help identify it in the original source.
+        pub source_id: String,
+        /// The type of media.
+        pub lot: MetadataLot,
+        /// The source of media.
+        pub source: MetadataSource,
+        /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
+        pub identifier: T,
+        /// The seen history for the user.
+        pub seen_history: Vec<ImportOrExportItemSeen>,
+        /// The review history for the user.
+        pub reviews: Vec<ImportOrExportItemRating>,
+        /// The collections to add this media to.
+        pub collections: Vec<String>,
+    }
 }
 
 pub mod fitness {
-    use async_graphql::Enum;
-
     use super::*;
 
     #[derive(
