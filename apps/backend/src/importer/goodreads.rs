@@ -14,7 +14,7 @@ use crate::{
         DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
     models::media::{
-        BookSpecifics, ImportItemReview, ImportOrExportItemRating, ImportOrExportItemSeen,
+        BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
         MediaDetails,
     },
 };
@@ -73,7 +73,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                     podcast_episode_number: None,
                 };
                 if !d.user_review.is_empty() {
-                    single_review.review = Some(ImportItemReview {
+                    single_review.review = Some(ImportOrExportItemReview {
                         date: None,
                         spoiler: Some(false),
                         text: Some(d.user_review),

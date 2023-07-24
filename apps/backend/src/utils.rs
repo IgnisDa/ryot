@@ -8,7 +8,7 @@ use std::{
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
-use chrono::{NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use darkbird::{
     document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
     Storage,
@@ -145,6 +145,13 @@ pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
 
 pub fn convert_date_to_year(d: &str) -> Option<i32> {
     convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
+}
+
+pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
+    DateTime::from_utc(
+        NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
+        Utc,
+    )
 }
 
 pub async fn get_data_parallelly_from_sources<'a, T, F, R>(

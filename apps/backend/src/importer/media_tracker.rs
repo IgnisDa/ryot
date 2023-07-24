@@ -18,8 +18,8 @@ use crate::{
     miscellaneous::{MediaSpecifics, MetadataCreator},
     models::{
         media::{
-            BookSpecifics, CreateOrUpdateCollectionInput, ImportItemReview,
-            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemSeen,
+            BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MediaDetails, Visibility,
         },
         IdObject,
@@ -293,7 +293,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 {
                     s
                 } else {
-                    Some(ImportItemReview {
+                    Some(ImportOrExportItemReview {
                         date: None,
                         spoiler: Some(false),
                         text: r.review,
@@ -349,7 +349,7 @@ pub mod utils {
     use regex::Regex;
 
     // Written with the help of ChatGPT.
-    pub fn extract_review_information(input: &str) -> Option<ImportItemReview> {
+    pub fn extract_review_information(input: &str) -> Option<ImportOrExportItemReview> {
         let regex_str =
             r"(?m)^(?P<date>\d{2}/\d{2}/\d{4}):(?P<spoiler>\s*\[SPOILERS\])?\n\n(?P<text>[\s\S]*)$";
         let regex = Regex::new(regex_str).unwrap();
@@ -366,7 +366,7 @@ pub mod utils {
                 .name("spoiler")
                 .map_or(false, |m| m.as_str().trim() == "[SPOILERS]");
             let text = captures.name("text").unwrap().as_str().to_owned();
-            Some(ImportItemReview {
+            Some(ImportOrExportItemReview {
                 date: Some(date),
                 spoiler: Some(spoiler),
                 text: Some(text),

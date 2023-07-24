@@ -13,7 +13,7 @@ use crate::{
     },
     migrator::{MetadataLot, MetadataSource},
     models::media::{
-        CreateOrUpdateCollectionInput, ImportItemReview, ImportOrExportItemRating,
+        CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportItemSeen,
     },
     utils::get_base_http_client,
@@ -128,7 +128,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         .rating
                         // DEV: Rates items out of 10
                         .and_then(|e| Decimal::from_f32_retain((e * 10).into())),
-                    review: Some(ImportItemReview {
+                    review: Some(ImportOrExportItemReview {
                         spoiler: Some(false),
                         text: Some("".to_owned()),
                         date: item.rated_at,

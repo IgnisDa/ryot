@@ -13,7 +13,7 @@ use crate::{
         ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::{ImportItemReview, ImportOrExportItemRating, ImportOrExportItemSeen},
+    models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
     providers::openlibrary::OpenlibraryService,
 };
 
@@ -112,7 +112,7 @@ pub async fn import(
                             .rating
                             // DEV: Rates items out of 10
                             .map(|d| d.saturating_mul(dec!(10))),
-                        review: record.review.map(|r| ImportItemReview {
+                        review: record.review.map(|r| ImportOrExportItemReview {
                             date: None,
                             spoiler: Some(false),
                             text: Some(r),

@@ -5,7 +5,7 @@ use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryRes
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{exercise::Model as ExerciseModel, review, seen},
+    entities::exercise::Model as ExerciseModel,
     migrator::{MetadataLot, MetadataSource, SeenState},
     miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage},
 };
@@ -259,25 +259,6 @@ pub mod media {
         Public,
         #[sea_orm(string_value = "PR")]
         Private,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct ExportMedia {
-        pub ryot_id: i32,
-        pub title: String,
-        #[serde(rename = "type")]
-        pub lot: MetadataLot,
-        pub audible_id: Option<String>,
-        pub custom_id: Option<String>,
-        pub igdb_id: Option<String>,
-        pub listennotes_id: Option<String>,
-        pub google_books_id: Option<String>,
-        pub openlibrary_id: Option<String>,
-        pub tmdb_id: Option<String>,
-        pub itunes_id: Option<String>,
-        pub anilist_id: Option<String>,
-        pub seen_history: Vec<seen::Model>,
-        pub user_reviews: Vec<review::Model>,
     }
 
     #[derive(
@@ -547,7 +528,7 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct ImportItemReview {
+    pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
         /// Whether to mark the review as a spoiler. Defaults to false.
@@ -559,7 +540,7 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
-        pub review: Option<ImportItemReview>,
+        pub review: Option<ImportOrExportItemReview>,
         /// The score of the review.
         pub rating: Option<Decimal>,
         /// If for a show, the season for which this review was for.

@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::NaiveDate;
 use csv::Reader;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -11,7 +11,8 @@ use crate::{
         ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::{ImportItemReview, ImportOrExportItemRating, ImportOrExportItemSeen},
+    models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
+    utils::convert_naive_to_utc,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -90,10 +91,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        let watched_at = Some(DateTime::from_utc(
-            NaiveDateTime::new(record.watched_at, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
-            Utc,
-        ));
+        let watched_at = Some(convert_naive_to_utc(record.watched_at));
         let seen_item = ImportOrExportItemSeen {
             started_on: None,
             ended_on: watched_at,
@@ -101,7 +99,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             show_episode_number: None,
             podcast_episode_number: None,
         };
-        let review = record.comment.map(|c| ImportItemReview {
+        let review = record.comment.map(|c| ImportOrExportItemReview {
             spoiler: Some(false),
             text: Some(c),
             date: watched_at,
