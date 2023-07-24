@@ -138,6 +138,11 @@ const storyGraphImportFormSchema = z.object({
 });
 type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
 
+const mediaJsonImportFormSchema = z.object({
+	export: z.any(),
+});
+type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
+
 const createUserYankIntegrationSchema = z.object({
 	baseUrl: z.string().url().optional(),
 	token: z.string().optional(),
@@ -205,6 +210,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const storyGraphImportForm = useForm<StoryGraphImportFormSchema>({
 		validate: zodResolver(storyGraphImportFormSchema),
+	});
+	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
+		validate: zodResolver(mediaJsonImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
@@ -703,6 +711,13 @@ const Page: NextPageWithLayout = () => {
 														),
 													},
 												}))
+												.with(MediaImportSource.MediaJson, async () => ({
+													mediaJson: {
+														export: await fileToText(
+															mediaJsonImportForm.values.export,
+														),
+													},
+												}))
 												.exhaustive();
 											if (values) {
 												deployImportJob.mutate({
@@ -738,6 +753,7 @@ const Page: NextPageWithLayout = () => {
 												.with("TRAKT", () => MediaImportSource.Trakt)
 												.with("MOVARY", () => MediaImportSource.Movary)
 												.with("STORY_GRAPH", () => MediaImportSource.StoryGraph)
+												.with("MEDIA_JSON", () => MediaImportSource.MediaJson)
 												.run();
 											if (t) setDeployImportSource(t);
 										}}
@@ -805,6 +821,16 @@ const Page: NextPageWithLayout = () => {
 															accept=".csv"
 															required
 															{...storyGraphImportForm.getInputProps("export")}
+														/>
+													</>
+												))
+												.with(MediaImportSource.MediaJson, () => (
+													<>
+														<FileInput
+															label="JSON export file"
+															accept=".json"
+															required
+															{...mediaJsonImportForm.getInputProps("export")}
 														/>
 													</>
 												))
