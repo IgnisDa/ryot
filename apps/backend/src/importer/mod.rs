@@ -30,20 +30,6 @@ mod movary;
 mod story_graph;
 mod trakt;
 
-#[derive(Debug, Clone, SimpleObject)]
-pub struct ImportItemReview {
-    date: Option<DateTimeUtc>,
-    spoiler: bool,
-    text: Option<String>,
-}
-
-#[derive(Debug, Clone, SimpleObject)]
-pub struct ImportItemRating {
-    id: Option<String>,
-    review: Option<ImportItemReview>,
-    rating: Option<Decimal>,
-}
-
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMediaTrackerImportInput {
     /// The base url where the resource is present at
@@ -88,15 +74,8 @@ pub struct DeployImportJobInput {
     pub story_graph: Option<DeployStoryGraphImportInput>,
 }
 
-#[derive(Debug, SimpleObject, Clone, Default)]
-pub struct ImportItemSeen {
-    ended_on: Option<DateTimeUtc>,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum ImportItemIdentifier {
     // the identifier in case we need to fetch details
     NeedsDetails(String),
@@ -104,7 +83,29 @@ pub enum ImportItemIdentifier {
     AlreadyFilled(Box<MediaDetails>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ImportItemSeen {
+    started_on: Option<DateTimeUtc>,
+    ended_on: Option<DateTimeUtc>,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImportItemReview {
+    date: Option<DateTimeUtc>,
+    spoiler: bool,
+    text: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImportItemRating {
+    review: Option<ImportItemReview>,
+    rating: Option<Decimal>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImportItem {
     source_id: String,
     lot: MetadataLot,
@@ -360,7 +361,6 @@ impl ImporterService {
                     .post_review(
                         &user_id,
                         PostReviewInput {
-                            identifier: review.id.clone(),
                             rating: review.rating,
                             text,
                             spoiler,

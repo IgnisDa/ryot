@@ -63,7 +63,6 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             identifier: ImportItemIdentifier::NeedsDetails(record.common.tmdb_id.to_string()),
             seen_history: vec![],
             reviews: vec![ImportItemRating {
-                id: None,
                 // DEV: Rates items out of 10
                 rating: Some(record.user_rating.saturating_mul(dec!(10))),
                 review: None,
@@ -90,6 +89,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             Utc,
         ));
         let seen_item = ImportItemSeen {
+            started_on: None,
             ended_on: watched_at,
             show_season_number: None,
             show_episode_number: None,
@@ -109,7 +109,6 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     rating.review = review;
                 } else {
                     media.reviews.push(ImportItemRating {
-                        id: None,
                         review,
                         rating: None,
                     })
@@ -120,7 +119,6 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             let mut reviews = vec![];
             if review.is_some() {
                 reviews.push(ImportItemRating {
-                    id: None,
                     review,
                     rating: None,
                 })

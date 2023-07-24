@@ -296,7 +296,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         })
                     };
                 ImportItemRating {
-                    id: Some(r.id.to_string()),
                     review,
                     rating: r.rating.map(|d| d.saturating_mul(dec!(20))),
                 }
@@ -317,6 +316,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         (None, None)
                     };
                     ImportItemSeen {
+                        started_on: None,
                         ended_on: s.date,
                         show_season_number: season_number,
                         show_episode_number: episode_number,

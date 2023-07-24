@@ -107,7 +107,6 @@ pub async fn import(
                     identifier: ImportItemIdentifier::NeedsDetails(identifier),
                     seen_history,
                     reviews: vec![ImportItemRating {
-                        id: None,
                         rating: record
                             .rating
                             // DEV: Rates items out of 10

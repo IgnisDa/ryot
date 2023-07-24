@@ -121,7 +121,6 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         match process_item(item) {
             Ok(mut d) => {
                 d.reviews.push(ImportItemRating {
-                    id: None,
                     rating: item
                         .rating
                         // DEV: Rates items out of 10
@@ -177,6 +176,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         match process_item(item) {
             Ok(mut d) => {
                 d.seen_history.push(ImportItemSeen {
+                    started_on: None,
                     podcast_episode_number: None,
                     ended_on: item.watched_at,
                     show_season_number,

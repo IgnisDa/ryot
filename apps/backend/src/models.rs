@@ -472,8 +472,6 @@ pub mod media {
         pub spoiler: Option<bool>,
         pub metadata_id: i32,
         pub date: Option<DateTimeUtc>,
-        /// If this review comes from a different source, this should be set
-        pub identifier: Option<String>,
         /// ID of the review if this is an update to an existing review
         pub review_id: Option<i32>,
         pub show_season_number: Option<i32>,
