@@ -1,9 +1,10 @@
 import { useUserPreferences } from "../hooks/graphql";
-import { Footer } from "./Basic";
 import { ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { getLot, getMetadataIcon } from "@/lib/utilities";
 import {
+	Anchor,
 	AppShell,
 	Box,
 	Burger,
@@ -218,3 +219,30 @@ export default function ({ children }: { children: ReactElement }) {
 		</AppShell>
 	);
 }
+
+const Footer = () => {
+	const coreDetails = useCoreDetails();
+
+	return coreDetails.data ? (
+		<Flex gap={80} justify={"center"}>
+			<Anchor
+				href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
+				target="_blank"
+			>
+				<Text color="red" weight={"bold"}>
+					v{coreDetails.data.version}
+				</Text>
+			</Anchor>
+			<Anchor href="https://diptesh.me" target="_blank">
+				<Text color="indigo" weight={"bold"}>
+					{coreDetails.data.authorName}
+				</Text>
+			</Anchor>
+			<Anchor href={coreDetails.data.repositoryLink} target="_blank">
+				<Text color="orange" weight={"bold"}>
+					Github
+				</Text>
+			</Anchor>
+		</Flex>
+	) : null;
+};
