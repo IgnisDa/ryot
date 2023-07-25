@@ -6,7 +6,11 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::ACCEPT, Client};
+use surf::{
+    http::headers::ACCEPT,
+    middleware::{Middleware, Next},
+    Client, Request, Response, Result as SurfResult,
+};
 use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
@@ -26,6 +30,20 @@ use crate::{
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
+
+#[derive(Debug)]
+struct OpenlibraryRedirectMiddleware;
+
+#[async_trait]
+impl Middleware for OpenlibraryRedirectMiddleware {
+    async fn handle(&self, req: Request, client: Client, next: Next<'_>) -> SurfResult<Response> {
+        println!("sending request to {}", req.url());
+        let now = std::time::Instant::now();
+        let res = next.run(req, client).await?;
+        println!("request completed ({:?})", now.elapsed());
+        Ok(res)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 struct BookSearchResults {
@@ -70,7 +88,8 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
+        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")])
+            .with(OpenlibraryRedirectMiddleware);
         Self {
             image_url: IMAGE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
