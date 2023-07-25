@@ -86,7 +86,7 @@ use crate::{
     },
     utils::{
         convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -425,6 +425,7 @@ struct UserAuthToken {
 
 #[derive(SimpleObject)]
 struct CoreDetails {
+    docs_link: String,
     version: String,
     author_name: String,
     repository_link: String,
@@ -1030,6 +1031,7 @@ impl MiscellaneousService {
 impl MiscellaneousService {
     async fn core_details(&self) -> CoreDetails {
         CoreDetails {
+            docs_link: DOCS_LINK.to_owned(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
