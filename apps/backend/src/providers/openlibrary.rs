@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
@@ -6,7 +6,7 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::ACCEPT, middleware::Redirect, Client};
+use surf::{http::headers::ACCEPT, Client};
 use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
@@ -26,22 +26,22 @@ static URL: &str = "https://openlibrary.org/";
 static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-pub struct BookSearchResults {
-    pub total: i32,
-    pub items: Vec<BookSearchItem>,
+struct BookSearchResults {
+    total: i32,
+    items: Vec<BookSearchItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct BookSearchItem {
-    pub identifier: String,
-    pub title: String,
-    pub description: Option<String>,
-    pub author_names: Vec<String>,
-    pub genres: Vec<String>,
-    pub images: Vec<String>,
-    pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub book_specifics: BookSpecifics,
+struct BookSearchItem {
+    identifier: String,
+    title: String,
+    description: Option<String>,
+    author_names: Vec<String>,
+    genres: Vec<String>,
+    images: Vec<String>,
+    publish_year: Option<i32>,
+    publish_date: Option<NaiveDate>,
+    book_specifics: BookSpecifics,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -116,7 +116,37 @@ impl MediaProvider for OpenlibraryService {
             .get(format!("works/{}.json", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        // DEV: Openlibrary does not send `Location` header and instead sends a
+        // custom response. This should ideally be handled by a middleware, but I
+        // am being lazy.
+        let response_string = rsp.body_string().await.map_err(|e| anyhow!(e))?;
+        let data = serde_json::from_str::<OpenlibraryBook>(&response_string);
+        let data = match data {
+            Ok(d) => d,
+            Err(_e) => {
+                #[derive(Debug, Serialize, Deserialize, Clone)]
+                struct OpenlibraryRedirect {
+                    #[serde(rename = "type")]
+                    typ: OpenlibraryKey,
+                    location: String,
+                }
+                let d = serde_json::from_str::<OpenlibraryRedirect>(&response_string)?;
+                if d.typ.key == "/type/redirect" {
+                    let key = get_key(&d.location);
+                    let mut rsp = self
+                        .client
+                        .get(format!("works/{}.json", key))
+                        .await
+                        .map_err(|e| anyhow!(e))?;
+                    let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+                    data
+                } else {
+                    bail!("Incorrect response from Openlibrary")
+                }
+            }
+        };
+
+        let identifier = get_key(&data.key);
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryEdition {
@@ -340,7 +370,6 @@ impl OpenlibraryService {
         let mut resp = self
             .client
             .clone()
-            .with(Redirect::new(5))
             .with(GovernorMiddleware::per_second(1).ok()?)
             .with(RetryMiddleware::new(
                 3,
