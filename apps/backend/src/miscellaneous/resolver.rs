@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
@@ -6,7 +9,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
-use enum_meta::{HashMap, Meta};
+use enum_meta::Meta;
 use futures::TryStreamExt;
 use harsh::Harsh;
 use http::header::SET_COOKIE;
