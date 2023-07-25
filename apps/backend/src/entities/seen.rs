@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{prelude::UserToMetadata, user_to_metadata},
     migrator::SeenState,
-    miscellaneous::{
+    models::media::{
         SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
     utils::associate_user_with_metadata,

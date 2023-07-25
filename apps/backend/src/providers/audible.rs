@@ -8,9 +8,11 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     config::AudibleConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
-        media::{AudioBookSpecifics, MediaDetails, MediaSearchItem},
+        media::{
+            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataImageUrl,
+        },
         NamedObject, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},

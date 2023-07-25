@@ -10,12 +10,10 @@ use crate::{
         DeployGoodreadsImportInput, ImportOrExportItem, ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{
-        DefaultCollection, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
-    },
+    miscellaneous::DefaultCollection,
     models::media::{
         BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
-        MediaDetails,
+        MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
     },
 };
 

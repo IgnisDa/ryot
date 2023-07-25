@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::{MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreators, MetadataImages},
+    models::media::{MediaSpecifics, MetadataCreators, MetadataImages},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]

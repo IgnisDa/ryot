@@ -15,12 +15,11 @@ use crate::{
         ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreator},
     models::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
-            MediaDetails, Visibility,
+            MediaDetails, MediaSpecifics, MetadataCreator, Visibility,
         },
         IdObject,
     },

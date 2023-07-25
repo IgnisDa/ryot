@@ -13,9 +13,11 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 use crate::{
     config::OpenlibraryConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
-        media::{BookSpecifics, MediaDetails, MediaSearchItem},
+        media::{
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataImageUrl,
+        },
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
