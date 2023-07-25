@@ -75,13 +75,13 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 					MetadataLot.Movie,
 					MetadataLot.Show,
 					MetadataLot.Anime,
-					() => "watch",
+					() => "watched",
 				)
 				.with(
 					MetadataLot.AudioBook,
 					MetadataLot.VideoGame,
 					MetadataLot.Podcast,
-					() => "play",
+					() => "played",
 				)
 				.otherwise(() => {
 					return "";
