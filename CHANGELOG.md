@@ -1,4 +1,15 @@
 
+# Version 1.16.3 (2023-07-25)
+
+## Bug Fixes
+
+* **backend:** handle openlibrary redirect responses
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.16.2 (2023-07-24)
 
 
