@@ -1,16 +1,25 @@
 import { useUserPreferences } from "../hooks/graphql";
-import Basic from "./Basic";
+import { Footer } from "./Basic";
 import { ROUTES } from "@/lib/constants";
 import { gqlClient } from "@/lib/services/api";
 import { getLot, getMetadataIcon } from "@/lib/utilities";
 import {
+	AppShell,
 	Box,
+	Burger,
 	Flex,
+	Footer as MantineFooter,
+	Header,
+	MediaQuery,
+	Navbar,
+	Text,
 	Tooltip,
 	UnstyledButton,
 	createStyles,
 	rem,
+	useMantineTheme,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
@@ -81,6 +90,9 @@ function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
 const AUTH_COOKIE = "auth";
 
 export default function ({ children }: { children: ReactElement }) {
+	const theme = useMantineTheme();
+	const [opened, { toggle }] = useDisclosure(false);
+
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
 	useQuery({
@@ -104,7 +116,7 @@ export default function ({ children }: { children: ReactElement }) {
 	});
 	const userPrefs = useUserPreferences();
 
-	const links = [
+	const _links = [
 		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
 		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
@@ -161,20 +173,48 @@ export default function ({ children }: { children: ReactElement }) {
 	}, []);
 
 	return (
-		<Basic
-			header={
-				userPrefs ? (
-					<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
-						{links}
-						<NavbarButton
-							icon={IconLogout}
-							label="Logout"
-							onClick={logoutUser.mutate}
-						/>
-					</Flex>
-				) : undefined
+		<AppShell
+			my={{ sm: "xl" }}
+			fixed
+			layout="alt"
+			navbarOffsetBreakpoint="sm"
+			asideOffsetBreakpoint="sm"
+			navbar={
+				<Navbar
+					py="md"
+					px="md"
+					hiddenBreakpoint="sm"
+					hidden={!opened}
+					width={{ sm: 200, lg: 300 }}
+				>
+					<MediaQuery largerThan="sm" styles={{ display: "none" }}>
+						<Flex justify={"end"}>
+							<Burger
+								opened={opened}
+								onClick={toggle}
+								color={theme.colors.gray[6]}
+							/>
+						</Flex>
+					</MediaQuery>
+					<Text>Application navbar</Text>
+				</Navbar>
 			}
-			children={<Box my={"lg"}>{children}</Box>}
-		/>
+			footer={
+				<MantineFooter height={60} p="md">
+					<Footer />
+				</MantineFooter>
+			}
+		>
+			<MediaQuery largerThan="sm" styles={{ display: "none" }}>
+				<Flex justify={"end"}>
+					<Burger
+						opened={opened}
+						onClick={toggle}
+						color={theme.colors.gray[6]}
+					/>
+				</Flex>
+			</MediaQuery>
+			<Box>{children}</Box>
+		</AppShell>
 	);
 }
