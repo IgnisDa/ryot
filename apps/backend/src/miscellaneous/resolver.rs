@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
@@ -6,7 +9,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
-use enum_meta::{HashMap, Meta};
+use enum_meta::Meta;
 use futures::TryStreamExt;
 use harsh::Harsh;
 use http::header::SET_COOKIE;
@@ -52,19 +55,17 @@ use crate::{
         Review as TempReview, Seen as TempSeen, SeenState, UserLot,
         UserToMetadata as TempUserToMetadata,
     },
-    miscellaneous::{
-        CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
-        MetadataImage, MetadataImageUrl, MetadataImages, SeenOrReviewExtraInformation,
-        SeenPodcastExtraInformation, SeenShowExtraInformation,
-    },
+    miscellaneous::{CustomService, DefaultCollection},
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
-            MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics, Visibility,
+            MediaListItem, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataCreators,
+            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -85,7 +86,7 @@ use crate::{
     },
     utils::{
         convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -424,6 +425,7 @@ struct UserAuthToken {
 
 #[derive(SimpleObject)]
 struct CoreDetails {
+    docs_link: String,
     version: String,
     author_name: String,
     repository_link: String,
@@ -1029,6 +1031,7 @@ impl MiscellaneousService {
 impl MiscellaneousService {
     async fn core_details(&self) -> CoreDetails {
         CoreDetails {
+            docs_link: DOCS_LINK.to_owned(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),

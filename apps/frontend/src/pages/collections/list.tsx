@@ -133,7 +133,7 @@ const Page: NextPageWithLayout = () => {
 								<Box>
 									<Flex align={"center"} gap="xs">
 										<Link
-											href={withQuery(ROUTES.collections.details, {
+											href={withQuery(ROUTES.media.collections.details, {
 												collectionId: c?.id,
 											})}
 											passHref

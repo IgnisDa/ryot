@@ -50,6 +50,7 @@ pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
 pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
+pub const DOCS_LINK: &str = "https://ignisda.github.io/ryot";
 pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 
 /// All the services that are used by the app

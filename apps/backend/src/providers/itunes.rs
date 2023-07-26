@@ -9,9 +9,11 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     config::ITunesConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
-        media::{MediaDetails, MediaSearchItem, PodcastEpisode, PodcastSpecifics},
+        media::{
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataImageUrl, PodcastEpisode, PodcastSpecifics,
+        },
         NamedObject, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},

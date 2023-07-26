@@ -7,7 +7,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    miscellaneous::SeenOrReviewExtraInformation, models::media::Visibility,
+    models::media::{SeenOrReviewExtraInformation, Visibility},
     utils::associate_user_with_metadata,
 };
 

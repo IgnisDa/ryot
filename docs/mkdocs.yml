@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 
-site_name: Ryot
+site_name: Ryot Documentation
 site_url: https://ignisda.github.io/ryot
 site_description: Ryot Documentation
 repo_url: https://github.com/ignisda/ryot

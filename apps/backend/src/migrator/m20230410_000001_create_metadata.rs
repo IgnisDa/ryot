@@ -74,13 +74,6 @@ pub enum MetadataSource {
     Tmdb,
 }
 
-// FIXME: Remove this once we clean up migrations
-// This is responsible for storing common metadata about all media items
-#[derive(Iden)]
-pub enum MetadataImage {
-    Table,
-}
-
 // The different types of media that can be stored
 #[derive(
     Debug,
