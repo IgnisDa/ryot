@@ -387,7 +387,7 @@ impl ImporterService {
         let details = ImportResultResponse {
             source: db_import_job.source,
             import: ImportDetails {
-                total: import.media.len() - import.failed_items.len(),
+                total: import.media.len(),
             },
             failed_items: import.failed_items,
         };
