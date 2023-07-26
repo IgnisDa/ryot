@@ -66,6 +66,7 @@ const Page: NextPageWithLayout = () => {
 												</Text>
 												<Text>Failed: {report.details.failedItems.length}</Text>
 												<JsonInput
+													size="xs"
 													defaultValue={JSON.stringify(
 														report.details.failedItems,
 														null,
