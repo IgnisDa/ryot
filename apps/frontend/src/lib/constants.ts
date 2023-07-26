@@ -3,6 +3,11 @@ export const ROUTES = {
 		login: "/auth/login",
 		register: "/auth/register",
 	},
+	settings: "/settings",
+	imports: {
+		perform: "/imports",
+		reports: "/imports/reports",
+	},
 	media: {
 		collections: {
 			list: "/collections/list",
@@ -18,7 +23,6 @@ export const ROUTES = {
 			updateProgress: "/media/update-progress",
 		},
 	},
-	settings: "/settings",
 	fitness: {
 		home: "/fitness",
 	},
