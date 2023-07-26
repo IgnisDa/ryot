@@ -269,9 +269,14 @@ export default function ({ children }: { children: ReactElement }) {
 	}, []);
 
 	useEffect(() => {
-		router.events.on("routeChangeComplete", () => {
+		const handleStart = () => {
 			close();
-		});
+		};
+
+		router.events.on("routeChangeComplete", handleStart);
+		return () => {
+			router.events.off("routeChangeComplete", handleStart);
+		};
 	}, [router]);
 
 	return (
