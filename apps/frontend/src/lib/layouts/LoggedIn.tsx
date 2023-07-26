@@ -356,9 +356,11 @@ export default function ({ children }: { children: ReactElement }) {
 				<Box mt="md" style={{ flexGrow: 1 }}>
 					{children}
 				</Box>
-				<Box my={36}>
-					<Footer />
-				</Box>
+				<MediaQuery smallerThan="sm" styles={{ marginBottom: 36 }}>
+					<Box mt={36}>
+						<Footer />
+					</Box>
+				</MediaQuery>
 			</Flex>
 		</AppShell>
 	);
