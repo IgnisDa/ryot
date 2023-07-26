@@ -1,4 +1,15 @@
 
+# Version 1.17.6 (2023-07-26)
+
+## Bug Fixes
+
+* **frontend:** correct margin for footer
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.17.5 (2023-07-26)
 
 ## Bug Fixes
