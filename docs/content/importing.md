@@ -1,8 +1,8 @@
 # Importing
 
 Importing is meant to be a one-time operation. They are irreversible. Ryot
-supports importing media from a number of sources. To start importing, go to
-the settings page and select the "Imports" tab.
+supports importing media from a number of sources. To start importing, click on
+the "Importing" section in the sidebar.
 
 ## MediaTracker
 
@@ -13,7 +13,7 @@ the following caveats:
   added to the "In Progress" collection so you can manually fix their progress
   if needed.
 - Ryot does not support [calendars](https://github.com/IgnisDa/ryot/issues/66)
-  and [notifications](https://github.com/IgnisDa/ryot/issues/15) yet
+  and [notifications](https://github.com/IgnisDa/ryot/issues/15) yet.
 
 ### Steps
 
