@@ -1,4 +1,15 @@
 
+# Version 1.17.2 (2023-07-26)
+
+## Bug Fixes
+
+* **backend:** increase connection acquire timeout
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.17.1 (2023-07-26)
 
 ## Bug Fixes
