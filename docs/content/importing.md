@@ -101,11 +101,6 @@ in the [exporting](guides/exporting.md) documentation.
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
-- Ryot creates a report when an import is complete, but does not provide a UI
-  to view this information yet. Once an import is complete, you can run the
-  following SQL query in the connected database to get more information about
-  which items failed and why.
-
-  ```sql
-  SELECT * FROM media_import_report;
-  ```
+- An import can fail at various steps. Ryot creates a report when an import is
+  complete. You can see the descriptions of the failing steps by reviewing the
+  documentation of the `ImportFailStep` enum in the `/graphql` endpoint.
