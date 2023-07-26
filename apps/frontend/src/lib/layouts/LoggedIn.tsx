@@ -10,7 +10,6 @@ import {
 	Burger,
 	Collapse,
 	Flex,
-	Footer as MantineFooter,
 	Group,
 	MediaQuery,
 	Navbar,
@@ -122,6 +121,7 @@ const useStyles = createStyles((theme) => ({
 interface LinksGroupProps {
 	icon: React.FC<any>;
 	label: string;
+	onClick: () => void;
 	href?: string;
 	initiallyOpened?: boolean;
 	links?: { label: string; link: string }[];
@@ -133,6 +133,7 @@ export function LinksGroup({
 	href,
 	initiallyOpened,
 	links,
+	onClick,
 }: LinksGroupProps) {
 	const { classes, theme } = useStyles();
 	const router = useRouter();
@@ -140,7 +141,12 @@ export function LinksGroup({
 	const [opened, setOpened] = useState(initiallyOpened || false);
 	const ChevronIcon = theme.dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const items = (hasLinks ? links : []).map((link) => (
-		<Link className={classes.link} href={link.link} key={link.label}>
+		<Link
+			className={classes.link}
+			href={link.link}
+			key={link.label}
+			onClick={onClick}
+		>
 			{link.label}
 		</Link>
 	));
@@ -151,6 +157,7 @@ export function LinksGroup({
 				onClick={() => {
 					if (href) router.push(href);
 					else setOpened((o) => !o);
+					if (onClick) onClick();
 				}}
 				className={classes.control}
 			>
@@ -182,7 +189,7 @@ export function LinksGroup({
 
 export default function ({ children }: { children: ReactElement }) {
 	const theme = useMantineTheme();
-	const [opened, { toggle }] = useDisclosure(false);
+	const [opened, { toggle, close }] = useDisclosure(false);
 	const { classes, cx } = useStyles();
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
@@ -272,7 +279,7 @@ export default function ({ children }: { children: ReactElement }) {
 					px="md"
 					hiddenBreakpoint="sm"
 					hidden={!opened}
-					width={{ sm: 180, lg: 220 }}
+					width={{ sm: 200, lg: 220 }}
 				>
 					<MediaQuery largerThan="sm" styles={{ display: "none" }}>
 						<Flex justify={"end"}>
@@ -289,11 +296,13 @@ export default function ({ children }: { children: ReactElement }) {
 								label="Media"
 								icon={IconDeviceSpeaker}
 								links={links}
+								onClick={close}
 							/>
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}
 								href={ROUTES.settings}
+								onClick={close}
 							/>
 						</Box>
 					</Navbar.Section>
@@ -316,11 +325,6 @@ export default function ({ children }: { children: ReactElement }) {
 					</Navbar.Section>
 				</Navbar>
 			}
-			footer={
-				<MantineFooter height={60} p="md">
-					<Footer />
-				</MantineFooter>
-			}
 		>
 			<MediaQuery largerThan="sm" styles={{ display: "none" }}>
 				<Flex justify={"end"}>
@@ -331,7 +335,10 @@ export default function ({ children }: { children: ReactElement }) {
 					/>
 				</Flex>
 			</MediaQuery>
-			<Box>{children}</Box>
+			<Box mt="md">{children}</Box>
+			<Box mt={36}>
+				<Footer />
+			</Box>
 		</AppShell>
 	);
 }
