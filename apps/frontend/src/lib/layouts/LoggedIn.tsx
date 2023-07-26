@@ -326,19 +326,23 @@ export default function ({ children }: { children: ReactElement }) {
 				</Navbar>
 			}
 		>
-			<MediaQuery largerThan="sm" styles={{ display: "none" }}>
-				<Flex justify={"end"}>
-					<Burger
-						opened={opened}
-						onClick={toggle}
-						color={theme.colors.gray[6]}
-					/>
-				</Flex>
-			</MediaQuery>
-			<Box mt="md">{children}</Box>
-			<Box mt={36}>
-				<Footer />
-			</Box>
+			<Flex direction={"column"} h="90%">
+				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
+					<Flex justify={"end"}>
+						<Burger
+							opened={opened}
+							onClick={toggle}
+							color={theme.colors.gray[6]}
+						/>
+					</Flex>
+				</MediaQuery>
+				<Box mt="md" style={{ flexGrow: 1 }}>
+					{children}
+				</Box>
+				<Box mt={36}>
+					<Footer />
+				</Box>
+			</Flex>
 		</AppShell>
 	);
 }
