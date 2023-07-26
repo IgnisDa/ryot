@@ -39,11 +39,10 @@ use crate::{
     background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
-        collection, genre, media_import_report, metadata, metadata_to_collection,
-        metadata_to_genre,
+        collection, genre, import_report, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
-            Collection, Genre, MediaImportReport, Metadata, MetadataToCollection, Review, Seen,
-            Summary, User, UserToMetadata,
+            Collection, Genre, ImportReport, Metadata, MetadataToCollection, Review, Seen, Summary,
+            User, UserToMetadata,
         },
         review, seen, summary, user, user_to_metadata,
     },
@@ -2515,8 +2514,8 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         source: ImportSource,
-    ) -> Result<media_import_report::Model> {
-        let model = media_import_report::ActiveModel {
+    ) -> Result<import_report::Model> {
+        let model = import_report::ActiveModel {
             user_id: ActiveValue::Set(user_id),
             source: ActiveValue::Set(source),
             ..Default::default()
@@ -2528,10 +2527,10 @@ impl MiscellaneousService {
 
     pub async fn finish_import_job(
         &self,
-        job: media_import_report::Model,
+        job: import_report::Model,
         details: ImportResultResponse,
-    ) -> Result<media_import_report::Model> {
-        let mut model: media_import_report::ActiveModel = job.into();
+    ) -> Result<import_report::Model> {
+        let mut model: import_report::ActiveModel = job.into();
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
         model.success = ActiveValue::Set(Some(true));
@@ -2539,12 +2538,9 @@ impl MiscellaneousService {
         Ok(model)
     }
 
-    pub async fn media_import_reports(
-        &self,
-        user_id: i32,
-    ) -> Result<Vec<media_import_report::Model>> {
-        let reports = MediaImportReport::find()
-            .filter(media_import_report::Column::UserId.eq(user_id))
+    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
+        let reports = ImportReport::find()
+            .filter(import_report::Column::UserId.eq(user_id))
             .all(&self.db)
             .await
             .unwrap();

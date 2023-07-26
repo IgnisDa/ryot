@@ -8,7 +8,7 @@ use crate::{importer::ImportResultResponse, migrator::ImportSource};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "import_report")]
-#[graphql(name = "MediaImportReport")]
+#[graphql(name = "ImportReport")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,

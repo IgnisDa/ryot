@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     background::ImportMedia,
-    entities::{media_import_report, prelude::MediaImportReport},
+    entities::{import_report, prelude::ImportReport},
     migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
@@ -136,10 +136,10 @@ impl ImporterQuery {
     async fn media_import_reports(
         &self,
         gql_ctx: &Context<'_>,
-    ) -> Result<Vec<media_import_report::Model>> {
+    ) -> Result<Vec<import_report::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_import_reports(user_id).await
+        service.import_reports(user_id).await
     }
 }
 
@@ -200,14 +200,14 @@ impl ImporterService {
     }
 
     pub async fn invalidate_import_jobs(&self) -> Result<()> {
-        let all_jobs = MediaImportReport::find()
-            .filter(media_import_report::Column::Success.is_null())
+        let all_jobs = ImportReport::find()
+            .filter(import_report::Column::Success.is_null())
             .all(&self.db)
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > Duration::hours(24) {
                 tracing::trace!("Invalidating job with id = {id}", id = job.id);
-                let mut job: media_import_report::ActiveModel = job.into();
+                let mut job: import_report::ActiveModel = job.into();
                 job.success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
             }
@@ -215,11 +215,8 @@ impl ImporterService {
         Ok(())
     }
 
-    pub async fn media_import_reports(
-        &self,
-        user_id: i32,
-    ) -> Result<Vec<media_import_report::Model>> {
-        self.media_service.media_import_reports(user_id).await
+    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
+        self.media_service.import_reports(user_id).await
     }
 
     pub async fn import_from_source(
