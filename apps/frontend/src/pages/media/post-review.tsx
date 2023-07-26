@@ -117,7 +117,9 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess: () => {
-			router.push(withQuery(ROUTES.media.details, { item: metadataId }));
+			router.push(
+				withQuery(ROUTES.media.individualMedia.details, { item: metadataId }),
+			);
 		},
 	});
 
@@ -131,7 +133,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: () => {
 			router.push(
-				withQuery(ROUTES.media.details, {
+				withQuery(ROUTES.media.individualMedia.details, {
 					item: metadataId,
 				}),
 			);

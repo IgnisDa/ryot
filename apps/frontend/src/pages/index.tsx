@@ -157,7 +157,7 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${ROUTES.media.details}?item=${lm.identifier}`}
+										href={`${ROUTES.media.individualMedia.details}?item=${lm.identifier}`}
 									/>
 								))}
 							</Grid>
@@ -330,7 +330,11 @@ const Page: NextPageWithLayout = () => {
 							{ minWidth: "lg", cols: 3 },
 						]}
 					>
-						<Link passHref legacyBehavior href={ROUTES.media.create}>
+						<Link
+							passHref
+							legacyBehavior
+							href={ROUTES.media.individualMedia.create}
+						>
 							<Button
 								variant="outline"
 								component="a"

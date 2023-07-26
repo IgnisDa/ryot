@@ -16,7 +16,7 @@ const Page: NextPageWithLayout = () => {
 	const source = router.query.source?.toString() as unknown as MetadataSource;
 
 	const commitMedia = useCommitMedia(lot, (id) => {
-		router.replace(`${ROUTES.media.details}?item=${id}`);
+		router.replace(`${ROUTES.media.individualMedia.details}?item=${id}`);
 	});
 
 	useEffect(() => {

@@ -9,6 +9,7 @@ pub struct Migration;
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
+        // FIXME: Remove media from name
         "m20230509_000008_create_media_import_report"
     }
 }
@@ -17,7 +18,7 @@ impl MigrationName for Migration {
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum MediaImportSource {
+pub enum ImportSource {
     #[sea_orm(string_value = "MJ")]
     MediaJson,
     #[sea_orm(string_value = "MT")]
@@ -33,7 +34,7 @@ pub enum MediaImportSource {
 }
 
 #[derive(Iden)]
-pub enum MediaImportReport {
+pub enum ImportReport {
     Table,
     Id,
     UserId,
@@ -50,37 +51,33 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MediaImportReport::Table)
+                    .table(ImportReport::Table)
                     .col(
-                        ColumnDef::new(MediaImportReport::Id)
+                        ColumnDef::new(ImportReport::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(MediaImportReport::Source)
+                        ColumnDef::new(ImportReport::Source)
                             .string_len(2)
                             .not_null(),
                     )
+                    .col(ColumnDef::new(ImportReport::UserId).integer().not_null())
                     .col(
-                        ColumnDef::new(MediaImportReport::UserId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MediaImportReport::StartedOn)
+                        ColumnDef::new(ImportReport::StartedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(MediaImportReport::FinishedOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(MediaImportReport::Details).json())
-                    .col(ColumnDef::new(MediaImportReport::Success).boolean())
+                    .col(ColumnDef::new(ImportReport::FinishedOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(ImportReport::Details).json())
+                    .col(ColumnDef::new(ImportReport::Success).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")
-                            .from(MediaImportReport::Table, MediaImportReport::UserId)
+                            .from(ImportReport::Table, ImportReport::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),

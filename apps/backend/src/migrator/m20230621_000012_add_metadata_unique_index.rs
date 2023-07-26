@@ -1,9 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::migrator::{
-    m20230410_000001_create_metadata::{MetadataImage, UNIQUE_INDEX},
-    Metadata,
-};
+use crate::migrator::{m20230410_000001_create_metadata::UNIQUE_INDEX, Metadata};
 
 pub struct Migration;
 
@@ -30,16 +27,6 @@ impl MigrationTrait for Migration {
             )
             .await
             .ok();
-        if manager.has_table("metadata_image").await? {
-            manager
-                .drop_table(
-                    Table::drop()
-                        .if_exists()
-                        .table(MetadataImage::Table)
-                        .to_owned(),
-                )
-                .await?;
-        }
         Ok(())
     }
 

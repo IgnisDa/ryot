@@ -1,6 +1,5 @@
-import { useCoreDetails } from "@/lib/hooks/graphql";
 import { queryClient } from "@/lib/services/api";
-import { Anchor, Container, Flex, MantineProvider, Text } from "@mantine/core";
+import { Flex, MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,37 +15,6 @@ export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
 
 type AppPropsWithLayout = AppProps & {
 	Component: NextPageWithLayout;
-};
-
-const Footer = () => {
-	const coreDetails = useCoreDetails();
-
-	return (
-		<Container p={"md"} style={{ textAlign: "center" }}>
-			{coreDetails.data ? (
-				<Flex gap={80}>
-					<Anchor
-						href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
-						target="_blank"
-					>
-						<Text color="red" weight={"bold"}>
-							v{coreDetails.data.version}
-						</Text>
-					</Anchor>
-					<Anchor href="https://diptesh.me" target="_blank">
-						<Text color="indigo" weight={"bold"}>
-							{coreDetails.data.authorName}
-						</Text>
-					</Anchor>
-					<Anchor href={coreDetails.data.repositoryLink} target="_blank">
-						<Text color="orange" weight={"bold"}>
-							Github
-						</Text>
-					</Anchor>
-				</Flex>
-			) : null}
-		</Container>
-	);
 };
 
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
@@ -96,7 +64,6 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 							<Flex style={{ flexGrow: 1 }}>
 								{getLayout(<Component {...pageProps} />)}
 							</Flex>
-							<Footer />
 						</Flex>
 					</ModalsProvider>
 				</MantineProvider>

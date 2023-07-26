@@ -4,16 +4,16 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{importer::ImportResultResponse, migrator::MediaImportSource};
+use crate::{importer::ImportResultResponse, migrator::ImportSource};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
-#[sea_orm(table_name = "media_import_report")]
-#[graphql(name = "MediaImportReport")]
+#[sea_orm(table_name = "import_report")]
+#[graphql(name = "ImportReport")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub user_id: i32,
-    pub source: MediaImportSource,
+    pub source: ImportSource,
     pub started_on: DateTimeUtc,
     pub finished_on: Option<DateTimeUtc>,
     pub details: Option<ImportResultResponse>,

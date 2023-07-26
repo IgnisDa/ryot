@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
@@ -6,7 +9,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
-use enum_meta::{HashMap, Meta};
+use enum_meta::Meta;
 use futures::TryStreamExt;
 use harsh::Harsh;
 use http::header::SET_COOKIE;
@@ -36,11 +39,10 @@ use crate::{
     background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
-        collection, genre, media_import_report, metadata, metadata_to_collection,
-        metadata_to_genre,
+        collection, genre, import_report, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
-            Collection, Genre, MediaImportReport, Metadata, MetadataToCollection, Review, Seen,
-            Summary, User, UserToMetadata,
+            Collection, Genre, ImportReport, Metadata, MetadataToCollection, Review, Seen, Summary,
+            User, UserToMetadata,
         },
         review, seen, summary, user, user_to_metadata,
     },
@@ -48,23 +50,21 @@ use crate::{
     importer::ImportResultResponse,
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
-        MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
+        ImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, SeenState, UserLot,
         UserToMetadata as TempUserToMetadata,
     },
-    miscellaneous::{
-        CustomService, DefaultCollection, MediaSpecifics, MetadataCreator, MetadataCreators,
-        MetadataImage, MetadataImageUrl, MetadataImages, SeenOrReviewExtraInformation,
-        SeenPodcastExtraInformation, SeenShowExtraInformation,
-    },
+    miscellaneous::{CustomService, DefaultCollection},
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
-            MediaListItem, MediaSearchItem, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ShowSpecifics, VideoGameSpecifics, Visibility,
+            MediaListItem, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataCreators,
+            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -85,7 +85,7 @@ use crate::{
     },
     utils::{
         convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -424,6 +424,7 @@ struct UserAuthToken {
 
 #[derive(SimpleObject)]
 struct CoreDetails {
+    docs_link: String,
     version: String,
     author_name: String,
     repository_link: String,
@@ -1029,6 +1030,7 @@ impl MiscellaneousService {
 impl MiscellaneousService {
     async fn core_details(&self) -> CoreDetails {
         CoreDetails {
+            docs_link: DOCS_LINK.to_owned(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
@@ -2511,9 +2513,9 @@ impl MiscellaneousService {
     pub async fn start_import_job(
         &self,
         user_id: i32,
-        source: MediaImportSource,
-    ) -> Result<media_import_report::Model> {
-        let model = media_import_report::ActiveModel {
+        source: ImportSource,
+    ) -> Result<import_report::Model> {
+        let model = import_report::ActiveModel {
             user_id: ActiveValue::Set(user_id),
             source: ActiveValue::Set(source),
             ..Default::default()
@@ -2525,10 +2527,10 @@ impl MiscellaneousService {
 
     pub async fn finish_import_job(
         &self,
-        job: media_import_report::Model,
+        job: import_report::Model,
         details: ImportResultResponse,
-    ) -> Result<media_import_report::Model> {
-        let mut model: media_import_report::ActiveModel = job.into();
+    ) -> Result<import_report::Model> {
+        let mut model: import_report::ActiveModel = job.into();
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
         model.success = ActiveValue::Set(Some(true));
@@ -2536,12 +2538,10 @@ impl MiscellaneousService {
         Ok(model)
     }
 
-    pub async fn media_import_reports(
-        &self,
-        user_id: i32,
-    ) -> Result<Vec<media_import_report::Model>> {
-        let reports = MediaImportReport::find()
-            .filter(media_import_report::Column::UserId.eq(user_id))
+    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
+        let reports = ImportReport::find()
+            .filter(import_report::Column::UserId.eq(user_id))
+            .order_by_desc(import_report::Column::StartedOn)
             .all(&self.db)
             .await
             .unwrap();

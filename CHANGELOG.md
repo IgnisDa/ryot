@@ -1,4 +1,51 @@
 
+# Version 1.17.4 (2023-07-26)
+
+## Bug Fixes
+
+* **frontend:** change padding of items
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.17.3 (2023-07-26)
+
+## Bug Fixes
+
+* **backend:** change total calculation
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.17.2 (2023-07-26)
+
+## Bug Fixes
+
+* **backend:** increase connection acquire timeout
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.17.1 (2023-07-26)
+
+## Bug Fixes
+
+* **frontend:** remove onclick behaviour
+
+## Build
+
+* **backend:** bump version
+
+
+# Version 1.17.0 (2023-07-26)
+
+
 # Version 1.16.3 (2023-07-25)
 
 ## Bug Fixes

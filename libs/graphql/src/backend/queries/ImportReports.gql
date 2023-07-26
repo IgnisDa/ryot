@@ -1,9 +1,10 @@
-query MediaImportReports {
-  mediaImportReports {
+query ImportReports {
+  importReports {
     id
     source
     startedOn
     finishedOn
+    success
     details {
       import {
         total
@@ -12,6 +13,7 @@ query MediaImportReports {
         lot
         step
         identifier
+        error
       }
     }
   }

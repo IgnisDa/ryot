@@ -35,7 +35,7 @@ export default function Page() {
 		},
 		onSuccess: (data) => {
 			if (data.__typename === "LoginResponse") {
-				router.push(ROUTES.dashboard);
+				router.push(ROUTES.media.dashboard);
 				return;
 			} else {
 				const message = match(data.error)

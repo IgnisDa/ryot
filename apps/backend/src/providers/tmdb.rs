@@ -9,10 +9,10 @@ use surf::Client;
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataImageUrl, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         NamedObject, SearchResults,
     },

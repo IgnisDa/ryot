@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
@@ -6,16 +6,22 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::ACCEPT, Client};
+use surf::{
+    http::headers::ACCEPT,
+    middleware::{Middleware, Next},
+    Client, Request, Response, Result as SurfResult,
+};
 use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
-    miscellaneous::{MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl},
     models::{
-        media::{BookSpecifics, MediaDetails, MediaSearchItem},
+        media::{
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataImageUrl,
+        },
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
@@ -24,6 +30,40 @@ use crate::{
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
+
+// DEV: Openlibrary does not send `Location` header and instead sends a custom response.
+#[derive(Debug)]
+struct OpenlibraryRedirectMiddleware;
+
+#[async_trait]
+impl Middleware for OpenlibraryRedirectMiddleware {
+    async fn handle(&self, req: Request, client: Client, next: Next<'_>) -> SurfResult<Response> {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryRedirect {
+            #[serde(rename = "type")]
+            typ: OpenlibraryKey,
+            location: String,
+            key: String,
+        }
+        let mut res = next.run(req.clone(), client.clone()).await?;
+        let data = res.body_json::<OpenlibraryRedirect>().await;
+        let res = match data {
+            Ok(d) => {
+                let to_replace_key = get_key(&d.key);
+                let redirected_key = get_key(&d.location);
+                client
+                    .get(
+                        req.url()
+                            .to_string()
+                            .replace(&to_replace_key, &redirected_key),
+                    )
+                    .await?
+            }
+            Err(_) => next.run(req, client).await?,
+        };
+        Ok(res)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 struct BookSearchResults {
@@ -68,7 +108,8 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
+        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")])
+            .with(OpenlibraryRedirectMiddleware);
         Self {
             image_url: IMAGE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
@@ -116,35 +157,8 @@ impl MediaProvider for OpenlibraryService {
             .get(format!("works/{}.json", identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        // DEV: Openlibrary does not send `Location` header and instead sends a
-        // custom response. This should ideally be handled by a middleware, but I
-        // am being lazy.
-        let response_string = rsp.body_string().await.map_err(|e| anyhow!(e))?;
-        let data = serde_json::from_str::<OpenlibraryBook>(&response_string);
-        let data = match data {
-            Ok(d) => d,
-            Err(_e) => {
-                #[derive(Debug, Serialize, Deserialize, Clone)]
-                struct OpenlibraryRedirect {
-                    #[serde(rename = "type")]
-                    typ: OpenlibraryKey,
-                    location: String,
-                }
-                let d = serde_json::from_str::<OpenlibraryRedirect>(&response_string)?;
-                if d.typ.key == "/type/redirect" {
-                    let key = get_key(&d.location);
-                    let mut rsp = self
-                        .client
-                        .get(format!("works/{}.json", key))
-                        .await
-                        .map_err(|e| anyhow!(e))?;
-                    let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-                    data
-                } else {
-                    bail!("Incorrect response from Openlibrary")
-                }
-            }
-        };
+
+        let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
 

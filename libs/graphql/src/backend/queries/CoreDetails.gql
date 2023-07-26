@@ -3,6 +3,7 @@ query CoreDetails {
     version
     authorName
     repositoryLink
+    docsLink
     usernameChangeAllowed
     defaultCredentials
   }

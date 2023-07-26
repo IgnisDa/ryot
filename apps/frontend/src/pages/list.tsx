@@ -434,7 +434,7 @@ const Page: NextPageWithLayout = () => {
 												item={lm.data}
 												averageRating={lm.averageRating}
 												lot={lot}
-												href={`${ROUTES.media.details}?item=${lm.data.identifier}`}
+												href={`${ROUTES.media.individualMedia.details}?item=${lm.data.identifier}`}
 											/>
 										))}
 									</Grid>

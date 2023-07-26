@@ -3,7 +3,7 @@
 pub use super::collection::Entity as Collection;
 pub use super::exercise::Entity as Exercise;
 pub use super::genre::Entity as Genre;
-pub use super::media_import_report::Entity as MediaImportReport;
+pub use super::import_report::Entity as ImportReport;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_to_collection::Entity as MetadataToCollection;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;

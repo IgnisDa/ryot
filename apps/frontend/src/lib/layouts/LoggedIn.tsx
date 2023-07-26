@@ -1,16 +1,26 @@
 import { useUserPreferences } from "../hooks/graphql";
-import Basic from "./Basic";
 import { ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import { getLot, getMetadataIcon } from "@/lib/utilities";
+import { getLot } from "@/lib/utilities";
 import {
+	Anchor,
+	AppShell,
 	Box,
+	Burger,
+	Collapse,
 	Flex,
-	Tooltip,
+	Group,
+	MediaQuery,
+	Navbar,
+	Text,
+	ThemeIcon,
 	UnstyledButton,
 	createStyles,
 	rem,
+	useMantineTheme,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
@@ -18,69 +28,171 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/utilities";
 import {
-	IconArchive,
+	IconChevronLeft,
+	IconChevronRight,
+	IconDatabaseImport,
+	IconDeviceSpeaker,
 	IconHome2,
 	IconLogout,
 	IconSettings,
+	IconStretching,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { useCookies } from "react-cookie";
-
-const useStyles = createStyles((theme) => ({
-	link: {
-		width: rem(50),
-		height: rem(50),
-		borderRadius: theme.radius.md,
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-		color: theme.colors.dark[0],
-		"&:hover": {
-			backgroundColor: theme.colors.dark[5],
-		},
-	},
-}));
-
-interface NavbarLinkProps {
-	// rome-ignore lint/suspicious/noExplicitAny: I do not know what to use here instead
-	icon: React.FC<any>;
-	label: string;
-	onClick?(): void;
-	href?: string;
-}
-
-function NavbarButton({ icon: Icon, label, onClick, href }: NavbarLinkProps) {
-	const { classes, cx } = useStyles();
-	const icon = <Icon size="1.2rem" stroke={1.5} />;
-	const element = href ? (
-		<Link href={href} className={cx(classes.link)}>
-			{icon}
-		</Link>
-	) : (
-		<UnstyledButton onClick={onClick} className={cx(classes.link)}>
-			{icon}
-		</UnstyledButton>
-	);
-
-	return (
-		<Box w={50}>
-			<Tooltip
-				label={label}
-				position="bottom"
-				transitionProps={{ duration: 0 }}
-			>
-				{element}
-			</Tooltip>
-		</Box>
-	);
-}
 
 const AUTH_COOKIE = "auth";
 
+const Footer = () => {
+	const coreDetails = useCoreDetails();
+
+	return coreDetails.data ? (
+		<Flex gap={80} justify={"center"}>
+			<Anchor
+				href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
+				target="_blank"
+			>
+				<Text color="red" weight={"bold"}>
+					v{coreDetails.data.version}
+				</Text>
+			</Anchor>
+			<Anchor href="https://diptesh.me" target="_blank">
+				<Text color="indigo" weight={"bold"}>
+					{coreDetails.data.authorName}
+				</Text>
+			</Anchor>
+			<Anchor href={coreDetails.data.repositoryLink} target="_blank">
+				<Text color="orange" weight={"bold"}>
+					Github
+				</Text>
+			</Anchor>
+		</Flex>
+	) : null;
+};
+
+const useStyles = createStyles((theme) => ({
+	footer: {
+		borderTop: `${rem(1)} solid ${
+			theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
+		}`,
+		paddingTop: theme.spacing.md,
+		paddingLeft: theme.spacing.sm,
+	},
+	control: {
+		fontWeight: 500,
+		display: "block",
+		width: "100%",
+		padding: `${theme.spacing.xs} ${theme.spacing.md}`,
+		color: theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
+		fontSize: theme.fontSizes.sm,
+		"&:hover": {
+			backgroundColor:
+				theme.colorScheme === "dark"
+					? theme.colors.dark[7]
+					: theme.colors.gray[0],
+			color: theme.colorScheme === "dark" ? theme.white : theme.black,
+		},
+	},
+	link: {
+		fontWeight: 500,
+		display: "block",
+		textDecoration: "none",
+		padding: `${theme.spacing.xs} ${theme.spacing.md}`,
+		paddingLeft: rem(31),
+		marginLeft: rem(30),
+		fontSize: theme.fontSizes.sm,
+		color:
+			theme.colorScheme === "dark"
+				? theme.colors.dark[0]
+				: theme.colors.gray[7],
+		borderLeft: `${rem(1)} solid ${
+			theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
+		}`,
+
+		"&:hover": {
+			backgroundColor:
+				theme.colorScheme === "dark"
+					? theme.colors.dark[7]
+					: theme.colors.gray[0],
+			color: theme.colorScheme === "dark" ? theme.white : theme.black,
+		},
+	},
+	chevron: {
+		transition: "transform 200ms ease",
+	},
+	oldLink: {
+		color: theme.colors.dark[0],
+	},
+}));
+
+interface LinksGroupProps {
+	icon: React.FC<any>;
+	label: string;
+	href?: string;
+	initiallyOpened?: boolean;
+	links?: { label: string; link: string }[];
+}
+
+export function LinksGroup({
+	icon: Icon,
+	label,
+	href,
+	initiallyOpened,
+	links,
+}: LinksGroupProps) {
+	const { classes, theme } = useStyles();
+	const router = useRouter();
+	const hasLinks = Array.isArray(links);
+	const [opened, setOpened] = useState(initiallyOpened || false);
+	const ChevronIcon = theme.dir === "ltr" ? IconChevronRight : IconChevronLeft;
+	const items = (hasLinks ? links : []).map((link) => (
+		<Link className={classes.link} href={link.link} key={link.label}>
+			{link.label}
+		</Link>
+	));
+
+	return (
+		<>
+			<UnstyledButton
+				onClick={() => {
+					if (href) router.push(href);
+					else setOpened((o) => !o);
+				}}
+				className={classes.control}
+			>
+				<Group position="apart" spacing={0}>
+					<Box sx={{ display: "flex", alignItems: "center" }}>
+						<ThemeIcon variant="light" size={30}>
+							<Icon size="1.1rem" />
+						</ThemeIcon>
+						<Box ml="md">{label}</Box>
+					</Box>
+					{hasLinks && (
+						<ChevronIcon
+							className={classes.chevron}
+							size="1rem"
+							stroke={1.5}
+							style={{
+								transform: opened
+									? `rotate(${theme.dir === "rtl" ? -90 : 90}deg)`
+									: "none",
+							}}
+						/>
+					)}
+				</Group>
+			</UnstyledButton>
+			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
+		</>
+	);
+}
+
 export default function ({ children }: { children: ReactElement }) {
+	const theme = useMantineTheme();
+	const [opened, { toggle }] = useDisclosure(false);
+	const { classes, cx } = useStyles();
+
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
 	useQuery({
@@ -104,27 +216,22 @@ export default function ({ children }: { children: ReactElement }) {
 	});
 	const userPrefs = useUserPreferences();
 
-	const links = [
-		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
+	const mediaLinks = [
+		{ icon: IconHome2, label: "Home", href: ROUTES.media.dashboard },
 		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				icon: getMetadataIcon(f.name),
 				href: undefined,
 			})) || []),
-		{ icon: IconArchive, label: "Collections", href: ROUTES.collections.list },
-		{ icon: IconSettings, label: "Settings", href: ROUTES.settings },
-	].map((link, _index) => (
-		<NavbarButton
-			{...link}
-			key={link.label}
-			href={
-				link.href ? link.href : `${ROUTES.list}?lot=${link.label.toLowerCase()}`
-			}
-		/>
-	));
+		{ label: "Collections", href: ROUTES.media.collections.list },
+	].map((link, _index) => ({
+		label: link.label,
+		link: link.href
+			? link.href
+			: `${ROUTES.media.list}?lot=${link.label.toLowerCase()}`,
+	}));
 
 	const logoutUser = useMutation({
 		mutationFn: async () => {
@@ -161,20 +268,88 @@ export default function ({ children }: { children: ReactElement }) {
 	}, []);
 
 	return (
-		<Basic
-			header={
-				userPrefs ? (
-					<Flex p="sm" align={"center"} justify={"center"} wrap={"wrap"}>
-						{links}
-						<NavbarButton
-							icon={IconLogout}
-							label="Logout"
-							onClick={logoutUser.mutate}
+		<AppShell
+			my={{ sm: "xl" }}
+			padding={0}
+			fixed
+			layout="alt"
+			navbarOffsetBreakpoint="sm"
+			asideOffsetBreakpoint="sm"
+			navbar={
+				<Navbar
+					py="md"
+					px="md"
+					hiddenBreakpoint="sm"
+					hidden={!opened}
+					width={{ sm: 200, lg: 220 }}
+				>
+					<MediaQuery largerThan="sm" styles={{ display: "none" }}>
+						<Flex justify={"end"}>
+							<Burger
+								opened={opened}
+								onClick={toggle}
+								color={theme.colors.gray[6]}
+							/>
+						</Flex>
+					</MediaQuery>
+					<Navbar.Section grow>
+						<LinksGroup
+							label="Media"
+							icon={IconDeviceSpeaker}
+							links={mediaLinks}
+						/>
+						<LinksGroup
+							label="Fitness"
+							icon={IconStretching}
+							links={[{ label: "Home", link: ROUTES.fitness.home }]}
+						/>
+						<LinksGroup
+							label="Importing"
+							icon={IconDatabaseImport}
+							links={[
+								{ label: "New", link: ROUTES.imports.new },
+								{ label: "Reports", link: ROUTES.imports.reports },
+							]}
+						/>
+						<LinksGroup
+							label="Settings"
+							icon={IconSettings}
+							href={ROUTES.settings}
+						/>
+					</Navbar.Section>
+					<Navbar.Section>
+						<Box className={classes.footer}>
+							<UnstyledButton
+								onClick={() => logoutUser.mutate()}
+								className={cx(classes.oldLink)}
+							>
+								<Group>
+									<IconLogout size="1.2rem" />
+									<Text>Logout</Text>
+								</Group>
+							</UnstyledButton>
+						</Box>
+					</Navbar.Section>
+				</Navbar>
+			}
+		>
+			<Flex direction={"column"} h="90%">
+				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
+					<Flex justify={"end"} p="md">
+						<Burger
+							opened={opened}
+							onClick={toggle}
+							color={theme.colors.gray[6]}
 						/>
 					</Flex>
-				) : undefined
-			}
-			children={<Box my={"lg"}>{children}</Box>}
-		/>
+				</MediaQuery>
+				<Box mt="md" style={{ flexGrow: 1 }}>
+					{children}
+				</Box>
+				<Box mt={36}>
+					<Footer />
+				</Box>
+			</Flex>
+		</AppShell>
 	);
 }
