@@ -25,13 +25,14 @@ use crate::{
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, get_data_parallelly_from_sources, PAGE_LIMIT},
+    utils::{get_base_http_client, PAGE_LIMIT},
 };
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
 
-// DEV: Openlibrary does not send `Location` header and instead sends a custom response.
+// DEV: Openlibrary does not send `Location` header and instead returns a
+// custom response.
 #[derive(Debug)]
 struct OpenlibraryRedirectMiddleware;
 
@@ -200,27 +201,30 @@ impl MediaProvider for OpenlibraryService {
         struct OpenlibraryAuthorPartial {
             name: String,
         }
-        let authors = get_data_parallelly_from_sources(
-            &data.authors.unwrap_or_default(),
-            &self.client,
-            |a| {
-                let key = match a {
-                    OpenlibraryAuthorResponse::Flat(s) => s.key.to_owned(),
-                    OpenlibraryAuthorResponse::Nested(s) => s.author.key.to_owned(),
-                };
-                format!("{}.json", key)
-            },
-        )
-        .await
-        .into_iter()
-        .map(|a: OpenlibraryAuthorPartial| MetadataCreator {
-            name: a.name,
-            // FIXME: Use correct role
-            role: "Author".to_owned(),
-            image_urls: vec![],
-        })
-        .unique()
-        .collect();
+        let mut authors = vec![];
+        for a in data.authors.unwrap_or_default().iter() {
+            let (key, role) = match a {
+                OpenlibraryAuthorResponse::Flat(s) => (s.key.to_owned(), "Author".to_owned()),
+                OpenlibraryAuthorResponse::Nested(s) => (
+                    s.author.key.to_owned(),
+                    s.role
+                        .as_ref()
+                        .map(|r| r.key.clone())
+                        .unwrap_or_else(|| "Author".to_owned()),
+                ),
+            };
+            let mut rsp = self
+                .client
+                .get(format!("{}.json", key))
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let auth: OpenlibraryAuthorPartial = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            authors.push(MetadataCreator {
+                name: auth.name,
+                role,
+                image_urls: vec![],
+            });
+        }
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
             OpenlibraryDescription::Nested { value, .. } => value,

@@ -18,15 +18,11 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
-use serde::{
-    de::{self, DeserializeOwned},
-    Deserialize, Serialize,
-};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
 };
-use tokio::task::JoinSet;
 
 use crate::{
     background::{
@@ -153,33 +149,6 @@ pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
         NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         Utc,
     )
-}
-
-pub async fn get_data_parallelly_from_sources<'a, T, F, R>(
-    iterate_over: &'a [T],
-    client: &'a Client,
-    get_url: F,
-) -> Vec<R>
-where
-    F: Fn(&T) -> String,
-    T: Send + Sync + de::DeserializeOwned + 'static,
-    R: Send + Sync + de::DeserializeOwned + 'static,
-{
-    let mut set = JoinSet::new();
-    for elm in iterate_over.iter() {
-        let client = client.clone();
-        let url = get_url(elm);
-        set.spawn(async move {
-            let mut rsp = client.get(url).await.unwrap();
-            let single_element: R = rsp.body_json().await.unwrap();
-            single_element
-        });
-    }
-    let mut data = vec![];
-    while let Some(Ok(result)) = set.join_next().await {
-        data.push(result);
-    }
-    data
 }
 
 pub fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
