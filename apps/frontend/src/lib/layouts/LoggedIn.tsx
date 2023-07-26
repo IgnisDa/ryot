@@ -191,7 +191,7 @@ export function LinksGroup({
 
 export default function ({ children }: { children: ReactElement }) {
 	const theme = useMantineTheme();
-	const [opened, { toggle }] = useDisclosure(false);
+	const [opened, { toggle, close }] = useDisclosure(false);
 	const { classes, cx } = useStyles();
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
@@ -267,6 +267,12 @@ export default function ({ children }: { children: ReactElement }) {
 			router.push(ROUTES.auth.login);
 		}
 	}, []);
+
+	useEffect(() => {
+		router.events.on("routeChangeComplete", () => {
+			close();
+		});
+	}, [router]);
 
 	return (
 		<AppShell
