@@ -1,4 +1,15 @@
 
+# Version 1.17.1 (2023-07-26)
+
+## Bug Fixes
+
+* **frontend:** remove onclick behaviour
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.17.0 (2023-07-26)
 
 
