@@ -132,11 +132,8 @@ pub struct ImporterQuery;
 
 #[Object]
 impl ImporterQuery {
-    /// Get all the import jobs deployed by the user
-    async fn media_import_reports(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<import_report::Model>> {
+    /// Get all the import jobs deployed by the user.
+    async fn import_reports(&self, gql_ctx: &Context<'_>) -> Result<Vec<import_report::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.import_reports(user_id).await
@@ -173,7 +170,6 @@ impl AuthProvider for ImporterService {
 }
 
 impl ImporterService {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
         media_service: Arc<MiscellaneousService>,
