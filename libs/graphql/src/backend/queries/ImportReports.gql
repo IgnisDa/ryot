@@ -13,6 +13,7 @@ query ImportReports {
         lot
         step
         identifier
+        error
       }
     }
   }
