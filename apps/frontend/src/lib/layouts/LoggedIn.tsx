@@ -130,7 +130,6 @@ const useStyles = createStyles((theme) => ({
 interface LinksGroupProps {
 	icon: React.FC<any>;
 	label: string;
-	onClick: () => void;
 	href?: string;
 	initiallyOpened?: boolean;
 	links?: { label: string; link: string }[];
@@ -142,7 +141,6 @@ export function LinksGroup({
 	href,
 	initiallyOpened,
 	links,
-	onClick,
 }: LinksGroupProps) {
 	const { classes, theme } = useStyles();
 	const router = useRouter();
@@ -150,12 +148,7 @@ export function LinksGroup({
 	const [opened, setOpened] = useState(initiallyOpened || false);
 	const ChevronIcon = theme.dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const items = (hasLinks ? links : []).map((link) => (
-		<Link
-			className={classes.link}
-			href={link.link}
-			key={link.label}
-			onClick={onClick}
-		>
+		<Link className={classes.link} href={link.link} key={link.label}>
 			{link.label}
 		</Link>
 	));
@@ -166,7 +159,6 @@ export function LinksGroup({
 				onClick={() => {
 					if (href) router.push(href);
 					else setOpened((o) => !o);
-					if (onClick) onClick();
 				}}
 				className={classes.control}
 			>
@@ -198,7 +190,7 @@ export function LinksGroup({
 
 export default function ({ children }: { children: ReactElement }) {
 	const theme = useMantineTheme();
-	const [opened, { toggle, close }] = useDisclosure(false);
+	const [opened, { toggle }] = useDisclosure(false);
 	const { classes, cx } = useStyles();
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
@@ -304,13 +296,11 @@ export default function ({ children }: { children: ReactElement }) {
 							label="Media"
 							icon={IconDeviceSpeaker}
 							links={mediaLinks}
-							onClick={close}
 						/>
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
 							links={[{ label: "Home", link: ROUTES.fitness.home }]}
-							onClick={close}
 						/>
 						<LinksGroup
 							label="Importing"
@@ -319,13 +309,11 @@ export default function ({ children }: { children: ReactElement }) {
 								{ label: "New", link: ROUTES.imports.new },
 								{ label: "Reports", link: ROUTES.imports.reports },
 							]}
-							onClick={close}
 						/>
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
 							href={ROUTES.settings}
-							onClick={close}
 						/>
 					</Navbar.Section>
 					<Navbar.Section>
