@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     background::ImportMedia,
-    entities::{media_import_report, prelude::MediaImportReport},
-    migrator::{MediaImportSource, MetadataLot},
+    entities::{import_report, prelude::ImportReport},
+    migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
         AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
@@ -72,7 +72,7 @@ pub struct DeployMediaJsonImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
-    pub source: MediaImportSource,
+    pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
@@ -93,6 +93,7 @@ pub enum ImportFailStep {
     /// Failed to save a seen history item
     SeenHistoryConversion,
     /// Failed to save a review/rating item
+    #[serde(alias = "ReviewTransformation")] // FIXME: Remove this
     ReviewConversion,
 }
 
@@ -122,7 +123,7 @@ pub struct ImportResult {
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
 )]
 pub struct ImportResultResponse {
-    pub source: MediaImportSource,
+    pub source: ImportSource,
     pub import: ImportDetails,
     pub failed_items: Vec<ImportFailedItem>,
 }
@@ -132,14 +133,11 @@ pub struct ImporterQuery;
 
 #[Object]
 impl ImporterQuery {
-    /// Get all the import jobs deployed by the user
-    async fn media_import_reports(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<media_import_report::Model>> {
+    /// Get all the import jobs deployed by the user.
+    async fn import_reports(&self, gql_ctx: &Context<'_>) -> Result<Vec<import_report::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_import_reports(user_id).await
+        service.import_reports(user_id).await
     }
 }
 
@@ -173,7 +171,6 @@ impl AuthProvider for ImporterService {
 }
 
 impl ImporterService {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: &DatabaseConnection,
         media_service: Arc<MiscellaneousService>,
@@ -200,14 +197,14 @@ impl ImporterService {
     }
 
     pub async fn invalidate_import_jobs(&self) -> Result<()> {
-        let all_jobs = MediaImportReport::find()
-            .filter(media_import_report::Column::Success.is_null())
+        let all_jobs = ImportReport::find()
+            .filter(import_report::Column::Success.is_null())
             .all(&self.db)
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > Duration::hours(24) {
                 tracing::trace!("Invalidating job with id = {id}", id = job.id);
-                let mut job: media_import_report::ActiveModel = job.into();
+                let mut job: import_report::ActiveModel = job.into();
                 job.success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
             }
@@ -215,11 +212,8 @@ impl ImporterService {
         Ok(())
     }
 
-    pub async fn media_import_reports(
-        &self,
-        user_id: i32,
-    ) -> Result<Vec<media_import_report::Model>> {
-        self.media_service.media_import_reports(user_id).await
+    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
+        self.media_service.import_reports(user_id).await
     }
 
     pub async fn import_from_source(
@@ -232,14 +226,14 @@ impl ImporterService {
             .start_import_job(user_id, input.source)
             .await?;
         let mut import = match input.source {
-            MediaImportSource::MediaTracker => {
+            ImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
-            MediaImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
-            MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
-            MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
-            MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
-            MediaImportSource::StoryGraph => {
+            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
+            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
+            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
+            ImportSource::StoryGraph => {
                 story_graph::import(
                     input.story_graph.unwrap(),
                     &self.media_service.openlibrary_service,

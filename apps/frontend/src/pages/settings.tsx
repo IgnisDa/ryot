@@ -3,18 +3,16 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { fileToText, getLot } from "@/lib/utilities";
+import { getLot } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
-	Anchor,
 	Box,
 	Button,
 	Code,
 	Container,
 	CopyButton,
 	Divider,
-	FileInput,
 	Flex,
 	Modal,
 	Paper,
@@ -44,11 +42,8 @@ import {
 	DeleteUserIntegrationDocument,
 	type DeleteUserIntegrationMutationVariables,
 	type DeleteUserMutationVariables,
-	DeployImportJobDocument,
-	type DeployImportJobMutationVariables,
 	GenerateApplicationTokenDocument,
 	type GenerateApplicationTokenMutationVariables,
-	MediaImportSource,
 	ProvidersLanguageInformationDocument,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
@@ -76,7 +71,6 @@ import {
 	IconApps,
 	IconCheck,
 	IconCopy,
-	IconDatabaseImport,
 	IconNeedleThread,
 	IconPlus,
 	IconRefresh,
@@ -97,51 +91,12 @@ const registerFormSchema = z.object({
 });
 type RegisterUserFormSchema = z.infer<typeof registerFormSchema>;
 
-const message = {
-	title: "Success",
-	message: "Your import has started. Check back later.",
-	color: "green",
-};
 const updateProfileFormSchema = z.object({
 	username: z.string().optional(),
 	email: z.string().email().optional(),
 	password: z.string().optional(),
 });
 type UpdateProfileFormSchema = z.infer<typeof updateProfileFormSchema>;
-
-const mediaTrackerImportFormSchema = z.object({
-	apiUrl: z.string().url(),
-	apiKey: z.string(),
-});
-type MediaTrackerImportFormSchema = z.infer<
-	typeof mediaTrackerImportFormSchema
->;
-
-const traktImportFormSchema = z.object({
-	username: z.string(),
-});
-type TraktImportFormSchema = z.infer<typeof traktImportFormSchema>;
-
-const goodreadsImportFormSchema = z.object({
-	rssUrl: z.string().url(),
-});
-type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
-
-const movaryImportFormSchema = z.object({
-	ratings: z.any(),
-	history: z.any(),
-});
-type MovaryImportFormSchema = z.infer<typeof movaryImportFormSchema>;
-
-const storyGraphImportFormSchema = z.object({
-	export: z.any(),
-});
-type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
-
-const mediaJsonImportFormSchema = z.object({
-	export: z.any(),
-});
-type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
 const createUserYankIntegrationSchema = z.object({
 	baseUrl: z.string().url().optional(),
@@ -187,32 +142,12 @@ const Page: NextPageWithLayout = () => {
 		useState<UserYankIntegrationLot>();
 	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
 		useState<UserSinkIntegrationLot>();
-	const [deployImportSource, setDeployImportSource] =
-		useState<MediaImportSource>();
 
 	const registerUserForm = useForm<RegisterUserFormSchema>({
 		validate: zodResolver(registerFormSchema),
 	});
 	const updateProfileForm = useForm<UpdateProfileFormSchema>({
 		validate: zodResolver(updateProfileFormSchema),
-	});
-	const mediaTrackerImportForm = useForm<MediaTrackerImportFormSchema>({
-		validate: zodResolver(mediaTrackerImportFormSchema),
-	});
-	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
-		validate: zodResolver(goodreadsImportFormSchema),
-	});
-	const traktImportForm = useForm<TraktImportFormSchema>({
-		validate: zodResolver(traktImportFormSchema),
-	});
-	const movaryImportForm = useForm<MovaryImportFormSchema>({
-		validate: zodResolver(movaryImportFormSchema),
-	});
-	const storyGraphImportForm = useForm<StoryGraphImportFormSchema>({
-		validate: zodResolver(storyGraphImportFormSchema),
-	});
-	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
-		validate: zodResolver(mediaJsonImportFormSchema),
 	});
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
@@ -399,19 +334,6 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const deployImportJob = useMutation({
-		mutationFn: async (variables: DeployImportJobMutationVariables) => {
-			const { deployImportJob } = await gqlClient.request(
-				DeployImportJobDocument,
-				variables,
-			);
-			return deployImportJob;
-		},
-		onSuccess: () => {
-			notifications.show(message);
-		},
-	});
-
 	const deployUpdateAllMetadataJobs = useMutation({
 		mutationFn: async (_variables: UpdateAllMetadataMutationVariables) => {
 			const { updateAllMetadata } = await gqlClient.request(
@@ -523,12 +445,6 @@ const Page: NextPageWithLayout = () => {
 								icon={<IconSignature size="1rem" />}
 							>
 								Preferences
-							</Tabs.Tab>
-							<Tabs.Tab
-								value="import"
-								icon={<IconDatabaseImport size="1rem" />}
-							>
-								Imports
 							</Tabs.Tab>
 							<Tabs.Tab value="tokens" icon={<IconApps size="1rem" />}>
 								Tokens
@@ -673,172 +589,6 @@ const Page: NextPageWithLayout = () => {
 									</Paper>
 								))}
 							</Stack>
-						</Tabs.Panel>
-						<Tabs.Panel value="import">
-							<Box
-								component="form"
-								onSubmit={async (e) => {
-									e.preventDefault();
-									const yes = confirm(
-										"Are you sure you want to deploy an import job? This action is irreversible.",
-									);
-									if (yes) {
-										if (deployImportSource) {
-											const values = await match(deployImportSource)
-												.with(MediaImportSource.Goodreads, () => ({
-													goodreads: goodreadsImportForm.values,
-												}))
-												.with(MediaImportSource.Trakt, () => ({
-													trakt: traktImportForm.values,
-												}))
-												.with(MediaImportSource.MediaTracker, () => ({
-													mediaTracker: mediaTrackerImportForm.values,
-												}))
-												.with(MediaImportSource.Movary, async () => ({
-													movary: {
-														ratings: await fileToText(
-															movaryImportForm.values.ratings,
-														),
-														history: await fileToText(
-															movaryImportForm.values.history,
-														),
-													},
-												}))
-												.with(MediaImportSource.StoryGraph, async () => ({
-													storyGraph: {
-														export: await fileToText(
-															storyGraphImportForm.values.export,
-														),
-													},
-												}))
-												.with(MediaImportSource.MediaJson, async () => ({
-													mediaJson: {
-														export: await fileToText(
-															mediaJsonImportForm.values.export,
-														),
-													},
-												}))
-												.exhaustive();
-											if (values) {
-												deployImportJob.mutate({
-													input: { source: deployImportSource, ...values },
-												});
-											}
-										}
-									}
-								}}
-							>
-								<Stack>
-									<Flex justify={"space-between"}>
-										<Title order={3}>Import data</Title>
-										<Anchor
-											size="xs"
-											href="https://github.com/IgnisDa/ryot/blob/main/docs/guides/importing.md"
-											target="_blank"
-										>
-											Docs
-										</Anchor>
-									</Flex>
-									<Select
-										label="Select a source"
-										required
-										data={Object.values(MediaImportSource)}
-										onChange={(v) => {
-											const t = match(v)
-												.with("GOODREADS", () => MediaImportSource.Goodreads)
-												.with(
-													"MEDIA_TRACKER",
-													() => MediaImportSource.MediaTracker,
-												)
-												.with("TRAKT", () => MediaImportSource.Trakt)
-												.with("MOVARY", () => MediaImportSource.Movary)
-												.with("STORY_GRAPH", () => MediaImportSource.StoryGraph)
-												.with("MEDIA_JSON", () => MediaImportSource.MediaJson)
-												.run();
-											if (t) setDeployImportSource(t);
-										}}
-									/>
-									{deployImportSource ? (
-										<ImportSource>
-											{match(deployImportSource)
-												.with(MediaImportSource.MediaTracker, () => (
-													<>
-														<TextInput
-															label="Instance Url"
-															required
-															{...mediaTrackerImportForm.getInputProps(
-																"apiUrl",
-															)}
-														/>
-														<PasswordInput
-															mt="sm"
-															label="API Key"
-															required
-															{...mediaTrackerImportForm.getInputProps(
-																"apiKey",
-															)}
-														/>
-													</>
-												))
-												.with(MediaImportSource.Goodreads, () => (
-													<>
-														<TextInput
-															label="RSS URL"
-															required
-															{...goodreadsImportForm.getInputProps("rssUrl")}
-														/>
-													</>
-												))
-												.with(MediaImportSource.Trakt, () => (
-													<>
-														<TextInput
-															label="Username"
-															required
-															{...traktImportForm.getInputProps("username")}
-														/>
-													</>
-												))
-												.with(MediaImportSource.Movary, () => (
-													<>
-														<FileInput
-															label="History CSV file"
-															accept=".csv"
-															required
-															{...movaryImportForm.getInputProps("history")}
-														/>
-														<FileInput
-															label="Ratings CSV file"
-															accept=".csv"
-															required
-															{...movaryImportForm.getInputProps("ratings")}
-														/>
-													</>
-												))
-												.with(MediaImportSource.StoryGraph, () => (
-													<>
-														<FileInput
-															label="CSV export file"
-															accept=".csv"
-															required
-															{...storyGraphImportForm.getInputProps("export")}
-														/>
-													</>
-												))
-												.with(MediaImportSource.MediaJson, () => (
-													<>
-														<FileInput
-															label="JSON export file"
-															accept=".json"
-															required
-															{...mediaJsonImportForm.getInputProps("export")}
-														/>
-													</>
-												))
-												.exhaustive()}
-										</ImportSource>
-									) : null}
-								</Stack>
-							</Box>
 						</Tabs.Panel>
 						<Tabs.Panel value="misc">
 							<Stack>

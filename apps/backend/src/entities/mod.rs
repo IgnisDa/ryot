@@ -5,7 +5,7 @@ pub mod prelude;
 pub mod collection;
 pub mod exercise;
 pub mod genre;
-pub mod media_import_report;
+pub mod import_report;
 pub mod metadata;
 pub mod metadata_to_collection;
 pub mod metadata_to_genre;

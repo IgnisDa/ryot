@@ -20,6 +20,7 @@ mod m20230712_000016_remove_identifier_fields;
 mod m20230717_000017_change_rating_value;
 mod m20230717_000018_add_user_sink_integrations_field;
 mod m20230722_000019_add_state_field;
+mod m20230726_000020_rename_table;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -27,7 +28,7 @@ pub use m20230410_000001_create_metadata::{
 pub use m20230417_000002_create_user::{UserLot, UserToMetadata};
 pub use m20230419_000003_create_seen::{Seen, SeenState};
 pub use m20230505_000006_create_review::Review;
-pub use m20230509_000008_create_media_import_report::MediaImportSource;
+pub use m20230509_000008_create_media_import_report::ImportSource;
 
 pub struct Migrator;
 
@@ -54,6 +55,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230717_000017_change_rating_value::Migration),
             Box::new(m20230717_000018_add_user_sink_integrations_field::Migration),
             Box::new(m20230722_000019_add_state_field::Migration),
+            Box::new(m20230726_000020_rename_table::Migration),
         ]
     }
 }

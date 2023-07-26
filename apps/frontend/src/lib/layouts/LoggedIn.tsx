@@ -30,6 +30,7 @@ import { changeCase } from "@ryot/utilities";
 import {
 	IconChevronLeft,
 	IconChevronRight,
+	IconDatabaseImport,
 	IconDeviceSpeaker,
 	IconHome2,
 	IconLogout,
@@ -309,6 +310,15 @@ export default function ({ children }: { children: ReactElement }) {
 							label="Fitness"
 							icon={IconStretching}
 							links={[{ label: "Home", link: ROUTES.fitness.home }]}
+							onClick={close}
+						/>
+						<LinksGroup
+							label="Importing"
+							icon={IconDatabaseImport}
+							links={[
+								{ label: "New", link: ROUTES.imports.new },
+								{ label: "Reports", link: ROUTES.imports.reports },
+							]}
 							onClick={close}
 						/>
 						<LinksGroup

@@ -19,7 +19,7 @@ Users can export their media history using the `/export` endpoint.
 	
 ## Type definition
 
-The export has the following type: `ImportOrExportItem<String>[]`
+The export has the following type: `ImportOrExportItem<string>[]`
 
 ```ts
 {% include 'export-schema.ts' %}
