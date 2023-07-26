@@ -20,7 +20,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
-	MediaImportSource,
+	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/utilities";
 import { useMutation } from "@tanstack/react-query";
@@ -69,7 +69,7 @@ const mediaJsonImportFormSchema = z.object({
 });
 type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
-export const ImportSource = (props: {
+export const ImportSourceElement = (props: {
 	children: JSX.Element | JSX.Element[];
 }) => {
 	return (
@@ -90,8 +90,7 @@ export const ImportSource = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [deployImportSource, setDeployImportSource] =
-		useState<MediaImportSource>();
+	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const mediaTrackerImportForm = useForm<MediaTrackerImportFormSchema>({
 		validate: zodResolver(mediaTrackerImportFormSchema),
@@ -141,16 +140,16 @@ const Page: NextPageWithLayout = () => {
 						if (yes) {
 							if (deployImportSource) {
 								const values = await match(deployImportSource)
-									.with(MediaImportSource.Goodreads, () => ({
+									.with(ImportSource.Goodreads, () => ({
 										goodreads: goodreadsImportForm.values,
 									}))
-									.with(MediaImportSource.Trakt, () => ({
+									.with(ImportSource.Trakt, () => ({
 										trakt: traktImportForm.values,
 									}))
-									.with(MediaImportSource.MediaTracker, () => ({
+									.with(ImportSource.MediaTracker, () => ({
 										mediaTracker: mediaTrackerImportForm.values,
 									}))
-									.with(MediaImportSource.Movary, async () => ({
+									.with(ImportSource.Movary, async () => ({
 										movary: {
 											ratings: await fileToText(
 												movaryImportForm.values.ratings,
@@ -160,14 +159,14 @@ const Page: NextPageWithLayout = () => {
 											),
 										},
 									}))
-									.with(MediaImportSource.StoryGraph, async () => ({
+									.with(ImportSource.StoryGraph, async () => ({
 										storyGraph: {
 											export: await fileToText(
 												storyGraphImportForm.values.export,
 											),
 										},
 									}))
-									.with(MediaImportSource.MediaJson, async () => ({
+									.with(ImportSource.MediaJson, async () => ({
 										mediaJson: {
 											export: await fileToText(
 												mediaJsonImportForm.values.export,
@@ -198,26 +197,26 @@ const Page: NextPageWithLayout = () => {
 						<Select
 							label="Select a source"
 							required
-							data={Object.values(MediaImportSource).map((is) => ({
+							data={Object.values(ImportSource).map((is) => ({
 								label: changeCase(is),
 								value: is,
 							}))}
 							onChange={(v) => {
 								const t = match(v)
-									.with("GOODREADS", () => MediaImportSource.Goodreads)
-									.with("MEDIA_TRACKER", () => MediaImportSource.MediaTracker)
-									.with("TRAKT", () => MediaImportSource.Trakt)
-									.with("MOVARY", () => MediaImportSource.Movary)
-									.with("STORY_GRAPH", () => MediaImportSource.StoryGraph)
-									.with("MEDIA_JSON", () => MediaImportSource.MediaJson)
+									.with("GOODREADS", () => ImportSource.Goodreads)
+									.with("MEDIA_TRACKER", () => ImportSource.MediaTracker)
+									.with("TRAKT", () => ImportSource.Trakt)
+									.with("MOVARY", () => ImportSource.Movary)
+									.with("STORY_GRAPH", () => ImportSource.StoryGraph)
+									.with("MEDIA_JSON", () => ImportSource.MediaJson)
 									.run();
 								if (t) setDeployImportSource(t);
 							}}
 						/>
 						{deployImportSource ? (
-							<ImportSource>
+							<ImportSourceElement>
 								{match(deployImportSource)
-									.with(MediaImportSource.MediaTracker, () => (
+									.with(ImportSource.MediaTracker, () => (
 										<>
 											<TextInput
 												label="Instance Url"
@@ -232,7 +231,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									))
-									.with(MediaImportSource.Goodreads, () => (
+									.with(ImportSource.Goodreads, () => (
 										<>
 											<TextInput
 												label="RSS URL"
@@ -241,7 +240,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									))
-									.with(MediaImportSource.Trakt, () => (
+									.with(ImportSource.Trakt, () => (
 										<>
 											<TextInput
 												label="Username"
@@ -250,7 +249,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									))
-									.with(MediaImportSource.Movary, () => (
+									.with(ImportSource.Movary, () => (
 										<>
 											<FileInput
 												label="History CSV file"
@@ -266,7 +265,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									))
-									.with(MediaImportSource.StoryGraph, () => (
+									.with(ImportSource.StoryGraph, () => (
 										<>
 											<FileInput
 												label="CSV export file"
@@ -276,7 +275,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									))
-									.with(MediaImportSource.MediaJson, () => (
+									.with(ImportSource.MediaJson, () => (
 										<>
 											<FileInput
 												label="JSON export file"
@@ -287,7 +286,7 @@ const Page: NextPageWithLayout = () => {
 										</>
 									))
 									.exhaustive()}
-							</ImportSource>
+							</ImportSourceElement>
 						) : null}
 					</Stack>
 				</Box>
