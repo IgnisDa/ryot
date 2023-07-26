@@ -270,6 +270,7 @@ export default function ({ children }: { children: ReactElement }) {
 	return (
 		<AppShell
 			my={{ sm: "xl" }}
+			padding={0}
 			fixed
 			layout="alt"
 			navbarOffsetBreakpoint="sm"
@@ -334,7 +335,7 @@ export default function ({ children }: { children: ReactElement }) {
 		>
 			<Flex direction={"column"} h="90%">
 				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
-					<Flex justify={"end"}>
+					<Flex justify={"end"} p="md">
 						<Burger
 							opened={opened}
 							onClick={toggle}
