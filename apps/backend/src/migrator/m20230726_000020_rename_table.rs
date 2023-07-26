@@ -1,10 +1,21 @@
+use sea_orm::EntityTrait;
 use sea_orm_migration::prelude::*;
+
+use crate::entities::{import_report, prelude::ImportReport};
 
 pub struct Migration;
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
         "m20230726_000020_rename_table"
+    }
+}
+
+struct ReplaceFunction;
+
+impl Iden for ReplaceFunction {
+    fn unquoted(&self, s: &mut dyn Write) {
+        write!(s, "REPLACE").unwrap();
     }
 }
 
@@ -23,6 +34,22 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        let db = manager.get_connection();
+        ImportReport::update_many()
+            .col_expr(
+                import_report::Column::Details,
+                Func::cast_as(
+                    Func::cust(ReplaceFunction).args([
+                        Func::cast_as(Expr::col(Alias::new("details")), Alias::new("text")).into(),
+                        Expr::val("ReviewTransformation").into(),
+                        Expr::val("ReviewConversion").into(),
+                    ]),
+                    Alias::new("json"),
+                )
+                .into(),
+            )
+            .exec(db)
+            .await?;
         Ok(())
     }
 

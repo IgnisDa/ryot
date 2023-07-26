@@ -93,6 +93,7 @@ pub enum ImportFailStep {
     /// Failed to save a seen history item
     SeenHistoryConversion,
     /// Failed to save a review/rating item
+    #[serde(alias = "ReviewTransformation")] // FIXME: Remove this
     ReviewConversion,
 }
 
