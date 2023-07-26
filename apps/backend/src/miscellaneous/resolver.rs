@@ -51,7 +51,7 @@ use crate::{
     importer::ImportResultResponse,
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
-        MediaImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
+        ImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, SeenState, UserLot,
         UserToMetadata as TempUserToMetadata,
     },
@@ -2514,7 +2514,7 @@ impl MiscellaneousService {
     pub async fn start_import_job(
         &self,
         user_id: i32,
-        source: MediaImportSource,
+        source: ImportSource,
     ) -> Result<media_import_report::Model> {
         let model = media_import_report::ActiveModel {
             user_id: ActiveValue::Set(user_id),

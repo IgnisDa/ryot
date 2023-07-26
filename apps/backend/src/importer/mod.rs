@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     background::ImportMedia,
     entities::{media_import_report, prelude::MediaImportReport},
-    migrator::{MediaImportSource, MetadataLot},
+    migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
         AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
@@ -72,7 +72,7 @@ pub struct DeployMediaJsonImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
-    pub source: MediaImportSource,
+    pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
@@ -122,7 +122,7 @@ pub struct ImportResult {
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
 )]
 pub struct ImportResultResponse {
-    pub source: MediaImportSource,
+    pub source: ImportSource,
     pub import: ImportDetails,
     pub failed_items: Vec<ImportFailedItem>,
 }
@@ -232,14 +232,14 @@ impl ImporterService {
             .start_import_job(user_id, input.source)
             .await?;
         let mut import = match input.source {
-            MediaImportSource::MediaTracker => {
+            ImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
-            MediaImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
-            MediaImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
-            MediaImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
-            MediaImportSource::Movary => movary::import(input.movary.unwrap()).await?,
-            MediaImportSource::StoryGraph => {
+            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
+            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
+            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
+            ImportSource::StoryGraph => {
                 story_graph::import(
                     input.story_graph.unwrap(),
                     &self.media_service.openlibrary_service,
