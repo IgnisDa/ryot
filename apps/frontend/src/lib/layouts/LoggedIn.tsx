@@ -11,6 +11,7 @@ import {
 	Collapse,
 	Flex,
 	Group,
+	Image,
 	MediaQuery,
 	Navbar,
 	Text,
@@ -335,7 +336,16 @@ export default function ({ children }: { children: ReactElement }) {
 		>
 			<Flex direction={"column"} h="90%">
 				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
-					<Flex justify={"end"} p="md">
+					<Flex justify={"space-between"} p="md">
+						<Group>
+							<Image
+								src={"/icon-192x192.png"}
+								height={40}
+								width={40}
+								radius={"md"}
+							/>
+							<Text size={"xl"}>Ryot</Text>
+						</Group>
 						<Burger
 							opened={opened}
 							onClick={toggle}
@@ -346,7 +356,7 @@ export default function ({ children }: { children: ReactElement }) {
 				<Box mt="md" style={{ flexGrow: 1 }}>
 					{children}
 				</Box>
-				<Box mt={36}>
+				<Box my={36}>
 					<Footer />
 				</Box>
 			</Flex>
