@@ -5,7 +5,7 @@ export const ROUTES = {
 	},
 	settings: "/settings",
 	imports: {
-		perform: "/imports",
+		new: "/imports",
 		reports: "/imports/reports",
 	},
 	media: {

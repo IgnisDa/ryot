@@ -316,7 +316,7 @@ export default function ({ children }: { children: ReactElement }) {
 							label="Importing"
 							icon={IconDatabaseImport}
 							links={[
-								{ label: "Perform", link: ROUTES.imports.perform },
+								{ label: "New", link: ROUTES.imports.new },
 								{ label: "Reports", link: ROUTES.imports.reports },
 							]}
 							onClick={close}

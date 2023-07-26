@@ -127,7 +127,7 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<>
 			<Head>
-				<title>Perform imports | Ryot</title>
+				<title>Perform a new import | Ryot</title>
 			</Head>
 			<Container size={"xs"}>
 				<Box
