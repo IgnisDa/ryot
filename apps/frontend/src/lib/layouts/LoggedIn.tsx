@@ -34,6 +34,7 @@ import {
 	IconHome2,
 	IconLogout,
 	IconSettings,
+	IconStretching,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -215,8 +216,8 @@ export default function ({ children }: { children: ReactElement }) {
 	});
 	const userPrefs = useUserPreferences();
 
-	const links = [
-		{ icon: IconHome2, label: "Home", href: ROUTES.dashboard },
+	const mediaLinks = [
+		{ icon: IconHome2, label: "Home", href: ROUTES.media.dashboard },
 		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
@@ -224,12 +225,12 @@ export default function ({ children }: { children: ReactElement }) {
 				label: changeCase(f.name.toString()),
 				href: undefined,
 			})) || []),
-		{ label: "Collections", href: ROUTES.collections.list },
+		{ label: "Collections", href: ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
 			? link.href
-			: `${ROUTES.list}?lot=${link.label.toLowerCase()}`,
+			: `${ROUTES.media.list}?lot=${link.label.toLowerCase()}`,
 	}));
 
 	const logoutUser = useMutation({
@@ -291,20 +292,24 @@ export default function ({ children }: { children: ReactElement }) {
 						</Flex>
 					</MediaQuery>
 					<Navbar.Section grow>
-						<Box>
-							<LinksGroup
-								label="Media"
-								icon={IconDeviceSpeaker}
-								links={links}
-								onClick={close}
-							/>
-							<LinksGroup
-								label="Settings"
-								icon={IconSettings}
-								href={ROUTES.settings}
-								onClick={close}
-							/>
-						</Box>
+						<LinksGroup
+							label="Media"
+							icon={IconDeviceSpeaker}
+							links={mediaLinks}
+							onClick={close}
+						/>
+						<LinksGroup
+							label="Fitness"
+							icon={IconStretching}
+							links={[{ label: "Home", link: ROUTES.fitness.home }]}
+							onClick={close}
+						/>
+						<LinksGroup
+							label="Settings"
+							icon={IconSettings}
+							href={ROUTES.settings}
+							onClick={close}
+						/>
 					</Navbar.Section>
 					<Navbar.Section>
 						<Box

@@ -86,7 +86,7 @@ export default function Page() {
 							the address, or the page has been moved to another URL.
 						</Text>
 						<Group position="center">
-							<Button component="a" href={ROUTES.dashboard}>
+							<Button component="a" href={ROUTES.media.dashboard}>
 								Take me back to home page
 							</Button>
 						</Group>

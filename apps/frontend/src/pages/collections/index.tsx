@@ -55,7 +55,7 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${ROUTES.media.details}?item=${lm.identifier}`}
+										href={`${ROUTES.media.individualMedia.details}?item=${lm.identifier}`}
 									/>
 								))}
 							</Grid>

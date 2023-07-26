@@ -348,7 +348,7 @@ const ReviewItem = ({
 				</Box>
 				{user && user.id === review.postedBy.id ? (
 					<Link
-						href={`${ROUTES.media.postReview}?item=${metadataId}&reviewId=${review.id}`}
+						href={`${ROUTES.media.individualMedia.postReview}?item=${metadataId}&reviewId=${review.id}`}
 						passHref
 						legacyBehavior
 					>
@@ -523,7 +523,7 @@ const Page: NextPageWithLayout = () => {
 			return mergeMetadata;
 		},
 		onSuccess: () => {
-			router.push(ROUTES.dashboard);
+			router.push(ROUTES.media.dashboard);
 		},
 	});
 	const removeMediaFromCollection = useMutation({
@@ -877,19 +877,26 @@ const Page: NextPageWithLayout = () => {
 												onClick={async () => {
 													if (mediaDetails.data.lot === MetadataLot.Podcast)
 														router.push(
-															withQuery(ROUTES.media.updateProgress, {
-																item: metadataId,
-																selectedPodcastEpisodeNumber:
-																	nextEpisode.episode,
-															}),
+															withQuery(
+																ROUTES.media.individualMedia.updateProgress,
+																{
+																	item: metadataId,
+																	selectedPodcastEpisodeNumber:
+																		nextEpisode.episode,
+																},
+															),
 														);
 													else
 														router.push(
-															withQuery(ROUTES.media.updateProgress, {
-																item: metadataId,
-																selectedShowSeasonNumber: nextEpisode.season,
-																selectedShowEpisodeNumber: nextEpisode.episode,
-															}),
+															withQuery(
+																ROUTES.media.individualMedia.updateProgress,
+																{
+																	item: metadataId,
+																	selectedShowSeasonNumber: nextEpisode.season,
+																	selectedShowEpisodeNumber:
+																		nextEpisode.episode,
+																},
+															),
 														);
 												}}
 											>
@@ -975,17 +982,23 @@ const Page: NextPageWithLayout = () => {
 											onClick={() => {
 												if (mediaDetails.data.lot === MetadataLot.Show)
 													router.push(
-														withQuery(ROUTES.media.updateProgress, {
-															item: metadataId,
-															completeShow: 1,
-														}),
+														withQuery(
+															ROUTES.media.individualMedia.updateProgress,
+															{
+																item: metadataId,
+																completeShow: 1,
+															},
+														),
 													);
 												else
 													router.push(
-														withQuery(ROUTES.media.updateProgress, {
-															item: metadataId,
-															completePodcast: 1,
-														}),
+														withQuery(
+															ROUTES.media.individualMedia.updateProgress,
+															{
+																item: metadataId,
+																completePodcast: 1,
+															},
+														),
 													);
 											}}
 										>
@@ -997,7 +1010,7 @@ const Page: NextPageWithLayout = () => {
 										variant="outline"
 										onClick={() => {
 											router.push(
-												withQuery(ROUTES.media.updateProgress, {
+												withQuery(ROUTES.media.individualMedia.updateProgress, {
 													item: metadataId,
 												}),
 											);
@@ -1006,7 +1019,7 @@ const Page: NextPageWithLayout = () => {
 										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
 									</Button>
 									<Link
-										href={withQuery(ROUTES.media.postReview, {
+										href={withQuery(ROUTES.media.individualMedia.postReview, {
 											item: metadataId,
 											showSeasonNumber: nextEpisode?.season ?? undefined,
 											showEpisodeNumber:
@@ -1198,11 +1211,14 @@ const Page: NextPageWithLayout = () => {
 															variant="outline"
 															onClick={() => {
 																router.push(
-																	withQuery(ROUTES.media.updateProgress, {
-																		item: metadataId,
-																		selectedShowSeasonNumber: s.seasonNumber,
-																		onlySeason: 1,
-																	}),
+																	withQuery(
+																		ROUTES.media.individualMedia.updateProgress,
+																		{
+																			item: metadataId,
+																			selectedShowSeasonNumber: s.seasonNumber,
+																			onlySeason: 1,
+																		},
+																	),
 																);
 															}}
 														>
@@ -1234,13 +1250,17 @@ const Page: NextPageWithLayout = () => {
 																		variant="outline"
 																		onClick={() => {
 																			router.push(
-																				withQuery(ROUTES.media.updateProgress, {
-																					item: metadataId,
-																					selectedShowSeasonNumber:
-																						s.seasonNumber,
-																					selectedShowEpisodeNumber:
-																						e.episodeNumber,
-																				}),
+																				withQuery(
+																					ROUTES.media.individualMedia
+																						.updateProgress,
+																					{
+																						item: metadataId,
+																						selectedShowSeasonNumber:
+																							s.seasonNumber,
+																						selectedShowEpisodeNumber:
+																							e.episodeNumber,
+																					},
+																				),
 																			);
 																		}}
 																	>
@@ -1279,10 +1299,13 @@ const Page: NextPageWithLayout = () => {
 													variant="outline"
 													onClick={() => {
 														router.push(
-															withQuery(ROUTES.media.updateProgress, {
-																item: metadataId,
-																selectedPodcastEpisodeNumber: e.number,
-															}),
+															withQuery(
+																ROUTES.media.individualMedia.updateProgress,
+																{
+																	item: metadataId,
+																	selectedPodcastEpisodeNumber: e.number,
+																},
+															),
 														);
 													}}
 												>
