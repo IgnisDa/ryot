@@ -491,6 +491,11 @@ const Page: NextPageWithLayout = () => {
 									/>
 									<PasswordInput
 										label="Password"
+										disabled={!coreDetails.data?.passwordChangeAllowed}
+										description={
+											!coreDetails.data?.passwordChangeAllowed &&
+											"Password can not be changed on this instance"
+										}
 										{...updateProfileForm.getInputProps("password")}
 									/>
 									<Button type="submit" loading={updateUser.isLoading} w="100%">
