@@ -1,20 +1,296 @@
 import type { NextPageWithLayout } from "../_app";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { Container, Stack, Text, Title } from "@mantine/core";
+import { gqlClient } from "@/lib/services/api";
+import { fileToText } from "@/lib/utilities";
+import {
+	Anchor,
+	Box,
+	Button,
+	Container,
+	FileInput,
+	Flex,
+	PasswordInput,
+	Select,
+	Stack,
+	TextInput,
+	Title,
+} from "@mantine/core";
+import { useForm, zodResolver } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
+import {
+	DeployImportJobDocument,
+	type DeployImportJobMutationVariables,
+	MediaImportSource,
+} from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/utilities";
+import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
+import { match } from "ts-pattern";
+import { z } from "zod";
+
+const message = {
+	title: "Success",
+	message: "Your import has started. Check back later.",
+	color: "green",
+};
+
+const mediaTrackerImportFormSchema = z.object({
+	apiUrl: z.string().url(),
+	apiKey: z.string(),
+});
+type MediaTrackerImportFormSchema = z.infer<
+	typeof mediaTrackerImportFormSchema
+>;
+
+const traktImportFormSchema = z.object({
+	username: z.string(),
+});
+type TraktImportFormSchema = z.infer<typeof traktImportFormSchema>;
+
+const goodreadsImportFormSchema = z.object({
+	rssUrl: z.string().url(),
+});
+type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
+
+const movaryImportFormSchema = z.object({
+	ratings: z.any(),
+	history: z.any(),
+});
+type MovaryImportFormSchema = z.infer<typeof movaryImportFormSchema>;
+
+const storyGraphImportFormSchema = z.object({
+	export: z.any(),
+});
+type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
+
+const mediaJsonImportFormSchema = z.object({
+	export: z.any(),
+});
+type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
+
+export const ImportSource = (props: {
+	children: JSX.Element | JSX.Element[];
+}) => {
+	return (
+		<>
+			{props.children}
+			<Button
+				variant="light"
+				color="blue"
+				fullWidth
+				mt="md"
+				type="submit"
+				radius="md"
+			>
+				Import
+			</Button>
+		</>
+	);
+};
 
 const Page: NextPageWithLayout = () => {
+	const [deployImportSource, setDeployImportSource] =
+		useState<MediaImportSource>();
+
+	const mediaTrackerImportForm = useForm<MediaTrackerImportFormSchema>({
+		validate: zodResolver(mediaTrackerImportFormSchema),
+	});
+	const goodreadsImportForm = useForm<GoodreadsImportFormSchema>({
+		validate: zodResolver(goodreadsImportFormSchema),
+	});
+	const traktImportForm = useForm<TraktImportFormSchema>({
+		validate: zodResolver(traktImportFormSchema),
+	});
+	const movaryImportForm = useForm<MovaryImportFormSchema>({
+		validate: zodResolver(movaryImportFormSchema),
+	});
+	const storyGraphImportForm = useForm<StoryGraphImportFormSchema>({
+		validate: zodResolver(storyGraphImportFormSchema),
+	});
+	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
+		validate: zodResolver(mediaJsonImportFormSchema),
+	});
+
+	const deployImportJob = useMutation({
+		mutationFn: async (variables: DeployImportJobMutationVariables) => {
+			const { deployImportJob } = await gqlClient.request(
+				DeployImportJobDocument,
+				variables,
+			);
+			return deployImportJob;
+		},
+		onSuccess: () => {
+			notifications.show(message);
+		},
+	});
+
 	return (
 		<>
 			<Head>
 				<title>Perform imports | Ryot</title>
 			</Head>
-			<Container>
-				<Stack>
-					<Title>Fitness</Title>
-					<Text>This page is still a WIP</Text>
-				</Stack>
+			<Container size={"xs"}>
+				<Box
+					component="form"
+					onSubmit={async (e) => {
+						e.preventDefault();
+						const yes = confirm(
+							"Are you sure you want to deploy an import job? This action is irreversible.",
+						);
+						if (yes) {
+							if (deployImportSource) {
+								const values = await match(deployImportSource)
+									.with(MediaImportSource.Goodreads, () => ({
+										goodreads: goodreadsImportForm.values,
+									}))
+									.with(MediaImportSource.Trakt, () => ({
+										trakt: traktImportForm.values,
+									}))
+									.with(MediaImportSource.MediaTracker, () => ({
+										mediaTracker: mediaTrackerImportForm.values,
+									}))
+									.with(MediaImportSource.Movary, async () => ({
+										movary: {
+											ratings: await fileToText(
+												movaryImportForm.values.ratings,
+											),
+											history: await fileToText(
+												movaryImportForm.values.history,
+											),
+										},
+									}))
+									.with(MediaImportSource.StoryGraph, async () => ({
+										storyGraph: {
+											export: await fileToText(
+												storyGraphImportForm.values.export,
+											),
+										},
+									}))
+									.with(MediaImportSource.MediaJson, async () => ({
+										mediaJson: {
+											export: await fileToText(
+												mediaJsonImportForm.values.export,
+											),
+										},
+									}))
+									.exhaustive();
+								if (values) {
+									deployImportJob.mutate({
+										input: { source: deployImportSource, ...values },
+									});
+								}
+							}
+						}
+					}}
+				>
+					<Stack>
+						<Flex justify={"space-between"} align={"center"}>
+							<Title>Import data</Title>
+							<Anchor
+								size="xs"
+								href="https://ignisda.github.io/ryot/importing.html"
+								target="_blank"
+							>
+								Docs
+							</Anchor>
+						</Flex>
+						<Select
+							label="Select a source"
+							required
+							data={Object.values(MediaImportSource).map((is) => ({
+								label: changeCase(is),
+								value: is,
+							}))}
+							onChange={(v) => {
+								const t = match(v)
+									.with("GOODREADS", () => MediaImportSource.Goodreads)
+									.with("MEDIA_TRACKER", () => MediaImportSource.MediaTracker)
+									.with("TRAKT", () => MediaImportSource.Trakt)
+									.with("MOVARY", () => MediaImportSource.Movary)
+									.with("STORY_GRAPH", () => MediaImportSource.StoryGraph)
+									.with("MEDIA_JSON", () => MediaImportSource.MediaJson)
+									.run();
+								if (t) setDeployImportSource(t);
+							}}
+						/>
+						{deployImportSource ? (
+							<ImportSource>
+								{match(deployImportSource)
+									.with(MediaImportSource.MediaTracker, () => (
+										<>
+											<TextInput
+												label="Instance Url"
+												required
+												{...mediaTrackerImportForm.getInputProps("apiUrl")}
+											/>
+											<PasswordInput
+												mt="sm"
+												label="API Key"
+												required
+												{...mediaTrackerImportForm.getInputProps("apiKey")}
+											/>
+										</>
+									))
+									.with(MediaImportSource.Goodreads, () => (
+										<>
+											<TextInput
+												label="RSS URL"
+												required
+												{...goodreadsImportForm.getInputProps("rssUrl")}
+											/>
+										</>
+									))
+									.with(MediaImportSource.Trakt, () => (
+										<>
+											<TextInput
+												label="Username"
+												required
+												{...traktImportForm.getInputProps("username")}
+											/>
+										</>
+									))
+									.with(MediaImportSource.Movary, () => (
+										<>
+											<FileInput
+												label="History CSV file"
+												accept=".csv"
+												required
+												{...movaryImportForm.getInputProps("history")}
+											/>
+											<FileInput
+												label="Ratings CSV file"
+												accept=".csv"
+												required
+												{...movaryImportForm.getInputProps("ratings")}
+											/>
+										</>
+									))
+									.with(MediaImportSource.StoryGraph, () => (
+										<>
+											<FileInput
+												label="CSV export file"
+												accept=".csv"
+												required
+												{...storyGraphImportForm.getInputProps("export")}
+											/>
+										</>
+									))
+									.with(MediaImportSource.MediaJson, () => (
+										<>
+											<FileInput
+												label="JSON export file"
+												accept=".json"
+												required
+												{...mediaJsonImportForm.getInputProps("export")}
+											/>
+										</>
+									))
+									.exhaustive()}
+							</ImportSource>
+						) : null}
+					</Stack>
+				</Box>
 			</Container>
 		</>
 	);
