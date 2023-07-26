@@ -1,4 +1,15 @@
 
+# Version 1.17.7 (2023-07-26)
+
+## Bug Fixes
+
+* **frontend:** close sidebar when change page
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.17.6 (2023-07-26)
 
 ## Bug Fixes
