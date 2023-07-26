@@ -5,6 +5,7 @@ query CoreDetails {
     repositoryLink
     docsLink
     usernameChangeAllowed
+    passwordChangeAllowed
     defaultCredentials
   }
 }

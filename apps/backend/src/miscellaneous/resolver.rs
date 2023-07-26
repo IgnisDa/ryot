@@ -429,6 +429,7 @@ struct CoreDetails {
     author_name: String,
     repository_link: String,
     username_change_allowed: bool,
+    password_change_allowed: bool,
     default_credentials: bool,
 }
 
@@ -1035,6 +1036,7 @@ impl MiscellaneousService {
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
             username_change_allowed: self.config.users.allow_changing_username,
+            password_change_allowed: self.config.users.allow_changing_password,
             default_credentials: self.config.server.default_credentials,
         }
     }

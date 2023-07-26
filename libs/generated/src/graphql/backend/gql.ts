@@ -42,7 +42,7 @@ const documents = {
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
     "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    details {\n      name\n      description\n      visibility\n      createdOn\n    }\n    media {\n      identifier\n      lot\n      title\n      image\n      publishYear\n    }\n  }\n}": types.CollectionContentsDocument,
     "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.CollectionsDocument,
-    "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    defaultCredentials\n  }\n}": types.CoreDetailsDocument,
+    "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    passwordChangeAllowed\n    defaultCredentials\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      attributes {\n        force\n        level\n        mechanic\n        equipment\n        primaryMuscles\n        secondaryMuscles\n        category\n        instructions\n        images\n        alternateNames\n      }\n    }\n  }\n}": types.ExercisesListDocument,
     "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}": types.GetPresignedUrlDocument,
@@ -197,7 +197,7 @@ export function graphql(source: "query Collections($input: CollectionInput) {\n 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    defaultCredentials\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    defaultCredentials\n  }\n}"];
+export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    passwordChangeAllowed\n    defaultCredentials\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    passwordChangeAllowed\n    defaultCredentials\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

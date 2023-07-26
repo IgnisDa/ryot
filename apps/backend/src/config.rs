@@ -371,6 +371,10 @@ pub struct UsersConfig {
     /// settings.
     #[setting(default = true)]
     pub allow_changing_username: bool,
+    /// Whether users will be allowed to change their password in their profile
+    /// settings.
+    #[setting(default = true)]
+    pub allow_changing_password: bool,
     /// The number of days till login auth token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i64,

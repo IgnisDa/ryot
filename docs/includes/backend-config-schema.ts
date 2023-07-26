@@ -213,6 +213,12 @@ export interface ShowConfig {
 
 export interface UsersConfig {
 	/**
+	 * Whether users will be allowed to change their password in their profile
+	 * settings.
+	 * @default true
+	 */
+	allow_changing_password: boolean;
+	/**
 	 * Whether users will be allowed to change their username in their profile
 	 * settings.
 	 * @default true
