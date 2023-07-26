@@ -1,4 +1,21 @@
 
+# Version 1.17.5 (2023-07-26)
+
+## Bug Fixes
+
+* **backend:** get correct roles for authors
+* **frontend:** layout issues
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **backend:** config param to prevent changing password
+* **frontend:** respect password change param
+
+
 # Version 1.17.4 (2023-07-26)
 
 ## Bug Fixes
