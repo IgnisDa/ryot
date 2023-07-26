@@ -72,6 +72,13 @@ const Footer = () => {
 };
 
 const useStyles = createStyles((theme) => ({
+	footer: {
+		borderTop: `${rem(1)} solid ${
+			theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
+		}`,
+		paddingTop: theme.spacing.md,
+		paddingLeft: theme.spacing.sm,
+	},
 	control: {
 		fontWeight: 500,
 		display: "block",
@@ -312,16 +319,12 @@ export default function ({ children }: { children: ReactElement }) {
 						/>
 					</Navbar.Section>
 					<Navbar.Section>
-						<Box
-							style={{
-								padding: `${theme.spacing.xs} ${theme.spacing.md}`,
-							}}
-						>
+						<Box className={classes.footer}>
 							<UnstyledButton
 								onClick={() => logoutUser.mutate()}
 								className={cx(classes.oldLink)}
 							>
-								<Group position="apart">
+								<Group>
 									<IconLogout size="1.2rem" />
 									<Text>Logout</Text>
 								</Group>
