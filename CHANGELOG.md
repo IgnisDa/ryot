@@ -1,4 +1,15 @@
 
+# Version 1.17.4 (2023-07-26)
+
+## Bug Fixes
+
+* **frontend:** change padding of items
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 1.17.3 (2023-07-26)
 
 ## Bug Fixes
