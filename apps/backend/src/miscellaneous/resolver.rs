@@ -2541,6 +2541,7 @@ impl MiscellaneousService {
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
+            .order_by_desc(import_report::Column::StartedOn)
             .all(&self.db)
             .await
             .unwrap();
