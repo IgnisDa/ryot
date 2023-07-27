@@ -339,15 +339,22 @@ export default function ({ children }: { children: ReactElement }) {
 			<Flex direction={"column"} h="90%">
 				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
 					<Flex justify={"space-between"} p="md">
-						<Group>
-							<Image
-								src={"/icon-192x192.png"}
-								height={40}
-								width={40}
-								radius={"md"}
-							/>
-							<Text size={"xl"}>Ryot</Text>
-						</Group>
+						<Link
+							href={ROUTES.media.dashboard}
+							style={{ textDecoration: "none" }}
+						>
+							<Group>
+								<Image
+									src={"/icon-192x192.png"}
+									height={40}
+									width={40}
+									radius={"md"}
+								/>
+								<Text size={"xl"} color="white" fw="bold">
+									Ryot
+								</Text>
+							</Group>
+						</Link>
 						<Burger
 							opened={opened}
 							onClick={toggle}
