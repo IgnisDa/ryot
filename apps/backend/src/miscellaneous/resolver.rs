@@ -1841,7 +1841,9 @@ impl MiscellaneousService {
                 .await
                 .unwrap();
             let is_in_collection = meta_ids.contains(&u.metadata_id);
-            if seen_count + reviewed_count == 0 && !is_in_collection {
+            // if the metadata is monitored
+            let is_monitored = u.monitored;
+            if seen_count + reviewed_count == 0 && !is_in_collection && !is_monitored {
                 tracing::debug!(
                     "Removing user_to_metadata = {id:?}",
                     id = (u.user_id, u.metadata_id)
