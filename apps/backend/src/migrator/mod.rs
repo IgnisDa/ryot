@@ -21,6 +21,7 @@ mod m20230717_000017_change_rating_value;
 mod m20230717_000018_add_user_sink_integrations_field;
 mod m20230722_000019_add_state_field;
 mod m20230726_000020_rename_table;
+mod m20230727_000021_add_monitored_field;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -56,6 +57,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230717_000018_add_user_sink_integrations_field::Migration),
             Box::new(m20230722_000019_add_state_field::Migration),
             Box::new(m20230726_000020_rename_table::Migration),
+            Box::new(m20230727_000021_add_monitored_field::Migration),
         ]
     }
 }
