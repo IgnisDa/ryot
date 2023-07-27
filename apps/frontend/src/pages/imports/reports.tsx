@@ -1,10 +1,13 @@
 import type { NextPageWithLayout } from "../_app";
+import { ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Accordion,
+	Anchor,
 	Container,
+	Flex,
 	Indicator,
 	JsonInput,
 	Stack,
@@ -16,6 +19,7 @@ import { changeCase } from "@ryot/utilities";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
+import Link from "next/link";
 import { type ReactElement } from "react";
 
 const Page: NextPageWithLayout = () => {
@@ -34,7 +38,12 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="sm">
 				<Stack>
-					<Title>Import Reports</Title>
+					<Flex justify={"space-between"} align={"center"}>
+						<Title>Import Reports</Title>
+						<Link passHref legacyBehavior href={ROUTES.imports.new}>
+							<Anchor size="xs">New</Anchor>
+						</Link>
+					</Flex>
 					{importReports.data.length > 0 ? (
 						<Accordion>
 							{importReports.data.map((report) => (

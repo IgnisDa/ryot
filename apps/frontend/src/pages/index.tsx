@@ -29,7 +29,11 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
-import { IconMessage2, IconPhotoPlus } from "@tabler/icons-react";
+import {
+	IconDatabaseImport,
+	IconMessage2,
+	IconPhotoPlus,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -330,6 +334,15 @@ const Page: NextPageWithLayout = () => {
 							{ minWidth: "lg", cols: 3 },
 						]}
 					>
+						<Link passHref legacyBehavior href={ROUTES.imports.new}>
+							<Button
+								variant="outline"
+								component="a"
+								leftIcon={<IconDatabaseImport />}
+							>
+								New import
+							</Button>
+						</Link>
 						<Link
 							passHref
 							legacyBehavior
