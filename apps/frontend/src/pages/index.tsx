@@ -148,7 +148,7 @@ const Page: NextPageWithLayout = () => {
 		inProgressCollection.data.details ? (
 		<>
 			<Head>
-				<title>Dashboard | Ryot</title>
+				<title>Media Dashboard | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>

@@ -8,7 +8,7 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<>
 			<Head>
-				<title>Fitness | Ryot</title>
+				<title>Fitness Dashboard | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
