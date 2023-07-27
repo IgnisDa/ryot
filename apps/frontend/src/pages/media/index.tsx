@@ -1089,16 +1089,16 @@ const Page: NextPageWithLayout = () => {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
-							{seenHistory.data.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										<Text>
-											Seen by all users {mediaDetails.data.seenBy} time
-											{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
-											{seenHistory.data.length} time
-											{seenHistory.data.length > 1 ? "s" : ""} by you
-										</Text>
-										{seenHistory.data.map((h) => (
+							<MediaScrollArea>
+								<Stack>
+									<Text>
+										Seen by all users {mediaDetails.data.seenBy} time
+										{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
+										{seenHistory.data.length} time
+										{seenHistory.data.length > 1 ? "s" : ""} by you
+									</Text>
+									{seenHistory.data.length > 0 ? (
+										seenHistory.data.map((h) => (
 											<Flex
 												key={h.id}
 												direction={"column"}
@@ -1168,12 +1168,12 @@ const Page: NextPageWithLayout = () => {
 													</Flex>
 												</Flex>
 											</Flex>
-										))}
-									</Stack>
-								</MediaScrollArea>
-							) : (
-								<Text fs="italic">You have no history for this item</Text>
-							)}
+										))
+									) : (
+										<Text fs="italic">You have no history for this item</Text>
+									)}
+								</Stack>
+							</MediaScrollArea>
 						</Tabs.Panel>
 						{mediaDetails.data.showSpecifics ? (
 							<Tabs.Panel value="seasons">
