@@ -3706,11 +3706,13 @@ impl MiscellaneousService {
         user_id: i32,
         to_monitor_metadata_id: i32,
     ) -> Result<bool> {
-        let metadata = associate_user_with_metadata(&user_id, &to_monitor_metadata_id, &self.db)
-            .await
-            .ok();
-        dbg!(&metadata);
-        todo!()
+        let metadata =
+            associate_user_with_metadata(&user_id, &to_monitor_metadata_id, &self.db).await?;
+        let new_monitored_value = !metadata.monitored;
+        let mut metadata: user_to_metadata::ActiveModel = metadata.into();
+        metadata.monitored = ActiveValue::Set(new_monitored_value);
+        metadata.save(&self.db).await?;
+        Ok(new_monitored_value)
     }
 }
 
