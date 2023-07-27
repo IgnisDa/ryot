@@ -84,8 +84,9 @@ use crate::{
         UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
+        user_id_from_token, MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK,
+        PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -941,6 +942,19 @@ impl MiscellaneousMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(user_id).await?;
         service.delete_user(to_delete_user_id).await
+    }
+
+    /// Toggle the monitor on a media for a user.
+    async fn toggle_media_monitor(
+        &self,
+        gql_ctx: &Context<'_>,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .toggle_media_monitor(user_id, to_monitor_metadata_id)
+            .await
     }
 }
 
@@ -3685,6 +3699,18 @@ impl MiscellaneousService {
             }
         };
         Ok(())
+    }
+
+    async fn toggle_media_monitor(
+        &self,
+        user_id: i32,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let metadata = associate_user_with_metadata(&user_id, &to_monitor_metadata_id, &self.db)
+            .await
+            .ok();
+        dbg!(&metadata);
+        todo!()
     }
 }
 
