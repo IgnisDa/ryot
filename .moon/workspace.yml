@@ -1,6 +1,7 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
+  exercise-app: 'apps/exercise-app'
   frontend: 'apps/frontend'
   kodi: 'apps/kodi'
   generated: 'libs/generated'
