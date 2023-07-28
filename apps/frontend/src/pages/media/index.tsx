@@ -83,7 +83,6 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useMemo, useState } from "react";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
@@ -550,48 +549,6 @@ const Page: NextPageWithLayout = () => {
 		}))
 		.exhaustive();
 
-	// the next episode if it is a show or podcast
-	const nextEpisode = match(userMediaDetails.data?.history.at(0))
-		.with(undefined, () => undefined)
-		.otherwise((value) => {
-			return match(userMediaDetails.data?.mediaDetails.lot)
-				.with(MetadataLot.Show, () => {
-					const allEpisodes =
-						userMediaDetails.data?.mediaDetails.showSpecifics?.seasons.flatMap(
-							(s) =>
-								s.episodes.map((e) => ({
-									seasonNumber: s.seasonNumber,
-									...e,
-								})),
-						) || [];
-					const current = allEpisodes.findIndex(
-						(p) =>
-							p.episodeNumber === value.showInformation?.episode &&
-							p.seasonNumber === value.showInformation?.season,
-					);
-					invariant(typeof current === "number");
-					if (current === -1) return undefined;
-					const ep = allEpisodes.at(current + 1);
-					if (!ep) return undefined;
-					return { episode: ep.episodeNumber, season: ep.seasonNumber };
-				})
-				.with(MetadataLot.Podcast, () => {
-					const current =
-						userMediaDetails.data?.mediaDetails.podcastSpecifics?.episodes.findIndex(
-							(p) => p.number === value.podcastInformation?.episode,
-						);
-					invariant(typeof current === "number");
-					if (current === -1) return undefined;
-					const ep =
-						userMediaDetails.data?.mediaDetails.podcastSpecifics?.episodes.at(
-							current + 1,
-						);
-					if (!ep) return undefined;
-					return { episode: ep.number, season: null };
-				})
-				.otherwise(() => undefined);
-		});
-
 	const source =
 		userMediaDetails?.data?.mediaDetails.source || MetadataSource.Custom;
 
@@ -877,7 +834,7 @@ const Page: NextPageWithLayout = () => {
 											MetadataLot.Show ||
 									  userMediaDetails.data.mediaDetails.lot ===
 											MetadataLot.Podcast ? (
-										nextEpisode ? (
+										userMediaDetails.data.nextEpisode !== null ? (
 											<Button
 												variant="outline"
 												onClick={async () => {
@@ -891,7 +848,8 @@ const Page: NextPageWithLayout = () => {
 																{
 																	item: metadataId,
 																	selectedPodcastEpisodeNumber:
-																		nextEpisode.episode,
+																		userMediaDetails.data.nextEpisode
+																			?.episodeNumber,
 																},
 															),
 														);
@@ -901,9 +859,12 @@ const Page: NextPageWithLayout = () => {
 																ROUTES.media.individualMedia.updateProgress,
 																{
 																	item: metadataId,
-																	selectedShowSeasonNumber: nextEpisode.season,
+																	selectedShowSeasonNumber:
+																		userMediaDetails.data.nextEpisode
+																			?.seasonNumber,
 																	selectedShowEpisodeNumber:
-																		nextEpisode.episode,
+																		userMediaDetails.data.nextEpisode
+																			?.episodeNumber,
 																},
 															),
 														);
@@ -912,8 +873,8 @@ const Page: NextPageWithLayout = () => {
 												Mark{" "}
 												{userMediaDetails.data.mediaDetails.lot ===
 												MetadataLot.Show
-													? `S${nextEpisode.season}-E${nextEpisode.episode}`
-													: `EP-${nextEpisode.episode}`}{" "}
+													? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
+													: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
 												as seen
 											</Button>
 										) : null
@@ -1046,16 +1007,20 @@ const Page: NextPageWithLayout = () => {
 									<Link
 										href={withQuery(ROUTES.media.individualMedia.postReview, {
 											item: metadataId,
-											showSeasonNumber: nextEpisode?.season ?? undefined,
+											showSeasonNumber:
+												userMediaDetails.data.nextEpisode?.seasonNumber ??
+												undefined,
 											showEpisodeNumber:
 												userMediaDetails.data.mediaDetails.lot ===
 												MetadataLot.Show
-													? nextEpisode?.episode ?? undefined
+													? userMediaDetails.data.nextEpisode?.episodeNumber ??
+													  undefined
 													: undefined,
 											podcastEpisodeNumber:
 												userMediaDetails.data.mediaDetails.lot ===
 												MetadataLot.Podcast
-													? nextEpisode?.episode ?? undefined
+													? userMediaDetails.data.nextEpisode?.episodeNumber ??
+													  undefined
 													: undefined,
 										})}
 										passHref
