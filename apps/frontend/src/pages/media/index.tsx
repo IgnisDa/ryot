@@ -45,9 +45,6 @@ import {
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
 	MediaDetailsDocument,
-	MediaInCollectionsDocument,
-	MediaItemReviewsDocument,
-	type MediaItemReviewsQuery,
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
@@ -56,8 +53,9 @@ import {
 	type ProgressUpdateMutationVariables,
 	RemoveMediaFromCollectionDocument,
 	type RemoveMediaFromCollectionMutationVariables,
-	SeenHistoryDocument,
+	type ReviewItem,
 	SeenState,
+	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/utilities";
 import {
@@ -330,7 +328,7 @@ const ReviewItem = ({
 	review,
 	metadataId,
 }: {
-	review: MediaItemReviewsQuery["mediaItemReviews"][number];
+	review: ReviewItem;
 	metadataId: number;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -430,16 +428,6 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 		enabled: !!metadataId,
 	});
-	const seenHistory = useQuery({
-		queryKey: ["history", metadataId, mediaDetails?.data?.lot],
-		queryFn: async () => {
-			const { seenHistory } = await gqlClient.request(SeenHistoryDocument, {
-				metadataId: metadataId,
-				isShow: mediaDetails.data?.lot === MetadataLot.Show,
-			});
-			return seenHistory;
-		},
-	});
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
@@ -447,26 +435,14 @@ const Page: NextPageWithLayout = () => {
 			return collections;
 		},
 	});
-	const mediaInCollections = useQuery({
-		queryKey: ["mediaInCollections"],
+	const userMediaDetails = useQuery({
+		queryKey: ["userMediaDetails"],
 		queryFn: async () => {
-			const { mediaInCollections } = await gqlClient.request(
-				MediaInCollectionsDocument,
+			const { userMediaDetails } = await gqlClient.request(
+				UserMediaDetailsDocument,
 				{ metadataId },
 			);
-			return mediaInCollections;
-		},
-	});
-	const reviews = useQuery({
-		queryKey: ["reviews", metadataId],
-		queryFn: async () => {
-			const { mediaItemReviews } = await gqlClient.request(
-				MediaItemReviewsDocument,
-				{
-					metadataId: metadataId,
-				},
-			);
-			return mediaItemReviews;
+			return userMediaDetails;
 		},
 	});
 	const progressUpdate = useMutation({
@@ -478,8 +454,7 @@ const Page: NextPageWithLayout = () => {
 			return progressUpdate;
 		},
 		onSuccess: () => {
-			collections.refetch();
-			seenHistory.refetch();
+			userMediaDetails.refetch();
 		},
 	});
 	const deleteSeenItem = useMutation({
@@ -491,7 +466,7 @@ const Page: NextPageWithLayout = () => {
 			return deleteSeenItem;
 		},
 		onSuccess: () => {
-			seenHistory.refetch();
+			userMediaDetails.refetch();
 			notifications.show({
 				title: "Deleted",
 				message: "Record deleted from your history successfully",
@@ -507,7 +482,7 @@ const Page: NextPageWithLayout = () => {
 			return deployUpdateMetadataJob;
 		},
 		onSuccess: () => {
-			seenHistory.refetch();
+			userMediaDetails.refetch();
 			notifications.show({
 				title: "Deployed",
 				message: "This record's metadata will be updated in the background.",
@@ -582,11 +557,8 @@ const Page: NextPageWithLayout = () => {
 		}))
 		.exhaustive();
 
-	// it is the job of the backend to ensure that this has only one item
-	const inProgressSeenItem = seenHistory.data?.find((h) => h.progress < 100);
-
 	// the next episode if it is a show or podcast
-	const nextEpisode = match(seenHistory.data?.at(0))
+	const nextEpisode = match(userMediaDetails.data?.history.at(0))
 		.with(undefined, () => undefined)
 		.otherwise((value) => {
 			return match(mediaDetails.data?.lot)
@@ -627,7 +599,7 @@ const Page: NextPageWithLayout = () => {
 
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
 
-	return mediaDetails.data && seenHistory.data ? (
+	return mediaDetails.data && userMediaDetails.data ? (
 		<>
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
@@ -647,9 +619,9 @@ const Page: NextPageWithLayout = () => {
 							{changeCase(mediaDetails.data.lot)}
 						</Badge>
 					</Group>
-					{mediaInCollections.data && mediaInCollections.data.length > 0 ? (
+					{userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
-							{mediaInCollections.data.map((col) => (
+							{userMediaDetails.data.collections.map((col) => (
 								<Badge
 									key={col.id}
 									color={
@@ -746,15 +718,16 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : null}
 					</Flex>
-					{inProgressSeenItem &&
-					inProgressSeenItem.state === SeenState.InProgress ? (
+					{userMediaDetails.data.inProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
-							ing this ({inProgressSeenItem.progress}%)
+							ing this ({userMediaDetails.data.inProgress.progress}%)
 						</Alert>
 					) : null}
 					<Tabs
-						defaultValue={seenHistory.data.length > 0 ? "actions" : "overview"}
+						defaultValue={
+							userMediaDetails.data.history.length > 0 ? "actions" : "overview"
+						}
 						variant="outline"
 					>
 						<Tabs.List mb={"xs"}>
@@ -832,15 +805,14 @@ const Page: NextPageWithLayout = () => {
 									spacing="lg"
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
-									{inProgressSeenItem &&
-									inProgressSeenItem.state !== SeenState.Dropped ? (
+									{userMediaDetails.data.inProgress ? (
 										<>
 											<Button variant="outline" onClick={progressModalOpen}>
 												Set progress
 											</Button>
 											<ProgressModal
-												progress={inProgressSeenItem.progress}
-												refetch={seenHistory.refetch}
+												progress={userMediaDetails.data.inProgress.progress}
+												refetch={userMediaDetails.refetch}
 												metadataId={metadataId}
 												onClose={progressModalClose}
 												opened={progressModalOpened}
@@ -919,10 +891,10 @@ const Page: NextPageWithLayout = () => {
 											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}ing it
 										</Button>
 									)}
-									{seenHistory.data.length > 0 &&
-									inProgressSeenItem &&
+									{userMediaDetails.data.history.length > 0 &&
+									userMediaDetails.data.inProgress &&
 									![SeenState.OnAHold, SeenState.Dropped].includes(
-										inProgressSeenItem.state,
+										userMediaDetails.data.inProgress.state,
 									) ? (
 										<>
 											<Button variant="outline" onClick={changeStateModalOpen}>
@@ -1094,11 +1066,11 @@ const Page: NextPageWithLayout = () => {
 									<Text>
 										Seen by all users {mediaDetails.data.seenBy} time
 										{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
-										{seenHistory.data.length} time
-										{seenHistory.data.length > 1 ? "s" : ""} by you
+										{userMediaDetails.data.history.length} time
+										{userMediaDetails.data.history.length > 1 ? "s" : ""} by you
 									</Text>
-									{seenHistory.data.length > 0 ? (
-										seenHistory.data.map((h) => (
+									{userMediaDetails.data.history.length > 0 ? (
+										userMediaDetails.data.history.map((h) => (
 											<Flex
 												key={h.id}
 												direction={"column"}
@@ -1191,7 +1163,7 @@ const Page: NextPageWithLayout = () => {
 														displayIndicator={
 															s.episodes.length > 0 &&
 															s.episodes.every((e) =>
-																seenHistory.data.some(
+																userMediaDetails.data.history.some(
 																	(h) =>
 																		h.progress === 100 &&
 																		h.showInformation &&
@@ -1235,7 +1207,7 @@ const Page: NextPageWithLayout = () => {
 																	key={e.episodeNumber}
 																	name={`${e.episodeNumber}. ${e.name}`}
 																	displayIndicator={
-																		seenHistory.data.filter(
+																		userMediaDetails.data.history.filter(
 																			(h) =>
 																				h.progress === 100 &&
 																				h.showInformation &&
@@ -1290,7 +1262,7 @@ const Page: NextPageWithLayout = () => {
 												posterImages={[e.thumbnail || ""]}
 												key={e.number}
 												displayIndicator={
-													seenHistory.data.filter(
+													userMediaDetails.data.history.filter(
 														(h) => h.podcastInformation?.episode === e.number,
 													).length
 												}
@@ -1318,10 +1290,10 @@ const Page: NextPageWithLayout = () => {
 							</Tabs.Panel>
 						) : null}
 						<Tabs.Panel value="reviews">
-							{reviews.data && reviews.data.length > 0 ? (
+							{userMediaDetails.data.reviews.length > 0 ? (
 								<MediaScrollArea>
 									<Stack>
-										{reviews.data.map((r) => (
+										{userMediaDetails.data.reviews.map((r) => (
 											<ReviewItem
 												review={r}
 												key={r.id}
