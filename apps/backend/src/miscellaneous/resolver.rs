@@ -453,6 +453,8 @@ struct UserMediaDetails {
     history: Vec<seen::Model>,
     /// The seen item if it is in progress.
     in_progress: Option<seen::Model>,
+    /// The details of the media item itself.
+    media_details: GraphqlMediaDetails,
 }
 
 fn create_cookie(
@@ -1245,6 +1247,7 @@ impl MiscellaneousService {
     }
 
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
+        let media_details = self.media_details(metadata_id).await?;
         let collections = self.media_in_collections(user_id, metadata_id).await?;
         let reviews = self.media_item_reviews(user_id, metadata_id).await?;
         let history = self.seen_history(user_id, metadata_id).await?;
@@ -1257,6 +1260,7 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
+            media_details,
         })
     }
 

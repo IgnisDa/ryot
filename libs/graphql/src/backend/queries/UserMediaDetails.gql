@@ -41,5 +41,8 @@ query UserMediaDetails($metadataId: Int!) {
     inProgress {
       ...SeenPart
     }
+    mediaDetails {
+      ...MediaDetailsPart
+    }
   }
 }
