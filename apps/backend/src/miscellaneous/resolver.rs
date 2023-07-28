@@ -1265,7 +1265,7 @@ impl MiscellaneousService {
             .cloned();
         let next_episode = history
             .first()
-            .map(|h| {
+            .and_then(|h| {
                 if let Some(s) = &media_details.show_specifics {
                     let all_episodes = s
                         .seasons
@@ -1277,13 +1277,12 @@ impl MiscellaneousService {
                             && s.1 == h.show_information.as_ref().unwrap().season
                     });
                     current
-                        .map(|i| {
+                        .and_then(|i| {
                             all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
                                 season_number: Some(ep.1),
                                 episode_number: Some(ep.0.episode_number),
                             })
                         })
-                        .flatten()
                 } else if let Some(p) = &media_details.podcast_specifics {
                     let current = p
                         .episodes
@@ -1296,8 +1295,8 @@ impl MiscellaneousService {
                 } else {
                     None
                 }
-            })
-            .flatten();
+            });
+        let next_episode = next_episode.filter(|ne| ne.episode_number.is_some());
         Ok(UserMediaDetails {
             collections,
             reviews,
