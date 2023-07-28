@@ -1127,7 +1127,6 @@ export enum UserSinkIntegrationLot {
 }
 
 export type UserSummary = {
-  calculatedOn: Scalars['DateTime'];
   media: UserMediaSummary;
 };
 

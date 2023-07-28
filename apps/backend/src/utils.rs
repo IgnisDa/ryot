@@ -50,6 +50,8 @@ pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
 pub const DOCS_LINK: &str = "https://ignisda.github.io/ryot";
 pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 
+// TODO: Explore whether it would be possible to create a global variable which
+// contains this service and can be accessed in a thread-safe way.
 /// All the services that are used by the app
 pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,

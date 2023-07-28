@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::media::UserSummary;
 
+// TODO: Remove this and store directly in user model.
 #[derive(
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default, SimpleObject,
 )]
