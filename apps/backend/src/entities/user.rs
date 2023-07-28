@@ -91,7 +91,7 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        if !self.password.is_unchanged() || self.password.is_not_set() {
+        if self.password.is_set() {
             let password = self.password.unwrap();
             let salt = SaltString::generate(&mut OsRng);
             let password_hash = get_hasher()

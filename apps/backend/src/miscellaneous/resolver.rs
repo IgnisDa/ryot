@@ -2824,10 +2824,8 @@ impl MiscellaneousService {
             summary: ActiveValue::Set(Some(ls)),
             ..Default::default()
         };
-        let obj = user_model.save(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: obj.id.unwrap(),
-        })
+        let obj = user_model.update(&self.db).await.unwrap();
+        Ok(IdObject { id: obj.id })
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
