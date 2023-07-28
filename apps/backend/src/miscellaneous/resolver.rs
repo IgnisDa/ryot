@@ -80,9 +80,9 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrations, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotifications, UserPreferences,
+        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -137,6 +137,19 @@ struct CreateUserYankIntegrationInput {
     base_url: String,
     #[graphql(secret)]
     token: String,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserNotificationLot {
+    PushBullet,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateUserNotificationInput {
+    lot: UserNotificationLot,
+    base_url: Option<String>,
+    #[graphql(secret)]
+    api_token: Option<String>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -911,6 +924,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_user_yank_integration(user_id, input).await
+    }
+
+    /// Add a notification platform for the currently logged in user.
+    async fn create_user_notification(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserNotificationInput,
+    ) -> Result<usize> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_notification(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
@@ -3335,6 +3359,29 @@ impl MiscellaneousService {
         user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
         user.update(&self.db).await?;
         Ok(new_integration_id)
+    }
+
+    async fn create_user_notification(
+        &self,
+        user_id: i32,
+        input: CreateUserNotificationInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut notifications = user.notifications.clone().0;
+        let new_notification_id = notifications.len() + 1;
+        let new_notification = UserNotification {
+            id: new_notification_id,
+            settings: match input.lot {
+                UserNotificationLot::PushBullet => UserNotificationSetting::PushBullet {
+                    api_token: input.api_token.unwrap(),
+                },
+            },
+        };
+        notifications.push(new_notification);
+        let mut user: user::ActiveModel = user.into();
+        user.notifications = ActiveValue::Set(UserNotifications(notifications));
+        user.update(&self.db).await?;
+        Ok(new_notification_id)
     }
 
     async fn delete_user_integration(
