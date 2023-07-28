@@ -3214,7 +3214,18 @@ impl MiscellaneousService {
                     _ => return Err(err()),
                 }
             }
-            "notifications" => {}
+            "notifications" => match right {
+                "released" => preferences.notifications.released = input.value,
+                "episode_released" => preferences.notifications.episode_released = input.value,
+                "status_changed" => preferences.notifications.status_changed = input.value,
+                "release_date_changed" => {
+                    preferences.notifications.release_date_changed = input.value
+                }
+                "number_of_seasons_changed" => {
+                    preferences.notifications.number_of_seasons_changed = input.value
+                }
+                _ => return Err(err()),
+            },
             _ => return Err(err()),
         };
         let mut user_model: user::ActiveModel = user_model.into();
