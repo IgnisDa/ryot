@@ -5,6 +5,29 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
+pub struct UserNotificationsPreferences {
+    pub released: bool,
+    pub episode_released: bool,
+    // TODO: Start storing status in the database.
+    // pub status_changed: bool,
+    pub release_date_changed: bool,
+    pub number_of_seasons_changed: bool,
+}
+
+impl Default for UserNotificationsPreferences {
+    fn default() -> Self {
+        Self {
+            released: true,
+            episode_released: true,
+            release_date_changed: true,
+            number_of_seasons_changed: true,
+        }
+    }
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
 pub struct UserFeaturesEnabledPreferences {
     pub anime: bool,
     pub audio_books: bool,
@@ -37,6 +60,8 @@ impl Default for UserFeaturesEnabledPreferences {
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
+    #[serde(default)]
+    pub notifications: UserNotificationsPreferences,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

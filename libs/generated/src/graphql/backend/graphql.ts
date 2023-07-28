@@ -1118,8 +1118,16 @@ export type UserMediaSummary = {
   videoGames: VideoGamesSummary;
 };
 
+export type UserNotificationsPreferences = {
+  episodeReleased: Scalars['Boolean'];
+  numberOfSeasonsChanged: Scalars['Boolean'];
+  releaseDateChanged: Scalars['Boolean'];
+  released: Scalars['Boolean'];
+};
+
 export type UserPreferences = {
   featuresEnabled: UserFeaturesEnabledPreferences;
+  notifications: UserNotificationsPreferences;
 };
 
 export enum UserSinkIntegrationLot {
