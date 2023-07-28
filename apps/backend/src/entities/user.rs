@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     migrator::UserLot,
     models::media::UserSummary,
-    users::{UserPreferences, UserSinkIntegrations, UserYankIntegrations},
+    users::{UserNotifications, UserPreferences, UserSinkIntegrations, UserYankIntegrations},
 };
 
 fn get_hasher() -> Argon2<'static> {
@@ -36,6 +36,8 @@ pub struct Model {
     pub yank_integrations: Option<UserYankIntegrations>,
     #[graphql(skip)]
     pub sink_integrations: UserSinkIntegrations,
+    #[graphql(skip)]
+    pub notifications: UserNotifications,
     #[graphql(skip)]
     pub summary: Option<UserSummary>,
 }

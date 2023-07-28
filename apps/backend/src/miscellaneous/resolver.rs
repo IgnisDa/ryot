@@ -80,8 +80,9 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations,
-        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
+        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrations, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -2869,6 +2870,7 @@ impl MiscellaneousService {
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
             sink_integrations: ActiveValue::Set(UserSinkIntegrations(vec![])),
+            notifications: ActiveValue::Set(UserNotifications(vec![])),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
