@@ -51,9 +51,9 @@ import {
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
 	UpdateUserDocument,
-	UpdateUserFeaturePreferenceDocument,
-	type UpdateUserFeaturePreferenceMutationVariables,
 	type UpdateUserMutationVariables,
+	UpdateUserPreferenceDocument,
+	type UpdateUserPreferenceMutationVariables,
 	UserAuthTokensDocument,
 	UserDetailsDocument,
 	type UserInput,
@@ -385,14 +385,12 @@ const Page: NextPageWithLayout = () => {
 	const userPrefs = useUserPreferences();
 
 	const updateUserEnabledFeatures = useMutation({
-		mutationFn: async (
-			variables: UpdateUserFeaturePreferenceMutationVariables,
-		) => {
-			const { updateUserFeaturePreference } = await gqlClient.request(
-				UpdateUserFeaturePreferenceDocument,
+		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
+			const { updateUserPreference } = await gqlClient.request(
+				UpdateUserPreferenceDocument,
 				variables,
 			);
-			return updateUserFeaturePreference;
+			return updateUserPreference;
 		},
 		onSuccess: () => {
 			userPrefs.refetch();
@@ -516,12 +514,14 @@ const Page: NextPageWithLayout = () => {
 													label={changeCase(name)}
 													checked={isEnabled}
 													onChange={(ev) => {
-														updateUserEnabledFeatures.mutate({
-															input: {
-																property: getLot(name)!,
-																value: ev.currentTarget.checked,
-															},
-														});
+														const lot = getLot(name);
+														if (lot)
+															updateUserEnabledFeatures.mutate({
+																input: {
+																	property: `features_enabled.media.${lot}`,
+																	value: ev.currentTarget.checked,
+																},
+															});
 													}}
 												/>
 											),
