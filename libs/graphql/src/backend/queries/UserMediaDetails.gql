@@ -16,9 +16,18 @@ fragment SeenPart on Seen {
 
 query UserMediaDetails($metadataId: Int!) {
   userMediaDetails(metadataId: $metadataId) {
+    mediaDetails {
+      ...MediaDetailsPart
+    }
     collections {
       id
       name
+    }
+    inProgress {
+      ...SeenPart
+    }
+    history {
+      ...SeenPart
     }
     reviews {
       id
@@ -35,14 +44,9 @@ query UserMediaDetails($metadataId: Int!) {
         name
       }
     }
-    history {
-      ...SeenPart
-    }
-    inProgress {
-      ...SeenPart
-    }
-    mediaDetails {
-      ...MediaDetailsPart
+    nextEpisode {
+      seasonNumber
+      episodeNumber
     }
   }
 }

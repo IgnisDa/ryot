@@ -455,6 +455,14 @@ struct UserMediaDetails {
     in_progress: Option<seen::Model>,
     /// The details of the media item itself.
     media_details: GraphqlMediaDetails,
+    /// The next episode of this media.
+    next_episode: Option<UserMediaNextEpisode>,
+}
+
+#[derive(SimpleObject)]
+struct UserMediaNextEpisode {
+    season_number: Option<i32>,
+    episode_number: Option<i32>,
 }
 
 fn create_cookie(
@@ -1255,12 +1263,48 @@ impl MiscellaneousService {
             .iter()
             .find(|h| h.state == SeenState::InProgress)
             .cloned();
+        let next_episode = history
+            .first()
+            .map(|h| {
+                if let Some(s) = &media_details.show_specifics {
+                    let all_episodes = s
+                        .seasons
+                        .iter()
+                        .flat_map(|s| s.episodes.iter().map(|e| (e, s.season_number)))
+                        .collect_vec();
+                    let current = all_episodes.iter().position(|s| {
+                        s.0.episode_number == h.show_information.as_ref().unwrap().episode
+                            && s.1 == h.show_information.as_ref().unwrap().season
+                    });
+                    current
+                        .map(|i| {
+                            all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
+                                season_number: Some(ep.1),
+                                episode_number: Some(ep.0.episode_number),
+                            })
+                        })
+                        .flatten()
+                } else if let Some(p) = &media_details.podcast_specifics {
+                    let current = p
+                        .episodes
+                        .iter()
+                        .position(|p| p.number == h.podcast_information.as_ref().unwrap().episode);
+                    current.map(|i| UserMediaNextEpisode {
+                        season_number: None,
+                        episode_number: p.episodes.get(i + 1).map(|e| e.number),
+                    })
+                } else {
+                    None
+                }
+            })
+            .flatten();
         Ok(UserMediaDetails {
             collections,
             reviews,
             history,
             in_progress,
             media_details,
+            next_episode,
         })
     }
 
