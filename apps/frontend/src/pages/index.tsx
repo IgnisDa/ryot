@@ -97,9 +97,9 @@ const DisplayStatForMediaType = (props: {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 	const userPrefs = useUserPreferences();
-	const isEnabled = Object.entries(userPrefs.data?.featuresEnabled || {}).find(
-		([name, _]) => getLot(name) === props.lot,
-	)!;
+	const isEnabled = Object.entries(
+		userPrefs.data?.featuresEnabled.media || {},
+	).find(([name, _]) => getLot(name) === props.lot)!;
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
