@@ -217,7 +217,7 @@ export default function ({ children }: { children: ReactElement }) {
 	const userPrefs = useUserPreferences();
 
 	const mediaLinks = [
-		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
+		...(Object.entries(userPrefs?.data?.featuresEnabled.media || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
