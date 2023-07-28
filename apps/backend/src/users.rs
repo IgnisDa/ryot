@@ -67,7 +67,7 @@ pub struct UserFeaturesEnabledPreferences {
 )]
 pub struct UserPreferences {
     #[serde(default)]
-    pub features_enabled: UserMediaFeaturesEnabledPreferences,
+    pub features_enabled: UserFeaturesEnabledPreferences,
     #[serde(default)]
     pub notifications: UserNotificationsPreferences,
 }

@@ -2061,22 +2061,22 @@ impl MiscellaneousService {
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
-        prefs.features_enabled.anime =
-            self.config.anime.is_enabled() && prefs.features_enabled.anime;
-        prefs.features_enabled.audio_books =
-            self.config.audio_books.is_enabled() && prefs.features_enabled.audio_books;
-        prefs.features_enabled.books =
-            self.config.books.is_enabled() && prefs.features_enabled.books;
-        prefs.features_enabled.shows =
-            self.config.shows.is_enabled() && prefs.features_enabled.shows;
-        prefs.features_enabled.manga =
-            self.config.manga.is_enabled() && prefs.features_enabled.manga;
-        prefs.features_enabled.movies =
-            self.config.movies.is_enabled() && prefs.features_enabled.movies;
-        prefs.features_enabled.podcasts =
-            self.config.podcasts.is_enabled() && prefs.features_enabled.podcasts;
-        prefs.features_enabled.video_games =
-            self.config.video_games.is_enabled() && prefs.features_enabled.video_games;
+        prefs.features_enabled.media.anime =
+            self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
+        prefs.features_enabled.media.audio_books =
+            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_books;
+        prefs.features_enabled.media.books =
+            self.config.books.is_enabled() && prefs.features_enabled.media.books;
+        prefs.features_enabled.media.shows =
+            self.config.shows.is_enabled() && prefs.features_enabled.media.shows;
+        prefs.features_enabled.media.manga =
+            self.config.manga.is_enabled() && prefs.features_enabled.media.manga;
+        prefs.features_enabled.media.movies =
+            self.config.movies.is_enabled() && prefs.features_enabled.media.movies;
+        prefs.features_enabled.media.podcasts =
+            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcasts;
+        prefs.features_enabled.media.video_games =
+            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_games;
         Ok(prefs)
     }
 
@@ -3192,14 +3192,18 @@ impl MiscellaneousService {
                 match left {
                     "media" => {
                         match right {
-                            "audio_book" => preferences.features_enabled.audio_books = input.value,
-                            "book" => preferences.features_enabled.books = input.value,
-                            "movie" => preferences.features_enabled.movies = input.value,
-                            "podcast" => preferences.features_enabled.podcasts = input.value,
-                            "show" => preferences.features_enabled.shows = input.value,
-                            "video_game" => preferences.features_enabled.video_games = input.value,
-                            "manga" => preferences.features_enabled.manga = input.value,
-                            "anime" => preferences.features_enabled.anime = input.value,
+                            "audio_book" => {
+                                preferences.features_enabled.media.audio_books = input.value
+                            }
+                            "book" => preferences.features_enabled.media.books = input.value,
+                            "movie" => preferences.features_enabled.media.movies = input.value,
+                            "podcast" => preferences.features_enabled.media.podcasts = input.value,
+                            "show" => preferences.features_enabled.media.shows = input.value,
+                            "video_game" => {
+                                preferences.features_enabled.media.video_games = input.value
+                            }
+                            "manga" => preferences.features_enabled.media.manga = input.value,
+                            "anime" => preferences.features_enabled.media.anime = input.value,
                             _ => return Err(err()),
                         };
                     }

@@ -7,14 +7,16 @@ query UserPreferences {
       numberOfSeasonsChanged
     }
     featuresEnabled {
-      anime
-      audioBooks
-      books
-      manga
-      movies
-      podcasts
-      shows
-      videoGames
+      media {
+        anime
+        audioBooks
+        books
+        manga
+        movies
+        podcasts
+        shows
+        videoGames
+      }
     }
   }
 }
