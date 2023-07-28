@@ -65,7 +65,13 @@ import {
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTimeAgo, randomString } from "@ryot/utilities";
+import {
+	changeCase,
+	formatTimeAgo,
+	randomString,
+	snakeCase,
+	startCase,
+} from "@ryot/utilities";
 import {
 	IconAnalyze,
 	IconApps,
@@ -526,6 +532,27 @@ const Page: NextPageWithLayout = () => {
 												}}
 											/>
 										))}
+									</SimpleGrid>
+									<Divider />
+									<Title order={3}>Notifications</Title>
+									<SimpleGrid cols={2}>
+										{Object.entries(userPrefs.data.notifications || {}).map(
+											([name, isEnabled], idx) => (
+												<Switch
+													key={idx}
+													label={startCase(name)}
+													checked={isEnabled}
+													onChange={(ev) => {
+														updateUserEnabledFeatures.mutate({
+															input: {
+																property: `notifications.${snakeCase(name)}`,
+																value: ev.currentTarget.checked,
+															},
+														});
+													}}
+												/>
+											),
+										)}
 									</SimpleGrid>
 								</Stack>
 							</Stack>
