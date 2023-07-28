@@ -183,7 +183,7 @@ struct UserDetailsError {
 
 #[derive(Union)]
 enum UserDetailsResult {
-    Ok(user::Model),
+    Ok(Box<user::Model>),
     Error(UserDetailsError),
 }
 
@@ -1331,12 +1331,9 @@ impl MiscellaneousService {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .apply_if(
-                match input.filter.as_ref().map(|f| f.general).flatten() {
-                    None => None,
-                    Some(s) => match s {
-                        MediaGeneralFilter::Monitored => Some(true),
-                        _ => None,
-                    },
+                match input.filter.as_ref().and_then(|f| f.general) {
+                    Some(MediaGeneralFilter::Monitored) => Some(true),
+                    _ => None,
                 },
                 |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
             )
@@ -2702,7 +2699,7 @@ impl MiscellaneousService {
         let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
-            Ok(UserDetailsResult::Ok(user))
+            Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
@@ -3189,10 +3186,10 @@ impl MiscellaneousService {
         let err = || Error::new("Incorrect property value encountered");
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
-        let (left, right) = input.property.split_once(".").ok_or_else(err)?;
+        let (left, right) = input.property.split_once('.').ok_or_else(err)?;
         match left {
             "features_enabled" => {
-                let (left, right) = right.split_once(".").ok_or_else(err)?;
+                let (left, right) = right.split_once('.').ok_or_else(err)?;
                 match left {
                     "media" => {
                         match right {
