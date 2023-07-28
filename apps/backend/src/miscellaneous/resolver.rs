@@ -491,16 +491,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all the public reviews for a media item.
-    async fn media_item_reviews(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<Vec<ReviewItem>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_item_reviews(&user_id, &metadata_id).await
-    }
 
     /// Get all collections for the currently logged in user.
     async fn collections(
@@ -513,16 +503,6 @@ impl MiscellaneousQuery {
         service.collections(&user_id, input).await
     }
 
-    /// Get a list of collections in which a media is present.
-    async fn media_in_collections(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<Vec<collection::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_in_collections(user_id, metadata_id).await
-    }
 
     /// Get the contents of a collection and respect visibility.
     async fn collection_contents(
@@ -547,16 +527,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get the user's seen history for a particular media item.
-    async fn seen_history(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<Vec<seen::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.seen_history(metadata_id, user_id).await
-    }
 
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
@@ -1255,6 +1225,8 @@ impl MiscellaneousService {
     }
 
     async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
+
+    async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
         let mut seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
@@ -2228,11 +2200,7 @@ impl MiscellaneousService {
         }
     }
 
-    async fn media_item_reviews(
-        &self,
-        user_id: &i32,
-        metadata_id: &i32,
-    ) -> Result<Vec<ReviewItem>> {
+    async fn media_item_reviews(&self, user_id: i32, metadata_id: i32) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
@@ -2246,7 +2214,7 @@ impl MiscellaneousService {
         let all_reviews = reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                Visibility::Private => r.posted_by.id == *user_id,
+                Visibility::Private => r.posted_by.id == user_id,
                 _ => true,
             })
             .map(|r| ReviewItem {
@@ -3650,7 +3618,7 @@ impl MiscellaneousService {
                             .collect_vec(),
                         _ => unreachable!(),
                     };
-                    let seen_history = self.seen_history(seen.metadata_id, seen.user_id).await?;
+                    let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
                     let mut bag = HashMap::<String, i32>::from_iter(
                         all_episodes.iter().cloned().map(|e| (e, 0)),
                     );
