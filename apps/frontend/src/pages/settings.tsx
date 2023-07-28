@@ -513,30 +513,30 @@ const Page: NextPageWithLayout = () => {
 								<Stack spacing={"xs"}>
 									<Title order={3}>Enabled features</Title>
 									<SimpleGrid cols={2}>
-										{Object.entries(
-											userPrefs.data.featuresEnabled.media || {},
-										).map(([name, isEnabled], idx) => (
-											<Switch
-												key={idx}
-												label={changeCase(name)}
-												checked={isEnabled}
-												onChange={(ev) => {
-													const lot = getLot(name);
-													if (lot)
-														updateUserEnabledFeatures.mutate({
-															input: {
-																property: `features_enabled.media.${lot.toLowerCase()}`,
-																value: ev.currentTarget.checked,
-															},
-														});
-												}}
-											/>
-										))}
+										{Object.entries(userPrefs.data.featuresEnabled.media).map(
+											([name, isEnabled], idx) => (
+												<Switch
+													key={idx}
+													label={changeCase(name)}
+													checked={isEnabled}
+													onChange={(ev) => {
+														const lot = getLot(name);
+														if (lot)
+															updateUserEnabledFeatures.mutate({
+																input: {
+																	property: `features_enabled.media.${lot.toLowerCase()}`,
+																	value: ev.currentTarget.checked,
+																},
+															});
+													}}
+												/>
+											),
+										)}
 									</SimpleGrid>
 									<Divider />
 									<Title order={3}>Notifications</Title>
 									<SimpleGrid cols={2}>
-										{Object.entries(userPrefs.data.notifications || {}).map(
+										{Object.entries(userPrefs.data.notifications).map(
 											([name, isEnabled], idx) => (
 												<Switch
 													key={idx}
