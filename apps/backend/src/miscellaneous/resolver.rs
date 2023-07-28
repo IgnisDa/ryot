@@ -1248,7 +1248,10 @@ impl MiscellaneousService {
         let collections = self.media_in_collections(user_id, metadata_id).await?;
         let reviews = self.media_item_reviews(user_id, metadata_id).await?;
         let history = self.seen_history(user_id, metadata_id).await?;
-        let in_progress = todo!("Calculate this");
+        let in_progress = history
+            .iter()
+            .find(|h| h.state == SeenState::InProgress)
+            .cloned();
         Ok(UserMediaDetails {
             collections,
             reviews,

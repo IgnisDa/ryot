@@ -1430,14 +1430,14 @@ export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type UserIntegrationsQuery = { userIntegrations: Array<{ id: number, lot: UserIntegrationLot, description: string, timestamp: Date }> };
 
-export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } & { ' $fragmentName'?: 'SeenPartFragment' };
+export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null };
 
 export type UserMediaDetailsQueryVariables = Exact<{
   metadataId: Scalars['Int'];
 }>;
 
 
-export type UserMediaDetailsQuery = { userMediaDetails: { collections: Array<{ id: number, name: string }>, reviews: Array<{ id: number, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: Date, postedBy: { id: number, name: string } }>, history: Array<{ ' $fragmentRefs'?: { 'SeenPartFragment': SeenPartFragment } }>, inProgress?: { ' $fragmentRefs'?: { 'SeenPartFragment': SeenPartFragment } } | null } };
+export type UserMediaDetailsQuery = { userMediaDetails: { collections: Array<{ id: number, name: string }>, reviews: Array<{ id: number, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: Date, postedBy: { id: number, name: string } }>, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null } };
 
 export type UserPreferencesQueryVariables = Exact<{ [key: string]: never; }>;
 

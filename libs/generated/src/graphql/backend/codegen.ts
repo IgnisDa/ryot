@@ -10,12 +10,17 @@ const config: CodegenConfig = {
 			DateTime: "Date",
 		},
 	},
-	documents: [join(definitionsLibraryPath, "backend/{queries,mutations}/*.gql")],
+	documents: [
+		join(definitionsLibraryPath, "backend/{queries,mutations}/*.gql"),
+	],
 	generates: {
 		"./src/graphql/backend/": {
 			config: { skipTypename: true },
 			plugins: [],
 			preset: "client",
+			presetConfig: {
+				fragmentMasking: false,
+			},
 		},
 	},
 	ignoreNoDocuments: true,
