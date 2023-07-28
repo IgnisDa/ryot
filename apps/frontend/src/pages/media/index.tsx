@@ -428,21 +428,23 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 		enabled: !!metadataId,
 	});
-	const collections = useQuery({
-		queryKey: ["collections"],
-		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections;
-		},
-	});
 	const userMediaDetails = useQuery({
-		queryKey: ["userMediaDetails"],
+		queryKey: ["userMediaDetails", metadataId],
 		queryFn: async () => {
 			const { userMediaDetails } = await gqlClient.request(
 				UserMediaDetailsDocument,
 				{ metadataId },
 			);
 			return userMediaDetails;
+		},
+		staleTime: Infinity,
+		enabled: !!metadataId,
+	});
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
+			return collections;
 		},
 	});
 	const progressUpdate = useMutation({
