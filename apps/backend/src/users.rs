@@ -109,7 +109,27 @@ pub struct UserSinkIntegrations(pub Vec<UserSinkIntegration>);
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
 pub enum UserNotificationSetting {
-    PushBullet { api_token: String },
+    Discord {
+        url: String,
+    },
+    Gotify {
+        url: String,
+        token: String,
+        priority: Option<i32>,
+    },
+    Ntfy {
+        url: Option<String>,
+        priority: Option<i32>,
+    },
+    PushBullet {
+        api_token: String,
+    },
+    PushOver {
+        key: String,
+    },
+    PushSafer {
+        key: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
