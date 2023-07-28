@@ -243,8 +243,8 @@ struct UpdateUserInput {
 }
 
 #[derive(Debug, InputObject)]
-struct UpdateUserFeaturePreferenceInput {
-    property: MetadataLot,
+struct UpdateUserPreferenceInput {
+    property: String,
     value: bool,
 }
 
@@ -871,15 +871,15 @@ impl MiscellaneousMutation {
         service.regenerate_user_summary(user_id).await
     }
 
-    /// Change a user's feature preferences.
-    async fn update_user_feature_preference(
+    /// Change a user's preferences.
+    async fn update_user_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserFeaturePreferenceInput,
+        input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_feature_preference(input, user_id).await
+        service.update_user_preference(input, user_id).await
     }
 
     /// Generate an auth token without any expiry.
@@ -3177,22 +3177,37 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 
-    async fn update_user_feature_preference(
+    async fn update_user_preference(
         &self,
-        input: UpdateUserFeaturePreferenceInput,
+        input: UpdateUserPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
+        let err = || Error::new("Incorrect property value encountered");
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
-        match input.property {
-            MetadataLot::AudioBook => preferences.features_enabled.audio_books = input.value,
-            MetadataLot::Book => preferences.features_enabled.books = input.value,
-            MetadataLot::Movie => preferences.features_enabled.movies = input.value,
-            MetadataLot::Podcast => preferences.features_enabled.podcasts = input.value,
-            MetadataLot::Show => preferences.features_enabled.shows = input.value,
-            MetadataLot::VideoGame => preferences.features_enabled.video_games = input.value,
-            MetadataLot::Manga => preferences.features_enabled.manga = input.value,
-            MetadataLot::Anime => preferences.features_enabled.anime = input.value,
+        let (left, right) = input.property.split_once(".").ok_or_else(err)?;
+        match left {
+            "features_enabled" => {
+                let (left, right) = right.split_once(".").ok_or_else(err)?;
+                match left {
+                    "media" => {
+                        match right {
+                            "AUDIO_BOOK" => preferences.features_enabled.audio_books = input.value,
+                            "BOOK" => preferences.features_enabled.books = input.value,
+                            "MOVIE" => preferences.features_enabled.movies = input.value,
+                            "PODCAST" => preferences.features_enabled.podcasts = input.value,
+                            "SHOW" => preferences.features_enabled.shows = input.value,
+                            "VIDEO_GAME" => preferences.features_enabled.video_games = input.value,
+                            "MANGA" => preferences.features_enabled.manga = input.value,
+                            "ANIME" => preferences.features_enabled.anime = input.value,
+                            _ => return Err(err()),
+                        };
+                    }
+                    _ => return Err(err()),
+                }
+            }
+            "notifications" => {}
+            _ => return Err(err()),
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);

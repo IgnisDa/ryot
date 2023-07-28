@@ -28,7 +28,7 @@ impl Default for UserNotificationsPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-pub struct UserFeaturesEnabledPreferences {
+pub struct UserMediaFeaturesEnabledPreferences {
     pub anime: bool,
     pub audio_books: bool,
     pub books: bool,
@@ -39,7 +39,7 @@ pub struct UserFeaturesEnabledPreferences {
     pub video_games: bool,
 }
 
-impl Default for UserFeaturesEnabledPreferences {
+impl Default for UserMediaFeaturesEnabledPreferences {
     fn default() -> Self {
         Self {
             anime: true,
@@ -57,9 +57,17 @@ impl Default for UserFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
+pub struct UserFeaturesEnabledPreferences {
+    #[serde(default)]
+    pub media: UserMediaFeaturesEnabledPreferences,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+)]
 pub struct UserPreferences {
     #[serde(default)]
-    pub features_enabled: UserFeaturesEnabledPreferences,
+    pub features_enabled: UserMediaFeaturesEnabledPreferences,
     #[serde(default)]
     pub notifications: UserNotificationsPreferences,
 }

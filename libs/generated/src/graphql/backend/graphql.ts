@@ -592,7 +592,7 @@ export type MutationRoot = {
   /** Update a user's profile details. */
   updateUser: IdObject;
   /** Change a user's preferences. */
-  updateUserFeaturePreference: Scalars['Boolean'];
+  updateUserPreference: Scalars['Boolean'];
   /** Yank data from all integrations for the currently logged in user. */
   yankIntegrationData: Scalars['Int'];
 };
@@ -713,8 +713,8 @@ export type MutationRootUpdateUserArgs = {
 };
 
 
-export type MutationRootUpdateUserFeaturePreferenceArgs = {
-  input: UpdateUserFeaturePreferenceInput;
+export type MutationRootUpdateUserPreferenceArgs = {
+  input: UpdateUserPreferenceInput;
 };
 
 export type PodcastEpisode = {
@@ -1019,15 +1019,15 @@ export type ShowsSummary = {
   watchedSeasons: Scalars['Int'];
 };
 
-export type UpdateUserFeaturePreferenceInput = {
-  property: MetadataLot;
-  value: Scalars['Boolean'];
-};
-
 export type UpdateUserInput = {
   email?: InputMaybe<Scalars['String']>;
   password?: InputMaybe<Scalars['String']>;
   username?: InputMaybe<Scalars['String']>;
+};
+
+export type UpdateUserPreferenceInput = {
+  property: Scalars['String'];
+  value: Scalars['Boolean'];
 };
 
 export type User = {
@@ -1051,17 +1051,6 @@ export enum UserDetailsErrorVariant {
 }
 
 export type UserDetailsResult = User | UserDetailsError;
-
-export type UserFeaturesEnabledPreferences = {
-  anime: Scalars['Boolean'];
-  audioBooks: Scalars['Boolean'];
-  books: Scalars['Boolean'];
-  manga: Scalars['Boolean'];
-  movies: Scalars['Boolean'];
-  podcasts: Scalars['Boolean'];
-  shows: Scalars['Boolean'];
-  videoGames: Scalars['Boolean'];
-};
 
 export type UserInput = {
   password: Scalars['String'];
@@ -1095,6 +1084,17 @@ export type UserMediaDetails = {
   reviews: Array<ReviewItem>;
 };
 
+export type UserMediaFeaturesEnabledPreferences = {
+  anime: Scalars['Boolean'];
+  audioBooks: Scalars['Boolean'];
+  books: Scalars['Boolean'];
+  manga: Scalars['Boolean'];
+  movies: Scalars['Boolean'];
+  podcasts: Scalars['Boolean'];
+  shows: Scalars['Boolean'];
+  videoGames: Scalars['Boolean'];
+};
+
 export type UserMediaNextEpisode = {
   episodeNumber?: Maybe<Scalars['Int']>;
   seasonNumber?: Maybe<Scalars['Int']>;
@@ -1120,7 +1120,7 @@ export type UserNotificationsPreferences = {
 };
 
 export type UserPreferences = {
-  featuresEnabled: UserFeaturesEnabledPreferences;
+  featuresEnabled: UserMediaFeaturesEnabledPreferences;
   notifications: UserNotificationsPreferences;
 };
 
@@ -1333,12 +1333,12 @@ export type UpdateUserMutationVariables = Exact<{
 
 export type UpdateUserMutation = { updateUser: { id: number } };
 
-export type UpdateUserFeaturePreferenceMutationVariables = Exact<{
-  input: UpdateUserFeaturePreferenceInput;
+export type UpdateUserPreferenceMutationVariables = Exact<{
+  input: UpdateUserPreferenceInput;
 }>;
 
 
-export type UpdateUserFeaturePreferenceMutation = { updateUserFeaturePreference: boolean };
+export type UpdateUserPreferenceMutation = { updateUserPreference: boolean };
 
 export type YankIntegrationDataMutationVariables = Exact<{ [key: string]: never; }>;
 
@@ -1499,7 +1499,7 @@ export const RemoveMediaFromCollectionDocument = {"kind":"Document","definitions
 export const ToggleMediaMonitorDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ToggleMediaMonitor"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toMonitorMetadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"toggleMediaMonitor"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"toMonitorMetadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toMonitorMetadataId"}}}]}]}}]} as unknown as DocumentNode<ToggleMediaMonitorMutation, ToggleMediaMonitorMutationVariables>;
 export const UpdateAllMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateAllMetadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateAllMetadata"}}]}}]} as unknown as DocumentNode<UpdateAllMetadataMutation, UpdateAllMetadataMutationVariables>;
 export const UpdateUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<UpdateUserMutation, UpdateUserMutationVariables>;
-export const UpdateUserFeaturePreferenceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserFeaturePreference"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserFeaturePreferenceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserFeaturePreference"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserFeaturePreferenceMutation, UpdateUserFeaturePreferenceMutationVariables>;
+export const UpdateUserPreferenceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserPreference"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserPreferenceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserPreference"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserPreferenceMutation, UpdateUserPreferenceMutationVariables>;
 export const YankIntegrationDataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"YankIntegrationData"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"yankIntegrationData"}}]}}]} as unknown as DocumentNode<YankIntegrationDataMutation, YankIntegrationDataMutationVariables>;
 export const CollectionContentsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CollectionContents"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionContentsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionContents"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}}]}},{"kind":"Field","name":{"kind":"Name","value":"media"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]} as unknown as DocumentNode<CollectionContentsQuery, CollectionContentsQueryVariables>;
 export const CollectionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Collections"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collections"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"numItems"}}]}}]}}]} as unknown as DocumentNode<CollectionsQuery, CollectionsQueryVariables>;
