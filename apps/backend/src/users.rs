@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct UserNotificationsPreferences {
     pub released: bool,
     pub episode_released: bool,
-    // TODO: Start storing status in the database.
-    // pub status_changed: bool,
+    pub status_changed: bool,
     pub release_date_changed: bool,
     pub number_of_seasons_changed: bool,
 }
@@ -19,6 +18,7 @@ impl Default for UserNotificationsPreferences {
         Self {
             released: true,
             episode_released: true,
+            status_changed: true,
             release_date_changed: true,
             number_of_seasons_changed: true,
         }
