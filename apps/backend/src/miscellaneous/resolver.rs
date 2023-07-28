@@ -3192,14 +3192,14 @@ impl MiscellaneousService {
                 match left {
                     "media" => {
                         match right {
-                            "AUDIO_BOOK" => preferences.features_enabled.audio_books = input.value,
-                            "BOOK" => preferences.features_enabled.books = input.value,
-                            "MOVIE" => preferences.features_enabled.movies = input.value,
-                            "PODCAST" => preferences.features_enabled.podcasts = input.value,
-                            "SHOW" => preferences.features_enabled.shows = input.value,
-                            "VIDEO_GAME" => preferences.features_enabled.video_games = input.value,
-                            "MANGA" => preferences.features_enabled.manga = input.value,
-                            "ANIME" => preferences.features_enabled.anime = input.value,
+                            "audio_book" => preferences.features_enabled.audio_books = input.value,
+                            "book" => preferences.features_enabled.books = input.value,
+                            "movie" => preferences.features_enabled.movies = input.value,
+                            "podcast" => preferences.features_enabled.podcasts = input.value,
+                            "show" => preferences.features_enabled.shows = input.value,
+                            "video_game" => preferences.features_enabled.video_games = input.value,
+                            "manga" => preferences.features_enabled.manga = input.value,
+                            "anime" => preferences.features_enabled.anime = input.value,
                             _ => return Err(err()),
                         };
                     }

@@ -518,7 +518,7 @@ const Page: NextPageWithLayout = () => {
 														if (lot)
 															updateUserEnabledFeatures.mutate({
 																input: {
-																	property: `features_enabled.media.${lot}`,
+																	property: `features_enabled.media.${lot.toLowerCase()}`,
 																	value: ev.currentTarget.checked,
 																},
 															});
