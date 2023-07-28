@@ -1088,7 +1088,7 @@ impl MiscellaneousService {
             .unwrap()
         {
             Some(m) => m,
-            None => return Err(Error::new("The record does not exit".to_owned())),
+            None => return Err(Error::new("The record does not exist".to_owned())),
         };
         let genres = meta
             .find_related(Genre)
