@@ -324,6 +324,7 @@ struct GraphqlMediaDetails {
     title: String,
     identifier: String,
     description: Option<String>,
+    production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
     creators: Vec<MetadataCreator>,
@@ -1207,6 +1208,7 @@ impl MiscellaneousService {
             id: model.id,
             title: model.title,
             identifier: model.identifier,
+            production_status: model.production_status,
             description: model.description,
             publish_year: model.publish_year,
             publish_date: model.publish_date,
@@ -1987,6 +1989,7 @@ impl MiscellaneousService {
             identifier: ActiveValue::Set(details.identifier),
             creators: ActiveValue::Set(MetadataCreators(details.creators)),
             specifics: ActiveValue::Set(details.specifics),
+            production_status: ActiveValue::Set(details.production_status),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
@@ -3065,6 +3068,7 @@ impl MiscellaneousService {
             publish_year: input.publish_year,
             publish_date: None,
             specifics,
+            production_status: "Released".to_owned(),
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

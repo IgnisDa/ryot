@@ -230,6 +230,7 @@ impl AudibleService {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
+            production_status: "Released".to_owned(),
             title: item.title,
             description,
             creators,

@@ -228,6 +228,7 @@ mod utils {
         Ok(MediaDetails {
             identifier: details.id.to_string(),
             title: details.title.unwrap().user_preferred.unwrap(),
+            production_status: "Released".to_owned(),
             source: MetadataSource::Anilist,
             description: details.description,
             lot,

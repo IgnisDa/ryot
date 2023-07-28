@@ -496,6 +496,7 @@ pub mod media {
         pub source: MetadataSource,
         pub description: Option<String>,
         pub lot: MetadataLot,
+        pub production_status: String,
         pub creators: Vec<MetadataCreator>,
         pub genres: Vec<String>,
         pub images: Vec<MetadataImage>,

@@ -162,6 +162,7 @@ impl MediaProvider for ITunesService {
         Ok(MediaDetails {
             identifier: details.identifier,
             title: details.title,
+            production_status: "Released".to_owned(),
             publish_date,
             publish_year: publish_date.map(|d| d.year()),
             source: MetadataSource::Itunes,

@@ -233,6 +233,7 @@ impl IgdbService {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
             source: MetadataSource::Igdb,
+            production_status: "Released".to_owned(),
             title: item.name,
             description: item.summary,
             creators,
