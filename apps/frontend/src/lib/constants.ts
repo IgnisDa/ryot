@@ -1,4 +1,5 @@
 export const ROUTES = {
+	dashboard: "/",
 	auth: {
 		login: "/auth/login",
 		register: "/auth/register",
@@ -13,7 +14,6 @@ export const ROUTES = {
 			list: "/collections/list",
 			details: "/collections",
 		},
-		dashboard: "/",
 		list: "/list",
 		individualMedia: {
 			commit: "/media/commit",

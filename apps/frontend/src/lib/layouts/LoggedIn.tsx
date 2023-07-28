@@ -217,7 +217,6 @@ export default function ({ children }: { children: ReactElement }) {
 	const userPrefs = useUserPreferences();
 
 	const mediaLinks = [
-		{ icon: IconHome2, label: "Home", href: ROUTES.media.dashboard },
 		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
@@ -304,6 +303,7 @@ export default function ({ children }: { children: ReactElement }) {
 						</Flex>
 					</MediaQuery>
 					<Navbar.Section grow>
+						<LinksGroup label="Home" icon={IconHome2} href={ROUTES.dashboard} />
 						<LinksGroup
 							label="Media"
 							icon={IconDeviceSpeaker}
@@ -339,10 +339,7 @@ export default function ({ children }: { children: ReactElement }) {
 			<Flex direction={"column"} h="90%">
 				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
 					<Flex justify={"space-between"} p="md">
-						<Link
-							href={ROUTES.media.dashboard}
-							style={{ textDecoration: "none" }}
-						>
+						<Link href={ROUTES.dashboard} style={{ textDecoration: "none" }}>
 							<Group>
 								<Image
 									src={"/logo-light.png"}

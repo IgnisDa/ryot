@@ -501,7 +501,7 @@ const Page: NextPageWithLayout = () => {
 			return mergeMetadata;
 		},
 		onSuccess: () => {
-			router.push(ROUTES.media.dashboard);
+			router.push(ROUTES.dashboard);
 		},
 	});
 	const removeMediaFromCollection = useMutation({
