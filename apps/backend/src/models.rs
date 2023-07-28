@@ -436,6 +436,7 @@ pub mod media {
     )]
     pub struct UserSummary {
         pub media: UserMediaSummary,
+        pub calculated_on: DateTimeUtc,
     }
 
     #[derive(Debug, InputObject)]

@@ -11,6 +11,5 @@ pub mod metadata_to_collection;
 pub mod metadata_to_genre;
 pub mod review;
 pub mod seen;
-pub mod summary;
 pub mod user;
 pub mod user_to_metadata;

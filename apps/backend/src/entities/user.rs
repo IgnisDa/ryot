@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::UserLot,
+    models::media::UserSummary,
     users::{UserPreferences, UserSinkIntegrations, UserYankIntegrations},
 };
 
@@ -35,6 +36,8 @@ pub struct Model {
     pub yank_integrations: Option<UserYankIntegrations>,
     #[graphql(skip)]
     pub sink_integrations: UserSinkIntegrations,
+    #[graphql(skip)]
+    pub summary: Option<UserSummary>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -47,8 +50,6 @@ pub enum Relation {
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
-    #[sea_orm(has_many = "super::summary::Entity")]
-    Summary,
 }
 
 impl Related<super::collection::Entity> for Entity {
@@ -72,12 +73,6 @@ impl Related<super::review::Entity> for Entity {
 impl Related<super::seen::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Seen.def()
-    }
-}
-
-impl Related<super::summary::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Summary.def()
     }
 }
 

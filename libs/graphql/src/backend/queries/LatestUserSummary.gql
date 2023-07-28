@@ -1,43 +1,41 @@
 query LatestUserSummary {
   latestUserSummary {
-    createdOn
-    data {
-      media {
-        reviewsPosted
-        manga {
-          chapters
-          read
-        }
-        books {
-          pages
-          read
-        }
-        movies {
-          runtime
-          watched
-        }
-        anime {
-          episodes
-          watched
-        }
-        podcasts {
-          runtime
-          played
-          playedEpisodes
-        }
-        videoGames {
-          played
-        }
-        shows {
-          runtime
-          watchedEpisodes
-          watchedSeasons
-          watched
-        }
-        audioBooks {
-          runtime
-          played
-        }
+    calculatedOn
+    media {
+      reviewsPosted
+      manga {
+        chapters
+        read
+      }
+      books {
+        pages
+        read
+      }
+      movies {
+        runtime
+        watched
+      }
+      anime {
+        episodes
+        watched
+      }
+      podcasts {
+        runtime
+        played
+        playedEpisodes
+      }
+      videoGames {
+        played
+      }
+      shows {
+        runtime
+        watchedEpisodes
+        watchedSeasons
+        watched
+      }
+      audioBooks {
+        runtime
+        played
       }
     }
   }

@@ -52,6 +52,7 @@ pub enum User {
     YankIntegrations,
     // This field can be `NULL` if the user has not enabled any sink integration
     SinkIntegrations,
+    Summary,
 }
 
 #[async_trait::async_trait]
@@ -75,6 +76,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Preferences).json().not_null())
                     .col(ColumnDef::new(User::YankIntegrations).json())
                     .col(ColumnDef::new(User::SinkIntegrations).json())
+                    .col(ColumnDef::new(User::Summary).json())
                     .to_owned(),
             )
             .await?;
