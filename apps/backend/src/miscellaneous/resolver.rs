@@ -389,6 +389,7 @@ enum MediaGeneralFilter {
     OnAHold,
     Completed,
     Unseen,
+    Monitored,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1327,6 +1328,16 @@ impl MiscellaneousService {
     ) -> Result<SearchResults<MediaListItem>> {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .apply_if(
+                match input.filter.as_ref().map(|f| f.general).flatten() {
+                    None => None,
+                    Some(s) => match s {
+                        MediaGeneralFilter::Monitored => Some(true),
+                        _ => None,
+                    },
+                },
+                |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
+            )
             .all(&self.db)
             .await
             .unwrap();
@@ -1497,6 +1508,7 @@ impl MiscellaneousService {
                         .collect_vec()
                 };
                 match s {
+                    MediaGeneralFilter::Monitored => {}
                     MediaGeneralFilter::All => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select

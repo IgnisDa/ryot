@@ -431,6 +431,7 @@ export enum MediaGeneralFilter {
   Completed = 'COMPLETED',
   Dropped = 'DROPPED',
   InProgress = 'IN_PROGRESS',
+  Monitored = 'MONITORED',
   OnAHold = 'ON_A_HOLD',
   Rated = 'RATED',
   Unrated = 'UNRATED',
@@ -590,7 +591,7 @@ export type MutationRoot = {
   updateAllMetadata: Scalars['Boolean'];
   /** Update a user's profile details. */
   updateUser: IdObject;
-  /** Change a user's feature preferences. */
+  /** Change a user's preferences. */
   updateUserFeaturePreference: Scalars['Boolean'];
   /** Yank data from all integrations for the currently logged in user. */
   yankIntegrationData: Scalars['Int'];
