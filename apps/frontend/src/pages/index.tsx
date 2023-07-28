@@ -171,7 +171,7 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
-						Calculated {formatTimeAgo(latestUserSummary.data.createdOn)}
+						Calculated {formatTimeAgo(latestUserSummary.data.calculatedOn)}
 					</Text>
 					<SimpleGrid
 						cols={1}
@@ -186,12 +186,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Movies",
-									value: latestUserSummary.data.data.media.movies.watched,
+									value: latestUserSummary.data.media.movies.watched,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.movies.runtime,
+									value: latestUserSummary.data.media.movies.runtime,
 									type: "duration",
 								},
 							]}
@@ -201,23 +201,22 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Shows",
-									value: latestUserSummary.data.data.media.shows.watched,
+									value: latestUserSummary.data.media.shows.watched,
 									type: "number",
 								},
 								{
 									label: "Seasons",
-									value: latestUserSummary.data.data.media.shows.watchedSeasons,
+									value: latestUserSummary.data.media.shows.watchedSeasons,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value:
-										latestUserSummary.data.data.media.shows.watchedEpisodes,
+									value: latestUserSummary.data.media.shows.watchedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.shows.runtime,
+									value: latestUserSummary.data.media.shows.runtime,
 									type: "duration",
 								},
 							]}
@@ -227,7 +226,7 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Video games",
-									value: latestUserSummary.data.data.media.videoGames.played,
+									value: latestUserSummary.data.media.videoGames.played,
 									type: "number",
 								},
 							]}
@@ -237,12 +236,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Audiobooks",
-									value: latestUserSummary.data.data.media.audioBooks.played,
+									value: latestUserSummary.data.media.audioBooks.played,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.audioBooks.runtime,
+									value: latestUserSummary.data.media.audioBooks.runtime,
 									type: "duration",
 								},
 							]}
@@ -252,12 +251,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Books",
-									value: latestUserSummary.data.data.media.books.read,
+									value: latestUserSummary.data.media.books.read,
 									type: "number",
 								},
 								{
 									label: "Pages",
-									value: latestUserSummary.data.data.media.books.pages,
+									value: latestUserSummary.data.media.books.pages,
 									type: "number",
 								},
 							]}
@@ -267,18 +266,17 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Podcasts",
-									value: latestUserSummary.data.data.media.podcasts.played,
+									value: latestUserSummary.data.media.podcasts.played,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value:
-										latestUserSummary.data.data.media.podcasts.playedEpisodes,
+									value: latestUserSummary.data.media.podcasts.playedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.podcasts.runtime,
+									value: latestUserSummary.data.media.podcasts.runtime,
 									type: "duration",
 								},
 							]}
@@ -288,12 +286,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Manga",
-									value: latestUserSummary.data.data.media.manga.read,
+									value: latestUserSummary.data.media.manga.read,
 									type: "number",
 								},
 								{
 									label: "Chapters",
-									value: latestUserSummary.data.data.media.manga.chapters,
+									value: latestUserSummary.data.media.manga.chapters,
 									type: "number",
 								},
 							]}
@@ -303,12 +301,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Anime",
-									value: latestUserSummary.data.data.media.anime.watched,
+									value: latestUserSummary.data.media.anime.watched,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: latestUserSummary.data.data.media.anime.episodes,
+									value: latestUserSummary.data.media.anime.episodes,
 									type: "number",
 								},
 							]}
@@ -319,7 +317,7 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Reviews",
-									value: latestUserSummary.data.data.media.reviewsPosted,
+									value: latestUserSummary.data.media.reviewsPosted,
 									type: "number",
 								},
 							]}
