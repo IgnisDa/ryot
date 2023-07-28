@@ -107,6 +107,23 @@ pub async fn create_app_services(
     }
 }
 
+pub async fn get_user_and_metadata_association<C>(
+    user_id: &i32,
+    metadata_id: &i32,
+    db: &C,
+) -> Option<user_to_metadata::Model>
+where
+    C: ConnectionTrait,
+{
+    UserToMetadata::find()
+        .filter(user_to_metadata::Column::UserId.eq(user_id.to_owned()))
+        .filter(user_to_metadata::Column::MetadataId.eq(metadata_id.to_owned()))
+        .one(db)
+        .await
+        .ok()
+        .flatten()
+}
+
 pub async fn associate_user_with_metadata<C>(
     user_id: &i32,
     metadata_id: &i32,
@@ -122,14 +139,9 @@ where
     };
     Ok(match user_to_meta.insert(db).await {
         Ok(u) => u,
-        Err(_) => {
-            let meta = UserToMetadata::find()
-                .filter(user_to_metadata::Column::UserId.eq(user_id.to_owned()))
-                .filter(user_to_metadata::Column::MetadataId.eq(metadata_id.to_owned()))
-                .one(db)
-                .await?;
-            meta.unwrap()
-        }
+        Err(_) => get_user_and_metadata_association(user_id, metadata_id, db)
+            .await
+            .unwrap(),
     })
 }
 

@@ -85,8 +85,8 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        user_id_from_token, MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK,
-        PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
+        AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -457,6 +457,8 @@ struct UserMediaDetails {
     media_details: GraphqlMediaDetails,
     /// The next episode of this media.
     next_episode: Option<UserMediaNextEpisode>,
+    /// Whether the user is monitoring this media.
+    is_monitored: bool,
 }
 
 #[derive(SimpleObject)]
@@ -1263,40 +1265,38 @@ impl MiscellaneousService {
             .iter()
             .find(|h| h.state == SeenState::InProgress)
             .cloned();
-        let next_episode = history
-            .first()
-            .and_then(|h| {
-                if let Some(s) = &media_details.show_specifics {
-                    let all_episodes = s
-                        .seasons
-                        .iter()
-                        .flat_map(|s| s.episodes.iter().map(|e| (e, s.season_number)))
-                        .collect_vec();
-                    let current = all_episodes.iter().position(|s| {
-                        s.0.episode_number == h.show_information.as_ref().unwrap().episode
-                            && s.1 == h.show_information.as_ref().unwrap().season
-                    });
-                    current
-                        .and_then(|i| {
-                            all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
-                                season_number: Some(ep.1),
-                                episode_number: Some(ep.0.episode_number),
-                            })
-                        })
-                } else if let Some(p) = &media_details.podcast_specifics {
-                    let current = p
-                        .episodes
-                        .iter()
-                        .position(|p| p.number == h.podcast_information.as_ref().unwrap().episode);
-                    current.map(|i| UserMediaNextEpisode {
-                        season_number: None,
-                        episode_number: p.episodes.get(i + 1).map(|e| e.number),
+        let next_episode = history.first().and_then(|h| {
+            if let Some(s) = &media_details.show_specifics {
+                let all_episodes = s
+                    .seasons
+                    .iter()
+                    .flat_map(|s| s.episodes.iter().map(|e| (e, s.season_number)))
+                    .collect_vec();
+                let current = all_episodes.iter().position(|s| {
+                    s.0.episode_number == h.show_information.as_ref().unwrap().episode
+                        && s.1 == h.show_information.as_ref().unwrap().season
+                });
+                current.and_then(|i| {
+                    all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
+                        season_number: Some(ep.1),
+                        episode_number: Some(ep.0.episode_number),
                     })
-                } else {
-                    None
-                }
-            });
+                })
+            } else if let Some(p) = &media_details.podcast_specifics {
+                let current = p
+                    .episodes
+                    .iter()
+                    .position(|p| p.number == h.podcast_information.as_ref().unwrap().episode);
+                current.map(|i| UserMediaNextEpisode {
+                    season_number: None,
+                    episode_number: p.episodes.get(i + 1).map(|e| e.number),
+                })
+            } else {
+                None
+            }
+        });
         let next_episode = next_episode.filter(|ne| ne.episode_number.is_some());
+        let is_monitored = self.get_monitored_status(user_id, metadata_id).await?;
         Ok(UserMediaDetails {
             collections,
             reviews,
@@ -1304,6 +1304,7 @@ impl MiscellaneousService {
             in_progress,
             media_details,
             next_episode,
+            is_monitored,
         })
     }
 
@@ -3764,6 +3765,20 @@ impl MiscellaneousService {
         metadata.monitored = ActiveValue::Set(new_monitored_value);
         metadata.save(&self.db).await?;
         Ok(new_monitored_value)
+    }
+
+    async fn get_monitored_status(
+        &self,
+        user_id: i32,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let metadata =
+            get_user_and_metadata_association(&user_id, &to_monitor_metadata_id, &self.db).await;
+        Ok(if let Some(m) = metadata {
+            m.monitored
+        } else {
+            false
+        })
     }
 }
 
