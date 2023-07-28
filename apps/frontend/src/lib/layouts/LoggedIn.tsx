@@ -345,12 +345,12 @@ export default function ({ children }: { children: ReactElement }) {
 						>
 							<Group>
 								<Image
-									src={"/icon-192x192.png"}
+									src={"/logo-light.png"}
 									height={40}
 									width={40}
 									radius={"md"}
 								/>
-								<Text size={"xl"} color="white" fw="bold">
+								<Text size={"xl"} color="white">
 									Ryot
 								</Text>
 							</Group>
