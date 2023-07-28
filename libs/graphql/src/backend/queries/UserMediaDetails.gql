@@ -1,0 +1,45 @@
+fragment SeenPart on Seen {
+  id
+  progress
+  state
+  startedOn
+  finishedOn
+  lastUpdatedOn
+  showInformation {
+    episode
+    season
+  }
+  podcastInformation {
+    episode
+  }
+}
+
+query UserMediaDetails($metadataId: Int!) {
+  userMediaDetails(metadataId: $metadataId) {
+    collections {
+      id
+      name
+    }
+    reviews {
+      id
+      rating
+      text
+      spoiler
+      visibility
+      showSeason
+      showEpisode
+      podcastEpisode
+      postedOn
+      postedBy {
+        id
+        name
+      }
+    }
+    history {
+      ...SeenPart
+    }
+    inProgress {
+      ...SeenPart
+    }
+  }
+}

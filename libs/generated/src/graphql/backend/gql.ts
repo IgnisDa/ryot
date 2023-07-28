@@ -49,17 +49,15 @@ const documents = {
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
     "query LatestUserSummary {\n  latestUserSummary {\n    createdOn\n    data {\n      media {\n        reviewsPosted\n        manga {\n          chapters\n          read\n        }\n        books {\n          pages\n          read\n        }\n        movies {\n          runtime\n          watched\n        }\n        anime {\n          episodes\n          watched\n        }\n        podcasts {\n          runtime\n          played\n          playedEpisodes\n        }\n        videoGames {\n          played\n        }\n        shows {\n          runtime\n          watchedEpisodes\n          watchedSeasons\n          watched\n        }\n        audioBooks {\n          runtime\n          played\n        }\n      }\n    }\n  }\n}": types.LatestUserSummaryDocument,
     "query MediaDetails($metadataId: Int!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    description\n    identifier\n    lot\n    source\n    creators {\n      name\n      role\n    }\n    posterImages\n    backdropImages\n    publishYear\n    publishDate\n    genres\n    sourceUrl\n    seenBy\n    animeSpecifics {\n      episodes\n    }\n    audioBookSpecifics {\n      runtime\n    }\n    bookSpecifics {\n      pages\n    }\n    movieSpecifics {\n      runtime\n    }\n    mangaSpecifics {\n      volumes\n      chapters\n    }\n    podcastSpecifics {\n      episodes {\n        title\n        overview\n        thumbnail\n        number\n        runtime\n      }\n      totalEpisodes\n    }\n    showSpecifics {\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n          runtime\n        }\n      }\n    }\n    videoGameSpecifics {\n      platforms\n    }\n  }\n}": types.MediaDetailsDocument,
-    "query MediaInCollections($metadataId: Int!) {\n  mediaInCollections(metadataId: $metadataId) {\n    id\n    name\n  }\n}": types.MediaInCollectionsDocument,
-    "query MediaItemReviews($metadataId: Int!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    spoiler\n    visibility\n    showSeason\n    showEpisode\n    podcastEpisode\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}": types.MediaItemReviewsDocument,
     "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    nextPage\n    items {\n      averageRating\n      data {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaListDocument,
     "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    total\n    nextPage\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}": types.MediaSourcesForLotDocument,
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query ReviewById($reviewId: Int!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n    showSeason\n    showEpisode\n    podcastEpisode\n  }\n}": types.ReviewByIdDocument,
-    "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    state\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}": types.SeenHistoryDocument,
     "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}": types.UserAuthTokensDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
     "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}": types.UserIntegrationsDocument,
+    "fragment SeenPart on Seen {\n  id\n  progress\n  state\n  startedOn\n  finishedOn\n  lastUpdatedOn\n  showInformation {\n    episode\n    season\n  }\n  podcastInformation {\n    episode\n  }\n}\n\nquery UserMediaDetails($metadataId: Int!) {\n  userMediaDetails(metadataId: $metadataId) {\n    collections {\n      id\n      name\n    }\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      showSeason\n      showEpisode\n      podcastEpisode\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n    history {\n      ...SeenPart\n    }\n    inProgress {\n      ...SeenPart\n    }\n  }\n}": types.SeenPartFragmentDoc,
     "query UserPreferences {\n  userPreferences {\n    featuresEnabled {\n      anime\n      audioBooks\n      books\n      manga\n      movies\n      podcasts\n      shows\n      videoGames\n    }\n  }\n}": types.UserPreferencesDocument,
     "query Users {\n  users {\n    id\n    name\n    lot\n  }\n}": types.UsersDocument,
 };
@@ -225,14 +223,6 @@ export function graphql(source: "query MediaDetails($metadataId: Int!) {\n  medi
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query MediaInCollections($metadataId: Int!) {\n  mediaInCollections(metadataId: $metadataId) {\n    id\n    name\n  }\n}"): (typeof documents)["query MediaInCollections($metadataId: Int!) {\n  mediaInCollections(metadataId: $metadataId) {\n    id\n    name\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "query MediaItemReviews($metadataId: Int!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    spoiler\n    visibility\n    showSeason\n    showEpisode\n    podcastEpisode\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}"): (typeof documents)["query MediaItemReviews($metadataId: Int!) {\n  mediaItemReviews(metadataId: $metadataId) {\n    id\n    rating\n    text\n    spoiler\n    visibility\n    showSeason\n    showEpisode\n    podcastEpisode\n    postedOn\n    postedBy {\n      id\n      name\n    }\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    nextPage\n    items {\n      averageRating\n      data {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}"): (typeof documents)["query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    total\n    nextPage\n    items {\n      averageRating\n      data {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -253,10 +243,6 @@ export function graphql(source: "query ReviewById($reviewId: Int!) {\n  reviewBy
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    state\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}"): (typeof documents)["query SeenHistory($metadataId: Int!) {\n  seenHistory(metadataId: $metadataId) {\n    id\n    progress\n    state\n    startedOn\n    finishedOn\n    lastUpdatedOn\n    showInformation {\n      episode\n      season\n    }\n    podcastInformation {\n      episode\n    }\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}"): (typeof documents)["query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -266,6 +252,10 @@ export function graphql(source: "query UserDetails {\n  userDetails {\n    __typ
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"): (typeof documents)["query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "fragment SeenPart on Seen {\n  id\n  progress\n  state\n  startedOn\n  finishedOn\n  lastUpdatedOn\n  showInformation {\n    episode\n    season\n  }\n  podcastInformation {\n    episode\n  }\n}\n\nquery UserMediaDetails($metadataId: Int!) {\n  userMediaDetails(metadataId: $metadataId) {\n    collections {\n      id\n      name\n    }\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      showSeason\n      showEpisode\n      podcastEpisode\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n    history {\n      ...SeenPart\n    }\n    inProgress {\n      ...SeenPart\n    }\n  }\n}"): (typeof documents)["fragment SeenPart on Seen {\n  id\n  progress\n  state\n  startedOn\n  finishedOn\n  lastUpdatedOn\n  showInformation {\n    episode\n    season\n  }\n  podcastInformation {\n    episode\n  }\n}\n\nquery UserMediaDetails($metadataId: Int!) {\n  userMediaDetails(metadataId: $metadataId) {\n    collections {\n      id\n      name\n    }\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      showSeason\n      showEpisode\n      podcastEpisode\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n    history {\n      ...SeenPart\n    }\n    inProgress {\n      ...SeenPart\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

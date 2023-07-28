@@ -443,6 +443,18 @@ struct ProgressUpdateCache {
     podcast_episode_number: Option<i32>,
 }
 
+#[derive(SimpleObject)]
+struct UserMediaDetails {
+    /// The collections in which this media is present.
+    collections: Vec<collection::Model>,
+    /// The public reviews of this media.
+    reviews: Vec<ReviewItem>,
+    /// The seen history of this media.
+    history: Vec<seen::Model>,
+    /// The seen item if it is in progress.
+    in_progress: Option<seen::Model>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -491,7 +503,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-
     /// Get all collections for the currently logged in user.
     async fn collections(
         &self,
@@ -502,7 +513,6 @@ impl MiscellaneousQuery {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.collections(&user_id, input).await
     }
-
 
     /// Get the contents of a collection and respect visibility.
     async fn collection_contents(
@@ -526,7 +536,6 @@ impl MiscellaneousQuery {
             .media_details(metadata_id)
             .await
     }
-
 
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
@@ -650,6 +659,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_auth_tokens(user_id).await
+    }
+
+    /// Get details that can be displayed to a user for a media.
+    async fn user_media_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+    ) -> Result<UserMediaDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_media_details(user_id, metadata_id).await
     }
 }
 
@@ -1224,7 +1244,18 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
+    async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
+        let collections = self.media_in_collections(user_id, metadata_id).await?;
+        let reviews = self.media_item_reviews(user_id, metadata_id).await?;
+        let history = self.seen_history(user_id, metadata_id).await?;
+        let in_progress = todo!("Calculate this");
+        Ok(UserMediaDetails {
+            collections,
+            reviews,
+            history,
+            in_progress,
+        })
+    }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
         let mut seen = Seen::find()
