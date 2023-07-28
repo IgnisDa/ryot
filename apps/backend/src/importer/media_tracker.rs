@@ -259,12 +259,10 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             }
         }
 
-        let num_pages = details
-            .number_of_pages
-            .and_then(|d| match d {
-                ItemNumberOfPages::Nothing(_) => None,
-                ItemNumberOfPages::Something(s) => Some(s),
-            });
+        let num_pages = details.number_of_pages.and_then(|d| match d {
+            ItemNumberOfPages::Nothing(_) => None,
+            ItemNumberOfPages::Something(s) => Some(s),
+        });
 
         let item = ImportOrExportItem {
             source_id: d.id.to_string(),
