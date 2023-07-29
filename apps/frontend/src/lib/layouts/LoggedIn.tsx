@@ -1,5 +1,5 @@
-import { useUserPreferences } from "../hooks/graphql";
 import { ROUTES } from "@/lib/constants";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
@@ -26,6 +26,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
 	UserDetailsDocument,
+	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/utilities";
 import {
@@ -195,7 +196,7 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
-	useQuery({
+	const userDetails = useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
 			const { userDetails } = await gqlClient.request(UserDetailsDocument);
@@ -317,15 +318,22 @@ export default function ({ children }: { children: ReactElement }) {
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
-							links={[
-								{ label: "Preferences", link: ROUTES.settings.preferences },
-								{ label: "Profile", link: ROUTES.settings.profile },
-								{ label: "Tokens", link: ROUTES.settings.tokens },
-								{ label: "Integrations", link: ROUTES.settings.integrations },
-								{ label: "Miscellaneous", link: ROUTES.settings.miscellaneous },
-								// FIXME: Display this to only admin users
-								{ label: "Users", link: ROUTES.settings.users },
-							]}
+							links={
+								[
+									{ label: "Preferences", link: ROUTES.settings.preferences },
+									{ label: "Profile", link: ROUTES.settings.profile },
+									{ label: "Integrations", link: ROUTES.settings.integrations },
+									{
+										label: "Miscellaneous",
+										link: ROUTES.settings.miscellaneous,
+									},
+									{ label: "Tokens", link: ROUTES.settings.tokens },
+									userDetails.data?.__typename === "User" &&
+									userDetails.data.lot === UserLot.Admin
+										? { label: "Users", link: ROUTES.settings.users }
+										: undefined,
+								].filter(Boolean) as any
+							}
 						/>
 					</Navbar.Section>
 					<Navbar.Section>
