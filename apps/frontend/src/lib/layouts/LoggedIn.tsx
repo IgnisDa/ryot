@@ -317,7 +317,7 @@ export default function ({ children }: { children: ReactElement }) {
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
-							href={ROUTES.settings}
+							links={[{ label: "Profile", link: ROUTES.settings.profile }]}
 						/>
 					</Navbar.Section>
 					<Navbar.Section>

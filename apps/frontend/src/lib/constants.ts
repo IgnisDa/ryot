@@ -4,7 +4,10 @@ export const ROUTES = {
 		login: "/auth/login",
 		register: "/auth/register",
 	},
-	settings: "/settings",
+	settings: {
+		main: "/settings",
+		profile: "/settings/profile",
+	},
 	imports: {
 		new: "/imports",
 		reports: "/imports/reports",
