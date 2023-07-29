@@ -8,6 +8,7 @@ import {
 	Container,
 	Flex,
 	Modal,
+	NumberInput,
 	Paper,
 	Select,
 	Stack,
@@ -25,7 +26,7 @@ import {
 	UserNotificationPlatformLot,
 	UserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatTimeAgo } from "@ryot/utilities";
+import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -174,7 +175,9 @@ const Page: NextPageWithLayout = () => {
 										label="Select a platform"
 										required
 										withinPortal
-										data={Object.values(UserNotificationPlatformLot)}
+										data={Object.values(UserNotificationPlatformLot).map(
+											(v) => ({ label: changeCase(v), value: v }),
+										)}
 										onChange={(v) => {
 											const t = match(v)
 												.with(
@@ -202,24 +205,97 @@ const Page: NextPageWithLayout = () => {
 											if (t) setCreateUserNotificationPlatformLot(t);
 										}}
 									/>
-									{createUserNotificationPlatformLot ? (
-										<>
-											<TextInput
-												label="Base Url"
-												required
-												{...createUserNotificationPlatformForm.getInputProps(
-													"baseUrl",
-												)}
-											/>
-											<TextInput
-												label="Token"
-												required
-												{...createUserNotificationPlatformForm.getInputProps(
-													"apiToken",
-												)}
-											/>
-										</>
-									) : null}
+									{createUserNotificationPlatformLot
+										? match(createUserNotificationPlatformLot)
+												.with(UserNotificationPlatformLot.Discord, () => (
+													<>
+														<TextInput
+															label="Base Url"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+													</>
+												))
+												.with(UserNotificationPlatformLot.Gotify, () => (
+													<>
+														<TextInput
+															label="Base Url"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+														<TextInput
+															label="Token"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"apiToken",
+															)}
+														/>
+														<NumberInput
+															label="Priority"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"priority",
+															)}
+														/>
+													</>
+												))
+												.with(UserNotificationPlatformLot.Ntfy, () => (
+													<>
+														<TextInput
+															label="Base Url"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+														<NumberInput
+															label="Priority"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"priority",
+															)}
+														/>
+													</>
+												))
+												.with(UserNotificationPlatformLot.PushBullet, () => (
+													<>
+														<TextInput
+															label="Token"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"apiToken",
+															)}
+														/>
+													</>
+												))
+												.with(UserNotificationPlatformLot.PushOver, () => (
+													<>
+														<TextInput
+															label="Key"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"apiToken",
+															)}
+														/>
+													</>
+												))
+												.with(UserNotificationPlatformLot.PushSafer, () => (
+													<>
+														<TextInput
+															label="Key"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"apiToken",
+															)}
+														/>
+													</>
+												))
+												.exhaustive()
+										: null}
 									<Button
 										type="submit"
 										loading={createUserNotificationPlatform.isLoading}
