@@ -976,6 +976,19 @@ impl MiscellaneousMutation {
             .await
     }
 
+    /// Test a notification platform for the currently logged in user.
+    async fn test_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        notification_id: usize,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .test_user_notification_platform(user_id, notification_id)
+            .await
+    }
+
     /// Delete a notification platform for the currently logged in user.
     async fn delete_user_notification_platform(
         &self,
@@ -3512,16 +3525,29 @@ impl MiscellaneousService {
             },
         };
 
-        new_notification
-            .settings
-            .send_message(format!("This is a test message."))
-            .await?;
-
         notifications.push(new_notification);
         let mut user: user::ActiveModel = user.into();
         user.notifications = ActiveValue::Set(UserNotifications(notifications));
         user.update(&self.db).await?;
         Ok(new_notification_id)
+    }
+
+    async fn test_user_notification_platform(
+        &self,
+        user_id: i32,
+        notification_id: usize,
+    ) -> Result<bool> {
+        let user = self.user_by_id(user_id).await?;
+        let notifications = user.notifications.clone().0;
+        let notification = notifications.into_iter().find(|i| i.id == notification_id);
+        if let Some(nt) = notification {
+            nt.settings
+                .send_message(format!("Test notification message triggered."))
+                .await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     async fn delete_user_notification_platform(

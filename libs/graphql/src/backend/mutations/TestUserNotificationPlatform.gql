@@ -1,0 +1,3 @@
+mutation TestUserNotificationPlatform($notificationId: Int!) {
+  testUserNotificationPlatform(notificationId: $notificationId)
+}

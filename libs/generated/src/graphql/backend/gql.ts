@@ -38,6 +38,7 @@ const documents = {
     "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
     "mutation RemoveMediaFromCollection($metadataId: Int!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}": types.RemoveMediaFromCollectionDocument,
+    "mutation TestUserNotificationPlatform($notificationId: Int!) {\n  testUserNotificationPlatform(notificationId: $notificationId)\n}": types.TestUserNotificationPlatformDocument,
     "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}": types.ToggleMediaMonitorDocument,
     "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
@@ -181,6 +182,10 @@ export function graphql(source: "mutation RegisterUser($input: UserInput!) {\n  
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation RemoveMediaFromCollection($metadataId: Int!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}"): (typeof documents)["mutation RemoveMediaFromCollection($metadataId: Int!, $collectionName: String!) {\n  removeMediaFromCollection(\n    metadataId: $metadataId\n    collectionName: $collectionName\n  ) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation TestUserNotificationPlatform($notificationId: Int!) {\n  testUserNotificationPlatform(notificationId: $notificationId)\n}"): (typeof documents)["mutation TestUserNotificationPlatform($notificationId: Int!) {\n  testUserNotificationPlatform(notificationId: $notificationId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
