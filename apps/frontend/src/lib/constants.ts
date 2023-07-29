@@ -5,8 +5,12 @@ export const ROUTES = {
 		register: "/auth/register",
 	},
 	settings: {
-		main: "/settings",
 		profile: "/settings/profile",
+		preferences: "/settings/preferences",
+		tokens: "/settings/tokens",
+		integrations: "/settings/integrations",
+		miscellaneous: "/settings/miscellaneous",
+		users: "/settings/users",
 	},
 	imports: {
 		new: "/imports",

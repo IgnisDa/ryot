@@ -317,7 +317,15 @@ export default function ({ children }: { children: ReactElement }) {
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
-							links={[{ label: "Profile", link: ROUTES.settings.profile }]}
+							links={[
+								{ label: "Preferences", link: ROUTES.settings.preferences },
+								{ label: "Profile", link: ROUTES.settings.profile },
+								{ label: "Tokens", link: ROUTES.settings.tokens },
+								{ label: "Integrations", link: ROUTES.settings.integrations },
+								{ label: "Miscellaneous", link: ROUTES.settings.miscellaneous },
+								// FIXME: Display this to only admin users
+								{ label: "Users", link: ROUTES.settings.users },
+							]}
 						/>
 					</Navbar.Section>
 					<Navbar.Section>
