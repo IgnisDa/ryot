@@ -65,6 +65,18 @@ impl UserNotificationSetting {
                 .await
                 .map_err(|e| anyhow!(e))?;
             }
+            Self::PushBullet { api_token } => {
+                surf::post("https://api.pushbullet.com/v2/pushes")
+                    .header("Access-Token", api_token)
+                    .body_json(&serde_json::json!({
+                        "body": msg,
+                        "title": project_name,
+                        "type": "note"
+                    }))
+                    .unwrap()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            }
             _ => todo!(),
         }
         Ok(())
