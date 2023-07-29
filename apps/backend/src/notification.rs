@@ -9,12 +9,13 @@ use crate::{
 impl UserNotificationSetting {
     // TODO: Allow formatting messages
     pub async fn send_message(&self, msg: String) -> Result<()> {
+        let project_name = PROJECT_NAME.to_case(Case::Title);
         match self {
             Self::Discord { url } => {
                 surf::post(url)
                     .body_json(&serde_json::json!({
                         "content": msg,
-                        "username": PROJECT_NAME.to_case(Case::Title),
+                        "username": project_name,
                         "avatar_url": AVATAR_URL
                     }))
                     .unwrap()
@@ -30,7 +31,7 @@ impl UserNotificationSetting {
                     .header("X-Gotify-Key", token)
                     .body_json(&serde_json::json!({
                         "message": msg,
-                        "title": "Update",
+                        "title": project_name,
                         "priority": priority.unwrap_or(5),
                         "extras": {
                             "client::notification": {
@@ -41,6 +42,28 @@ impl UserNotificationSetting {
                     .unwrap()
                     .await
                     .map_err(|e| anyhow!(e))?;
+            }
+            Self::Ntfy {
+                url,
+                priority,
+                topic,
+            } => {
+                surf::post(format!(
+                    "{}/{}",
+                    url.clone().unwrap_or_else(|| "https://ntfy.sh".to_owned()),
+                    topic
+                ))
+                .header("Title", project_name)
+                .header("Attach", AVATAR_URL)
+                .header(
+                    "Priority",
+                    priority
+                        .map(|p| p.to_string())
+                        .unwrap_or_else(|| "3".to_owned()),
+                )
+                .body_string(msg)
+                .await
+                .map_err(|e| anyhow!(e))?;
             }
             _ => todo!(),
         }

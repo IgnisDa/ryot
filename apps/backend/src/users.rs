@@ -119,6 +119,7 @@ pub enum UserNotificationSetting {
     },
     Ntfy {
         url: Option<String>,
+        topic: String,
         priority: Option<i32>,
     },
     PushBullet {

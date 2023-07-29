@@ -3369,8 +3369,8 @@ impl MiscellaneousService {
                 UserNotificationSetting::Gotify { url, token, .. } => {
                     format!("Gotify URL: {}, Token: {}", url, token)
                 }
-                UserNotificationSetting::Ntfy { url, .. } => {
-                    format!("Ntfy URL: {:?}", url)
+                UserNotificationSetting::Ntfy { url, topic, .. } => {
+                    format!("Ntfy URL: {:?}, Topic: {}", url, topic)
                 }
                 UserNotificationSetting::PushBullet { api_token } => {
                     format!("Pushbullet API Token: {}", api_token)
@@ -3511,6 +3511,7 @@ impl MiscellaneousService {
                 },
                 UserNotificationPlatformLot::Ntfy => UserNotificationSetting::Ntfy {
                     url: input.base_url,
+                    topic: input.api_token.unwrap(),
                     priority: input.priority,
                 },
                 UserNotificationPlatformLot::PushBullet => UserNotificationSetting::PushBullet {
