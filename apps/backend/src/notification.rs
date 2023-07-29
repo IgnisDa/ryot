@@ -77,6 +77,18 @@ impl UserNotificationSetting {
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
+            Self::PushOver { key } => {
+                surf::post("https://api.pushover.net/1/messages.json")
+                    .query(&serde_json::json!({
+                        "token": "abd1semr21hv1i5j5kfkm23wf1kd4u",
+                        "user": key,
+                        "message": msg,
+                        "title": project_name
+                    }))
+                    .unwrap()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            }
             _ => todo!(),
         }
         Ok(())
