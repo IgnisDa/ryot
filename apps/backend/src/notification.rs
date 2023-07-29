@@ -89,7 +89,17 @@ impl UserNotificationSetting {
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
-            _ => todo!(),
+            Self::PushSafer { key } => {
+                surf::post("https://www.pushsafer.com/api")
+                    .query(&serde_json::json!({
+                        "k": key,
+                        "m": msg,
+                        "t": project_name
+                    }))
+                    .unwrap()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            }
         }
         Ok(())
     }
