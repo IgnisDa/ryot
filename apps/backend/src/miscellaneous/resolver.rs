@@ -140,16 +140,29 @@ struct CreateUserYankIntegrationInput {
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserNotificationLot {
+enum UserNotificationPlatformLot {
+    Discord,
+    Gotify,
+    Ntfy,
     PushBullet,
+    PushOver,
+    PushSafer,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlUserNotificationPlatform {
+    id: usize,
+    description: String,
+    timestamp: DateTimeUtc,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserNotificationPlatformInput {
-    lot: UserNotificationLot,
+    lot: UserNotificationPlatformLot,
     base_url: Option<String>,
     #[graphql(secret)]
     api_token: Option<String>,
+    priority: Option<i32>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -680,6 +693,16 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_integrations(user_id).await
+    }
+
+    /// Get all the notification platforms for the currently logged in user.
+    async fn user_notification_platforms(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_notification_platforms(user_id).await
     }
 
     /// Get all the auth tokens issued to the currently logged in user.
@@ -3318,6 +3341,43 @@ impl MiscellaneousService {
         Ok(all_integrations)
     }
 
+    async fn user_notification_platforms(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
+        let user = self.user_by_id(user_id).await?;
+        let mut all_notifications = vec![];
+        let notifications = user.notifications.0;
+        notifications.into_iter().for_each(|n| {
+            let description = match n.settings {
+                UserNotificationSetting::Discord { url } => {
+                    format!("Discord webhook: {}", url)
+                }
+                UserNotificationSetting::Gotify { url, token, .. } => {
+                    format!("Gotify URL: {}, token: {}", url, token)
+                }
+                UserNotificationSetting::Ntfy { url, .. } => {
+                    format!("Ntfy URL: {:?}", url)
+                }
+                UserNotificationSetting::PushBullet { api_token } => {
+                    format!("Pushbullet API token: {}", api_token)
+                }
+                UserNotificationSetting::PushOver { key } => {
+                    format!("PushOver key: {}", key)
+                }
+                UserNotificationSetting::PushSafer { key } => {
+                    format!("PushSafer key: {}", key)
+                }
+            };
+            all_notifications.push(GraphqlUserNotificationPlatform {
+                id: n.id,
+                description,
+                timestamp: n.timestamp,
+            })
+        });
+        Ok(all_notifications)
+    }
+
     async fn create_user_sink_integration(
         &self,
         user_id: i32,
@@ -3426,9 +3486,28 @@ impl MiscellaneousService {
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
             id: new_notification_id,
+            timestamp: Utc::now(),
             settings: match input.lot {
-                UserNotificationLot::PushBullet => UserNotificationSetting::PushBullet {
+                UserNotificationPlatformLot::Discord => UserNotificationSetting::Discord {
+                    url: input.base_url.unwrap(),
+                },
+                UserNotificationPlatformLot::Gotify => UserNotificationSetting::Gotify {
+                    url: input.base_url.unwrap(),
+                    token: input.api_token.unwrap(),
+                    priority: input.priority,
+                },
+                UserNotificationPlatformLot::Ntfy => UserNotificationSetting::Ntfy {
+                    url: input.base_url,
+                    priority: input.priority,
+                },
+                UserNotificationPlatformLot::PushBullet => UserNotificationSetting::PushBullet {
                     api_token: input.api_token.unwrap(),
+                },
+                UserNotificationPlatformLot::PushOver => UserNotificationSetting::PushOver {
+                    key: input.api_token.unwrap(),
+                },
+                UserNotificationPlatformLot::PushSafer => UserNotificationSetting::PushSafer {
+                    key: input.api_token.unwrap(),
                 },
             },
         };

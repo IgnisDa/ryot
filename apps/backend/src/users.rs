@@ -136,6 +136,8 @@ pub enum UserNotificationSetting {
 pub struct UserNotification {
     pub id: usize,
     pub settings: UserNotificationSetting,
+    /// the date and time it was added on
+    pub timestamp: DateTimeUtc,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
