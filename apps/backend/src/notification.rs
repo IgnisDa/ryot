@@ -21,6 +21,27 @@ impl UserNotificationSetting {
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
+            Self::Gotify {
+                url,
+                token,
+                priority,
+            } => {
+                surf::post(format!("{}/message", url))
+                    .header("X-Gotify-Key", token)
+                    .body_json(&serde_json::json!({
+                        "message": msg,
+                        "title": "Update",
+                        "priority": priority.unwrap_or(5),
+                        "extras": {
+                            "client::notification": {
+                              "bigImageUrl": AVATAR_URL
+                            }
+                         }
+                    }))
+                    .unwrap()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            }
             _ => todo!(),
         }
         Ok(())

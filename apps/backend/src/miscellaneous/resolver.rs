@@ -3367,19 +3367,19 @@ impl MiscellaneousService {
                     format!("Discord webhook: {}", url)
                 }
                 UserNotificationSetting::Gotify { url, token, .. } => {
-                    format!("Gotify URL: {}, token: {}", url, token)
+                    format!("Gotify URL: {}, Token: {}", url, token)
                 }
                 UserNotificationSetting::Ntfy { url, .. } => {
                     format!("Ntfy URL: {:?}", url)
                 }
                 UserNotificationSetting::PushBullet { api_token } => {
-                    format!("Pushbullet API token: {}", api_token)
+                    format!("Pushbullet API Token: {}", api_token)
                 }
                 UserNotificationSetting::PushOver { key } => {
-                    format!("PushOver key: {}", key)
+                    format!("PushOver Key: {}", key)
                 }
                 UserNotificationSetting::PushSafer { key } => {
-                    format!("PushSafer key: {}", key)
+                    format!("PushSafer Key: {}", key)
                 }
             };
             all_notifications.push(GraphqlUserNotificationPlatform {
