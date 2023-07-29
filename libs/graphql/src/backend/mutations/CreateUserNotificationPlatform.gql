@@ -1,0 +1,3 @@
+mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {
+  createUserNotificationPlatform(input: $input)
+}
