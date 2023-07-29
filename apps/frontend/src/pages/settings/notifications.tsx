@@ -8,6 +8,7 @@ import {
 	Button,
 	Container,
 	Flex,
+	Group,
 	Modal,
 	NumberInput,
 	Paper,
@@ -19,16 +20,19 @@ import {
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CreateUserNotificationPlatformDocument,
 	type CreateUserNotificationPlatformMutationVariables,
 	DeleteUserNotificationPlatformDocument,
 	type DeleteUserNotificationPlatformMutationVariables,
+	TestUserNotificationPlatformDocument,
+	type TestUserNotificationPlatformMutationVariables,
 	UserNotificationPlatformLot,
 	UserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
-import { IconTrash } from "@tabler/icons-react";
+import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -87,6 +91,30 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const testUserNotificationPlatform = useMutation({
+		mutationFn: async (
+			variables: TestUserNotificationPlatformMutationVariables,
+		) => {
+			const { testUserNotificationPlatform } = await gqlClient.request(
+				TestUserNotificationPlatformDocument,
+				variables,
+			);
+			return testUserNotificationPlatform;
+		},
+		onSuccess: (data) => {
+			if (data)
+				notifications.show({
+					color: "green",
+					message: "Please check your notification platform",
+				});
+			else
+				notifications.show({
+					color: "red",
+					message: "Error in sending notification",
+				});
+		},
+	});
+
 	const deleteUserNotificationPlatform = useMutation({
 		mutationFn: async (
 			variables: DeleteUserNotificationPlatformMutationVariables,
@@ -120,21 +148,34 @@ const Page: NextPageWithLayout = () => {
 										</Text>
 										<Text size="xs">{formatTimeAgo(notif.timestamp)}</Text>
 									</Box>
-									<ActionIcon
-										color="red"
-										variant="outline"
-										onClick={() => {
-											const yes = confirm(
-												"Are you sure you want to delete this notification platform?",
-											);
-											if (yes)
-												deleteUserNotificationPlatform.mutate({
+									<Group>
+										<ActionIcon
+											color="green"
+											variant="outline"
+											onClick={() => {
+												testUserNotificationPlatform.mutate({
 													notificationId: notif.id,
 												});
-										}}
-									>
-										<IconTrash size="1rem" />
-									</ActionIcon>
+											}}
+										>
+											<IconPlayerPlay size="1rem" />
+										</ActionIcon>
+										<ActionIcon
+											color="red"
+											variant="outline"
+											onClick={() => {
+												const yes = confirm(
+													"Are you sure you want to delete this notification platform?",
+												);
+												if (yes)
+													deleteUserNotificationPlatform.mutate({
+														notificationId: notif.id,
+													});
+											}}
+										>
+											<IconTrash size="1rem" />
+										</ActionIcon>
+									</Group>
 								</Flex>
 							</Paper>
 						))
