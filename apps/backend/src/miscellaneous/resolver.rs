@@ -3511,6 +3511,12 @@ impl MiscellaneousService {
                 },
             },
         };
+
+        new_notification
+            .settings
+            .send_message(format!("This is a test message."))
+            .await?;
+
         notifications.push(new_notification);
         let mut user: user::ActiveModel = user.into();
         user.notifications = ActiveValue::Set(UserNotifications(notifications));

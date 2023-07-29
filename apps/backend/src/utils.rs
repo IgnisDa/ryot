@@ -49,6 +49,8 @@ pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
 pub const DOCS_LINK: &str = "https://ignisda.github.io/ryot";
 pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
+pub const AVATAR_URL: &str =
+    "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 
 // TODO: Explore whether it would be possible to create a global variable which
 // contains this service and can be accessed in a thread-safe way.

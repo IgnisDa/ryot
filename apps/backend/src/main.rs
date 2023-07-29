@@ -64,6 +64,7 @@ mod integrations;
 mod migrator;
 mod miscellaneous;
 mod models;
+mod notification;
 mod providers;
 mod routes;
 mod traits;
