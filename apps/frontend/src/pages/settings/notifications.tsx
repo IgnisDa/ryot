@@ -3,6 +3,7 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	ActionIcon,
 	Box,
 	Button,
 	Container,
@@ -27,6 +28,7 @@ import {
 	UserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
+import { IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -108,16 +110,17 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack>
 					<Title>Notifications settings</Title>
-
 					{userNotificationPlatform.data.length > 0 ? (
 						userNotificationPlatform.data.map((notif, idx) => (
 							<Paper p="xs" withBorder key={idx}>
 								<Flex align={"center"} justify={"space-between"}>
-									<Box>
-										<Text size="xs">{notif.description}</Text>
+									<Box w="80%">
+										<Text size="xs" lineClamp={1}>
+											{notif.description}
+										</Text>
 										<Text size="xs">{formatTimeAgo(notif.timestamp)}</Text>
 									</Box>
-									<Button
+									<ActionIcon
 										color="red"
 										variant="outline"
 										onClick={() => {
@@ -130,8 +133,8 @@ const Page: NextPageWithLayout = () => {
 												});
 										}}
 									>
-										Delete
-									</Button>
+										<IconTrash size="1rem" />
+									</ActionIcon>
 								</Flex>
 							</Paper>
 						))
