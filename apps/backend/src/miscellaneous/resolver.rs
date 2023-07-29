@@ -145,7 +145,7 @@ enum UserNotificationLot {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserNotificationInput {
+struct CreateUserNotificationPlatformInput {
     lot: UserNotificationLot,
     base_url: Option<String>,
     #[graphql(secret)]
@@ -926,17 +926,6 @@ impl MiscellaneousMutation {
         service.create_user_yank_integration(user_id, input).await
     }
 
-    /// Add a notification platform for the currently logged in user.
-    async fn create_user_notification(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserNotificationInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_notification(user_id, input).await
-    }
-
     /// Delete an integration for the currently logged in user.
     async fn delete_user_integration(
         &self,
@@ -948,6 +937,32 @@ impl MiscellaneousMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
             .delete_user_integration(user_id, integration_id, integration_lot)
+            .await
+    }
+
+    /// Add a notification platform for the currently logged in user.
+    async fn create_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserNotificationPlatformInput,
+    ) -> Result<usize> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .create_user_notification_platform(user_id, input)
+            .await
+    }
+
+    /// Delete a notification platform for the currently logged in user.
+    async fn delete_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        notification_id: usize,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .delete_user_notification_platform(user_id, notification_id)
             .await
     }
 
@@ -3361,29 +3376,6 @@ impl MiscellaneousService {
         Ok(new_integration_id)
     }
 
-    async fn create_user_notification(
-        &self,
-        user_id: i32,
-        input: CreateUserNotificationInput,
-    ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
-        let mut notifications = user.notifications.clone().0;
-        let new_notification_id = notifications.len() + 1;
-        let new_notification = UserNotification {
-            id: new_notification_id,
-            settings: match input.lot {
-                UserNotificationLot::PushBullet => UserNotificationSetting::PushBullet {
-                    api_token: input.api_token.unwrap(),
-                },
-            },
-        };
-        notifications.push(new_notification);
-        let mut user: user::ActiveModel = user.into();
-        user.notifications = ActiveValue::Set(UserNotifications(notifications));
-        user.update(&self.db).await?;
-        Ok(new_notification_id)
-    }
-
     async fn delete_user_integration(
         &self,
         user_id: i32,
@@ -3420,6 +3412,47 @@ impl MiscellaneousService {
                 user_db.sink_integrations = ActiveValue::Set(update_value);
             }
         };
+        user_db.update(&self.db).await?;
+        Ok(true)
+    }
+
+    async fn create_user_notification_platform(
+        &self,
+        user_id: i32,
+        input: CreateUserNotificationPlatformInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut notifications = user.notifications.clone().0;
+        let new_notification_id = notifications.len() + 1;
+        let new_notification = UserNotification {
+            id: new_notification_id,
+            settings: match input.lot {
+                UserNotificationLot::PushBullet => UserNotificationSetting::PushBullet {
+                    api_token: input.api_token.unwrap(),
+                },
+            },
+        };
+        notifications.push(new_notification);
+        let mut user: user::ActiveModel = user.into();
+        user.notifications = ActiveValue::Set(UserNotifications(notifications));
+        user.update(&self.db).await?;
+        Ok(new_notification_id)
+    }
+
+    async fn delete_user_notification_platform(
+        &self,
+        user_id: i32,
+        notification_id: usize,
+    ) -> Result<bool> {
+        let user = self.user_by_id(user_id).await?;
+        let mut user_db: user::ActiveModel = user.clone().into();
+        let notifications = user.notifications.clone().0;
+        let remaining_notifications = notifications
+            .into_iter()
+            .filter(|i| i.id != notification_id)
+            .collect_vec();
+        let update_value = UserNotifications(remaining_notifications);
+        user_db.notifications = ActiveValue::Set(update_value);
         user_db.update(&self.db).await?;
         Ok(true)
     }
