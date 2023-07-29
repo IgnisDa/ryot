@@ -14,6 +14,7 @@ import {
 	Image,
 	MediaQuery,
 	Navbar,
+	ScrollArea,
 	Text,
 	ThemeIcon,
 	UnstyledButton,
@@ -303,7 +304,7 @@ export default function ({ children }: { children: ReactElement }) {
 							/>
 						</Flex>
 					</MediaQuery>
-					<Navbar.Section grow>
+					<Navbar.Section grow component={ScrollArea}>
 						<LinksGroup label="Home" icon={IconHome2} href={ROUTES.dashboard} />
 						<LinksGroup
 							label="Media"
