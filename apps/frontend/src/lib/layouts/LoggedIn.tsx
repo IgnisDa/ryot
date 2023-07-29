@@ -325,6 +325,10 @@ export default function ({ children }: { children: ReactElement }) {
 									{ label: "Profile", link: ROUTES.settings.profile },
 									{ label: "Integrations", link: ROUTES.settings.integrations },
 									{
+										label: "Notifications",
+										link: ROUTES.settings.notifications,
+									},
+									{
 										label: "Miscellaneous",
 										link: ROUTES.settings.miscellaneous,
 									},

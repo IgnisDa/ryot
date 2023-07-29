@@ -9,6 +9,7 @@ export const ROUTES = {
 		preferences: "/settings/preferences",
 		tokens: "/settings/tokens",
 		integrations: "/settings/integrations",
+		notifications: "/settings/notifications",
 		miscellaneous: "/settings/miscellaneous",
 		users: "/settings/users",
 	},
