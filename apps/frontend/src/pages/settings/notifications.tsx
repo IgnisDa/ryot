@@ -17,6 +17,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
@@ -149,32 +150,36 @@ const Page: NextPageWithLayout = () => {
 										<Text size="xs">{formatTimeAgo(notif.timestamp)}</Text>
 									</Box>
 									<Group>
-										<ActionIcon
-											color="green"
-											variant="outline"
-											onClick={() => {
-												testUserNotificationPlatform.mutate({
-													notificationId: notif.id,
-												});
-											}}
-										>
-											<IconPlayerPlay size="1rem" />
-										</ActionIcon>
-										<ActionIcon
-											color="red"
-											variant="outline"
-											onClick={() => {
-												const yes = confirm(
-													"Are you sure you want to delete this notification platform?",
-												);
-												if (yes)
-													deleteUserNotificationPlatform.mutate({
+										<Tooltip label="Send test notification">
+											<ActionIcon
+												color="green"
+												variant="outline"
+												onClick={() => {
+													testUserNotificationPlatform.mutate({
 														notificationId: notif.id,
 													});
-											}}
-										>
-											<IconTrash size="1rem" />
-										</ActionIcon>
+												}}
+											>
+												<IconPlayerPlay size="1rem" />
+											</ActionIcon>
+										</Tooltip>
+										<Tooltip label="Delete">
+											<ActionIcon
+												color="red"
+												variant="outline"
+												onClick={() => {
+													const yes = confirm(
+														"Are you sure you want to delete this notification platform?",
+													);
+													if (yes)
+														deleteUserNotificationPlatform.mutate({
+															notificationId: notif.id,
+														});
+												}}
+											>
+												<IconTrash size="1rem" />
+											</ActionIcon>
+										</Tooltip>
 									</Group>
 								</Flex>
 							</Paper>
