@@ -133,11 +133,11 @@ const Page: NextPageWithLayout = () => {
 	return userNotificationPlatform.data ? (
 		<>
 			<Head>
-				<title>Notifications Settings | Ryot</title>
+				<title>Notification Settings | Ryot</title>
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Title>Notifications settings</Title>
+					<Title>Notification settings</Title>
 					{userNotificationPlatform.data.length > 0 ? (
 						userNotificationPlatform.data.map((notif, idx) => (
 							<Paper p="xs" withBorder key={idx}>
@@ -280,7 +280,6 @@ const Page: NextPageWithLayout = () => {
 														/>
 														<NumberInput
 															label="Priority"
-															required
 															{...createUserNotificationPlatformForm.getInputProps(
 																"priority",
 															)}
@@ -290,15 +289,20 @@ const Page: NextPageWithLayout = () => {
 												.with(UserNotificationPlatformLot.Ntfy, () => (
 													<>
 														<TextInput
-															label="Base Url"
+															label="Topic"
 															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"apiToken",
+															)}
+														/>
+														<TextInput
+															label="Base Url"
 															{...createUserNotificationPlatformForm.getInputProps(
 																"baseUrl",
 															)}
 														/>
 														<NumberInput
 															label="Priority"
-															required
 															{...createUserNotificationPlatformForm.getInputProps(
 																"priority",
 															)}
