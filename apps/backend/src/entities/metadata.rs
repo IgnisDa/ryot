@@ -81,4 +81,13 @@ impl Related<super::collection::Entity> for Entity {
     }
 }
 
+impl Related<super::creator::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::metadata_to_creator::Relation::Creator.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::metadata_to_creator::Relation::Metadata.def().rev())
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}
