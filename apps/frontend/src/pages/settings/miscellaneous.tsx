@@ -66,7 +66,7 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			notifications.show({
 				title: "Success",
-				message: "Progress data has been syncronized successfully",
+				message: "Progress data has been synchronized successfully",
 				color: "green",
 			});
 		},
