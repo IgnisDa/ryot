@@ -174,26 +174,28 @@ const Page: NextPageWithLayout = () => {
 					) : (
 						<Text>No notification platforms configured</Text>
 					)}
-					<Box ml="auto">
-						<Group>
-							{userNotificationPlatform.data.length > 0 ? (
+					<Box>
+						<Flex justify={"end"}>
+							<Group>
+								{userNotificationPlatform.data.length > 0 ? (
+									<Button
+										size="xs"
+										variant="light"
+										color="green"
+										onClick={() => testUserNotificationPlatforms.mutate({})}
+									>
+										Trigger test notifications
+									</Button>
+								) : null}
 								<Button
 									size="xs"
 									variant="light"
-									color="green"
-									onClick={() => testUserNotificationPlatforms.mutate({})}
+									onClick={openCreateUserNotificationPlatformModal}
 								>
-									Trigger test notifications
+									Add notification platform
 								</Button>
-							) : null}
-							<Button
-								size="xs"
-								variant="light"
-								onClick={openCreateUserNotificationPlatformModal}
-							>
-								Add new notification platform
-							</Button>
-						</Group>
+							</Group>
+						</Flex>
 						<Modal
 							opened={createUserNotificationPlatformModalOpened}
 							onClose={closeCreateUserNotificationPlatformModal}
