@@ -2005,6 +2005,8 @@ impl MiscellaneousService {
         creators: Vec<MetadataCreator>,
         specifics: MediaSpecifics,
         genres: Vec<String>,
+        production_status: String,
+        publish_year: Option<i32>,
     ) -> Result<()> {
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
@@ -2017,6 +2019,8 @@ impl MiscellaneousService {
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.creators = ActiveValue::Set(MetadataCreators(creators));
+        meta.production_status = ActiveValue::Set(production_status);
+        meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
         for genre in genres {
@@ -2747,6 +2751,8 @@ impl MiscellaneousService {
                     details.creators,
                     details.specifics,
                     details.genres,
+                    details.production_status,
+                    details.publish_year,
                 )
                 .await
                 .ok();
