@@ -4066,6 +4066,19 @@ impl MiscellaneousService {
             }
         }
 
+        let monitored_media = UserToMetadata::find()
+            .filter(user_to_metadata::Column::Monitored.eq(true))
+            .all(&self.db)
+            .await?;
+        for meta in monitored_media {
+            meta_map
+                .entry(meta.metadata_id)
+                .and_modify(|e| {
+                    e.insert(meta.user_id);
+                })
+                .or_insert(HashSet::from_iter([meta.user_id]));
+        }
+
         for (meta, users) in meta_map {
             let notifications = self.update_metadata(meta).await?;
             for user in users {
