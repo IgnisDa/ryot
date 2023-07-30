@@ -27,10 +27,7 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn general_media_cleanup_jobs(
-    _information: ScheduledJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
+pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Invalidating invalid media import jobs");
     ctx.data::<Arc<ImporterService>>()
         .unwrap()
@@ -38,18 +35,20 @@ pub async fn general_media_cleanup_jobs(
         .await
         .unwrap();
     tracing::trace!("Cleaning up media items without associated user activities");
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
+    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    service
         .cleanup_metadata_with_associated_user_activities()
+        .await
+        .unwrap();
+    tracing::trace!("Checking for updates for media in Watchlist");
+    service
+        .update_watchlist_media_and_send_notifications()
         .await
         .unwrap();
     Ok(())
 }
 
-pub async fn general_user_cleanup(
-    _information: ScheduledJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
+pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Cleaning up user and metadata association");
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
@@ -173,7 +172,7 @@ pub async fn update_metadata_job(
 ) -> Result<(), JobError> {
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
-        .update_metadata(information.metadata)
+        .update_metadata(information.metadata.id)
         .await
         .unwrap();
     Ok(())
