@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    iter::zip,
     sync::Arc,
 };
 
@@ -977,10 +978,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .send_notifications_to_user_platforms(
-                user_id,
-                format!("Test notification message triggered."),
-            )
+            .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
             .await
     }
 
@@ -1977,7 +1975,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
-    ) -> Result<()> {
+    ) -> Result<Vec<String>> {
         let mut notifications = vec![];
 
         let meta = Metadata::find_by_id(metadata_id)
@@ -1993,11 +1991,34 @@ impl MiscellaneousService {
             ));
         }
 
-        if meta.publish_year != publish_year {
-            notifications.push(format!(
-                "Publish year from {:#?} to {:#?}",
-                meta.publish_year, publish_year
-            ));
+        if let (Some(p1), Some(p2)) = (meta.publish_year, publish_year) {
+            if p1 != p2 {
+                notifications.push(format!("Publish year from {:#?} to {:#?}", p1, p2));
+            }
+        }
+
+        match (&meta.specifics, &specifics) {
+            (MediaSpecifics::Show(s1), MediaSpecifics::Show(s2)) => {
+                if s1.seasons.len() != s2.seasons.len() {
+                    notifications.push(format!(
+                        "Number of seasons changed from {:#?} to {:#?}",
+                        s1.seasons.len(),
+                        s2.seasons.len()
+                    ));
+                } else {
+                    for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                        if s1.episodes.len() != s2.episodes.len() {
+                            notifications.push(format!(
+                                "Number of episodes changed from {:#?} to {:#?} (Season {})",
+                                s1.episodes.len(),
+                                s2.episodes.len(),
+                                s1.season_number
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
 
         let mut meta: metadata::ActiveModel = meta.into();
@@ -2015,7 +2036,8 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
-        Ok(())
+
+        Ok(notifications)
     }
 
     async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
@@ -3946,12 +3968,12 @@ impl MiscellaneousService {
     pub async fn send_notifications_to_user_platforms(
         &self,
         user_id: i32,
-        msg: String,
+        msg: &str,
     ) -> Result<bool> {
         let user = self.user_by_id(user_id).await?;
         let mut success = true;
         for notification in user.notifications.0 {
-            if notification.settings.send_message(&msg).await.is_err() {
+            if notification.settings.send_message(msg).await.is_err() {
                 success = false;
             }
         }
