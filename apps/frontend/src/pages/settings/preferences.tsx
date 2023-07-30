@@ -5,11 +5,14 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
+	Box,
 	Container,
 	Divider,
+	Group,
 	SimpleGrid,
 	Stack,
 	Switch,
+	Text,
 	Title,
 } from "@mantine/core";
 import {
@@ -20,6 +23,7 @@ import { changeCase, snakeCase, startCase } from "@ryot/utilities";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement } from "react";
+import { match } from "ts-pattern";
 
 const Page: NextPageWithLayout = () => {
 	const userPrefs = useUserPreferences();
@@ -69,22 +73,53 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title order={3}>Notifications</Title>
-					<SimpleGrid cols={2}>
+					<SimpleGrid cols={1}>
 						{Object.entries(userPrefs.data.notifications).map(
 							([name, isEnabled], idx) => (
-								<Switch
-									key={idx}
-									label={startCase(name)}
-									checked={isEnabled}
-									onChange={(ev) => {
-										updateUserEnabledFeatures.mutate({
-											input: {
-												property: `notifications.${snakeCase(name)}`,
-												value: ev.currentTarget.checked,
-											},
-										});
-									}}
-								/>
+								<Box key={idx}>
+									<Text size="xs">
+										{match(name)
+											.with(
+												"released",
+												() =>
+													"Notify me when a media in my Watchlist has been released",
+											)
+											.with(
+												"episodeReleased",
+												() =>
+													"Notify me when a media in my Watchlist has new episodes released",
+											)
+											.with(
+												"statusChanged",
+												() =>
+													"Notify me when a media in my Watchlist has status changes",
+											)
+											.with(
+												"releaseDateChanged",
+												() =>
+													`Notify me when a media in my Watchlist has it's release date changed`,
+											)
+											.with(
+												"numberOfSeasonsChanged",
+												() =>
+													"Notify me when a media in my Watchlist has the number of seasons change",
+											)
+											.otherwise(() => undefined)}
+									</Text>
+									<Switch
+										mt={2}
+										label={startCase(name)}
+										checked={isEnabled}
+										onChange={(ev) => {
+											updateUserEnabledFeatures.mutate({
+												input: {
+													property: `notifications.${snakeCase(name)}`,
+													value: ev.currentTarget.checked,
+												},
+											});
+										}}
+									/>
+								</Box>
 							),
 						)}
 					</SimpleGrid>
