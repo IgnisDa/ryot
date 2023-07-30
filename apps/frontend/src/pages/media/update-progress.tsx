@@ -119,7 +119,7 @@ const Page: NextPageWithLayout = () => {
 			if (data) {
 				if (router.query.next) router.push(router.query.next.toString());
 				else
-					router.push(
+					router.replace(
 						withQuery(ROUTES.media.individualMedia.details, {
 							item: metadataId,
 						}),
