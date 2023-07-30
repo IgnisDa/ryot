@@ -40,17 +40,13 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Creator::Name).string().not_null())
+                    .col(
+                        ColumnDef::new(Creator::Name)
+                            .string()
+                            .unique_key()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Creator::Image).string())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("creator__name__index")
-                    .table(Creator::Table)
-                    .col(Creator::Name)
                     .to_owned(),
             )
             .await?;
