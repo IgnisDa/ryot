@@ -285,7 +285,6 @@ impl MediaProvider for TmdbShowService {
             overview: Option<String>,
             air_date: Option<String>,
             runtime: Option<i32>,
-            guest_stars: Vec<utils::TmdbCredit>,
             crew: Vec<utils::TmdbCredit>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -317,55 +316,33 @@ impl MediaProvider for TmdbShowService {
             let data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
             seasons.push(data);
         }
-        let author_names = seasons
-            .iter()
-            .flat_map(|s| {
-                s.episodes
-                    .iter()
-                    .flat_map(|e| {
-                        let mut gs = e
-                            .guest_stars
-                            .clone()
-                            .into_iter()
-                            .flat_map(|g| {
-                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                                    Some(MetadataCreator {
-                                        name: n,
-                                        role: r,
-                                        image: g
-                                            .profile_path
-                                            .map(|p| self.base.get_cover_image_url(p)),
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect_vec();
-                        let crew = e
-                            .crew
-                            .clone()
-                            .into_iter()
-                            .flat_map(|g| {
-                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                                    Some(MetadataCreator {
-                                        name: n,
-                                        role: r,
-                                        image: g
-                                            .profile_path
-                                            .map(|p| self.base.get_cover_image_url(p)),
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect_vec();
-                        gs.extend(crew);
-                        Vec::from_iter(gs)
-                    })
-                    .collect_vec()
-            })
-            .unique()
-            .collect_vec();
+        let mut author_names = vec![];
+        let mut rsp = self
+            .client
+            .get(format!("tv/{}/credits", identifier.to_owned(),))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbSeasonCredit {
+            cast: Vec<utils::TmdbCredit>,
+            crew: Vec<utils::TmdbCredit>,
+        }
+        let credits: TmdbSeasonCredit = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut all = credits.cast;
+        all.extend(credits.crew);
+        for cr in all {
+            if let (Some(n), Some(r)) = (cr.name, cr.known_for_department) {
+                author_names.push(MetadataCreator {
+                    name: n,
+                    role: r,
+                    image: cr.profile_path.map(|p| self.base.get_cover_image_url(p)),
+                });
+            }
+        }
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             title: data.name,
@@ -373,7 +350,7 @@ impl MediaProvider for TmdbShowService {
             production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: data.overview,
-            creators: author_names,
+            creators: author_names.into_iter().unique().collect_vec(),
             genres: data.genres.into_iter().map(|g| g.name).unique().collect(),
             publish_date: convert_string_to_date(&data.first_air_date.clone().unwrap_or_default()),
             images: image_ids
