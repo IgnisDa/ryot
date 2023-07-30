@@ -90,7 +90,7 @@ const Page: NextPageWithLayout = () => {
 										.with(
 											"releaseDateChanged",
 											() =>
-												`When a media in my Watchlist has its release date changed`,
+												"When a media in my Watchlist has its release date changed",
 										)
 										.with(
 											"numberOfSeasonsChanged",

@@ -86,8 +86,9 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
+        get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
+        AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -425,6 +426,7 @@ enum MediaGeneralFilter {
     OnAHold,
     Completed,
     Unseen,
+    Monitored,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -493,6 +495,8 @@ struct UserMediaDetails {
     media_details: GraphqlMediaDetails,
     /// The next episode of this media.
     next_episode: Option<UserMediaNextEpisode>,
+    /// Whether the user is monitoring this media.
+    is_monitored: bool,
 }
 
 #[derive(SimpleObject)]
@@ -1024,6 +1028,19 @@ impl MiscellaneousMutation {
         service.admin_account_guard(user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
+
+    /// Toggle the monitor on a media for a user.
+    async fn toggle_media_monitor(
+        &self,
+        gql_ctx: &Context<'_>,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .toggle_media_monitor(user_id, to_monitor_metadata_id)
+            .await
+    }
 }
 
 pub struct MiscellaneousService {
@@ -1363,6 +1380,7 @@ impl MiscellaneousService {
             }
         });
         let next_episode = next_episode.filter(|ne| ne.episode_number.is_some());
+        let is_monitored = self.get_monitored_status(user_id, metadata_id).await?;
         Ok(UserMediaDetails {
             collections,
             reviews,
@@ -1370,6 +1388,7 @@ impl MiscellaneousService {
             in_progress,
             media_details,
             next_episode,
+            is_monitored,
         })
     }
 
@@ -1392,6 +1411,13 @@ impl MiscellaneousService {
     ) -> Result<SearchResults<MediaListItem>> {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .apply_if(
+                match input.filter.as_ref().and_then(|f| f.general) {
+                    Some(MediaGeneralFilter::Monitored) => Some(true),
+                    _ => None,
+                },
+                |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
+            )
             .all(&self.db)
             .await
             .unwrap();
@@ -1562,6 +1588,7 @@ impl MiscellaneousService {
                         .collect_vec()
                 };
                 match s {
+                    MediaGeneralFilter::Monitored => {}
                     MediaGeneralFilter::All => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
@@ -1960,7 +1987,9 @@ impl MiscellaneousService {
                 .await
                 .unwrap();
             let is_in_collection = meta_ids.contains(&u.metadata_id);
-            if seen_count + reviewed_count == 0 && !is_in_collection {
+            // if the metadata is monitored
+            let is_monitored = u.monitored;
+            if seen_count + reviewed_count == 0 && !is_in_collection && !is_monitored {
                 tracing::debug!(
                     "Removing user_to_metadata = {id:?}",
                     id = (u.user_id, u.metadata_id)
@@ -4075,6 +4104,34 @@ impl MiscellaneousService {
         }
 
         Ok(())
+    }
+
+    async fn toggle_media_monitor(
+        &self,
+        user_id: i32,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let metadata =
+            associate_user_with_metadata(&user_id, &to_monitor_metadata_id, &self.db).await?;
+        let new_monitored_value = !metadata.monitored;
+        let mut metadata: user_to_metadata::ActiveModel = metadata.into();
+        metadata.monitored = ActiveValue::Set(new_monitored_value);
+        metadata.save(&self.db).await?;
+        Ok(new_monitored_value)
+    }
+
+    async fn get_monitored_status(
+        &self,
+        user_id: i32,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let metadata =
+            get_user_and_metadata_association(&user_id, &to_monitor_metadata_id, &self.db).await;
+        Ok(if let Some(m) = metadata {
+            m.monitored
+        } else {
+            false
+        })
     }
 }
 

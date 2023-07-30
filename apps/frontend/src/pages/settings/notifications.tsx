@@ -27,10 +27,10 @@ import {
 	type CreateUserNotificationPlatformMutationVariables,
 	DeleteUserNotificationPlatformDocument,
 	type DeleteUserNotificationPlatformMutationVariables,
+	TestUserNotificationPlatformsDocument,
+	type TestUserNotificationPlatformsMutationVariables,
 	UserNotificationPlatformLot,
 	UserNotificationPlatformsDocument,
-	type TestUserNotificationPlatformsMutationVariables,
-	TestUserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import { IconTrash } from "@tabler/icons-react";
