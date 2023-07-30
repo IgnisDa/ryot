@@ -117,7 +117,7 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess: () => {
-			router.push(
+			router.replace(
 				withQuery(ROUTES.media.individualMedia.details, { item: metadataId }),
 			);
 		},
