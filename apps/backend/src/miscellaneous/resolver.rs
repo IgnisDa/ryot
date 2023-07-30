@@ -976,7 +976,12 @@ impl MiscellaneousMutation {
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.test_user_notification_platforms(user_id).await
+        service
+            .send_notifications_to_user_platforms(
+                user_id,
+                format!("Test notification message triggered."),
+            )
+            .await
     }
 
     /// Delete a notification platform for the currently logged in user.
@@ -3520,16 +3525,6 @@ impl MiscellaneousService {
         Ok(new_notification_id)
     }
 
-    async fn test_user_notification_platforms(&self, user_id: i32) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
-        self.send_notifications_to_user_platforms(
-            user_id,
-            format!("Test notification message triggered."),
-        )
-        .await?;
-        Ok(true)
-    }
-
     async fn delete_user_notification_platform(
         &self,
         user_id: i32,
@@ -3952,10 +3947,15 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         msg: String,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let user = self.user_by_id(user_id).await?;
-        for notification in user.notifications.0 {}
-        Ok(())
+        let mut success = true;
+        for notification in user.notifications.0 {
+            if notification.settings.send_message(&msg).await.is_err() {
+                success = false;
+            }
+        }
+        Ok(success)
     }
 }
 

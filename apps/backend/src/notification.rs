@@ -8,7 +8,7 @@ use crate::{
 
 impl UserNotificationSetting {
     // TODO: Allow formatting messages
-    pub async fn send_message(&self, msg: String) -> Result<()> {
+    pub async fn send_message(&self, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
         match self {
             Self::Discord { url } => {
@@ -61,7 +61,7 @@ impl UserNotificationSetting {
                         .map(|p| p.to_string())
                         .unwrap_or_else(|| "3".to_owned()),
                 )
-                .body_string(msg)
+                .body_string(msg.to_owned())
                 .await
                 .map_err(|e| anyhow!(e))?;
             }
