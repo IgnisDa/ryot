@@ -288,6 +288,7 @@ struct UpdateUserPreferenceInput {
 struct CollectionContentsInput {
     collection_id: i32,
     page: Option<u64>,
+    take: Option<u64>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -2556,9 +2557,10 @@ impl MiscellaneousService {
                 }
             }
         }
-        let metas = collection
-            .find_related(Metadata)
-            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+        let metas = collection.find_related(Metadata).paginate(
+            &self.db,
+            input.take.unwrap_or_else(|| PAGE_LIMIT.try_into().unwrap()),
+        );
 
         let ItemsAndPagesNumber {
             number_of_items,
