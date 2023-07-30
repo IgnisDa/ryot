@@ -3,18 +3,22 @@ query CollectionContents($input: CollectionContentsInput!) {
     user {
       name
     }
+    results {
+      total
+      nextPage
+      items {
+        identifier
+        lot
+        title
+        image
+        publishYear
+      }
+    }
     details {
       name
       description
       visibility
       createdOn
-    }
-    media {
-      identifier
-      lot
-      title
-      image
-      publishYear
     }
   }
 }
