@@ -27,13 +27,13 @@ import {
 	type CreateUserNotificationPlatformMutationVariables,
 	DeleteUserNotificationPlatformDocument,
 	type DeleteUserNotificationPlatformMutationVariables,
-	TestUserNotificationPlatformDocument,
-	type TestUserNotificationPlatformMutationVariables,
 	UserNotificationPlatformLot,
 	UserNotificationPlatformsDocument,
+	type TestUserNotificationPlatformsMutationVariables,
+	TestUserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
-import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
+import { IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -92,15 +92,15 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const testUserNotificationPlatform = useMutation({
+	const testUserNotificationPlatforms = useMutation({
 		mutationFn: async (
-			variables: TestUserNotificationPlatformMutationVariables,
+			variables: TestUserNotificationPlatformsMutationVariables,
 		) => {
-			const { testUserNotificationPlatform } = await gqlClient.request(
-				TestUserNotificationPlatformDocument,
+			const { testUserNotificationPlatforms } = await gqlClient.request(
+				TestUserNotificationPlatformsDocument,
 				variables,
 			);
-			return testUserNotificationPlatform;
+			return testUserNotificationPlatforms;
 		},
 		onSuccess: (data) => {
 			if (data)
@@ -150,19 +150,6 @@ const Page: NextPageWithLayout = () => {
 										<Text size="xs">{formatTimeAgo(notif.timestamp)}</Text>
 									</Box>
 									<Group>
-										<Tooltip label="Send test notification">
-											<ActionIcon
-												color="green"
-												variant="outline"
-												onClick={() => {
-													testUserNotificationPlatform.mutate({
-														notificationId: notif.id,
-													});
-												}}
-											>
-												<IconPlayerPlay size="1rem" />
-											</ActionIcon>
-										</Tooltip>
 										<Tooltip label="Delete">
 											<ActionIcon
 												color="red"
@@ -188,13 +175,23 @@ const Page: NextPageWithLayout = () => {
 						<Text>No notification platforms configured</Text>
 					)}
 					<Box ml="auto">
-						<Button
-							size="xs"
-							variant="light"
-							onClick={openCreateUserNotificationPlatformModal}
-						>
-							Add new notification platform
-						</Button>
+						<Group>
+							<Button
+								size="xs"
+								variant="light"
+								color="green"
+								onClick={() => testUserNotificationPlatforms.mutate({})}
+							>
+								Trigger test notification
+							</Button>
+							<Button
+								size="xs"
+								variant="light"
+								onClick={openCreateUserNotificationPlatformModal}
+							>
+								Add new notification platform
+							</Button>
+						</Group>
 						<Modal
 							opened={createUserNotificationPlatformModalOpened}
 							onClose={closeCreateUserNotificationPlatformModal}

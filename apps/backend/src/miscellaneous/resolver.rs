@@ -972,17 +972,11 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Test a notification platform for the currently logged in user.
-    async fn test_user_notification_platform(
-        &self,
-        gql_ctx: &Context<'_>,
-        notification_id: usize,
-    ) -> Result<bool> {
+    /// Test all notification platforms for the currently logged in user.
+    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .test_user_notification_platform(user_id, notification_id)
-            .await
+        service.test_user_notification_platforms(user_id).await
     }
 
     /// Delete a notification platform for the currently logged in user.
@@ -1979,11 +1973,28 @@ impl MiscellaneousService {
         production_status: String,
         publish_year: Option<i32>,
     ) -> Result<()> {
+        let mut notifications = vec![];
+
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
+
+        if meta.production_status != production_status {
+            notifications.push(format!(
+                "Status changed from {:#?} to {:#?}",
+                meta.production_status, production_status
+            ));
+        }
+
+        if meta.publish_year != publish_year {
+            notifications.push(format!(
+                "Publish year from {:#?} to {:#?}",
+                meta.publish_year, publish_year
+            ));
+        }
+
         let mut meta: metadata::ActiveModel = meta.into();
         meta.title = ActiveValue::Set(title);
         meta.description = ActiveValue::Set(description);
@@ -3509,22 +3520,14 @@ impl MiscellaneousService {
         Ok(new_notification_id)
     }
 
-    async fn test_user_notification_platform(
-        &self,
-        user_id: i32,
-        notification_id: usize,
-    ) -> Result<bool> {
+    async fn test_user_notification_platforms(&self, user_id: i32) -> Result<bool> {
         let user = self.user_by_id(user_id).await?;
-        let notifications = user.notifications.clone().0;
-        let notification = notifications.into_iter().find(|i| i.id == notification_id);
-        if let Some(nt) = notification {
-            nt.settings
-                .send_message(format!("Test notification message triggered."))
-                .await?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        self.send_notifications_to_user_platforms(
+            user_id,
+            format!("Test notification message triggered."),
+        )
+        .await?;
+        Ok(true)
     }
 
     async fn delete_user_notification_platform(
@@ -3942,6 +3945,16 @@ impl MiscellaneousService {
                 };
             }
         };
+        Ok(())
+    }
+
+    pub async fn send_notifications_to_user_platforms(
+        &self,
+        user_id: i32,
+        msg: String,
+    ) -> Result<()> {
+        let user = self.user_by_id(user_id).await?;
+        for notification in user.notifications.0 {}
         Ok(())
     }
 }
