@@ -80,11 +80,6 @@ const Page: NextPageWithLayout = () => {
 									<Text size="xs">
 										{match(name)
 											.with(
-												"released",
-												() =>
-													"Notify me when a media in my Watchlist has been released",
-											)
-											.with(
 												"episodeReleased",
 												() =>
 													"Notify me when a media in my Watchlist has new episodes released",

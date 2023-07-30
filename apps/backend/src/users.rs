@@ -6,9 +6,8 @@ use serde::{Deserialize, Serialize};
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserNotificationsPreferences {
-    pub released: bool,
-    pub episode_released: bool,
     pub status_changed: bool,
+    pub episode_released: bool,
     pub release_date_changed: bool,
     pub number_of_seasons_changed: bool,
 }
@@ -16,9 +15,8 @@ pub struct UserNotificationsPreferences {
 impl Default for UserNotificationsPreferences {
     fn default() -> Self {
         Self {
-            released: true,
-            episode_released: true,
             status_changed: true,
+            episode_released: true,
             release_date_changed: true,
             number_of_seasons_changed: true,
         }

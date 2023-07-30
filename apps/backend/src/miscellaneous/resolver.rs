@@ -3295,7 +3295,6 @@ impl MiscellaneousService {
                 }
             }
             "notifications" => match right {
-                "released" => preferences.notifications.released = input.value,
                 "episode_released" => preferences.notifications.episode_released = input.value,
                 "status_changed" => preferences.notifications.status_changed = input.value,
                 "release_date_changed" => {

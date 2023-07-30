@@ -1,7 +1,6 @@
 query UserPreferences {
   userPreferences {
     notifications {
-      released
       episodeReleased
       statusChanged
       releaseDateChanged
