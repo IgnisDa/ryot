@@ -3,7 +3,7 @@ import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
-import { ROUTES } from "@/lib/constants";
+import { LIMIT, ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -57,8 +57,6 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-
-const LIMIT = 20;
 
 const defaultFilters = {
 	mineCollectionFilter: undefined,

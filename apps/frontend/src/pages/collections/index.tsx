@@ -1,11 +1,20 @@
 import type { NextPageWithLayout } from "../_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
-import { ROUTES } from "@/lib/constants";
+import { LIMIT, ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, Stack, Text, Title } from "@mantine/core";
+import {
+	Box,
+	Center,
+	Container,
+	Pagination,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import { useQuery } from "@tanstack/react-query";
@@ -17,12 +26,17 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const collectionId = parseInt(router.query.collectionId?.toString() || "0");
 
+	const [activePage, setPage] = useLocalStorage({
+		key: "savedPage",
+		getInitialValueInEffect: false,
+	});
+
 	const collectionContents = useQuery(
-		["collectionContents"],
+		["collectionContents", activePage],
 		async () => {
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
-				{ input: { collectionId } },
+				{ input: { collectionId, page: parseInt(activePage) || 1 } },
 			);
 			return collectionContents;
 		},
@@ -42,15 +56,16 @@ const Page: NextPageWithLayout = () => {
 						</Text>
 						<Title>{collectionContents.data.details.name}</Title>{" "}
 						<Text size="sm">
-							Created by {collectionContents.data.user.name}{" "}
+							{collectionContents.data.results.total} items, created by{" "}
+							{collectionContents.data.user.name}{" "}
 							{formatTimeAgo(collectionContents.data.details.createdOn)}
 						</Text>
 					</Box>
 					<Text>{collectionContents.data.details.description}</Text>
-					{collectionContents.data.media.length > 0 ? (
+					{collectionContents.data.results.items.length > 0 ? (
 						<>
 							<Grid>
-								{collectionContents.data.media.map((lm) => (
+								{collectionContents.data.results.items.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}
@@ -59,6 +74,18 @@ const Page: NextPageWithLayout = () => {
 									/>
 								))}
 							</Grid>
+							<Center>
+								<Pagination
+									size="sm"
+									value={parseInt(activePage)}
+									onChange={(v) => setPage(v.toString())}
+									total={Math.ceil(
+										collectionContents.data.results.total / LIMIT,
+									)}
+									boundaries={1}
+									siblings={0}
+								/>
+							</Center>
 						</>
 					) : (
 						<Text>You have not added any media to this collection</Text>

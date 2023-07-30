@@ -137,7 +137,7 @@ const Page: NextPageWithLayout = () => {
 		const { collectionContents } = await gqlClient.request(
 			CollectionContentsDocument,
 			{
-				input: { collectionId: id, mediaLimit: 8 },
+				input: { collectionId: id, page: 1 },
 			},
 		);
 		return collectionContents;
@@ -145,7 +145,7 @@ const Page: NextPageWithLayout = () => {
 
 	return latestUserSummary.data &&
 		inProgressCollection.data &&
-		inProgressCollection.data.media &&
+		inProgressCollection.data.results &&
 		inProgressCollection.data.details ? (
 		<>
 			<Head>
@@ -153,11 +153,11 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					{inProgressCollection.data.media.length > 0 ? (
+					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>
 							<Grid>
-								{inProgressCollection.data.media.map((lm) => (
+								{inProgressCollection.data.results.items.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.identifier}
 										item={lm}
