@@ -136,9 +136,7 @@ const Page: NextPageWithLayout = () => {
 		const id = collections[0].id;
 		const { collectionContents } = await gqlClient.request(
 			CollectionContentsDocument,
-			{
-				input: { collectionId: id, page: 1 },
-			},
+			{ input: { collectionId: id, page: 1, take: 8 } },
 		);
 		return collectionContents;
 	});
