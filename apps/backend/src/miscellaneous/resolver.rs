@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    iter::zip,
     sync::Arc,
 };
 
@@ -41,10 +42,10 @@ use crate::{
     entities::{
         collection, genre, import_report, metadata, metadata_to_collection, metadata_to_genre,
         prelude::{
-            Collection, Genre, ImportReport, Metadata, MetadataToCollection, Review, Seen, Summary,
-            User, UserToMetadata,
+            Collection, Genre, ImportReport, Metadata, MetadataToCollection, Review, Seen, User,
+            UserToMetadata,
         },
-        review, seen, summary, user, user_to_metadata,
+        review, seen, user, user_to_metadata,
     },
     file_storage::FileStorageService,
     importer::ImportResultResponse,
@@ -64,7 +65,7 @@ use crate::{
             MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, Visibility,
+            SeenShowExtraInformation, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -80,16 +81,26 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations,
-        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotifications, UserPreferences,
+        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        convert_naive_to_utc, get_case_insensitive_like_query, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
+        get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
+        AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
+
+#[derive(Debug)]
+pub enum MediaStateChanged {
+    StatusChanged,
+    EpisodeReleased,
+    ReleaseDateChanged,
+    NumberOfSeasonsChanged,
+}
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateCustomMediaInput {
@@ -138,6 +149,32 @@ struct CreateUserYankIntegrationInput {
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+enum UserNotificationPlatformLot {
+    Discord,
+    Gotify,
+    Ntfy,
+    PushBullet,
+    PushOver,
+    PushSafer,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlUserNotificationPlatform {
+    id: usize,
+    description: String,
+    timestamp: DateTimeUtc,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateUserNotificationPlatformInput {
+    lot: UserNotificationPlatformLot,
+    base_url: Option<String>,
+    #[graphql(secret)]
+    api_token: Option<String>,
+    priority: Option<i32>,
+}
+
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserSinkIntegrationLot {
     Jellyfin,
 }
@@ -182,7 +219,7 @@ struct UserDetailsError {
 
 #[derive(Union)]
 enum UserDetailsResult {
-    Ok(user::Model),
+    Ok(Box<user::Model>),
     Error(UserDetailsError),
 }
 
@@ -242,8 +279,8 @@ struct UpdateUserInput {
 }
 
 #[derive(Debug, InputObject)]
-struct UpdateUserFeaturePreferenceInput {
-    property: MetadataLot,
+struct UpdateUserPreferenceInput {
+    property: String,
     value: bool,
 }
 
@@ -323,6 +360,7 @@ struct GraphqlMediaDetails {
     title: String,
     identifier: String,
     description: Option<String>,
+    production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
     creators: Vec<MetadataCreator>,
@@ -388,6 +426,7 @@ enum MediaGeneralFilter {
     OnAHold,
     Completed,
     Unseen,
+    Monitored,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -442,6 +481,30 @@ struct ProgressUpdateCache {
     podcast_episode_number: Option<i32>,
 }
 
+#[derive(SimpleObject)]
+struct UserMediaDetails {
+    /// The collections in which this media is present.
+    collections: Vec<collection::Model>,
+    /// The public reviews of this media.
+    reviews: Vec<ReviewItem>,
+    /// The seen history of this media.
+    history: Vec<seen::Model>,
+    /// The seen item if it is in progress.
+    in_progress: Option<seen::Model>,
+    /// The details of the media item itself.
+    media_details: GraphqlMediaDetails,
+    /// The next episode of this media.
+    next_episode: Option<UserMediaNextEpisode>,
+    /// Whether the user is monitoring this media.
+    is_monitored: bool,
+}
+
+#[derive(SimpleObject)]
+struct UserMediaNextEpisode {
+    season_number: Option<i32>,
+    episode_number: Option<i32>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -490,17 +553,6 @@ impl MiscellaneousQuery {
             .await
     }
 
-    /// Get all the public reviews for a media item.
-    async fn media_item_reviews(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<Vec<ReviewItem>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_item_reviews(&user_id, &metadata_id).await
-    }
-
     /// Get all collections for the currently logged in user.
     async fn collections(
         &self,
@@ -510,17 +562,6 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.collections(&user_id, input).await
-    }
-
-    /// Get a list of collections in which a media is present.
-    async fn media_in_collections(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<Vec<collection::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_in_collections(user_id, metadata_id).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -544,17 +585,6 @@ impl MiscellaneousQuery {
             .data_unchecked::<Arc<MiscellaneousService>>()
             .media_details(metadata_id)
             .await
-    }
-
-    /// Get the user's seen history for a particular media item.
-    async fn seen_history(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<Vec<seen::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.seen_history(metadata_id, user_id).await
     }
 
     /// Get all the media items related to a user for a specific media type.
@@ -658,10 +688,10 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<summary::Model> {
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.latest_user_summary(&user_id).await
+        service.latest_user_summary(user_id).await
     }
 
     /// Get all the integrations for the currently logged in user.
@@ -674,11 +704,32 @@ impl MiscellaneousQuery {
         service.user_integrations(user_id).await
     }
 
+    /// Get all the notification platforms for the currently logged in user.
+    async fn user_notification_platforms(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_notification_platforms(user_id).await
+    }
+
     /// Get all the auth tokens issued to the currently logged in user.
     async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<UserAuthToken>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_auth_tokens(user_id).await
+    }
+
+    /// Get details that can be displayed to a user for a media.
+    async fn user_media_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+    ) -> Result<UserMediaDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_media_details(user_id, metadata_id).await
     }
 }
 
@@ -867,15 +918,15 @@ impl MiscellaneousMutation {
         service.regenerate_user_summary(user_id).await
     }
 
-    /// Change a user's feature preferences.
-    async fn update_user_feature_preference(
+    /// Change a user's preferences.
+    async fn update_user_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserFeaturePreferenceInput,
+        input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_feature_preference(input, user_id).await
+        service.update_user_preference(input, user_id).await
     }
 
     /// Generate an auth token without any expiry.
@@ -921,6 +972,41 @@ impl MiscellaneousMutation {
             .await
     }
 
+    /// Add a notification platform for the currently logged in user.
+    async fn create_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateUserNotificationPlatformInput,
+    ) -> Result<usize> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .create_user_notification_platform(user_id, input)
+            .await
+    }
+
+    /// Test all notification platforms for the currently logged in user.
+    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
+            .await
+    }
+
+    /// Delete a notification platform for the currently logged in user.
+    async fn delete_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        notification_id: usize,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .delete_user_notification_platform(user_id, notification_id)
+            .await
+    }
+
     /// Yank data from all integrations for the currently logged in user.
     async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
@@ -941,6 +1027,19 @@ impl MiscellaneousMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(user_id).await?;
         service.delete_user(to_delete_user_id).await
+    }
+
+    /// Toggle the monitor on a media for a user.
+    async fn toggle_media_monitor(
+        &self,
+        gql_ctx: &Context<'_>,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .toggle_media_monitor(user_id, to_monitor_metadata_id)
+            .await
     }
 }
 
@@ -1070,7 +1169,7 @@ impl MiscellaneousService {
             .unwrap()
         {
             Some(m) => m,
-            None => return Err(Error::new("The record does not exit".to_owned())),
+            None => return Err(Error::new("The record does not exist".to_owned())),
         };
         let genres = meta
             .find_related(Genre)
@@ -1190,6 +1289,7 @@ impl MiscellaneousService {
             id: model.id,
             title: model.title,
             identifier: model.identifier,
+            production_status: model.production_status,
             description: model.description,
             publish_year: model.publish_year,
             publish_date: model.publish_date,
@@ -1240,7 +1340,59 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    async fn seen_history(&self, metadata_id: i32, user_id: i32) -> Result<Vec<seen::Model>> {
+    async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
+        let media_details = self.media_details(metadata_id).await?;
+        let collections = self.media_in_collections(user_id, metadata_id).await?;
+        let reviews = self.media_item_reviews(user_id, metadata_id).await?;
+        let history = self.seen_history(user_id, metadata_id).await?;
+        let in_progress = history
+            .iter()
+            .find(|h| h.state == SeenState::InProgress)
+            .cloned();
+        let next_episode = history.first().and_then(|h| {
+            if let Some(s) = &media_details.show_specifics {
+                let all_episodes = s
+                    .seasons
+                    .iter()
+                    .flat_map(|s| s.episodes.iter().map(|e| (e, s.season_number)))
+                    .collect_vec();
+                let current = all_episodes.iter().position(|s| {
+                    s.0.episode_number == h.show_information.as_ref().unwrap().episode
+                        && s.1 == h.show_information.as_ref().unwrap().season
+                });
+                current.and_then(|i| {
+                    all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
+                        season_number: Some(ep.1),
+                        episode_number: Some(ep.0.episode_number),
+                    })
+                })
+            } else if let Some(p) = &media_details.podcast_specifics {
+                let current = p
+                    .episodes
+                    .iter()
+                    .position(|p| p.number == h.podcast_information.as_ref().unwrap().episode);
+                current.map(|i| UserMediaNextEpisode {
+                    season_number: None,
+                    episode_number: p.episodes.get(i + 1).map(|e| e.number),
+                })
+            } else {
+                None
+            }
+        });
+        let next_episode = next_episode.filter(|ne| ne.episode_number.is_some());
+        let is_monitored = self.get_monitored_status(user_id, metadata_id).await?;
+        Ok(UserMediaDetails {
+            collections,
+            reviews,
+            history,
+            in_progress,
+            media_details,
+            next_episode,
+            is_monitored,
+        })
+    }
+
+    async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
         let mut seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
@@ -1259,6 +1411,13 @@ impl MiscellaneousService {
     ) -> Result<SearchResults<MediaListItem>> {
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .apply_if(
+                match input.filter.as_ref().and_then(|f| f.general) {
+                    Some(MediaGeneralFilter::Monitored) => Some(true),
+                    _ => None,
+                },
+                |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
+            )
             .all(&self.db)
             .await
             .unwrap();
@@ -1429,6 +1588,7 @@ impl MiscellaneousService {
                         .collect_vec()
                 };
                 match s {
+                    MediaGeneralFilter::Monitored => {}
                     MediaGeneralFilter::All => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
@@ -1827,7 +1987,9 @@ impl MiscellaneousService {
                 .await
                 .unwrap();
             let is_in_collection = meta_ids.contains(&u.metadata_id);
-            if seen_count + reviewed_count == 0 && !is_in_collection {
+            // if the metadata is monitored
+            let is_monitored = u.monitored;
+            if seen_count + reviewed_count == 0 && !is_in_collection && !is_monitored {
                 tracing::debug!(
                     "Removing user_to_metadata = {id:?}",
                     id = (u.user_id, u.metadata_id)
@@ -1848,18 +2010,91 @@ impl MiscellaneousService {
         creators: Vec<MetadataCreator>,
         specifics: MediaSpecifics,
         genres: Vec<String>,
-    ) -> Result<()> {
+        production_status: String,
+        publish_year: Option<i32>,
+    ) -> Result<Vec<(String, MediaStateChanged)>> {
+        let mut notifications = vec![];
+
         let meta = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
+
+        if meta.production_status != production_status {
+            notifications.push((
+                format!(
+                    "Status changed from {:#?} to {:#?}",
+                    meta.production_status, production_status
+                ),
+                MediaStateChanged::StatusChanged,
+            ));
+        }
+
+        if let (Some(p1), Some(p2)) = (meta.publish_year, publish_year) {
+            if p1 != p2 {
+                notifications.push((
+                    format!("Publish year from {:#?} to {:#?}", p1, p2),
+                    MediaStateChanged::ReleaseDateChanged,
+                ));
+            }
+        }
+
+        match (&meta.specifics, &specifics) {
+            (MediaSpecifics::Show(s1), MediaSpecifics::Show(s2)) => {
+                if s1.seasons.len() != s2.seasons.len() {
+                    notifications.push((
+                        format!(
+                            "Number of seasons changed from {:#?} to {:#?}",
+                            s1.seasons.len(),
+                            s2.seasons.len()
+                        ),
+                        MediaStateChanged::NumberOfSeasonsChanged,
+                    ));
+                } else {
+                    for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                        if s1.episodes.len() != s2.episodes.len() {
+                            notifications.push((
+                                format!(
+                                    "Number of episodes changed from {:#?} to {:#?} (Season {})",
+                                    s1.episodes.len(),
+                                    s2.episodes.len(),
+                                    s1.season_number
+                                ),
+                                MediaStateChanged::EpisodeReleased,
+                            ));
+                        }
+                    }
+                }
+            }
+            (MediaSpecifics::Podcast(p1), MediaSpecifics::Podcast(p2)) => {
+                if p1.episodes.len() != p2.episodes.len() {
+                    notifications.push((
+                        format!(
+                            "Number of episodes changed from {:#?} to {:#?}",
+                            p1.episodes.len(),
+                            p2.episodes.len()
+                        ),
+                        MediaStateChanged::EpisodeReleased,
+                    ));
+                }
+            }
+            _ => {}
+        }
+
+        let notifications = notifications
+            .into_iter()
+            .map(|n| (format!("{} for {:?}", n.0, meta.title), n.1))
+            .collect_vec();
+
         let mut meta: metadata::ActiveModel = meta.into();
         meta.title = ActiveValue::Set(title);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.creators = ActiveValue::Set(MetadataCreators(creators));
+        meta.production_status = ActiveValue::Set(production_status);
+        meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
         for genre in genres {
@@ -1867,7 +2102,8 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
-        Ok(())
+
+        Ok(notifications)
     }
 
     async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
@@ -1905,6 +2141,7 @@ impl MiscellaneousService {
             identifier: ActiveValue::Set(details.identifier),
             creators: ActiveValue::Set(MetadataCreators(details.creators)),
             specifics: ActiveValue::Set(details.specifics),
+            production_status: ActiveValue::Set(details.production_status),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
@@ -1979,22 +2216,22 @@ impl MiscellaneousService {
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
-        prefs.features_enabled.anime =
-            self.config.anime.is_enabled() && prefs.features_enabled.anime;
-        prefs.features_enabled.audio_books =
-            self.config.audio_books.is_enabled() && prefs.features_enabled.audio_books;
-        prefs.features_enabled.books =
-            self.config.books.is_enabled() && prefs.features_enabled.books;
-        prefs.features_enabled.shows =
-            self.config.shows.is_enabled() && prefs.features_enabled.shows;
-        prefs.features_enabled.manga =
-            self.config.manga.is_enabled() && prefs.features_enabled.manga;
-        prefs.features_enabled.movies =
-            self.config.movies.is_enabled() && prefs.features_enabled.movies;
-        prefs.features_enabled.podcasts =
-            self.config.podcasts.is_enabled() && prefs.features_enabled.podcasts;
-        prefs.features_enabled.video_games =
-            self.config.video_games.is_enabled() && prefs.features_enabled.video_games;
+        prefs.features_enabled.media.anime =
+            self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
+        prefs.features_enabled.media.audio_books =
+            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_books;
+        prefs.features_enabled.media.books =
+            self.config.books.is_enabled() && prefs.features_enabled.media.books;
+        prefs.features_enabled.media.shows =
+            self.config.shows.is_enabled() && prefs.features_enabled.media.shows;
+        prefs.features_enabled.media.manga =
+            self.config.manga.is_enabled() && prefs.features_enabled.media.manga;
+        prefs.features_enabled.media.movies =
+            self.config.movies.is_enabled() && prefs.features_enabled.media.movies;
+        prefs.features_enabled.media.podcasts =
+            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcasts;
+        prefs.features_enabled.media.video_games =
+            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_games;
         Ok(prefs)
     }
 
@@ -2212,11 +2449,7 @@ impl MiscellaneousService {
         }
     }
 
-    async fn media_item_reviews(
-        &self,
-        user_id: &i32,
-        metadata_id: &i32,
-    ) -> Result<Vec<ReviewItem>> {
+    async fn media_item_reviews(&self, user_id: i32, metadata_id: i32) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
             .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
@@ -2230,7 +2463,7 @@ impl MiscellaneousService {
         let all_reviews = reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                Visibility::Private => r.posted_by.id == *user_id,
+                Visibility::Private => r.posted_by.id == user_id,
                 _ => true,
             })
             .map(|r| ReviewItem {
@@ -2577,27 +2810,15 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn cleanup_summaries_for_user(&self, user_id: &i32) -> Result<()> {
-        let summaries = Summary::delete_many()
-            .filter(summary::Column::UserId.eq(user_id.to_owned()))
-            .exec(&self.db)
-            .await
-            .unwrap();
-        tracing::trace!(
-            "Deleted {} summaries for user {}",
-            summaries.rows_affected,
-            user_id
-        );
-        Ok(())
-    }
-
-    pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
-        let metadata_id = metadata.id;
+    pub async fn update_metadata(
+        &self,
+        metadata_id: i32,
+    ) -> Result<Vec<(String, MediaStateChanged)>> {
         tracing::trace!("Updating metadata for {:?}", metadata_id);
         let maybe_details = self
             .details_from_provider_for_existing_media(metadata_id)
             .await;
-        match maybe_details {
+        let notifs = match maybe_details {
             Ok(details) => {
                 self.update_media(
                     metadata_id,
@@ -2607,16 +2828,18 @@ impl MiscellaneousService {
                     details.creators,
                     details.specifics,
                     details.genres,
+                    details.production_status,
+                    details.publish_year,
                 )
-                .await
-                .ok();
+                .await?
             }
             Err(e) => {
                 tracing::error!("Error while updating: {:?}", e);
+                vec![]
             }
-        }
+        };
         tracing::trace!("Updated metadata for {:?}", metadata_id);
-        Ok(())
+        Ok(notifs)
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
@@ -2635,7 +2858,7 @@ impl MiscellaneousService {
         let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
         if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
-            Ok(UserDetailsResult::Ok(user))
+            Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
@@ -2651,26 +2874,23 @@ impl MiscellaneousService {
             .ok_or_else(|| Error::new("No user found"))
     }
 
-    async fn latest_user_summary(&self, user_id: &i32) -> Result<summary::Model> {
-        let ls = Summary::find()
-            .filter(summary::Column::UserId.eq(user_id.to_owned()))
-            .order_by_desc(summary::Column::CreatedOn)
-            .one(&self.db)
-            .await
-            .unwrap_or_default()
-            .unwrap_or_default();
-        Ok(ls)
+    async fn latest_user_summary(&self, user_id: i32) -> Result<UserSummary> {
+        let ls = self.user_by_id(user_id).await?;
+        Ok(ls.summary.unwrap_or_default())
     }
 
-    pub async fn calculate_user_media_summary(&self, user_id: &i32) -> Result<IdObject> {
-        let mut ls = summary::Model::default();
+    pub async fn calculate_user_media_summary(&self, user_id: i32) -> Result<IdObject> {
+        let mut ls = UserSummary {
+            calculated_on: Utc::now(),
+            ..Default::default()
+        };
 
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
             .count(&self.db)
             .await?;
 
-        ls.data.media.reviews_posted = num_reviews;
+        ls.media.reviews_posted = num_reviews;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -2688,27 +2908,27 @@ impl MiscellaneousService {
             let meta = metadata.to_owned().unwrap();
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
-                    ls.data.media.audio_books.played += 1;
+                    ls.media.audio_books.played += 1;
                     if let Some(r) = item.runtime {
-                        ls.data.media.audio_books.runtime += r;
+                        ls.media.audio_books.runtime += r;
                     }
                 }
                 MediaSpecifics::Anime(item) => {
-                    ls.data.media.anime.watched += 1;
+                    ls.media.anime.watched += 1;
                     if let Some(r) = item.episodes {
-                        ls.data.media.anime.episodes += r;
+                        ls.media.anime.episodes += r;
                     }
                 }
                 MediaSpecifics::Manga(item) => {
-                    ls.data.media.manga.read += 1;
+                    ls.media.manga.read += 1;
                     if let Some(r) = item.chapters {
-                        ls.data.media.manga.chapters += r;
+                        ls.media.manga.chapters += r;
                     }
                 }
                 MediaSpecifics::Book(item) => {
-                    ls.data.media.books.read += 1;
+                    ls.media.books.read += 1;
                     if let Some(pg) = item.pages {
-                        ls.data.media.books.pages += pg;
+                        ls.media.books.pages += pg;
                     }
                 }
                 MediaSpecifics::Podcast(item) => {
@@ -2721,7 +2941,7 @@ impl MiscellaneousService {
                                 SeenOrReviewExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
-                                            ls.data.media.podcasts.runtime += r;
+                                            ls.media.podcasts.runtime += r;
                                         }
                                         unique_podcast_episodes.insert((s.episode, episode.id));
                                     }
@@ -2731,9 +2951,9 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::Movie(item) => {
-                    ls.data.media.movies.watched += 1;
+                    ls.media.movies.watched += 1;
                     if let Some(r) = item.runtime {
-                        ls.data.media.movies.runtime += r;
+                        ls.media.movies.runtime += r;
                     }
                 }
                 MediaSpecifics::Show(item) => {
@@ -2747,9 +2967,9 @@ impl MiscellaneousService {
                                         && s.episode == episode.episode_number
                                     {
                                         if let Some(r) = episode.runtime {
-                                            ls.data.media.shows.runtime += r;
+                                            ls.media.shows.runtime += r;
                                         }
-                                        ls.data.media.shows.watched_episodes += 1;
+                                        ls.media.shows.watched_episodes += 1;
                                         unique_show_seasons.insert((s.season, season.id));
                                     }
                                 }
@@ -2758,26 +2978,24 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::VideoGame(_item) => {
-                    ls.data.media.video_games.played += 1;
+                    ls.media.video_games.played += 1;
                 }
                 MediaSpecifics::Unknown => {}
             }
         }
 
-        ls.data.media.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
-        ls.data.media.podcasts.played_episodes +=
-            i32::try_from(unique_podcast_episodes.len()).unwrap();
+        ls.media.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
+        ls.media.podcasts.played_episodes += i32::try_from(unique_podcast_episodes.len()).unwrap();
 
-        ls.data.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
-        ls.data.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
+        ls.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
+        ls.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
 
-        let summary_obj = summary::ActiveModel {
-            id: ActiveValue::NotSet,
-            created_on: ActiveValue::NotSet,
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            data: ActiveValue::Set(ls.data),
+        let user_model = user::ActiveModel {
+            id: ActiveValue::Unchanged(user_id),
+            summary: ActiveValue::Set(Some(ls)),
+            ..Default::default()
         };
-        let obj = summary_obj.insert(&self.db).await.unwrap();
+        let obj = user_model.update(&self.db).await.unwrap();
         Ok(IdObject { id: obj.id })
     }
 
@@ -2810,6 +3028,7 @@ impl MiscellaneousService {
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
             sink_integrations: ActiveValue::Set(UserSinkIntegrations(vec![])),
+            notifications: ActiveValue::Set(UserNotifications(vec![])),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -2919,14 +3138,12 @@ impl MiscellaneousService {
     pub async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find().all(&self.db).await.unwrap();
         for user in all_users {
-            self.cleanup_summaries_for_user(&user.id).await?;
-            self.calculate_user_media_summary(&user.id).await?;
+            self.calculate_user_media_summary(user.id).await?;
         }
         Ok(())
     }
 
     pub async fn regenerate_user_summary(&self, user_id: i32) -> Result<bool> {
-        self.cleanup_summaries_for_user(&user_id).await?;
         self.deploy_recalculate_summary_job(user_id).await?;
         Ok(true)
     }
@@ -3008,6 +3225,7 @@ impl MiscellaneousService {
             publish_year: input.publish_year,
             publish_date: None,
             specifics,
+            production_status: "Released".to_owned(),
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(
@@ -3120,22 +3338,51 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
     }
 
-    async fn update_user_feature_preference(
+    async fn update_user_preference(
         &self,
-        input: UpdateUserFeaturePreferenceInput,
+        input: UpdateUserPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
+        let err = || Error::new("Incorrect property value encountered");
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
-        match input.property {
-            MetadataLot::AudioBook => preferences.features_enabled.audio_books = input.value,
-            MetadataLot::Book => preferences.features_enabled.books = input.value,
-            MetadataLot::Movie => preferences.features_enabled.movies = input.value,
-            MetadataLot::Podcast => preferences.features_enabled.podcasts = input.value,
-            MetadataLot::Show => preferences.features_enabled.shows = input.value,
-            MetadataLot::VideoGame => preferences.features_enabled.video_games = input.value,
-            MetadataLot::Manga => preferences.features_enabled.manga = input.value,
-            MetadataLot::Anime => preferences.features_enabled.anime = input.value,
+        let (left, right) = input.property.split_once('.').ok_or_else(err)?;
+        match left {
+            "features_enabled" => {
+                let (left, right) = right.split_once('.').ok_or_else(err)?;
+                match left {
+                    "media" => {
+                        match right {
+                            "audio_book" => {
+                                preferences.features_enabled.media.audio_books = input.value
+                            }
+                            "book" => preferences.features_enabled.media.books = input.value,
+                            "movie" => preferences.features_enabled.media.movies = input.value,
+                            "podcast" => preferences.features_enabled.media.podcasts = input.value,
+                            "show" => preferences.features_enabled.media.shows = input.value,
+                            "video_game" => {
+                                preferences.features_enabled.media.video_games = input.value
+                            }
+                            "manga" => preferences.features_enabled.media.manga = input.value,
+                            "anime" => preferences.features_enabled.media.anime = input.value,
+                            _ => return Err(err()),
+                        };
+                    }
+                    _ => return Err(err()),
+                }
+            }
+            "notifications" => match right {
+                "episode_released" => preferences.notifications.episode_released = input.value,
+                "status_changed" => preferences.notifications.status_changed = input.value,
+                "release_date_changed" => {
+                    preferences.notifications.release_date_changed = input.value
+                }
+                "number_of_seasons_changed" => {
+                    preferences.notifications.number_of_seasons_changed = input.value
+                }
+                _ => return Err(err()),
+            },
+            _ => return Err(err()),
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);
@@ -3189,6 +3436,43 @@ impl MiscellaneousService {
         Ok(all_integrations)
     }
 
+    async fn user_notification_platforms(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
+        let user = self.user_by_id(user_id).await?;
+        let mut all_notifications = vec![];
+        let notifications = user.notifications.0;
+        notifications.into_iter().for_each(|n| {
+            let description = match n.settings {
+                UserNotificationSetting::Discord { url } => {
+                    format!("Discord webhook: {}", url)
+                }
+                UserNotificationSetting::Gotify { url, token, .. } => {
+                    format!("Gotify URL: {}, Token: {}", url, token)
+                }
+                UserNotificationSetting::Ntfy { url, topic, .. } => {
+                    format!("Ntfy URL: {:?}, Topic: {}", url, topic)
+                }
+                UserNotificationSetting::PushBullet { api_token } => {
+                    format!("Pushbullet API Token: {}", api_token)
+                }
+                UserNotificationSetting::PushOver { key } => {
+                    format!("PushOver Key: {}", key)
+                }
+                UserNotificationSetting::PushSafer { key } => {
+                    format!("PushSafer Key: {}", key)
+                }
+            };
+            all_notifications.push(GraphqlUserNotificationPlatform {
+                id: n.id,
+                description,
+                timestamp: n.timestamp,
+            })
+        });
+        Ok(all_notifications)
+    }
+
     async fn create_user_sink_integration(
         &self,
         user_id: i32,
@@ -3209,7 +3493,7 @@ impl MiscellaneousService {
                 }
             },
         };
-        integrations.push(new_integration);
+        integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
         user.sink_integrations = ActiveValue::Set(UserSinkIntegrations(integrations));
         user.update(&self.db).await?;
@@ -3240,7 +3524,7 @@ impl MiscellaneousService {
                 }
             },
         };
-        integrations.push(new_integration);
+        integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
         user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
         user.update(&self.db).await?;
@@ -3283,6 +3567,68 @@ impl MiscellaneousService {
                 user_db.sink_integrations = ActiveValue::Set(update_value);
             }
         };
+        user_db.update(&self.db).await?;
+        Ok(true)
+    }
+
+    async fn create_user_notification_platform(
+        &self,
+        user_id: i32,
+        input: CreateUserNotificationPlatformInput,
+    ) -> Result<usize> {
+        let user = self.user_by_id(user_id).await?;
+        let mut notifications = user.notifications.clone().0;
+        let new_notification_id = notifications.len() + 1;
+        let new_notification = UserNotification {
+            id: new_notification_id,
+            timestamp: Utc::now(),
+            settings: match input.lot {
+                UserNotificationPlatformLot::Discord => UserNotificationSetting::Discord {
+                    url: input.base_url.unwrap(),
+                },
+                UserNotificationPlatformLot::Gotify => UserNotificationSetting::Gotify {
+                    url: input.base_url.unwrap(),
+                    token: input.api_token.unwrap(),
+                    priority: input.priority,
+                },
+                UserNotificationPlatformLot::Ntfy => UserNotificationSetting::Ntfy {
+                    url: input.base_url,
+                    topic: input.api_token.unwrap(),
+                    priority: input.priority,
+                },
+                UserNotificationPlatformLot::PushBullet => UserNotificationSetting::PushBullet {
+                    api_token: input.api_token.unwrap(),
+                },
+                UserNotificationPlatformLot::PushOver => UserNotificationSetting::PushOver {
+                    key: input.api_token.unwrap(),
+                },
+                UserNotificationPlatformLot::PushSafer => UserNotificationSetting::PushSafer {
+                    key: input.api_token.unwrap(),
+                },
+            },
+        };
+
+        notifications.insert(0, new_notification);
+        let mut user: user::ActiveModel = user.into();
+        user.notifications = ActiveValue::Set(UserNotifications(notifications));
+        user.update(&self.db).await?;
+        Ok(new_notification_id)
+    }
+
+    async fn delete_user_notification_platform(
+        &self,
+        user_id: i32,
+        notification_id: usize,
+    ) -> Result<bool> {
+        let user = self.user_by_id(user_id).await?;
+        let mut user_db: user::ActiveModel = user.clone().into();
+        let notifications = user.notifications.clone().0;
+        let remaining_notifications = notifications
+            .into_iter()
+            .filter(|i| i.id != notification_id)
+            .collect_vec();
+        let update_value = UserNotifications(remaining_notifications);
+        user_db.notifications = ActiveValue::Set(update_value);
         user_db.update(&self.db).await?;
         Ok(true)
     }
@@ -3634,7 +3980,7 @@ impl MiscellaneousService {
                             .collect_vec(),
                         _ => unreachable!(),
                     };
-                    let seen_history = self.seen_history(seen.metadata_id, seen.user_id).await?;
+                    let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
                     let mut bag = HashMap::<String, i32>::from_iter(
                         all_episodes.iter().cloned().map(|e| (e, 0)),
                     );
@@ -3685,6 +4031,120 @@ impl MiscellaneousService {
             }
         };
         Ok(())
+    }
+
+    pub async fn send_notifications_to_user_platforms(
+        &self,
+        user_id: i32,
+        msg: &str,
+    ) -> Result<bool> {
+        let user = self.user_by_id(user_id).await?;
+        let mut success = true;
+        for notification in user.notifications.0 {
+            if notification.settings.send_message(msg).await.is_err() {
+                success = false;
+            }
+        }
+        Ok(success)
+    }
+
+    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+        let collections = Collection::find()
+            .filter(collection::Column::Name.eq(DefaultCollection::Watchlist.to_string()))
+            .find_with_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let mut meta_map: HashMap<i32, HashSet<i32>> = HashMap::new();
+        for (col, metadata) in collections {
+            for meta in metadata {
+                meta_map
+                    .entry(meta.id)
+                    .and_modify(|e| {
+                        e.insert(col.user_id);
+                    })
+                    .or_insert(HashSet::from_iter([col.user_id]));
+            }
+        }
+
+        let monitored_media = UserToMetadata::find()
+            .filter(user_to_metadata::Column::Monitored.eq(true))
+            .all(&self.db)
+            .await?;
+        for meta in monitored_media {
+            meta_map
+                .entry(meta.metadata_id)
+                .and_modify(|e| {
+                    e.insert(meta.user_id);
+                })
+                .or_insert(HashSet::from_iter([meta.user_id]));
+        }
+
+        for (meta, users) in meta_map {
+            let notifications = self.update_metadata(meta).await?;
+            for user in users {
+                for (notification, change) in notifications.iter() {
+                    let preferences = self.user_preferences(user).await?;
+                    if matches!(change, MediaStateChanged::StatusChanged)
+                        && preferences.notifications.status_changed
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                    if matches!(change, MediaStateChanged::EpisodeReleased)
+                        && preferences.notifications.episode_released
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                    if matches!(change, MediaStateChanged::ReleaseDateChanged)
+                        && preferences.notifications.release_date_changed
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                    if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
+                        && preferences.notifications.number_of_seasons_changed
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn toggle_media_monitor(
+        &self,
+        user_id: i32,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let metadata =
+            associate_user_with_metadata(&user_id, &to_monitor_metadata_id, &self.db).await?;
+        let new_monitored_value = !metadata.monitored;
+        let mut metadata: user_to_metadata::ActiveModel = metadata.into();
+        metadata.monitored = ActiveValue::Set(new_monitored_value);
+        metadata.save(&self.db).await?;
+        Ok(new_monitored_value)
+    }
+
+    async fn get_monitored_status(
+        &self,
+        user_id: i32,
+        to_monitor_metadata_id: i32,
+    ) -> Result<bool> {
+        let metadata =
+            get_user_and_metadata_association(&user_id, &to_monitor_metadata_id, &self.db).await;
+        Ok(if let Some(m) = metadata {
+            m.monitored
+        } else {
+            false
+        })
     }
 }
 

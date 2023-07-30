@@ -15,7 +15,8 @@ use darkbird::{
 };
 use http_types::headers::HeaderName;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ConnectionTrait, DatabaseConnection,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, EntityTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -30,7 +31,7 @@ use crate::{
         UserCreatedJob,
     },
     config::AppConfig,
-    entities::user_to_metadata,
+    entities::{prelude::UserToMetadata, user_to_metadata},
     file_storage::FileStorageService,
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
@@ -48,7 +49,11 @@ pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
 pub const DOCS_LINK: &str = "https://ignisda.github.io/ryot";
 pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
+pub const AVATAR_URL: &str =
+    "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 
+// TODO: Explore whether it would be possible to create a global variable which
+// contains this service and can be accessed in a thread-safe way.
 /// All the services that are used by the app
 pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
@@ -106,7 +111,28 @@ pub async fn create_app_services(
     }
 }
 
-pub async fn associate_user_with_metadata<C>(user_id: &i32, metadata_id: &i32, db: &C) -> Result<()>
+pub async fn get_user_and_metadata_association<C>(
+    user_id: &i32,
+    metadata_id: &i32,
+    db: &C,
+) -> Option<user_to_metadata::Model>
+where
+    C: ConnectionTrait,
+{
+    UserToMetadata::find()
+        .filter(user_to_metadata::Column::UserId.eq(user_id.to_owned()))
+        .filter(user_to_metadata::Column::MetadataId.eq(metadata_id.to_owned()))
+        .one(db)
+        .await
+        .ok()
+        .flatten()
+}
+
+pub async fn associate_user_with_metadata<C>(
+    user_id: &i32,
+    metadata_id: &i32,
+    db: &C,
+) -> Result<user_to_metadata::Model>
 where
     C: ConnectionTrait,
 {
@@ -115,8 +141,12 @@ where
         metadata_id: ActiveValue::Set(*metadata_id),
         ..Default::default()
     };
-    user_to_meta.insert(db).await.ok();
-    Ok(())
+    Ok(match user_to_meta.insert(db).await {
+        Ok(u) => u,
+        Err(_) => get_user_and_metadata_association(user_id, metadata_id, db)
+            .await
+            .unwrap(),
+    })
 }
 
 pub async fn user_id_from_token(token: String, auth_db: &MemoryDatabase) -> Result<i32> {

@@ -1,14 +1,22 @@
 query UserPreferences {
   userPreferences {
+    notifications {
+      episodeReleased
+      statusChanged
+      releaseDateChanged
+      numberOfSeasonsChanged
+    }
     featuresEnabled {
-      anime
-      audioBooks
-      books
-      manga
-      movies
-      podcasts
-      shows
-      videoGames
+      media {
+        anime
+        audioBooks
+        books
+        manga
+        movies
+        podcasts
+        shows
+        videoGames
+      }
     }
   }
 }

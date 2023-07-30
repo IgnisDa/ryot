@@ -77,6 +77,7 @@ impl MediaProvider for TmdbMovieService {
             backdrop_path: Option<String>,
             release_date: String,
             runtime: i32,
+            status: Option<String>,
             genres: Vec<NamedObject>,
         }
         let mut rsp = self
@@ -146,6 +147,7 @@ impl MediaProvider for TmdbMovieService {
             identifier: data.id.to_string(),
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
+            production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
             creators: Vec::from_iter(all_creators),
@@ -260,6 +262,7 @@ impl MediaProvider for TmdbShowService {
             first_air_date: Option<String>,
             seasons: Vec<TmdbSeasonNumber>,
             genres: Vec<NamedObject>,
+            status: Option<String>,
         }
         let mut rsp = self
             .client
@@ -373,6 +376,7 @@ impl MediaProvider for TmdbShowService {
             identifier: data.id.to_string(),
             title: data.name,
             lot: MetadataLot::Show,
+            production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: data.overview,
             creators: author_names,

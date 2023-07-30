@@ -126,6 +126,8 @@ pub enum Metadata {
     PublishYear,
     // the date which this media was released. Should take precedence if present
     PublishDate,
+    // production status
+    ProductionStatus,
     // all the images for this media item
     Images,
     // the unique identifier that is returned by the metadata provider
@@ -167,6 +169,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Metadata::Title).string().not_null())
                     .col(ColumnDef::new(Metadata::Description).text())
+                    .col(
+                        ColumnDef::new(Metadata::ProductionStatus)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json())

@@ -29,7 +29,11 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
-import { IconMessage2, IconPhotoPlus } from "@tabler/icons-react";
+import {
+	IconDatabaseImport,
+	IconMessage2,
+	IconPhotoPlus,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -67,6 +71,7 @@ const ActualDisplayStat = (props: {
 						<Text
 							fw={d.label !== "Runtime" ? "bold" : undefined}
 							display={"inline"}
+							size="sm"
 						>
 							{d.type === "duration"
 								? humaizer.humanize(d.value * 1000 * 60, {
@@ -75,7 +80,7 @@ const ActualDisplayStat = (props: {
 								  })
 								: humanFormat(d.value)}
 						</Text>
-						<Text display={"inline"} ml="4px">
+						<Text display={"inline"} ml="4px" size="sm">
 							{d.label === "Runtime" ? "" : d.label}
 						</Text>
 					</Box>
@@ -92,9 +97,9 @@ const DisplayStatForMediaType = (props: {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 	const userPrefs = useUserPreferences();
-	const isEnabled = Object.entries(userPrefs.data?.featuresEnabled || {}).find(
-		([name, _]) => getLot(name) === props.lot,
-	)!;
+	const isEnabled = Object.entries(
+		userPrefs.data?.featuresEnabled.media || {},
+	).find(([name, _]) => getLot(name) === props.lot)!;
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
@@ -144,7 +149,7 @@ const Page: NextPageWithLayout = () => {
 		inProgressCollection.data.details ? (
 		<>
 			<Head>
-				<title>Dashboard | Ryot</title>
+				<title>Home | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
@@ -166,7 +171,7 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
-						Calculated {formatTimeAgo(latestUserSummary.data.createdOn)}
+						Calculated {formatTimeAgo(latestUserSummary.data.calculatedOn)}
 					</Text>
 					<SimpleGrid
 						cols={1}
@@ -181,12 +186,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Movies",
-									value: latestUserSummary.data.data.media.movies.watched,
+									value: latestUserSummary.data.media.movies.watched,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.movies.runtime,
+									value: latestUserSummary.data.media.movies.runtime,
 									type: "duration",
 								},
 							]}
@@ -196,23 +201,22 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Shows",
-									value: latestUserSummary.data.data.media.shows.watched,
+									value: latestUserSummary.data.media.shows.watched,
 									type: "number",
 								},
 								{
 									label: "Seasons",
-									value: latestUserSummary.data.data.media.shows.watchedSeasons,
+									value: latestUserSummary.data.media.shows.watchedSeasons,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value:
-										latestUserSummary.data.data.media.shows.watchedEpisodes,
+									value: latestUserSummary.data.media.shows.watchedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.shows.runtime,
+									value: latestUserSummary.data.media.shows.runtime,
 									type: "duration",
 								},
 							]}
@@ -222,7 +226,7 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Video games",
-									value: latestUserSummary.data.data.media.videoGames.played,
+									value: latestUserSummary.data.media.videoGames.played,
 									type: "number",
 								},
 							]}
@@ -232,12 +236,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Audiobooks",
-									value: latestUserSummary.data.data.media.audioBooks.played,
+									value: latestUserSummary.data.media.audioBooks.played,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.audioBooks.runtime,
+									value: latestUserSummary.data.media.audioBooks.runtime,
 									type: "duration",
 								},
 							]}
@@ -247,12 +251,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Books",
-									value: latestUserSummary.data.data.media.books.read,
+									value: latestUserSummary.data.media.books.read,
 									type: "number",
 								},
 								{
 									label: "Pages",
-									value: latestUserSummary.data.data.media.books.pages,
+									value: latestUserSummary.data.media.books.pages,
 									type: "number",
 								},
 							]}
@@ -262,18 +266,17 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Podcasts",
-									value: latestUserSummary.data.data.media.podcasts.played,
+									value: latestUserSummary.data.media.podcasts.played,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value:
-										latestUserSummary.data.data.media.podcasts.playedEpisodes,
+									value: latestUserSummary.data.media.podcasts.playedEpisodes,
 									type: "number",
 								},
 								{
 									label: "Runtime",
-									value: latestUserSummary.data.data.media.podcasts.runtime,
+									value: latestUserSummary.data.media.podcasts.runtime,
 									type: "duration",
 								},
 							]}
@@ -283,12 +286,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Manga",
-									value: latestUserSummary.data.data.media.manga.read,
+									value: latestUserSummary.data.media.manga.read,
 									type: "number",
 								},
 								{
 									label: "Chapters",
-									value: latestUserSummary.data.data.media.manga.chapters,
+									value: latestUserSummary.data.media.manga.chapters,
 									type: "number",
 								},
 							]}
@@ -298,12 +301,12 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Anime",
-									value: latestUserSummary.data.data.media.anime.watched,
+									value: latestUserSummary.data.media.anime.watched,
 									type: "number",
 								},
 								{
 									label: "Episodes",
-									value: latestUserSummary.data.data.media.anime.episodes,
+									value: latestUserSummary.data.media.anime.episodes,
 									type: "number",
 								},
 							]}
@@ -314,7 +317,7 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Reviews",
-									value: latestUserSummary.data.data.media.reviewsPosted,
+									value: latestUserSummary.data.media.reviewsPosted,
 									type: "number",
 								},
 							]}
@@ -330,6 +333,15 @@ const Page: NextPageWithLayout = () => {
 							{ minWidth: "lg", cols: 3 },
 						]}
 					>
+						<Link passHref legacyBehavior href={ROUTES.imports.new}>
+							<Button
+								variant="outline"
+								component="a"
+								leftIcon={<IconDatabaseImport />}
+							>
+								New import
+							</Button>
+						</Link>
 						<Link
 							passHref
 							legacyBehavior

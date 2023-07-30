@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
+import { ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { fileToText } from "@/lib/utilities";
@@ -9,6 +10,7 @@ import {
 	Container,
 	FileInput,
 	Flex,
+	Group,
 	PasswordInput,
 	Select,
 	Stack,
@@ -25,6 +27,7 @@ import {
 import { changeCase } from "@ryot/utilities";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
+import Link from "next/link";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -186,13 +189,18 @@ const Page: NextPageWithLayout = () => {
 					<Stack>
 						<Flex justify={"space-between"} align={"center"}>
 							<Title>Import data</Title>
-							<Anchor
-								size="xs"
-								href="https://ignisda.github.io/ryot/importing.html"
-								target="_blank"
-							>
-								Docs
-							</Anchor>
+							<Group>
+								<Link passHref legacyBehavior href={ROUTES.imports.reports}>
+									<Anchor size="xs">Reports</Anchor>
+								</Link>
+								<Anchor
+									size="xs"
+									href="https://ignisda.github.io/ryot/importing.html"
+									target="_blank"
+								>
+									Docs
+								</Anchor>
+							</Group>
 						</Flex>
 						<Select
 							label="Select a source"

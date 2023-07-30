@@ -38,9 +38,8 @@ use tower_http::{
 
 use crate::{
     background::{
-        general_media_cleanup_jobs, general_user_cleanup, import_media,
-        recalculate_user_summary_job, update_exercise_job, update_metadata_job, user_created_job,
-        yank_integrations_data,
+        import_media, media_jobs, recalculate_user_summary_job, update_exercise_job,
+        update_metadata_job, user_created_job, user_jobs, yank_integrations_data,
     },
     config::get_app_config,
     config::AppConfig,
@@ -64,6 +63,7 @@ mod integrations;
 mod migrator;
 mod miscellaneous;
 mod models;
+mod notification;
 mod providers;
 mod routes;
 mod traits;
@@ -258,7 +258,7 @@ async fn main() -> Result<()> {
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_1.clone()))
-                    .build_fn(general_user_cleanup)
+                    .build_fn(user_jobs)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
@@ -271,7 +271,7 @@ async fn main() -> Result<()> {
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
                     .layer(ApalisExtension(media_service_2.clone()))
-                    .build_fn(general_media_cleanup_jobs)
+                    .build_fn(media_jobs)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("yank_integrations_data-{c}"))

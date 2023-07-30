@@ -1,5 +1,5 @@
-import { useUserPreferences } from "../hooks/graphql";
 import { ROUTES } from "@/lib/constants";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
@@ -14,6 +14,7 @@ import {
 	Image,
 	MediaQuery,
 	Navbar,
+	ScrollArea,
 	Text,
 	ThemeIcon,
 	UnstyledButton,
@@ -26,12 +27,12 @@ import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
 	UserDetailsDocument,
+	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/utilities";
 import {
 	IconChevronLeft,
 	IconChevronRight,
-	IconDatabaseImport,
 	IconDeviceSpeaker,
 	IconHome2,
 	IconLogout,
@@ -196,7 +197,7 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
-	useQuery({
+	const userDetails = useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
 			const { userDetails } = await gqlClient.request(UserDetailsDocument);
@@ -218,8 +219,7 @@ export default function ({ children }: { children: ReactElement }) {
 	const userPrefs = useUserPreferences();
 
 	const mediaLinks = [
-		{ icon: IconHome2, label: "Home", href: ROUTES.media.dashboard },
-		...(Object.entries(userPrefs?.data?.featuresEnabled || {})
+		...(Object.entries(userPrefs?.data?.featuresEnabled.media || {})
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -269,9 +269,14 @@ export default function ({ children }: { children: ReactElement }) {
 	}, []);
 
 	useEffect(() => {
-		router.events.on("routeChangeComplete", () => {
+		const handleStart = () => {
 			close();
-		});
+		};
+
+		router.events.on("routeChangeComplete", handleStart);
+		return () => {
+			router.events.off("routeChangeComplete", handleStart);
+		};
 	}, [router]);
 
 	return (
@@ -299,7 +304,8 @@ export default function ({ children }: { children: ReactElement }) {
 							/>
 						</Flex>
 					</MediaQuery>
-					<Navbar.Section grow>
+					<Navbar.Section grow component={ScrollArea}>
+						<LinksGroup label="Home" icon={IconHome2} href={ROUTES.dashboard} />
 						<LinksGroup
 							label="Media"
 							icon={IconDeviceSpeaker}
@@ -311,17 +317,28 @@ export default function ({ children }: { children: ReactElement }) {
 							links={[{ label: "Home", link: ROUTES.fitness.home }]}
 						/>
 						<LinksGroup
-							label="Importing"
-							icon={IconDatabaseImport}
-							links={[
-								{ label: "New", link: ROUTES.imports.new },
-								{ label: "Reports", link: ROUTES.imports.reports },
-							]}
-						/>
-						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
-							href={ROUTES.settings}
+							links={
+								[
+									{ label: "Preferences", link: ROUTES.settings.preferences },
+									{ label: "Profile", link: ROUTES.settings.profile },
+									{ label: "Integrations", link: ROUTES.settings.integrations },
+									{
+										label: "Notifications",
+										link: ROUTES.settings.notifications,
+									},
+									{
+										label: "Miscellaneous",
+										link: ROUTES.settings.miscellaneous,
+									},
+									{ label: "Tokens", link: ROUTES.settings.tokens },
+									userDetails.data?.__typename === "User" &&
+									userDetails.data.lot === UserLot.Admin
+										? { label: "Users", link: ROUTES.settings.users }
+										: undefined,
+								].filter(Boolean) as any
+							}
 						/>
 					</Navbar.Section>
 					<Navbar.Section>
@@ -343,15 +360,19 @@ export default function ({ children }: { children: ReactElement }) {
 			<Flex direction={"column"} h="90%">
 				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
 					<Flex justify={"space-between"} p="md">
-						<Group>
-							<Image
-								src={"/icon-192x192.png"}
-								height={40}
-								width={40}
-								radius={"md"}
-							/>
-							<Text size={"xl"}>Ryot</Text>
-						</Group>
+						<Link href={ROUTES.dashboard} style={{ textDecoration: "none" }}>
+							<Group>
+								<Image
+									src={"/logo-light.png"}
+									height={40}
+									width={40}
+									radius={"md"}
+								/>
+								<Text size={"xl"} color="white">
+									Ryot
+								</Text>
+							</Group>
+						</Link>
 						<Burger
 							opened={opened}
 							onClick={toggle}

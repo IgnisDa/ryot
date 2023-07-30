@@ -18,12 +18,14 @@ impl MigrationName for Migration {
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it
+/// - added to their monitored media
 #[derive(Iden)]
 pub enum UserToMetadata {
     Table,
     UserId,
     MetadataId,
     LastUpdatedOn,
+    Monitored,
 }
 
 #[derive(
@@ -50,6 +52,8 @@ pub enum User {
     YankIntegrations,
     // This field can be `NULL` if the user has not enabled any sink integration
     SinkIntegrations,
+    Notifications,
+    Summary,
 }
 
 #[async_trait::async_trait]
@@ -73,6 +77,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Preferences).json().not_null())
                     .col(ColumnDef::new(User::YankIntegrations).json())
                     .col(ColumnDef::new(User::SinkIntegrations).json())
+                    .col(ColumnDef::new(User::Notifications).json())
+                    .col(ColumnDef::new(User::Summary).json())
                     .to_owned(),
             )
             .await?;
@@ -93,6 +99,12 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(UserToMetadata::MetadataId)
                             .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserToMetadata::Monitored)
+                            .boolean()
+                            .default(false)
                             .not_null(),
                     )
                     .primary_key(

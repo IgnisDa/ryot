@@ -261,6 +261,7 @@ impl MediaProvider for OpenlibraryService {
         Ok(MediaDetails {
             identifier: get_key(&data.key),
             title: data.title,
+            production_status: "Released".to_owned(),
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,

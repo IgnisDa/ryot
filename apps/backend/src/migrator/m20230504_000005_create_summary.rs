@@ -1,3 +1,5 @@
+// FIXME: Remove this model completely.
+
 use sea_orm_migration::prelude::*;
 
 use crate::migrator::m20230417_000002_create_user::User;

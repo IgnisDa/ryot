@@ -44,10 +44,6 @@ import {
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
-	MediaDetailsDocument,
-	MediaInCollectionsDocument,
-	MediaItemReviewsDocument,
-	type MediaItemReviewsQuery,
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
@@ -56,8 +52,11 @@ import {
 	type ProgressUpdateMutationVariables,
 	RemoveMediaFromCollectionDocument,
 	type RemoveMediaFromCollectionMutationVariables,
-	SeenHistoryDocument,
+	type ReviewItem,
 	SeenState,
+	ToggleMediaMonitorDocument,
+	type ToggleMediaMonitorMutationVariables,
+	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/utilities";
 import {
@@ -86,7 +85,6 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useMemo, useState } from "react";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
@@ -330,7 +328,7 @@ const ReviewItem = ({
 	review,
 	metadataId,
 }: {
-	review: MediaItemReviewsQuery["mediaItemReviews"][number];
+	review: ReviewItem;
 	metadataId: number;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -419,54 +417,23 @@ const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
-	const mediaDetails = useQuery({
-		queryKey: ["details", metadataId],
+	const userMediaDetails = useQuery({
+		queryKey: ["userMediaDetails", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
-				metadataId: metadataId,
-			});
-			return mediaDetails;
+			const { userMediaDetails } = await gqlClient.request(
+				UserMediaDetailsDocument,
+				{ metadataId },
+			);
+			return userMediaDetails;
 		},
 		staleTime: Infinity,
 		enabled: !!metadataId,
-	});
-	const seenHistory = useQuery({
-		queryKey: ["history", metadataId, mediaDetails?.data?.lot],
-		queryFn: async () => {
-			const { seenHistory } = await gqlClient.request(SeenHistoryDocument, {
-				metadataId: metadataId,
-				isShow: mediaDetails.data?.lot === MetadataLot.Show,
-			});
-			return seenHistory;
-		},
 	});
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
 			return collections;
-		},
-	});
-	const mediaInCollections = useQuery({
-		queryKey: ["mediaInCollections"],
-		queryFn: async () => {
-			const { mediaInCollections } = await gqlClient.request(
-				MediaInCollectionsDocument,
-				{ metadataId },
-			);
-			return mediaInCollections;
-		},
-	});
-	const reviews = useQuery({
-		queryKey: ["reviews", metadataId],
-		queryFn: async () => {
-			const { mediaItemReviews } = await gqlClient.request(
-				MediaItemReviewsDocument,
-				{
-					metadataId: metadataId,
-				},
-			);
-			return mediaItemReviews;
 		},
 	});
 	const progressUpdate = useMutation({
@@ -478,8 +445,19 @@ const Page: NextPageWithLayout = () => {
 			return progressUpdate;
 		},
 		onSuccess: () => {
-			collections.refetch();
-			seenHistory.refetch();
+			userMediaDetails.refetch();
+		},
+	});
+	const toggleMediaMonitor = useMutation({
+		mutationFn: async (variables: ToggleMediaMonitorMutationVariables) => {
+			const { toggleMediaMonitor } = await gqlClient.request(
+				ToggleMediaMonitorDocument,
+				variables,
+			);
+			return toggleMediaMonitor;
+		},
+		onSuccess: () => {
+			userMediaDetails.refetch();
 		},
 	});
 	const deleteSeenItem = useMutation({
@@ -491,7 +469,7 @@ const Page: NextPageWithLayout = () => {
 			return deleteSeenItem;
 		},
 		onSuccess: () => {
-			seenHistory.refetch();
+			userMediaDetails.refetch();
 			notifications.show({
 				title: "Deleted",
 				message: "Record deleted from your history successfully",
@@ -507,7 +485,7 @@ const Page: NextPageWithLayout = () => {
 			return deployUpdateMetadataJob;
 		},
 		onSuccess: () => {
-			seenHistory.refetch();
+			userMediaDetails.refetch();
 			notifications.show({
 				title: "Deployed",
 				message: "This record's metadata will be updated in the background.",
@@ -523,7 +501,7 @@ const Page: NextPageWithLayout = () => {
 			return mergeMetadata;
 		},
 		onSuccess: () => {
-			router.push(ROUTES.media.dashboard);
+			router.push(ROUTES.dashboard);
 		},
 	});
 	const removeMediaFromCollection = useMutation({
@@ -543,23 +521,26 @@ const Page: NextPageWithLayout = () => {
 
 	const creators = useMemo(() => {
 		const creators: Record<string, { name: string }[]> = {};
-		for (const c of mediaDetails.data?.creators || []) {
+		for (const c of userMediaDetails.data?.mediaDetails.creators || []) {
 			if (c.role in creators) {
 				creators[c.role].push({ name: c.name });
 			} else {
 				creators[c.role] = [{ name: c.name }];
 			}
 		}
-		const platforms = mediaDetails.data?.videoGameSpecifics?.platforms;
+		const platforms =
+			userMediaDetails.data?.mediaDetails.videoGameSpecifics?.platforms;
 		if (platforms) {
 			creators["Platforms"] = platforms.map((p) => ({
 				name: p,
 			}));
 		}
 		return creators;
-	}, [mediaDetails.data]);
+	}, [userMediaDetails.data]);
 
-	const badgeGradient: MantineGradient = match(mediaDetails.data?.lot)
+	const badgeGradient: MantineGradient = match(
+		userMediaDetails.data?.mediaDetails.lot,
+	)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
 		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
@@ -582,74 +563,34 @@ const Page: NextPageWithLayout = () => {
 		}))
 		.exhaustive();
 
-	// it is the job of the backend to ensure that this has only one item
-	const inProgressSeenItem = seenHistory.data?.find((h) => h.progress < 100);
+	const source =
+		userMediaDetails?.data?.mediaDetails.source || MetadataSource.Custom;
 
-	// the next episode if it is a show or podcast
-	const nextEpisode = match(seenHistory.data?.at(0))
-		.with(undefined, () => undefined)
-		.otherwise((value) => {
-			return match(mediaDetails.data?.lot)
-				.with(MetadataLot.Show, () => {
-					const allEpisodes =
-						mediaDetails.data?.showSpecifics?.seasons.flatMap((s) =>
-							s.episodes.map((e) => ({
-								seasonNumber: s.seasonNumber,
-								...e,
-							})),
-						) || [];
-					const current = allEpisodes.findIndex(
-						(p) =>
-							p.episodeNumber === value.showInformation?.episode &&
-							p.seasonNumber === value.showInformation?.season,
-					);
-					invariant(typeof current === "number");
-					if (current === -1) return undefined;
-					const ep = allEpisodes.at(current + 1);
-					if (!ep) return undefined;
-					return { episode: ep.episodeNumber, season: ep.seasonNumber };
-				})
-				.with(MetadataLot.Podcast, () => {
-					const current =
-						mediaDetails.data?.podcastSpecifics?.episodes.findIndex(
-							(p) => p.number === value.podcastInformation?.episode,
-						);
-					invariant(typeof current === "number");
-					if (current === -1) return undefined;
-					const ep = mediaDetails.data?.podcastSpecifics?.episodes.at(
-						current + 1,
-					);
-					if (!ep) return undefined;
-					return { episode: ep.number, season: null };
-				})
-				.otherwise(() => undefined);
-		});
-
-	const source = mediaDetails?.data?.source || MetadataSource.Custom;
-
-	return mediaDetails.data && seenHistory.data ? (
+	return userMediaDetails.data ? (
 		<>
 			<Head>
-				<title>{mediaDetails.data.title} | Ryot</title>
+				<title>{userMediaDetails.data.mediaDetails.title} | Ryot</title>
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					backdropImages={mediaDetails.data.backdropImages}
-					posterImages={mediaDetails.data.posterImages}
+					backdropImages={userMediaDetails.data.mediaDetails.backdropImages}
+					posterImages={userMediaDetails.data.mediaDetails.posterImages}
 					externalLink={{
 						source,
-						href: mediaDetails.data.sourceUrl,
+						href: userMediaDetails.data.mediaDetails.sourceUrl,
 					}}
 				>
 					<Group>
-						<Title id="media-title">{mediaDetails.data.title}</Title>
+						<Title id="media-title">
+							{userMediaDetails.data.mediaDetails.title}
+						</Title>
 						<Badge variant="gradient" gradient={badgeGradient}>
-							{changeCase(mediaDetails.data.lot)}
+							{changeCase(userMediaDetails.data.mediaDetails.lot)}
 						</Badge>
 					</Group>
-					{mediaInCollections.data && mediaInCollections.data.length > 0 ? (
+					{userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
-							{mediaInCollections.data.map((col) => (
+							{userMediaDetails.data.collections.map((col) => (
 								<Badge
 									key={col.id}
 									color={
@@ -683,78 +624,104 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 					) : null}
 					<Flex id="media-details" wrap={"wrap"} gap={4}>
-						{mediaDetails.data.genres.length > 0 ? (
+						{userMediaDetails.data.mediaDetails.genres.length > 0 ? (
 							<Text color="dimmed">
-								{mediaDetails.data.genres.slice(0, 3).join(", ")}
+								{userMediaDetails.data.mediaDetails.genres
+									.slice(0, 3)
+									.join(", ")}
 							</Text>
 						) : null}
-						{mediaDetails.data.bookSpecifics?.pages ? (
-							<Text color="dimmed">
-								{" "}
-								• {mediaDetails.data.bookSpecifics.pages} pages
-							</Text>
-						) : null}
-						{mediaDetails.data.podcastSpecifics?.totalEpisodes ? (
+						{userMediaDetails.data.mediaDetails.bookSpecifics?.pages ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
+								• {userMediaDetails.data.mediaDetails.bookSpecifics.pages} pages
 							</Text>
 						) : null}
-						{mediaDetails.data.animeSpecifics?.episodes ? (
+						{userMediaDetails.data.mediaDetails.podcastSpecifics
+							?.totalEpisodes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.animeSpecifics.episodes} episodes
+								•{" "}
+								{
+									userMediaDetails.data.mediaDetails.podcastSpecifics
+										.totalEpisodes
+								}{" "}
+								episodes
 							</Text>
 						) : null}
-						{mediaDetails.data.mangaSpecifics?.chapters ? (
+						{userMediaDetails.data.mediaDetails.animeSpecifics?.episodes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.mangaSpecifics.chapters} chapters
+								• {userMediaDetails.data.mediaDetails.animeSpecifics.episodes}{" "}
+								episodes
 							</Text>
 						) : null}
-						{mediaDetails.data.mangaSpecifics?.volumes ? (
+						{userMediaDetails.data.mediaDetails.mangaSpecifics?.chapters ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.mangaSpecifics.volumes} volumes
+								• {userMediaDetails.data.mediaDetails.mangaSpecifics.chapters}{" "}
+								chapters
 							</Text>
 						) : null}
-						{mediaDetails.data.movieSpecifics?.runtime ? (
+						{userMediaDetails.data.mediaDetails.mangaSpecifics?.volumes ? (
+							<Text color="dimmed">
+								{" "}
+								• {userMediaDetails.data.mediaDetails.mangaSpecifics.volumes}{" "}
+								volumes
+							</Text>
+						) : null}
+						{userMediaDetails.data.mediaDetails.movieSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
 								•{" "}
 								{humaizer.humanize(
-									mediaDetails.data.movieSpecifics.runtime * 1000 * 60,
+									userMediaDetails.data.mediaDetails.movieSpecifics.runtime *
+										1000 *
+										60,
 								)}
 							</Text>
 						) : null}
-						{mediaDetails.data.showSpecifics ? (
+						{userMediaDetails.data.mediaDetails.showSpecifics ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.showSpecifics.seasons.length} seasons
+								•{" "}
+								{
+									userMediaDetails.data.mediaDetails.showSpecifics.seasons
+										.length
+								}{" "}
+								seasons
 							</Text>
 						) : null}
-						{mediaDetails.data.audioBookSpecifics?.runtime ? (
+						{userMediaDetails.data.mediaDetails.audioBookSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
 								•{" "}
 								{humaizer.humanize(
-									mediaDetails.data.audioBookSpecifics.runtime * 1000 * 60,
+									userMediaDetails.data.mediaDetails.audioBookSpecifics
+										.runtime *
+										1000 *
+										60,
 								)}
 							</Text>
 						) : null}
-						{mediaDetails.data.publishYear ? (
-							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
+						{userMediaDetails.data.mediaDetails.publishYear ? (
+							<Text color="dimmed">
+								{" "}
+								• {userMediaDetails.data.mediaDetails.publishYear}
+							</Text>
 						) : null}
 					</Flex>
-					{inProgressSeenItem &&
-					inProgressSeenItem.state === SeenState.InProgress ? (
+					{userMediaDetails.data.inProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
-							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
-							ing this ({inProgressSeenItem.progress}%)
+							You are currently{" "}
+							{getVerb(Verb.Read, userMediaDetails.data.mediaDetails.lot)}
+							ing this ({userMediaDetails.data.inProgress.progress}%)
 						</Alert>
 					) : null}
 					<Tabs
-						defaultValue={seenHistory.data.length > 0 ? "actions" : "overview"}
+						defaultValue={
+							userMediaDetails.data.history.length > 0 ? "actions" : "overview"
+						}
 						variant="outline"
 					>
 						<Tabs.List mb={"xs"}>
@@ -770,12 +737,12 @@ const Page: NextPageWithLayout = () => {
 							>
 								History
 							</Tabs.Tab>
-							{mediaDetails.data.showSpecifics ? (
+							{userMediaDetails.data.mediaDetails.showSpecifics ? (
 								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
 									Seasons
 								</Tabs.Tab>
 							) : null}
-							{mediaDetails.data.podcastSpecifics ? (
+							{userMediaDetails.data.mediaDetails.podcastSpecifics ? (
 								<Tabs.Tab
 									value="episodes"
 									icon={<IconPlayerPlay size="1rem" />}
@@ -793,10 +760,10 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
 								<>
-									{mediaDetails.data.description ? (
+									{userMediaDetails.data.mediaDetails.description ? (
 										<Text
 											dangerouslySetInnerHTML={{
-												__html: mediaDetails.data.description,
+												__html: userMediaDetails.data.mediaDetails.description,
 											}}
 										/>
 									) : (
@@ -832,25 +799,29 @@ const Page: NextPageWithLayout = () => {
 									spacing="lg"
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
-									{inProgressSeenItem &&
-									inProgressSeenItem.state !== SeenState.Dropped ? (
+									{userMediaDetails.data.inProgress ? (
 										<>
 											<Button variant="outline" onClick={progressModalOpen}>
 												Set progress
 											</Button>
 											<ProgressModal
-												progress={inProgressSeenItem.progress}
-												refetch={seenHistory.refetch}
+												progress={userMediaDetails.data.inProgress.progress}
+												refetch={userMediaDetails.refetch}
 												metadataId={metadataId}
 												onClose={progressModalClose}
 												opened={progressModalOpened}
-												lot={mediaDetails.data.lot}
+												lot={userMediaDetails.data.mediaDetails.lot}
 												total={
-													mediaDetails.data.audioBookSpecifics?.runtime ||
-													mediaDetails.data.bookSpecifics?.pages ||
-													mediaDetails.data.movieSpecifics?.runtime ||
-													mediaDetails.data.mangaSpecifics?.chapters ||
-													mediaDetails.data.animeSpecifics?.episodes
+													userMediaDetails.data.mediaDetails.audioBookSpecifics
+														?.runtime ||
+													userMediaDetails.data.mediaDetails.bookSpecifics
+														?.pages ||
+													userMediaDetails.data.mediaDetails.movieSpecifics
+														?.runtime ||
+													userMediaDetails.data.mediaDetails.mangaSpecifics
+														?.chapters ||
+													userMediaDetails.data.mediaDetails.animeSpecifics
+														?.episodes
 												}
 											/>
 											<Button
@@ -865,24 +836,34 @@ const Page: NextPageWithLayout = () => {
 													});
 												}}
 											>
-												I finished {getVerb(Verb.Read, mediaDetails.data.lot)}
+												I finished{" "}
+												{getVerb(
+													Verb.Read,
+													userMediaDetails.data.mediaDetails.lot,
+												)}
 												ing it
 											</Button>
 										</>
-									) : mediaDetails.data.lot === MetadataLot.Show ||
-									  mediaDetails.data.lot === MetadataLot.Podcast ? (
-										nextEpisode ? (
+									) : userMediaDetails.data.mediaDetails.lot ===
+											MetadataLot.Show ||
+									  userMediaDetails.data.mediaDetails.lot ===
+											MetadataLot.Podcast ? (
+										userMediaDetails.data.nextEpisode !== null ? (
 											<Button
 												variant="outline"
 												onClick={async () => {
-													if (mediaDetails.data.lot === MetadataLot.Podcast)
+													if (
+														userMediaDetails.data.mediaDetails.lot ===
+														MetadataLot.Podcast
+													)
 														router.push(
 															withQuery(
 																ROUTES.media.individualMedia.updateProgress,
 																{
 																	item: metadataId,
 																	selectedPodcastEpisodeNumber:
-																		nextEpisode.episode,
+																		userMediaDetails.data.nextEpisode
+																			?.episodeNumber,
 																},
 															),
 														);
@@ -892,18 +873,22 @@ const Page: NextPageWithLayout = () => {
 																ROUTES.media.individualMedia.updateProgress,
 																{
 																	item: metadataId,
-																	selectedShowSeasonNumber: nextEpisode.season,
+																	selectedShowSeasonNumber:
+																		userMediaDetails.data.nextEpisode
+																			?.seasonNumber,
 																	selectedShowEpisodeNumber:
-																		nextEpisode.episode,
+																		userMediaDetails.data.nextEpisode
+																			?.episodeNumber,
 																},
 															),
 														);
 												}}
 											>
 												Mark{" "}
-												{mediaDetails.data.lot === MetadataLot.Show
-													? `S${nextEpisode.season}-E${nextEpisode.episode}`
-													: `EP-${nextEpisode.episode}`}{" "}
+												{userMediaDetails.data.mediaDetails.lot ===
+												MetadataLot.Show
+													? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
+													: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
 												as seen
 											</Button>
 										) : null
@@ -916,13 +901,18 @@ const Page: NextPageWithLayout = () => {
 												});
 											}}
 										>
-											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}ing it
+											I'm{" "}
+											{getVerb(
+												Verb.Read,
+												userMediaDetails.data.mediaDetails.lot,
+											)}
+											ing it
 										</Button>
 									)}
-									{seenHistory.data.length > 0 &&
-									inProgressSeenItem &&
+									{userMediaDetails.data.history.length > 0 &&
+									userMediaDetails.data.inProgress &&
 									![SeenState.OnAHold, SeenState.Dropped].includes(
-										inProgressSeenItem.state,
+										userMediaDetails.data.inProgress.state,
 									) ? (
 										<>
 											<Button variant="outline" onClick={changeStateModalOpen}>
@@ -975,12 +965,17 @@ const Page: NextPageWithLayout = () => {
 												</Stack>
 											</Modal>
 										</>
-									) : mediaDetails.data.lot === MetadataLot.Show ||
-									  mediaDetails.data.lot === MetadataLot.Podcast ? (
+									) : userMediaDetails.data.mediaDetails.lot ===
+											MetadataLot.Show ||
+									  userMediaDetails.data.mediaDetails.lot ===
+											MetadataLot.Podcast ? (
 										<Button
 											variant="outline"
 											onClick={() => {
-												if (mediaDetails.data.lot === MetadataLot.Show)
+												if (
+													userMediaDetails.data.mediaDetails.lot ===
+													MetadataLot.Show
+												)
 													router.push(
 														withQuery(
 															ROUTES.media.individualMedia.updateProgress,
@@ -1002,8 +997,11 @@ const Page: NextPageWithLayout = () => {
 													);
 											}}
 										>
-											Mark {changeCase(mediaDetails.data.lot).toLowerCase()} as
-											seen
+											Mark{" "}
+											{changeCase(
+												userMediaDetails.data.mediaDetails.lot,
+											).toLowerCase()}{" "}
+											as seen
 										</Button>
 									) : null}
 									<Button
@@ -1016,19 +1014,27 @@ const Page: NextPageWithLayout = () => {
 											);
 										}}
 									>
-										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
+										Add to{" "}
+										{getVerb(Verb.Read, userMediaDetails.data.mediaDetails.lot)}{" "}
+										history
 									</Button>
 									<Link
 										href={withQuery(ROUTES.media.individualMedia.postReview, {
 											item: metadataId,
-											showSeasonNumber: nextEpisode?.season ?? undefined,
+											showSeasonNumber:
+												userMediaDetails.data.nextEpisode?.seasonNumber ??
+												undefined,
 											showEpisodeNumber:
-												mediaDetails.data.lot === MetadataLot.Show
-													? nextEpisode?.episode ?? undefined
+												userMediaDetails.data.mediaDetails.lot ===
+												MetadataLot.Show
+													? userMediaDetails.data.nextEpisode?.episodeNumber ??
+													  undefined
 													: undefined,
 											podcastEpisodeNumber:
-												mediaDetails.data.lot === MetadataLot.Podcast
-													? nextEpisode?.episode ?? undefined
+												userMediaDetails.data.mediaDetails.lot ===
+												MetadataLot.Podcast
+													? userMediaDetails.data.nextEpisode?.episodeNumber ??
+													  undefined
 													: undefined,
 										})}
 										passHref
@@ -1054,6 +1060,17 @@ const Page: NextPageWithLayout = () => {
 											/>
 										) : null}
 									</>
+									<Button
+										variant="outline"
+										onClick={() => {
+											toggleMediaMonitor.mutate({
+												toMonitorMetadataId: metadataId,
+											});
+										}}
+									>
+										{userMediaDetails.data.isMonitored ? "Stop" : "Start"}{" "}
+										monitoring
+									</Button>
 									<Button
 										variant="outline"
 										onClick={() => {
@@ -1089,16 +1106,17 @@ const Page: NextPageWithLayout = () => {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
-							{seenHistory.data.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										<Text>
-											Seen by all users {mediaDetails.data.seenBy} time
-											{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
-											{seenHistory.data.length} time
-											{seenHistory.data.length > 1 ? "s" : ""} by you
-										</Text>
-										{seenHistory.data.map((h) => (
+							<MediaScrollArea>
+								<Stack>
+									<Text>
+										Seen by all users{" "}
+										{userMediaDetails.data.mediaDetails.seenBy} time
+										{userMediaDetails.data.mediaDetails.seenBy > 1 ? "s" : ""}{" "}
+										and {userMediaDetails.data.history.length} time
+										{userMediaDetails.data.history.length > 1 ? "s" : ""} by you
+									</Text>
+									{userMediaDetails.data.history.length > 0 ? (
+										userMediaDetails.data.history.map((h) => (
 											<Flex
 												key={h.id}
 												direction={"column"}
@@ -1168,160 +1186,167 @@ const Page: NextPageWithLayout = () => {
 													</Flex>
 												</Flex>
 											</Flex>
-										))}
-									</Stack>
-								</MediaScrollArea>
-							) : (
-								<Text fs="italic">You have no history for this item</Text>
-							)}
+										))
+									) : (
+										<Text fs="italic">You have no history for this item</Text>
+									)}
+								</Stack>
+							</MediaScrollArea>
 						</Tabs.Panel>
-						{mediaDetails.data.showSpecifics ? (
+						{userMediaDetails.data.mediaDetails.showSpecifics ? (
 							<Tabs.Panel value="seasons">
 								<MediaScrollArea>
 									<Accordion chevronPosition="right" variant="contained">
-										{mediaDetails.data.showSpecifics.seasons.map((s) => (
-											<Accordion.Item
-												value={s.seasonNumber.toString()}
-												key={s.seasonNumber}
-											>
-												<Accordion.Control>
-													<AccordionLabel
-														{...s}
-														name={`${s.seasonNumber}. ${s.name}`}
-														displayIndicator={
-															s.episodes.length > 0 &&
-															s.episodes.every((e) =>
-																seenHistory.data.some(
-																	(h) =>
-																		h.progress === 100 &&
-																		h.showInformation &&
-																		h.showInformation.episode ===
-																			e.episodeNumber &&
-																		h.showInformation.season === s.seasonNumber,
-																),
-															)
-																? 1
-																: 0
-														}
-														runtime={s.episodes
-															.map((e) => e.runtime || 0)
-															.reduce((i, a) => i + a, 0)}
-													>
-														<Button
-															variant="outline"
-															onClick={() => {
-																router.push(
-																	withQuery(
-																		ROUTES.media.individualMedia.updateProgress,
-																		{
-																			item: metadataId,
-																			selectedShowSeasonNumber: s.seasonNumber,
-																			onlySeason: 1,
-																		},
+										{userMediaDetails.data.mediaDetails.showSpecifics.seasons.map(
+											(s) => (
+												<Accordion.Item
+													value={s.seasonNumber.toString()}
+													key={s.seasonNumber}
+												>
+													<Accordion.Control>
+														<AccordionLabel
+															{...s}
+															name={`${s.seasonNumber}. ${s.name}`}
+															displayIndicator={
+																s.episodes.length > 0 &&
+																s.episodes.every((e) =>
+																	userMediaDetails.data.history.some(
+																		(h) =>
+																			h.progress === 100 &&
+																			h.showInformation &&
+																			h.showInformation.episode ===
+																				e.episodeNumber &&
+																			h.showInformation.season ===
+																				s.seasonNumber,
 																	),
-																);
-															}}
+																)
+																	? 1
+																	: 0
+															}
+															runtime={s.episodes
+																.map((e) => e.runtime || 0)
+																.reduce((i, a) => i + a, 0)}
 														>
-															Mark as seen
-														</Button>
-													</AccordionLabel>
-												</Accordion.Control>
-												<Accordion.Panel>
-													{s.episodes.length > 0 ? (
-														s.episodes.map((e) => (
-															<Box mb={"xs"} ml={"md"} key={e.id}>
-																<AccordionLabel
-																	{...e}
-																	key={e.episodeNumber}
-																	name={`${e.episodeNumber}. ${e.name}`}
-																	displayIndicator={
-																		seenHistory.data.filter(
-																			(h) =>
-																				h.progress === 100 &&
-																				h.showInformation &&
-																				h.showInformation.episode ===
-																					e.episodeNumber &&
-																				h.showInformation.season ===
+															<Button
+																variant="outline"
+																onClick={() => {
+																	router.push(
+																		withQuery(
+																			ROUTES.media.individualMedia
+																				.updateProgress,
+																			{
+																				item: metadataId,
+																				selectedShowSeasonNumber:
 																					s.seasonNumber,
-																		).length
-																	}
-																>
-																	<Button
-																		variant="outline"
-																		onClick={() => {
-																			router.push(
-																				withQuery(
-																					ROUTES.media.individualMedia
-																						.updateProgress,
-																					{
-																						item: metadataId,
-																						selectedShowSeasonNumber:
-																							s.seasonNumber,
-																						selectedShowEpisodeNumber:
-																							e.episodeNumber,
-																					},
-																				),
-																			);
-																		}}
+																				onlySeason: 1,
+																			},
+																		),
+																	);
+																}}
+															>
+																Mark as seen
+															</Button>
+														</AccordionLabel>
+													</Accordion.Control>
+													<Accordion.Panel>
+														{s.episodes.length > 0 ? (
+															s.episodes.map((e) => (
+																<Box mb={"xs"} ml={"md"} key={e.id}>
+																	<AccordionLabel
+																		{...e}
+																		key={e.episodeNumber}
+																		name={`${e.episodeNumber}. ${e.name}`}
+																		displayIndicator={
+																			userMediaDetails.data.history.filter(
+																				(h) =>
+																					h.progress === 100 &&
+																					h.showInformation &&
+																					h.showInformation.episode ===
+																						e.episodeNumber &&
+																					h.showInformation.season ===
+																						s.seasonNumber,
+																			).length
+																		}
 																	>
-																		Mark as seen
-																	</Button>
-																</AccordionLabel>
-															</Box>
-														))
-													) : (
-														<Text>No episodes in this season</Text>
-													)}
-												</Accordion.Panel>
-											</Accordion.Item>
-										))}
+																		<Button
+																			variant="outline"
+																			onClick={() => {
+																				router.push(
+																					withQuery(
+																						ROUTES.media.individualMedia
+																							.updateProgress,
+																						{
+																							item: metadataId,
+																							selectedShowSeasonNumber:
+																								s.seasonNumber,
+																							selectedShowEpisodeNumber:
+																								e.episodeNumber,
+																						},
+																					),
+																				);
+																			}}
+																		>
+																			Mark as seen
+																		</Button>
+																	</AccordionLabel>
+																</Box>
+															))
+														) : (
+															<Text>No episodes in this season</Text>
+														)}
+													</Accordion.Panel>
+												</Accordion.Item>
+											),
+										)}
 									</Accordion>
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}
-						{mediaDetails.data.podcastSpecifics ? (
+						{userMediaDetails.data.mediaDetails.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
 								<MediaScrollArea>
 									<Stack ml="md">
-										{mediaDetails.data.podcastSpecifics.episodes.map((e) => (
-											<AccordionLabel
-												{...e}
-												name={e.title}
-												posterImages={[e.thumbnail || ""]}
-												key={e.number}
-												displayIndicator={
-													seenHistory.data.filter(
-														(h) => h.podcastInformation?.episode === e.number,
-													).length
-												}
-											>
-												<Button
-													variant="outline"
-													onClick={() => {
-														router.push(
-															withQuery(
-																ROUTES.media.individualMedia.updateProgress,
-																{
-																	item: metadataId,
-																	selectedPodcastEpisodeNumber: e.number,
-																},
-															),
-														);
-													}}
+										{userMediaDetails.data.mediaDetails.podcastSpecifics.episodes.map(
+											(e) => (
+												<AccordionLabel
+													{...e}
+													name={e.title}
+													posterImages={[e.thumbnail || ""]}
+													key={e.number}
+													displayIndicator={
+														userMediaDetails.data.history.filter(
+															(h) => h.podcastInformation?.episode === e.number,
+														).length
+													}
 												>
-													Mark as seen
-												</Button>
-											</AccordionLabel>
-										))}
+													<Button
+														variant="outline"
+														onClick={() => {
+															router.push(
+																withQuery(
+																	ROUTES.media.individualMedia.updateProgress,
+																	{
+																		item: metadataId,
+																		selectedPodcastEpisodeNumber: e.number,
+																	},
+																),
+															);
+														}}
+													>
+														Mark as seen
+													</Button>
+												</AccordionLabel>
+											),
+										)}
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}
 						<Tabs.Panel value="reviews">
-							{reviews.data && reviews.data.length > 0 ? (
+							{userMediaDetails.data.reviews.length > 0 ? (
 								<MediaScrollArea>
 									<Stack>
-										{reviews.data.map((r) => (
+										{userMediaDetails.data.reviews.map((r) => (
 											<ReviewItem
 												review={r}
 												key={r.id}

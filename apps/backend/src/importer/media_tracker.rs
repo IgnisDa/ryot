@@ -113,6 +113,13 @@ struct ItemSeen {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+enum ItemNumberOfPages {
+    Nothing(String),
+    Something(i32),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemDetails {
     seen_history: Vec<ItemSeen>,
@@ -126,7 +133,7 @@ struct ItemDetails {
     title: String,
     overview: Option<String>,
     authors: Option<Vec<String>>,
-    number_of_pages: Option<i32>,
+    number_of_pages: Option<ItemNumberOfPages>,
 }
 
 pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
@@ -252,6 +259,11 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             }
         }
 
+        let num_pages = details.number_of_pages.and_then(|d| match d {
+            ItemNumberOfPages::Nothing(_) => None,
+            ItemNumberOfPages::Something(s) => Some(s),
+        });
+
         let item = ImportOrExportItem {
             source_id: d.id.to_string(),
             source,
@@ -262,6 +274,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     identifier,
                     title: details.title,
                     description: details.overview,
+                    production_status: "Released".to_owned(),
                     lot,
                     source: MetadataSource::Custom,
                     creators: details
@@ -278,9 +291,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     images: vec![],
                     publish_year: None,
                     publish_date: None,
-                    specifics: MediaSpecifics::Book(BookSpecifics {
-                        pages: details.number_of_pages,
-                    }),
+                    specifics: MediaSpecifics::Book(BookSpecifics { pages: num_pages }),
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },

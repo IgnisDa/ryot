@@ -5,7 +5,28 @@ use serde::{Deserialize, Serialize};
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-pub struct UserFeaturesEnabledPreferences {
+pub struct UserNotificationsPreferences {
+    pub status_changed: bool,
+    pub episode_released: bool,
+    pub release_date_changed: bool,
+    pub number_of_seasons_changed: bool,
+}
+
+impl Default for UserNotificationsPreferences {
+    fn default() -> Self {
+        Self {
+            status_changed: true,
+            episode_released: true,
+            release_date_changed: true,
+            number_of_seasons_changed: true,
+        }
+    }
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserMediaFeaturesEnabledPreferences {
     pub anime: bool,
     pub audio_books: bool,
     pub books: bool,
@@ -16,7 +37,7 @@ pub struct UserFeaturesEnabledPreferences {
     pub video_games: bool,
 }
 
-impl Default for UserFeaturesEnabledPreferences {
+impl Default for UserMediaFeaturesEnabledPreferences {
     fn default() -> Self {
         Self {
             anime: true,
@@ -34,9 +55,19 @@ impl Default for UserFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
+pub struct UserFeaturesEnabledPreferences {
+    #[serde(default)]
+    pub media: UserMediaFeaturesEnabledPreferences,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+)]
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
+    #[serde(default)]
+    pub notifications: UserNotificationsPreferences,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
@@ -72,3 +103,41 @@ pub struct UserSinkIntegration {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserSinkIntegrations(pub Vec<UserSinkIntegration>);
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[serde(tag = "t", content = "d")]
+pub enum UserNotificationSetting {
+    Discord {
+        url: String,
+    },
+    Gotify {
+        url: String,
+        token: String,
+        priority: Option<i32>,
+    },
+    Ntfy {
+        url: Option<String>,
+        topic: String,
+        priority: Option<i32>,
+    },
+    PushBullet {
+        api_token: String,
+    },
+    PushOver {
+        key: String,
+    },
+    PushSafer {
+        key: String,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+pub struct UserNotification {
+    pub id: usize,
+    pub settings: UserNotificationSetting,
+    /// the date and time it was added on
+    pub timestamp: DateTimeUtc,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+pub struct UserNotifications(pub Vec<UserNotification>);

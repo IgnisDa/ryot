@@ -1,6 +1,0 @@
-query MediaInCollections($metadataId: Int!) {
-  mediaInCollections(metadataId: $metadataId) {
-    id
-    name
-  }
-}

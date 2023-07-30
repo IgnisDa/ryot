@@ -2,7 +2,11 @@
 
 Importing is meant to be a one-time operation. They are irreversible. Ryot
 supports importing media from a number of sources. To start importing, click on
-the "Importing" section in the sidebar.
+"New import" in the "Actions" section of the dashboard.
+
+An import can fail at various steps. Ryot creates a report when an import is
+complete. You can go to the reports page by click on "Reports" link on the imports
+page.
 
 ## MediaTracker
 
@@ -12,8 +16,7 @@ the following caveats:
 - Items that are in progress are always imported with 100% progress. They are
   added to the "In Progress" collection so you can manually fix their progress
   if needed.
-- Ryot does not support [calendars](https://github.com/IgnisDa/ryot/issues/66)
-  and [notifications](https://github.com/IgnisDa/ryot/issues/15) yet.
+- Ryot does not support [calendars](https://github.com/IgnisDa/ryot/issues/66) yet.
 
 ### Steps
 
@@ -101,6 +104,5 @@ in the [exporting](guides/exporting.md) documentation.
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
-- An import can fail at various steps. Ryot creates a report when an import is
-  complete. You can see the descriptions of the failing steps by reviewing the
+- You can see the descriptions of the failing importing steps by reviewing the
   documentation of the `ImportFailStep` enum in the `/graphql` endpoint.

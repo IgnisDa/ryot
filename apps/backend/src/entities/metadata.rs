@@ -27,6 +27,7 @@ pub struct Model {
     pub creators: MetadataCreators,
     pub source: MetadataSource,
     pub specifics: MediaSpecifics,
+    pub production_status: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

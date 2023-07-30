@@ -9,6 +9,5 @@ pub use super::metadata_to_collection::Entity as MetadataToCollection;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::review::Entity as Review;
 pub use super::seen::Entity as Seen;
-pub use super::summary::Entity as Summary;
 pub use super::user::Entity as User;
 pub use super::user_to_metadata::Entity as UserToMetadata;

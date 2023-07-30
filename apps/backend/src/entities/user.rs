@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::UserLot,
-    users::{UserPreferences, UserSinkIntegrations, UserYankIntegrations},
+    models::media::UserSummary,
+    users::{UserNotifications, UserPreferences, UserSinkIntegrations, UserYankIntegrations},
 };
 
 fn get_hasher() -> Argon2<'static> {
@@ -35,6 +36,10 @@ pub struct Model {
     pub yank_integrations: Option<UserYankIntegrations>,
     #[graphql(skip)]
     pub sink_integrations: UserSinkIntegrations,
+    #[graphql(skip)]
+    pub notifications: UserNotifications,
+    #[graphql(skip)]
+    pub summary: Option<UserSummary>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -47,8 +52,6 @@ pub enum Relation {
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
-    #[sea_orm(has_many = "super::summary::Entity")]
-    Summary,
 }
 
 impl Related<super::collection::Entity> for Entity {
@@ -75,12 +78,6 @@ impl Related<super::seen::Entity> for Entity {
     }
 }
 
-impl Related<super::summary::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Summary.def()
-    }
-}
-
 impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
         super::user_to_metadata::Relation::Metadata.def()
@@ -96,7 +93,7 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        if !self.password.is_unchanged() || self.password.is_not_set() {
+        if self.password.is_set() {
             let password = self.password.unwrap();
             let salt = SaltString::generate(&mut OsRng);
             let password_hash = get_hasher()

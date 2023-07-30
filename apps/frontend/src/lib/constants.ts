@@ -1,9 +1,18 @@
 export const ROUTES = {
+	dashboard: "/",
 	auth: {
 		login: "/auth/login",
 		register: "/auth/register",
 	},
-	settings: "/settings",
+	settings: {
+		profile: "/settings/profile",
+		preferences: "/settings/preferences",
+		tokens: "/settings/tokens",
+		integrations: "/settings/integrations",
+		notifications: "/settings/notifications",
+		miscellaneous: "/settings/miscellaneous",
+		users: "/settings/users",
+	},
 	imports: {
 		new: "/imports",
 		reports: "/imports/reports",
@@ -13,7 +22,6 @@ export const ROUTES = {
 			list: "/collections/list",
 			details: "/collections",
 		},
-		dashboard: "/",
 		list: "/list",
 		individualMedia: {
 			commit: "/media/commit",

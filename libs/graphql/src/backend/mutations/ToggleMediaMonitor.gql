@@ -1,0 +1,3 @@
+mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {
+  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)
+}

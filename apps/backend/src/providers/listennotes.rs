@@ -179,6 +179,7 @@ impl ListennotesService {
         Ok(MediaDetails {
             identifier: d.id,
             title: d.title,
+            production_status: "Released".to_owned(),
             description: d.description,
             lot: MetadataLot::Podcast,
             source: MetadataSource::Listennotes,
