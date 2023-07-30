@@ -40,8 +40,8 @@ use crate::{
     background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
-        collection, genre, import_report, metadata, metadata_to_collection, metadata_to_creator,
-        metadata_to_genre,
+        collection, creator, genre, import_report, metadata, metadata_to_collection,
+        metadata_to_creator, metadata_to_genre,
         prelude::{
             Collection, Creator, Genre, ImportReport, Metadata, MetadataToCollection,
             MetadataToCreator, Review, Seen, User, UserToMetadata,
@@ -2030,6 +2030,7 @@ impl MiscellaneousService {
         description: Option<String>,
         images: Vec<MetadataImage>,
         specifics: MediaSpecifics,
+        creators: Vec<MetadataCreator>,
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
@@ -2118,6 +2119,12 @@ impl MiscellaneousService {
         meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
 
+        for creator in creators {
+            self.associate_creator_with_metadata(metadata_id, creator)
+                .await
+                .ok();
+        }
+
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
@@ -2125,6 +2132,35 @@ impl MiscellaneousService {
         }
 
         Ok(notifications)
+    }
+
+    async fn associate_creator_with_metadata(
+        &self,
+        metadata_id: i32,
+        data: MetadataCreator,
+    ) -> Result<()> {
+        let db_creator = if let Some(c) = Creator::find()
+            .filter(creator::Column::Name.eq(&data.name))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            c
+        } else {
+            let c = creator::ActiveModel {
+                name: ActiveValue::Set(data.name),
+                image: ActiveValue::Set(data.image),
+                ..Default::default()
+            };
+            c.insert(&self.db).await.unwrap()
+        };
+        let intermediate = metadata_to_creator::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            creator_id: ActiveValue::Set(db_creator.id),
+            role: ActiveValue::Set(data.role),
+        };
+        intermediate.insert(&self.db).await.ok();
+        Ok(())
     }
 
     async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
@@ -2165,6 +2201,11 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
+        for creator in details.creators {
+            self.associate_creator_with_metadata(metadata.id, creator)
+                .await
+                .ok();
+        }
         for genre in details.genres {
             self.associate_genre_with_metadata(genre, metadata.id)
                 .await
@@ -2859,6 +2900,7 @@ impl MiscellaneousService {
                     details.description,
                     details.images,
                     details.specifics,
+                    details.creators,
                     details.genres,
                     details.production_status,
                     details.publish_year,
