@@ -624,13 +624,8 @@ pub mod media {
     pub struct MetadataCreator {
         pub name: String,
         pub role: String,
-        pub image_urls: Vec<String>,
+        pub image: Option<String>,
     }
-
-    #[derive(
-        Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
-    )]
-    pub struct MetadataCreators(pub Vec<MetadataCreator>);
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenShowExtraInformation {

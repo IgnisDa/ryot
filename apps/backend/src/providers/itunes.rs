@@ -103,7 +103,7 @@ impl MediaProvider for ITunesService {
             .map(|a| MetadataCreator {
                 name: a,
                 role: "Artist".to_owned(),
-                image_urls: vec![],
+                image: None,
             })
             .collect();
         let genres = ht

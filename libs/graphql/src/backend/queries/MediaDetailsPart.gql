@@ -5,8 +5,10 @@ fragment MediaDetailsPart on GraphqlMediaDetails {
   lot
   source
   creators {
+    id
     name
     role
+    image
   }
   posterImages
   backdropImages

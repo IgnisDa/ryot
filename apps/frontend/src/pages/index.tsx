@@ -71,7 +71,7 @@ const ActualDisplayStat = (props: {
 						<Text
 							fw={d.label !== "Runtime" ? "bold" : undefined}
 							display={"inline"}
-							size="sm"
+							fz={{ base: "md", md: "sm" }}
 						>
 							{d.type === "duration"
 								? humaizer.humanize(d.value * 1000 * 60, {
@@ -80,7 +80,7 @@ const ActualDisplayStat = (props: {
 								  })
 								: humanFormat(d.value)}
 						</Text>
-						<Text display={"inline"} ml="4px" size="sm">
+						<Text display={"inline"} ml="4px" fz={{ base: "md", md: "sm" }}>
 							{d.label === "Runtime" ? "" : d.label}
 						</Text>
 					</Box>

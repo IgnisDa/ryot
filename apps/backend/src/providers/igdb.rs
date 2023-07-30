@@ -219,11 +219,10 @@ impl IgdbService {
                 };
                 MetadataCreator {
                     name: ic.company.name,
-                    image_urls: Vec::from_iter(
-                        ic.company
-                            .logo
-                            .map(|u| self.get_cover_image_url(u.image_id)),
-                    ),
+                    image: ic
+                        .company
+                        .logo
+                        .map(|u| self.get_cover_image_url(u.image_id)),
                     role: role.to_owned(),
                 }
             })

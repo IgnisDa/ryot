@@ -114,9 +114,7 @@ impl MediaProvider for TmdbMovieService {
                     Some(MetadataCreator {
                         name: n,
                         role: r,
-                        image_urls: Vec::from_iter(
-                            g.profile_path.map(|p| self.base.get_cover_image_url(p)),
-                        ),
+                        image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
                     })
                 } else {
                     None
@@ -129,9 +127,7 @@ impl MediaProvider for TmdbMovieService {
                 Some(MetadataCreator {
                     name: n,
                     role: r,
-                    image_urls: Vec::from_iter(
-                        g.profile_path.map(|p| self.base.get_cover_image_url(p)),
-                    ),
+                    image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
                 })
             } else {
                 None
@@ -336,10 +332,9 @@ impl MediaProvider for TmdbShowService {
                                     Some(MetadataCreator {
                                         name: n,
                                         role: r,
-                                        image_urls: Vec::from_iter(
-                                            g.profile_path
-                                                .map(|p| self.base.get_cover_image_url(p)),
-                                        ),
+                                        image: g
+                                            .profile_path
+                                            .map(|p| self.base.get_cover_image_url(p)),
                                     })
                                 } else {
                                     None
@@ -355,10 +350,9 @@ impl MediaProvider for TmdbShowService {
                                     Some(MetadataCreator {
                                         name: n,
                                         role: r,
-                                        image_urls: Vec::from_iter(
-                                            g.profile_path
-                                                .map(|p| self.base.get_cover_image_url(p)),
-                                        ),
+                                        image: g
+                                            .profile_path
+                                            .map(|p| self.base.get_cover_image_url(p)),
                                     })
                                 } else {
                                     None

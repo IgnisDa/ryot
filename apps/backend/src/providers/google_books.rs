@@ -192,14 +192,14 @@ impl GoogleBooksService {
             .map(|a| MetadataCreator {
                 name: a,
                 role: "Author".to_owned(),
-                image_urls: vec![],
+                image: None,
             })
             .collect_vec();
         if let Some(p) = item.publisher {
             creators.push(MetadataCreator {
                 name: p,
                 role: "Publisher".to_owned(),
-                image_urls: vec![],
+                image: None,
             });
         }
         let mut genres = item

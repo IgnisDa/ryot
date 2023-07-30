@@ -132,8 +132,6 @@ pub enum Metadata {
     Images,
     // the unique identifier that is returned by the metadata provider
     Identifier,
-    // the creators and their roles embedded as json
-    Creators,
     // the provider source
     Source,
     // details about the media
@@ -178,7 +176,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
-                    .col(ColumnDef::new(Metadata::Creators).json().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Metadata::Specifics).json().not_null())
                     .to_owned(),

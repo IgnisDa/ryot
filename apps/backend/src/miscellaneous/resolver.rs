@@ -40,10 +40,11 @@ use crate::{
     background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
-        collection, genre, import_report, metadata, metadata_to_collection, metadata_to_genre,
+        collection, creator, genre, import_report, metadata, metadata_to_collection,
+        metadata_to_creator, metadata_to_genre,
         prelude::{
-            Collection, Genre, ImportReport, Metadata, MetadataToCollection, Review, Seen, User,
-            UserToMetadata,
+            Collection, Creator, Genre, ImportReport, Metadata, MetadataToCollection,
+            MetadataToCreator, Review, Seen, User, UserToMetadata,
         },
         review, seen, user, user_to_metadata,
     },
@@ -61,9 +62,9 @@ use crate::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataCreators,
-            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MediaListItem, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
         },
@@ -336,7 +337,7 @@ struct GeneralFeatures {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MediaBaseData {
     model: metadata::Model,
-    creators: Vec<MetadataCreator>,
+    creators: Vec<GraphqlMetadataCreator>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
@@ -355,6 +356,14 @@ struct DetailedMediaSearchResults {
     next_page: Option<i32>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject)]
+pub struct GraphqlMetadataCreator {
+    pub id: i32,
+    pub name: String,
+    pub role: String,
+    pub image: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMediaDetails {
     id: i32,
@@ -364,7 +373,7 @@ struct GraphqlMediaDetails {
     production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
-    creators: Vec<MetadataCreator>,
+    creators: Vec<GraphqlMetadataCreator>,
     genres: Vec<String>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
@@ -1180,7 +1189,20 @@ impl MiscellaneousService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let creators = meta.creators.clone().0;
+        let mut creators = vec![];
+        for cl in MetadataToCreator::find()
+            .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .all(&self.db)
+            .await?
+        {
+            let creator = cl.find_related(Creator).one(&self.db).await?.unwrap();
+            creators.push(GraphqlMetadataCreator {
+                id: creator.id,
+                name: creator.name,
+                role: cl.role,
+                image: creator.image,
+            });
+        }
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
             *d = markdown_to_html_opts(
@@ -1453,8 +1475,7 @@ impl MiscellaneousService {
                 .cond_where(
                     Cond::any()
                         .add(get_contains_expr(metadata::Column::Title))
-                        .add(get_contains_expr(metadata::Column::Description))
-                        .add(get_contains_expr(metadata::Column::Creators)),
+                        .add(get_contains_expr(metadata::Column::Description)),
                 )
                 .to_owned();
         };
@@ -2008,8 +2029,8 @@ impl MiscellaneousService {
         title: String,
         description: Option<String>,
         images: Vec<MetadataImage>,
-        creators: Vec<MetadataCreator>,
         specifics: MediaSpecifics,
+        creators: Vec<MetadataCreator>,
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
@@ -2093,11 +2114,17 @@ impl MiscellaneousService {
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.last_updated_on = ActiveValue::Set(Utc::now());
-        meta.creators = ActiveValue::Set(MetadataCreators(creators));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
         meta.save(&self.db).await.ok();
+
+        for creator in creators {
+            self.associate_creator_with_metadata(metadata_id, creator)
+                .await
+                .ok();
+        }
+
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
@@ -2105,6 +2132,35 @@ impl MiscellaneousService {
         }
 
         Ok(notifications)
+    }
+
+    async fn associate_creator_with_metadata(
+        &self,
+        metadata_id: i32,
+        data: MetadataCreator,
+    ) -> Result<()> {
+        let db_creator = if let Some(c) = Creator::find()
+            .filter(creator::Column::Name.eq(&data.name))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            c
+        } else {
+            let c = creator::ActiveModel {
+                name: ActiveValue::Set(data.name),
+                image: ActiveValue::Set(data.image),
+                ..Default::default()
+            };
+            c.insert(&self.db).await.unwrap()
+        };
+        let intermediate = metadata_to_creator::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            creator_id: ActiveValue::Set(db_creator.id),
+            role: ActiveValue::Set(data.role),
+        };
+        intermediate.insert(&self.db).await.ok();
+        Ok(())
     }
 
     async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
@@ -2140,12 +2196,16 @@ impl MiscellaneousService {
             publish_date: ActiveValue::Set(details.publish_date),
             images: ActiveValue::Set(MetadataImages(details.images)),
             identifier: ActiveValue::Set(details.identifier),
-            creators: ActiveValue::Set(MetadataCreators(details.creators)),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
+        for creator in details.creators {
+            self.associate_creator_with_metadata(metadata.id, creator)
+                .await
+                .ok();
+        }
         for genre in details.genres {
             self.associate_genre_with_metadata(genre, metadata.id)
                 .await
@@ -2839,8 +2899,8 @@ impl MiscellaneousService {
                     details.title,
                     details.description,
                     details.images,
-                    details.creators,
                     details.specifics,
+                    details.creators,
                     details.genres,
                     details.production_status,
                     details.publish_year,
@@ -3224,7 +3284,7 @@ impl MiscellaneousService {
             .map(|c| MetadataCreator {
                 name: c,
                 role: "Creator".to_string(),
-                image_urls: vec![],
+                image: None,
             })
             .collect();
         let details = MediaDetails {

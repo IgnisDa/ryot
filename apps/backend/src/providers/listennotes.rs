@@ -186,7 +186,7 @@ impl ListennotesService {
             creators: Vec::from_iter(d.publisher.map(|p| MetadataCreator {
                 name: p,
                 role: "Publishing".to_owned(),
-                image_urls: vec![],
+                image: None,
             })),
             genres: d
                 .genre_ids

@@ -54,6 +54,7 @@ const Page: NextPageWithLayout = () => {
 										<Indicator
 											inline
 											size={12}
+											offset={-3}
 											processing={typeof report.success !== "boolean"}
 											color={
 												typeof report.success === "boolean"
@@ -64,7 +65,9 @@ const Page: NextPageWithLayout = () => {
 											}
 										>
 											{changeCase(report.source)} on{" "}
-											{DateTime.fromJSDate(report.startedOn).toLocaleString()}
+											{DateTime.fromJSDate(report.startedOn).toLocaleString(
+												DateTime.DATETIME_SHORT,
+											)}
 										</Indicator>
 									</Accordion.Control>
 									<Accordion.Panel>

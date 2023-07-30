@@ -145,7 +145,6 @@ export function LinksGroup({
 	links,
 }: LinksGroupProps) {
 	const { classes, theme } = useStyles();
-	const router = useRouter();
 	const hasLinks = Array.isArray(links);
 	const [opened, setOpened] = useState(initiallyOpened || false);
 	const ChevronIcon = theme.dir === "ltr" ? IconChevronRight : IconChevronLeft;
@@ -157,11 +156,16 @@ export function LinksGroup({
 
 	return (
 		<>
-			<UnstyledButton
-				onClick={() => {
-					if (href) router.push(href);
-					else setOpened((o) => !o);
-				}}
+			<UnstyledButton<typeof Link>
+				component={!hasLinks ? Link : undefined}
+				href={!hasLinks ? href : (undefined as any)}
+				onClick={
+					hasLinks
+						? () => {
+								setOpened((o) => !o);
+						  }
+						: undefined
+				}
 				className={classes.control}
 			>
 				<Group position="apart" spacing={0}>
