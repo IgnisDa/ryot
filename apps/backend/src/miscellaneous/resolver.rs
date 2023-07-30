@@ -986,9 +986,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .update_watchlist_media_and_send_notifications()
-            .await?; // TODO: Remove this
-        service
             .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
             .await
     }
@@ -3467,7 +3464,7 @@ impl MiscellaneousService {
                 }
             },
         };
-        integrations.push(new_integration);
+        integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
         user.sink_integrations = ActiveValue::Set(UserSinkIntegrations(integrations));
         user.update(&self.db).await?;
@@ -3498,7 +3495,7 @@ impl MiscellaneousService {
                 }
             },
         };
-        integrations.push(new_integration);
+        integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
         user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
         user.update(&self.db).await?;
@@ -3582,7 +3579,7 @@ impl MiscellaneousService {
             },
         };
 
-        notifications.push(new_notification);
+        notifications.insert(0, new_notification);
         let mut user: user::ActiveModel = user.into();
         user.notifications = ActiveValue::Set(UserNotifications(notifications));
         user.update(&self.db).await?;
