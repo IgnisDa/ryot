@@ -28,6 +28,7 @@ mod m20230728_000022_add_user_summary_field;
 mod m20230728_000023_add_metadata_status_field;
 mod m20230728_000024_add_user_notification_field;
 mod m20230730_create_creator;
+mod m20230730_remove_creator_field;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -68,6 +69,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230728_000023_add_metadata_status_field::Migration),
             Box::new(m20230728_000024_add_user_notification_field::Migration),
             Box::new(m20230730_create_creator::Migration),
+            Box::new(m20230730_remove_creator_field::Migration),
         ]
     }
 }
