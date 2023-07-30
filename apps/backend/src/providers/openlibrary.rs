@@ -222,7 +222,7 @@ impl MediaProvider for OpenlibraryService {
             authors.push(MetadataCreator {
                 name: auth.name,
                 role,
-                image_urls: vec![],
+                image: None,
             });
         }
         let description = data.description.map(|d| match d {

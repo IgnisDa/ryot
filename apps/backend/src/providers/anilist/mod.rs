@@ -200,7 +200,7 @@ mod utils {
                 MetadataCreator {
                     name: node.name.unwrap().full.unwrap(),
                     role: s.role.unwrap(),
-                    image_urls: Vec::from_iter(node.image.unwrap().large),
+                    image: node.image.unwrap().large,
                 }
             })
             .unique()

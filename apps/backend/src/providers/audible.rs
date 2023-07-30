@@ -212,7 +212,7 @@ impl AudibleService {
             .map(|a| MetadataCreator {
                 name: a.name,
                 role: "Author".to_owned(),
-                image_urls: vec![],
+                image: None,
             })
             .collect_vec();
         creators.extend(
@@ -222,7 +222,7 @@ impl AudibleService {
                 .map(|a| MetadataCreator {
                     name: a.name,
                     role: "Narrator".to_owned(),
-                    image_urls: vec![],
+                    image: None,
                 }),
         );
         let description = item.publisher_summary.or(item.merchandising_summary);

@@ -121,7 +121,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             creators: vec![MetadataCreator {
                                 name: d.author_name,
                                 role: "Author".to_owned(),
-                                image_urls: vec![],
+                                image: None,
                             }],
                             genres: vec![],
                             images: vec![MetadataImage {

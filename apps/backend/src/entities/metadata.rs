@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::{MetadataLot, MetadataSource},
-    models::media::{MediaSpecifics, MetadataCreators, MetadataImages},
+    models::media::{MediaSpecifics, MetadataImages},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
@@ -24,7 +24,6 @@ pub struct Model {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub images: MetadataImages,
-    pub creators: MetadataCreators,
     pub source: MetadataSource,
     pub specifics: MediaSpecifics,
     pub production_status: String,

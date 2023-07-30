@@ -284,7 +284,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         .map(|a| MetadataCreator {
                             name: a,
                             role: "Author".to_owned(),
-                            image_urls: vec![],
+                            image: None,
                         })
                         .collect(),
                     genres: vec![],
