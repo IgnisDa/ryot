@@ -10,6 +10,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Switch,
+	Text,
 	Title,
 } from "@mantine/core";
 import {
@@ -71,31 +72,23 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title order={3}>Notifications</Title>
-					<SimpleGrid cols={1}>
+					<Text size="xs">
+						The following applies to media in your Watchlist or the ones you
+						have monitored explicitly.
+					</Text>
+					<SimpleGrid cols={2}>
 						{Object.entries(userPrefs.data.notifications).map(
 							([name, isEnabled], idx) => (
 								<Switch
 									key={idx}
 									size="xs"
 									label={match(name)
-										.with(
-											"episodeReleased",
-											() =>
-												"When a media in my Watchlist has new episodes released",
-										)
-										.with(
-											"statusChanged",
-											() => "When a media in my Watchlist has status changes",
-										)
-										.with(
-											"releaseDateChanged",
-											() =>
-												"When a media in my Watchlist has its release date changed",
-										)
+										.with("episodeReleased", () => "Number of episodes changes")
+										.with("statusChanged", () => "Status changes")
+										.with("releaseDateChanged", () => "Release date changes")
 										.with(
 											"numberOfSeasonsChanged",
-											() =>
-												"When a media in my Watchlist has the number of seasons change",
+											() => "Number of seasons changes",
 										)
 										.otherwise(() => undefined)}
 									checked={isEnabled}
