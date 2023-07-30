@@ -2041,6 +2041,18 @@ impl MiscellaneousService {
                     }
                 }
             }
+            (MediaSpecifics::Podcast(p1), MediaSpecifics::Podcast(p2)) => {
+                if p1.episodes.len() != p2.episodes.len() {
+                    notifications.push((
+                        format!(
+                            "Number of episodes changed from {:#?} to {:#?}",
+                            p1.episodes.len(),
+                            p2.episodes.len()
+                        ),
+                        MediaStateChanged::EpisodeReleased,
+                    ));
+                }
+            }
             _ => {}
         }
 
