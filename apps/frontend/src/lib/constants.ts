@@ -1,3 +1,5 @@
+export const LIMIT = 20;
+
 export const ROUTES = {
 	dashboard: "/",
 	auth: {

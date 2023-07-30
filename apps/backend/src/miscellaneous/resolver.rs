@@ -24,8 +24,8 @@ use retainer::Cache;
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, JoinType, ModelTrait,
-    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
+    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
+    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
@@ -287,13 +287,14 @@ struct UpdateUserPreferenceInput {
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
-    media_limit: Option<u64>,
+    page: Option<u64>,
+    take: Option<u64>,
 }
 
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
     details: collection::Model,
-    media: Vec<MediaSearchItem>,
+    results: SearchResults<MediaSearchItem>,
     user: user::Model,
 }
 
@@ -2536,6 +2537,7 @@ impl MiscellaneousService {
         user_id: Option<i32>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
+        let page = input.page.unwrap_or(1);
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
             .await
@@ -2555,13 +2557,17 @@ impl MiscellaneousService {
                 }
             }
         }
-        let metas = collection
-            .find_related(Metadata)
-            .limit(input.media_limit)
-            .all(&self.db)
-            .await?;
+        let metas = collection.find_related(Metadata).paginate(
+            &self.db,
+            input.take.unwrap_or_else(|| PAGE_LIMIT.try_into().unwrap()),
+        );
+
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = metas.num_items_and_pages().await?;
         let mut meta_data = vec![];
-        for meta in metas.iter() {
+        for meta in metas.fetch_page(page - 1).await? {
             let m = self.generic_metadata(meta.id).await?;
             let u_t_m = UserToMetadata::find()
                 .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
@@ -2580,11 +2586,19 @@ impl MiscellaneousService {
             ));
         }
         meta_data.sort_by_key(|item| item.1);
-        let media_details = meta_data.into_iter().rev().map(|a| a.0).collect();
+        let items = meta_data.into_iter().rev().map(|a| a.0).collect();
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         Ok(CollectionContents {
             details: collection,
-            media: media_details,
+            results: SearchResults {
+                total: number_of_items.try_into().unwrap(),
+                items,
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
             user,
         })
     }
