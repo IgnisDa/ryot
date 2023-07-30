@@ -81,22 +81,21 @@ const Page: NextPageWithLayout = () => {
 										.with(
 											"episodeReleased",
 											() =>
-												"Notify me when a media in my Watchlist has new episodes released",
+												"When a media in my Watchlist has new episodes released",
 										)
 										.with(
 											"statusChanged",
-											() =>
-												"Notify me when a media in my Watchlist has status changes",
+											() => "When a media in my Watchlist has status changes",
 										)
 										.with(
 											"releaseDateChanged",
 											() =>
-												`Notify me when a media in my Watchlist has it's release date changed`,
+												`When a media in my Watchlist has its release date changed`,
 										)
 										.with(
 											"numberOfSeasonsChanged",
 											() =>
-												"Notify me when a media in my Watchlist has the number of seasons change",
+												"When a media in my Watchlist has the number of seasons change",
 										)
 										.otherwise(() => undefined)}
 									checked={isEnabled}
