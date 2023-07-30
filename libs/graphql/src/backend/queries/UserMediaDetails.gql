@@ -44,7 +44,6 @@ query UserMediaDetails($metadataId: Int!) {
         name
       }
     }
-    isMonitored
     nextEpisode {
       seasonNumber
       episodeNumber

@@ -13,7 +13,6 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     pub last_updated_on: DateTimeUtc,
-    pub monitored: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

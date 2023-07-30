@@ -18,14 +18,12 @@ impl MigrationName for Migration {
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it
-/// - added to their monitored media
 #[derive(Iden)]
 pub enum UserToMetadata {
     Table,
     UserId,
     MetadataId,
     LastUpdatedOn,
-    Monitored,
 }
 
 #[derive(
@@ -99,12 +97,6 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(UserToMetadata::MetadataId)
                             .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(UserToMetadata::Monitored)
-                            .boolean()
-                            .default(false)
                             .not_null(),
                     )
                     .primary_key(

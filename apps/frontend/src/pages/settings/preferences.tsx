@@ -8,7 +8,6 @@ import {
 	Box,
 	Container,
 	Divider,
-	Group,
 	SimpleGrid,
 	Stack,
 	Switch,

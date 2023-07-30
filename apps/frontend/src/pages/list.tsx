@@ -345,10 +345,6 @@ const Page: NextPageWithLayout = () => {
 																() => MediaGeneralFilter.InProgress,
 															)
 															.with("UNSEEN", () => MediaGeneralFilter.Unseen)
-															.with(
-																"MONITORED",
-																() => MediaGeneralFilter.Monitored,
-															)
 															.otherwise((_v) => {
 																throw new Error("Invalid filter selected");
 															});

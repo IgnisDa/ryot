@@ -54,8 +54,6 @@ import {
 	type RemoveMediaFromCollectionMutationVariables,
 	type ReviewItem,
 	SeenState,
-	ToggleMediaMonitorDocument,
-	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/utilities";
@@ -443,18 +441,6 @@ const Page: NextPageWithLayout = () => {
 				variables,
 			);
 			return progressUpdate;
-		},
-		onSuccess: () => {
-			userMediaDetails.refetch();
-		},
-	});
-	const toggleMediaMonitor = useMutation({
-		mutationFn: async (variables: ToggleMediaMonitorMutationVariables) => {
-			const { toggleMediaMonitor } = await gqlClient.request(
-				ToggleMediaMonitorDocument,
-				variables,
-			);
-			return toggleMediaMonitor;
 		},
 		onSuccess: () => {
 			userMediaDetails.refetch();
@@ -1060,17 +1046,6 @@ const Page: NextPageWithLayout = () => {
 											/>
 										) : null}
 									</>
-									<Button
-										variant="outline"
-										onClick={() => {
-											toggleMediaMonitor.mutate({
-												toMonitorMetadataId: metadataId,
-											});
-										}}
-									>
-										{userMediaDetails.data.isMonitored ? "Stop" : "Start"}{" "}
-										monitoring
-									</Button>
 									<Button
 										variant="outline"
 										onClick={() => {
