@@ -106,12 +106,12 @@ const Page: NextPageWithLayout = () => {
 			if (data)
 				notifications.show({
 					color: "green",
-					message: "Please check your notification platform",
+					message: "Please check your notification platforms",
 				});
 			else
 				notifications.show({
 					color: "red",
-					message: "Error in sending notification",
+					message: "Error in sending a notification",
 				});
 		},
 	});
@@ -176,14 +176,16 @@ const Page: NextPageWithLayout = () => {
 					)}
 					<Box ml="auto">
 						<Group>
-							<Button
-								size="xs"
-								variant="light"
-								color="green"
-								onClick={() => testUserNotificationPlatforms.mutate({})}
-							>
-								Trigger test notification
-							</Button>
+							{userNotificationPlatform.data.length > 0 ? (
+								<Button
+									size="xs"
+									variant="light"
+									color="green"
+									onClick={() => testUserNotificationPlatforms.mutate({})}
+								>
+									Trigger test notifications
+								</Button>
+							) : null}
 							<Button
 								size="xs"
 								variant="light"
@@ -256,7 +258,7 @@ const Page: NextPageWithLayout = () => {
 												.with(UserNotificationPlatformLot.Discord, () => (
 													<>
 														<TextInput
-															label="Base Url"
+															label="Webhook Url"
 															required
 															{...createUserNotificationPlatformForm.getInputProps(
 																"baseUrl",
@@ -267,7 +269,7 @@ const Page: NextPageWithLayout = () => {
 												.with(UserNotificationPlatformLot.Gotify, () => (
 													<>
 														<TextInput
-															label="Base Url"
+															label="Server Url"
 															required
 															{...createUserNotificationPlatformForm.getInputProps(
 																"baseUrl",
@@ -298,7 +300,7 @@ const Page: NextPageWithLayout = () => {
 															)}
 														/>
 														<TextInput
-															label="Base Url"
+															label="Server Url"
 															{...createUserNotificationPlatformForm.getInputProps(
 																"baseUrl",
 															)}
