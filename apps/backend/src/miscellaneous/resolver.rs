@@ -4040,6 +4040,27 @@ impl MiscellaneousService {
                             .await
                             .ok();
                     }
+                    if matches!(change, MediaStateChanged::EpisodeReleased)
+                        && preferences.notifications.episode_released
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                    if matches!(change, MediaStateChanged::ReleaseDateChanged)
+                        && preferences.notifications.release_date_changed
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                    if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
+                        && preferences.notifications.number_of_seasons_changed
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
                 }
             }
         }
