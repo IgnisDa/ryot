@@ -93,6 +93,14 @@ use crate::{
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
+#[derive(Debug)]
+pub enum MediaStateChanged {
+    StatusChanged,
+    EpisodeReleased,
+    ReleaseDateChanged,
+    NumberOfSeasonsChanged,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateCustomMediaInput {
     title: String,
@@ -977,6 +985,9 @@ impl MiscellaneousMutation {
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .update_watchlist_media_and_send_notifications()
+            .await?; // TODO: Remove this
         service
             .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
             .await
@@ -1975,7 +1986,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
         let meta = Metadata::find_by_id(metadata_id)
@@ -1985,34 +1996,46 @@ impl MiscellaneousService {
             .unwrap();
 
         if meta.production_status != production_status {
-            notifications.push(format!(
-                "Status changed from {:#?} to {:#?}",
-                meta.production_status, production_status
+            notifications.push((
+                format!(
+                    "Status changed from {:#?} to {:#?}",
+                    meta.production_status, production_status
+                ),
+                MediaStateChanged::StatusChanged,
             ));
         }
 
         if let (Some(p1), Some(p2)) = (meta.publish_year, publish_year) {
             if p1 != p2 {
-                notifications.push(format!("Publish year from {:#?} to {:#?}", p1, p2));
+                notifications.push((
+                    format!("Publish year from {:#?} to {:#?}", p1, p2),
+                    MediaStateChanged::ReleaseDateChanged,
+                ));
             }
         }
 
         match (&meta.specifics, &specifics) {
             (MediaSpecifics::Show(s1), MediaSpecifics::Show(s2)) => {
                 if s1.seasons.len() != s2.seasons.len() {
-                    notifications.push(format!(
-                        "Number of seasons changed from {:#?} to {:#?}",
-                        s1.seasons.len(),
-                        s2.seasons.len()
+                    notifications.push((
+                        format!(
+                            "Number of seasons changed from {:#?} to {:#?}",
+                            s1.seasons.len(),
+                            s2.seasons.len()
+                        ),
+                        MediaStateChanged::NumberOfSeasonsChanged,
                     ));
                 } else {
                     for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
                         if s1.episodes.len() != s2.episodes.len() {
-                            notifications.push(format!(
-                                "Number of episodes changed from {:#?} to {:#?} (Season {})",
-                                s1.episodes.len(),
-                                s2.episodes.len(),
-                                s1.season_number
+                            notifications.push((
+                                format!(
+                                    "Number of episodes changed from {:#?} to {:#?} (Season {})",
+                                    s1.episodes.len(),
+                                    s2.episodes.len(),
+                                    s1.season_number
+                                ),
+                                MediaStateChanged::EpisodeReleased,
                             ));
                         }
                     }
@@ -2020,6 +2043,11 @@ impl MiscellaneousService {
             }
             _ => {}
         }
+
+        let notifications = notifications
+            .into_iter()
+            .map(|n| (format!("{} for {:?}", n.0, meta.title), n.1))
+            .collect_vec();
 
         let mut meta: metadata::ActiveModel = meta.into();
         meta.title = ActiveValue::Set(title);
@@ -2744,13 +2772,15 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn update_metadata(&self, metadata: metadata::Model) -> Result<()> {
-        let metadata_id = metadata.id;
+    pub async fn update_metadata(
+        &self,
+        metadata_id: i32,
+    ) -> Result<Vec<(String, MediaStateChanged)>> {
         tracing::trace!("Updating metadata for {:?}", metadata_id);
         let maybe_details = self
             .details_from_provider_for_existing_media(metadata_id)
             .await;
-        match maybe_details {
+        let notifs = match maybe_details {
             Ok(details) => {
                 self.update_media(
                     metadata_id,
@@ -2763,15 +2793,15 @@ impl MiscellaneousService {
                     details.production_status,
                     details.publish_year,
                 )
-                .await
-                .ok();
+                .await?
             }
             Err(e) => {
                 tracing::error!("Error while updating: {:?}", e);
+                vec![]
             }
-        }
+        };
         tracing::trace!("Updated metadata for {:?}", metadata_id);
-        Ok(())
+        Ok(notifs)
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
@@ -3978,6 +4008,43 @@ impl MiscellaneousService {
             }
         }
         Ok(success)
+    }
+
+    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+        let collections = Collection::find()
+            .filter(collection::Column::Name.eq(DefaultCollection::Watchlist.to_string()))
+            .find_with_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let mut meta_map: HashMap<i32, HashSet<i32>> = HashMap::new();
+        for (col, metadata) in collections {
+            for meta in metadata {
+                meta_map
+                    .entry(meta.id)
+                    .and_modify(|e| {
+                        e.insert(col.user_id);
+                    })
+                    .or_insert(HashSet::from_iter([col.user_id]));
+            }
+        }
+
+        for (meta, users) in meta_map {
+            let notifications = self.update_metadata(meta).await?;
+            for user in users {
+                for (notification, change) in notifications.iter() {
+                    let preferences = self.user_preferences(user).await?;
+                    if matches!(change, MediaStateChanged::StatusChanged)
+                        && preferences.notifications.status_changed
+                    {
+                        self.send_notifications_to_user_platforms(user, notification)
+                            .await
+                            .ok();
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
