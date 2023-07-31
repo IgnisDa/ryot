@@ -13,6 +13,7 @@ use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use harsh::Harsh;
+use hashbag::HashBag;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
 use markdown::{
@@ -2118,14 +2119,19 @@ impl MiscellaneousService {
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
-        meta.save(&self.db).await.ok();
+        let metadata = meta.update(&self.db).await.unwrap();
 
-        for creator in creators {
-            self.associate_creator_with_metadata(metadata_id, creator)
-                .await
-                .ok();
-        }
-
+        MetadataToCreator::delete_many()
+            .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
+        self.associate_creator_with_metadata(metadata.id, creators)
+            .await
+            .ok();
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
@@ -2138,39 +2144,34 @@ impl MiscellaneousService {
     async fn associate_creator_with_metadata(
         &self,
         metadata_id: i32,
-        data: MetadataCreator,
+        data: Vec<MetadataCreator>,
     ) -> Result<()> {
-        let db_creator = if let Some(c) = Creator::find()
-            .filter(creator::Column::Name.eq(&data.name))
-            .one(&self.db)
-            .await
-            .unwrap()
+        let new_author_names: HashBag<MetadataCreator> = HashBag::from_iter(data.into_iter());
+        for (creator, num_appearances) in new_author_names
+            .into_iter()
+            .sorted_unstable_by_key(|s| s.1)
+            .rev()
         {
-            c
-        } else {
-            let c = creator::ActiveModel {
-                name: ActiveValue::Set(data.name),
-                image: ActiveValue::Set(data.image),
-                ..Default::default()
+            let db_creator = if let Some(c) = Creator::find()
+                .filter(creator::Column::Name.eq(&creator.name))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = creator::ActiveModel {
+                    name: ActiveValue::Set(creator.name),
+                    image: ActiveValue::Set(creator.image),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
             };
-            c.insert(&self.db).await.unwrap()
-        };
-        let association = MetadataToCreator::find()
-            .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
-            .filter(metadata_to_creator::Column::CreatorId.eq(db_creator.id))
-            .one(&self.db)
-            .await?;
-        if let Some(so) = association {
-            let na = so.num_appearances.clone();
-            let mut so: metadata_to_creator::ActiveModel = so.into();
-            so.num_appearances = ActiveValue::Set(na + 1);
-            so.update(&self.db).await?;
-        } else {
             let intermediate = metadata_to_creator::ActiveModel {
                 metadata_id: ActiveValue::Set(metadata_id),
                 creator_id: ActiveValue::Set(db_creator.id),
-                role: ActiveValue::Set(data.role),
-                num_appearances: ActiveValue::Set(data.num_appearances),
+                role: ActiveValue::Set(creator.role),
+                num_appearances: ActiveValue::Set(num_appearances.try_into().unwrap()),
             };
             intermediate.insert(&self.db).await.ok();
         }
@@ -2219,11 +2220,9 @@ impl MiscellaneousService {
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
             .exec(&self.db)
             .await?;
-        for creator in details.creators {
-            self.associate_creator_with_metadata(metadata.id, creator)
-                .await
-                .ok();
-        }
+        self.associate_creator_with_metadata(metadata.id, details.creators)
+            .await
+            .ok();
         MetadataToGenre::delete_many()
             .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
             .exec(&self.db)
