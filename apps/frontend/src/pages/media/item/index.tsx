@@ -783,6 +783,7 @@ const Page: NextPageWithLayout = () => {
 																data-creator-id={creator.id}
 															>
 																<Avatar
+																	imageProps={{ loading: "lazy" }}
 																	src={creator.image}
 																	size="xl"
 																	mx="auto"
