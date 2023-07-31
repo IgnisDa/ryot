@@ -501,8 +501,6 @@ struct UserMediaDetails {
     history: Vec<seen::Model>,
     /// The seen item if it is in progress.
     in_progress: Option<seen::Model>,
-    /// The details of the media item itself.
-    media_details: GraphqlMediaDetails,
     /// The next episode of this media.
     next_episode: Option<UserMediaNextEpisode>,
     /// Whether the user is monitoring this media.
@@ -1420,7 +1418,6 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            media_details,
             next_episode,
             is_monitored,
         })
