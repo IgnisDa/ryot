@@ -33,7 +33,6 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
@@ -3452,8 +3451,7 @@ impl MiscellaneousService {
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = self.get_sql_and_values(stmt);
-
-        Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
+        Statement::from_sql_and_values(self.db.get_database_backend(), sql, values)
     }
 
     async fn update_user_preference(
