@@ -2639,7 +2639,11 @@ impl MiscellaneousService {
         } = metas.num_items_and_pages().await?;
         let mut meta_data = vec![];
         for meta in metas.fetch_page(page - 1).await? {
-            let m = self.generic_metadata(meta.id).await?;
+            let m = Metadata::find_by_id(meta.id)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
             let u_t_m = UserToMetadata::find()
                 .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
                 .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
@@ -2647,11 +2651,11 @@ impl MiscellaneousService {
                 .await?;
             meta_data.push((
                 MediaSearchItem {
-                    identifier: m.model.id.to_string(),
-                    lot: m.model.lot,
-                    title: m.model.title,
-                    image: m.poster_images.get(0).cloned(),
-                    publish_year: m.model.publish_year,
+                    identifier: m.id.to_string(),
+                    lot: m.lot,
+                    image: self.metadata_images(&m).await?.0.first().cloned(),
+                    title: m.title,
+                    publish_year: m.publish_year,
                 },
                 u_t_m.map(|d| d.last_updated_on).unwrap_or_default(),
             ));
