@@ -2155,14 +2155,25 @@ impl MiscellaneousService {
             };
             c.insert(&self.db).await.unwrap()
         };
-        // TODO: Increase `num_appearances` if already exists
-        let intermediate = metadata_to_creator::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            creator_id: ActiveValue::Set(db_creator.id),
-            role: ActiveValue::Set(data.role),
-            num_appearances: ActiveValue::Set(data.num_appearances),
-        };
-        intermediate.insert(&self.db).await.ok();
+        let association = MetadataToCreator::find()
+            .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
+            .filter(metadata_to_creator::Column::CreatorId.eq(db_creator.id))
+            .one(&self.db)
+            .await?;
+        if let Some(so) = association {
+            let na = so.num_appearances.clone();
+            let mut so: metadata_to_creator::ActiveModel = so.into();
+            so.num_appearances = ActiveValue::Set(na + 1);
+            so.update(&self.db).await?;
+        } else {
+            let intermediate = metadata_to_creator::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata_id),
+                creator_id: ActiveValue::Set(db_creator.id),
+                role: ActiveValue::Set(data.role),
+                num_appearances: ActiveValue::Set(data.num_appearances),
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
         Ok(())
     }
 
