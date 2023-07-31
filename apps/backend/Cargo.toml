@@ -30,6 +30,7 @@ enum_meta = "0.6.0"
 futures = "0.3.28"
 graphql_client = "0.13.0"
 harsh = "0.2.2"
+hashbag = "0.1.11"
 http = "0.2.9"
 http-types = "2.12.0"
 isolang = { version = "2.3.0", features = ["list_languages"] }

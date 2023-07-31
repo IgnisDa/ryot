@@ -2296,6 +2296,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6fce2283849822530a18d7d8eeb1719ac65a27cfb6649c0dc8dfd2d2cc5edfb"
 
 [[package]]
+name = "hashbag"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3d44c238cb72d3e8993a30c32e97b2b2c2c1a12388603f28c4f19a44c4396bc"
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4248,6 +4254,7 @@ dependencies = [
  "futures 0.3.28",
  "graphql_client",
  "harsh",
+ "hashbag",
  "http",
  "http-types",
  "isolang",
