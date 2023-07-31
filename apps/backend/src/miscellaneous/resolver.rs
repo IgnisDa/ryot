@@ -29,7 +29,7 @@ use sea_orm::{
 };
 use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
-    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    Alias, Asterisk, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
@@ -1453,7 +1453,7 @@ impl MiscellaneousService {
         let mtu_alias = Alias::new("mtu");
 
         let mut main_select = Query::select()
-            .expr(Expr::table_asterisk(metadata_alias.clone()))
+            .expr(Expr::col((metadata_alias.clone(), Asterisk)))
             .from_as(TempMetadata::Table, metadata_alias.clone())
             .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).eq(input.lot))
             .and_where(
@@ -1683,7 +1683,7 @@ impl MiscellaneousService {
         }
 
         let count_select = Query::select()
-            .expr(Func::count(Expr::asterisk()))
+            .expr(Func::count(Expr::col(Asterisk)))
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
         let stmt = self.get_db_stmt(count_select);

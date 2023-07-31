@@ -3,6 +3,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use strum::Display;
 
 pub static UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
@@ -88,6 +89,7 @@ pub enum MetadataSource {
     Enum,
     Default,
     Type,
+    Display,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataLot {
