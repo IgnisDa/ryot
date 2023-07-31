@@ -1,6 +1,6 @@
 import type { NextPageWithLayout } from "../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -345,7 +345,7 @@ const ReviewItem = ({
 				</Box>
 				{user && user.id === review.postedBy.id ? (
 					<Link
-						href={`${ROUTES.media.individualMedia.postReview}?item=${metadataId}&reviewId=${review.id}`}
+						href={`${APP_ROUTES.media.individualMediaItem.postReview}?item=${metadataId}&reviewId=${review.id}`}
 						passHref
 						legacyBehavior
 					>
@@ -500,7 +500,7 @@ const Page: NextPageWithLayout = () => {
 			return mergeMetadata;
 		},
 		onSuccess: () => {
-			router.push(ROUTES.dashboard);
+			router.push(APP_ROUTES.dashboard);
 		},
 	});
 	const removeMediaFromCollection = useMutation({
@@ -869,7 +869,8 @@ const Page: NextPageWithLayout = () => {
 													)
 														router.push(
 															withQuery(
-																ROUTES.media.individualMedia.updateProgress,
+																APP_ROUTES.media.individualMediaItem
+																	.updateProgress,
 																{
 																	item: metadataId,
 																	selectedPodcastEpisodeNumber:
@@ -881,7 +882,8 @@ const Page: NextPageWithLayout = () => {
 													else
 														router.push(
 															withQuery(
-																ROUTES.media.individualMedia.updateProgress,
+																APP_ROUTES.media.individualMediaItem
+																	.updateProgress,
 																{
 																	item: metadataId,
 																	selectedShowSeasonNumber:
@@ -989,7 +991,8 @@ const Page: NextPageWithLayout = () => {
 												)
 													router.push(
 														withQuery(
-															ROUTES.media.individualMedia.updateProgress,
+															APP_ROUTES.media.individualMediaItem
+																.updateProgress,
 															{
 																item: metadataId,
 																completeShow: 1,
@@ -999,7 +1002,8 @@ const Page: NextPageWithLayout = () => {
 												else
 													router.push(
 														withQuery(
-															ROUTES.media.individualMedia.updateProgress,
+															APP_ROUTES.media.individualMediaItem
+																.updateProgress,
 															{
 																item: metadataId,
 																completePodcast: 1,
@@ -1019,9 +1023,12 @@ const Page: NextPageWithLayout = () => {
 										variant="outline"
 										onClick={() => {
 											router.push(
-												withQuery(ROUTES.media.individualMedia.updateProgress, {
-													item: metadataId,
-												}),
+												withQuery(
+													APP_ROUTES.media.individualMediaItem.updateProgress,
+													{
+														item: metadataId,
+													},
+												),
 											);
 										}}
 									>
@@ -1030,24 +1037,27 @@ const Page: NextPageWithLayout = () => {
 										history
 									</Button>
 									<Link
-										href={withQuery(ROUTES.media.individualMedia.postReview, {
-											item: metadataId,
-											showSeasonNumber:
-												userMediaDetails.data.nextEpisode?.seasonNumber ??
-												undefined,
-											showEpisodeNumber:
-												userMediaDetails.data.mediaDetails.lot ===
-												MetadataLot.Show
-													? userMediaDetails.data.nextEpisode?.episodeNumber ??
-													  undefined
-													: undefined,
-											podcastEpisodeNumber:
-												userMediaDetails.data.mediaDetails.lot ===
-												MetadataLot.Podcast
-													? userMediaDetails.data.nextEpisode?.episodeNumber ??
-													  undefined
-													: undefined,
-										})}
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.postReview,
+											{
+												item: metadataId,
+												showSeasonNumber:
+													userMediaDetails.data.nextEpisode?.seasonNumber ??
+													undefined,
+												showEpisodeNumber:
+													userMediaDetails.data.mediaDetails.lot ===
+													MetadataLot.Show
+														? userMediaDetails.data.nextEpisode
+																?.episodeNumber ?? undefined
+														: undefined,
+												podcastEpisodeNumber:
+													userMediaDetails.data.mediaDetails.lot ===
+													MetadataLot.Podcast
+														? userMediaDetails.data.nextEpisode
+																?.episodeNumber ?? undefined
+														: undefined,
+											},
+										)}
 										passHref
 										legacyBehavior
 									>
@@ -1243,7 +1253,7 @@ const Page: NextPageWithLayout = () => {
 																onClick={() => {
 																	router.push(
 																		withQuery(
-																			ROUTES.media.individualMedia
+																			APP_ROUTES.media.individualMediaItem
 																				.updateProgress,
 																			{
 																				item: metadataId,
@@ -1284,7 +1294,7 @@ const Page: NextPageWithLayout = () => {
 																			onClick={() => {
 																				router.push(
 																					withQuery(
-																						ROUTES.media.individualMedia
+																						APP_ROUTES.media.individualMediaItem
 																							.updateProgress,
 																						{
 																							item: metadataId,
@@ -1335,7 +1345,8 @@ const Page: NextPageWithLayout = () => {
 														onClick={() => {
 															router.push(
 																withQuery(
-																	ROUTES.media.individualMedia.updateProgress,
+																	APP_ROUTES.media.individualMediaItem
+																		.updateProgress,
 																	{
 																		item: metadataId,
 																		selectedPodcastEpisodeNumber: e.number,

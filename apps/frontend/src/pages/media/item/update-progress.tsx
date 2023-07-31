@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -120,7 +120,7 @@ const Page: NextPageWithLayout = () => {
 				if (router.query.next) router.push(router.query.next.toString());
 				else
 					router.replace(
-						withQuery(ROUTES.media.individualMedia.details, {
+						withQuery(APP_ROUTES.media.individualMediaItem.details, {
 							item: metadataId,
 						}),
 					);

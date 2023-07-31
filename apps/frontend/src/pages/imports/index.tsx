@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { fileToText } from "@/lib/utilities";
@@ -190,7 +190,7 @@ const Page: NextPageWithLayout = () => {
 						<Flex justify={"space-between"} align={"center"}>
 							<Title>Import data</Title>
 							<Group>
-								<Link passHref legacyBehavior href={ROUTES.imports.reports}>
+								<Link passHref legacyBehavior href={APP_ROUTES.imports.reports}>
 									<Anchor size="xs">Reports</Anchor>
 								</Link>
 								<Anchor

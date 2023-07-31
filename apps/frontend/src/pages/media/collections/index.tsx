@@ -1,7 +1,7 @@
 import type { NextPageWithLayout } from "../_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
-import { LIMIT, ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LIMIT } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -70,7 +70,7 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${ROUTES.media.individualMedia.details}?item=${lm.identifier}`}
+										href={`${APP_ROUTES.media.individualMediaItem.details}?item=${lm.identifier}`}
 									/>
 								))}
 							</Grid>

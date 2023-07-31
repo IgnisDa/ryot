@@ -1,4 +1,4 @@
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import {
 	Box,
 	Button,
@@ -86,7 +86,7 @@ export default function Page() {
 							the address, or the page has been moved to another URL.
 						</Text>
 						<Group position="center">
-							<Button component="a" href={ROUTES.dashboard}>
+							<Button component="a" href={APP_ROUTES.dashboard}>
 								Take me back to home page
 							</Button>
 						</Group>

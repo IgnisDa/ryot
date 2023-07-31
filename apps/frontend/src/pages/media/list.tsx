@@ -3,7 +3,7 @@ import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
-import { LIMIT, ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LIMIT } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -436,7 +436,7 @@ const Page: NextPageWithLayout = () => {
 												item={lm.data}
 												averageRating={lm.averageRating}
 												lot={lot}
-												href={`${ROUTES.media.individualMedia.details}?item=${lm.data.identifier}`}
+												href={`${APP_ROUTES.media.individualMediaItem.details}?item=${lm.data.identifier}`}
 											/>
 										))}
 									</Grid>

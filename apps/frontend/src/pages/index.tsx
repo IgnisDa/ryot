@@ -1,7 +1,7 @@
 import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -156,7 +156,7 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${ROUTES.media.individualMedia.details}?item=${lm.identifier}`}
+										href={`${APP_ROUTES.media.individualMediaItem.details}?item=${lm.identifier}`}
 									/>
 								))}
 							</Grid>
@@ -330,7 +330,7 @@ const Page: NextPageWithLayout = () => {
 						<Link
 							passHref
 							legacyBehavior
-							href={ROUTES.media.individualMedia.create}
+							href={APP_ROUTES.media.individualMediaItem.create}
 						>
 							<Button
 								variant="outline"

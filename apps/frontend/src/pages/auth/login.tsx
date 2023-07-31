@@ -1,4 +1,4 @@
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
@@ -35,7 +35,7 @@ export default function Page() {
 		},
 		onSuccess: (data) => {
 			if (data.__typename === "LoginResponse") {
-				router.push(ROUTES.dashboard);
+				router.push(APP_ROUTES.dashboard);
 				return;
 			} else {
 				const message = match(data.error)
@@ -106,7 +106,7 @@ export default function Page() {
 				</Button>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Need an account? Register{" "}
-					<Link href={ROUTES.auth.register} passHref legacyBehavior>
+					<Link href={APP_ROUTES.auth.register} passHref legacyBehavior>
 						<Anchor>here</Anchor>
 					</Link>
 					.

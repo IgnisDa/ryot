@@ -1,4 +1,4 @@
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
@@ -215,7 +215,7 @@ export default function ({ children }: { children: ReactElement }) {
 					title: "Authentication error",
 					message: "Your auth token is invalid. Please login again.",
 				});
-				router.push(ROUTES.auth.login);
+				router.push(APP_ROUTES.auth.login);
 			}
 		},
 		staleTime: Infinity,
@@ -230,12 +230,12 @@ export default function ({ children }: { children: ReactElement }) {
 				label: changeCase(f.name.toString()),
 				href: undefined,
 			})) || []),
-		{ label: "Collections", href: ROUTES.media.collections.list },
+		{ label: "Collections", href: APP_ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
 			? link.href
-			: `${ROUTES.media.list}?lot=${link.label.toLowerCase()}`,
+			: `${APP_ROUTES.media.list}?lot=${link.label.toLowerCase()}`,
 	}));
 
 	const logoutUser = useMutation({
@@ -255,7 +255,7 @@ export default function ({ children }: { children: ReactElement }) {
 					color: "green",
 				});
 			}
-			router.push(ROUTES.auth.login);
+			router.push(APP_ROUTES.auth.login);
 		},
 	});
 
@@ -268,7 +268,7 @@ export default function ({ children }: { children: ReactElement }) {
 				message: "You are not logged in",
 				color: "violet",
 			});
-			router.push(ROUTES.auth.login);
+			router.push(APP_ROUTES.auth.login);
 		}
 	}, []);
 
@@ -309,7 +309,11 @@ export default function ({ children }: { children: ReactElement }) {
 						</Flex>
 					</MediaQuery>
 					<Navbar.Section grow component={ScrollArea}>
-						<LinksGroup label="Home" icon={IconHome2} href={ROUTES.dashboard} />
+						<LinksGroup
+							label="Home"
+							icon={IconHome2}
+							href={APP_ROUTES.dashboard}
+						/>
 						<LinksGroup
 							label="Media"
 							icon={IconDeviceSpeaker}
@@ -318,32 +322,38 @@ export default function ({ children }: { children: ReactElement }) {
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
-							links={[{ label: "Home", link: ROUTES.fitness.home }]}
+							links={[{ label: "Home", link: APP_ROUTES.fitness.home }]}
 						/>
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
 							links={
 								[
-									{ label: "Preferences", link: ROUTES.settings.preferences },
+									{
+										label: "Preferences",
+										link: APP_ROUTES.settings.preferences,
+									},
 									{
 										label: "Imports",
-										link: ROUTES.imports.new,
+										link: APP_ROUTES.imports.new,
 									},
-									{ label: "Profile", link: ROUTES.settings.profile },
-									{ label: "Integrations", link: ROUTES.settings.integrations },
+									{ label: "Profile", link: APP_ROUTES.settings.profile },
+									{
+										label: "Integrations",
+										link: APP_ROUTES.settings.integrations,
+									},
 									{
 										label: "Notifications",
-										link: ROUTES.settings.notifications,
+										link: APP_ROUTES.settings.notifications,
 									},
 									{
 										label: "Miscellaneous",
-										link: ROUTES.settings.miscellaneous,
+										link: APP_ROUTES.settings.miscellaneous,
 									},
-									{ label: "Tokens", link: ROUTES.settings.tokens },
+									{ label: "Tokens", link: APP_ROUTES.settings.tokens },
 									userDetails.data?.__typename === "User" &&
 									userDetails.data.lot === UserLot.Admin
-										? { label: "Users", link: ROUTES.settings.users }
+										? { label: "Users", link: APP_ROUTES.settings.users }
 										: undefined,
 								].filter(Boolean) as any
 							}
@@ -368,7 +378,10 @@ export default function ({ children }: { children: ReactElement }) {
 			<Flex direction={"column"} h="90%">
 				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
 					<Flex justify={"space-between"} p="md">
-						<Link href={ROUTES.dashboard} style={{ textDecoration: "none" }}>
+						<Link
+							href={APP_ROUTES.dashboard}
+							style={{ textDecoration: "none" }}
+						>
 							<Group>
 								<Image
 									src={"/logo-light.png"}

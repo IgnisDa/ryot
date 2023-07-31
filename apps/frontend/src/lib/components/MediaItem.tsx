@@ -1,4 +1,4 @@
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getLot, getVerb } from "@/lib/utilities";
@@ -173,8 +173,8 @@ export default function (props: {
 			imageOverlayForLoadingIndicator={commitMedia.isLoading}
 			href={
 				props.maybeItemId
-					? `${ROUTES.media.individualMedia.details}?item=${props.maybeItemId}`
-					: `${ROUTES.media.individualMedia.commit}?identifier=${props.item.identifier}&lot=${props.lot}&source=${props.source}`
+					? `${APP_ROUTES.media.individualMediaItem.details}?item=${props.maybeItemId}`
+					: `${APP_ROUTES.media.individualMediaItem.commit}?identifier=${props.item.identifier}&lot=${props.lot}&source=${props.source}`
 			}
 			existsInDatabase={!!props.maybeItemId}
 		>
@@ -188,7 +188,7 @@ export default function (props: {
 							const id = await commitFunction();
 							const nextPath = withQuery(router.pathname, router.query);
 							router.push(
-								withQuery(ROUTES.media.individualMedia.updateProgress, {
+								withQuery(APP_ROUTES.media.individualMediaItem.updateProgress, {
 									item: id,
 									next: nextPath,
 								}),
@@ -206,7 +206,7 @@ export default function (props: {
 							onClick={async () => {
 								const id = await commitFunction();
 								router.push(
-									withQuery(ROUTES.media.individualMedia.details, {
+									withQuery(APP_ROUTES.media.individualMediaItem.details, {
 										item: id,
 									}),
 								);

@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -16,7 +16,9 @@ const Page: NextPageWithLayout = () => {
 	const source = router.query.source?.toString() as unknown as MetadataSource;
 
 	const commitMedia = useCommitMedia(lot, (id) => {
-		router.replace(`${ROUTES.media.individualMedia.details}?item=${id}`);
+		router.replace(
+			`${APP_ROUTES.media.individualMediaItem.details}?item=${id}`,
+		);
 	});
 
 	useEffect(() => {

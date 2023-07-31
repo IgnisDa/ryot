@@ -1,4 +1,4 @@
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -67,7 +67,7 @@ export default function Page() {
 					message: "Please login with your new credentials",
 					color: "green",
 				});
-				router.push(ROUTES.auth.login);
+				router.push(APP_ROUTES.auth.login);
 			}
 		},
 	});
@@ -134,7 +134,7 @@ export default function Page() {
 				</Tooltip>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Already a member? Login{" "}
-					<Link href={ROUTES.auth.login} passHref legacyBehavior>
+					<Link href={APP_ROUTES.auth.login} passHref legacyBehavior>
 						<Anchor>here</Anchor>
 					</Link>
 					.
