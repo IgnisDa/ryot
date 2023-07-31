@@ -2158,6 +2158,7 @@ impl MiscellaneousService {
             metadata_id: ActiveValue::Set(metadata_id),
             creator_id: ActiveValue::Set(db_creator.id),
             role: ActiveValue::Set(data.role),
+            num_appearances: ActiveValue::Set(data.num_appearances),
         };
         intermediate.insert(&self.db).await.ok();
         Ok(())
