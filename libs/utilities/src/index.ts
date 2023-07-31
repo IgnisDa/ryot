@@ -1,6 +1,6 @@
 import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en.json";
-import { snakeCase, camelCase, startCase } from "lodash";
+import { camelCase, groupBy, mapValues, snakeCase, startCase } from "lodash";
 
 TimeAgo.addDefaultLocale(en);
 
@@ -47,4 +47,4 @@ export const randomString = (length: number) => {
 	return s;
 };
 
-export { startCase, camelCase, snakeCase };
+export { startCase, camelCase, snakeCase, groupBy, mapValues };

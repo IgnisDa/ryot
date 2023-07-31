@@ -29,11 +29,10 @@ use sea_orm::{
 };
 use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
-    Alias, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering, OrderedStatement,
+    Alias, Asterisk, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::{
@@ -44,7 +43,7 @@ use crate::{
         metadata_to_creator, metadata_to_genre,
         prelude::{
             Collection, Creator, Genre, ImportReport, Metadata, MetadataToCollection,
-            MetadataToCreator, Review, Seen, User, UserToMetadata,
+            MetadataToCreator, MetadataToGenre, Review, Seen, User, UserToMetadata,
         },
         review, seen, user, user_to_metadata,
     },
@@ -1192,6 +1191,7 @@ impl MiscellaneousService {
         let mut creators = vec![];
         for cl in MetadataToCreator::find()
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .order_by_asc(metadata_to_creator::Column::Index)
             .all(&self.db)
             .await?
         {
@@ -1452,7 +1452,7 @@ impl MiscellaneousService {
         let mtu_alias = Alias::new("mtu");
 
         let mut main_select = Query::select()
-            .expr(Expr::table_asterisk(metadata_alias.clone()))
+            .expr(Expr::col((metadata_alias.clone(), Asterisk)))
             .from_as(TempMetadata::Table, metadata_alias.clone())
             .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).eq(input.lot))
             .and_where(
@@ -1682,7 +1682,7 @@ impl MiscellaneousService {
         }
 
         let count_select = Query::select()
-            .expr(Func::count(Expr::asterisk()))
+            .expr(Func::count(Expr::col(Asterisk)))
             .from_subquery(main_select.clone(), Alias::new("subquery"))
             .to_owned();
         let stmt = self.get_db_stmt(count_select);
@@ -2117,14 +2117,19 @@ impl MiscellaneousService {
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
-        meta.save(&self.db).await.ok();
+        let metadata = meta.update(&self.db).await.unwrap();
 
-        for creator in creators {
-            self.associate_creator_with_metadata(metadata_id, creator)
-                .await
-                .ok();
-        }
-
+        MetadataToCreator::delete_many()
+            .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
+        self.associate_creator_with_metadata(metadata.id, creators)
+            .await
+            .ok();
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
@@ -2137,29 +2142,32 @@ impl MiscellaneousService {
     async fn associate_creator_with_metadata(
         &self,
         metadata_id: i32,
-        data: MetadataCreator,
+        data: Vec<MetadataCreator>,
     ) -> Result<()> {
-        let db_creator = if let Some(c) = Creator::find()
-            .filter(creator::Column::Name.eq(&data.name))
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            c
-        } else {
-            let c = creator::ActiveModel {
-                name: ActiveValue::Set(data.name),
-                image: ActiveValue::Set(data.image),
-                ..Default::default()
+        for (idx, creator) in data.into_iter().enumerate() {
+            let db_creator = if let Some(c) = Creator::find()
+                .filter(creator::Column::Name.eq(&creator.name))
+                .one(&self.db)
+                .await
+                .unwrap()
+            {
+                c
+            } else {
+                let c = creator::ActiveModel {
+                    name: ActiveValue::Set(creator.name),
+                    image: ActiveValue::Set(creator.image),
+                    ..Default::default()
+                };
+                c.insert(&self.db).await.unwrap()
             };
-            c.insert(&self.db).await.unwrap()
-        };
-        let intermediate = metadata_to_creator::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            creator_id: ActiveValue::Set(db_creator.id),
-            role: ActiveValue::Set(data.role),
-        };
-        intermediate.insert(&self.db).await.ok();
+            let intermediate = metadata_to_creator::ActiveModel {
+                metadata_id: ActiveValue::Set(metadata_id),
+                creator_id: ActiveValue::Set(db_creator.id),
+                role: ActiveValue::Set(creator.role),
+                index: ActiveValue::Set(idx.try_into().unwrap()),
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
         Ok(())
     }
 
@@ -2201,11 +2209,17 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
-        for creator in details.creators {
-            self.associate_creator_with_metadata(metadata.id, creator)
-                .await
-                .ok();
-        }
+        MetadataToCreator::delete_many()
+            .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
+        self.associate_creator_with_metadata(metadata.id, details.creators)
+            .await
+            .ok();
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
         for genre in details.genres {
             self.associate_genre_with_metadata(genre, metadata.id)
                 .await
@@ -2214,9 +2228,10 @@ impl MiscellaneousService {
         Ok(IdObject { id: metadata.id })
     }
 
-    pub async fn cleanup_metadata_with_associated_user_activities(&self) -> Result<()> {
-        let all_metadata = Metadata::find().all(&self.db).await.unwrap();
-        for metadata in all_metadata {
+    pub async fn cleanup_data_without_associated_user_activities(&self) -> Result<()> {
+        tracing::trace!("Cleaning up media items without associated user activities");
+        let mut all_metadata = Metadata::find().stream(&self.db).await?;
+        while let Some(metadata) = all_metadata.try_next().await? {
             let num_associations = UserToMetadata::find()
                 .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
@@ -2224,6 +2239,30 @@ impl MiscellaneousService {
                 .unwrap();
             if num_associations == 0 {
                 metadata.delete(&self.db).await.ok();
+            }
+        }
+        tracing::trace!("Cleaning up creators without associated metadata");
+        let mut all_genre = Genre::find().stream(&self.db).await?;
+        while let Some(genre) = all_genre.try_next().await? {
+            let num_associations = MetadataToGenre::find()
+                .filter(metadata_to_genre::Column::GenreId.eq(genre.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                genre.delete(&self.db).await.ok();
+            }
+        }
+        tracing::trace!("Cleaning up genres without associated metadata");
+        let mut all_creators = Creator::find().stream(&self.db).await?;
+        while let Some(creator) = all_creators.try_next().await? {
+            let num_associations = MetadataToCreator::find()
+                .filter(metadata_to_creator::Column::CreatorId.eq(creator.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                creator.delete(&self.db).await.ok();
             }
         }
         Ok(())
@@ -2628,7 +2667,11 @@ impl MiscellaneousService {
         } = metas.num_items_and_pages().await?;
         let mut meta_data = vec![];
         for meta in metas.fetch_page(page - 1).await? {
-            let m = self.generic_metadata(meta.id).await?;
+            let m = Metadata::find_by_id(meta.id)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
             let u_t_m = UserToMetadata::find()
                 .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
                 .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
@@ -2636,11 +2679,11 @@ impl MiscellaneousService {
                 .await?;
             meta_data.push((
                 MediaSearchItem {
-                    identifier: m.model.id.to_string(),
-                    lot: m.model.lot,
-                    title: m.model.title,
-                    image: m.poster_images.get(0).cloned(),
-                    publish_year: m.model.publish_year,
+                    identifier: m.id.to_string(),
+                    lot: m.lot,
+                    image: self.metadata_images(&m).await?.0.first().cloned(),
+                    title: m.title,
+                    publish_year: m.publish_year,
                 },
                 u_t_m.map(|d| d.last_updated_on).unwrap_or_default(),
             ));
@@ -3408,8 +3451,7 @@ impl MiscellaneousService {
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = self.get_sql_and_values(stmt);
-
-        Statement::from_sql_and_values(self.db.get_database_backend(), &sql, values)
+        Statement::from_sql_and_values(self.db.get_database_backend(), sql, values)
     }
 
     async fn update_user_preference(

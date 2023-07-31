@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use hashbag::HashBag;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -93,7 +94,6 @@ impl MediaProvider for TmdbMovieService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCreditsResponse {
             cast: Vec<utils::TmdbCredit>,
-            crew: Vec<utils::TmdbCredit>,
         }
         let mut rsp = self
             .client
@@ -105,7 +105,7 @@ impl MediaProvider for TmdbMovieService {
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut all_creators = credits
+        let creators = credits
             .cast
             .clone()
             .into_iter()
@@ -122,17 +122,6 @@ impl MediaProvider for TmdbMovieService {
             })
             .unique()
             .collect_vec();
-        all_creators.extend(credits.crew.into_iter().flat_map(|g| {
-            if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                Some(MetadataCreator {
-                    name: n,
-                    role: r,
-                    image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
-                })
-            } else {
-                None
-            }
-        }));
         let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
@@ -146,7 +135,7 @@ impl MediaProvider for TmdbMovieService {
             production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
-            creators: Vec::from_iter(all_creators),
+            creators,
             images: image_ids
                 .into_iter()
                 .unique()
@@ -286,7 +275,6 @@ impl MediaProvider for TmdbShowService {
             air_date: Option<String>,
             runtime: Option<i32>,
             guest_stars: Vec<utils::TmdbCredit>,
-            crew: Vec<utils::TmdbCredit>,
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbSeason {
@@ -314,7 +302,28 @@ impl MediaProvider for TmdbShowService {
                 .unwrap()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            let data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            let mut data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            let mut rsp = self
+                .client
+                .get(format!(
+                    "tv/{}/season/{}/credits",
+                    identifier.to_owned(),
+                    s.season_number
+                ))
+                .query(&json!({
+                    "language": self.base.language,
+                }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbSeasonCredit {
+                cast: Vec<utils::TmdbCredit>,
+            }
+            let credits: TmdbSeasonCredit = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            for e in data.episodes.iter_mut() {
+                e.guest_stars.extend(credits.cast.clone());
+            }
             seasons.push(data);
         }
         let author_names = seasons
@@ -323,8 +332,7 @@ impl MediaProvider for TmdbShowService {
                 s.episodes
                     .iter()
                     .flat_map(|e| {
-                        let mut gs = e
-                            .guest_stars
+                        e.guest_stars
                             .clone()
                             .into_iter()
                             .flat_map(|g| {
@@ -340,31 +348,18 @@ impl MediaProvider for TmdbShowService {
                                     None
                                 }
                             })
-                            .collect_vec();
-                        let crew = e
-                            .crew
-                            .clone()
-                            .into_iter()
-                            .flat_map(|g| {
-                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                                    Some(MetadataCreator {
-                                        name: n,
-                                        role: r,
-                                        image: g
-                                            .profile_path
-                                            .map(|p| self.base.get_cover_image_url(p)),
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect_vec();
-                        gs.extend(crew);
-                        Vec::from_iter(gs)
+                            .collect_vec()
                     })
                     .collect_vec()
             })
-            .unique()
+            .collect_vec();
+        let author_names: HashBag<MetadataCreator> = HashBag::from_iter(author_names.into_iter());
+        let author_names = Vec::from_iter(author_names.set_iter())
+            .into_iter()
+            .sorted_by_key(|c| c.1)
+            .rev()
+            .map(|c| c.0)
+            .cloned()
             .collect_vec();
         Ok(MediaDetails {
             identifier: data.id.to_string(),

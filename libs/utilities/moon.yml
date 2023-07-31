@@ -4,5 +4,3 @@ workspace:
   inheritedTasks:
     exclude:
       - build
-      - lint
-      - format

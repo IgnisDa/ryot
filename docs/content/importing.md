@@ -2,7 +2,7 @@
 
 Importing is meant to be a one-time operation. They are irreversible. Ryot
 supports importing media from a number of sources. To start importing, click on
-"New import" in the "Actions" section of the dashboard.
+"Imports" link under the "Settings" section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import is
 complete. You can go to the reports page by click on "Reports" link on the imports

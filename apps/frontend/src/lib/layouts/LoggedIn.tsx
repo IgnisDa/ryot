@@ -326,6 +326,10 @@ export default function ({ children }: { children: ReactElement }) {
 							links={
 								[
 									{ label: "Preferences", link: ROUTES.settings.preferences },
+									{
+										label: "Imports",
+										link: ROUTES.imports.new,
+									},
 									{ label: "Profile", link: ROUTES.settings.profile },
 									{ label: "Integrations", link: ROUTES.settings.integrations },
 									{

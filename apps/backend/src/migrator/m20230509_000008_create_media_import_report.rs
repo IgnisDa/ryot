@@ -2,6 +2,7 @@ use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 use super::m20230417_000002_create_user::User;
 
@@ -15,7 +16,17 @@ impl MigrationName for Migration {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Display,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum ImportSource {
