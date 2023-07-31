@@ -363,6 +363,7 @@ pub struct GraphqlMetadataCreator {
     pub name: String,
     pub role: String,
     pub image: Option<String>,
+    pub num_appearances: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -1203,6 +1204,7 @@ impl MiscellaneousService {
                 name: creator.name,
                 role: cl.role,
                 image: creator.image,
+                num_appearances: cl.num_appearances,
             });
         }
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
