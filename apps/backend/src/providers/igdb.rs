@@ -224,9 +224,9 @@ impl IgdbService {
                         .logo
                         .map(|u| self.get_cover_image_url(u.image_id)),
                     role: role.to_owned(),
+                    num_appearances: 1,
                 }
             })
-            .unique()
             .collect();
         MediaDetails {
             identifier: item.id.to_string(),

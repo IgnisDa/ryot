@@ -104,6 +104,7 @@ impl MediaProvider for ITunesService {
                 name: a,
                 role: "Artist".to_owned(),
                 image: None,
+                num_appearances: 1,
             })
             .collect();
         let genres = ht

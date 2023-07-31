@@ -285,6 +285,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                             name: a,
                             role: "Author".to_owned(),
                             image: None,
+                            num_appearances: 1,
                         })
                         .collect(),
                     genres: vec![],

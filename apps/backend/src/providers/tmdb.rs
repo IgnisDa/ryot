@@ -115,12 +115,12 @@ impl MediaProvider for TmdbMovieService {
                         name: n,
                         role: r,
                         image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
+                        num_appearances: 1,
                     })
                 } else {
                     None
                 }
             })
-            .unique()
             .collect_vec();
         all_creators.extend(credits.crew.into_iter().flat_map(|g| {
             if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
@@ -128,6 +128,7 @@ impl MediaProvider for TmdbMovieService {
                     name: n,
                     role: r,
                     image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
+                    num_appearances: 1,
                 })
             } else {
                 None
@@ -335,6 +336,7 @@ impl MediaProvider for TmdbShowService {
                                         image: g
                                             .profile_path
                                             .map(|p| self.base.get_cover_image_url(p)),
+                                        num_appearances: 1,
                                     })
                                 } else {
                                     None
@@ -353,6 +355,7 @@ impl MediaProvider for TmdbShowService {
                                         image: g
                                             .profile_path
                                             .map(|p| self.base.get_cover_image_url(p)),
+                                        num_appearances: 1,
                                     })
                                 } else {
                                     None
@@ -364,7 +367,6 @@ impl MediaProvider for TmdbShowService {
                     })
                     .collect_vec()
             })
-            .unique()
             .collect_vec();
         Ok(MediaDetails {
             identifier: data.id.to_string(),

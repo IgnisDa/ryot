@@ -212,6 +212,7 @@ impl AudibleService {
             .map(|a| MetadataCreator {
                 name: a.name,
                 role: "Author".to_owned(),
+                num_appearances: 1,
                 image: None,
             })
             .collect_vec();
@@ -222,6 +223,7 @@ impl AudibleService {
                 .map(|a| MetadataCreator {
                     name: a.name,
                     role: "Narrator".to_owned(),
+                    num_appearances: 1,
                     image: None,
                 }),
         );

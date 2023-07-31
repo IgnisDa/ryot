@@ -44,7 +44,7 @@ use crate::{
         metadata_to_creator, metadata_to_genre,
         prelude::{
             Collection, Creator, Genre, ImportReport, Metadata, MetadataToCollection,
-            MetadataToCreator, Review, Seen, User, UserToMetadata,
+            MetadataToCreator, MetadataToGenre, Review, Seen, User, UserToMetadata,
         },
         review, seen, user, user_to_metadata,
     },
@@ -1192,6 +1192,7 @@ impl MiscellaneousService {
         let mut creators = vec![];
         for cl in MetadataToCreator::find()
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .order_by_desc(metadata_to_creator::Column::NumAppearances)
             .all(&self.db)
             .await?
         {
@@ -2154,6 +2155,7 @@ impl MiscellaneousService {
             };
             c.insert(&self.db).await.unwrap()
         };
+        // TODO: Increase `num_appearances` if already exists
         let intermediate = metadata_to_creator::ActiveModel {
             metadata_id: ActiveValue::Set(metadata_id),
             creator_id: ActiveValue::Set(db_creator.id),
@@ -2202,11 +2204,19 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await.unwrap();
+        MetadataToCreator::delete_many()
+            .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
         for creator in details.creators {
             self.associate_creator_with_metadata(metadata.id, creator)
                 .await
                 .ok();
         }
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
+            .exec(&self.db)
+            .await?;
         for genre in details.genres {
             self.associate_genre_with_metadata(genre, metadata.id)
                 .await
@@ -3286,6 +3296,7 @@ impl MiscellaneousService {
                 name: c,
                 role: "Creator".to_string(),
                 image: None,
+                num_appearances: 1,
             })
             .collect();
         let details = MediaDetails {

@@ -223,6 +223,7 @@ impl MediaProvider for OpenlibraryService {
                 name: auth.name,
                 role,
                 image: None,
+                num_appearances: 1,
             });
         }
         let description = data.description.map(|d| match d {

@@ -201,9 +201,9 @@ mod utils {
                     name: node.name.unwrap().full.unwrap(),
                     role: s.role.unwrap(),
                     image: node.image.unwrap().large,
+                    num_appearances: 1,
                 }
             })
-            .unique()
             .collect_vec();
         let (specifics, lot) = match details.type_.unwrap() {
             details_query::MediaType::ANIME => (
