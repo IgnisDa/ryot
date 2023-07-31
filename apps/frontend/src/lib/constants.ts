@@ -14,10 +14,10 @@ export const APP_ROUTES = {
 		notifications: "/settings/notifications",
 		miscellaneous: "/settings/miscellaneous",
 		users: "/settings/users",
-	},
-	imports: {
-		new: "/imports",
-		reports: "/imports/reports",
+		imports: {
+			new: "/settings/imports",
+			reports: "/settings/imports/reports",
+		},
 	},
 	media: {
 		list: "/media/list",

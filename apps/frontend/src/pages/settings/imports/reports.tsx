@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -40,7 +40,7 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Flex justify={"space-between"} align={"center"}>
 						<Title>Import Reports</Title>
-						<Link passHref legacyBehavior href={APP_ROUTES.imports.new}>
+						<Link passHref legacyBehavior href={APP_ROUTES.settings.imports.new}>
 							<Anchor size="xs">New</Anchor>
 						</Link>
 					</Flex>

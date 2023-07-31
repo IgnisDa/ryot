@@ -336,7 +336,7 @@ export default function ({ children }: { children: ReactElement }) {
 									},
 									{
 										label: "Imports",
-										link: APP_ROUTES.imports.new,
+										link: APP_ROUTES.settings.imports.new,
 									},
 									{ label: "Profile", link: APP_ROUTES.settings.profile },
 									{
