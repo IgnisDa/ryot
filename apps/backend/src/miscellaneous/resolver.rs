@@ -25,9 +25,9 @@ use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
+    Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait, Statement,
 };
-use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
     Alias, Asterisk, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
@@ -60,12 +60,13 @@ use crate::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
+            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem, MediaSpecifics,
+            MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UserSummary,
+            VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -448,9 +449,9 @@ struct MediaFilter {
 struct MediaListInput {
     page: i32,
     lot: MetadataLot,
-    sort: Option<MediaSortInput>,
     query: Option<String>,
     filter: Option<MediaFilter>,
+    sort: Option<MediaSortInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -739,6 +740,16 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_media_details(user_id, metadata_id).await
+    }
+
+    /// Get paginated creators.
+    async fn creators(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.creators(input).await
     }
 }
 
@@ -2354,7 +2365,9 @@ impl MiscellaneousService {
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         let provider = self.get_provider(lot, source)?;
-        let results = provider.search(&input.query, input.page).await?;
+        let results = provider
+            .search(&input.query.unwrap_or_default(), input.page)
+            .await?;
         let mut all_idens = results
             .items
             .iter()
@@ -4260,6 +4273,55 @@ impl MiscellaneousService {
             m.monitored
         } else {
             false
+        })
+    }
+
+    pub async fn creators(
+        &self,
+        input: SearchInput,
+    ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let alias = "media_count";
+        let query = Creator::find()
+            .apply_if(input.query, |query, v| {
+                query.filter(creator::Column::Name.like(v))
+            })
+            .column_as(
+                Expr::expr(Func::count(Expr::col(
+                    metadata_to_collection::Column::MetadataId,
+                ))),
+                alias,
+            )
+            .join_rev(
+                JoinType::LeftJoin,
+                MetadataToCreator::belongs_to(Creator)
+                    .from(metadata_to_creator::Column::CreatorId)
+                    .to(creator::Column::Id)
+                    .into(),
+            )
+            .group_by(creator::Column::Id)
+            .group_by(creator::Column::Name)
+            .order_by(Expr::col(Alias::new(alias)), Order::Desc);
+        let creators_paginator = query
+            .clone()
+            .into_model::<MediaCreatorSearchItem>()
+            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = creators_paginator.num_items_and_pages().await?;
+        let mut creators = vec![];
+        for c in creators_paginator.fetch_page(page - 1).await? {
+            creators.push(c);
+        }
+        Ok(SearchResults {
+            total: number_of_items.try_into().unwrap(),
+            items: creators,
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
         })
     }
 }

@@ -1,0 +1,12 @@
+query Creators($input: SearchInput!) {
+  creators(input: $input) {
+    total
+    nextPage
+    items {
+      id
+      name
+      image
+      mediaCount
+    }
+  }
+}
