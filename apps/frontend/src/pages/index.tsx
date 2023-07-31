@@ -39,6 +39,7 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement } from "react";
+import { withQuery } from "ufo";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
@@ -156,7 +157,10 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${APP_ROUTES.media.individualMediaItem.details}?item=${lm.identifier}`}
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.details,
+											{ item: lm.identifier },
+										)}
 									/>
 								))}
 							</Grid>

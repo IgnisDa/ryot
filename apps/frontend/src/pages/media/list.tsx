@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "./_app";
+import type { NextPageWithLayout } from "../_app";
 import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
@@ -57,6 +57,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 
 const defaultFilters = {
 	mineCollectionFilter: undefined,
@@ -436,7 +437,10 @@ const Page: NextPageWithLayout = () => {
 												item={lm.data}
 												averageRating={lm.averageRating}
 												lot={lot}
-												href={`${APP_ROUTES.media.individualMediaItem.details}?item=${lm.data.identifier}`}
+												href={withQuery(
+													APP_ROUTES.media.individualMediaItem.details,
+													{ item: lm.data.identifier },
+												)}
 											/>
 										))}
 									</Grid>

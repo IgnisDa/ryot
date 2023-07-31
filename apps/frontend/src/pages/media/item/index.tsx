@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUser } from "@/lib/hooks/graphql";
@@ -345,7 +345,10 @@ const ReviewItem = ({
 				</Box>
 				{user && user.id === review.postedBy.id ? (
 					<Link
-						href={`${APP_ROUTES.media.individualMediaItem.postReview}?item=${metadataId}&reviewId=${review.id}`}
+						href={withQuery(APP_ROUTES.media.individualMediaItem.postReview, {
+							item: metadataId,
+							reviewId: review.id,
+						})}
 						passHref
 						legacyBehavior
 					>

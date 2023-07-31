@@ -44,6 +44,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect, useState } from "react";
 import { useCookies } from "react-cookie";
+import { withQuery } from "ufo";
 
 const AUTH_COOKIE = "auth";
 
@@ -235,7 +236,7 @@ export default function ({ children }: { children: ReactElement }) {
 		label: link.label,
 		link: link.href
 			? link.href
-			: `${APP_ROUTES.media.list}?lot=${link.label.toLowerCase()}`,
+			: withQuery(APP_ROUTES.media.list, { lot: link.label.toLowerCase() }),
 	}));
 
 	const logoutUser = useMutation({

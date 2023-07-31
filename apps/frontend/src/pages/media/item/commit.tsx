@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -8,6 +8,7 @@ import type { MetadataSource } from "@ryot/generated/graphql/backend/graphql";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
+import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -17,7 +18,7 @@ const Page: NextPageWithLayout = () => {
 
 	const commitMedia = useCommitMedia(lot, (id) => {
 		router.replace(
-			`${APP_ROUTES.media.individualMediaItem.details}?item=${id}`,
+			withQuery(APP_ROUTES.media.individualMediaItem.details, { item: id }),
 		);
 	});
 

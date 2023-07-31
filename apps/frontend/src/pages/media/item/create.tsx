@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
