@@ -352,7 +352,6 @@ impl MediaProvider for TmdbShowService {
                     })
                     .collect_vec()
             })
-            .unique()
             .collect_vec();
         let author_names: HashBag<MetadataCreator> = HashBag::from_iter(author_names.into_iter());
         let author_names = Vec::from_iter(author_names.set_iter())
