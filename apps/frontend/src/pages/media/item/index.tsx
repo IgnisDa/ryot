@@ -528,7 +528,7 @@ const Page: NextPageWithLayout = () => {
 			return removeMediaFromCollection;
 		},
 		onSuccess: () => {
-			collections.refetch();
+			userMediaDetails.refetch();
 		},
 	});
 
