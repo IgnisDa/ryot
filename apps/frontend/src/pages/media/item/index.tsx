@@ -763,7 +763,8 @@ const Page: NextPageWithLayout = () => {
 																<Avatar
 																	imageProps={{ loading: "lazy" }}
 																	src={creator.image}
-																	size="xl"
+																	h={100}
+																	w={85}
 																	mx="auto"
 																	alt={`${creator.name} profile picture`}
 																	styles={{ image: { objectPosition: "top" } }}
