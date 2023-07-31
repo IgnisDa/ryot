@@ -40,7 +40,11 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Flex justify={"space-between"} align={"center"}>
 						<Title>Import Reports</Title>
-						<Link passHref legacyBehavior href={APP_ROUTES.settings.imports.new}>
+						<Link
+							passHref
+							legacyBehavior
+							href={APP_ROUTES.settings.imports.new}
+						>
 							<Anchor size="xs">New</Anchor>
 						</Link>
 					</Flex>
