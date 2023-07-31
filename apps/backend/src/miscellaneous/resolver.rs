@@ -2238,6 +2238,7 @@ impl MiscellaneousService {
     }
 
     pub async fn cleanup_data_without_associated_user_activities(&self) -> Result<()> {
+        tracing::trace!("Cleaning up media items without associated user activities");
         let mut all_metadata = Metadata::find().stream(&self.db).await?;
         while let Some(metadata) = all_metadata.try_next().await? {
             let num_associations = UserToMetadata::find()
@@ -2249,6 +2250,7 @@ impl MiscellaneousService {
                 metadata.delete(&self.db).await.ok();
             }
         }
+        tracing::trace!("Cleaning up creators without associated metadata");
         let mut all_genre = Genre::find().stream(&self.db).await?;
         while let Some(genre) = all_genre.try_next().await? {
             let num_associations = MetadataToGenre::find()
@@ -2260,6 +2262,7 @@ impl MiscellaneousService {
                 genre.delete(&self.db).await.ok();
             }
         }
+        tracing::trace!("Cleaning up genres without associated metadata");
         let mut all_creators = Creator::find().stream(&self.db).await?;
         while let Some(creator) = all_creators.try_next().await? {
             let num_associations = MetadataToCreator::find()

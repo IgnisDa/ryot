@@ -34,7 +34,6 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
         .invalidate_import_jobs()
         .await
         .unwrap();
-    tracing::trace!("Cleaning up media items without associated user activities");
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service
         .cleanup_data_without_associated_user_activities()
@@ -45,8 +44,6 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
         .update_watchlist_media_and_send_notifications()
         .await
         .unwrap();
-    tracing::trace!("Cleaning up creators without associated metadata");
-    tracing::trace!("Cleaning up genres without associated metadata");
     Ok(())
 }
 
