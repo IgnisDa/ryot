@@ -13,7 +13,6 @@ use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use harsh::Harsh;
-use hashbag::HashBag;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
 use markdown::{
@@ -2148,12 +2147,7 @@ impl MiscellaneousService {
         metadata_id: i32,
         data: Vec<MetadataCreator>,
     ) -> Result<()> {
-        let new_author_names: HashBag<MetadataCreator> = HashBag::from_iter(data.into_iter());
-        for (creator, num_appearances) in new_author_names
-            .into_iter()
-            .sorted_unstable_by_key(|s| s.1)
-            .rev()
-        {
+        for creator in data.into_iter() {
             let db_creator = if let Some(c) = Creator::find()
                 .filter(creator::Column::Name.eq(&creator.name))
                 .one(&self.db)
@@ -2173,7 +2167,7 @@ impl MiscellaneousService {
                 metadata_id: ActiveValue::Set(metadata_id),
                 creator_id: ActiveValue::Set(db_creator.id),
                 role: ActiveValue::Set(creator.role),
-                num_appearances: ActiveValue::Set(num_appearances.try_into().unwrap()),
+                num_appearances: ActiveValue::Set(creator.num_appearances),
             };
             intermediate.insert(&self.db).await.ok();
         }

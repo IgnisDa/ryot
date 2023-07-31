@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use hashbag::HashBag;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -104,7 +105,7 @@ impl MediaProvider for TmdbMovieService {
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let all_creators = credits
+        let creators = credits
             .cast
             .clone()
             .into_iter()
@@ -134,7 +135,7 @@ impl MediaProvider for TmdbMovieService {
             production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
             title: data.title,
             genres: data.genres.into_iter().map(|g| g.name).collect(),
-            creators: Vec::from_iter(all_creators),
+            creators,
             images: image_ids
                 .into_iter()
                 .unique()
@@ -352,6 +353,14 @@ impl MediaProvider for TmdbShowService {
                     })
                     .collect_vec()
             })
+            .collect_vec();
+        let author_names: HashBag<MetadataCreator> = HashBag::from_iter(author_names.into_iter());
+        let author_names = Vec::from_iter(author_names.set_iter())
+            .into_iter()
+            .sorted_by_key(|c| c.1)
+            .rev()
+            .map(|c| c.0)
+            .cloned()
             .collect_vec();
         Ok(MediaDetails {
             identifier: data.id.to_string(),
