@@ -773,13 +773,17 @@ const Page: NextPageWithLayout = () => {
 													}}
 												>
 													<Flex gap="md">
-														{creators[c].map((a) => (
-															<Box key={a.id} w={90}>
+														{creators[c].map((creator) => (
+															<Box
+																key={creator.id}
+																w={90}
+																data-creator-id={creator.id}
+															>
 																<Avatar
-																	src={a.image}
+																	src={creator.image}
 																	size="xl"
 																	mx="auto"
-																	alt={`${a.name} profile picture`}
+																	alt={`${creator.name} profile picture`}
 																/>
 																<Text
 																	size="xs"
@@ -787,7 +791,7 @@ const Page: NextPageWithLayout = () => {
 																	align="center"
 																	mt={4}
 																>
-																	{a.name}
+																	{creator.name}
 																</Text>
 															</Box>
 														))}
