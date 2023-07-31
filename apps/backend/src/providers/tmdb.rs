@@ -115,12 +115,12 @@ impl MediaProvider for TmdbMovieService {
                         name: n,
                         role: r,
                         image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
-                        num_appearances: 1,
                     })
                 } else {
                     None
                 }
             })
+            .unique()
             .collect_vec();
         let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
@@ -343,7 +343,6 @@ impl MediaProvider for TmdbShowService {
                                         image: g
                                             .profile_path
                                             .map(|p| self.base.get_cover_image_url(p)),
-                                        num_appearances: 1,
                                     })
                                 } else {
                                     None
@@ -353,6 +352,7 @@ impl MediaProvider for TmdbShowService {
                     })
                     .collect_vec()
             })
+            .unique()
             .collect_vec();
         let author_names: HashBag<MetadataCreator> = HashBag::from_iter(author_names.into_iter());
         let author_names = Vec::from_iter(author_names.set_iter())

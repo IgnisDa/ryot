@@ -187,7 +187,6 @@ impl ListennotesService {
                 name: p,
                 role: "Publishing".to_owned(),
                 image: None,
-                num_appearances: 1,
             })),
             genres: d
                 .genre_ids

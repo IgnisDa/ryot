@@ -193,7 +193,6 @@ impl GoogleBooksService {
                 name: a,
                 role: "Author".to_owned(),
                 image: None,
-                num_appearances: 1,
             })
             .collect_vec();
         if let Some(p) = item.publisher {
@@ -201,7 +200,6 @@ impl GoogleBooksService {
                 name: p,
                 role: "Publisher".to_owned(),
                 image: None,
-                num_appearances: 1,
             });
         }
         let mut genres = item
@@ -220,7 +218,7 @@ impl GoogleBooksService {
             production_status: "Released".to_owned(),
             title: item.title,
             description: item.description,
-            creators,
+            creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
