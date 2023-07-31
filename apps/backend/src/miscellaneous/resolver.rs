@@ -1192,6 +1192,7 @@ impl MiscellaneousService {
         let mut creators = vec![];
         for cl in MetadataToCreator::find()
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .order_by_asc(metadata_to_creator::Column::Index)
             .all(&self.db)
             .await?
         {
@@ -2144,7 +2145,7 @@ impl MiscellaneousService {
         metadata_id: i32,
         data: Vec<MetadataCreator>,
     ) -> Result<()> {
-        for creator in data.into_iter() {
+        for (idx, creator) in data.into_iter().enumerate() {
             let db_creator = if let Some(c) = Creator::find()
                 .filter(creator::Column::Name.eq(&creator.name))
                 .one(&self.db)
@@ -2164,6 +2165,7 @@ impl MiscellaneousService {
                 metadata_id: ActiveValue::Set(metadata_id),
                 creator_id: ActiveValue::Set(db_creator.id),
                 role: ActiveValue::Set(creator.role),
+                index: ActiveValue::Set(idx.try_into().unwrap()),
             };
             intermediate.insert(&self.db).await.ok();
         }

@@ -77,6 +77,7 @@ impl MigrationTrait for Migration {
                             metadata_id: ActiveValue::Set(metadata.id),
                             creator_id: ActiveValue::Set(cr_id),
                             role: ActiveValue::Set(cr.role),
+                            index: ActiveValue::Set(0),
                         };
                         association.insert(db).await?;
                     }
