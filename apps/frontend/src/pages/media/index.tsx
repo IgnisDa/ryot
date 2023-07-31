@@ -27,7 +27,6 @@ import {
 	Select,
 	SimpleGrid,
 	Slider,
-	Spoiler,
 	Stack,
 	Tabs,
 	Text,
@@ -58,7 +57,7 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/utilities";
+import { changeCase, getInitials, groupBy, mapValues } from "@ryot/utilities";
 import {
 	IconAlertCircle,
 	IconBook,
@@ -520,22 +519,11 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const creators = useMemo(() => {
-		const creators: Record<string, { name: string }[]> = {};
-		for (const c of userMediaDetails.data?.mediaDetails.creators || []) {
-			if (c.role in creators) {
-				creators[c.role].push({ name: c.name });
-			} else {
-				creators[c.role] = [{ name: c.name }];
-			}
-		}
-		const platforms =
-			userMediaDetails.data?.mediaDetails.videoGameSpecifics?.platforms;
-		if (platforms) {
-			creators["Platforms"] = platforms.map((p) => ({
-				name: p,
-			}));
-		}
-		return creators;
+		const creators = groupBy(
+			userMediaDetails.data?.mediaDetails.creators,
+			(c) => c.role,
+		);
+		return mapValues(creators, (c) => c.splice(0, 10));
 	}, [userMediaDetails.data]);
 
 	const badgeGradient: MantineGradient = match(
@@ -769,26 +757,45 @@ const Page: NextPageWithLayout = () => {
 									) : (
 										<Text fs="italic">No overview available</Text>
 									)}
-									<Box mt="xl">
+									<Stack mt="xl">
 										{Object.keys(creators).map((c) => (
-											<Spoiler
-												maxHeight={50}
-												showLabel="Show more"
-												hideLabel="Hide"
-												key={c}
-												my="xs"
-											>
-												<Flex>
-													<Text span>
-														<Text fw="bold" span>
-															{c}
-														</Text>
-														: {creators[c].map((a) => a.name).join(", ")}
-													</Text>
-												</Flex>
-											</Spoiler>
+											<Box key={c}>
+												<Text fw="bold">{c}</Text>
+												<ScrollArea
+													mt="xs"
+													w={{
+														base: 380,
+														xs: 440,
+														sm: 480,
+														md: 520,
+														lg: 580,
+														xl: 650,
+													}}
+												>
+													<Flex gap="md">
+														{creators[c].map((a) => (
+															<Box key={a.id} w={90}>
+																<Avatar
+																	src={a.image}
+																	size="xl"
+																	mx="auto"
+																	alt={`${a.name} profile picture`}
+																/>
+																<Text
+																	size="xs"
+																	color="dimmed"
+																	align="center"
+																	mt={4}
+																>
+																	{a.name}
+																</Text>
+															</Box>
+														))}
+													</Flex>
+												</ScrollArea>
+											</Box>
 										))}
-									</Box>
+									</Stack>
 								</>
 							</MediaScrollArea>
 						</Tabs.Panel>
