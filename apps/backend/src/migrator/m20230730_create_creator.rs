@@ -4,10 +4,12 @@ use super::Metadata;
 
 pub struct Migration;
 
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230730_create_creator"
-    }
+#[derive(Iden)]
+pub enum MetadataToCreator {
+    Table,
+    MetadataId,
+    CreatorId,
+    Role,
 }
 
 #[derive(Iden)]
@@ -18,13 +20,10 @@ pub enum Creator {
     Image,
 }
 
-#[derive(Iden)]
-pub enum MetadataToCreator {
-    Table,
-    MetadataId,
-    CreatorId,
-    Role,
-    NumAppearances,
+impl MigrationName for Migration {
+    fn name(&self) -> &str {
+        "m20230730_create_creator"
+    }
 }
 
 #[async_trait::async_trait]
@@ -64,12 +63,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(MetadataToCreator::CreatorId)
                             .integer()
                             .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataToCreator::NumAppearances)
-                            .integer()
-                            .not_null()
-                            .default(1),
                     )
                     .primary_key(
                         Index::create()

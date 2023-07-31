@@ -1193,7 +1193,6 @@ impl MiscellaneousService {
         let mut creators = vec![];
         for cl in MetadataToCreator::find()
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
-            .order_by_desc(metadata_to_creator::Column::NumAppearances)
             .all(&self.db)
             .await?
         {
@@ -2167,7 +2166,6 @@ impl MiscellaneousService {
                 metadata_id: ActiveValue::Set(metadata_id),
                 creator_id: ActiveValue::Set(db_creator.id),
                 role: ActiveValue::Set(creator.role),
-                num_appearances: ActiveValue::Set(creator.num_appearances),
             };
             intermediate.insert(&self.db).await.ok();
         }
@@ -3331,7 +3329,6 @@ impl MiscellaneousService {
                 name: c,
                 role: "Creator".to_string(),
                 image: None,
-                num_appearances: 1,
             })
             .collect();
         let details = MediaDetails {

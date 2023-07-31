@@ -625,7 +625,6 @@ pub mod media {
         pub name: String,
         pub role: String,
         pub image: Option<String>,
-        pub num_appearances: i32,
     }
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]

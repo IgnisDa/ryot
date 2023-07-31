@@ -11,7 +11,6 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub creator_id: i32,
     pub role: String,
-    pub num_appearances: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
