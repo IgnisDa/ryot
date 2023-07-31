@@ -2235,9 +2235,9 @@ impl MiscellaneousService {
         Ok(IdObject { id: metadata.id })
     }
 
-    pub async fn cleanup_metadata_with_associated_user_activities(&self) -> Result<()> {
-        let all_metadata = Metadata::find().all(&self.db).await.unwrap();
-        for metadata in all_metadata {
+    pub async fn cleanup_data_without_associated_user_activities(&self) -> Result<()> {
+        let mut all_metadata = Metadata::find().stream(&self.db).await?;
+        while let Some(metadata) = all_metadata.try_next().await? {
             let num_associations = UserToMetadata::find()
                 .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
@@ -2245,6 +2245,28 @@ impl MiscellaneousService {
                 .unwrap();
             if num_associations == 0 {
                 metadata.delete(&self.db).await.ok();
+            }
+        }
+        let mut all_genre = Genre::find().stream(&self.db).await?;
+        while let Some(genre) = all_genre.try_next().await? {
+            let num_associations = MetadataToGenre::find()
+                .filter(metadata_to_genre::Column::GenreId.eq(genre.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                genre.delete(&self.db).await.ok();
+            }
+        }
+        let mut all_creators = Creator::find().stream(&self.db).await?;
+        while let Some(creator) = all_creators.try_next().await? {
+            let num_associations = MetadataToCreator::find()
+                .filter(metadata_to_creator::Column::CreatorId.eq(creator.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                creator.delete(&self.db).await.ok();
             }
         }
         Ok(())
