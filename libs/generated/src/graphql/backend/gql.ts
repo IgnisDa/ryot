@@ -48,7 +48,7 @@ const documents = {
     "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    usernameChangeAllowed\n    passwordChangeAllowed\n    defaultCredentials\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
-    "query Creators($input: SearchInput!) {\n  creators(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.CreatorsDocument,
+    "query CreatorsList($input: SearchInput!) {\n  creatorsList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.CreatorsListDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      attributes {\n        force\n        level\n        mechanic\n        equipment\n        primaryMuscles\n        secondaryMuscles\n        category\n        instructions\n        images\n        alternateNames\n      }\n    }\n  }\n}": types.ExercisesListDocument,
     "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}": types.GetPresignedUrlDocument,
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
@@ -226,7 +226,7 @@ export function graphql(source: "query CoreEnabledFeatures {\n  coreEnabledFeatu
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Creators($input: SearchInput!) {\n  creators(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}"): (typeof documents)["query Creators($input: SearchInput!) {\n  creators(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}"];
+export function graphql(source: "query CreatorsList($input: SearchInput!) {\n  creatorsList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}"): (typeof documents)["query CreatorsList($input: SearchInput!) {\n  creatorsList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

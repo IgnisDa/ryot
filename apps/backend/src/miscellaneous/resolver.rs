@@ -740,14 +740,14 @@ impl MiscellaneousQuery {
         service.user_media_details(user_id, metadata_id).await
     }
 
-    /// Get paginated creators.
-    async fn creators(
+    /// Get paginated list of creators.
+    async fn creators_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.creators(input).await
+        service.creators_list(input).await
     }
 }
 
@@ -4273,7 +4273,7 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn creators(
+    pub async fn creators_list(
         &self,
         input: SearchInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
