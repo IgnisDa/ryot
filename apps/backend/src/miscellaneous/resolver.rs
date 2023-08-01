@@ -334,10 +334,16 @@ struct GeneralFeatures {
     signup_allowed: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataCreatorRole {
+    name: String,
+    items: Vec<creator::Model>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MediaBaseData {
     model: metadata::Model,
-    creators: Vec<GraphqlMetadataCreator>,
+    creators: Vec<MetadataCreatorRole>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
@@ -356,14 +362,6 @@ struct DetailedMediaSearchResults {
     next_page: Option<i32>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject)]
-pub struct GraphqlMetadataCreator {
-    pub id: i32,
-    pub name: String,
-    pub role: String,
-    pub image: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMediaDetails {
     id: i32,
@@ -373,8 +371,7 @@ struct GraphqlMediaDetails {
     production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
-    // TODO: Group these creators by role
-    creators: Vec<GraphqlMetadataCreator>,
+    creators: Vec<MetadataCreatorRole>,
     genres: Vec<String>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
@@ -1198,7 +1195,7 @@ impl MiscellaneousService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let mut creators = vec![];
+        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
         for cl in MetadataToCreator::find()
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
             .order_by_asc(metadata_to_creator::Column::Index)
@@ -1206,12 +1203,12 @@ impl MiscellaneousService {
             .await?
         {
             let creator = cl.find_related(Creator).one(&self.db).await?.unwrap();
-            creators.push(GraphqlMetadataCreator {
-                id: creator.id,
-                name: creator.name,
-                role: cl.role,
-                image: creator.image,
-            });
+            creators
+                .entry(cl.role)
+                .and_modify(|e| {
+                    e.push(creator.clone());
+                })
+                .or_insert(vec![creator]);
         }
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
@@ -1228,6 +1225,10 @@ impl MiscellaneousService {
             )
             .unwrap();
         }
+        let creators = creators
+            .into_iter()
+            .map(|(name, items)| MetadataCreatorRole { name, items })
+            .collect_vec();
         Ok(MediaBaseData {
             model: meta,
             creators,
