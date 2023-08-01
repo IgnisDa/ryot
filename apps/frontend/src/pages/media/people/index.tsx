@@ -8,6 +8,7 @@ import {
 	Anchor,
 	Avatar,
 	Box,
+	Button,
 	Container,
 	Flex,
 	ScrollArea,
@@ -17,8 +18,15 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { CreatorDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconDeviceTv, IconMessageCircle2 } from "@tabler/icons-react";
+import {
+	CreatorDetailsDocument,
+	UserCreatorDetailsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
+import {
+	IconDeviceTv,
+	IconMessageCircle2,
+	IconUser,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -38,6 +46,18 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const creatorId = parseInt(router.query.id?.toString() || "0");
 
+	const userCreatorDetails = useQuery({
+		queryKey: ["userCreatorDetails", creatorId],
+		queryFn: async () => {
+			const { userCreatorDetails } = await gqlClient.request(
+				UserCreatorDetailsDocument,
+				{ creatorId },
+			);
+			return userCreatorDetails;
+		},
+		staleTime: Infinity,
+		enabled: !!creatorId,
+	});
 	const creatorDetails = useQuery({
 		queryKey: ["creatorDetails", creatorId],
 		queryFn: async () => {
@@ -53,7 +73,7 @@ const Page: NextPageWithLayout = () => {
 		enabled: !!creatorId,
 	});
 
-	return creatorDetails.data ? (
+	return creatorDetails.data && userCreatorDetails.data ? (
 		<>
 			<Head>
 				<title>{creatorDetails.data.details.name} | Ryot</title>
@@ -74,6 +94,9 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.List mb={"xs"}>
 							<Tabs.Tab value="media" icon={<IconDeviceTv size="1rem" />}>
 								Media
+							</Tabs.Tab>
+							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
+								Actions
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="reviews"
@@ -136,9 +159,32 @@ const Page: NextPageWithLayout = () => {
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
+						<Tabs.Panel value="actions">
+							<MediaScrollArea>
+								<SimpleGrid
+									cols={1}
+									spacing="lg"
+									breakpoints={[{ minWidth: "md", cols: 2 }]}
+								>
+									<Link
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.postReview,
+											{ creatorId },
+										)}
+										passHref
+										legacyBehavior
+									>
+										<Anchor>
+											<Button variant="outline" w="100%">
+												Post a review
+											</Button>
+										</Anchor>
+									</Link>
+								</SimpleGrid>
+							</MediaScrollArea>
+						</Tabs.Panel>
 						<Tabs.Panel value="reviews">
-							{/* TODO */}
-							<Text>This is still WIP.</Text>
+							{JSON.stringify(userCreatorDetails.data)}
 						</Tabs.Panel>
 					</Tabs>
 				</MediaDetailsLayout>

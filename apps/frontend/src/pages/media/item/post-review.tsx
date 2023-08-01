@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import {
+	CreatorDetailsDocument,
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
 	MediaDetailsDocument,
@@ -51,7 +52,12 @@ type FormSchema = z.infer<typeof formSchema>;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const metadataId = parseInt(router.query.id?.toString() || "0");
+	const metadataId = router.query.metadataId
+		? parseInt(router.query.metadataId.toString())
+		: undefined;
+	const creatorId = router.query.creatorId
+		? parseInt(router.query.creatorId.toString())
+		: undefined;
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
 	const showSeasonNumber = Number(router.query.showSeasonNumber) || undefined;
 	const showEpisodeNumber = Number(router.query.showEpisodeNumber) || undefined;
@@ -68,19 +74,45 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const mediaDetails = useQuery({
-		queryKey: ["mediaDetails", metadataId],
+		queryKey: ["mediaDetails", metadataId, creatorId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
-				metadataId: metadataId,
-			});
-			return {
-				title: mediaDetails.title,
-				isShow: mediaDetails.lot === MetadataLot.Show,
-				isPodcast: mediaDetails.lot === MetadataLot.Podcast,
-			};
+			if (metadataId) {
+				const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
+					metadataId,
+				});
+				return {
+					title: mediaDetails.title,
+					isShow: mediaDetails.lot === MetadataLot.Show,
+					isPodcast: mediaDetails.lot === MetadataLot.Podcast,
+				};
+			} else if (creatorId) {
+				const { creatorDetails } = await gqlClient.request(
+					CreatorDetailsDocument,
+					{ creatorId },
+				);
+				return {
+					title: creatorDetails.details.name,
+					isShow: false,
+					isPodcast: false,
+				};
+			}
+			return { title: "", isShow: false, isPodcast: false };
 		},
 		staleTime: Infinity,
 	});
+
+	const onSuccess = () => {
+		let url;
+		if (metadataId)
+			url = withQuery(APP_ROUTES.media.individualMediaItem.details, {
+				id: metadataId,
+			});
+		else
+			url = withQuery(APP_ROUTES.media.people.details, {
+				id: creatorId,
+			});
+		router.push(url);
+	};
 
 	useQuery({
 		enabled: reviewId !== undefined,
@@ -121,13 +153,7 @@ const Page: NextPageWithLayout = () => {
 			);
 			return postReview;
 		},
-		onSuccess: () => {
-			router.replace(
-				withQuery(APP_ROUTES.media.individualMediaItem.details, {
-					id: metadataId,
-				}),
-			);
-		},
+		onSuccess,
 	});
 
 	const deleteReview = useMutation({
@@ -138,13 +164,7 @@ const Page: NextPageWithLayout = () => {
 			);
 			return deleteReview;
 		},
-		onSuccess: () => {
-			router.push(
-				withQuery(APP_ROUTES.media.individualMediaItem.details, {
-					id: metadataId,
-				}),
-			);
-		},
+		onSuccess,
 	});
 
 	const title = mediaDetails.data?.title;
@@ -161,6 +181,7 @@ const Page: NextPageWithLayout = () => {
 						postReview.mutate({
 							input: {
 								metadataId,
+								creatorId,
 								...values,
 								reviewId,
 							},

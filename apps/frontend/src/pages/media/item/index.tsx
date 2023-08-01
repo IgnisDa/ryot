@@ -347,7 +347,7 @@ const ReviewItem = ({
 				{user && user.id === review.postedBy.id ? (
 					<Link
 						href={withQuery(APP_ROUTES.media.individualMediaItem.postReview, {
-							id: metadataId,
+							metadataId,
 							reviewId: review.id,
 						})}
 						passHref
@@ -998,7 +998,7 @@ const Page: NextPageWithLayout = () => {
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.postReview,
 											{
-												id: metadataId,
+												metadataId,
 												showSeasonNumber:
 													userMediaDetails.data.nextEpisode?.seasonNumber ??
 													undefined,
