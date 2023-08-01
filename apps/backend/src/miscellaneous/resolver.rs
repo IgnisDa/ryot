@@ -29,7 +29,7 @@ use sea_orm::{
     QueryTrait, Statement,
 };
 use sea_query::{
-    Alias, Asterisk, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
+    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
@@ -373,6 +373,7 @@ struct GraphqlMediaDetails {
     production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
+    // TODO: Group these creators by role
     creators: Vec<GraphqlMetadataCreator>,
     genres: Vec<String>,
     poster_images: Vec<String>,
@@ -4281,7 +4282,10 @@ impl MiscellaneousService {
         let alias = "media_count";
         let query = Creator::find()
             .apply_if(input.query, |query, v| {
-                query.filter(creator::Column::Name.like(v))
+                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                    Func::lower(Expr::col(creator::Column::Name)),
+                    &v,
+                )))
             })
             .column_as(
                 Expr::expr(Func::count(Expr::col(
