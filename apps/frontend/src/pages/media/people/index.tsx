@@ -18,7 +18,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { CreatorDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconDeviceTv } from "@tabler/icons-react";
+import { IconDeviceTv, IconMessageCircle2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -75,14 +75,12 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="media" icon={<IconDeviceTv size="1rem" />}>
 								Media
 							</Tabs.Tab>
-							{/* 
 							<Tabs.Tab
 								value="reviews"
 								icon={<IconMessageCircle2 size="1rem" />}
 							>
 								Reviews
 							</Tabs.Tab>
-						*/}
 						</Tabs.List>
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
@@ -138,25 +136,10 @@ const Page: NextPageWithLayout = () => {
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{/*
-					<Tabs.Panel value="reviews">
-							{userMediaDetails.data.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{userMediaDetails.data.reviews.map((r) => (
-											<ReviewItem
-												review={r}
-												key={r.id}
-												metadataId={creatorId}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
-							) : (
-								<Text fs="italic">No reviews posted</Text>
-							)}
+						<Tabs.Panel value="reviews">
+							{/* TODO */}
+							<Text>This is still WIP.</Text>
 						</Tabs.Panel>
-						*/}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>
