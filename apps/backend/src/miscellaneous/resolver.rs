@@ -2182,18 +2182,18 @@ impl MiscellaneousService {
         data: Vec<MetadataCreator>,
     ) -> Result<()> {
         for (idx, creator) in data.into_iter().enumerate() {
-            let db_creator = if let Some(c) = Creator::find()
+            let db_creator = if let Some(db_creator) = Creator::find()
                 .filter(creator::Column::Name.eq(&creator.name))
                 .one(&self.db)
                 .await
                 .unwrap()
             {
-                if c.image != creator.image {
-                    let mut new: creator::ActiveModel = c.clone().into();
+                if db_creator.image.is_none() {
+                    let mut new: creator::ActiveModel = db_creator.clone().into();
                     new.image = ActiveValue::Set(creator.image);
                     new.update(&self.db).await?;
                 }
-                c
+                db_creator
             } else {
                 let c = creator::ActiveModel {
                     name: ActiveValue::Set(creator.name),
