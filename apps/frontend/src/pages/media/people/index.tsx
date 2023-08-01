@@ -139,6 +139,7 @@ const Page: NextPageWithLayout = () => {
 																size="xs"
 																align="center"
 																lineClamp={1}
+																mt={4}
 															>
 																{item.title}
 															</Text>
