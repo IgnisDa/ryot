@@ -66,7 +66,7 @@ const documents = {
     "fragment SeenPart on Seen {\n  id\n  progress\n  state\n  startedOn\n  finishedOn\n  lastUpdatedOn\n  showInformation {\n    episode\n    season\n  }\n  podcastInformation {\n    episode\n  }\n}\n\nquery UserMediaDetails($metadataId: Int!) {\n  userMediaDetails(metadataId: $metadataId) {\n    collections {\n      id\n      name\n    }\n    inProgress {\n      ...SeenPart\n    }\n    history {\n      ...SeenPart\n    }\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      showSeason\n      showEpisode\n      podcastEpisode\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n    isMonitored\n    nextEpisode {\n      seasonNumber\n      episodeNumber\n    }\n  }\n}": types.SeenPartFragmentDoc,
     "query UserNotificationPlatforms {\n  userNotificationPlatforms {\n    id\n    description\n    timestamp\n  }\n}": types.UserNotificationPlatformsDocument,
     "query UserPreferences {\n  userPreferences {\n    notifications {\n      episodeReleased\n      statusChanged\n      releaseDateChanged\n      numberOfSeasonsChanged\n    }\n    featuresEnabled {\n      media {\n        anime\n        audioBooks\n        books\n        manga\n        movies\n        podcasts\n        shows\n        videoGames\n      }\n    }\n  }\n}": types.UserPreferencesDocument,
-    "query Users {\n  users {\n    id\n    name\n    lot\n  }\n}": types.UsersDocument,
+    "query UsersList {\n  usersList {\n    id\n    name\n    lot\n  }\n}": types.UsersListDocument,
 };
 
 /**
@@ -298,7 +298,7 @@ export function graphql(source: "query UserPreferences {\n  userPreferences {\n 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Users {\n  users {\n    id\n    name\n    lot\n  }\n}"): (typeof documents)["query Users {\n  users {\n    id\n    name\n    lot\n  }\n}"];
+export function graphql(source: "query UsersList {\n  usersList {\n    id\n    name\n    lot\n  }\n}"): (typeof documents)["query UsersList {\n  usersList {\n    id\n    name\n    lot\n  }\n}"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

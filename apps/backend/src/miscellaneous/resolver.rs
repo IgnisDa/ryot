@@ -681,11 +681,11 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about all the users in the service.
-    async fn users(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
+    async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(user_id).await?;
-        service.users().await
+        service.users_list().await
     }
 
     /// Get details about the currently logged in user.
@@ -3912,7 +3912,7 @@ impl MiscellaneousService {
 
     pub async fn delete_expired_user_auth_tokens(&self) -> Result<()> {
         let mut deleted_tokens = 0;
-        for user in self.users().await? {
+        for user in self.users_list().await? {
             let tokens = self.all_user_auth_tokens(user.id).await?;
             for token in tokens {
                 if Utc::now() - token.last_used_on
@@ -3955,7 +3955,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn users(&self) -> Result<Vec<user::Model>> {
+    async fn users_list(&self) -> Result<Vec<user::Model>> {
         Ok(User::find()
             .order_by_asc(user::Column::Id)
             .all(&self.db)
@@ -3966,7 +3966,7 @@ impl MiscellaneousService {
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = maybe_user {
             if self
-                .users()
+                .users_list()
                 .await?
                 .into_iter()
                 .filter(|u| u.lot == UserLot::Admin)
