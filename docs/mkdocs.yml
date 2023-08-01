@@ -30,6 +30,7 @@ theme:
     - navigation.tracking
 
 plugins:
+  - awesome-pages
   - macros:
       include_dir: includes
   - offline
