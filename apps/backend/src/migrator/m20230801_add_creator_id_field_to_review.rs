@@ -2,7 +2,8 @@ use sea_orm_migration::prelude::*;
 
 use super::{
     m20230505_000006_create_review::CREATOR_TO_REVIEW_FOREIGN_KEY,
-    m20230730_create_creator::Creator, Review,
+    m20230730_create_creator::{get_metadata_to_creator_table, Creator, MetadataToCreator},
+    Review,
 };
 
 pub struct Migration;
@@ -46,6 +47,21 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        // manager
+        //     .drop_index(
+        //         Index::drop()
+        //             .table(MetadataToCreator::Table)
+        //             .name(METADATA_TO_CREATOR_PRIMARY_KEY)
+        //             .to_owned(),
+        //     )
+        //     .await?;
+        // DEV: https://stackoverflow.com/a/8762186/11667450
+        manager
+            .drop_table(Table::drop().table(MetadataToCreator::Table).to_owned())
+            .await?;
+        manager
+            .create_table(get_metadata_to_creator_table())
+            .await?;
         Ok(())
     }
 
