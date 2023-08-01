@@ -1,12 +1,19 @@
 query CreatorDetails($creatorId: Int!) {
   creatorDetails(creatorId: $creatorId) {
-    name
-    items {
-      identifier
-      lot
-      title
+    details {
+      id
+      name
       image
-      publishYear
+    }
+    contents {
+      name
+      items {
+        identifier
+        lot
+        title
+        image
+        publishYear
+      }
     }
   }
 }

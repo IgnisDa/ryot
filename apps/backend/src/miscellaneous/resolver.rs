@@ -341,6 +341,12 @@ struct MetadataCreatorGroupedByRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct CreatorDetails {
+    details: creator::Model,
+    contents: Vec<CreatorDetailsGroupedByRole>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
@@ -606,7 +612,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         creator_id: i32,
-    ) -> Result<Vec<CreatorDetailsGroupedByRole>> {
+    ) -> Result<CreatorDetails> {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .creator_details(creator_id)
@@ -1176,22 +1182,23 @@ impl MiscellaneousService {
         }
     }
 
+    async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
+        match m {
+            MetadataImageUrl::Url(u) => u,
+            MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
+        }
+    }
+
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
-        async fn get_image(m: MetadataImageUrl, storage: Arc<FileStorageService>) -> String {
-            match m {
-                MetadataImageUrl::Url(u) => u,
-                MetadataImageUrl::S3(u) => storage.get_presigned_url(u).await,
-            }
-        }
         for i in meta.images.0.clone() {
             match i.lot {
                 MetadataImageLot::Backdrop => {
-                    backdrop_images.push(get_image(i.url, self.file_storage.clone()).await);
+                    backdrop_images.push(self.get_stored_image(i.url).await);
                 }
                 MetadataImageLot::Poster => {
-                    poster_images.push(get_image(i.url, self.file_storage.clone()).await);
+                    poster_images.push(self.get_stored_image(i.url).await);
                 }
             };
         }
@@ -4352,11 +4359,43 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn creator_details(
-        &self,
-        creator_id: i32,
-    ) -> Result<Vec<CreatorDetailsGroupedByRole>> {
-        todo!()
+    async fn creator_details(&self, creator_id: i32) -> Result<CreatorDetails> {
+        let details = Creator::find_by_id(creator_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        let associations = MetadataToCreator::find()
+            .filter(metadata_to_creator::Column::CreatorId.eq(creator_id))
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let mut contents: HashMap<String, Vec<MediaSearchItem>> = HashMap::new();
+        for (assoc, metadata) in associations {
+            let m = metadata.unwrap();
+            let image = if let Some(i) = m.images.0.first() {
+                Some(self.get_stored_image(i.url.clone()).await)
+            } else {
+                None
+            };
+            let metadata = MediaSearchItem {
+                identifier: m.identifier,
+                lot: m.lot,
+                title: m.title,
+                publish_year: m.publish_year,
+                image,
+            };
+            contents
+                .entry(assoc.role)
+                .and_modify(|e| {
+                    e.push(metadata.clone());
+                })
+                .or_insert(vec![metadata]);
+        }
+        let contents = contents
+            .into_iter()
+            .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
+            .collect_vec();
+        Ok(CreatorDetails { details, contents })
     }
 }
 
