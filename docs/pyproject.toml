@@ -10,6 +10,7 @@ readme = "README.md"
 python = "^3.11"
 mkdocs-macros-plugin = "^1.0.2"
 mkdocs-material = "^9.1.18"
+mkdocs-awesome-pages-plugin = "^2.9.1"
 
 
 [build-system]
