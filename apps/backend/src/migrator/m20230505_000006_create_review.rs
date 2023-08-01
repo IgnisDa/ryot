@@ -1,7 +1,7 @@
 use sea_orm_migration::prelude::*;
 
 use crate::{
-    migrator::{m20230417_000002_create_user::User, Metadata},
+    migrator::{m20230417_000002_create_user::User, m20230730_create_creator::Creator, Metadata},
     models::media::Visibility,
 };
 
@@ -13,6 +13,9 @@ impl MigrationName for Migration {
     }
 }
 
+pub static CREATOR_TO_REVIEW_FOREIGN_KEY: &str = "review_to_creator_foreign_key";
+
+/// A review can be for either a creator or a media item.
 #[derive(Iden)]
 pub enum Review {
     Table,
@@ -25,6 +28,7 @@ pub enum Review {
     Visibility,
     UserId,
     MetadataId,
+    CreatorId,
     Spoiler,
 }
 
@@ -64,7 +68,6 @@ impl MigrationTrait for Migration {
                             .default(Visibility::Private),
                     )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
-                    .col(ColumnDef::new(Review::MetadataId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_user_foreign_key")
@@ -73,11 +76,21 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(Review::MetadataId).integer().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_metadata_foreign_key")
                             .from(Review::Table, Review::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(Review::CreatorId).integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(CREATOR_TO_REVIEW_FOREIGN_KEY)
+                            .from(Review::Table, Review::CreatorId)
+                            .to(Creator::Table, Creator::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
