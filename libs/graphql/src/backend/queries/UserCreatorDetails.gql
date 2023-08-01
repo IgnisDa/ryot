@@ -1,0 +1,16 @@
+query UserCreatorDetails($creatorId: Int!) {
+  userCreatorDetails(creatorId: $creatorId) {
+    reviews {
+      id
+      rating
+      text
+      spoiler
+      visibility
+      postedOn
+      postedBy {
+        id
+        name
+      }
+    }
+  }
+}

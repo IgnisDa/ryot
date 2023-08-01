@@ -30,6 +30,7 @@ mod m20230728_000024_add_user_notification_field;
 mod m20230730_create_creator;
 mod m20230730_remove_creator_field;
 mod m20230731_add_index_field_to_creators;
+mod m20230801_add_creator_id_field_to_review;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -50,6 +51,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230419_000003_create_seen::Migration),
             Box::new(m20230502_000004_create_genre::Migration),
             Box::new(m20230504_000005_create_summary::Migration),
+            Box::new(m20230730_create_creator::Migration),
             Box::new(m20230505_000006_create_review::Migration),
             Box::new(m20230507_000007_create_collection::Migration),
             Box::new(m20230509_000008_create_media_import_report::Migration),
@@ -69,9 +71,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20230728_000022_add_user_summary_field::Migration),
             Box::new(m20230728_000023_add_metadata_status_field::Migration),
             Box::new(m20230728_000024_add_user_notification_field::Migration),
-            Box::new(m20230730_create_creator::Migration),
             Box::new(m20230730_remove_creator_field::Migration),
             Box::new(m20230731_add_index_field_to_creators::Migration),
+            Box::new(m20230801_add_creator_id_field_to_review::Migration),
         ]
     }
 }

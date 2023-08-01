@@ -94,6 +94,7 @@ impl MediaProvider for TmdbMovieService {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCreditsResponse {
             cast: Vec<utils::TmdbCredit>,
+            crew: Vec<utils::TmdbCredit>,
         }
         let mut rsp = self
             .client
@@ -105,22 +106,60 @@ impl MediaProvider for TmdbMovieService {
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let creators = credits
-            .cast
-            .clone()
+        let mut creators = vec![];
+        creators.extend(
+            credits
+                .cast
+                .clone()
+                .into_iter()
+                .flat_map(|g| {
+                    if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                        if r == *"Acting" {
+                            Some(MetadataCreator {
+                                name: n,
+                                role: r,
+                                image: g.profile_path,
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .unique()
+                .collect_vec(),
+        );
+        creators.extend(
+            credits
+                .crew
+                .clone()
+                .into_iter()
+                .flat_map(|g| {
+                    if let (Some(n), Some(r)) = (g.name, g.job) {
+                        if r == *"Director" {
+                            Some(MetadataCreator {
+                                name: n,
+                                role: r,
+                                image: g.profile_path,
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .unique()
+                .collect_vec(),
+        );
+        let creators = creators
             .into_iter()
-            .flat_map(|g| {
-                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                    Some(MetadataCreator {
-                        name: n,
-                        role: r,
-                        image: g.profile_path.map(|p| self.base.get_cover_image_url(p)),
-                    })
-                } else {
-                    None
-                }
+            .map(|c| MetadataCreator {
+                name: c.name,
+                role: c.role,
+                image: c.image.map(|i| self.base.get_cover_image_url(i)),
             })
-            .unique()
             .collect_vec();
         let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
@@ -495,6 +534,7 @@ mod utils {
     pub struct TmdbCredit {
         pub name: Option<String>,
         pub known_for_department: Option<String>,
+        pub job: Option<String>,
         pub profile_path: Option<String>,
     }
 

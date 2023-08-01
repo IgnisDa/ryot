@@ -504,6 +504,11 @@ struct ProgressUpdateCache {
 }
 
 #[derive(SimpleObject)]
+struct UserCreatorDetails {
+    reviews: Vec<ReviewItem>,
+}
+
+#[derive(SimpleObject)]
 struct UserMediaDetails {
     /// The collections in which this media is present.
     collections: Vec<collection::Model>,
@@ -762,6 +767,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_media_details(user_id, metadata_id).await
+    }
+
+    /// Get details that can be displayed to a user for a creator.
+    async fn user_creator_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        creator_id: i32,
+    ) -> Result<UserCreatorDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_creator_details(user_id, creator_id).await
     }
 
     /// Get paginated list of creators.
@@ -1404,7 +1420,7 @@ impl MiscellaneousService {
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
         let collections = self.media_in_collections(user_id, metadata_id).await?;
-        let reviews = self.media_item_reviews(user_id, metadata_id).await?;
+        let reviews = self.item_reviews(user_id, Some(metadata_id), None).await?;
         let history = self.seen_history(user_id, metadata_id).await?;
         let in_progress = history
             .iter()
@@ -1450,6 +1466,15 @@ impl MiscellaneousService {
             next_episode,
             is_monitored,
         })
+    }
+
+    async fn user_creator_details(
+        &self,
+        user_id: i32,
+        creator_id: i32,
+    ) -> Result<UserCreatorDetails> {
+        let reviews = self.item_reviews(user_id, None, Some(creator_id)).await?;
+        Ok(UserCreatorDetails { reviews })
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
@@ -2346,7 +2371,7 @@ impl MiscellaneousService {
             let old_review_active: review::ActiveModel = old_review.clone().into();
             let new_review = review::ActiveModel {
                 id: ActiveValue::NotSet,
-                metadata_id: ActiveValue::Set(merge_into),
+                metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..old_review_active
             };
             new_review.insert(&self.db).await?;
@@ -2593,10 +2618,20 @@ impl MiscellaneousService {
         }
     }
 
-    async fn media_item_reviews(&self, user_id: i32, metadata_id: i32) -> Result<Vec<ReviewItem>> {
+    async fn item_reviews(
+        &self,
+        user_id: i32,
+        metadata_id: Option<i32>,
+        creator_id: Option<i32>,
+    ) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .order_by_desc(review::Column::PostedOn)
-            .filter(review::Column::MetadataId.eq(metadata_id.to_owned()))
+            .apply_if(metadata_id, |query, v| {
+                query.filter(review::Column::MetadataId.eq(v))
+            })
+            .apply_if(creator_id, |query, v| {
+                query.filter(review::Column::CreatorId.eq(v))
+            })
             .all(&self.db)
             .await
             .unwrap();
@@ -2773,6 +2808,7 @@ impl MiscellaneousService {
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
+            creator_id: ActiveValue::Set(input.creator_id),
             extra_information: ActiveValue::Set(extra_infomation),
             ..Default::default()
         };
