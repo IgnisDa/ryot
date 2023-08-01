@@ -4378,7 +4378,7 @@ impl MiscellaneousService {
                 None
             };
             let metadata = MediaSearchItem {
-                identifier: m.identifier,
+                identifier: m.id.to_string(),
                 lot: m.lot,
                 title: m.title,
                 publish_year: m.publish_year,
