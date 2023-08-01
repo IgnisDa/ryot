@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
+import { MediaScrollArea } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -11,7 +12,6 @@ import {
 	Button,
 	Container,
 	Flex,
-	ScrollArea,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -33,14 +33,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { withQuery } from "ufo";
-
-const MediaScrollArea = ({
-	children,
-}: {
-	children: JSX.Element;
-}) => {
-	return <ScrollArea.Autosize mah={300}>{children}</ScrollArea.Autosize>;
-};
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

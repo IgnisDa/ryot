@@ -9,6 +9,7 @@ import {
 	Flex,
 	Image,
 	Loader,
+	ScrollArea,
 	Text,
 	Tooltip,
 } from "@mantine/core";
@@ -26,6 +27,10 @@ import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { withQuery } from "ufo";
+
+export const MediaScrollArea = (props: {	children: JSX.Element}) => {
+	return <ScrollArea.Autosize mah={300}>{props.children}</ScrollArea.Autosize>;
+};
 
 export const BaseDisplayItem = (props: {
 	name: string;

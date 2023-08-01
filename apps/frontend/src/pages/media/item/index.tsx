@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
+import { MediaScrollArea } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -314,14 +315,6 @@ const AccordionLabel = ({
 			) : null}
 		</Stack>
 	);
-};
-
-const MediaScrollArea = ({
-	children,
-}: {
-	children: JSX.Element;
-}) => {
-	return <ScrollArea.Autosize mah={300}>{children}</ScrollArea.Autosize>;
 };
 
 const ReviewItem = ({
