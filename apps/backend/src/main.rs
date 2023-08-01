@@ -35,6 +35,8 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
     background::{
@@ -78,8 +80,7 @@ async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
-
-    tracing_subscriber::fmt::init();
+    let _guard = init_tracing();
 
     tracing::info!("Running version {}", VERSION);
 
@@ -348,4 +349,18 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
     let st = SqliteStorage::new(pool);
     st.setup().await.unwrap();
     st
+}
+
+fn init_tracing() -> WorkerGuard {
+    let file_appender = tracing_appender::rolling::daily(".", format!("{}.log", PROJECT_NAME));
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    tracing::subscriber::set_global_default(
+        fmt::Subscriber::builder()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .finish()
+            // add additional writers
+            .with(fmt::Layer::default().with_writer(non_blocking)),
+    )
+    .expect("Unable to set global tracing subscriber");
+    guard
 }

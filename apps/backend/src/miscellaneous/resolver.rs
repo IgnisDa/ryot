@@ -25,11 +25,11 @@ use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
+    Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait, Statement,
 };
-use sea_orm::{Iterable, QueryTrait};
 use sea_query::{
-    Alias, Asterisk, Cond, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
+    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use serde::{Deserialize, Serialize};
@@ -60,12 +60,13 @@ use crate::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserSummary, VideoGameSpecifics, Visibility,
+            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem, MediaSpecifics,
+            MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UserSummary,
+            VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -333,10 +334,30 @@ struct GeneralFeatures {
     signup_allowed: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataCreatorGroupedByRole {
+    name: String,
+    items: Vec<creator::Model>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct CreatorDetails {
+    details: creator::Model,
+    contents: Vec<CreatorDetailsGroupedByRole>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct CreatorDetailsGroupedByRole {
+    /// The name of the role performed.
+    name: String,
+    /// The media items in which this role was performed.
+    items: Vec<MediaSearchItem>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MediaBaseData {
     model: metadata::Model,
-    creators: Vec<GraphqlMetadataCreator>,
+    creators: Vec<MetadataCreatorGroupedByRole>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
@@ -355,14 +376,6 @@ struct DetailedMediaSearchResults {
     next_page: Option<i32>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject)]
-pub struct GraphqlMetadataCreator {
-    pub id: i32,
-    pub name: String,
-    pub role: String,
-    pub image: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMediaDetails {
     id: i32,
@@ -372,7 +385,7 @@ struct GraphqlMediaDetails {
     production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
-    creators: Vec<GraphqlMetadataCreator>,
+    creators: Vec<MetadataCreatorGroupedByRole>,
     genres: Vec<String>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
@@ -448,9 +461,9 @@ struct MediaFilter {
 struct MediaListInput {
     page: i32,
     lot: MetadataLot,
-    sort: Option<MediaSortInput>,
     query: Option<String>,
     filter: Option<MediaFilter>,
+    sort: Option<MediaSortInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -500,8 +513,6 @@ struct UserMediaDetails {
     history: Vec<seen::Model>,
     /// The seen item if it is in progress.
     in_progress: Option<seen::Model>,
-    /// The details of the media item itself.
-    media_details: GraphqlMediaDetails,
     /// The next episode of this media.
     next_episode: Option<UserMediaNextEpisode>,
     /// Whether the user is monitoring this media.
@@ -596,6 +607,18 @@ impl MiscellaneousQuery {
             .await
     }
 
+    /// Get details about a creator present in the database.
+    async fn creator_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        creator_id: i32,
+    ) -> Result<CreatorDetails> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .creator_details(creator_id)
+            .await
+    }
+
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
@@ -682,11 +705,11 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about all the users in the service.
-    async fn users(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
+    async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(user_id).await?;
-        service.users().await
+        service.users_list().await
     }
 
     /// Get details about the currently logged in user.
@@ -739,6 +762,16 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_media_details(user_id, metadata_id).await
+    }
+
+    /// Get paginated list of creators.
+    async fn creators_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.creators_list(input).await
     }
 }
 
@@ -1149,22 +1182,23 @@ impl MiscellaneousService {
         }
     }
 
+    async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
+        match m {
+            MetadataImageUrl::Url(u) => u,
+            MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
+        }
+    }
+
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
-        async fn get_image(m: MetadataImageUrl, storage: Arc<FileStorageService>) -> String {
-            match m {
-                MetadataImageUrl::Url(u) => u,
-                MetadataImageUrl::S3(u) => storage.get_presigned_url(u).await,
-            }
-        }
         for i in meta.images.0.clone() {
             match i.lot {
                 MetadataImageLot::Backdrop => {
-                    backdrop_images.push(get_image(i.url, self.file_storage.clone()).await);
+                    backdrop_images.push(self.get_stored_image(i.url).await);
                 }
                 MetadataImageLot::Poster => {
-                    poster_images.push(get_image(i.url, self.file_storage.clone()).await);
+                    poster_images.push(self.get_stored_image(i.url).await);
                 }
             };
         }
@@ -1188,7 +1222,7 @@ impl MiscellaneousService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let mut creators = vec![];
+        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
         for cl in MetadataToCreator::find()
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
             .order_by_asc(metadata_to_creator::Column::Index)
@@ -1196,12 +1230,12 @@ impl MiscellaneousService {
             .await?
         {
             let creator = cl.find_related(Creator).one(&self.db).await?.unwrap();
-            creators.push(GraphqlMetadataCreator {
-                id: creator.id,
-                name: creator.name,
-                role: cl.role,
-                image: creator.image,
-            });
+            creators
+                .entry(cl.role)
+                .and_modify(|e| {
+                    e.push(creator.clone());
+                })
+                .or_insert(vec![creator]);
         }
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
@@ -1218,6 +1252,10 @@ impl MiscellaneousService {
             )
             .unwrap();
         }
+        let creators = creators
+            .into_iter()
+            .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
+            .collect_vec();
         Ok(MediaBaseData {
             model: meta,
             creators,
@@ -1409,7 +1447,6 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            media_details,
             next_episode,
             is_monitored,
         })
@@ -2145,13 +2182,18 @@ impl MiscellaneousService {
         data: Vec<MetadataCreator>,
     ) -> Result<()> {
         for (idx, creator) in data.into_iter().enumerate() {
-            let db_creator = if let Some(c) = Creator::find()
+            let db_creator = if let Some(db_creator) = Creator::find()
                 .filter(creator::Column::Name.eq(&creator.name))
                 .one(&self.db)
                 .await
                 .unwrap()
             {
-                c
+                if db_creator.image.is_none() {
+                    let mut new: creator::ActiveModel = db_creator.clone().into();
+                    new.image = ActiveValue::Set(creator.image);
+                    new.update(&self.db).await?;
+                }
+                db_creator
             } else {
                 let c = creator::ActiveModel {
                     name: ActiveValue::Set(creator.name),
@@ -2354,7 +2396,9 @@ impl MiscellaneousService {
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
         let provider = self.get_provider(lot, source)?;
-        let results = provider.search(&input.query, input.page).await?;
+        let results = provider
+            .search(&input.query.unwrap_or_default(), input.page)
+            .await?;
         let mut all_idens = results
             .items
             .iter()
@@ -3902,7 +3946,7 @@ impl MiscellaneousService {
 
     pub async fn delete_expired_user_auth_tokens(&self) -> Result<()> {
         let mut deleted_tokens = 0;
-        for user in self.users().await? {
+        for user in self.users_list().await? {
             let tokens = self.all_user_auth_tokens(user.id).await?;
             for token in tokens {
                 if Utc::now() - token.last_used_on
@@ -3945,7 +3989,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn users(&self) -> Result<Vec<user::Model>> {
+    async fn users_list(&self) -> Result<Vec<user::Model>> {
         Ok(User::find()
             .order_by_asc(user::Column::Id)
             .all(&self.db)
@@ -3956,7 +4000,7 @@ impl MiscellaneousService {
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = maybe_user {
             if self
-                .users()
+                .users_list()
                 .await?
                 .into_iter()
                 .filter(|u| u.lot == UserLot::Admin)
@@ -4261,6 +4305,97 @@ impl MiscellaneousService {
         } else {
             false
         })
+    }
+
+    pub async fn creators_list(
+        &self,
+        input: SearchInput,
+    ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let alias = "media_count";
+        let query = Creator::find()
+            .apply_if(input.query, |query, v| {
+                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                    Func::lower(Expr::col(creator::Column::Name)),
+                    &v,
+                )))
+            })
+            .column_as(
+                Expr::expr(Func::count(Expr::col(
+                    metadata_to_collection::Column::MetadataId,
+                ))),
+                alias,
+            )
+            .join_rev(
+                JoinType::LeftJoin,
+                MetadataToCreator::belongs_to(Creator)
+                    .from(metadata_to_creator::Column::CreatorId)
+                    .to(creator::Column::Id)
+                    .into(),
+            )
+            .group_by(creator::Column::Id)
+            .group_by(creator::Column::Name)
+            .order_by(Expr::col(Alias::new(alias)), Order::Desc);
+        let creators_paginator = query
+            .clone()
+            .into_model::<MediaCreatorSearchItem>()
+            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = creators_paginator.num_items_and_pages().await?;
+        let mut creators = vec![];
+        for c in creators_paginator.fetch_page(page - 1).await? {
+            creators.push(c);
+        }
+        Ok(SearchResults {
+            total: number_of_items.try_into().unwrap(),
+            items: creators,
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        })
+    }
+
+    async fn creator_details(&self, creator_id: i32) -> Result<CreatorDetails> {
+        let details = Creator::find_by_id(creator_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        let associations = MetadataToCreator::find()
+            .filter(metadata_to_creator::Column::CreatorId.eq(creator_id))
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let mut contents: HashMap<String, Vec<MediaSearchItem>> = HashMap::new();
+        for (assoc, metadata) in associations {
+            let m = metadata.unwrap();
+            let image = if let Some(i) = m.images.0.first() {
+                Some(self.get_stored_image(i.url.clone()).await)
+            } else {
+                None
+            };
+            let metadata = MediaSearchItem {
+                identifier: m.id.to_string(),
+                lot: m.lot,
+                title: m.title,
+                publish_year: m.publish_year,
+                image,
+            };
+            contents
+                .entry(assoc.role)
+                .and_modify(|e| {
+                    e.push(metadata.clone());
+                })
+                .or_insert(vec![metadata]);
+        }
+        let contents = contents
+            .into_iter()
+            .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
+            .collect_vec();
+        Ok(CreatorDetails { details, contents })
     }
 }
 

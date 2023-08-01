@@ -1,5 +1,5 @@
-import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import type { NextPageWithLayout } from "../../_app";
+import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -33,7 +33,7 @@ import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const completeShow = !!router.query.completeShow;
 	const completePodcast = !!router.query.completePodcast;
 	const onlySeason = !!router.query.onlySeason;
@@ -120,8 +120,8 @@ const Page: NextPageWithLayout = () => {
 				if (router.query.next) router.push(router.query.next.toString());
 				else
 					router.replace(
-						withQuery(ROUTES.media.individualMedia.details, {
-							item: metadataId,
+						withQuery(APP_ROUTES.media.individualMediaItem.details, {
+							id: metadataId,
 						}),
 					);
 			}

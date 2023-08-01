@@ -41,7 +41,13 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 
 const createUserNotificationPlatformSchema = z.object({
-	baseUrl: z.string().url().optional(),
+	baseUrl: z
+		.string()
+		.url()
+		.refine((val) => !val.endsWith("/"), {
+			message: "Trailing slash not allowed",
+		})
+		.optional(),
 	apiToken: z.string().optional(),
 	priority: z.number().optional(),
 });

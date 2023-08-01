@@ -1,7 +1,9 @@
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use sea_orm::{prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult};
+use sea_orm::{
+    prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -18,12 +20,19 @@ pub struct NamedObject {
 
 #[derive(Serialize, Deserialize, Debug, InputObject)]
 pub struct SearchInput {
-    pub query: String,
+    pub query: Option<String>,
     pub page: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItem)))]
+#[graphql(concrete(
+    name = "MediaCollectionContentsResults",
+    params(media::MediaSearchItem)
+))]
+#[graphql(concrete(
+    name = "MediaCreatorSearchResults",
+    params(media::MediaCreatorSearchItem)
+))]
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
 #[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
@@ -39,6 +48,14 @@ pub struct IdObject {
 
 pub mod media {
     use super::*;
+
+    #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
+    pub struct MediaCreatorSearchItem {
+        pub id: i32,
+        pub name: String,
+        pub image: Option<String>,
+        pub media_count: i64,
+    }
 
     #[derive(Debug, InputObject, Default)]
     pub struct CreateOrUpdateCollectionInput {

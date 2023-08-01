@@ -1,5 +1,5 @@
-import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import type { NextPageWithLayout } from "../../_app";
+import { APP_ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -8,6 +8,7 @@ import type { MetadataSource } from "@ryot/generated/graphql/backend/graphql";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
+import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -16,7 +17,9 @@ const Page: NextPageWithLayout = () => {
 	const source = router.query.source?.toString() as unknown as MetadataSource;
 
 	const commitMedia = useCommitMedia(lot, (id) => {
-		router.replace(`${ROUTES.media.individualMedia.details}?item=${id}`);
+		router.replace(
+			withQuery(APP_ROUTES.media.individualMediaItem.details, { id }),
+		);
 	});
 
 	useEffect(() => {

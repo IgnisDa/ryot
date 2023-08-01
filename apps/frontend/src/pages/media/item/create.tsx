@@ -1,6 +1,6 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { BASE_URL, gqlClient } from "@/lib/services/api";
@@ -82,7 +82,9 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: (data) => {
 			if (data.__typename === "IdObject")
 				router.push(
-					withQuery(ROUTES.media.individualMedia.details, { item: data.id }),
+					withQuery(APP_ROUTES.media.individualMediaItem.details, {
+						id: data.id,
+					}),
 				);
 		},
 	});

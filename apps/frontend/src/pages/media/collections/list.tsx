@@ -1,5 +1,5 @@
-import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import type { NextPageWithLayout } from "../../_app";
+import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -133,7 +133,7 @@ const Page: NextPageWithLayout = () => {
 								<Box>
 									<Flex align={"center"} gap="xs">
 										<Link
-											href={withQuery(ROUTES.media.collections.details, {
+											href={withQuery(APP_ROUTES.media.collections.details, {
 												collectionId: c?.id,
 											})}
 											passHref

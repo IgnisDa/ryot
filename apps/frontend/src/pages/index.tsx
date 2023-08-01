@@ -1,7 +1,7 @@
 import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
-import { ROUTES } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -39,6 +39,7 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement } from "react";
+import { withQuery } from "ufo";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
@@ -156,7 +157,10 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${ROUTES.media.individualMedia.details}?item=${lm.identifier}`}
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.details,
+											{ id: lm.identifier },
+										)}
 									/>
 								))}
 							</Grid>
@@ -330,7 +334,7 @@ const Page: NextPageWithLayout = () => {
 						<Link
 							passHref
 							legacyBehavior
-							href={ROUTES.media.individualMedia.create}
+							href={APP_ROUTES.media.individualMediaItem.create}
 						>
 							<Button
 								variant="outline"

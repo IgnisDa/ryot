@@ -9,9 +9,9 @@ export default function ({
 	externalLink,
 }: {
 	children: JSX.Element | (JSX.Element | null)[];
-	posterImages: string[];
+	posterImages: (string | null | undefined)[];
 	backdropImages: string[];
-	externalLink: { source: string; href?: string | null };
+	externalLink?: { source: string; href?: string | null };
 }) {
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
@@ -37,24 +37,26 @@ export default function ({
 						<Image withPlaceholder height={400} radius={"lg"} />
 					</Box>
 				)}
-				<Badge
-					id="data-source"
-					pos={"absolute"}
-					size="lg"
-					top={10}
-					left={10}
-					color="dark"
-					variant="filled"
-				>
-					<Flex gap={4}>
-						<Text>{externalLink.source}</Text>
-						{externalLink.href ? (
-							<Anchor href={externalLink.href} target="_blank">
-								<IconExternalLink size="1rem" />
-							</Anchor>
-						) : null}
-					</Flex>
-				</Badge>
+				{externalLink ? (
+					<Badge
+						id="data-source"
+						pos={"absolute"}
+						size="lg"
+						top={10}
+						left={10}
+						color="dark"
+						variant="filled"
+					>
+						<Flex gap={4}>
+							<Text>{externalLink.source}</Text>
+							{externalLink.href ? (
+								<Anchor href={externalLink.href} target="_blank">
+									<IconExternalLink size="1rem" />
+								</Anchor>
+							) : null}
+						</Flex>
+					</Badge>
+				) : undefined}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				{children}

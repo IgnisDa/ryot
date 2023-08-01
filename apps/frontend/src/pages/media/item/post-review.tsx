@@ -1,5 +1,5 @@
-import type { NextPageWithLayout } from "../_app";
-import { ROUTES } from "@/lib/constants";
+import type { NextPageWithLayout } from "../../_app";
+import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -21,6 +21,7 @@ import {
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
 	MediaDetailsDocument,
+	MetadataLot,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewByIdDocument,
@@ -50,7 +51,7 @@ type FormSchema = z.infer<typeof formSchema>;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
 	const showSeasonNumber = Number(router.query.showSeasonNumber) || undefined;
 	const showEpisodeNumber = Number(router.query.showEpisodeNumber) || undefined;
@@ -72,7 +73,11 @@ const Page: NextPageWithLayout = () => {
 			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
 				metadataId: metadataId,
 			});
-			return mediaDetails;
+			return {
+				title: mediaDetails.title,
+				isShow: mediaDetails.lot === MetadataLot.Show,
+				isPodcast: mediaDetails.lot === MetadataLot.Podcast,
+			};
 		},
 		staleTime: Infinity,
 	});
@@ -118,7 +123,9 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: () => {
 			router.replace(
-				withQuery(ROUTES.media.individualMedia.details, { item: metadataId }),
+				withQuery(APP_ROUTES.media.individualMediaItem.details, {
+					id: metadataId,
+				}),
 			);
 		},
 	});
@@ -133,8 +140,8 @@ const Page: NextPageWithLayout = () => {
 		},
 		onSuccess: () => {
 			router.push(
-				withQuery(ROUTES.media.individualMedia.details, {
-					item: metadataId,
+				withQuery(APP_ROUTES.media.individualMediaItem.details, {
+					id: metadataId,
 				}),
 			);
 		},
@@ -180,7 +187,7 @@ const Page: NextPageWithLayout = () => {
 								{...form.getInputProps("spoiler", { type: "checkbox" })}
 							/>
 						</Flex>
-						{mediaDetails.data.showSpecifics ? (
+						{mediaDetails.data.isShow ? (
 							<Flex gap="md">
 								<NumberInput
 									label="Season"
@@ -194,7 +201,7 @@ const Page: NextPageWithLayout = () => {
 								/>
 							</Flex>
 						) : null}
-						{mediaDetails.data.podcastSpecifics ? (
+						{mediaDetails.data.isPodcast ? (
 							<Flex gap="md">
 								<NumberInput
 									label="Episode"

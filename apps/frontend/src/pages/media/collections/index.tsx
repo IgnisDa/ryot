@@ -1,7 +1,7 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
-import { LIMIT, ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LIMIT } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -70,7 +71,10 @@ const Page: NextPageWithLayout = () => {
 										key={lm.identifier}
 										item={lm}
 										lot={lm.lot}
-										href={`${ROUTES.media.individualMedia.details}?item=${lm.identifier}`}
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.details,
+											{ id: lm.identifier },
+										)}
 									/>
 								))}
 							</Grid>

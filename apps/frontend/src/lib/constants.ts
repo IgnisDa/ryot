@@ -1,6 +1,6 @@
 export const LIMIT = 20;
 
-export const ROUTES = {
+export const APP_ROUTES = {
 	dashboard: "/",
 	auth: {
 		login: "/auth/login",
@@ -14,23 +14,27 @@ export const ROUTES = {
 		notifications: "/settings/notifications",
 		miscellaneous: "/settings/miscellaneous",
 		users: "/settings/users",
-	},
-	imports: {
-		new: "/imports",
-		reports: "/imports/reports",
+		imports: {
+			new: "/settings/imports",
+			reports: "/settings/imports/reports",
+		},
 	},
 	media: {
+		list: "/media/list",
 		collections: {
-			list: "/collections/list",
-			details: "/collections",
+			details: "/media/collections",
+			list: "/media/collections/list",
 		},
-		list: "/list",
-		individualMedia: {
-			commit: "/media/commit",
-			create: "/media/create",
-			details: "/media",
-			postReview: "/media/post-review",
-			updateProgress: "/media/update-progress",
+		people: {
+			details: "/media/people",
+			list: "/media/people/list",
+		},
+		individualMediaItem: {
+			details: "/media/item",
+			commit: "/media/item/commit",
+			create: "/media/item/create",
+			postReview: "/media/item/post-review",
+			updateProgress: "/media/item/update-progress",
 		},
 	},
 	fitness: {

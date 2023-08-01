@@ -29,7 +29,7 @@ use crate::{
 };
 
 static URL: &str = "https://openlibrary.org/";
-static IMAGE_URL: &str = "https://covers.openlibrary.org/b";
+static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
 
 // DEV: Openlibrary does not send `Location` header and instead returns a
 // custom response.
@@ -112,7 +112,7 @@ impl OpenlibraryService {
         let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")])
             .with(OpenlibraryRedirectMiddleware);
         Self {
-            image_url: IMAGE_URL.to_owned(),
+            image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
         }
@@ -200,8 +200,9 @@ impl MediaProvider for OpenlibraryService {
         #[derive(Debug, Serialize, Deserialize)]
         struct OpenlibraryAuthorPartial {
             name: String,
+            photos: Option<Vec<i64>>,
         }
-        let mut authors = vec![];
+        let mut creators = vec![];
         for a in data.authors.unwrap_or_default().iter() {
             let (key, role) = match a {
                 OpenlibraryAuthorResponse::Flat(s) => (s.key.to_owned(), "Author".to_owned()),
@@ -218,12 +219,13 @@ impl MediaProvider for OpenlibraryService {
                 .get(format!("{}.json", key))
                 .await
                 .map_err(|e| anyhow!(e))?;
-            let auth: OpenlibraryAuthorPartial = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-            authors.push(MetadataCreator {
-                name: auth.name,
-                role,
-                image: None,
-            });
+            let OpenlibraryAuthorPartial { name, photos } =
+                rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            let image = photos
+                .unwrap_or_default()
+                .first()
+                .map(|i| self.get_author_cover_image_url(*i));
+            creators.push(MetadataCreator { name, role, image });
         }
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -245,7 +247,7 @@ impl MediaProvider for OpenlibraryService {
             .into_iter()
             .filter(|c| c > &0)
             .map(|c| MetadataImage {
-                url: MetadataImageUrl::Url(self.get_cover_image_url(c)),
+                url: MetadataImageUrl::Url(self.get_book_cover_image_url(c)),
                 lot: MetadataImageLot::Poster,
             })
             .unique()
@@ -265,7 +267,7 @@ impl MediaProvider for OpenlibraryService {
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
-            creators: authors,
+            creators,
             genres,
             images,
             publish_year: first_release_date.map(|d| d.year()),
@@ -323,7 +325,7 @@ impl MediaProvider for OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| {
-                let images = Vec::from_iter(d.cover_i.map(|f| self.get_cover_image_url(f)));
+                let images = Vec::from_iter(d.cover_i.map(|f| self.get_book_cover_image_url(f)));
                 BookSearchItem {
                     identifier: get_key(&d.key),
                     title: d.title,
@@ -367,10 +369,18 @@ impl MediaProvider for OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    fn get_cover_image_url(&self, c: i64) -> String {
+    fn get_book_cover_image_url(&self, c: i64) -> String {
+        self.get_cover_image_url("b", c)
+    }
+
+    fn get_author_cover_image_url(&self, c: i64) -> String {
+        self.get_cover_image_url("a", c)
+    }
+
+    fn get_cover_image_url(&self, t: &str, c: i64) -> String {
         format!(
-            "{}/id/{}-{}.jpg?default=false",
-            self.image_url, c, self.image_size
+            "{}/{}/id/{}-{}.jpg?default=false",
+            self.image_url, t, c, self.image_size
         )
     }
 
