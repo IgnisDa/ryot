@@ -2,7 +2,6 @@ import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
 import { BaseDisplayItem } from "@/lib/components/MediaItem";
 import { APP_ROUTES, LIMIT } from "@/lib/constants";
-import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -64,7 +63,7 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : null;
 
-	return listCreators.data ? (
+	return (
 		<>
 			<Head>
 				<title>List People | Ryot</title>
@@ -127,8 +126,6 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Container>
 		</>
-	) : (
-		<LoadingPage />
 	);
 };
 
