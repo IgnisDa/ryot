@@ -25,7 +25,7 @@ pub struct Model {
     pub spoiler: bool,
     pub user_id: i32,
     #[graphql(skip)]
-    pub metadata_id: i32,
+    pub metadata_id: Option<i32>,
     #[graphql(skip)]
     pub extra_information: Option<SeenOrReviewExtraInformation>,
 }
@@ -69,9 +69,11 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            associate_user_with_metadata(&model.user_id, &model.metadata_id, db)
-                .await
-                .ok();
+            if let Some(metadata_id) = model.metadata_id {
+                associate_user_with_metadata(&model.user_id, &metadata_id, db)
+                    .await
+                    .ok();
+            }
         }
         Ok(model)
     }

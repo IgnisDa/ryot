@@ -2346,7 +2346,7 @@ impl MiscellaneousService {
             let old_review_active: review::ActiveModel = old_review.clone().into();
             let new_review = review::ActiveModel {
                 id: ActiveValue::NotSet,
-                metadata_id: ActiveValue::Set(merge_into),
+                metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..old_review_active
             };
             new_review.insert(&self.db).await?;

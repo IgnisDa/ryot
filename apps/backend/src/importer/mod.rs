@@ -326,7 +326,7 @@ impl ImporterService {
                             spoiler,
                             date: date.flatten(),
                             visibility: None,
-                            metadata_id: metadata.id,
+                            metadata_id: Some(metadata.id),
                             review_id: None,
                             show_season_number: review.show_season_number,
                             show_episode_number: review.show_episode_number,
