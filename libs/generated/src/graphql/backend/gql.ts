@@ -62,6 +62,7 @@ const documents = {
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query ReviewById($reviewId: Int!) {\n  reviewById(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n    showSeason\n    showEpisode\n    podcastEpisode\n  }\n}": types.ReviewByIdDocument,
     "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}": types.UserAuthTokensDocument,
+    "query UserCreatorDetails($creatorId: Int!) {\n  userCreatorDetails(creatorId: $creatorId) {\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n  }\n}": types.UserCreatorDetailsDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
     "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}": types.UserIntegrationsDocument,
     "fragment SeenPart on Seen {\n  id\n  progress\n  state\n  startedOn\n  finishedOn\n  lastUpdatedOn\n  showInformation {\n    episode\n    season\n  }\n  podcastInformation {\n    episode\n  }\n}\n\nquery UserMediaDetails($metadataId: Int!) {\n  userMediaDetails(metadataId: $metadataId) {\n    collections {\n      id\n      name\n    }\n    inProgress {\n      ...SeenPart\n    }\n    history {\n      ...SeenPart\n    }\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      showSeason\n      showEpisode\n      podcastEpisode\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n    isMonitored\n    nextEpisode {\n      seasonNumber\n      episodeNumber\n    }\n  }\n}": types.SeenPartFragmentDoc,
@@ -280,6 +281,10 @@ export function graphql(source: "query ReviewById($reviewId: Int!) {\n  reviewBy
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}"): (typeof documents)["query UserAuthTokens {\n  userAuthTokens {\n    lastUsedOn\n    token\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query UserCreatorDetails($creatorId: Int!) {\n  userCreatorDetails(creatorId: $creatorId) {\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n  }\n}"): (typeof documents)["query UserCreatorDetails($creatorId: Int!) {\n  userCreatorDetails(creatorId: $creatorId) {\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
