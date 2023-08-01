@@ -23,7 +23,7 @@ import {
 	type DeleteUserMutationVariables,
 	RegisterUserDocument,
 	type UserInput,
-	UsersDocument,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString } from "@ryot/utilities";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
@@ -48,8 +48,8 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const users = useQuery(["users"], async () => {
-		const { users } = await gqlClient.request(UsersDocument);
-		return users;
+		const { usersList } = await gqlClient.request(UsersListDocument);
+		return usersList;
 	});
 
 	const registerUser = useMutation({
