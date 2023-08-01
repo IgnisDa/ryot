@@ -1,6 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { MediaScrollArea } from "@/lib/components/MediaItem";
+import { MediaScrollArea, ReviewItemDisplay } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -176,7 +176,21 @@ const Page: NextPageWithLayout = () => {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="reviews">
-							{JSON.stringify(userCreatorDetails.data)}
+							{userCreatorDetails.data.reviews.length > 0 ? (
+								<MediaScrollArea>
+									<Stack>
+										{userCreatorDetails.data.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												creatorId={creatorId}
+											/>
+										))}
+									</Stack>
+								</MediaScrollArea>
+							) : (
+								<Text fs="italic">No reviews posted</Text>
+							)}
 						</Tabs.Panel>
 					</Tabs>
 				</MediaDetailsLayout>
