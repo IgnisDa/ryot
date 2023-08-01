@@ -34,7 +34,7 @@ export const BaseDisplayItem = (props: {
 	topRight?: JSX.Element;
 	topLeft?: JSX.Element;
 	bottomLeft?: string | number | null;
-	bottomRight: string;
+	bottomRight?: string | number | null;
 	href: string;
 	highlightRightText?: string;
 	children?: JSX.Element;
@@ -74,12 +74,12 @@ export const BaseDisplayItem = (props: {
 				<Flex justify={"space-between"} direction={"row"} w="100%">
 					<Text c="dimmed">{props.bottomLeft}</Text>
 					<Tooltip
-						label="This media exists in the database"
+						label={props.highlightRightText}
 						disabled={props.highlightRightText ? false : true}
 						position="right"
 					>
 						<Text c={props.highlightRightText ? "yellow" : "dimmed"}>
-							{changeCase(props.bottomRight)}
+							{props.bottomRight}
 						</Text>
 					</Tooltip>
 				</Flex>

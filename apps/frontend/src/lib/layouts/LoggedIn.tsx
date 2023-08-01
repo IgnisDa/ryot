@@ -231,6 +231,7 @@ export default function ({ children }: { children: ReactElement }) {
 				label: changeCase(f.name.toString()),
 				href: undefined,
 			})) || []),
+		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Collections", href: APP_ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,

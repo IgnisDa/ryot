@@ -25,9 +25,9 @@ export const APP_ROUTES = {
 			details: "/media/collections",
 			list: "/media/collections/list",
 		},
-		creators: {
-			details: "/media/creators",
-			list: "/media/creators/list",
+		people: {
+			details: "/media/people",
+			list: "/media/people/list",
 		},
 		individualMediaItem: {
 			details: "/media/item",
