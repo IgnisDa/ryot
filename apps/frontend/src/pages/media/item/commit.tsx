@@ -18,7 +18,7 @@ const Page: NextPageWithLayout = () => {
 
 	const commitMedia = useCommitMedia(lot, (id) => {
 		router.replace(
-			withQuery(APP_ROUTES.media.individualMediaItem.details, { item: id }),
+			withQuery(APP_ROUTES.media.individualMediaItem.details, { id }),
 		);
 	});
 

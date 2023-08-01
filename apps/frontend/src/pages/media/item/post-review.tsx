@@ -50,7 +50,7 @@ type FormSchema = z.infer<typeof formSchema>;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
 	const showSeasonNumber = Number(router.query.showSeasonNumber) || undefined;
 	const showEpisodeNumber = Number(router.query.showEpisodeNumber) || undefined;
@@ -119,7 +119,7 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			router.replace(
 				withQuery(APP_ROUTES.media.individualMediaItem.details, {
-					item: metadataId,
+					id: metadataId,
 				}),
 			);
 		},
@@ -136,7 +136,7 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: () => {
 			router.push(
 				withQuery(APP_ROUTES.media.individualMediaItem.details, {
-					item: metadataId,
+					id: metadataId,
 				}),
 			);
 		},

@@ -439,7 +439,7 @@ const Page: NextPageWithLayout = () => {
 												lot={lot}
 												href={withQuery(
 													APP_ROUTES.media.individualMediaItem.details,
-													{ item: lm.data.identifier },
+													{ id: lm.data.identifier },
 												)}
 											/>
 										))}

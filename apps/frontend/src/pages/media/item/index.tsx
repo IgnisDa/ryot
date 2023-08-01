@@ -347,7 +347,7 @@ const ReviewItem = ({
 				{user && user.id === review.postedBy.id ? (
 					<Link
 						href={withQuery(APP_ROUTES.media.individualMediaItem.postReview, {
-							item: metadataId,
+							id: metadataId,
 							reviewId: review.id,
 						})}
 						passHref
@@ -416,7 +416,7 @@ const Page: NextPageWithLayout = () => {
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
 	const router = useRouter();
-	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
@@ -845,7 +845,7 @@ const Page: NextPageWithLayout = () => {
 																APP_ROUTES.media.individualMediaItem
 																	.updateProgress,
 																{
-																	item: metadataId,
+																	id: metadataId,
 																	selectedPodcastEpisodeNumber:
 																		userMediaDetails.data.nextEpisode
 																			?.episodeNumber,
@@ -858,7 +858,7 @@ const Page: NextPageWithLayout = () => {
 																APP_ROUTES.media.individualMediaItem
 																	.updateProgress,
 																{
-																	item: metadataId,
+																	id: metadataId,
 																	selectedShowSeasonNumber:
 																		userMediaDetails.data.nextEpisode
 																			?.seasonNumber,
@@ -957,7 +957,7 @@ const Page: NextPageWithLayout = () => {
 															APP_ROUTES.media.individualMediaItem
 																.updateProgress,
 															{
-																item: metadataId,
+																idx: metadataId,
 																completeShow: 1,
 															},
 														),
@@ -968,7 +968,7 @@ const Page: NextPageWithLayout = () => {
 															APP_ROUTES.media.individualMediaItem
 																.updateProgress,
 															{
-																item: metadataId,
+																id: metadataId,
 																completePodcast: 1,
 															},
 														),
@@ -986,7 +986,7 @@ const Page: NextPageWithLayout = () => {
 												withQuery(
 													APP_ROUTES.media.individualMediaItem.updateProgress,
 													{
-														item: metadataId,
+														id: metadataId,
 													},
 												),
 											);
@@ -998,7 +998,7 @@ const Page: NextPageWithLayout = () => {
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.postReview,
 											{
-												item: metadataId,
+												id: metadataId,
 												showSeasonNumber:
 													userMediaDetails.data.nextEpisode?.seasonNumber ??
 													undefined,
@@ -1209,7 +1209,7 @@ const Page: NextPageWithLayout = () => {
 																		APP_ROUTES.media.individualMediaItem
 																			.updateProgress,
 																		{
-																			item: metadataId,
+																			id: metadataId,
 																			selectedShowSeasonNumber: s.seasonNumber,
 																			onlySeason: 1,
 																		},
@@ -1249,7 +1249,7 @@ const Page: NextPageWithLayout = () => {
 																					APP_ROUTES.media.individualMediaItem
 																						.updateProgress,
 																					{
-																						item: metadataId,
+																						id: metadataId,
 																						selectedShowSeasonNumber:
 																							s.seasonNumber,
 																						selectedShowEpisodeNumber:
@@ -1298,7 +1298,7 @@ const Page: NextPageWithLayout = () => {
 																APP_ROUTES.media.individualMediaItem
 																	.updateProgress,
 																{
-																	item: metadataId,
+																	id: metadataId,
 																	selectedPodcastEpisodeNumber: e.number,
 																},
 															),

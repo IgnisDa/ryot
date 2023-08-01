@@ -83,7 +83,7 @@ const Page: NextPageWithLayout = () => {
 			if (data.__typename === "IdObject")
 				router.push(
 					withQuery(APP_ROUTES.media.individualMediaItem.details, {
-						item: data.id,
+						id: data.id,
 					}),
 				);
 		},

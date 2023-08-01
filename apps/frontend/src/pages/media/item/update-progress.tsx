@@ -33,7 +33,7 @@ import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const metadataId = parseInt(router.query.item?.toString() || "0");
+	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const completeShow = !!router.query.completeShow;
 	const completePodcast = !!router.query.completePodcast;
 	const onlySeason = !!router.query.onlySeason;
@@ -121,7 +121,7 @@ const Page: NextPageWithLayout = () => {
 				else
 					router.replace(
 						withQuery(APP_ROUTES.media.individualMediaItem.details, {
-							item: metadataId,
+							id: metadataId,
 						}),
 					);
 			}

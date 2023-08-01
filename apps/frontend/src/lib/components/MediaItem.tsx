@@ -203,8 +203,14 @@ export default function (props: {
 			imageOverlayForLoadingIndicator={commitMedia.isLoading}
 			href={
 				props.maybeItemId
-					? `${APP_ROUTES.media.individualMediaItem.details}?item=${props.maybeItemId}`
-					: `${APP_ROUTES.media.individualMediaItem.commit}?identifier=${props.item.identifier}&lot=${props.lot}&source=${props.source}`
+					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
+							id: props.maybeItemId,
+					  })
+					: withQuery(APP_ROUTES.media.individualMediaItem.commit, {
+							identifier: props.item.identifier,
+							lot: props.lot,
+							source: props.source,
+					  })
 			}
 			existsInDatabase={!!props.maybeItemId}
 		>
@@ -219,7 +225,7 @@ export default function (props: {
 							const nextPath = withQuery(router.pathname, router.query);
 							router.push(
 								withQuery(APP_ROUTES.media.individualMediaItem.updateProgress, {
-									item: id,
+									id,
 									next: nextPath,
 								}),
 							);
@@ -237,7 +243,7 @@ export default function (props: {
 								const id = await commitFunction();
 								router.push(
 									withQuery(APP_ROUTES.media.individualMediaItem.details, {
-										item: id,
+										id,
 									}),
 								);
 							}}
