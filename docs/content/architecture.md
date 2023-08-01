@@ -3,6 +3,11 @@
 In production, the frontend is a pre-rendered Nextjs app served statically by the Axum
 backend server.
 
+## Logs
+
+Logs are written to both stdout and `ryot.log.*` in the working directory. If you
+are reporting a bug, please attach the latest log.
+
 ## Development
 
 In development, both servers are started independently running on `:3000` and `:8000`

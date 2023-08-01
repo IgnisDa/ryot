@@ -45,3 +45,4 @@ web-build/
 .nitro
 .cache
 docs/site
+*.log*

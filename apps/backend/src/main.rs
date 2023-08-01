@@ -352,7 +352,7 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
 }
 
 fn init_tracing() -> WorkerGuard {
-    let file_appender = tracing_appender::rolling::daily("/tmp", format!("{}.log", PROJECT_NAME));
+    let file_appender = tracing_appender::rolling::daily(".", format!("{}.log", PROJECT_NAME));
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
