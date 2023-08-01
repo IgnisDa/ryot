@@ -335,15 +335,23 @@ struct GeneralFeatures {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct MetadataCreatorRole {
+struct MetadataCreatorGroupedByRole {
     name: String,
     items: Vec<creator::Model>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct CreatorDetailsGroupedByRole {
+    /// The name of the role performed.
+    name: String,
+    /// The media items in which this role was performed.
+    items: Vec<MediaSearchItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MediaBaseData {
     model: metadata::Model,
-    creators: Vec<MetadataCreatorRole>,
+    creators: Vec<MetadataCreatorGroupedByRole>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
@@ -371,7 +379,7 @@ struct GraphqlMediaDetails {
     production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
-    creators: Vec<MetadataCreatorRole>,
+    creators: Vec<MetadataCreatorGroupedByRole>,
     genres: Vec<String>,
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
@@ -590,6 +598,18 @@ impl MiscellaneousQuery {
         gql_ctx
             .data_unchecked::<Arc<MiscellaneousService>>()
             .media_details(metadata_id)
+            .await
+    }
+
+    /// Get details about a creator present in the database.
+    async fn creator_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        creator_id: i32,
+    ) -> Result<Vec<CreatorDetailsGroupedByRole>> {
+        gql_ctx
+            .data_unchecked::<Arc<MiscellaneousService>>()
+            .creator_details(creator_id)
             .await
     }
 
@@ -1227,7 +1247,7 @@ impl MiscellaneousService {
         }
         let creators = creators
             .into_iter()
-            .map(|(name, items)| MetadataCreatorRole { name, items })
+            .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
         Ok(MediaBaseData {
             model: meta,
@@ -4330,6 +4350,13 @@ impl MiscellaneousService {
                 None
             },
         })
+    }
+
+    pub async fn creator_details(
+        &self,
+        creator_id: i32,
+    ) -> Result<Vec<CreatorDetailsGroupedByRole>> {
+        todo!()
     }
 }
 
