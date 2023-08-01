@@ -80,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 					) : (
 						<Text>You have not added any media to this collection</Text>
 					)}
-					{collectionContents.data.results.total > 0 ? (
+					{collectionContents.data ? (
 						<Center>
 							<Pagination
 								size="sm"

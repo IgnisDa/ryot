@@ -109,9 +109,9 @@ const Page: NextPageWithLayout = () => {
 							</Grid>
 						</>
 					) : (
-						<Text>You do not have any saved yet</Text>
+						<Text>No information to display</Text>
 					)}
-					{listCreators.data && (
+					{listCreators.data ? (
 						<Center>
 							<Pagination
 								size="sm"
@@ -122,7 +122,7 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					)}
+					) : null}
 				</Stack>
 			</Container>
 		</>

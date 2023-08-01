@@ -93,7 +93,7 @@ const Page: NextPageWithLayout = () => {
 					>
 						Generate a new token
 					</Button>
-					{generateApplicationToken.data && (
+					{generateApplicationToken.data ? (
 						<Box>
 							<Alert title="This token will be shown only once">
 								<Flex align={"center"}>
@@ -121,7 +121,7 @@ const Page: NextPageWithLayout = () => {
 								</Flex>
 							</Alert>
 						</Box>
-					)}
+					) : null}
 					{userAuthTokens.data.map((a, idx) => (
 						<Paper p="xs" withBorder key={idx}>
 							<Flex align={"center"} justify={"space-between"}>
