@@ -1,8 +1,7 @@
 import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { MediaScrollArea } from "@/lib/components/MediaItem";
+import { MediaScrollArea, ReviewItemDisplay } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
-import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -16,7 +15,6 @@ import {
 	Badge,
 	Box,
 	Button,
-	Collapse,
 	Container,
 	Flex,
 	Group,
@@ -53,26 +51,23 @@ import {
 	type ProgressUpdateMutationVariables,
 	RemoveMediaFromCollectionDocument,
 	type RemoveMediaFromCollectionMutationVariables,
-	type ReviewItem,
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/utilities";
+import { changeCase } from "@ryot/utilities";
 import {
 	IconAlertCircle,
 	IconBook,
 	IconBrandPagekit,
 	IconClock,
 	IconDeviceTv,
-	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
-	IconStarFilled,
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
@@ -314,82 +309,6 @@ const AccordionLabel = ({
 				/>
 			) : null}
 		</Stack>
-	);
-};
-
-const ReviewItem = ({
-	review,
-	metadataId,
-}: {
-	review: ReviewItem;
-	metadataId: number;
-}) => {
-	const [opened, { toggle }] = useDisclosure(false);
-	const user = useUser();
-
-	return (
-		<Box key={review.id} data-review-id={review.id}>
-			<Flex align={"center"} gap={"sm"}>
-				<Avatar color="cyan" radius="xl">
-					{getInitials(review.postedBy.name)}{" "}
-				</Avatar>
-				<Box>
-					<Text>{review.postedBy.name}</Text>
-					<Text>{DateTime.fromJSDate(review.postedOn).toLocaleString()}</Text>
-				</Box>
-				{user && user.id === review.postedBy.id ? (
-					<Link
-						href={withQuery(APP_ROUTES.media.individualMediaItem.postReview, {
-							metadataId,
-							reviewId: review.id,
-						})}
-						passHref
-						legacyBehavior
-					>
-						<Anchor>
-							<ActionIcon>
-								<IconEdit size="1rem" />
-							</ActionIcon>
-						</Anchor>
-					</Link>
-				) : null}
-			</Flex>
-			<Box ml={"sm"} mt={"xs"}>
-				{typeof review.showSeason === "number" ? (
-					<Text color="dimmed">
-						S{review.showSeason}-E
-						{review.showEpisode}
-					</Text>
-				) : null}
-				{typeof review.podcastEpisode === "number" ? (
-					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
-				) : null}
-				{review.rating > 0 ? (
-					<Flex align={"center"} gap={4}>
-						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
-						<Text color="white" fw="bold">
-							{review.rating} %
-						</Text>
-					</Flex>
-				) : null}
-				{review.text ? (
-					!review.spoiler ? (
-						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
-					) : (
-						<>
-							{!opened ? (
-								<Button onClick={toggle} variant={"subtle"} compact>
-									Show spoiler
-								</Button>
-							) : null}
-							<Collapse in={opened}>
-								<Text dangerouslySetInnerHTML={{ __html: review.text }} />
-							</Collapse>
-						</>
-					)
-				) : null}
-			</Box>
-		</Box>
 	);
 };
 
@@ -1311,7 +1230,7 @@ const Page: NextPageWithLayout = () => {
 								<MediaScrollArea>
 									<Stack>
 										{userMediaDetails.data.reviews.map((r) => (
-											<ReviewItem
+											<ReviewItemDisplay
 												review={r}
 												key={r.id}
 												metadataId={metadataId}
