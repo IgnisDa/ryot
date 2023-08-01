@@ -21,6 +21,7 @@ import {
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
 	MediaDetailsDocument,
+	MetadataLot,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewByIdDocument,
@@ -72,7 +73,11 @@ const Page: NextPageWithLayout = () => {
 			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
 				metadataId: metadataId,
 			});
-			return mediaDetails;
+			return {
+				title: mediaDetails.title,
+				isShow: mediaDetails.lot === MetadataLot.Show,
+				isPodcast: mediaDetails.lot === MetadataLot.Podcast,
+			};
 		},
 		staleTime: Infinity,
 	});
@@ -182,7 +187,7 @@ const Page: NextPageWithLayout = () => {
 								{...form.getInputProps("spoiler", { type: "checkbox" })}
 							/>
 						</Flex>
-						{mediaDetails.data.showSpecifics ? (
+						{mediaDetails.data.isShow ? (
 							<Flex gap="md">
 								<NumberInput
 									label="Season"
@@ -196,7 +201,7 @@ const Page: NextPageWithLayout = () => {
 								/>
 							</Flex>
 						) : null}
-						{mediaDetails.data.podcastSpecifics ? (
+						{mediaDetails.data.isPodcast ? (
 							<Flex gap="md">
 								<NumberInput
 									label="Episode"
