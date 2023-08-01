@@ -1,92 +1,29 @@
 import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
-import { useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
 import {
-	Accordion,
-	ActionIcon,
-	Alert,
 	Anchor,
 	Avatar,
-	Badge,
 	Box,
-	Button,
-	Collapse,
 	Container,
 	Flex,
-	Group,
-	Indicator,
-	type MantineGradient,
-	Modal,
-	NumberInput,
 	ScrollArea,
-	Select,
 	SimpleGrid,
-	Slider,
 	Stack,
 	Tabs,
 	Text,
 	Title,
-	useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
-import {
-	AddMediaToCollectionDocument,
-	type AddMediaToCollectionMutationVariables,
-	CollectionsDocument,
-	DeleteSeenItemDocument,
-	type DeleteSeenItemMutationVariables,
-	DeployUpdateMetadataJobDocument,
-	type DeployUpdateMetadataJobMutationVariables,
-	MediaDetailsDocument,
-	MergeMetadataDocument,
-	type MergeMetadataMutationVariables,
-	MetadataLot,
-	MetadataSource,
-	ProgressUpdateDocument,
-	type ProgressUpdateMutationVariables,
-	RemoveMediaFromCollectionDocument,
-	type RemoveMediaFromCollectionMutationVariables,
-	type ReviewItem,
-	SeenState,
-	ToggleMediaMonitorDocument,
-	type ToggleMediaMonitorMutationVariables,
-	UserMediaDetailsDocument,
-	CreatorDetailsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/utilities";
-import {
-	IconAlertCircle,
-	IconBook,
-	IconBrandPagekit,
-	IconClock,
-	IconDeviceTv,
-	IconEdit,
-	IconInfoCircle,
-	IconMessageCircle2,
-	IconPercentage,
-	IconPlayerPlay,
-	IconRotateClockwise,
-	IconStarFilled,
-	IconUser,
-	IconX,
-} from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-	HumanizeDuration,
-	HumanizeDurationLanguage,
-} from "humanize-duration-ts";
-import { DateTime } from "luxon";
+import { CreatorDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { IconDeviceTv } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
-import { match } from "ts-pattern";
+import type { ReactElement } from "react";
 import { withQuery } from "ufo";
 
 const MediaScrollArea = ({
@@ -100,8 +37,6 @@ const MediaScrollArea = ({
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const creatorId = parseInt(router.query.id?.toString() || "0");
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
 
 	const creatorDetails = useQuery({
 		queryKey: ["creatorDetails", creatorId],
@@ -151,7 +86,56 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.List>
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
-								<>Hello</>
+								<Stack>
+									{creatorDetails.data.contents.map((role) => (
+										<Box key={role.name}>
+											<Title order={3} align="center">
+												{role.name}
+											</Title>
+											<SimpleGrid
+												cols={3}
+												breakpoints={[
+													{ minWidth: "md", cols: 4 },
+													{ minWidth: "lg", cols: 5 },
+												]}
+											>
+												{role.items.map((item) => (
+													<Link
+														key={item.identifier}
+														passHref
+														legacyBehavior
+														href={withQuery(
+															APP_ROUTES.media.individualMediaItem.details,
+															{ id: item.identifier },
+														)}
+													>
+														<Anchor data-media-id={item.identifier}>
+															<Avatar
+																imageProps={{ loading: "lazy" }}
+																src={item.image}
+																h={100}
+																w={85}
+																mx="auto"
+																alt={`${item.title} picture`}
+																styles={{
+																	image: { objectPosition: "top" },
+																}}
+															/>
+															<Text
+																color="white"
+																size="xs"
+																align="center"
+																lineClamp={1}
+															>
+																{item.title}
+															</Text>
+														</Anchor>
+													</Link>
+												))}
+											</SimpleGrid>
+										</Box>
+									))}
+								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
 						{/*
