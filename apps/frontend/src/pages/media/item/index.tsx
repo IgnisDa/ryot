@@ -58,7 +58,7 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, groupBy, mapValues } from "@ryot/utilities";
+import { changeCase, getInitials } from "@ryot/utilities";
 import {
 	IconAlertCircle,
 	IconBook,
@@ -84,7 +84,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useMemo, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
@@ -532,11 +532,6 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const creators = useMemo(() => {
-		const creators = groupBy(mediaDetails.data?.creators, (c) => c.role);
-		return mapValues(creators, (c) => c.splice(0, 10));
-	}, [userMediaDetails.data]);
-
 	const badgeGradient: MantineGradient = match(mediaDetails.data?.lot)
 		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
 		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
@@ -739,9 +734,9 @@ const Page: NextPageWithLayout = () => {
 										<Text fs="italic">No overview available</Text>
 									)}
 									<Stack mt="xl">
-										{Object.keys(creators).map((c) => (
-											<Box key={c}>
-												<Text fw="bold">{c}</Text>
+										{mediaDetails.data.creators.map((c) => (
+											<Box key={c.name}>
+												<Text fw="bold">{c.name}</Text>
 												<ScrollArea
 													mt="xs"
 													w={{
@@ -754,30 +749,38 @@ const Page: NextPageWithLayout = () => {
 													}}
 												>
 													<Flex gap="md">
-														{creators[c].map((creator) => (
-															<Box
+														{c.items.map((creator) => (
+															<Link
 																key={creator.id}
-																w={90}
-																data-creator-id={creator.id}
+																passHref
+																legacyBehavior
+																href={withQuery(
+																	APP_ROUTES.media.people.details,
+																	{ id: creator.id },
+																)}
 															>
-																<Avatar
-																	imageProps={{ loading: "lazy" }}
-																	src={creator.image}
-																	h={100}
-																	w={85}
-																	mx="auto"
-																	alt={`${creator.name} profile picture`}
-																	styles={{ image: { objectPosition: "top" } }}
-																/>
-																<Text
-																	size="xs"
-																	color="dimmed"
-																	align="center"
-																	mt={4}
-																>
-																	{creator.name}
-																</Text>
-															</Box>
+																<Anchor data-creator-id={creator.id}>
+																	<Avatar
+																		imageProps={{ loading: "lazy" }}
+																		src={creator.image}
+																		h={100}
+																		w={85}
+																		mx="auto"
+																		alt={`${creator.name} profile picture`}
+																		styles={{
+																			image: { objectPosition: "top" },
+																		}}
+																	/>
+																	<Text
+																		size="xs"
+																		color="dimmed"
+																		align="center"
+																		mt={4}
+																	>
+																		{creator.name}
+																	</Text>
+																</Anchor>
+															</Link>
 														))}
 													</Flex>
 												</ScrollArea>
