@@ -2161,6 +2161,11 @@ impl MiscellaneousService {
                 .await
                 .unwrap()
             {
+                if c.image != creator.image {
+                    let mut new: creator::ActiveModel = c.clone().into();
+                    new.image = ActiveValue::Set(creator.image);
+                    new.update(&self.db).await?;
+                }
                 c
             } else {
                 let c = creator::ActiveModel {
