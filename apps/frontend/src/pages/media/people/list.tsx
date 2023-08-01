@@ -53,7 +53,7 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	useEffect(() => {
-		setDebouncedQuery(query?.trim());
+		setDebouncedQuery(query?.trim() || "");
 	}, [query]);
 
 	const ClearButton = () =>
