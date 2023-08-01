@@ -27,11 +27,21 @@ pub struct Model {
     #[graphql(skip)]
     pub metadata_id: Option<i32>,
     #[graphql(skip)]
+    pub creator_id: Option<i32>,
+    #[graphql(skip)]
     pub extra_information: Option<SeenOrReviewExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::creator::Entity",
+        from = "Column::CreatorId",
+        to = "super::creator::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Creator,
     #[sea_orm(
         belongs_to = "super::metadata::Entity",
         from = "Column::MetadataId",
@@ -48,6 +58,12 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+}
+
+impl Related<super::creator::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Creator.def()
+    }
 }
 
 impl Related<super::metadata::Entity> for Entity {
