@@ -2,8 +2,7 @@ use sea_orm_migration::prelude::*;
 
 use super::{
     m20230505_000006_create_review::CREATOR_TO_REVIEW_FOREIGN_KEY,
-    m20230730_create_creator::{Creator, MetadataToCreator},
-    Review,
+    m20230730_create_creator::Creator, Review,
 };
 
 pub struct Migration;
@@ -38,7 +37,7 @@ impl MigrationTrait for Migration {
             manager
                 .alter_table(
                     Table::alter()
-                        .table(MetadataToCreator::Table)
+                        .table(Review::Table)
                         .add_column_if_not_exists(
                             ColumnDef::new(Review::CreatorId).integer().null(),
                         )
