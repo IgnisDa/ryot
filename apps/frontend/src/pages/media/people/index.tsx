@@ -135,7 +135,7 @@ const Page: NextPageWithLayout = () => {
 																}}
 															/>
 															<Text
-																color="white"
+																color="dimmed"
 																size="xs"
 																align="center"
 																lineClamp={1}
