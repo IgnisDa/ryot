@@ -22,6 +22,7 @@ const documents = {
     "mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}": types.CreateUserSinkIntegrationDocument,
     "mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {\n  createUserYankIntegration(input: $input)\n}": types.CreateUserYankIntegrationDocument,
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
+    "mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}": types.DeleteMediaReminderDocument,
     "mutation DeleteReview($reviewId: Int!) {\n  deleteReview(reviewId: $reviewId)\n}": types.DeleteReviewDocument,
     "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
     "mutation DeleteUser($toDeleteUserId: Int!) {\n  deleteUser(toDeleteUserId: $toDeleteUserId)\n}": types.DeleteUserDocument,
@@ -122,6 +123,10 @@ export function graphql(source: "mutation CreateUserYankIntegration($input: Crea
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}"): (typeof documents)["mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}"): (typeof documents)["mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

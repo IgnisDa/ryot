@@ -146,8 +146,9 @@ export type CreateCustomMediaInput = {
 export type CreateCustomMediaResult = CreateCustomMediaError | IdObject;
 
 export type CreateMediaReminderInput = {
+  message: Scalars['String'];
   metadataId: Scalars['Int'];
-  reminder: UserMediaReminderInput;
+  remindOn: Scalars['DateTime'];
 };
 
 export type CreateOrUpdateCollectionInput = {
@@ -603,6 +604,8 @@ export type MutationRoot = {
   createUserYankIntegration: Scalars['Int'];
   /** Delete a collection. */
   deleteCollection: Scalars['Boolean'];
+  /** Delete a reminder on a media for a user if it exists. */
+  deleteMediaReminder: Scalars['Boolean'];
   /** Delete a review if it belongs to the currently logged in user. */
   deleteReview: Scalars['Boolean'];
   /** Delete a seen item from a user's history. */
@@ -704,6 +707,11 @@ export type MutationRootCreateUserYankIntegrationArgs = {
 
 export type MutationRootDeleteCollectionArgs = {
   collectionName: Scalars['String'];
+};
+
+
+export type MutationRootDeleteMediaReminderArgs = {
+  metadataId: Scalars['Int'];
 };
 
 
@@ -1212,11 +1220,8 @@ export type UserMediaNextEpisode = {
 };
 
 export type UserMediaReminder = {
-  message: Scalars['String'];
-  remindOn: Scalars['DateTime'];
-};
-
-export type UserMediaReminderInput = {
+  /** To be used later if a cancellation is needed. */
+  jobId: Scalars['String'];
   message: Scalars['String'];
   remindOn: Scalars['DateTime'];
 };
@@ -1349,6 +1354,13 @@ export type DeleteCollectionMutationVariables = Exact<{
 
 
 export type DeleteCollectionMutation = { deleteCollection: boolean };
+
+export type DeleteMediaReminderMutationVariables = Exact<{
+  metadataId: Scalars['Int'];
+}>;
+
+
+export type DeleteMediaReminderMutation = { deleteMediaReminder: boolean };
 
 export type DeleteReviewMutationVariables = Exact<{
   reviewId: Scalars['Int'];
@@ -1665,6 +1677,7 @@ export const CreateUserNotificationPlatformDocument = {"kind":"Document","defini
 export const CreateUserSinkIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserSinkIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserSinkIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserSinkIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserSinkIntegrationMutation, CreateUserSinkIntegrationMutationVariables>;
 export const CreateUserYankIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserYankIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserYankIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserYankIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserYankIntegrationMutation, CreateUserYankIntegrationMutationVariables>;
 export const DeleteCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}]}]}}]} as unknown as DocumentNode<DeleteCollectionMutation, DeleteCollectionMutationVariables>;
+export const DeleteMediaReminderDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteMediaReminder"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteMediaReminder"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DeleteMediaReminderMutation, DeleteMediaReminderMutationVariables>;
 export const DeleteReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"reviewId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}}}]}]}}]} as unknown as DocumentNode<DeleteReviewMutation, DeleteReviewMutationVariables>;
 export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
 export const DeleteUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"toDeleteUserId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}}}]}]}}]} as unknown as DocumentNode<DeleteUserMutation, DeleteUserMutationVariables>;
