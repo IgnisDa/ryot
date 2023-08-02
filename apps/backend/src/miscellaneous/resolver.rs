@@ -1424,7 +1424,7 @@ impl MiscellaneousService {
         let history = self.seen_history(user_id, metadata_id).await?;
         let in_progress = history
             .iter()
-            .find(|h| h.state == SeenState::InProgress)
+            .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
             .cloned();
         let next_episode = history.first().and_then(|h| {
             if let Some(s) = &media_details.show_specifics {
