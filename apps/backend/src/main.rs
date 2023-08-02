@@ -336,7 +336,11 @@ fn init_tracing() -> WorkerGuard {
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .finish()
             // add additional writers
-            .with(fmt::Layer::default().with_writer(non_blocking)),
+            .with(
+                fmt::Layer::default()
+                    .with_writer(non_blocking)
+                    .with_ansi(false),
+            ),
     )
     .expect("Unable to set global tracing subscriber");
     guard
