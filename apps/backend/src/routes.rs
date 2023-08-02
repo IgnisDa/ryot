@@ -18,7 +18,9 @@ use uuid::Uuid;
 use crate::{
     graphql::GraphqlSchema,
     miscellaneous::resolver::get_miscellaneous_service,
-    utils::{get_app_config, get_global_service, user_id_from_token, GqlCtx, COOKIE_NAME},
+    utils::{
+        get_app_config, get_auth_db, get_global_service, user_id_from_token, GqlCtx, COOKIE_NAME,
+    },
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -131,7 +133,7 @@ pub async fn json_export(
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let media_service = get_miscellaneous_service();
-    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
+    let user_id = user_id_from_token(authorization.token().to_owned(), get_auth_db())
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.export(user_id).await.unwrap();

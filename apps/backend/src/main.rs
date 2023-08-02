@@ -4,7 +4,6 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
-    sync::Arc,
     time::Duration,
 };
 
@@ -123,17 +122,15 @@ async fn main() -> Result<()> {
     let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
-    let auth_db = Arc::new(
-        Storage::<String, MemoryAuthData>::open(Options::new(
-            &config.database.auth_db_path,
-            &format!("{}-auth.db", PROJECT_NAME),
-            1000,
-            StorageType::DiskCopies,
-            true,
-        ))
-        .await
-        .unwrap(),
-    );
+    let auth_db = Storage::<String, MemoryAuthData>::open(Options::new(
+        &config.database.auth_db_path,
+        &format!("{}-auth.db", PROJECT_NAME),
+        1000,
+        StorageType::DiskCopies,
+        true,
+    ))
+    .await
+    .unwrap();
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -155,7 +152,7 @@ async fn main() -> Result<()> {
 
     set_app_services(
         db.clone(),
-        auth_db.clone(),
+        auth_db,
         s3_client,
         config,
         &import_media_storage,

@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::Read,
     path::PathBuf,
-    sync::{Arc, OnceLock},
+    sync::OnceLock,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -38,7 +38,7 @@ use crate::{
     miscellaneous::resolver::MiscellaneousService,
 };
 
-pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
+pub type MemoryDatabase = Storage<String, MemoryAuthData>;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -63,12 +63,17 @@ pub fn get_global_service<'a>() -> &'a AppServices {
     GLOBAL_SERVICE.get().expect("Global data not present")
 }
 
+pub fn get_auth_db<'a>() -> &'a MemoryDatabase {
+    &get_global_service().auth_db
+}
+
 /// All the services that are used by the app
 pub struct AppServices {
     pub miscellaneous_service: MiscellaneousService,
     pub importer_service: ImporterService,
     pub file_storage_service: FileStorageService,
     pub exercise_service: ExerciseService,
+    pub auth_db: MemoryDatabase,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -89,7 +94,6 @@ pub async fn set_app_services(
 
     let miscellaneous_service = MiscellaneousService::new(
         &db,
-        &auth_db,
         update_metadata_job,
         recalculate_user_summary_job,
         user_created_job,
@@ -101,6 +105,7 @@ pub async fn set_app_services(
         importer_service,
         file_storage_service,
         exercise_service,
+        auth_db,
     };
     GLOBAL_SERVICE.set(app_services).ok();
 }

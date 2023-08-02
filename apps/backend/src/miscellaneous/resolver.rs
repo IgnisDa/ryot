@@ -85,7 +85,7 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        associate_user_with_metadata, convert_naive_to_utc, get_app_config,
+        associate_user_with_metadata, convert_naive_to_utc, get_app_config, get_auth_db,
         get_case_insensitive_like_query, get_global_service, get_user_and_metadata_association,
         user_id_from_token, MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK,
         PAGE_LIMIT, REPOSITORY_LINK, VERSION,
@@ -1080,7 +1080,6 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub auth_db: MemoryDatabase,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
     pub igdb_service: IgdbService,
@@ -1100,7 +1099,7 @@ pub struct MiscellaneousService {
 
 impl AuthProvider for MiscellaneousService {
     fn get_auth_db(&self) -> &MemoryDatabase {
-        &self.auth_db
+        get_auth_db()
     }
 }
 
@@ -1108,7 +1107,6 @@ impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
-        auth_db: &MemoryDatabase,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
@@ -1138,7 +1136,6 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            auth_db: auth_db.clone(),
             seen_progress_cache,
             audible_service,
             google_books_service,
@@ -2997,7 +2994,7 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
+        let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
         if let Ok(user_id) = found_token {
             let user = self.user_by_id(user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
@@ -3238,9 +3235,9 @@ impl MiscellaneousService {
             get_app_config().server.insecure_cookie,
             get_app_config().users.token_valid_for_days,
         )?;
-        let found_token = user_id_from_token(token.to_owned(), &self.auth_db).await;
+        let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
         if found_token.is_ok() {
-            self.auth_db.remove(token.to_owned()).await.unwrap();
+            self.get_auth_db().remove(token.to_owned()).await.unwrap();
             Ok(true)
         } else {
             Ok(false)
@@ -3784,7 +3781,7 @@ impl MiscellaneousService {
     }
 
     async fn set_auth_token(&self, api_key: &str, user_id: &i32) -> anyhow::Result<()> {
-        self.auth_db
+        self.get_auth_db()
             .insert(
                 api_key.to_owned(),
                 MemoryAuthData {
@@ -3913,7 +3910,7 @@ impl MiscellaneousService {
 
     async fn all_user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
         let tokens = self
-            .auth_db
+            .get_auth_db()
             .iter()
             .filter_map(|r| {
                 if r.user_id == user_id {
@@ -3941,7 +3938,7 @@ impl MiscellaneousService {
             for token in tokens {
                 if Utc::now() - token.last_used_on
                     > ChronoDuration::days(get_app_config().users.token_valid_for_days)
-                    && self.auth_db.remove(token.token).await.is_ok()
+                    && self.get_auth_db().remove(token.token).await.is_ok()
                 {
                     deleted_tokens += 1;
                 }
@@ -3963,7 +3960,7 @@ impl MiscellaneousService {
     async fn delete_user_auth_token(&self, user_id: i32, token: String) -> Result<bool> {
         let tokens = self.all_user_auth_tokens(user_id).await?;
         let resp = if let Some(t) = tokens.into_iter().find(|t| t.token.ends_with(&token)) {
-            self.auth_db.remove(t.token).await.unwrap();
+            self.get_auth_db().remove(t.token).await.unwrap();
             true
         } else {
             false
