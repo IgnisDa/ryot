@@ -322,7 +322,7 @@ const Page: NextPageWithLayout = () => {
 									type: "number",
 								},
 								{
-									label: "People interacted",
+									label: "People",
 									value: latestUserSummary.data.media.creatorsInteractedWith,
 									type: "number",
 								},
