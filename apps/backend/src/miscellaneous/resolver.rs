@@ -2043,7 +2043,13 @@ impl MiscellaneousService {
             let is_in_collection = meta_ids.contains(&u.metadata_id);
             // if the metadata is monitored
             let is_monitored = u.monitored;
-            if seen_count + reviewed_count == 0 && !is_in_collection && !is_monitored {
+            // if user has set a reminder
+            let is_reminder_active = u.remind_on.is_some();
+            if seen_count + reviewed_count == 0
+                && !is_in_collection
+                && !is_monitored
+                && !is_reminder_active
+            {
                 tracing::debug!(
                     "Removing user_to_metadata = {id:?}",
                     id = (u.user_id, u.metadata_id)
