@@ -155,10 +155,7 @@ export interface PodcastConfig {
 }
 
 export interface SchedulerConfig {
-	/**
-	 * The url to the SQLite database where job related data needs to be stored.
-	 * @default 'sqlite::memory:'
-	 */
+	/** The url to the SQLite database where job related data needs to be stored. */
 	database_url: string;
 	/**
 	 * The number of jobs to process every 5 seconds when updating metadata in
