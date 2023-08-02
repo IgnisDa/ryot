@@ -39,6 +39,8 @@ import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
+	DeleteMediaReminderDocument,
+	type DeleteMediaReminderMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
@@ -363,6 +365,18 @@ const Page: NextPageWithLayout = () => {
 				variables,
 			);
 			return progressUpdate;
+		},
+		onSuccess: () => {
+			userMediaDetails.refetch();
+		},
+	});
+	const deleteMediaReminder = useMutation({
+		mutationFn: async (variables: DeleteMediaReminderMutationVariables) => {
+			const { deleteMediaReminder } = await gqlClient.request(
+				DeleteMediaReminderDocument,
+				variables,
+			);
+			return deleteMediaReminder;
 		},
 		onSuccess: () => {
 			userMediaDetails.refetch();
@@ -957,6 +971,18 @@ const Page: NextPageWithLayout = () => {
 										{userMediaDetails.data.isMonitored ? "Stop" : "Start"}{" "}
 										monitoring
 									</Button>
+									{userMediaDetails.data.reminder ? (
+										<Button
+											variant="outline"
+											onClick={() => {
+												deleteMediaReminder.mutate({ metadataId });
+											}}
+										>
+											Remove reminder
+										</Button>
+									) : (
+										<Text>Schedule job</Text>
+									)}
 									<Button
 										variant="outline"
 										onClick={() => {
