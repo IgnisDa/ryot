@@ -30,15 +30,19 @@ import {
 	Stack,
 	Tabs,
 	Text,
+	TextInput,
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
+	CreateMediaReminderDocument,
+	type CreateMediaReminderMutationVariables,
 	DeleteMediaReminderDocument,
 	type DeleteMediaReminderMutationVariables,
 	DeleteSeenItemDocument,
@@ -266,6 +270,80 @@ function SelectCollectionModal(props: {
 	);
 }
 
+function CreateReminderModal(props: {
+	opened: boolean;
+	onClose: () => void;
+	title: string;
+	metadataId: number;
+	refetchUserMediaDetails: () => void;
+}) {
+	const [message, setMessage] = useState(`Complete '${props.title}'`);
+	const [remindOn, setRemindOn] = useState(new Date());
+
+	const createMediaReminder = useMutation({
+		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
+			const { createMediaReminder } = await gqlClient.request(
+				CreateMediaReminderDocument,
+				variables,
+			);
+			return createMediaReminder;
+		},
+		onSuccess: () => {
+			props.refetchUserMediaDetails();
+			props.onClose();
+		},
+	});
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				<Title order={3}>Create a reminder</Title>
+				<Text>
+					A notification will be sent to all your configured{" "}
+					<Link
+						passHref
+						legacyBehavior
+						href={APP_ROUTES.settings.notifications}
+					>
+						<Anchor>platforms</Anchor>
+					</Link>
+					.
+				</Text>
+				<TextInput
+					onChange={(e) => setMessage(e.currentTarget.value)}
+					label="Message"
+					value={message}
+				/>
+				<DateTimePicker
+					dropdownType="modal"
+					label="Remind on"
+					onChange={(v) => {
+						if (v) setRemindOn(new Date(v.getTime()));
+					}}
+					value={remindOn}
+					modalProps={{ withinPortal: true }}
+				/>
+				<Button
+					data-autofocus
+					variant="outline"
+					onClick={() => {
+						createMediaReminder.mutate({
+							input: { metadataId: props.metadataId, message, remindOn },
+						});
+					}}
+				>
+					Submit
+				</Button>
+			</Stack>
+		</Modal>
+	);
+}
+
 const AccordionLabel = ({
 	name,
 	posterImages,
@@ -323,6 +401,13 @@ const Page: NextPageWithLayout = () => {
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
+	] = useDisclosure(false);
+	const [
+		createMediaReminderModalOpened,
+		{
+			open: createMediaReminderModalOpen,
+			close: createMediaReminderModalClose,
+		},
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.id?.toString() || "0");
@@ -652,7 +737,9 @@ const Page: NextPageWithLayout = () => {
 							{DateTime.fromJSDate(
 								userMediaDetails.data.reminder.remindOn,
 							).toLocaleString(DateTime.DATETIME_SHORT)}
-							: "{userMediaDetails.data.reminder.message}"
+							<Text color="green">
+								{userMediaDetails.data.reminder.message}
+							</Text>
 						</Alert>
 					) : null}
 					{userMediaDetails.data.inProgress ? (
@@ -981,7 +1068,21 @@ const Page: NextPageWithLayout = () => {
 											Remove reminder
 										</Button>
 									) : (
-										<Text>Schedule job</Text>
+										<>
+											<CreateReminderModal
+												onClose={createMediaReminderModalClose}
+												opened={createMediaReminderModalOpened}
+												metadataId={metadataId}
+												title={mediaDetails.data.title}
+												refetchUserMediaDetails={userMediaDetails.refetch}
+											/>
+											<Button
+												variant="outline"
+												onClick={createMediaReminderModalOpen}
+											>
+												Create reminder
+											</Button>
+										</>
 									)}
 									<Button
 										variant="outline"
