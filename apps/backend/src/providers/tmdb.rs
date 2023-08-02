@@ -114,15 +114,11 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                        if r == *"Acting" {
-                            Some(MetadataCreator {
-                                name: n,
-                                role: r,
-                                image: g.profile_path,
-                            })
-                        } else {
-                            None
-                        }
+                        Some(MetadataCreator {
+                            name: n,
+                            role: r,
+                            image: g.profile_path,
+                        })
                     } else {
                         None
                     }
@@ -137,15 +133,11 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     if let (Some(n), Some(r)) = (g.name, g.job) {
-                        if r == *"Director" {
-                            Some(MetadataCreator {
-                                name: n,
-                                role: r,
-                                image: g.profile_path,
-                            })
-                        } else {
-                            None
-                        }
+                        Some(MetadataCreator {
+                            name: n,
+                            role: r,
+                            image: g.profile_path,
+                        })
                     } else {
                         None
                     }
