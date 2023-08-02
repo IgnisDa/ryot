@@ -327,18 +327,6 @@ const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
-	const userMediaDetails = useQuery({
-		queryKey: ["userMediaDetails", metadataId],
-		queryFn: async () => {
-			const { userMediaDetails } = await gqlClient.request(
-				UserMediaDetailsDocument,
-				{ metadataId },
-			);
-			return userMediaDetails;
-		},
-		staleTime: Infinity,
-		enabled: !!metadataId,
-	});
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
 		queryFn: async () => {
@@ -348,6 +336,17 @@ const Page: NextPageWithLayout = () => {
 			return mediaDetails;
 		},
 		staleTime: Infinity,
+		enabled: !!metadataId,
+	});
+	const userMediaDetails = useQuery({
+		queryKey: ["userMediaDetails", metadataId],
+		queryFn: async () => {
+			const { userMediaDetails } = await gqlClient.request(
+				UserMediaDetailsDocument,
+				{ metadataId },
+			);
+			return userMediaDetails;
+		},
 		enabled: !!metadataId,
 	});
 	const collections = useQuery({
@@ -961,8 +960,8 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<Stack>
 									<Text>
-										Seen by all users {mediaDetails.data.seenBy} time
-										{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
+										Seen by all users {userMediaDetails.data.seenBy} time
+										{userMediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
 										{userMediaDetails.data.history.length} time
 										{userMediaDetails.data.history.length > 1 ? "s" : ""} by you
 									</Text>
