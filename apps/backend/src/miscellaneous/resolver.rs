@@ -1,11 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
+    str::FromStr,
     sync::Arc,
 };
 
 use anyhow::anyhow;
-use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
+use apalis::{
+    prelude::{JobId, JobRequest, Storage as ApalisStorage},
+    sqlite::SqliteStorage,
+};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
@@ -36,7 +40,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
+    background::{
+        RecalculateUserSummaryJob, SendNotificationToUserPlatformsJob, UpdateMetadataJob,
+        UserCreatedJob,
+    },
     entities::{
         collection, creator, genre, import_report, metadata, metadata_to_collection,
         metadata_to_creator, metadata_to_genre,
@@ -534,7 +541,8 @@ struct UserMediaNextEpisode {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateMediaReminderInput {
     metadata_id: i32,
-    reminder: UserMediaReminder,
+    remind_on: DateTimeUtc,
+    message: String,
 }
 
 fn create_cookie(
@@ -1095,6 +1103,13 @@ impl MiscellaneousMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_media_reminder(user_id, input).await
     }
+
+    // /// Delete a reminder on a media for a user if it exists.
+    // async fn delete_media_reminder(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<bool> {
+    //     let service = get_miscellaneous_service();
+    //     let user_id = service.user_id_from_ctx(gql_ctx).await?;
+    //     service.delete_media_reminder(user_id, metadata_id).await
+    // }
 }
 
 pub struct MiscellaneousService {
@@ -1113,6 +1128,7 @@ pub struct MiscellaneousService {
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
+    pub send_notifications_to_user_platform_job: SqliteStorage<SendNotificationToUserPlatformsJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
 }
 
@@ -1129,6 +1145,7 @@ impl MiscellaneousService {
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
+        send_notifications_to_user_platform: &SqliteStorage<SendNotificationToUserPlatformsJob>,
     ) -> Self {
         let openlibrary_service =
             OpenlibraryService::new(&get_app_config().books.openlibrary).await;
@@ -1170,6 +1187,7 @@ impl MiscellaneousService {
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
             user_created: user_created.clone(),
+            send_notifications_to_user_platform_job: send_notifications_to_user_platform.clone(),
         }
     }
 }
@@ -4422,9 +4440,40 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateMediaReminderInput,
     ) -> Result<bool> {
+        if input.remind_on < Utc::now() {
+            return Ok(false);
+        }
         let utm = associate_user_with_metadata(&user_id, &input.metadata_id, &self.db).await?;
+        let mut storage = self.send_notifications_to_user_platform_job.clone();
+        let job_id = if let Some(reminder) = utm.reminder.as_ref() {
+            storage
+                .update_by_id(
+                    &JobId::from_str(&reminder.job_id).unwrap(),
+                    &JobRequest::new(SendNotificationToUserPlatformsJob {
+                        user_id,
+                        message: input.message.clone(),
+                    }),
+                )
+                .await?;
+            reminder.job_id.clone()
+        } else {
+            let job = storage
+                .schedule(
+                    SendNotificationToUserPlatformsJob {
+                        user_id,
+                        message: input.message.clone(),
+                    },
+                    input.remind_on.clone(),
+                )
+                .await?;
+            job.to_string()
+        };
         let mut utm: user_to_metadata::ActiveModel = utm.into();
-        utm.reminder = ActiveValue::Set(Some(input.reminder));
+        utm.reminder = ActiveValue::Set(Some(UserMediaReminder {
+            remind_on: input.remind_on,
+            message: input.message,
+            job_id: job_id.to_string(),
+        }));
         utm.update(&self.db).await?;
         Ok(true)
     }

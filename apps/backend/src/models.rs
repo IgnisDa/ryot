@@ -66,6 +66,8 @@ pub mod media {
     pub struct UserMediaReminder {
         pub remind_on: DateTimeUtc,
         pub message: String,
+        /// To be used later if a cancellation is needed.
+        pub job_id: String,
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
