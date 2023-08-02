@@ -60,7 +60,9 @@ pub mod media {
         Ord,
         Eq,
         PartialEq,
+        InputObject,
     )]
+    #[graphql(input_name = "UserMediaReminderInput")]
     pub struct UserMediaReminder {
         pub remind_on: DateTimeUtc,
         pub message: String,

@@ -534,8 +534,7 @@ struct UserMediaNextEpisode {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateMediaReminderInput {
     metadata_id: i32,
-    remind_on: DateTimeUtc,
-    message: String,
+    reminder: UserMediaReminder,
 }
 
 fn create_cookie(
@@ -1086,7 +1085,7 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Create a reminder on a media for a user.
+    /// Create or update a reminder on a media for a user.
     async fn create_media_reminder(
         &self,
         gql_ctx: &Context<'_>,
@@ -4423,6 +4422,10 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateMediaReminderInput,
     ) -> Result<bool> {
+        let utm = associate_user_with_metadata(&user_id, &input.metadata_id, &self.db).await?;
+        let mut utm: user_to_metadata::ActiveModel = utm.into();
+        utm.reminder = ActiveValue::Set(Some(input.reminder));
+        utm.update(&self.db).await?;
         Ok(true)
     }
 }

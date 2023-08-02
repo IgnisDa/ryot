@@ -146,9 +146,8 @@ export type CreateCustomMediaInput = {
 export type CreateCustomMediaResult = CreateCustomMediaError | IdObject;
 
 export type CreateMediaReminderInput = {
-  message: Scalars['String'];
   metadataId: Scalars['Int'];
-  remindOn: Scalars['DateTime'];
+  reminder: UserMediaReminderInput;
 };
 
 export type CreateOrUpdateCollectionInput = {
@@ -592,7 +591,7 @@ export type MutationRoot = {
   commitMedia: IdObject;
   /** Create a custom media item. */
   createCustomMedia: CreateCustomMediaResult;
-  /** Create a reminder on a media for a user. */
+  /** Create or update a reminder on a media for a user. */
   createMediaReminder: Scalars['Boolean'];
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: IdObject;
@@ -1213,6 +1212,11 @@ export type UserMediaNextEpisode = {
 };
 
 export type UserMediaReminder = {
+  message: Scalars['String'];
+  remindOn: Scalars['DateTime'];
+};
+
+export type UserMediaReminderInput = {
   message: Scalars['String'];
   remindOn: Scalars['DateTime'];
 };
