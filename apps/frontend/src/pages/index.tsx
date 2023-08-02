@@ -101,16 +101,23 @@ const DisplayStatForMediaType = (props: {
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
 		isEnabled[1] ? (
-			<ActualDisplayStat
-				data={props.data}
-				icon={icon}
-				lot={props.lot.toString()}
-				color={
-					colors[
-						(getStringAsciiValue(props.lot) + colors.length) % colors.length
-					]
-				}
-			/>
+			<Link
+				href={withQuery(APP_ROUTES.media.list, {
+					lot: props.lot.toLowerCase(),
+				})}
+				style={{ textDecoration: "none" }}
+			>
+				<ActualDisplayStat
+					data={props.data}
+					icon={icon}
+					lot={props.lot.toString()}
+					color={
+						colors[
+							(getStringAsciiValue(props.lot) + colors.length) % colors.length
+						]
+					}
+				/>
+			</Link>
 		) : null
 	) : null;
 };
