@@ -308,8 +308,9 @@ mod utils {
         }
     }
 
-    // Ideally, I want this to use a mutex to store the client and expiry time.
-    // However for the time being we will read and write to a file.
+    // FIXME: For some reason the logic to refresh the token does not work.
+    // TODO: Ideally, I want this to use a global variable to store the access token
+    // and expiry time.
     pub async fn get_client(config: &VideoGameConfig) -> Client {
         let path = env::temp_dir().join("igdb-credentials.json");
         let access_token =
