@@ -60,10 +60,10 @@ pub fn get_global_service<'a>() -> &'a AppServices {
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub miscellaneous_service: Arc<MiscellaneousService>,
-    pub importer_service: Arc<ImporterService>,
-    pub file_storage_service: Arc<FileStorageService>,
-    pub exercise_service: Arc<ExerciseService>,
+    pub miscellaneous_service: MiscellaneousService,
+    pub importer_service: ImporterService,
+    pub file_storage_service: FileStorageService,
+    pub exercise_service: ExerciseService,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -78,35 +78,25 @@ pub async fn set_app_services(
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) {
-    let file_storage_service = Arc::new(FileStorageService::new(
-        s3_client,
-        config.file_storage.s3_bucket_name.clone(),
-    ));
-    let exercise_service = Arc::new(ExerciseService::new(
+    let file_storage_service =
+        FileStorageService::new(s3_client, config.file_storage.s3_bucket_name.clone());
+    let exercise_service = ExerciseService::new(
         &db,
-        file_storage_service.clone(),
         config.exercise.db.json_url.clone(),
         config.exercise.db.images_prefix_url.clone(),
         update_exercise_job,
-    ));
-
-    let miscellaneous_service = Arc::new(
-        MiscellaneousService::new(
-            &db,
-            &auth_db,
-            config,
-            file_storage_service.clone(),
-            update_metadata_job,
-            recalculate_user_summary_job,
-            user_created_job,
-        )
-        .await,
     );
-    let importer_service = Arc::new(ImporterService::new(
+
+    let miscellaneous_service = MiscellaneousService::new(
         &db,
-        miscellaneous_service.clone(),
-        import_media_job,
-    ));
+        &auth_db,
+        config,
+        update_metadata_job,
+        recalculate_user_summary_job,
+        user_created_job,
+    )
+    .await;
+    let importer_service = ImporterService::new(&db, import_media_job);
     let app_services = AppServices {
         miscellaneous_service,
         importer_service,

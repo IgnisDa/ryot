@@ -47,11 +47,10 @@ use crate::{
         },
         review, seen, user, user_to_metadata,
     },
-    file_storage::FileStorageService,
-    importer::ImportResultResponse,
+    file_storage::get_file_storage_service,
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
-        ImportSource, Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
+        Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, SeenState, UserLot,
         UserToMetadata as TempUserToMetadata,
     },
@@ -560,7 +559,7 @@ fn get_id_hasher(salt: &str) -> Harsh {
 #[derive(Default)]
 pub struct MiscellaneousQuery;
 
-pub fn get_miscellaneous_service<'a>() -> &'a Arc<MiscellaneousService> {
+pub fn get_miscellaneous_service<'a>() -> &'a MiscellaneousService {
     &get_global_service().miscellaneous_service
 }
 
@@ -633,7 +632,7 @@ impl MiscellaneousQuery {
 
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_url(&self, _gql_ctx: &Context<'_>, key: String) -> String {
-        let service = &get_global_service().file_storage_service;
+        let service = get_file_storage_service();
         service.get_presigned_url(key).await
     }
 
@@ -1083,7 +1082,6 @@ pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
     pub config: Arc<AppConfig>,
-    pub file_storage: Arc<FileStorageService>,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
     pub igdb_service: IgdbService,
@@ -1113,7 +1111,6 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         auth_db: &MemoryDatabase,
         config: Arc<AppConfig>,
-        file_storage: Arc<FileStorageService>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
@@ -1144,7 +1141,6 @@ impl MiscellaneousService {
             auth_db: auth_db.clone(),
             config,
             seen_progress_cache,
-            file_storage,
             audible_service,
             google_books_service,
             igdb_service,
@@ -1179,7 +1175,7 @@ impl MiscellaneousService {
     async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
         match m {
             MetadataImageUrl::Url(u) => u,
-            MetadataImageUrl::S3(u) => self.file_storage.get_presigned_url(u).await,
+            MetadataImageUrl::S3(u) => get_file_storage_service().get_presigned_url(u).await,
         }
     }
 
@@ -2382,7 +2378,7 @@ impl MiscellaneousService {
 
     async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
         let mut files_enabled = self.config.file_storage.is_enabled();
-        if files_enabled && !self.file_storage.is_enabled().await {
+        if files_enabled && !get_file_storage_service().is_enabled().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {
@@ -2918,34 +2914,6 @@ impl MiscellaneousService {
             collection_id: ActiveValue::Set(collection.id),
         };
         Ok(col.clone().insert(&self.db).await.is_ok())
-    }
-
-    pub async fn start_import_job(
-        &self,
-        user_id: i32,
-        source: ImportSource,
-    ) -> Result<import_report::Model> {
-        let model = import_report::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            source: ActiveValue::Set(source),
-            ..Default::default()
-        };
-        let model = model.insert(&self.db).await.unwrap();
-        tracing::trace!("Started import job with id = {id}", id = model.id);
-        Ok(model)
-    }
-
-    pub async fn finish_import_job(
-        &self,
-        job: import_report::Model,
-        details: ImportResultResponse,
-    ) -> Result<import_report::Model> {
-        let mut model: import_report::ActiveModel = job.into();
-        model.finished_on = ActiveValue::Set(Some(Utc::now()));
-        model.details = ActiveValue::Set(Some(details));
-        model.success = ActiveValue::Set(Some(true));
-        let model = model.update(&self.db).await.unwrap();
-        Ok(model)
     }
 
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {

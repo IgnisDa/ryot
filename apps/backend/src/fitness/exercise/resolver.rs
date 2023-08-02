@@ -1,4 +1,4 @@
-use std::{env, ffi::OsStr, path::Path, sync::Arc};
+use std::{env, ffi::OsStr, path::Path};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Error, InputObject, Object, Result};
@@ -13,7 +13,7 @@ use slug::slugify;
 use crate::{
     background::UpdateExerciseJob,
     entities::{exercise, prelude::Exercise},
-    file_storage::FileStorageService,
+    file_storage::get_file_storage_service,
     models::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
@@ -27,7 +27,7 @@ pub struct ExercisesListInput {
     pub query: Option<String>,
 }
 
-pub fn get_exercise_service<'a>() -> &'a Arc<ExerciseService> {
+pub fn get_exercise_service<'a>() -> &'a ExerciseService {
     &get_global_service().exercise_service
 }
 
@@ -62,7 +62,6 @@ impl ExerciseMutation {
 #[derive(Debug)]
 pub struct ExerciseService {
     db: DatabaseConnection,
-    file_storage: Arc<FileStorageService>,
     json_url: String,
     image_prefix_url: String,
     update_exercise: SqliteStorage<UpdateExerciseJob>,
@@ -71,14 +70,12 @@ pub struct ExerciseService {
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
-        file_storage: Arc<FileStorageService>,
         json_url: String,
         image_prefix_url: String,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
     ) -> Self {
         Self {
             db: db.clone(),
-            file_storage,
             json_url,
             image_prefix_url,
             update_exercise: update_exercise.clone(),
@@ -135,7 +132,7 @@ impl ExerciseService {
             let mut ex_new = ex.clone();
             let mut images = vec![];
             for i in ex.attributes.images {
-                let mut link = self.file_storage.get_presigned_url(i).await;
+                let mut link = get_file_storage_service().get_presigned_url(i).await;
                 // DEV: For the Expo app, since we are accessing the images on a
                 // mobile device, we need to expose the minio instance and refer
                 // to that in all images.
@@ -165,7 +162,7 @@ impl ExerciseService {
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
-        if !self.file_storage.is_enabled().await {
+        if !get_file_storage_service().is_enabled().await {
             return Err(Error::new(
                 "File storage must be enabled for this feature.".to_owned(),
             ));
@@ -206,7 +203,7 @@ impl ExerciseService {
                     .await
                     .unwrap();
                 images.push(key.clone());
-                self.file_storage
+                get_file_storage_service()
                     .upload_file(&key, image_data.into())
                     .await?;
             }
