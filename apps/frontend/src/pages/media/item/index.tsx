@@ -314,15 +314,9 @@ const AccordionLabel = ({
 };
 
 const Page: NextPageWithLayout = () => {
-	const [changeState, setChangeState] = useState<SeenState>();
-
 	const [
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
-	] = useDisclosure(false);
-	const [
-		changeStateModalOpened,
-		{ open: changeStateModalOpen, close: changeStateModalClose },
 	] = useDisclosure(false);
 	const [
 		collectionModalOpened,
@@ -807,6 +801,35 @@ const Page: NextPageWithLayout = () => {
 														{getVerb(Verb.Read, mediaDetails.data.lot)}
 														ing it
 													</Menu.Item>
+													<Menu.Item
+														onClick={() => {
+															progressUpdate.mutate({
+																input: {
+																	metadataId: metadataId,
+																	changeState: SeenState.OnAHold,
+																},
+															});
+														}}
+													>
+														Put on hold
+													</Menu.Item>
+													<Menu.Item
+														color="red"
+														onClick={() => {
+															const yes = confirm(
+																"You will not be able to resume this session after this operation. Continue?",
+															);
+															if (yes)
+																progressUpdate.mutate({
+																	input: {
+																		metadataId: metadataId,
+																		changeState: SeenState.Dropped,
+																	},
+																});
+														}}
+													>
+														Mark as dropped
+													</Menu.Item>
 												</>
 											) : mediaDetails.data.lot !== MetadataLot.Show &&
 											  mediaDetails.data.lot !== MetadataLot.Podcast ? (
@@ -846,96 +869,6 @@ const Page: NextPageWithLayout = () => {
 											) : null}
 										</Menu.Dropdown>
 									</Menu>
-
-									{userMediaDetails.data.history.length > 0 &&
-									userMediaDetails.data.inProgress &&
-									![SeenState.OnAHold, SeenState.Dropped].includes(
-										userMediaDetails.data.inProgress.state,
-									) ? (
-										<>
-											<Button variant="outline" onClick={changeStateModalOpen}>
-												Put on hold/drop
-											</Button>
-											<Modal
-												opened={changeStateModalOpened}
-												onClose={changeStateModalClose}
-												withCloseButton={false}
-												centered
-											>
-												<Stack>
-													<Title order={3}>Change state</Title>
-													<Select
-														withinPortal
-														data={["Drop", "Put on hold"]}
-														onChange={(v) => {
-															if (v) {
-																const state = match(v)
-																	.with("Drop", () => SeenState.Dropped)
-																	.with("Put on hold", () => SeenState.OnAHold)
-																	.otherwise(() => undefined);
-																if (state) setChangeState(state);
-															}
-														}}
-													/>
-													<Button
-														variant="outline"
-														onClick={() => {
-															if (changeState)
-																progressUpdate.mutate({
-																	input: {
-																		metadataId: metadataId,
-																		changeState: changeState,
-																	},
-																});
-															setChangeState(undefined);
-															changeStateModalClose();
-														}}
-													>
-														Set
-													</Button>
-													<Button
-														variant="outline"
-														color="red"
-														onClick={changeStateModalClose}
-													>
-														Cancel
-													</Button>
-												</Stack>
-											</Modal>
-										</>
-									) : mediaDetails.data.lot === MetadataLot.Show ||
-									  mediaDetails.data.lot === MetadataLot.Podcast ? (
-										<Button
-											variant="outline"
-											onClick={() => {
-												if (mediaDetails.data.lot === MetadataLot.Show)
-													router.push(
-														withQuery(
-															APP_ROUTES.media.individualMediaItem
-																.updateProgress,
-															{
-																idx: metadataId,
-																completeShow: 1,
-															},
-														),
-													);
-												else
-													router.push(
-														withQuery(
-															APP_ROUTES.media.individualMediaItem
-																.updateProgress,
-															{
-																id: metadataId,
-																completePodcast: 1,
-															},
-														),
-													);
-											}}
-										>
-											Mark {changeCase(mediaDetails.data.lot).toLowerCase()} as
-											seen
-										</Button>
-									) : null}
 									<Link
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.postReview,
