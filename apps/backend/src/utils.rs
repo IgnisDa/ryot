@@ -135,16 +135,17 @@ pub async fn associate_user_with_metadata<C>(
 where
     C: ConnectionTrait,
 {
-    let user_to_meta = user_to_metadata::ActiveModel {
-        user_id: ActiveValue::Set(*user_id),
-        metadata_id: ActiveValue::Set(*metadata_id),
-        ..Default::default()
-    };
-    Ok(match user_to_meta.insert(db).await {
-        Ok(u) => u,
-        Err(_) => get_user_and_metadata_association(user_id, metadata_id, db)
-            .await
-            .unwrap(),
+    let user_to_meta = get_user_and_metadata_association(user_id, metadata_id, db).await;
+    Ok(match user_to_meta {
+        None => {
+            let user_to_meta = user_to_metadata::ActiveModel {
+                user_id: ActiveValue::Set(*user_id),
+                metadata_id: ActiveValue::Set(*metadata_id),
+                ..Default::default()
+            };
+            user_to_meta.insert(db).await.unwrap()
+        }
+        Some(u) => u,
     })
 }
 
