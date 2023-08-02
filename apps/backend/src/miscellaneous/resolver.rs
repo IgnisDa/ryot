@@ -399,8 +399,6 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
-    /// The number of users who have seen this media
-    seen_by: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -521,6 +519,8 @@ struct UserMediaDetails {
     next_episode: Option<UserMediaNextEpisode>,
     /// Whether the user is monitoring this media.
     is_monitored: bool,
+    /// The number of users who have seen this media
+    seen_by: i32,
 }
 
 #[derive(SimpleObject)]
@@ -1299,39 +1299,6 @@ impl MiscellaneousService {
             }
         };
 
-        let metadata_alias = Alias::new("m");
-        let seen_alias = Alias::new("s");
-
-        let seen_select = Query::select()
-            .expr_as(
-                Expr::col((metadata_alias.clone(), TempMetadata::Id)),
-                Alias::new("metadata_id"),
-            )
-            .expr_as(
-                Func::count(Expr::col((seen_alias.clone(), TempSeen::MetadataId))),
-                Alias::new("num_times_seen"),
-            )
-            .from_as(TempMetadata::Table, metadata_alias.clone())
-            .join_as(
-                JoinType::LeftJoin,
-                TempSeen::Table,
-                seen_alias.clone(),
-                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                    .equals((seen_alias.clone(), TempSeen::MetadataId)),
-            )
-            .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Id)).eq(metadata_id))
-            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
-            .to_owned();
-
-        let stmt = self.get_db_stmt(seen_select);
-        let seen_by = self
-            .db
-            .query_one(stmt)
-            .await?
-            .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
-            .unwrap();
-        let seen_by: i32 = seen_by.try_into().unwrap();
-
         let mut resp = GraphqlMediaDetails {
             id: model.id,
             title: model.title,
@@ -1355,7 +1322,6 @@ impl MiscellaneousService {
             manga_specifics: None,
             anime_specifics: None,
             source_url,
-            seen_by,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
@@ -1428,6 +1394,36 @@ impl MiscellaneousService {
         });
         let next_episode = next_episode.filter(|ne| ne.episode_number.is_some());
         let is_monitored = self.get_monitored_status(user_id, metadata_id).await?;
+        let metadata_alias = Alias::new("m");
+        let seen_alias = Alias::new("s");
+        let seen_select = Query::select()
+            .expr_as(
+                Expr::col((metadata_alias.clone(), TempMetadata::Id)),
+                Alias::new("metadata_id"),
+            )
+            .expr_as(
+                Func::count(Expr::col((seen_alias.clone(), TempSeen::MetadataId))),
+                Alias::new("num_times_seen"),
+            )
+            .from_as(TempMetadata::Table, metadata_alias.clone())
+            .join_as(
+                JoinType::LeftJoin,
+                TempSeen::Table,
+                seen_alias.clone(),
+                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                    .equals((seen_alias.clone(), TempSeen::MetadataId)),
+            )
+            .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Id)).eq(metadata_id))
+            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
+            .to_owned();
+        let stmt = self.get_db_stmt(seen_select);
+        let seen_by = self
+            .db
+            .query_one(stmt)
+            .await?
+            .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
+            .unwrap();
+        let seen_by: i32 = seen_by.try_into().unwrap();
         Ok(UserMediaDetails {
             collections,
             reviews,
@@ -1435,6 +1431,7 @@ impl MiscellaneousService {
             in_progress,
             next_episode,
             is_monitored,
+            seen_by,
         })
     }
 

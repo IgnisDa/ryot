@@ -18,7 +18,6 @@ fragment MediaDetailsPart on GraphqlMediaDetails {
   publishDate
   genres
   sourceUrl
-  seenBy
   animeSpecifics {
     episodes
   }

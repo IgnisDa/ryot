@@ -42,6 +42,7 @@ query UserMediaDetails($metadataId: Int!) {
       }
     }
     isMonitored
+    seenBy
     nextEpisode {
       seasonNumber
       episodeNumber
