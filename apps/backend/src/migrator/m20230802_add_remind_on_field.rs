@@ -13,13 +13,13 @@ impl MigrationName for Migration {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if !manager.has_column("user_to_metadata", "remind_on").await? {
+        if !manager.has_column("user_to_metadata", "reminder").await? {
             manager
                 .alter_table(
                     Table::alter()
                         .table(UserToMetadata::Table)
                         .add_column_if_not_exists(
-                            ColumnDef::new(UserToMetadata::RemindOn).date_time().null(),
+                            ColumnDef::new(UserToMetadata::Reminder).json().null(),
                         )
                         .to_owned(),
                 )

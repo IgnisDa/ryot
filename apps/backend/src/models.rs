@@ -49,6 +49,23 @@ pub struct IdObject {
 pub mod media {
     use super::*;
 
+    #[derive(
+        Clone,
+        FromJsonQueryResult,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        PartialOrd,
+        Ord,
+        Eq,
+        PartialEq,
+    )]
+    pub struct UserMediaReminder {
+        pub remind_on: DateTimeUtc,
+        pub message: String,
+    }
+
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
         pub id: i32,

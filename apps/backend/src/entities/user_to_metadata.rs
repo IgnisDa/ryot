@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::models::media::UserMediaReminder;
+
 #[derive(
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, PartialOrd, Ord,
 )]
@@ -14,7 +16,7 @@ pub struct Model {
     pub metadata_id: i32,
     pub last_updated_on: DateTimeUtc,
     pub monitored: bool,
-    pub remind_on: Option<DateTimeUtc>,
+    pub reminder: Option<UserMediaReminder>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

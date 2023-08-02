@@ -27,7 +27,7 @@ pub enum UserToMetadata {
     MetadataId,
     LastUpdatedOn,
     Monitored,
-    RemindOn,
+    Reminder,
 }
 
 #[derive(
@@ -121,7 +121,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(UserToMetadata::RemindOn).date_time().null())
+                    .col(ColumnDef::new(UserToMetadata::Reminder).json().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_metadata-user_id")
