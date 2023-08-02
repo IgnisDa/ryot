@@ -463,6 +463,52 @@ const Page: NextPageWithLayout = () => {
 
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
 
+	const PutOnHoldBtn = () => {
+		return (
+			<Menu.Item
+				onClick={() => {
+					progressUpdate.mutate({
+						input: {
+							metadataId: metadataId,
+							changeState: SeenState.OnAHold,
+						},
+					});
+				}}
+			>
+				Put on hold
+			</Menu.Item>
+		);
+	};
+	const DropBtn = () => {
+		return (
+			<Menu.Item
+				color="red"
+				onClick={() => {
+					const yes = confirm(
+						"You will not be able to resume this session after this operation. Continue?",
+					);
+					if (yes)
+						progressUpdate.mutate({
+							input: {
+								metadataId: metadataId,
+								changeState: SeenState.Dropped,
+							},
+						});
+				}}
+			>
+				Mark as dropped
+			</Menu.Item>
+		);
+	};
+	const StateChangeBtns = () => {
+		return (
+			<>
+				<PutOnHoldBtn />
+				<DropBtn />
+			</>
+		);
+	};
+
 	return mediaDetails.data && userMediaDetails.data ? (
 		<>
 			<Head>
@@ -725,58 +771,59 @@ const Page: NextPageWithLayout = () => {
 										<Menu.Target>
 											<Button variant="outline">Update progress</Button>
 										</Menu.Target>
-
-										{/*
-												- if has next episode
-														- show btn to update it
-												- if no in progress:
-														- add to watch history, start watching
-												- if in progress
-														- i finished it, drop, put on hold
-											*/}
 										<Menu.Dropdown>
-											{userMediaDetails.data.nextEpisode ? (
+											{mediaDetails.data.lot === MetadataLot.Show ||
+											mediaDetails.data.lot === MetadataLot.Podcast ? (
 												<>
 													<Menu.Label>Shows and podcasts</Menu.Label>
-													<Menu.Item
-														onClick={async () => {
-															if (mediaDetails.data.lot === MetadataLot.Podcast)
-																router.push(
-																	withQuery(
-																		APP_ROUTES.media.individualMediaItem
-																			.updateProgress,
-																		{
-																			id: metadataId,
-																			selectedPodcastEpisodeNumber:
-																				userMediaDetails.data.nextEpisode
-																					?.episodeNumber,
-																		},
-																	),
-																);
-															else
-																router.push(
-																	withQuery(
-																		APP_ROUTES.media.individualMediaItem
-																			.updateProgress,
-																		{
-																			id: metadataId,
-																			selectedShowSeasonNumber:
-																				userMediaDetails.data.nextEpisode
-																					?.seasonNumber,
-																			selectedShowEpisodeNumber:
-																				userMediaDetails.data.nextEpisode
-																					?.episodeNumber,
-																		},
-																	),
-																);
-														}}
-													>
-														Mark{" "}
-														{mediaDetails.data.lot === MetadataLot.Show
-															? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
-															: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
-														as seen
-													</Menu.Item>
+													{userMediaDetails.data.nextEpisode ? (
+														<>
+															<Menu.Item
+																onClick={async () => {
+																	if (
+																		mediaDetails.data.lot ===
+																		MetadataLot.Podcast
+																	)
+																		router.push(
+																			withQuery(
+																				APP_ROUTES.media.individualMediaItem
+																					.updateProgress,
+																				{
+																					id: metadataId,
+																					selectedPodcastEpisodeNumber:
+																						userMediaDetails.data.nextEpisode
+																							?.episodeNumber,
+																				},
+																			),
+																		);
+																	else
+																		router.push(
+																			withQuery(
+																				APP_ROUTES.media.individualMediaItem
+																					.updateProgress,
+																				{
+																					id: metadataId,
+																					selectedShowSeasonNumber:
+																						userMediaDetails.data.nextEpisode
+																							?.seasonNumber,
+																					selectedShowEpisodeNumber:
+																						userMediaDetails.data.nextEpisode
+																							?.episodeNumber,
+																				},
+																			),
+																		);
+																}}
+															>
+																Mark{" "}
+																{mediaDetails.data.lot === MetadataLot.Show
+																	? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
+																	: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
+																as seen
+															</Menu.Item>
+															<PutOnHoldBtn />
+														</>
+													) : null}
+													<DropBtn />
 												</>
 											) : null}
 											{userMediaDetails.data.inProgress ? (
@@ -800,35 +847,10 @@ const Page: NextPageWithLayout = () => {
 													<Menu.Item onClick={progressModalOpen}>
 														Set progress
 													</Menu.Item>
-													<Menu.Item
-														onClick={() => {
-															progressUpdate.mutate({
-																input: {
-																	metadataId: metadataId,
-																	changeState: SeenState.OnAHold,
-																},
-															});
-														}}
-													>
-														Put on hold
-													</Menu.Item>
-													<Menu.Item
-														color="red"
-														onClick={() => {
-															const yes = confirm(
-																"You will not be able to resume this session after this operation. Continue?",
-															);
-															if (yes)
-																progressUpdate.mutate({
-																	input: {
-																		metadataId: metadataId,
-																		changeState: SeenState.Dropped,
-																	},
-																});
-														}}
-													>
-														Mark as dropped
-													</Menu.Item>
+													{mediaDetails.data.lot !== MetadataLot.Show &&
+													mediaDetails.data.lot !== MetadataLot.Podcast ? (
+														<StateChangeBtns />
+													) : null}
 												</>
 											) : mediaDetails.data.lot !== MetadataLot.Show &&
 											  mediaDetails.data.lot !== MetadataLot.Podcast ? (
