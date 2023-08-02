@@ -29,7 +29,7 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
-import { IconMessage2, IconPhotoPlus } from "@tabler/icons-react";
+import { IconFriends, IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -116,6 +116,8 @@ const DisplayStatForMediaType = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
+	const theme = useMantineTheme();
+
 	const latestUserSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -310,12 +312,18 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 						<ActualDisplayStat
-							icon={<IconMessage2 />}
-							lot="Review"
+							icon={<IconFriends />}
+							lot="General stats"
+							color={theme.colors.grape[8]}
 							data={[
 								{
 									label: "Reviews",
 									value: latestUserSummary.data.media.reviewsPosted,
+									type: "number",
+								},
+								{
+									label: "People interacted",
+									value: latestUserSummary.data.media.creatorsInteractedWith,
 									type: "number",
 								},
 							]}
