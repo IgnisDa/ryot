@@ -223,6 +223,9 @@ impl MediaProvider for OpenlibraryService {
                 rsp.body_json().await.map_err(|e| anyhow!(e))?;
             let image = photos
                 .unwrap_or_default()
+                .into_iter()
+                .filter(|c| c > &0)
+                .collect_vec()
                 .first()
                 .map(|i| self.get_author_cover_image_url(*i));
             creators.push(MetadataCreator { name, role, image });
