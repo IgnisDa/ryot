@@ -687,6 +687,7 @@ const Page: NextPageWithLayout = () => {
 																		size="xs"
 																		color="dimmed"
 																		align="center"
+																		lineClamp={1}
 																		mt={4}
 																	>
 																		{creator.name}
