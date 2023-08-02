@@ -628,6 +628,19 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : null}
 					</Flex>
+					{userMediaDetails.data.reminder ? (
+						<Alert
+							icon={<IconAlertCircle size="1rem" />}
+							variant="outline"
+							color="violet"
+						>
+							Reminder for{" "}
+							{DateTime.fromJSDate(
+								userMediaDetails.data.reminder.remindOn,
+							).toLocaleString(DateTime.DATETIME_SHORT)}
+							: "{userMediaDetails.data.reminder.message}"
+						</Alert>
+					) : null}
 					{userMediaDetails.data.inProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
