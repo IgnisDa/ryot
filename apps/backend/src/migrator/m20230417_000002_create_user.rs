@@ -109,7 +109,6 @@ impl MigrationTrait for Migration {
                             .default(false)
                             .not_null(),
                     )
-                    .col(ColumnDef::new(UserToMetadata::RemindOn).date().null())
                     .primary_key(
                         Index::create()
                             .name("pk-user_metadata")
@@ -122,6 +121,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(UserToMetadata::RemindOn).date_time().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_metadata-user_id")

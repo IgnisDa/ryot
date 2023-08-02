@@ -19,7 +19,7 @@ impl MigrationTrait for Migration {
                     Table::alter()
                         .table(UserToMetadata::Table)
                         .add_column_if_not_exists(
-                            ColumnDef::new(UserToMetadata::RemindOn).date().null(),
+                            ColumnDef::new(UserToMetadata::RemindOn).date_time().null(),
                         )
                         .to_owned(),
                 )
