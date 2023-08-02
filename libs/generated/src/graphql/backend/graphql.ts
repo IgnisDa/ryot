@@ -1201,7 +1201,7 @@ export type UserMediaNextEpisode = {
 
 export type UserMediaReminder = {
   message: Scalars['String'];
-  remindOn: Scalars['NaiveDate'];
+  remindOn: Scalars['DateTime'];
 };
 
 export type UserMediaSummary = {
@@ -1613,7 +1613,7 @@ export type UserMediaDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserMediaDetailsQuery = { userMediaDetails: { isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, reviews: Array<{ id: number, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: Date, postedBy: { id: number, name: string } }>, reminder?: { remindOn: any, message: string } | null, nextEpisode?: { seasonNumber?: number | null, episodeNumber?: number | null } | null } };
+export type UserMediaDetailsQuery = { userMediaDetails: { isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, reviews: Array<{ id: number, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: Date, postedBy: { id: number, name: string } }>, reminder?: { remindOn: Date, message: string } | null, nextEpisode?: { seasonNumber?: number | null, episodeNumber?: number | null } | null } };
 
 export type UserNotificationPlatformsQueryVariables = Exact<{ [key: string]: never; }>;
 

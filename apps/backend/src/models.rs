@@ -62,7 +62,7 @@ pub mod media {
         PartialEq,
     )]
     pub struct UserMediaReminder {
-        pub remind_on: NaiveDate,
+        pub remind_on: DateTimeUtc,
         pub message: String,
     }
 
