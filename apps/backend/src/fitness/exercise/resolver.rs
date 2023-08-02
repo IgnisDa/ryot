@@ -18,13 +18,17 @@ use crate::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
     },
-    utils::{get_case_insensitive_like_query, PAGE_LIMIT},
+    utils::{get_case_insensitive_like_query, get_global_service, PAGE_LIMIT},
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ExercisesListInput {
     pub page: i32,
     pub query: Option<String>,
+}
+
+pub fn get_exercise_service<'a>() -> &'a Arc<ExerciseService> {
+    &get_global_service().exercise_service
 }
 
 #[derive(Default)]
@@ -35,13 +39,11 @@ impl ExerciseQuery {
     /// Get all the exercises in the database
     async fn exercises_list(
         &self,
-        gql_ctx: &Context<'_>,
+        _gql_ctx: &Context<'_>,
         input: ExercisesListInput,
     ) -> Result<SearchResults<exercise::Model>> {
-        gql_ctx
-            .data_unchecked::<Arc<ExerciseService>>()
-            .exercises_list(input)
-            .await
+        let service = get_exercise_service();
+        service.exercises_list(input).await
     }
 }
 
@@ -51,11 +53,9 @@ pub struct ExerciseMutation;
 #[Object]
 impl ExerciseMutation {
     /// Deploy a job to download update the exercise library
-    async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
-        gql_ctx
-            .data_unchecked::<Arc<ExerciseService>>()
-            .deploy_update_exercise_library_job()
-            .await
+    async fn deploy_update_exercise_library_job(&self, _gql_ctx: &Context<'_>) -> Result<i32> {
+        let service = get_exercise_service();
+        service.deploy_update_exercise_library_job().await
     }
 }
 

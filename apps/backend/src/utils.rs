@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::Read,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -52,18 +52,22 @@ pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 
-// TODO: Explore whether it would be possible to create a global variable which
-// contains this service and can be accessed in a thread-safe way.
+static GLOBAL_SERVICE: OnceLock<AppServices> = OnceLock::new();
+
+pub fn get_global_service<'a>() -> &'a AppServices {
+    GLOBAL_SERVICE.get().expect("Global data not present")
+}
+
 /// All the services that are used by the app
 pub struct AppServices {
-    pub media_service: Arc<MiscellaneousService>,
+    pub miscellaneous_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn create_app_services(
+pub async fn set_app_services(
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
@@ -73,7 +77,7 @@ pub async fn create_app_services(
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
-) -> AppServices {
+) {
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
@@ -86,7 +90,7 @@ pub async fn create_app_services(
         update_exercise_job,
     ));
 
-    let media_service = Arc::new(
+    let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
             &db,
             &auth_db,
@@ -100,15 +104,16 @@ pub async fn create_app_services(
     );
     let importer_service = Arc::new(ImporterService::new(
         &db,
-        media_service.clone(),
+        miscellaneous_service.clone(),
         import_media_job,
     ));
-    AppServices {
-        media_service,
+    let app_services = AppServices {
+        miscellaneous_service,
         importer_service,
         file_storage_service,
         exercise_service,
-    }
+    };
+    GLOBAL_SERVICE.set(app_services).ok();
 }
 
 pub async fn get_user_and_metadata_association<C>(
