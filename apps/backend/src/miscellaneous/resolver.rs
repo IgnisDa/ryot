@@ -3087,7 +3087,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        ls.media.reviews_posted = num_reviews;
+        ls.media.reviews_posted = usize::try_from(num_reviews).unwrap();
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -3101,8 +3101,16 @@ impl MiscellaneousService {
         let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
         let mut unique_podcast_episodes = HashSet::new();
+        let mut unique_creators = HashSet::new();
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
+            meta.find_related(Creator)
+                .all(&self.db)
+                .await?
+                .into_iter()
+                .for_each(|c| {
+                    unique_creators.insert(c.id);
+                });
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
                     ls.media.audio_books.played += 1;
@@ -3186,6 +3194,7 @@ impl MiscellaneousService {
 
         ls.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
         ls.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
+        ls.media.creators_interacted_with += unique_creators.len();
 
         let user_model = user::ActiveModel {
             id: ActiveValue::Unchanged(user_id),

@@ -437,7 +437,9 @@ pub mod media {
         #[serde(default)]
         pub manga: MangaSummary,
         #[serde(default)]
-        pub reviews_posted: u64,
+        pub reviews_posted: usize,
+        #[serde(default)]
+        pub creators_interacted_with: usize,
     }
 
     #[derive(
