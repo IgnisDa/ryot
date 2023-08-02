@@ -783,9 +783,6 @@ const Page: NextPageWithLayout = () => {
 											{userMediaDetails.data.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
-													<Menu.Item onClick={progressModalOpen}>
-														Set progress
-													</Menu.Item>
 													<Menu.Item
 														onClick={async () => {
 															await progressUpdate.mutateAsync({
@@ -800,6 +797,9 @@ const Page: NextPageWithLayout = () => {
 														I finished{" "}
 														{getVerb(Verb.Read, mediaDetails.data.lot)}
 														ing it
+													</Menu.Item>
+													<Menu.Item onClick={progressModalOpen}>
+														Set progress
 													</Menu.Item>
 													<Menu.Item
 														onClick={() => {
