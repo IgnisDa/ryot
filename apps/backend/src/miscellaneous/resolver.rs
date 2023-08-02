@@ -2928,6 +2928,7 @@ impl MiscellaneousService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
+            // FIXME: Also should be removed from cache but this is a very small edge case.
             let seen_id = si.id;
             let progress = si.progress;
             let metadata_id = si.metadata_id;
