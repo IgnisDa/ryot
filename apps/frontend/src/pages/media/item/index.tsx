@@ -20,6 +20,7 @@ import {
 	Group,
 	Indicator,
 	type MantineGradient,
+	Menu,
 	Modal,
 	NumberInput,
 	ScrollArea,
@@ -711,98 +712,141 @@ const Page: NextPageWithLayout = () => {
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
 									{userMediaDetails.data.inProgress ? (
-										<>
-											<Button variant="outline" onClick={progressModalOpen}>
-												Set progress
-											</Button>
-											<ProgressModal
-												progress={userMediaDetails.data.inProgress.progress}
-												refetch={userMediaDetails.refetch}
-												metadataId={metadataId}
-												onClose={progressModalClose}
-												opened={progressModalOpened}
-												lot={mediaDetails.data.lot}
-												total={
-													mediaDetails.data.audioBookSpecifics?.runtime ||
-													mediaDetails.data.bookSpecifics?.pages ||
-													mediaDetails.data.movieSpecifics?.runtime ||
-													mediaDetails.data.mangaSpecifics?.chapters ||
-													mediaDetails.data.animeSpecifics?.episodes
-												}
-											/>
-											<Button
-												variant="outline"
-												onClick={async () => {
-													await progressUpdate.mutateAsync({
-														input: {
-															progress: 100,
-															metadataId: metadataId,
-															date: DateTime.now().toISODate(),
-														},
-													});
-												}}
-											>
-												I finished {getVerb(Verb.Read, mediaDetails.data.lot)}
-												ing it
-											</Button>
-										</>
-									) : mediaDetails.data.lot === MetadataLot.Show ||
-									  mediaDetails.data.lot === MetadataLot.Podcast ? (
-										userMediaDetails.data.nextEpisode !== null ? (
-											<Button
-												variant="outline"
-												onClick={async () => {
-													if (mediaDetails.data.lot === MetadataLot.Podcast)
-														router.push(
-															withQuery(
-																APP_ROUTES.media.individualMediaItem
-																	.updateProgress,
-																{
-																	id: metadataId,
-																	selectedPodcastEpisodeNumber:
-																		userMediaDetails.data.nextEpisode
-																			?.episodeNumber,
+										<ProgressModal
+											progress={userMediaDetails.data.inProgress.progress}
+											refetch={userMediaDetails.refetch}
+											metadataId={metadataId}
+											onClose={progressModalClose}
+											opened={progressModalOpened}
+											lot={mediaDetails.data.lot}
+											total={
+												mediaDetails.data.audioBookSpecifics?.runtime ||
+												mediaDetails.data.bookSpecifics?.pages ||
+												mediaDetails.data.movieSpecifics?.runtime ||
+												mediaDetails.data.mangaSpecifics?.chapters ||
+												mediaDetails.data.animeSpecifics?.episodes
+											}
+										/>
+									) : null}
+									<Menu shadow="md" withinPortal>
+										<Menu.Target>
+											<Button variant="outline">Update progress</Button>
+										</Menu.Target>
+
+										{/*
+												- if has next episode
+														- show btn to update it
+												- if no in progress:
+														- add to watch history, start watching
+												- if in progress
+														- i finished it, drop, put on hold
+											*/}
+										<Menu.Dropdown>
+											{userMediaDetails.data.nextEpisode ? (
+												<>
+													<Menu.Label>Shows and podcasts</Menu.Label>
+													<Menu.Item
+														onClick={async () => {
+															if (mediaDetails.data.lot === MetadataLot.Podcast)
+																router.push(
+																	withQuery(
+																		APP_ROUTES.media.individualMediaItem
+																			.updateProgress,
+																		{
+																			id: metadataId,
+																			selectedPodcastEpisodeNumber:
+																				userMediaDetails.data.nextEpisode
+																					?.episodeNumber,
+																		},
+																	),
+																);
+															else
+																router.push(
+																	withQuery(
+																		APP_ROUTES.media.individualMediaItem
+																			.updateProgress,
+																		{
+																			id: metadataId,
+																			selectedShowSeasonNumber:
+																				userMediaDetails.data.nextEpisode
+																					?.seasonNumber,
+																			selectedShowEpisodeNumber:
+																				userMediaDetails.data.nextEpisode
+																					?.episodeNumber,
+																		},
+																	),
+																);
+														}}
+													>
+														Mark{" "}
+														{mediaDetails.data.lot === MetadataLot.Show
+															? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
+															: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
+														as seen
+													</Menu.Item>
+												</>
+											) : null}
+											{userMediaDetails.data.inProgress ? (
+												<>
+													<Menu.Label>In progress</Menu.Label>
+													<Menu.Item onClick={progressModalOpen}>
+														Set progress
+													</Menu.Item>
+													<Menu.Item
+														onClick={async () => {
+															await progressUpdate.mutateAsync({
+																input: {
+																	progress: 100,
+																	metadataId: metadataId,
+																	date: DateTime.now().toISODate(),
 																},
-															),
-														);
-													else
-														router.push(
-															withQuery(
-																APP_ROUTES.media.individualMediaItem
-																	.updateProgress,
-																{
-																	id: metadataId,
-																	selectedShowSeasonNumber:
-																		userMediaDetails.data.nextEpisode
-																			?.seasonNumber,
-																	selectedShowEpisodeNumber:
-																		userMediaDetails.data.nextEpisode
-																			?.episodeNumber,
+															});
+														}}
+													>
+														I finished{" "}
+														{getVerb(Verb.Read, mediaDetails.data.lot)}
+														ing it
+													</Menu.Item>
+												</>
+											) : mediaDetails.data.lot !== MetadataLot.Show &&
+											  mediaDetails.data.lot !== MetadataLot.Podcast ? (
+												<>
+													<Menu.Label>Not in progress</Menu.Label>
+													<Menu.Item
+														onClick={async () => {
+															await progressUpdate.mutateAsync({
+																input: {
+																	metadataId: metadataId,
+																	progress: 0,
 																},
-															),
-														);
-												}}
-											>
-												Mark{" "}
-												{mediaDetails.data.lot === MetadataLot.Show
-													? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
-													: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
-												as seen
-											</Button>
-										) : null
-									) : (
-										<Button
-											variant="outline"
-											onClick={async () => {
-												await progressUpdate.mutateAsync({
-													input: { metadataId: metadataId, progress: 0 },
-												});
-											}}
-										>
-											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}
-											ing it
-										</Button>
-									)}
+															});
+														}}
+													>
+														I'm {getVerb(Verb.Read, mediaDetails.data.lot)}
+														ing it
+													</Menu.Item>
+
+													<Menu.Item
+														onClick={() => {
+															router.push(
+																withQuery(
+																	APP_ROUTES.media.individualMediaItem
+																		.updateProgress,
+																	{
+																		id: metadataId,
+																	},
+																),
+															);
+														}}
+													>
+														Add to {getVerb(Verb.Read, mediaDetails.data.lot)}{" "}
+														history
+													</Menu.Item>
+												</>
+											) : null}
+										</Menu.Dropdown>
+									</Menu>
+
 									{userMediaDetails.data.history.length > 0 &&
 									userMediaDetails.data.inProgress &&
 									![SeenState.OnAHold, SeenState.Dropped].includes(
@@ -892,21 +936,6 @@ const Page: NextPageWithLayout = () => {
 											seen
 										</Button>
 									) : null}
-									<Button
-										variant="outline"
-										onClick={() => {
-											router.push(
-												withQuery(
-													APP_ROUTES.media.individualMediaItem.updateProgress,
-													{
-														id: metadataId,
-													},
-												),
-											);
-										}}
-									>
-										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
-									</Button>
 									<Link
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.postReview,
