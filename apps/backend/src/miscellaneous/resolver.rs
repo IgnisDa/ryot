@@ -63,8 +63,8 @@ use crate::{
             MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics,
             PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
             ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UserSummary,
-            VideoGameSpecifics, Visibility,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -519,6 +519,8 @@ struct UserMediaDetails {
     next_episode: Option<UserMediaNextEpisode>,
     /// Whether the user is monitoring this media.
     is_monitored: bool,
+    /// The reminder that the user has set for this media.
+    reminder: Option<UserMediaReminder>,
     /// The number of users who have seen this media
     seen_by: i32,
 }
@@ -1424,6 +1426,14 @@ impl MiscellaneousService {
             .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
+        let reminder = UserToMetadata::find()
+            .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
+            .one(&self.db)
+            .await?
+            .unwrap()
+            .reminder;
+
         Ok(UserMediaDetails {
             collections,
             reviews,
@@ -1432,6 +1442,7 @@ impl MiscellaneousService {
             next_episode,
             is_monitored,
             seen_by,
+            reminder,
         })
     }
 
@@ -2041,7 +2052,7 @@ impl MiscellaneousService {
             // if the metadata is monitored
             let is_monitored = u.monitored;
             // if user has set a reminder
-            let is_reminder_active = u.remind_on.is_some();
+            let is_reminder_active = u.reminder.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored

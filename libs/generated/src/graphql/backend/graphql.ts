@@ -1175,6 +1175,8 @@ export type UserMediaDetails = {
   isMonitored: Scalars['Boolean'];
   /** The next episode of this media. */
   nextEpisode?: Maybe<UserMediaNextEpisode>;
+  /** The reminder that the user has set for this media. */
+  reminder?: Maybe<UserMediaReminder>;
   /** The public reviews of this media. */
   reviews: Array<ReviewItem>;
   /** The number of users who have seen this media */
@@ -1195,6 +1197,11 @@ export type UserMediaFeaturesEnabledPreferences = {
 export type UserMediaNextEpisode = {
   episodeNumber?: Maybe<Scalars['Int']>;
   seasonNumber?: Maybe<Scalars['Int']>;
+};
+
+export type UserMediaReminder = {
+  message: Scalars['String'];
+  remindOn: Scalars['DateTime'];
 };
 
 export type UserMediaSummary = {
