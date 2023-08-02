@@ -398,6 +398,7 @@ impl MediaProvider for TmdbShowService {
             .sorted_by_key(|c| c.1)
             .rev()
             .map(|c| c.0)
+            .filter(|c| ["Acting", "Production", "Directing"].contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
         Ok(MediaDetails {
