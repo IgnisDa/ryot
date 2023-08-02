@@ -244,7 +244,7 @@ impl ImporterService {
             .collect_vec();
         for col_details in import.collections.into_iter() {
             get_miscellaneous_service()
-                .create_or_update_collection(&user_id, col_details)
+                .create_or_update_collection(user_id, col_details)
                 .await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
@@ -312,7 +312,7 @@ impl ImporterService {
                 let date = review.review.clone().map(|r| r.date);
                 match get_miscellaneous_service()
                     .post_review(
-                        &user_id,
+                        user_id,
                         PostReviewInput {
                             rating: review.rating,
                             text,
@@ -341,7 +341,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 get_miscellaneous_service()
                     .create_or_update_collection(
-                        &user_id,
+                        user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -350,7 +350,7 @@ impl ImporterService {
                     .await?;
                 get_miscellaneous_service()
                     .add_media_to_collection(
-                        &user_id,
+                        user_id,
                         AddMediaToCollection {
                             collection_name: col.to_string(),
                             media_id: metadata.id,

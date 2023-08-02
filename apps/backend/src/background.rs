@@ -105,10 +105,7 @@ pub async fn user_created_job(
 ) -> Result<(), JobError> {
     tracing::trace!("Running jobs after user creation");
     let service = get_miscellaneous_service();
-    service
-        .user_created_job(&information.user_id)
-        .await
-        .unwrap();
+    service.user_created_job(information.user_id).await.unwrap();
     service
         .calculate_user_media_summary(information.user_id)
         .await

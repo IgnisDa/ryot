@@ -531,6 +531,13 @@ struct UserMediaNextEpisode {
     episode_number: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateMediaReminderInput {
+    metadata_id: i32,
+    remind_on: DateTimeUtc,
+    message: String,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -587,7 +594,7 @@ impl MiscellaneousQuery {
     ) -> Result<Vec<CollectionItem>> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.collections(&user_id, input).await
+        service.collections(user_id, input).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -787,14 +794,14 @@ impl MiscellaneousMutation {
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.post_review(&user_id, input).await
+        service.post_review(user_id, input).await
     }
 
     /// Delete a review if it belongs to the currently logged in user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_review(&user_id, review_id).await
+        service.delete_review(user_id, review_id).await
     }
 
     /// Create a new collection for the logged in user or edit details of an existing one.
@@ -805,7 +812,7 @@ impl MiscellaneousMutation {
     ) -> Result<IdObject> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_or_update_collection(&user_id, input).await
+        service.create_or_update_collection(user_id, input).await
     }
 
     /// Add a media item to a collection if it is not there, otherwise do nothing.
@@ -816,7 +823,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.add_media_to_collection(&user_id, input).await
+        service.add_media_to_collection(user_id, input).await
     }
 
     /// Remove a media item from a collection if it is not there, otherwise do nothing.
@@ -829,7 +836,7 @@ impl MiscellaneousMutation {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .remove_media_item_from_collection(&user_id, &metadata_id, &collection_name)
+            .remove_media_item_from_collection(user_id, &metadata_id, &collection_name)
             .await
     }
 
@@ -841,7 +848,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_collection(&user_id, &collection_name).await
+        service.delete_collection(user_id, &collection_name).await
     }
 
     /// Delete a seen item from a user's history.
@@ -865,7 +872,7 @@ impl MiscellaneousMutation {
     ) -> Result<CreateCustomMediaResult> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_media(input, &user_id).await
+        service.create_custom_media(input, user_id).await
     }
 
     /// Mark a user's progress on a specific media item.
@@ -945,7 +952,7 @@ impl MiscellaneousMutation {
     async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
         let service = get_miscellaneous_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.update_user(&user_id, input).await
+        service.update_user(user_id, input).await
     }
 
     /// Delete all summaries for the currently logged in user and then generate one from scratch.
@@ -1077,6 +1084,17 @@ impl MiscellaneousMutation {
         service
             .toggle_media_monitor(user_id, to_monitor_metadata_id)
             .await
+    }
+
+    /// Create a reminder on a media for a user.
+    async fn create_media_reminder(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateMediaReminderInput,
+    ) -> Result<bool> {
+        let service = get_miscellaneous_service();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_media_reminder(user_id, input).await
     }
 }
 
@@ -2639,11 +2657,11 @@ impl MiscellaneousService {
 
     async fn collections(
         &self,
-        user_id: &i32,
+        user_id: i32,
         input: Option<CollectionInput>,
     ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(*user_id))
+            .filter(collection::Column::UserId.eq(user_id))
             .apply_if(input.clone().and_then(|i| i.name), |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
@@ -2769,7 +2787,7 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn post_review(&self, user_id: &i32, input: PostReviewInput) -> Result<IdObject> {
+    pub async fn post_review(&self, user_id: i32, input: PostReviewInput) -> Result<IdObject> {
         let review_id = match input.review_id {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
@@ -2811,7 +2829,7 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn delete_review(&self, user_id: &i32, review_id: i32) -> Result<bool> {
+    pub async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
         let review = Review::find()
             .filter(review::Column::Id.eq(review_id))
             .one(&self.db)
@@ -2819,7 +2837,7 @@ impl MiscellaneousService {
             .unwrap();
         match review {
             Some(r) => {
-                if r.user_id == *user_id {
+                if r.user_id == user_id {
                     r.delete(&self.db).await?;
                     Ok(true)
                 } else {
@@ -2832,7 +2850,7 @@ impl MiscellaneousService {
 
     pub async fn create_or_update_collection(
         &self,
-        user_id: &i32,
+        user_id: i32,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<IdObject> {
         let meta = Collection::find()
@@ -2868,7 +2886,7 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn delete_collection(&self, user_id: &i32, name: &str) -> Result<bool> {
+    pub async fn delete_collection(&self, user_id: i32, name: &str) -> Result<bool> {
         if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
             return Err(Error::new("Can not delete a default collection".to_owned()));
         }
@@ -2887,7 +2905,7 @@ impl MiscellaneousService {
 
     pub async fn remove_media_item_from_collection(
         &self,
-        user_id: &i32,
+        user_id: i32,
         metadata_id: &i32,
         collection_name: &str,
     ) -> Result<IdObject> {
@@ -2909,7 +2927,7 @@ impl MiscellaneousService {
 
     pub async fn add_media_to_collection(
         &self,
-        user_id: &i32,
+        user_id: i32,
         input: AddMediaToCollection,
     ) -> Result<bool> {
         let collection = Collection::find()
@@ -2951,7 +2969,7 @@ impl MiscellaneousService {
             si.delete(&self.db).await.ok();
             if progress < 100 {
                 self.remove_media_item_from_collection(
-                    &user_id,
+                    user_id,
                     &metadata_id,
                     &DefaultCollection::InProgress.to_string(),
                 )
@@ -3227,7 +3245,7 @@ impl MiscellaneousService {
         }
         let api_key = Uuid::new_v4().to_string();
 
-        if self.set_auth_token(&api_key, &user.id).await.is_err() {
+        if self.set_auth_token(&api_key, user.id).await.is_err() {
             return Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::MutexError,
             }));
@@ -3260,7 +3278,7 @@ impl MiscellaneousService {
     }
 
     // this job is run when a user is created for the first time
-    pub async fn user_created_job(&self, user_id: &i32) -> Result<()> {
+    pub async fn user_created_job(&self, user_id: i32) -> Result<()> {
         for col in DefaultCollection::iter() {
             self.create_or_update_collection(
                 user_id,
@@ -3276,7 +3294,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(&self, user_id: &i32, input: UpdateUserInput) -> Result<IdObject> {
+    async fn update_user(&self, user_id: i32, input: UpdateUserInput) -> Result<IdObject> {
         let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
             .one(&self.db)
             .await
@@ -3314,7 +3332,7 @@ impl MiscellaneousService {
     async fn create_custom_media(
         &self,
         input: CreateCustomMediaInput,
-        user_id: &i32,
+        user_id: i32,
     ) -> Result<CreateCustomMediaResult> {
         let mut input = input;
         let err = || {
@@ -3554,7 +3572,7 @@ impl MiscellaneousService {
 
     async fn generate_application_token(&self, user_id: i32) -> Result<String> {
         let api_token = nanoid!(10);
-        self.set_auth_token(&api_token, &user_id)
+        self.set_auth_token(&api_token, user_id)
             .await
             .map_err(|_| Error::new("Could not set auth token"))?;
         Ok(api_token)
@@ -3795,7 +3813,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn set_auth_token(&self, api_key: &str, user_id: &i32) -> anyhow::Result<()> {
+    async fn set_auth_token(&self, api_key: &str, user_id: i32) -> anyhow::Result<()> {
         self.get_auth_db()
             .insert(
                 api_key.to_owned(),
@@ -4089,7 +4107,7 @@ impl MiscellaneousService {
 
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         self.remove_media_item_from_collection(
-            &seen.user_id,
+            seen.user_id,
             &seen.metadata_id,
             &DefaultCollection::Watchlist.to_string(),
         )
@@ -4098,7 +4116,7 @@ impl MiscellaneousService {
         match seen.state {
             SeenState::InProgress => {
                 self.add_media_to_collection(
-                    &seen.user_id,
+                    seen.user_id,
                     AddMediaToCollection {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         media_id: seen.metadata_id,
@@ -4109,7 +4127,7 @@ impl MiscellaneousService {
             }
             SeenState::Dropped | SeenState::OnAHold => {
                 self.remove_media_item_from_collection(
-                    &seen.user_id,
+                    seen.user_id,
                     &seen.metadata_id,
                     &DefaultCollection::InProgress.to_string(),
                 )
@@ -4164,7 +4182,7 @@ impl MiscellaneousService {
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
                         self.remove_media_item_from_collection(
-                            &seen.user_id,
+                            seen.user_id,
                             &seen.metadata_id,
                             &DefaultCollection::InProgress.to_string(),
                         )
@@ -4172,7 +4190,7 @@ impl MiscellaneousService {
                         .ok();
                     } else {
                         self.add_media_to_collection(
-                            &seen.user_id,
+                            seen.user_id,
                             AddMediaToCollection {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 media_id: seen.metadata_id,
@@ -4183,7 +4201,7 @@ impl MiscellaneousService {
                     }
                 } else {
                     self.remove_media_item_from_collection(
-                        &seen.user_id,
+                        seen.user_id,
                         &seen.metadata_id,
                         &DefaultCollection::InProgress.to_string(),
                     )
@@ -4398,6 +4416,14 @@ impl MiscellaneousService {
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
         Ok(CreatorDetails { details, contents })
+    }
+
+    async fn create_media_reminder(
+        &self,
+        user_id: i32,
+        input: CreateMediaReminderInput,
+    ) -> Result<bool> {
+        Ok(true)
     }
 }
 
