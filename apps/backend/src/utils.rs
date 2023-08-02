@@ -52,7 +52,12 @@ pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 
+static APP_CONFIG: OnceLock<AppConfig> = OnceLock::new();
 static GLOBAL_SERVICE: OnceLock<AppServices> = OnceLock::new();
+
+pub fn get_app_config<'a>() -> &'a AppConfig {
+    APP_CONFIG.get().expect("Global config not present")
+}
 
 pub fn get_global_service<'a>() -> &'a AppServices {
     GLOBAL_SERVICE.get().expect("Global data not present")
@@ -71,26 +76,20 @@ pub async fn set_app_services(
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
-    config: Arc<AppConfig>,
+    config: AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
 ) {
-    let file_storage_service =
-        FileStorageService::new(s3_client, config.file_storage.s3_bucket_name.clone());
-    let exercise_service = ExerciseService::new(
-        &db,
-        config.exercise.db.json_url.clone(),
-        config.exercise.db.images_prefix_url.clone(),
-        update_exercise_job,
-    );
+    APP_CONFIG.set(config).ok();
+    let file_storage_service = FileStorageService::new(s3_client);
+    let exercise_service = ExerciseService::new(&db, update_exercise_job);
 
     let miscellaneous_service = MiscellaneousService::new(
         &db,
         &auth_db,
-        config,
         update_metadata_job,
         recalculate_user_summary_job,
         user_created_job,

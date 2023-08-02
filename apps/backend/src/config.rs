@@ -484,7 +484,7 @@ impl AppConfig {
     }
 }
 
-pub fn get_app_config() -> Result<AppConfig> {
+pub fn load_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
     let path = PathBuf::from(config);

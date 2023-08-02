@@ -40,7 +40,7 @@ use crate::{
         import_media, media_jobs, recalculate_user_summary_job, update_exercise_job,
         update_metadata_job, user_created_job, user_jobs, yank_integrations_data,
     },
-    config::get_app_config,
+    config::load_app_config,
     config::AppConfig,
     graphql::get_schema,
     migrator::Migrator,
@@ -81,12 +81,20 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    let config = get_app_config()?;
+    let config = load_app_config()?;
+    let cors_origins = config
+        .server
+        .cors_origins
+        .iter()
+        .map(|f| f.parse().unwrap())
+        .collect_vec();
+    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
+    let user_cleanup_every = config.scheduler.user_cleanup_every;
+    let pull_every = config.integration.pull_every;
     fs::write(
         &config.server.config_dump_path,
         serde_json::to_string_pretty(&config)?,
     )?;
-    let config = Arc::new(config);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -149,7 +157,7 @@ async fn main() -> Result<()> {
         db.clone(),
         auth_db.clone(),
         s3_client,
-        config.clone(),
+        config,
         &import_media_storage,
         &user_created_job_storage,
         &update_exercise_job_storage,
@@ -188,14 +196,7 @@ async fn main() -> Result<()> {
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
-        .allow_origin(
-            config
-                .server
-                .cors_origins
-                .iter()
-                .map(|f| f.parse().unwrap())
-                .collect_vec(),
-        )
+        .allow_origin(cors_origins)
         .allow_credentials(true);
 
     let webhook_routes = Router::new().route(
@@ -211,7 +212,6 @@ async fn main() -> Result<()> {
         .route("/export", get(json_export))
         .fallback(static_handler)
         .layer(Extension(schema))
-        .layer(Extension(config.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -223,11 +223,6 @@ async fn main() -> Result<()> {
         .unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
-
-    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
-
-    let user_cleanup_every = config.scheduler.user_cleanup_every;
-    let pull_every = config.integration.pull_every;
 
     let monitor = async {
         let mn = Monitor::new()

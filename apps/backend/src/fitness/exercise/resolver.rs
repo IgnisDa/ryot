@@ -18,7 +18,7 @@ use crate::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
     },
-    utils::{get_case_insensitive_like_query, get_global_service, PAGE_LIMIT},
+    utils::{get_app_config, get_case_insensitive_like_query, get_global_service, PAGE_LIMIT},
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -70,15 +70,13 @@ pub struct ExerciseService {
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
-        json_url: String,
-        image_prefix_url: String,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
     ) -> Self {
         Self {
             db: db.clone(),
-            json_url,
-            image_prefix_url,
             update_exercise: update_exercise.clone(),
+            json_url: get_app_config().exercise.db.json_url.clone(),
+            image_prefix_url: get_app_config().exercise.db.images_prefix_url.clone(),
         }
     }
 }
