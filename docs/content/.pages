@@ -1,3 +1,5 @@
 nav:
+    - index.md
+    - installation.md
     - ...
     - architecture.md
