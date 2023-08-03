@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::Read,
     path::PathBuf,
-    sync::Arc,
+    sync::OnceLock,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -38,7 +38,7 @@ use crate::{
     miscellaneous::resolver::MiscellaneousService,
 };
 
-pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
+pub type MemoryDatabase = Storage<String, MemoryAuthData>;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -52,66 +52,64 @@ pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 
+static APP_CONFIG: OnceLock<AppConfig> = OnceLock::new();
+static GLOBAL_SERVICE: OnceLock<AppServices> = OnceLock::new();
+
+pub fn get_app_config<'a>() -> &'a AppConfig {
+    APP_CONFIG.get().expect("Global config not present")
+}
+
+pub fn get_global_service<'a>() -> &'a AppServices {
+    GLOBAL_SERVICE.get().expect("Global data not present")
+}
+
+pub fn get_auth_db<'a>() -> &'a MemoryDatabase {
+    &get_global_service().auth_db
+}
+
 /// All the services that are used by the app
 pub struct AppServices {
-    pub config: Arc<AppConfig>,
-    pub media_service: Arc<MiscellaneousService>,
-    pub importer_service: Arc<ImporterService>,
-    pub file_storage_service: Arc<FileStorageService>,
-    pub exercise_service: Arc<ExerciseService>,
+    pub miscellaneous_service: MiscellaneousService,
+    pub importer_service: ImporterService,
+    pub file_storage_service: FileStorageService,
+    pub exercise_service: ExerciseService,
     pub auth_db: MemoryDatabase,
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn create_app_services(
+pub async fn set_app_services(
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
-    config: Arc<AppConfig>,
+    config: AppConfig,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
     send_notifications_to_user_platform_job: &SqliteStorage<SendMediaReminderJob>,
-) -> AppServices {
-    let file_storage_service = Arc::new(FileStorageService::new(
-        s3_client,
-        config.file_storage.s3_bucket_name.clone(),
-    ));
-    let exercise_service = Arc::new(ExerciseService::new(
-        &db,
-        update_exercise_job,
-        config.exercise.db.json_url.clone(),
-        config.exercise.db.images_prefix_url.clone(),
-    ));
+) {
+    APP_CONFIG.set(config).ok();
+    let file_storage_service = FileStorageService::new(s3_client);
+    let exercise_service = ExerciseService::new(&db, update_exercise_job);
 
-    let media_service = Arc::new(
-        MiscellaneousService::new(
-            &db,
-            config.clone(),
-            auth_db.clone(),
-            file_storage_service.clone(),
-            update_metadata_job,
-            recalculate_user_summary_job,
-            user_created_job,
-            send_notifications_to_user_platform_job,
-        )
-        .await,
-    );
-    let importer_service = Arc::new(ImporterService::new(
+    let miscellaneous_service = MiscellaneousService::new(
         &db,
-        media_service.clone(),
-        import_media_job,
-    ));
-    AppServices {
-        config,
-        media_service,
+        update_metadata_job,
+        recalculate_user_summary_job,
+        user_created_job,
+        send_notifications_to_user_platform_job,
+    )
+    .await;
+    let importer_service = ImporterService::new(&db, import_media_job);
+    let app_services = AppServices {
+        miscellaneous_service,
         importer_service,
         file_storage_service,
         exercise_service,
         auth_db,
-    }
+    };
+    GLOBAL_SERVICE.set(app_services).ok();
 }
 
 pub async fn get_user_and_metadata_association<C>(
