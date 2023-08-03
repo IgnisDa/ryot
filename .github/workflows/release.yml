@@ -10,7 +10,7 @@ env:
 on:
   push:
     tags:
-      - '*-?v[0-9]+*'
+      - "*-?v[0-9]+*"
 
 jobs:
   create-release:
@@ -52,18 +52,18 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: ubuntu-20.04
-          dist-args: --artifacts=global
-          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
-        - os: macos-11
-          dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
-          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
-        - os: ubuntu-20.04
-          dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
-          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
-        - os: windows-2019
-          dist-args: --artifacts=local --target=x86_64-pc-windows-msvc
-          install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.ps1 | iex
+          - os: ubuntu-20.04
+            dist-args: --artifacts=global
+            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+          - os: macos-11
+            dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
+            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+          - os: ubuntu-20.04
+            dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
+            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+          - os: windows-2019
+            dist-args: --artifacts=local --target=x86_64-pc-windows-msvc
+            install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.ps1 | iex
 
     runs-on: ${{ matrix.os }}
     env:
@@ -116,20 +116,6 @@ jobs:
         run: |
           gh release upload ${{ github.ref_name }} "tmp/script.ryot.zip"
 
-  # Mark the Github Release™ as a non-draft now that everything has succeeded!
-  publish-release:
-    # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
-    needs: [create-release, upload-artifacts]
-    if: ${{ always() && needs.create-release.result == 'success' && (needs.upload-artifacts.result == 'skipped' || needs.upload-artifacts.result == 'success') }}
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: mark release as non-draft
-        run: |
-          gh release edit ${{ github.ref_name }} --draft=false
-
   docker-release:
     runs-on: ubuntu-latest
     needs: create-release
@@ -169,6 +155,20 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.required_args.outputs.image_names }}
+
+  # Mark the Github Release™ as a non-draft now that everything has succeeded!
+  publish-release:
+    # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
+    needs: [create-release, upload-artifacts, docker-release]
+    if: ${{ always() && needs.create-release.result == 'success' && (needs.upload-artifacts.result == 'skipped' || needs.upload-artifacts.result == 'success') }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: mark release as non-draft
+        run: |
+          gh release edit ${{ github.ref_name }} --draft=false
 
   deploy:
     runs-on: ubuntu-latest
