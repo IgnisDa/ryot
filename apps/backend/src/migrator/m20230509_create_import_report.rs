@@ -4,14 +4,13 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use super::m20230417_000002_create_user::User;
+use super::m20230417_create_user::User;
 
 pub struct Migration;
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        // FIXME: Remove media from name
-        "m20230509_000008_create_media_import_report"
+        "m20230509_create_import_report"
     }
 }
 

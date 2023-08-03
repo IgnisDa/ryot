@@ -1,7 +1,7 @@
 use sea_orm_migration::prelude::*;
 
 use crate::{
-    migrator::{m20230417_000002_create_user::User, Metadata},
+    migrator::{m20230417_create_user::User, Metadata},
     models::media::Visibility,
 };
 
@@ -9,7 +9,7 @@ pub struct Migration;
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230507_000007_create_collection"
+        "m20230507_create_collection"
     }
 }
 

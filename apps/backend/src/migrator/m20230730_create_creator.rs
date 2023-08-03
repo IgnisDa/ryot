@@ -55,7 +55,50 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .create_table(get_metadata_to_creator_table())
+            .create_table(
+                Table::create()
+                    .table(MetadataToCreator::Table)
+                    .col(
+                        ColumnDef::new(MetadataToCreator::MetadataId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToCreator::CreatorId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToCreator::Index)
+                            .integer()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .name(METADATA_TO_CREATOR_PRIMARY_KEY)
+                            .col(MetadataToCreator::MetadataId)
+                            .col(MetadataToCreator::CreatorId)
+                            .col(MetadataToCreator::Role),
+                    )
+                    .col(ColumnDef::new(MetadataToCreator::Role).string().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-media-item_media-item-creator_id")
+                            .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-creator-item_media-item-creator_id")
+                            .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
+                            .to(Creator::Table, Creator::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
             .await?;
         Ok(())
     }
@@ -63,50 +106,4 @@ impl MigrationTrait for Migration {
     async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
-}
-
-/// FIXME: Move this back to `up` function
-pub fn get_metadata_to_creator_table() -> TableCreateStatement {
-    Table::create()
-        .table(MetadataToCreator::Table)
-        .col(
-            ColumnDef::new(MetadataToCreator::MetadataId)
-                .integer()
-                .not_null(),
-        )
-        .col(
-            ColumnDef::new(MetadataToCreator::CreatorId)
-                .integer()
-                .not_null(),
-        )
-        .col(
-            ColumnDef::new(MetadataToCreator::Index)
-                .integer()
-                .not_null(),
-        )
-        .primary_key(
-            Index::create()
-                .name(METADATA_TO_CREATOR_PRIMARY_KEY)
-                .col(MetadataToCreator::MetadataId)
-                .col(MetadataToCreator::CreatorId)
-                .col(MetadataToCreator::Role),
-        )
-        .col(ColumnDef::new(MetadataToCreator::Role).string().not_null())
-        .foreign_key(
-            ForeignKey::create()
-                .name("fk-media-item_media-item-creator_id")
-                .from(MetadataToCreator::Table, MetadataToCreator::MetadataId)
-                .to(Metadata::Table, Metadata::Id)
-                .on_delete(ForeignKeyAction::Cascade)
-                .on_update(ForeignKeyAction::Cascade),
-        )
-        .foreign_key(
-            ForeignKey::create()
-                .name("fk-creator-item_media-item-creator_id")
-                .from(MetadataToCreator::Table, MetadataToCreator::CreatorId)
-                .to(Creator::Table, Creator::Id)
-                .on_delete(ForeignKeyAction::Cascade)
-                .on_update(ForeignKeyAction::Cascade),
-        )
-        .to_owned()
 }
