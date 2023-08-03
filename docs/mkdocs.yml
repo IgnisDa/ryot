@@ -28,6 +28,7 @@ theme:
   features:
     - navigation.instant
     - navigation.tracking
+    - content.code.copy
 
 plugins:
   - awesome-pages

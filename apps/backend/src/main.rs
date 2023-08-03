@@ -241,6 +241,7 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.media_service.clone();
     let media_service_6 = app_services.media_service.clone();
     let media_service_7 = app_services.media_service.clone();
+    let media_service_8 = app_services.media_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
@@ -297,6 +298,7 @@ async fn main() -> Result<()> {
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("send_media_reminder-{c}"))
                     .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(media_service_8.clone()))
                     .with_storage(send_notifications_to_user_platform_job_storage.clone())
                     .build_fn(send_media_reminder_to_user_platforms_job)
             })

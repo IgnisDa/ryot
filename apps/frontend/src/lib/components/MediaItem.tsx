@@ -91,7 +91,12 @@ export const ReviewItemDisplay = ({
 				{review.rating > 0 ? (
 					<Flex align={"center"} gap={4}>
 						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
-						<Text color="white" fw="bold">
+						<Text
+							sx={(theme) => ({
+								color: theme.colorScheme === "dark" ? "white" : undefined,
+							})}
+							fw="bold"
+						>
 							{review.rating} %
 						</Text>
 					</Flex>

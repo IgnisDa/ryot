@@ -8,6 +8,7 @@ import {
 	AppShell,
 	Box,
 	Burger,
+	Center,
 	Collapse,
 	Flex,
 	Group,
@@ -20,9 +21,10 @@ import {
 	UnstyledButton,
 	createStyles,
 	rem,
+	useMantineColorScheme,
 	useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { upperFirst, useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
@@ -36,8 +38,10 @@ import {
 	IconDeviceSpeaker,
 	IconHome2,
 	IconLogout,
+	IconMoon,
 	IconSettings,
 	IconStretching,
+	IconSun,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -126,9 +130,65 @@ const useStyles = createStyles((theme) => ({
 		transition: "transform 200ms ease",
 	},
 	oldLink: {
-		color: theme.colors.dark[0],
+		color: theme.colorScheme === "dark" ? theme.colors.dark[0] : undefined,
 	},
 }));
+
+const useThemeStyles = createStyles((theme) => ({
+	control: {
+		backgroundColor:
+			theme.colorScheme === "dark"
+				? theme.colors.dark[8]
+				: theme.colors.gray[0],
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		borderRadius: 1000,
+		paddingLeft: theme.spacing.sm,
+		paddingRight: rem(4),
+		width: rem(136),
+		height: rem(36),
+	},
+
+	iconWrapper: {
+		height: rem(28),
+		width: rem(28),
+		borderRadius: rem(28),
+		backgroundColor:
+			theme.colorScheme === "dark"
+				? theme.colors.yellow[4]
+				: theme.colors.dark[4],
+		color: theme.colorScheme === "dark" ? theme.black : theme.colors.blue[2],
+	},
+
+	value: {
+		lineHeight: 1,
+	},
+}));
+
+function ThemeToggle() {
+	const { classes } = useThemeStyles();
+	const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+	const Icon = colorScheme === "dark" ? IconSun : IconMoon;
+
+	return (
+		<Group position="center">
+			<UnstyledButton
+				aria-label="Toggle theme"
+				className={classes.control}
+				onClick={() => toggleColorScheme()}
+				title="Ctrl + J"
+			>
+				<Center className={classes.iconWrapper}>
+					<Icon size="1.05rem" stroke={1.5} />
+				</Center>
+				<Text size="sm" className={classes.value}>
+					{upperFirst(colorScheme === "light" ? "dark" : "light")} theme
+				</Text>
+			</UnstyledButton>
+		</Group>
+	);
+}
 
 interface LinksGroupProps {
 	icon: React.FC<any>;
@@ -362,8 +422,10 @@ export default function ({ children }: { children: ReactElement }) {
 						/>
 					</Navbar.Section>
 					<Navbar.Section>
-						<Box className={classes.footer}>
+						<Flex direction={"column"} justify={"center"} gap="md">
+							<ThemeToggle />
 							<UnstyledButton
+								mx="auto"
 								onClick={() => logoutUser.mutate()}
 								className={cx(classes.oldLink)}
 							>
@@ -372,7 +434,7 @@ export default function ({ children }: { children: ReactElement }) {
 									<Text>Logout</Text>
 								</Group>
 							</UnstyledButton>
-						</Box>
+						</Flex>
 					</Navbar.Section>
 				</Navbar>
 			}

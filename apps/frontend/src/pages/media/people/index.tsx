@@ -160,10 +160,7 @@ const Page: NextPageWithLayout = () => {
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
 									<Link
-										href={withQuery(
-											APP_ROUTES.media.postReview,
-											{ creatorId },
-										)}
+										href={withQuery(APP_ROUTES.media.postReview, { creatorId })}
 										passHref
 										legacyBehavior
 									>
