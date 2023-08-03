@@ -29,6 +29,10 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
+## IMPORTANT NOTE FOR USERS OF `v1.*`
+
+If you were using `v1.*` of Ryot, please read the [migration guide](https://ignisda.github.io/ryot) before upgrading.
+
 ## 💻 Demo
 
 You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login and register
