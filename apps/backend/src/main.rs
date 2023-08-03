@@ -37,7 +37,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use crate::{
     background::{
         import_media, media_jobs, recalculate_user_summary_job,
-        send_notifications_to_user_platforms_job, update_exercise_job, update_metadata_job,
+        send_media_reminder_to_user_platforms_job, update_exercise_job, update_metadata_job,
         user_created_job, user_jobs, yank_integrations_data,
     },
     config::load_app_config,
@@ -271,10 +271,10 @@ async fn main() -> Result<()> {
                     .build_fn(import_media)
             })
             .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("send_notifications_to_user_platforms-{c}"))
+                WorkerBuilder::new(format!("send_media_reminder-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .with_storage(send_notifications_to_user_platform_job_storage.clone())
-                    .build_fn(send_notifications_to_user_platforms_job)
+                    .build_fn(send_media_reminder_to_user_platforms_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))

@@ -27,8 +27,8 @@ use surf::{
 
 use crate::{
     background::{
-        ImportMedia, RecalculateUserSummaryJob, SendNotificationToUserPlatformsJob,
-        UpdateExerciseJob, UpdateMetadataJob, UserCreatedJob,
+        ImportMedia, RecalculateUserSummaryJob, SendMediaReminderJob, UpdateExerciseJob,
+        UpdateMetadataJob, UserCreatedJob,
     },
     config::AppConfig,
     entities::{prelude::UserToMetadata, user_to_metadata},
@@ -87,7 +87,7 @@ pub async fn set_app_services(
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
     update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
     recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
-    send_notifications_to_user_platform_job: &SqliteStorage<SendNotificationToUserPlatformsJob>,
+    send_notifications_to_user_platform_job: &SqliteStorage<SendMediaReminderJob>,
 ) {
     APP_CONFIG.set(config).ok();
     let file_storage_service = FileStorageService::new(s3_client);

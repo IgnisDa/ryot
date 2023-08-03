@@ -114,23 +114,28 @@ pub async fn user_created_job(
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct SendNotificationToUserPlatformsJob {
+pub struct SendMediaReminderJob {
     pub user_id: i32,
+    pub metadata_id: i32,
     pub message: String,
 }
 
-impl Job for SendNotificationToUserPlatformsJob {
-    const NAME: &'static str = "apalis::SendNotificationToUserPlatformsJob";
+impl Job for SendMediaReminderJob {
+    const NAME: &'static str = "apalis::SendMediaReminderJob";
 }
 
-pub async fn send_notifications_to_user_platforms_job(
-    information: SendNotificationToUserPlatformsJob,
+pub async fn send_media_reminder_to_user_platforms_job(
+    information: SendMediaReminderJob,
     _ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::trace!("Sending notifications to {}", information.user_id);
     let service = get_miscellaneous_service();
     service
-        .send_notifications_to_user_platforms(information.user_id, &information.message)
+        .send_media_reminder(
+            information.user_id,
+            information.metadata_id,
+            information.message,
+        )
         .await
         .unwrap();
     Ok(())
