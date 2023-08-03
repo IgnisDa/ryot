@@ -8,7 +8,7 @@ pub static METADATA_TO_CREATOR_PRIMARY_KEY: &str = "pk-media-item_creator";
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230730_create_creator"
+        "m20230412_create_creator"
     }
 }
 
