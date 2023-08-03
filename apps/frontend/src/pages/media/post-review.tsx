@@ -111,7 +111,7 @@ const Page: NextPageWithLayout = () => {
 			url = withQuery(APP_ROUTES.media.people.details, {
 				id: creatorId,
 			});
-		router.push(url);
+		router.replace(url);
 	};
 
 	useQuery({

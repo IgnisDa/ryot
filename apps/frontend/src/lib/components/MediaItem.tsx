@@ -62,7 +62,7 @@ export const ReviewItemDisplay = ({
 				</Box>
 				{user && user.id === review.postedBy.id ? (
 					<Link
-						href={withQuery(APP_ROUTES.media.individualMediaItem.postReview, {
+						href={withQuery(APP_ROUTES.media.postReview, {
 							metadataId,
 							creatorId,
 							reviewId: review.id,
