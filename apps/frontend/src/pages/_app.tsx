@@ -50,9 +50,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 					theme={{
 						colorScheme: "dark",
 						fontFamily: "Poppins",
-						breakpoints: {
-							"3xl": "112em",
-						},
+						breakpoints: { "3xl": "112em" },
 					}}
 				>
 					<ModalsProvider

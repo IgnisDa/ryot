@@ -4,17 +4,13 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
-    sync::Arc,
     time::Duration,
 };
 
 use anyhow::Result;
 use apalis::{
     cron::{CronStream, Schedule},
-    layers::{
-        Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
-        TraceLayer as ApalisTraceLayer,
-    },
+    layers::{RateLimitLayer as ApalisRateLimitLayer, TraceLayer as ApalisTraceLayer},
     prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
@@ -40,10 +36,11 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
     background::{
-        import_media, media_jobs, recalculate_user_summary_job, update_exercise_job,
-        update_metadata_job, user_created_job, user_jobs, yank_integrations_data,
+        import_media, media_jobs, recalculate_user_summary_job,
+        send_media_reminder_to_user_platforms_job, update_exercise_job, update_metadata_job,
+        user_created_job, user_jobs, yank_integrations_data,
     },
-    config::get_app_config,
+    config::load_app_config,
     config::AppConfig,
     graphql::get_schema,
     migrator::Migrator,
@@ -51,7 +48,7 @@ use crate::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_handler,
     },
-    utils::{create_app_services, MemoryAuthData, BASE_DIR, PROJECT_NAME, VERSION},
+    utils::{set_app_services, MemoryAuthData, BASE_DIR, PROJECT_NAME, VERSION},
 };
 
 mod background;
@@ -84,12 +81,20 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    let config = get_app_config()?;
+    let config = load_app_config()?;
+    let cors_origins = config
+        .server
+        .cors_origins
+        .iter()
+        .map(|f| f.parse().unwrap())
+        .collect_vec();
+    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
+    let user_cleanup_every = config.scheduler.user_cleanup_every;
+    let pull_every = config.integration.pull_every;
     fs::write(
         &config.server.config_dump_path,
         serde_json::to_string_pretty(&config)?,
     )?;
-    let config = Arc::new(config);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -118,17 +123,15 @@ async fn main() -> Result<()> {
     let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
-    let auth_db = Arc::new(
-        Storage::<String, MemoryAuthData>::open(Options::new(
-            &config.database.auth_db_path,
-            &format!("{}-auth.db", PROJECT_NAME),
-            1000,
-            StorageType::DiskCopies,
-            true,
-        ))
-        .await
-        .unwrap(),
-    );
+    let auth_db = Storage::<String, MemoryAuthData>::open(Options::new(
+        &config.database.auth_db_path,
+        &format!("{}-auth.db", PROJECT_NAME),
+        1000,
+        StorageType::DiskCopies,
+        true,
+    ))
+    .await
+    .unwrap();
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -144,20 +147,22 @@ async fn main() -> Result<()> {
 
     let import_media_storage = create_storage(pool.clone()).await;
     let user_created_job_storage = create_storage(pool.clone()).await;
+    let send_notifications_to_user_platform_job_storage = create_storage(pool.clone()).await;
     let recalculate_user_summary_job_storage = create_storage(pool.clone()).await;
     let update_metadata_job_storage = create_storage(pool.clone()).await;
     let update_exercise_job_storage = create_storage(pool.clone()).await;
 
-    let app_services = create_app_services(
+    set_app_services(
         db.clone(),
-        auth_db.clone(),
+        auth_db,
         s3_client,
-        config.clone(),
+        config,
         &import_media_storage,
         &user_created_job_storage,
         &update_exercise_job_storage,
         &update_metadata_job_storage,
         &recalculate_user_summary_job_storage,
+        &send_notifications_to_user_platform_job_storage,
     )
     .await;
 
@@ -186,19 +191,12 @@ async fn main() -> Result<()> {
         }
     }
 
-    let schema = get_schema(&app_services).await;
+    let schema = get_schema().await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
-        .allow_origin(
-            config
-                .server
-                .cors_origins
-                .iter()
-                .map(|f| f.parse().unwrap())
-                .collect_vec(),
-        )
+        .allow_origin(cors_origins)
         .allow_credentials(true);
 
     let webhook_routes = Router::new().route(
@@ -213,10 +211,7 @@ async fn main() -> Result<()> {
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .route("/export", get(json_export))
         .fallback(static_handler)
-        .layer(Extension(app_services.media_service.clone()))
-        .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
-        .layer(Extension(config.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(CookieManagerLayer::new())
@@ -228,21 +223,6 @@ async fn main() -> Result<()> {
         .unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
-
-    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
-
-    let importer_service_1 = app_services.importer_service.clone();
-    let importer_service_2 = app_services.importer_service.clone();
-    let media_service_1 = app_services.media_service.clone();
-    let media_service_2 = app_services.media_service.clone();
-    let media_service_3 = app_services.media_service.clone();
-    let media_service_4 = app_services.media_service.clone();
-    let media_service_6 = app_services.media_service.clone();
-    let media_service_7 = app_services.media_service.clone();
-    let exercise_service_1 = app_services.exercise_service.clone();
-
-    let user_cleanup_every = config.scheduler.user_cleanup_every;
-    let pull_every = config.integration.pull_every;
 
     let monitor = async {
         let mn = Monitor::new()
@@ -258,7 +238,6 @@ async fn main() -> Result<()> {
                         .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_1.clone()))
                     .build_fn(user_jobs)
             })
             .register_with_count(1, move |c| {
@@ -270,8 +249,6 @@ async fn main() -> Result<()> {
                             .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(importer_service_2.clone()))
-                    .layer(ApalisExtension(media_service_2.clone()))
                     .build_fn(media_jobs)
             })
             .register_with_count(1, move |c| {
@@ -284,28 +261,30 @@ async fn main() -> Result<()> {
                         .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_3.clone()))
                     .build_fn(yank_integrations_data)
             })
             // application jobs
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("import_media-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(importer_service_1.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
             })
             .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("send_media_reminder-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .with_storage(send_notifications_to_user_platform_job_storage.clone())
+                    .build_fn(send_media_reminder_to_user_platforms_job)
+            })
+            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_4.clone()))
                     .with_storage(user_created_job_storage.clone())
                     .build_fn(user_created_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("recalculate_user_summary_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_6.clone()))
                     .with_storage(recalculate_user_summary_job_storage.clone())
                     .build_fn(recalculate_user_summary_job)
             })
@@ -316,7 +295,6 @@ async fn main() -> Result<()> {
                         rate_limit_num,
                         Duration::new(5, 0),
                     ))
-                    .layer(ApalisExtension(media_service_7.clone()))
                     .with_storage(update_metadata_job_storage.clone())
                     .build_fn(update_metadata_job)
             })
@@ -324,7 +302,6 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new(format!("update_exercise_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisRateLimitLayer::new(50, Duration::new(5, 0)))
-                    .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(update_exercise_job_storage.clone())
                     .build_fn(update_exercise_job)
             })
@@ -359,7 +336,11 @@ fn init_tracing() -> WorkerGuard {
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .finish()
             // add additional writers
-            .with(fmt::Layer::default().with_writer(non_blocking)),
+            .with(
+                fmt::Layer::default()
+                    .with_writer(non_blocking)
+                    .with_ansi(false),
+            ),
     )
     .expect("Unable to set global tracing subscriber");
     guard

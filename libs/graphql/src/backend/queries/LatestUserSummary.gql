@@ -3,6 +3,7 @@ query LatestUserSummary {
     calculatedOn
     media {
       reviewsPosted
+      creatorsInteractedWith
       manga {
         chapters
         read

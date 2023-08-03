@@ -1,0 +1,3 @@
+mutation DeleteMediaReminder($metadataId: Int!) {
+  deleteMediaReminder(metadataId: $metadataId)
+}

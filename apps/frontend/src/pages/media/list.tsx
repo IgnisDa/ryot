@@ -448,7 +448,7 @@ const Page: NextPageWithLayout = () => {
 							) : (
 								<Text>You do not have any saved yet</Text>
 							)}
-							{listMedia.data && (
+							{listMedia.data ? (
 								<Center>
 									<Pagination
 										size="sm"
@@ -459,7 +459,7 @@ const Page: NextPageWithLayout = () => {
 										siblings={0}
 									/>
 								</Center>
-							)}
+							) : null}
 						</Stack>
 					</Tabs.Panel>
 
@@ -513,7 +513,7 @@ const Page: NextPageWithLayout = () => {
 							) : (
 								<Text>No media found :(</Text>
 							)}
-							{searchQuery.data && (
+							{searchQuery.data ? (
 								<Center>
 									<Pagination
 										size="sm"
@@ -524,7 +524,7 @@ const Page: NextPageWithLayout = () => {
 										siblings={0}
 									/>
 								</Center>
-							)}
+							) : null}
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>

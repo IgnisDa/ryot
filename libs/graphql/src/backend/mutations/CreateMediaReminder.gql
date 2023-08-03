@@ -1,0 +1,3 @@
+mutation CreateMediaReminder($input: CreateMediaReminderInput!) {
+  createMediaReminder(input: $input)
+}

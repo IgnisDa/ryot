@@ -176,7 +176,7 @@ export function LinksGroup({
 						</ThemeIcon>
 						<Box ml="md">{label}</Box>
 					</Box>
-					{hasLinks && (
+					{hasLinks ? (
 						<ChevronIcon
 							className={classes.chevron}
 							size="1rem"
@@ -187,7 +187,7 @@ export function LinksGroup({
 									: "none",
 							}}
 						/>
-					)}
+					) : null}
 				</Group>
 			</UnstyledButton>
 			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}

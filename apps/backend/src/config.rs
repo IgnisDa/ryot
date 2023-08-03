@@ -352,7 +352,7 @@ impl IsFeatureEnabled for FileStorageConfig {
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
     /// The url to the SQLite database where job related data needs to be stored.
-    #[setting(default = "sqlite::memory:")]
+    #[setting(default = format!("sqlite:/data/{}-scheduler.db?mode=rwc", PROJECT_NAME))]
     pub database_url: String,
     /// The number of jobs to process every 5 seconds when updating metadata in
     /// the background.
@@ -484,7 +484,7 @@ impl AppConfig {
     }
 }
 
-pub fn get_app_config() -> Result<AppConfig> {
+pub fn load_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
     let path = PathBuf::from(config);

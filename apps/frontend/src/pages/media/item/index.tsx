@@ -20,6 +20,7 @@ import {
 	Group,
 	Indicator,
 	type MantineGradient,
+	Menu,
 	Modal,
 	NumberInput,
 	ScrollArea,
@@ -29,15 +30,21 @@ import {
 	Stack,
 	Tabs,
 	Text,
+	TextInput,
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
 	CollectionsDocument,
+	CreateMediaReminderDocument,
+	type CreateMediaReminderMutationVariables,
+	DeleteMediaReminderDocument,
+	type DeleteMediaReminderMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
@@ -263,6 +270,80 @@ function SelectCollectionModal(props: {
 	);
 }
 
+function CreateReminderModal(props: {
+	opened: boolean;
+	onClose: () => void;
+	title: string;
+	metadataId: number;
+	refetchUserMediaDetails: () => void;
+}) {
+	const [message, setMessage] = useState(`Complete '${props.title}'`);
+	const [remindOn, setRemindOn] = useState(new Date());
+
+	const createMediaReminder = useMutation({
+		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
+			const { createMediaReminder } = await gqlClient.request(
+				CreateMediaReminderDocument,
+				variables,
+			);
+			return createMediaReminder;
+		},
+		onSuccess: () => {
+			props.refetchUserMediaDetails();
+			props.onClose();
+		},
+	});
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				<Title order={3}>Create a reminder</Title>
+				<Text>
+					A notification will be sent to all your configured{" "}
+					<Link
+						passHref
+						legacyBehavior
+						href={APP_ROUTES.settings.notifications}
+					>
+						<Anchor>platforms</Anchor>
+					</Link>
+					.
+				</Text>
+				<TextInput
+					onChange={(e) => setMessage(e.currentTarget.value)}
+					label="Message"
+					value={message}
+				/>
+				<DateTimePicker
+					dropdownType="modal"
+					label="Remind on"
+					onChange={(v) => {
+						if (v) setRemindOn(new Date(v.getTime()));
+					}}
+					value={remindOn}
+					modalProps={{ withinPortal: true }}
+				/>
+				<Button
+					data-autofocus
+					variant="outline"
+					onClick={() => {
+						createMediaReminder.mutate({
+							input: { metadataId: props.metadataId, message, remindOn },
+						});
+					}}
+				>
+					Submit
+				</Button>
+			</Stack>
+		</Modal>
+	);
+}
+
 const AccordionLabel = ({
 	name,
 	posterImages,
@@ -313,37 +394,26 @@ const AccordionLabel = ({
 };
 
 const Page: NextPageWithLayout = () => {
-	const [changeState, setChangeState] = useState<SeenState>();
-
 	const [
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
 	] = useDisclosure(false);
 	const [
-		changeStateModalOpened,
-		{ open: changeStateModalOpen, close: changeStateModalClose },
-	] = useDisclosure(false);
-	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
+	] = useDisclosure(false);
+	const [
+		createMediaReminderModalOpened,
+		{
+			open: createMediaReminderModalOpen,
+			close: createMediaReminderModalClose,
+		},
 	] = useDisclosure(false);
 	const router = useRouter();
 	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
-	const userMediaDetails = useQuery({
-		queryKey: ["userMediaDetails", metadataId],
-		queryFn: async () => {
-			const { userMediaDetails } = await gqlClient.request(
-				UserMediaDetailsDocument,
-				{ metadataId },
-			);
-			return userMediaDetails;
-		},
-		staleTime: Infinity,
-		enabled: !!metadataId,
-	});
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
 		queryFn: async () => {
@@ -353,6 +423,17 @@ const Page: NextPageWithLayout = () => {
 			return mediaDetails;
 		},
 		staleTime: Infinity,
+		enabled: !!metadataId,
+	});
+	const userMediaDetails = useQuery({
+		queryKey: ["userMediaDetails", metadataId],
+		queryFn: async () => {
+			const { userMediaDetails } = await gqlClient.request(
+				UserMediaDetailsDocument,
+				{ metadataId },
+			);
+			return userMediaDetails;
+		},
 		enabled: !!metadataId,
 	});
 	const collections = useQuery({
@@ -369,6 +450,18 @@ const Page: NextPageWithLayout = () => {
 				variables,
 			);
 			return progressUpdate;
+		},
+		onSuccess: () => {
+			userMediaDetails.refetch();
+		},
+	});
+	const deleteMediaReminder = useMutation({
+		mutationFn: async (variables: DeleteMediaReminderMutationVariables) => {
+			const { deleteMediaReminder } = await gqlClient.request(
+				DeleteMediaReminderDocument,
+				variables,
+			);
+			return deleteMediaReminder;
 		},
 		onSuccess: () => {
 			userMediaDetails.refetch();
@@ -468,6 +561,52 @@ const Page: NextPageWithLayout = () => {
 		.exhaustive();
 
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
+
+	const PutOnHoldBtn = () => {
+		return (
+			<Menu.Item
+				onClick={() => {
+					progressUpdate.mutate({
+						input: {
+							metadataId: metadataId,
+							changeState: SeenState.OnAHold,
+						},
+					});
+				}}
+			>
+				Put on hold
+			</Menu.Item>
+		);
+	};
+	const DropBtn = () => {
+		return (
+			<Menu.Item
+				color="red"
+				onClick={() => {
+					const yes = confirm(
+						"You will not be able to resume this session after this operation. Continue?",
+					);
+					if (yes)
+						progressUpdate.mutate({
+							input: {
+								metadataId: metadataId,
+								changeState: SeenState.Dropped,
+							},
+						});
+				}}
+			>
+				Mark as dropped
+			</Menu.Item>
+		);
+	};
+	const StateChangeBtns = () => {
+		return (
+			<>
+				<PutOnHoldBtn />
+				<DropBtn />
+			</>
+		);
+	};
 
 	return mediaDetails.data && userMediaDetails.data ? (
 		<>
@@ -588,6 +727,21 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : null}
 					</Flex>
+					{userMediaDetails.data.reminder ? (
+						<Alert
+							icon={<IconAlertCircle size="1rem" />}
+							variant="outline"
+							color="violet"
+						>
+							Reminder for{" "}
+							{DateTime.fromJSDate(
+								userMediaDetails.data.reminder.remindOn,
+							).toLocaleString(DateTime.DATETIME_SHORT)}
+							<Text color="green">
+								{userMediaDetails.data.reminder.message}
+							</Text>
+						</Alert>
+					) : null}
 					{userMediaDetails.data.inProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
@@ -687,6 +841,7 @@ const Page: NextPageWithLayout = () => {
 																		size="xs"
 																		color="dimmed"
 																		align="center"
+																		lineClamp={1}
 																		mt={4}
 																	>
 																		{creator.name}
@@ -710,202 +865,145 @@ const Page: NextPageWithLayout = () => {
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
 									{userMediaDetails.data.inProgress ? (
-										<>
-											<Button variant="outline" onClick={progressModalOpen}>
-												Set progress
-											</Button>
-											<ProgressModal
-												progress={userMediaDetails.data.inProgress.progress}
-												refetch={userMediaDetails.refetch}
-												metadataId={metadataId}
-												onClose={progressModalClose}
-												opened={progressModalOpened}
-												lot={mediaDetails.data.lot}
-												total={
-													mediaDetails.data.audioBookSpecifics?.runtime ||
-													mediaDetails.data.bookSpecifics?.pages ||
-													mediaDetails.data.movieSpecifics?.runtime ||
-													mediaDetails.data.mangaSpecifics?.chapters ||
-													mediaDetails.data.animeSpecifics?.episodes
-												}
-											/>
-											<Button
-												variant="outline"
-												onClick={async () => {
-													await progressUpdate.mutateAsync({
-														input: {
-															progress: 100,
-															metadataId: metadataId,
-															date: DateTime.now().toISODate(),
-														},
-													});
-												}}
-											>
-												I finished {getVerb(Verb.Read, mediaDetails.data.lot)}
-												ing it
-											</Button>
-										</>
-									) : mediaDetails.data.lot === MetadataLot.Show ||
-									  mediaDetails.data.lot === MetadataLot.Podcast ? (
-										userMediaDetails.data.nextEpisode !== null ? (
-											<Button
-												variant="outline"
-												onClick={async () => {
-													if (mediaDetails.data.lot === MetadataLot.Podcast)
-														router.push(
-															withQuery(
-																APP_ROUTES.media.individualMediaItem
-																	.updateProgress,
-																{
-																	id: metadataId,
-																	selectedPodcastEpisodeNumber:
-																		userMediaDetails.data.nextEpisode
-																			?.episodeNumber,
-																},
-															),
-														);
-													else
-														router.push(
-															withQuery(
-																APP_ROUTES.media.individualMediaItem
-																	.updateProgress,
-																{
-																	id: metadataId,
-																	selectedShowSeasonNumber:
-																		userMediaDetails.data.nextEpisode
-																			?.seasonNumber,
-																	selectedShowEpisodeNumber:
-																		userMediaDetails.data.nextEpisode
-																			?.episodeNumber,
-																},
-															),
-														);
-												}}
-											>
-												Mark{" "}
-												{mediaDetails.data.lot === MetadataLot.Show
-													? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
-													: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
-												as seen
-											</Button>
-										) : null
-									) : (
-										<Button
-											variant="outline"
-											onClick={async () => {
-												await progressUpdate.mutateAsync({
-													input: { metadataId: metadataId, progress: 0 },
-												});
-											}}
-										>
-											I'm {getVerb(Verb.Read, mediaDetails.data.lot)}
-											ing it
-										</Button>
-									)}
-									{userMediaDetails.data.history.length > 0 &&
-									userMediaDetails.data.inProgress &&
-									![SeenState.OnAHold, SeenState.Dropped].includes(
-										userMediaDetails.data.inProgress.state,
-									) ? (
-										<>
-											<Button variant="outline" onClick={changeStateModalOpen}>
-												Put on hold/drop
-											</Button>
-											<Modal
-												opened={changeStateModalOpened}
-												onClose={changeStateModalClose}
-												withCloseButton={false}
-												centered
-											>
-												<Stack>
-													<Title order={3}>Change state</Title>
-													<Select
-														withinPortal
-														data={["Drop", "Put on hold"]}
-														onChange={(v) => {
-															if (v) {
-																const state = match(v)
-																	.with("Drop", () => SeenState.Dropped)
-																	.with("Put on hold", () => SeenState.OnAHold)
-																	.otherwise(() => undefined);
-																if (state) setChangeState(state);
-															}
-														}}
-													/>
-													<Button
-														variant="outline"
-														onClick={() => {
-															if (changeState)
-																progressUpdate.mutate({
-																	input: {
-																		metadataId: metadataId,
-																		changeState: changeState,
-																	},
-																});
-															setChangeState(undefined);
-															changeStateModalClose();
-														}}
-													>
-														Set
-													</Button>
-													<Button
-														variant="outline"
-														color="red"
-														onClick={changeStateModalClose}
-													>
-														Cancel
-													</Button>
-												</Stack>
-											</Modal>
-										</>
-									) : mediaDetails.data.lot === MetadataLot.Show ||
-									  mediaDetails.data.lot === MetadataLot.Podcast ? (
-										<Button
-											variant="outline"
-											onClick={() => {
-												if (mediaDetails.data.lot === MetadataLot.Show)
-													router.push(
-														withQuery(
-															APP_ROUTES.media.individualMediaItem
-																.updateProgress,
-															{
-																idx: metadataId,
-																completeShow: 1,
-															},
-														),
-													);
-												else
-													router.push(
-														withQuery(
-															APP_ROUTES.media.individualMediaItem
-																.updateProgress,
-															{
-																id: metadataId,
-																completePodcast: 1,
-															},
-														),
-													);
-											}}
-										>
-											Mark {changeCase(mediaDetails.data.lot).toLowerCase()} as
-											seen
-										</Button>
+										<ProgressModal
+											progress={userMediaDetails.data.inProgress.progress}
+											refetch={userMediaDetails.refetch}
+											metadataId={metadataId}
+											onClose={progressModalClose}
+											opened={progressModalOpened}
+											lot={mediaDetails.data.lot}
+											total={
+												mediaDetails.data.audioBookSpecifics?.runtime ||
+												mediaDetails.data.bookSpecifics?.pages ||
+												mediaDetails.data.movieSpecifics?.runtime ||
+												mediaDetails.data.mangaSpecifics?.chapters ||
+												mediaDetails.data.animeSpecifics?.episodes
+											}
+										/>
 									) : null}
-									<Button
-										variant="outline"
-										onClick={() => {
-											router.push(
-												withQuery(
-													APP_ROUTES.media.individualMediaItem.updateProgress,
-													{
-														id: metadataId,
-													},
-												),
-											);
-										}}
-									>
-										Add to {getVerb(Verb.Read, mediaDetails.data.lot)} history
-									</Button>
+									<Menu shadow="md" withinPortal>
+										<Menu.Target>
+											<Button variant="outline">Update progress</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											{mediaDetails.data.lot === MetadataLot.Show ||
+											mediaDetails.data.lot === MetadataLot.Podcast ? (
+												<>
+													<Menu.Label>Shows and podcasts</Menu.Label>
+													{userMediaDetails.data.nextEpisode ? (
+														<>
+															<Menu.Item
+																onClick={async () => {
+																	if (
+																		mediaDetails.data.lot ===
+																		MetadataLot.Podcast
+																	)
+																		router.push(
+																			withQuery(
+																				APP_ROUTES.media.individualMediaItem
+																					.updateProgress,
+																				{
+																					id: metadataId,
+																					selectedPodcastEpisodeNumber:
+																						userMediaDetails.data.nextEpisode
+																							?.episodeNumber,
+																				},
+																			),
+																		);
+																	else
+																		router.push(
+																			withQuery(
+																				APP_ROUTES.media.individualMediaItem
+																					.updateProgress,
+																				{
+																					id: metadataId,
+																					selectedShowSeasonNumber:
+																						userMediaDetails.data.nextEpisode
+																							?.seasonNumber,
+																					selectedShowEpisodeNumber:
+																						userMediaDetails.data.nextEpisode
+																							?.episodeNumber,
+																				},
+																			),
+																		);
+																}}
+															>
+																Mark{" "}
+																{mediaDetails.data.lot === MetadataLot.Show
+																	? `S${userMediaDetails.data.nextEpisode?.seasonNumber}-E${userMediaDetails.data.nextEpisode?.episodeNumber}`
+																	: `EP-${userMediaDetails.data.nextEpisode?.episodeNumber}`}{" "}
+																as seen
+															</Menu.Item>
+															<PutOnHoldBtn />
+														</>
+													) : null}
+													<DropBtn />
+												</>
+											) : null}
+											{userMediaDetails.data.inProgress ? (
+												<>
+													<Menu.Label>In progress</Menu.Label>
+													<Menu.Item
+														onClick={async () => {
+															await progressUpdate.mutateAsync({
+																input: {
+																	progress: 100,
+																	metadataId: metadataId,
+																	date: DateTime.now().toISODate(),
+																},
+															});
+														}}
+													>
+														I finished{" "}
+														{getVerb(Verb.Read, mediaDetails.data.lot)}
+														ing it
+													</Menu.Item>
+													<Menu.Item onClick={progressModalOpen}>
+														Set progress
+													</Menu.Item>
+													{mediaDetails.data.lot !== MetadataLot.Show &&
+													mediaDetails.data.lot !== MetadataLot.Podcast ? (
+														<StateChangeBtns />
+													) : null}
+												</>
+											) : mediaDetails.data.lot !== MetadataLot.Show &&
+											  mediaDetails.data.lot !== MetadataLot.Podcast ? (
+												<>
+													<Menu.Label>Not in progress</Menu.Label>
+													<Menu.Item
+														onClick={async () => {
+															await progressUpdate.mutateAsync({
+																input: {
+																	metadataId: metadataId,
+																	progress: 0,
+																},
+															});
+														}}
+													>
+														I'm {getVerb(Verb.Read, mediaDetails.data.lot)}
+														ing it
+													</Menu.Item>
+
+													<Menu.Item
+														onClick={() => {
+															router.push(
+																withQuery(
+																	APP_ROUTES.media.individualMediaItem
+																		.updateProgress,
+																	{
+																		id: metadataId,
+																	},
+																),
+															);
+														}}
+													>
+														Add to {getVerb(Verb.Read, mediaDetails.data.lot)}{" "}
+														history
+													</Menu.Item>
+												</>
+											) : null}
+										</Menu.Dropdown>
+									</Menu>
 									<Link
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.postReview,
@@ -960,6 +1058,32 @@ const Page: NextPageWithLayout = () => {
 										{userMediaDetails.data.isMonitored ? "Stop" : "Start"}{" "}
 										monitoring
 									</Button>
+									{userMediaDetails.data.reminder ? (
+										<Button
+											variant="outline"
+											onClick={() => {
+												deleteMediaReminder.mutate({ metadataId });
+											}}
+										>
+											Remove reminder
+										</Button>
+									) : (
+										<>
+											<CreateReminderModal
+												onClose={createMediaReminderModalClose}
+												opened={createMediaReminderModalOpened}
+												metadataId={metadataId}
+												title={mediaDetails.data.title}
+												refetchUserMediaDetails={userMediaDetails.refetch}
+											/>
+											<Button
+												variant="outline"
+												onClick={createMediaReminderModalOpen}
+											>
+												Create reminder
+											</Button>
+										</>
+									)}
 									<Button
 										variant="outline"
 										onClick={() => {
@@ -998,8 +1122,8 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<Stack>
 									<Text>
-										Seen by all users {mediaDetails.data.seenBy} time
-										{mediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
+										Seen by all users {userMediaDetails.data.seenBy} time
+										{userMediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
 										{userMediaDetails.data.history.length} time
 										{userMediaDetails.data.history.length > 1 ? "s" : ""} by you
 									</Text>

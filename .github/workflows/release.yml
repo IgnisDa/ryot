@@ -76,7 +76,7 @@ jobs:
       - name: Install nodejs dependencies
         run: yarn install --immutable
       - name: Setup Moon
-        uses: moonrepo/setup-moon-action@v1.1.1
+        uses: moonrepo/setup-moon-action@v1.2.0
       - name: Install cargo-dist
         run: ${{ matrix.install-dist }}
       - name: Build the frontend
@@ -108,7 +108,7 @@ jobs:
       - name: Install nodejs dependencies
         run: yarn install --immutable
       - name: Setup Moon
-        uses: moonrepo/setup-moon-action@v1.1.1
+        uses: moonrepo/setup-moon-action@v1.2.0
       - name: Build plugin
         run: |
           moon run kodi:build

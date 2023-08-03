@@ -19,6 +19,7 @@ impl MigrationName for Migration {
 /// - added it to a collection
 /// - has reviewed it
 /// - added to their monitored media
+/// - added a reminder
 #[derive(Iden)]
 pub enum UserToMetadata {
     Table,
@@ -26,6 +27,7 @@ pub enum UserToMetadata {
     MetadataId,
     LastUpdatedOn,
     Monitored,
+    Reminder,
 }
 
 #[derive(
@@ -119,6 +121,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(UserToMetadata::Reminder).json().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_metadata-user_id")

@@ -41,7 +41,12 @@ query UserMediaDetails($metadataId: Int!) {
         name
       }
     }
+    reminder {
+      remindOn
+      message
+    }
     isMonitored
+    seenBy
     nextEpisode {
       seasonNumber
       episodeNumber

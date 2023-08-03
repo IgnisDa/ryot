@@ -64,36 +64,34 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 					<Text>{collectionContents.data.details.description}</Text>
 					{collectionContents.data.results.items.length > 0 ? (
-						<>
-							<Grid>
-								{collectionContents.data.results.items.map((lm) => (
-									<MediaItemWithoutUpdateModal
-										key={lm.identifier}
-										item={lm}
-										lot={lm.lot}
-										href={withQuery(
-											APP_ROUTES.media.individualMediaItem.details,
-											{ id: lm.identifier },
-										)}
-									/>
-								))}
-							</Grid>
-							<Center>
-								<Pagination
-									size="sm"
-									value={parseInt(activePage)}
-									onChange={(v) => setPage(v.toString())}
-									total={Math.ceil(
-										collectionContents.data.results.total / LIMIT,
+						<Grid>
+							{collectionContents.data.results.items.map((lm) => (
+								<MediaItemWithoutUpdateModal
+									key={lm.identifier}
+									item={lm}
+									lot={lm.lot}
+									href={withQuery(
+										APP_ROUTES.media.individualMediaItem.details,
+										{ id: lm.identifier },
 									)}
-									boundaries={1}
-									siblings={0}
 								/>
-							</Center>
-						</>
+							))}
+						</Grid>
 					) : (
 						<Text>You have not added any media to this collection</Text>
 					)}
+					{collectionContents.data ? (
+						<Center>
+							<Pagination
+								size="sm"
+								value={parseInt(activePage)}
+								onChange={(v) => setPage(v.toString())}
+								total={Math.ceil(collectionContents.data.results.total / LIMIT)}
+								boundaries={1}
+								siblings={0}
+							/>
+						</Center>
+					) : null}
 				</Stack>
 			</Container>
 		</>

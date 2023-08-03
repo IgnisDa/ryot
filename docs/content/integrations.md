@@ -52,7 +52,7 @@ following settings:
     - Webhook Url => `<instance_url>/webhooks/integrations/jellyfin/<slug>`
     - Payload format => `Default`
     - Listen to events only for => Choose your user
-    - Events => `Play`, `Pause`, `Resume`, and `Stop`
+    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
 
 !!! tip
 

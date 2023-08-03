@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
@@ -14,13 +12,13 @@ use crate::{
     background::ImportMedia,
     entities::{import_report, prelude::ImportReport},
     migrator::{ImportSource, MetadataLot},
-    miscellaneous::resolver::MiscellaneousService,
+    miscellaneous::resolver::get_miscellaneous_service,
     models::media::{
         AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
         ImportOrExportItemIdentifier, PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
-    utils::MemoryDatabase,
+    utils::{get_global_service, MemoryDatabase},
 };
 
 mod goodreads;
@@ -128,6 +126,10 @@ pub struct ImportResultResponse {
     pub failed_items: Vec<ImportFailedItem>,
 }
 
+pub fn get_importer_service<'a>() -> &'a ImporterService {
+    &get_global_service().importer_service
+}
+
 #[derive(Default)]
 pub struct ImporterQuery;
 
@@ -135,7 +137,7 @@ pub struct ImporterQuery;
 impl ImporterQuery {
     /// Get all the import jobs deployed by the user.
     async fn import_reports(&self, gql_ctx: &Context<'_>) -> Result<Vec<import_report::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
+        let service = get_importer_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.import_reports(user_id).await
     }
@@ -152,7 +154,7 @@ impl ImporterMutation {
         gql_ctx: &Context<'_>,
         input: DeployImportJobInput,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
+        let service = get_importer_service();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_import_job(user_id, input).await
     }
@@ -160,25 +162,19 @@ impl ImporterMutation {
 
 pub struct ImporterService {
     db: DatabaseConnection,
-    media_service: Arc<MiscellaneousService>,
     import_media: SqliteStorage<ImportMedia>,
 }
 
 impl AuthProvider for ImporterService {
     fn get_auth_db(&self) -> &MemoryDatabase {
-        self.media_service.get_auth_db()
+        get_miscellaneous_service().get_auth_db()
     }
 }
 
 impl ImporterService {
-    pub fn new(
-        db: &DatabaseConnection,
-        media_service: Arc<MiscellaneousService>,
-        import_media: &SqliteStorage<ImportMedia>,
-    ) -> Self {
+    pub fn new(db: &DatabaseConnection, import_media: &SqliteStorage<ImportMedia>) -> Self {
         Self {
             db: db.clone(),
-            media_service,
             import_media: import_media.clone(),
         }
     }
@@ -213,7 +209,7 @@ impl ImporterService {
     }
 
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
-        self.media_service.import_reports(user_id).await
+        get_miscellaneous_service().import_reports(user_id).await
     }
 
     pub async fn import_from_source(
@@ -221,10 +217,7 @@ impl ImporterService {
         user_id: i32,
         input: DeployImportJobInput,
     ) -> Result<()> {
-        let db_import_job = self
-            .media_service
-            .start_import_job(user_id, input.source)
-            .await?;
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
         let mut import = match input.source {
             ImportSource::MediaTracker => {
                 media_tracker::import(input.media_tracker.unwrap()).await?
@@ -236,7 +229,7 @@ impl ImporterService {
             ImportSource::StoryGraph => {
                 story_graph::import(
                     input.story_graph.unwrap(),
-                    &self.media_service.openlibrary_service,
+                    &get_miscellaneous_service().openlibrary_service,
                 )
                 .await?
             }
@@ -250,8 +243,8 @@ impl ImporterService {
             .rev()
             .collect_vec();
         for col_details in import.collections.into_iter() {
-            self.media_service
-                .create_or_update_collection(&user_id, col_details)
+            get_miscellaneous_service()
+                .create_or_update_collection(user_id, col_details)
                 .await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
@@ -261,12 +254,14 @@ impl ImporterService {
             );
             let data = match &item.identifier {
                 ImportOrExportItemIdentifier::NeedsDetails(i) => {
-                    self.media_service
+                    get_miscellaneous_service()
                         .commit_media(item.lot, item.source, i)
                         .await
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
-                    self.media_service.commit_media_internal(*a.clone()).await
+                    get_miscellaneous_service()
+                        .commit_media_internal(*a.clone())
+                        .await
                 }
             };
             let metadata = match data {
@@ -283,8 +278,7 @@ impl ImporterService {
                 }
             };
             for seen in item.seen_history.iter() {
-                match self
-                    .media_service
+                match get_miscellaneous_service()
                     .progress_update(
                         ProgressUpdateInput {
                             metadata_id: metadata.id,
@@ -316,10 +310,9 @@ impl ImporterService {
                 let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
                 let date = review.review.clone().map(|r| r.date);
-                match self
-                    .media_service
+                match get_miscellaneous_service()
                     .post_review(
-                        &user_id,
+                        user_id,
                         PostReviewInput {
                             rating: review.rating,
                             text,
@@ -346,18 +339,18 @@ impl ImporterService {
                 };
             }
             for col in item.collections.iter() {
-                self.media_service
+                get_miscellaneous_service()
                     .create_or_update_collection(
-                        &user_id,
+                        user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
                         },
                     )
                     .await?;
-                self.media_service
+                get_miscellaneous_service()
                     .add_media_to_collection(
-                        &user_id,
+                        user_id,
                         AddMediaToCollection {
                             collection_name: col.to_string(),
                             media_id: metadata.id,
@@ -376,7 +369,7 @@ impl ImporterService {
                 col = item.collections.len(),
             );
         }
-        self.media_service
+        get_miscellaneous_service()
             .deploy_recalculate_summary_job(user_id)
             .await
             .ok();
@@ -392,9 +385,35 @@ impl ImporterService {
             },
             failed_items: import.failed_items,
         };
-        self.media_service
-            .finish_import_job(db_import_job, details)
-            .await?;
+        self.finish_import_job(db_import_job, details).await?;
         Ok(())
+    }
+
+    async fn start_import_job(
+        &self,
+        user_id: i32,
+        source: ImportSource,
+    ) -> Result<import_report::Model> {
+        let model = import_report::ActiveModel {
+            user_id: ActiveValue::Set(user_id),
+            source: ActiveValue::Set(source),
+            ..Default::default()
+        };
+        let model = model.insert(&self.db).await.unwrap();
+        tracing::trace!("Started import job with id = {id}", id = model.id);
+        Ok(model)
+    }
+
+    async fn finish_import_job(
+        &self,
+        job: import_report::Model,
+        details: ImportResultResponse,
+    ) -> Result<import_report::Model> {
+        let mut model: import_report::ActiveModel = job.into();
+        model.finished_on = ActiveValue::Set(Some(Utc::now()));
+        model.details = ActiveValue::Set(Some(details));
+        model.success = ActiveValue::Set(Some(true));
+        let model = model.update(&self.db).await.unwrap();
+        Ok(model)
     }
 }

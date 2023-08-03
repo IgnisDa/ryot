@@ -29,7 +29,7 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
-import { IconMessage2, IconPhotoPlus } from "@tabler/icons-react";
+import { IconFriends, IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -101,21 +101,30 @@ const DisplayStatForMediaType = (props: {
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
 		isEnabled[1] ? (
-			<ActualDisplayStat
-				data={props.data}
-				icon={icon}
-				lot={props.lot.toString()}
-				color={
-					colors[
-						(getStringAsciiValue(props.lot) + colors.length) % colors.length
-					]
-				}
-			/>
+			<Link
+				href={withQuery(APP_ROUTES.media.list, {
+					lot: props.lot.toLowerCase(),
+				})}
+				style={{ textDecoration: "none" }}
+			>
+				<ActualDisplayStat
+					data={props.data}
+					icon={icon}
+					lot={props.lot.toString()}
+					color={
+						colors[
+							(getStringAsciiValue(props.lot) + colors.length) % colors.length
+						]
+					}
+				/>
+			</Link>
 		) : null
 	) : null;
 };
 
 const Page: NextPageWithLayout = () => {
+	const theme = useMantineTheme();
+
 	const latestUserSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -310,12 +319,18 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 						<ActualDisplayStat
-							icon={<IconMessage2 />}
-							lot="Review"
+							icon={<IconFriends />}
+							lot="General stats"
+							color={theme.colors.grape[8]}
 							data={[
 								{
 									label: "Reviews",
 									value: latestUserSummary.data.media.reviewsPosted,
+									type: "number",
+								},
+								{
+									label: "People",
+									value: latestUserSummary.data.media.creatorsInteractedWith,
 									type: "number",
 								},
 							]}

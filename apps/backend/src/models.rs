@@ -49,6 +49,27 @@ pub struct IdObject {
 pub mod media {
     use super::*;
 
+    #[derive(
+        Clone,
+        FromJsonQueryResult,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        PartialOrd,
+        Ord,
+        Eq,
+        PartialEq,
+        InputObject,
+    )]
+    #[graphql(input_name = "UserMediaReminderInput")]
+    pub struct UserMediaReminder {
+        pub remind_on: DateTimeUtc,
+        pub message: String,
+        /// To be used later if a cancellation is needed.
+        pub job_id: String,
+    }
+
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
         pub id: i32,
@@ -437,7 +458,9 @@ pub mod media {
         #[serde(default)]
         pub manga: MangaSummary,
         #[serde(default)]
-        pub reviews_posted: u64,
+        pub reviews_posted: usize,
+        #[serde(default)]
+        pub creators_interacted_with: usize,
     }
 
     #[derive(
