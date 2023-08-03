@@ -4,8 +4,9 @@ query CoreDetails {
     authorName
     repositoryLink
     docsLink
-    usernameChangeAllowed
-    passwordChangeAllowed
     defaultCredentials
+    passwordChangeAllowed
+    preferencesChangeAllowed
+    usernameChangeAllowed
   }
 }

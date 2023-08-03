@@ -492,9 +492,10 @@ struct CoreDetails {
     version: String,
     author_name: String,
     repository_link: String,
-    username_change_allowed: bool,
-    password_change_allowed: bool,
     default_credentials: bool,
+    password_change_allowed: bool,
+    preferences_change_allowed: bool,
+    username_change_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1200,6 +1201,7 @@ impl MiscellaneousService {
             repository_link: REPOSITORY_LINK.to_owned(),
             username_change_allowed: get_app_config().users.allow_changing_username,
             password_change_allowed: get_app_config().users.allow_changing_password,
+            preferences_change_allowed: get_app_config().users.allow_changing_preferences,
             default_credentials: get_app_config().server.default_credentials,
         }
     }
@@ -3546,6 +3548,9 @@ impl MiscellaneousService {
         input: UpdateUserPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
+        if !get_app_config().users.allow_changing_preferences {
+            return Ok(false);
+        }
         let err = || Error::new("Incorrect property value encountered");
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
