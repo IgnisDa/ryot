@@ -3322,7 +3322,9 @@ impl MiscellaneousService {
             user_obj.email = ActiveValue::Set(Some(e));
         }
         if let Some(p) = input.password {
-            user_obj.password = ActiveValue::Set(p);
+            if get_app_config().users.allow_changing_password {
+                user_obj.password = ActiveValue::Set(p);
+            }
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(IdObject { id: user_obj.id })
@@ -4466,7 +4468,7 @@ impl MiscellaneousService {
 
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
-        // TODO: Kill existing job
+        // FIXME: Kill existing job
         let mut utm: user_to_metadata::ActiveModel = utm.into();
         utm.reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;

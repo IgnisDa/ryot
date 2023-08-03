@@ -3,13 +3,13 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::{m20230417_000002_create_user::User, Metadata};
+use crate::migrator::{m20230417_create_user::User, Metadata};
 
 pub struct Migration;
 
 impl MigrationName for Migration {
     fn name(&self) -> &str {
-        "m20230419_000003_create_seen"
+        "m20230419_create_seen"
     }
 }
 
