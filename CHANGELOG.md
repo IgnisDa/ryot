@@ -1,4 +1,15 @@
 
+# Version 1.22.1 (2023-08-03)
+
+## Build
+
+* **backend:** bump version
+
+## Features
+
+* **backend:** final model changes
+
+
 # Version 1.22.0 (2023-08-03)
 
 ## Bug Fixes
