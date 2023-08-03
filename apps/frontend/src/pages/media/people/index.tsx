@@ -161,7 +161,7 @@ const Page: NextPageWithLayout = () => {
 								>
 									<Link
 										href={withQuery(
-											APP_ROUTES.media.individualMediaItem.postReview,
+											APP_ROUTES.media.postReview,
 											{ creatorId },
 										)}
 										passHref

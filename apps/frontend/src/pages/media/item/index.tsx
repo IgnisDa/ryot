@@ -1005,25 +1005,22 @@ const Page: NextPageWithLayout = () => {
 										</Menu.Dropdown>
 									</Menu>
 									<Link
-										href={withQuery(
-											APP_ROUTES.media.individualMediaItem.postReview,
-											{
-												metadataId,
-												showSeasonNumber:
-													userMediaDetails.data.nextEpisode?.seasonNumber ??
-													undefined,
-												showEpisodeNumber:
-													mediaDetails.data.lot === MetadataLot.Show
-														? userMediaDetails.data.nextEpisode
-																?.episodeNumber ?? undefined
-														: undefined,
-												podcastEpisodeNumber:
-													mediaDetails.data.lot === MetadataLot.Podcast
-														? userMediaDetails.data.nextEpisode
-																?.episodeNumber ?? undefined
-														: undefined,
-											},
-										)}
+										href={withQuery(APP_ROUTES.media.postReview, {
+											metadataId,
+											showSeasonNumber:
+												userMediaDetails.data.nextEpisode?.seasonNumber ??
+												undefined,
+											showEpisodeNumber:
+												mediaDetails.data.lot === MetadataLot.Show
+													? userMediaDetails.data.nextEpisode?.episodeNumber ??
+													  undefined
+													: undefined,
+											podcastEpisodeNumber:
+												mediaDetails.data.lot === MetadataLot.Podcast
+													? userMediaDetails.data.nextEpisode?.episodeNumber ??
+													  undefined
+													: undefined,
+										})}
 										passHref
 										legacyBehavior
 									>

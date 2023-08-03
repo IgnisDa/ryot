@@ -367,20 +367,24 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
-    /// Whether users will be allowed to change their username in their profile
-    /// settings.
-    #[setting(default = true)]
-    pub allow_changing_username: bool,
     /// Whether users will be allowed to change their password in their profile
     /// settings.
     #[setting(default = true)]
     pub allow_changing_password: bool,
-    /// The number of days till login auth token is valid.
-    #[setting(default = 90)]
-    pub token_valid_for_days: i64,
+    /// Whether users will be allowed to change their preferences in their profile
+    /// settings.
+    #[setting(default = true)]
+    pub allow_changing_preferences: bool,
+    /// Whether users will be allowed to change their username in their profile
+    /// settings.
+    #[setting(default = true)]
+    pub allow_changing_username: bool,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
+    /// The number of days till login auth token is valid.
+    #[setting(default = 90)]
+    pub token_valid_for_days: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

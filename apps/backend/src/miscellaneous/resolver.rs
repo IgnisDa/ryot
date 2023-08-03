@@ -1,11 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
+    str::FromStr,
     sync::Arc,
 };
 
 use anyhow::anyhow;
-use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
+use apalis::{
+    prelude::{JobId, JobRequest, JobState, Storage as ApalisStorage},
+    sqlite::SqliteStorage,
+};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
@@ -488,9 +492,10 @@ struct CoreDetails {
     version: String,
     author_name: String,
     repository_link: String,
-    username_change_allowed: bool,
-    password_change_allowed: bool,
     default_credentials: bool,
+    password_change_allowed: bool,
+    preferences_change_allowed: bool,
+    username_change_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1196,6 +1201,7 @@ impl MiscellaneousService {
             repository_link: REPOSITORY_LINK.to_owned(),
             username_change_allowed: get_app_config().users.allow_changing_username,
             password_change_allowed: get_app_config().users.allow_changing_password,
+            preferences_change_allowed: get_app_config().users.allow_changing_preferences,
             default_credentials: get_app_config().server.default_credentials,
         }
     }
@@ -2322,7 +2328,7 @@ impl MiscellaneousService {
                 metadata.delete(&self.db).await.ok();
             }
         }
-        tracing::trace!("Cleaning up creators without associated metadata");
+        tracing::trace!("Cleaning up genres without associated metadata");
         let mut all_genre = Genre::find().stream(&self.db).await?;
         while let Some(genre) = all_genre.try_next().await? {
             let num_associations = MetadataToGenre::find()
@@ -2334,7 +2340,7 @@ impl MiscellaneousService {
                 genre.delete(&self.db).await.ok();
             }
         }
-        tracing::trace!("Cleaning up genres without associated metadata");
+        tracing::trace!("Cleaning up creators without associated metadata");
         let mut all_creators = Creator::find().stream(&self.db).await?;
         while let Some(creator) = all_creators.try_next().await? {
             let num_associations = MetadataToCreator::find()
@@ -2342,7 +2348,12 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations == 0 {
+            let num_reviews = Review::find()
+                .filter(review::Column::CreatorId.eq(creator.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations + num_reviews == 0 {
                 creator.delete(&self.db).await.ok();
             }
         }
@@ -3537,6 +3548,9 @@ impl MiscellaneousService {
         input: UpdateUserPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
+        if !get_app_config().users.allow_changing_preferences {
+            return Ok(false);
+        }
         let err = || Error::new("Incorrect property value encountered");
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
@@ -4468,7 +4482,19 @@ impl MiscellaneousService {
 
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
-        // FIXME: Kill existing job
+        if let Some(reminder) = utm.reminder.as_ref() {
+            let storage = self.send_notifications_to_user_platform_job.clone();
+            let mut job = JobRequest::new(SendMediaReminderJob {
+                user_id,
+                metadata_id,
+                message: reminder.message.clone(),
+            });
+            job.set_status(JobState::Killed);
+            storage
+                .update_by_id(&JobId::from_str(&reminder.job_id).unwrap(), &job)
+                .await
+                .ok();
+        }
         let mut utm: user_to_metadata::ActiveModel = utm.into();
         utm.reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;

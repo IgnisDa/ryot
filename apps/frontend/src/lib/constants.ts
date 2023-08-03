@@ -21,6 +21,7 @@ export const APP_ROUTES = {
 	},
 	media: {
 		list: "/media/list",
+		postReview: "/media/post-review",
 		collections: {
 			details: "/media/collections",
 			list: "/media/collections/list",
@@ -33,7 +34,6 @@ export const APP_ROUTES = {
 			details: "/media/item",
 			commit: "/media/item/commit",
 			create: "/media/item/create",
-			postReview: "/media/item/post-review",
 			updateProgress: "/media/item/update-progress",
 		},
 	},

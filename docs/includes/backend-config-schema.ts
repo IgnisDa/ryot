@@ -216,6 +216,12 @@ export interface UsersConfig {
 	 */
 	allow_changing_password: boolean;
 	/**
+	 * Whether users will be allowed to change their preferences in their profile
+	 * settings.
+	 * @default true
+	 */
+	allow_changing_preferences: boolean;
+	/**
 	 * Whether users will be allowed to change their username in their profile
 	 * settings.
 	 * @default true

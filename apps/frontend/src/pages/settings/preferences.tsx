@@ -1,10 +1,11 @@
 import type { NextPageWithLayout } from "../_app";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
+	Alert,
 	Container,
 	Divider,
 	SimpleGrid,
@@ -18,6 +19,7 @@ import {
 	type UpdateUserPreferenceMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/utilities";
+import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement } from "react";
@@ -25,6 +27,7 @@ import { match } from "ts-pattern";
 
 const Page: NextPageWithLayout = () => {
 	const userPrefs = useUserPreferences();
+	const coreDetails = useCoreDetails();
 
 	const updateUserEnabledFeatures = useMutation({
 		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
@@ -39,7 +42,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return userPrefs.data ? (
+	return userPrefs.data && coreDetails.data ? (
 		<>
 			<Head>
 				<title>Preferences | Ryot</title>
@@ -47,6 +50,15 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack>
 					<Title>Preferences</Title>
+					{!coreDetails.data.preferencesChangeAllowed ? (
+						<Alert
+							icon={<IconAlertCircle size="1rem" />}
+							variant="outline"
+							color="violet"
+						>
+							Changing preferences is disabled on this instance.
+						</Alert>
+					) : null}
 					<Title order={3}>Enabled features</Title>
 					<SimpleGrid cols={2}>
 						{Object.entries(userPrefs.data.featuresEnabled.media).map(
@@ -56,6 +68,7 @@ const Page: NextPageWithLayout = () => {
 									key={idx}
 									label={changeCase(name)}
 									checked={isEnabled}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
 									onChange={(ev) => {
 										const lot = getLot(name);
 										if (lot)
@@ -92,6 +105,7 @@ const Page: NextPageWithLayout = () => {
 										)
 										.otherwise(() => undefined)}
 									checked={isEnabled}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
 									onChange={(ev) => {
 										updateUserEnabledFeatures.mutate({
 											input: {

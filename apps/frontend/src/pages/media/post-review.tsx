@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "../../_app";
+import type { NextPageWithLayout } from "../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -111,7 +111,7 @@ const Page: NextPageWithLayout = () => {
 			url = withQuery(APP_ROUTES.media.people.details, {
 				id: creatorId,
 			});
-		router.push(url);
+		router.replace(url);
 	};
 
 	useQuery({
