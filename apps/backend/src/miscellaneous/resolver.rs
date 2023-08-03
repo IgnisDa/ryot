@@ -4466,7 +4466,7 @@ impl MiscellaneousService {
 
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
-        // TODO: Kill existing job
+        // FIXME: Kill existing job
         let mut utm: user_to_metadata::ActiveModel = utm.into();
         utm.reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
