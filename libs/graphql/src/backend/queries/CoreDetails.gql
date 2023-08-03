@@ -8,5 +8,6 @@ query CoreDetails {
     passwordChangeAllowed
     preferencesChangeAllowed
     usernameChangeAllowed
+    itemDetailsHeight
   }
 }

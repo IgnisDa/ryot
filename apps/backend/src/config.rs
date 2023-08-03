@@ -318,6 +318,14 @@ pub struct FileStorageConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "FRONTEND")]
+pub struct FrontendConfig {
+    /// The height of the right section of an item's details page in pixels.
+    #[setting(default = 300)]
+    pub item_details_height: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
 pub struct IntegrationConfig {
     /// Sync data from [yank](/docs/guides/integrations.md) based integrations
@@ -431,6 +439,9 @@ pub struct AppConfig {
     /// Settings related to file storage.
     #[setting(nested)]
     pub file_storage: FileStorageConfig,
+    /// Settings related to frontend storage.
+    #[setting(nested)]
+    pub frontend: FrontendConfig,
     /// Settings related to external integrations.
     #[setting(nested)]
     pub integration: IntegrationConfig,

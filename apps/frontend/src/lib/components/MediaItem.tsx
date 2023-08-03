@@ -1,5 +1,5 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useCommitMedia, useUser } from "@/lib/hooks/graphql";
+import { useCommitMedia, useCoreDetails, useUser } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getLot, getVerb } from "@/lib/utilities";
 import {
@@ -35,7 +35,13 @@ import { useRouter } from "next/router";
 import { withQuery } from "ufo";
 
 export const MediaScrollArea = (props: { children: JSX.Element }) => {
-	return <ScrollArea.Autosize mah={300}>{props.children}</ScrollArea.Autosize>;
+	const coreDetails = useCoreDetails();
+
+	return coreDetails.data ? (
+		<ScrollArea.Autosize mah={coreDetails.data.itemDetailsHeight}>
+			{props.children}
+		</ScrollArea.Autosize>
+	) : null;
 };
 
 export const ReviewItemDisplay = ({

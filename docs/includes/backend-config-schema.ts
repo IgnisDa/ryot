@@ -91,6 +91,14 @@ export interface FileStorageConfig {
 	s3_url: string;
 }
 
+export interface FrontendConfig {
+	/**
+	 * The height of the right section of an item's details page in pixels.
+	 * @default 300
+	 */
+	item_details_height: number;
+}
+
 export interface IntegrationConfig {
 	/** The salt used to hash user IDs. */
 	hasher_salt: string;
@@ -279,6 +287,8 @@ export interface AppConfig {
 	exercise: ExerciseConfig;
 	/** Settings related to file storage. */
 	file_storage: FileStorageConfig;
+	/** Settings related to frontend storage. */
+	frontend: FrontendConfig;
 	/** Settings related to external integrations. */
 	integration: IntegrationConfig;
 	/** Settings related to manga. */

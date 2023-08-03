@@ -132,6 +132,9 @@ const useStyles = createStyles((theme) => ({
 	oldLink: {
 		color: theme.colorScheme === "dark" ? theme.colors.dark[0] : undefined,
 	},
+	logoText: {
+		color: theme.colorScheme === "dark" ? "white" : theme.colors.dark[9],
+	},
 }));
 
 const useThemeStyles = createStyles((theme) => ({
@@ -259,6 +262,7 @@ export default function ({ children }: { children: ReactElement }) {
 	const theme = useMantineTheme();
 	const [opened, { toggle, close }] = useDisclosure(false);
 	const { classes, cx } = useStyles();
+	const { colorScheme } = useMantineColorScheme();
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
@@ -448,12 +452,16 @@ export default function ({ children }: { children: ReactElement }) {
 						>
 							<Group>
 								<Image
-									src={"/logo-light.png"}
+									src={
+										colorScheme === "dark"
+											? "/logo-light.png"
+											: "/icon-512x512.png"
+									}
 									height={40}
 									width={40}
 									radius={"md"}
 								/>
-								<Text size={"xl"} color="white">
+								<Text size={"xl"} className={classes.logoText}>
 									Ryot
 								</Text>
 							</Group>
