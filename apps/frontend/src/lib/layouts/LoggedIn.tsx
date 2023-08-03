@@ -166,7 +166,7 @@ const useThemeStyles = createStyles((theme) => ({
 	},
 }));
 
-function ButtonToggle() {
+function ThemeToggle() {
 	const { classes } = useThemeStyles();
 	const { colorScheme, toggleColorScheme } = useMantineColorScheme();
 	const Icon = colorScheme === "dark" ? IconSun : IconMoon;
@@ -179,12 +179,12 @@ function ButtonToggle() {
 				onClick={() => toggleColorScheme()}
 				title="Ctrl + J"
 			>
-				<Text size="sm" className={classes.value}>
-					{upperFirst(colorScheme === "light" ? "dark" : "light")} theme
-				</Text>
 				<Center className={classes.iconWrapper}>
 					<Icon size="1.05rem" stroke={1.5} />
 				</Center>
+				<Text size="sm" className={classes.value}>
+					{upperFirst(colorScheme === "light" ? "dark" : "light")} theme
+				</Text>
 			</UnstyledButton>
 		</Group>
 	);
@@ -423,7 +423,7 @@ export default function ({ children }: { children: ReactElement }) {
 					</Navbar.Section>
 					<Navbar.Section>
 						<Flex direction={"column"} justify={"center"} gap="md">
-							<ButtonToggle />
+							<ThemeToggle />
 							<UnstyledButton
 								mx="auto"
 								onClick={() => logoutUser.mutate()}
