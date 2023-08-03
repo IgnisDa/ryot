@@ -3322,7 +3322,9 @@ impl MiscellaneousService {
             user_obj.email = ActiveValue::Set(Some(e));
         }
         if let Some(p) = input.password {
-            user_obj.password = ActiveValue::Set(p);
+            if get_app_config().users.allow_changing_password {
+                user_obj.password = ActiveValue::Set(p);
+            }
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(IdObject { id: user_obj.id })
