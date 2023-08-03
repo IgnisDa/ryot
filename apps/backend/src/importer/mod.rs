@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
@@ -12,7 +14,7 @@ use crate::{
     background::ImportMedia,
     entities::{import_report, prelude::ImportReport},
     migrator::{ImportSource, MetadataLot},
-    miscellaneous::resolver::get_miscellaneous_service,
+    miscellaneous::resolver::MiscellaneousService,
     models::media::{
         AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
         ImportOrExportItemIdentifier, PostReviewInput, ProgressUpdateInput,
@@ -245,7 +247,7 @@ impl ImporterService {
             .collect_vec();
         for col_details in import.collections.into_iter() {
             self.media_service
-                .create_or_update_collection(&user_id, col_details)
+                .create_or_update_collection(user_id, col_details)
                 .await?;
         }
         for (idx, item) in import.media.iter().enumerate() {

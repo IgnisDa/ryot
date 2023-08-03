@@ -120,10 +120,7 @@ pub async fn user_created_job(
     tracing::trace!("Running jobs after user creation");
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service.user_created_job(information.user_id).await.unwrap();
-    service
-        .user_created_job(&information.user_id)
-        .await
-        .unwrap();
+    service.user_created_job(information.user_id).await.unwrap();
     service
         .calculate_user_media_summary(information.user_id)
         .await
@@ -144,10 +141,10 @@ impl Job for SendMediaReminderJob {
 
 pub async fn send_media_reminder_to_user_platforms_job(
     information: SendMediaReminderJob,
-    _ctx: JobContext,
+    ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::trace!("Sending notifications to {}", information.user_id);
-    let service = get_miscellaneous_service();
+    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service
         .send_media_reminder(
             information.user_id,

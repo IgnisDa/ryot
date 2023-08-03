@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
@@ -98,8 +100,8 @@ pub async fn graphql_playground() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
-pub async fn config_handler() -> impl IntoResponse {
-    Json(get_app_config().masked_value())
+pub async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> impl IntoResponse {
+    Json(config.masked_value())
 }
 
 pub async fn upload_handler(

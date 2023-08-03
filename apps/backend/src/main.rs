@@ -4,6 +4,7 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -84,14 +85,14 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version {}", VERSION);
 
-    let config = load_app_config()?;
+    let config = Arc::new(load_app_config()?);
     let cors_origins = config
         .server
         .cors_origins
         .iter()
         .map(|f| f.parse().unwrap())
         .collect_vec();
-    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
+    let rate_limit_num = config.scheduler.rate_limit_num;
     let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
     fs::write(
@@ -126,15 +127,17 @@ async fn main() -> Result<()> {
     let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
-    let auth_db = Storage::<String, MemoryAuthData>::open(Options::new(
-        &config.database.auth_db_path,
-        &format!("{}-auth.db", PROJECT_NAME),
-        1000,
-        StorageType::DiskCopies,
-        true,
-    ))
-    .await
-    .unwrap();
+    let auth_db = Arc::new(
+        Storage::<String, MemoryAuthData>::open(Options::new(
+            &config.database.auth_db_path,
+            &format!("{}-auth.db", PROJECT_NAME),
+            1000,
+            StorageType::DiskCopies,
+            true,
+        ))
+        .await
+        .unwrap(),
+    );
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -214,6 +217,7 @@ async fn main() -> Result<()> {
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .route("/export", get(json_export))
         .fallback(static_handler)
+        .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
@@ -229,8 +233,6 @@ async fn main() -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
-    let rate_limit_num = config.scheduler.rate_limit_num.try_into().unwrap();
-
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
     let media_service_1 = app_services.media_service.clone();
@@ -240,9 +242,6 @@ async fn main() -> Result<()> {
     let media_service_6 = app_services.media_service.clone();
     let media_service_7 = app_services.media_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
-
-    let user_cleanup_every = config.scheduler.user_cleanup_every;
-    let pull_every = config.integration.pull_every;
 
     let monitor = async {
         let mn = Monitor::new()

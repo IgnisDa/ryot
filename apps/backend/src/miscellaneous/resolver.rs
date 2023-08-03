@@ -43,6 +43,7 @@ use crate::{
     background::{
         RecalculateUserSummaryJob, SendMediaReminderJob, UpdateMetadataJob, UserCreatedJob,
     },
+    config::AppConfig,
     entities::{
         collection, creator, genre, import_report, metadata, metadata_to_collection,
         metadata_to_creator, metadata_to_genre,
@@ -52,7 +53,7 @@ use crate::{
         },
         review, seen, user, user_to_metadata,
     },
-    file_storage::get_file_storage_service,
+    file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
     migrator::{
         Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -91,10 +92,9 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrations,
     },
     utils::{
-        associate_user_with_metadata, convert_naive_to_utc, get_app_config, get_auth_db,
-        get_case_insensitive_like_query, get_global_service, get_user_and_metadata_association,
-        user_id_from_token, MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, DOCS_LINK,
-        PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
+        get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
+        AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
     },
 };
 
@@ -579,18 +579,14 @@ pub struct MiscellaneousQuery;
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
     async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .core_details()
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.core_details().await
     }
 
     /// Get a review by its ID.
     async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .review_by_id(review_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.review_by_id(review_id).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -621,10 +617,8 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<GraphqlMediaDetails> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_details(metadata_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.media_details(metadata_id).await
     }
 
     /// Get details about a creator present in the database.
@@ -633,10 +627,8 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         creator_id: i32,
     ) -> Result<CreatorDetails> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .creator_details(creator_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.creator_details(creator_id).await
     }
 
     /// Get all the media items related to a user for a specific media type.
@@ -652,19 +644,14 @@ impl MiscellaneousQuery {
 
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .file_storage
-            .get_presigned_url(key)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.files_storage_service.get_presigned_url(key).await
     }
 
     /// Get all the features that are enabled for the service
     async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .core_enabled_features()
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.core_enabled_features().await
     }
 
     /// Get a user's preferences.
@@ -682,10 +669,8 @@ impl MiscellaneousQuery {
         source: MetadataSource,
         input: SearchInput,
     ) -> Result<DetailedMediaSearchResults> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_search(lot, source, input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.media_search(lot, source, input).await
     }
 
     /// Check if a media with the given metadata and identifier exists in the database.
@@ -696,8 +681,8 @@ impl MiscellaneousQuery {
         lot: MetadataLot,
         source: MetadataSource,
     ) -> Result<Option<IdObject>> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service
             .media_exists_in_database(lot, source, &identifier)
             .await
     }
@@ -708,10 +693,8 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
     ) -> Vec<MetadataSource> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .media_sources_for_lot(lot)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.media_sources_for_lot(lot).await
     }
 
     /// Get all languages supported by all the providers.
@@ -719,9 +702,8 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Vec<ProviderLanguageInformation> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .providers_language_information()
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.providers_language_information()
     }
 
     /// Get details about all the users in the service.
@@ -881,10 +863,8 @@ impl MiscellaneousMutation {
 
     /// Deploy jobs to update all media item's metadata.
     async fn update_all_metadata(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .update_all_metadata()
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.update_all_metadata().await
     }
 
     /// Create a custom media item.
@@ -915,10 +895,8 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<String> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .deploy_update_metadata_job(metadata_id)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.deploy_update_metadata_job(metadata_id).await
     }
 
     /// Merge a media item into another. This will move all `seen` and `review`
@@ -929,10 +907,8 @@ impl MiscellaneousMutation {
         merge_from: i32,
         merge_into: i32,
     ) -> Result<bool> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .merge_metadata(merge_from, merge_into)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.merge_metadata(merge_from, merge_into).await
     }
 
     /// Fetch details about a media and create a media item in the database.
@@ -943,10 +919,8 @@ impl MiscellaneousMutation {
         source: MetadataSource,
         identifier: String,
     ) -> Result<IdObject> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
-            .commit_media(lot, source, &identifier)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.commit_media(lot, source, &identifier).await
     }
 
     /// Create a new user for the service. Also set their `lot` as admin if
@@ -956,16 +930,16 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: UserInput,
     ) -> Result<RegisterResult> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service
             .register_user(&input.username, &input.password)
             .await
     }
 
     /// Login a user using their username and password and return an auth token.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        gql_ctx
-            .data_unchecked::<Arc<MiscellaneousService>>()
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service
             .login_user(&input.username, &input.password, gql_ctx)
             .await
     }
@@ -1121,14 +1095,14 @@ impl MiscellaneousMutation {
         gql_ctx: &Context<'_>,
         input: CreateMediaReminderInput,
     ) -> Result<bool> {
-        let service = get_miscellaneous_service();
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_media_reminder(user_id, input).await
     }
 
     /// Delete a reminder on a media for a user if it exists.
     async fn delete_media_reminder(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<bool> {
-        let service = get_miscellaneous_service();
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_media_reminder(user_id, metadata_id).await
     }
@@ -1136,6 +1110,9 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
+    pub auth_db: MemoryDatabase,
+    pub config: Arc<AppConfig>,
+    pub files_storage_service: Arc<FileStorageService>,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
     pub igdb_service: IgdbService,
@@ -1156,7 +1133,7 @@ pub struct MiscellaneousService {
 
 impl AuthProvider for MiscellaneousService {
     fn get_auth_db(&self) -> &MemoryDatabase {
-        get_auth_db()
+        &self.auth_db
     }
 }
 
@@ -1164,23 +1141,24 @@ impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
+        config: Arc<AppConfig>,
+        auth_db: MemoryDatabase,
+        files_storage_service: Arc<FileStorageService>,
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
         send_notifications_to_user_platform: &SqliteStorage<SendMediaReminderJob>,
     ) -> Self {
-        let openlibrary_service =
-            OpenlibraryService::new(&get_app_config().books.openlibrary).await;
-        let google_books_service =
-            GoogleBooksService::new(&get_app_config().books.google_books).await;
-        let tmdb_movies_service = TmdbMovieService::new(&get_app_config().movies.tmdb).await;
-        let tmdb_shows_service = TmdbShowService::new(&get_app_config().shows.tmdb).await;
-        let audible_service = AudibleService::new(&get_app_config().audio_books.audible).await;
-        let igdb_service = IgdbService::new(&get_app_config().video_games).await;
-        let itunes_service = ITunesService::new(&get_app_config().podcasts.itunes).await;
-        let listennotes_service = ListennotesService::new(&get_app_config().podcasts).await;
-        let anilist_anime_service = AnilistAnimeService::new(&get_app_config().anime.anilist).await;
-        let anilist_manga_service = AnilistMangaService::new(&get_app_config().manga.anilist).await;
+        let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary).await;
+        let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
+        let tmdb_movies_service = TmdbMovieService::new(&config.movies.tmdb).await;
+        let tmdb_shows_service = TmdbShowService::new(&config.shows.tmdb).await;
+        let audible_service = AudibleService::new(&config.audio_books.audible).await;
+        let igdb_service = IgdbService::new(&config.video_games).await;
+        let itunes_service = ITunesService::new(&config.podcasts.itunes).await;
+        let listennotes_service = ListennotesService::new(&config.podcasts).await;
+        let anilist_anime_service = AnilistAnimeService::new(&config.anime.anilist).await;
+        let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
         let integration_service = IntegrationService::new().await;
 
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1194,6 +1172,9 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
+            auth_db,
+            config,
+            files_storage_service,
             seen_progress_cache,
             audible_service,
             google_books_service,
@@ -1221,17 +1202,17 @@ impl MiscellaneousService {
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             repository_link: REPOSITORY_LINK.to_owned(),
-            username_change_allowed: get_app_config().users.allow_changing_username,
-            password_change_allowed: get_app_config().users.allow_changing_password,
-            preferences_change_allowed: get_app_config().users.allow_changing_preferences,
-            default_credentials: get_app_config().server.default_credentials,
+            username_change_allowed: self.config.users.allow_changing_username,
+            password_change_allowed: self.config.users.allow_changing_password,
+            preferences_change_allowed: self.config.users.allow_changing_preferences,
+            default_credentials: self.config.server.default_credentials,
         }
     }
 
     async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
         match m {
             MetadataImageUrl::Url(u) => u,
-            MetadataImageUrl::S3(u) => get_file_storage_service().get_presigned_url(u).await,
+            MetadataImageUrl::S3(u) => self.files_storage_service.get_presigned_url(u).await,
         }
     }
 
@@ -2055,7 +2036,7 @@ impl MiscellaneousService {
                 .insert(
                     cache,
                     (),
-                    ChronoDuration::hours(get_app_config().server.progress_update_threshold)
+                    ChronoDuration::hours(self.config.server.progress_update_threshold)
                         .to_std()
                         .unwrap(),
                 )
@@ -2431,32 +2412,32 @@ impl MiscellaneousService {
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
         prefs.features_enabled.media.anime =
-            get_app_config().anime.is_enabled() && prefs.features_enabled.media.anime;
+            self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
         prefs.features_enabled.media.audio_books =
-            get_app_config().audio_books.is_enabled() && prefs.features_enabled.media.audio_books;
+            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_books;
         prefs.features_enabled.media.books =
-            get_app_config().books.is_enabled() && prefs.features_enabled.media.books;
+            self.config.books.is_enabled() && prefs.features_enabled.media.books;
         prefs.features_enabled.media.shows =
-            get_app_config().shows.is_enabled() && prefs.features_enabled.media.shows;
+            self.config.shows.is_enabled() && prefs.features_enabled.media.shows;
         prefs.features_enabled.media.manga =
-            get_app_config().manga.is_enabled() && prefs.features_enabled.media.manga;
+            self.config.manga.is_enabled() && prefs.features_enabled.media.manga;
         prefs.features_enabled.media.movies =
-            get_app_config().movies.is_enabled() && prefs.features_enabled.media.movies;
+            self.config.movies.is_enabled() && prefs.features_enabled.media.movies;
         prefs.features_enabled.media.podcasts =
-            get_app_config().podcasts.is_enabled() && prefs.features_enabled.media.podcasts;
+            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcasts;
         prefs.features_enabled.media.video_games =
-            get_app_config().video_games.is_enabled() && prefs.features_enabled.media.video_games;
+            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_games;
         Ok(prefs)
     }
 
     async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
-        let mut files_enabled = get_app_config().file_storage.is_enabled();
-        if files_enabled && !get_file_storage_service().is_enabled().await {
+        let mut files_enabled = self.config.file_storage.is_enabled();
+        if files_enabled && !self.files_storage_service.is_enabled().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {
             file_storage: files_enabled,
-            signup_allowed: get_app_config().users.allow_registration,
+            signup_allowed: self.config.users.allow_registration,
         };
         Ok(general)
     }
@@ -3226,7 +3207,7 @@ impl MiscellaneousService {
     }
 
     async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
-        if !get_app_config().users.allow_registration {
+        if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
@@ -3299,8 +3280,8 @@ impl MiscellaneousService {
             gql_ctx,
             &api_key,
             false,
-            get_app_config().server.insecure_cookie,
-            get_app_config().users.token_valid_for_days,
+            self.config.server.insecure_cookie,
+            self.config.users.token_valid_for_days,
         )?;
         Ok(LoginResult::Ok(LoginResponse { api_key }))
     }
@@ -3310,8 +3291,8 @@ impl MiscellaneousService {
             gql_ctx,
             "",
             true,
-            get_app_config().server.insecure_cookie,
-            get_app_config().users.token_valid_for_days,
+            self.config.server.insecure_cookie,
+            self.config.users.token_valid_for_days,
         )?;
         let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
         if found_token.is_ok() {
@@ -3347,7 +3328,7 @@ impl MiscellaneousService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            if get_app_config().users.allow_changing_username {
+            if self.config.users.allow_changing_username {
                 user_obj.name = ActiveValue::Set(n);
             }
         }
@@ -3355,7 +3336,7 @@ impl MiscellaneousService {
             user_obj.email = ActiveValue::Set(Some(e));
         }
         if let Some(p) = input.password {
-            if get_app_config().users.allow_changing_password {
+            if self.config.users.allow_changing_password {
                 user_obj.password = ActiveValue::Set(p);
             }
         }
@@ -3570,7 +3551,7 @@ impl MiscellaneousService {
         input: UpdateUserPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
-        if !get_app_config().users.allow_changing_preferences {
+        if !self.config.users.allow_changing_preferences {
             return Ok(false);
         }
         let err = || Error::new("Incorrect property value encountered");
@@ -3716,7 +3697,7 @@ impl MiscellaneousService {
             timestamp: Utc::now(),
             settings: match input.lot {
                 UserSinkIntegrationLot::Jellyfin => {
-                    let slug = get_id_hasher(&get_app_config().integration.hasher_salt)
+                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
                         .encode(&[user_id.try_into().unwrap()]);
                     let slug = format!("{}--{}", slug, nanoid!(5));
                     UserSinkIntegrationSetting::Jellyfin { slug }
@@ -4020,7 +4001,7 @@ impl MiscellaneousService {
             let tokens = self.all_user_auth_tokens(user.id).await?;
             for token in tokens {
                 if Utc::now() - token.last_used_on
-                    > ChronoDuration::days(get_app_config().users.token_valid_for_days)
+                    > ChronoDuration::days(self.config.users.token_valid_for_days)
                     && self.get_auth_db().remove(token.token).await.is_ok()
                 {
                     deleted_tokens += 1;
@@ -4101,7 +4082,7 @@ impl MiscellaneousService {
         let (user_hash, _) = user_hash_id
             .split_once("--")
             .ok_or(anyhow!("Unexpected format"))?;
-        let user_id = get_id_hasher(&get_app_config().integration.hasher_salt).decode(user_hash)?;
+        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
         let user_id: i32 = user_id
             .first()
             .ok_or(anyhow!("Incorrect hash id provided"))?
@@ -4129,10 +4110,10 @@ impl MiscellaneousService {
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
-        if pu.progress < get_app_config().integration.minimum_progress_limit {
+        if pu.progress < self.config.integration.minimum_progress_limit {
             return Err(Error::new("Progress outside bound"));
         }
-        let progress = if pu.progress > get_app_config().integration.maximum_progress_limit {
+        let progress = if pu.progress > self.config.integration.maximum_progress_limit {
             100
         } else {
             pu.progress

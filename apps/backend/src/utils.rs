@@ -38,7 +38,7 @@ use crate::{
     miscellaneous::resolver::MiscellaneousService,
 };
 
-pub type MemoryDatabase = Storage<String, MemoryAuthData>;
+pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -54,10 +54,11 @@ pub const AVATAR_URL: &str =
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub miscellaneous_service: MiscellaneousService,
-    pub importer_service: ImporterService,
-    pub file_storage_service: FileStorageService,
-    pub exercise_service: ExerciseService,
+    pub config: Arc<AppConfig>,
+    pub media_service: Arc<MiscellaneousService>,
+    pub importer_service: Arc<ImporterService>,
+    pub file_storage_service: Arc<FileStorageService>,
+    pub exercise_service: Arc<ExerciseService>,
     pub auth_db: MemoryDatabase,
 }
 
@@ -66,7 +67,7 @@ pub async fn create_app_services(
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
-    config: AppConfig,
+    config: Arc<AppConfig>,
     import_media_job: &SqliteStorage<ImportMedia>,
     user_created_job: &SqliteStorage<UserCreatedJob>,
     update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
@@ -80,22 +81,21 @@ pub async fn create_app_services(
     ));
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
-        file_storage_service.clone(),
+        update_exercise_job,
         config.exercise.db.json_url.clone(),
         config.exercise.db.images_prefix_url.clone(),
-        update_exercise_job,
     ));
 
     let media_service = Arc::new(
         MiscellaneousService::new(
             &db,
-            &auth_db,
-            config,
+            config.clone(),
+            auth_db.clone(),
             file_storage_service.clone(),
-            send_notifications_to_user_platform_job,
             update_metadata_job,
             recalculate_user_summary_job,
             user_created_job,
+            send_notifications_to_user_platform_job,
         )
         .await,
     );
@@ -105,10 +105,12 @@ pub async fn create_app_services(
         import_media_job,
     ));
     AppServices {
+        config,
         media_service,
         importer_service,
         file_storage_service,
         exercise_service,
+        auth_db,
     }
 }
 

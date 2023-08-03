@@ -69,12 +69,14 @@ impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
+        json_url: String,
+        image_prefix_url: String,
     ) -> Self {
         Self {
             db: db.clone(),
             update_exercise: update_exercise.clone(),
-            json_url: get_app_config().exercise.db.json_url.clone(),
-            image_prefix_url: get_app_config().exercise.db.images_prefix_url.clone(),
+            json_url,
+            image_prefix_url,
         }
     }
 }
