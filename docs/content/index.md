@@ -29,4 +29,4 @@ INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230509_create_imp
 
 5. Now you can upgrade to the latest release safely.
 
-6. **OPTIONAL**: Once you have the new server up and running, go to the settings and click on the button to "Update All Metadata" under the miscellaneous tab.
+6. **OPTIONAL**: Once you have the new server up and running, go to the "Miscellaneous" settings page and click on the button to "Update All Metadata".
