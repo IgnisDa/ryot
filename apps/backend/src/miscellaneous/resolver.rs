@@ -2326,7 +2326,7 @@ impl MiscellaneousService {
                 metadata.delete(&self.db).await.ok();
             }
         }
-        tracing::trace!("Cleaning up creators without associated metadata");
+        tracing::trace!("Cleaning up genres without associated metadata");
         let mut all_genre = Genre::find().stream(&self.db).await?;
         while let Some(genre) = all_genre.try_next().await? {
             let num_associations = MetadataToGenre::find()
@@ -2338,7 +2338,7 @@ impl MiscellaneousService {
                 genre.delete(&self.db).await.ok();
             }
         }
-        tracing::trace!("Cleaning up genres without associated metadata");
+        tracing::trace!("Cleaning up creators without associated metadata");
         let mut all_creators = Creator::find().stream(&self.db).await?;
         while let Some(creator) = all_creators.try_next().await? {
             let num_associations = MetadataToCreator::find()
@@ -2346,7 +2346,12 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations == 0 {
+            let num_reviews = Review::find()
+                .filter(review::Column::CreatorId.eq(creator.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations + num_reviews == 0 {
                 creator.delete(&self.db).await.ok();
             }
         }
