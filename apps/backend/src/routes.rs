@@ -16,11 +16,11 @@ use tower_cookies::Cookies;
 use uuid::Uuid;
 
 use crate::{
+    config::AppConfig,
+    file_storage::FileStorageService,
     graphql::GraphqlSchema,
-    miscellaneous::resolver::get_miscellaneous_service,
-    utils::{
-        get_app_config, get_auth_db, get_global_service, user_id_from_token, GqlCtx, COOKIE_NAME,
-    },
+    miscellaneous::resolver::MiscellaneousService,
+    utils::{user_id_from_token, GqlCtx, COOKIE_NAME},
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -103,9 +103,9 @@ pub async fn config_handler() -> impl IntoResponse {
 }
 
 pub async fn upload_handler(
+    Extension(file_storage): Extension<Arc<FileStorageService>>,
     mut files: Multipart,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let file_storage = &get_global_service().file_storage_service;
     let mut res = vec![];
     while let Some(file) = files.next_field().await.unwrap() {
         let name = file
@@ -130,10 +130,10 @@ pub async fn upload_handler(
 }
 
 pub async fn json_export(
+    Extension(media_service): Extension<Arc<MiscellaneousService>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let media_service = get_miscellaneous_service();
-    let user_id = user_id_from_token(authorization.token().to_owned(), get_auth_db())
+    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.export(user_id).await.unwrap();
@@ -142,9 +142,9 @@ pub async fn json_export(
 
 pub async fn integration_webhook(
     Path((integration, user_hash_id)): Path<(String, String)>,
+    Extension(media_service): Extension<Arc<MiscellaneousService>>,
     payload: String,
 ) -> std::result::Result<StatusCode, StatusCode> {
-    let media_service = get_miscellaneous_service();
     media_service
         .process_integration_webhook(user_hash_id, integration, payload)
         .await
