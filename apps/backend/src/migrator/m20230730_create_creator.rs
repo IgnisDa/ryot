@@ -18,6 +18,7 @@ pub enum Creator {
     Id,
     Name,
     Image,
+    ExtraInformation,
 }
 
 #[derive(Iden)]
@@ -51,6 +52,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Creator::Image).string())
+                    .col(ColumnDef::new(Creator::ExtraInformation).json().not_null())
                     .to_owned(),
             )
             .await?;

@@ -32,6 +32,7 @@ mod m20230730_remove_creator_field;
 mod m20230731_add_index_field_to_creators;
 mod m20230801_add_creator_id_field_to_review;
 mod m20230802_add_remind_on_field;
+mod m20230803_remove_exercises_table;
 
 pub use m20230410_000001_create_metadata::{
     Metadata, MetadataImageLot, MetadataLot, MetadataSource,
@@ -76,6 +77,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230731_add_index_field_to_creators::Migration),
             Box::new(m20230801_add_creator_id_field_to_review::Migration),
             Box::new(m20230802_add_remind_on_field::Migration),
+            Box::new(m20230803_remove_exercises_table::Migration),
         ]
     }
 }

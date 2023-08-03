@@ -4,6 +4,8 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::models::media::CreatorExtraInformation;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Creator")]
 #[sea_orm(table_name = "creator")]
@@ -13,6 +15,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub name: String,
     pub image: Option<String>,
+    pub extra_information: CreatorExtraInformation,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
