@@ -1,4 +1,6 @@
 import type { NextPageWithLayout } from "../_app";
+import { useUser } from "@/lib/hooks/graphql";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -16,6 +18,7 @@ import {
 	type RegenerateUserSummaryMutationVariables,
 	UpdateAllMetadataDocument,
 	type UpdateAllMetadataMutationVariables,
+	UserLot,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -24,6 +27,7 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 
 const Page: NextPageWithLayout = () => {
+	const userDetails = useUser();
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (_variables: RegenerateUserSummaryMutationVariables) => {
 			const { regenerateUserSummary } = await gqlClient.request(
@@ -72,7 +76,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return (
+	return userDetails ? (
 		<>
 			<Head>
 				<title>Miscellaneous Settings | Ryot</title>
@@ -80,22 +84,24 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack>
 					<Title>Miscellaneous settings</Title>
-					<>
-						<Box>
-							<Title order={4}>Update all metadata</Title>
-							<Text>
-								Fetch and update the metadata for all the media items that are
-								stored. The more media you have, the longer this will take.
-							</Text>
-						</Box>
-						<Button
-							onClick={() => deployUpdateAllMetadataJobs.mutate({})}
-							loading={deployUpdateAllMetadataJobs.isLoading}
-						>
-							Deploy job
-						</Button>
-					</>
-					<Divider />
+					{userDetails.lot === UserLot.Admin ? (
+						<>
+							<Box>
+								<Title order={4}>Update all metadata</Title>
+								<Text>
+									Fetch and update the metadata for all the media items that are
+									stored. The more media you have, the longer this will take.
+								</Text>
+							</Box>
+							<Button
+								onClick={() => deployUpdateAllMetadataJobs.mutate({})}
+								loading={deployUpdateAllMetadataJobs.isLoading}
+							>
+								Deploy job
+							</Button>
+							<Divider />
+						</>
+					) : null}
 					<>
 						<Box>
 							<Title order={4}>Synchronize integrations progress</Title>
@@ -132,6 +138,8 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Container>
 		</>
+	) : (
+		<LoadingPage />
 	);
 };
 
