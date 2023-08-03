@@ -1,4 +1,11 @@
 
+# Version 1.22.0 (2023-08-03)
+
+## Bug Fixes
+
+* **frontend:** consistent names
+
+
 # Version 1.21.0 (2023-08-01)
 
 
