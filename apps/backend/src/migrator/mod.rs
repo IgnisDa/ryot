@@ -24,10 +24,10 @@ impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
         vec![
             Box::new(m20230410_create_metadata::Migration),
+            Box::new(m20230412_create_creator::Migration),
             Box::new(m20230417_create_user::Migration),
             Box::new(m20230419_create_seen::Migration),
             Box::new(m20230502_create_genre::Migration),
-            Box::new(m20230412_create_creator::Migration),
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230507_create_collection::Migration),
             Box::new(m20230509_create_import_report::Migration),
