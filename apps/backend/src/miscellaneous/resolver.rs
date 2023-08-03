@@ -59,14 +59,14 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, ImportOrExportItem, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemSeen, MangaSpecifics,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
+            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages,
+            MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -1461,8 +1461,7 @@ impl MiscellaneousService {
             .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
             .one(&self.db)
             .await?
-            .unwrap()
-            .reminder;
+            .and_then(|n| n.reminder);
 
         Ok(UserMediaDetails {
             collections,
@@ -2237,6 +2236,7 @@ impl MiscellaneousService {
                 let c = creator::ActiveModel {
                     name: ActiveValue::Set(creator.name),
                     image: ActiveValue::Set(creator.image),
+                    extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
                     ..Default::default()
                 };
                 c.insert(&self.db).await.unwrap()
