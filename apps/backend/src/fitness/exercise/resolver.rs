@@ -4,7 +4,7 @@ use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, InputObject, Object, Result};
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
+    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
 };
 use sea_query::{Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,7 @@ impl ExerciseQuery {
         service.exercises_list(input).await
     }
 
-    /// Get all the measurements for a user
+    /// Get all the measurements for a user.
     async fn user_measurements_list(
         &self,
         gql_ctx: &Context<'_>,
@@ -76,6 +76,17 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_user_measurement(user_id, input).await
+    }
+
+    /// Delete a user measurement.
+    async fn delete_user_measurement(
+        &self,
+        gql_ctx: &Context<'_>,
+        timestamp: DateTimeUtc,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_user_measurement(user_id, timestamp).await
     }
 }
 
@@ -218,5 +229,17 @@ impl ExerciseService {
         let um: user_measurement::ActiveModel = input.into();
         let um = um.insert(&self.db).await?;
         Ok(um.timestamp)
+    }
+
+    async fn delete_user_measurement(&self, user_id: i32, timestamp: DateTimeUtc) -> Result<bool> {
+        if let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
+            .one(&self.db)
+            .await?
+        {
+            m.delete(&self.db).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
