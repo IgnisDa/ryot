@@ -2,12 +2,6 @@ use anyhow::{Context, Result};
 use aws_sdk_s3::{presigning::PresigningConfig, primitives::ByteStream};
 use chrono::Duration;
 
-use crate::utils::{get_app_config, get_global_service};
-
-pub fn get_file_storage_service<'a>() -> &'a FileStorageService {
-    &get_global_service().file_storage_service
-}
-
 #[derive(Debug)]
 pub struct FileStorageService {
     s3_client: aws_sdk_s3::Client,
@@ -15,10 +9,10 @@ pub struct FileStorageService {
 }
 
 impl FileStorageService {
-    pub fn new(s3_client: aws_sdk_s3::Client) -> Self {
+    pub fn new(s3_client: aws_sdk_s3::Client, bucket_name: String) -> Self {
         Self {
             s3_client,
-            bucket_name: get_app_config().file_storage.s3_bucket_name.clone(),
+            bucket_name,
         }
     }
 
