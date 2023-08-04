@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use http_types::mime;
 use itertools::Itertools;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &ITunesConfig) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
+        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             client,
             language: config.locale.clone(),

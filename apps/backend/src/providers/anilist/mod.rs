@@ -130,6 +130,7 @@ impl MediaProvider for AnilistMangaService {
 mod utils {
     use super::*;
 
+    use http_types::mime;
     use itertools::Itertools;
     use surf::http::headers::ACCEPT;
 
@@ -143,7 +144,7 @@ mod utils {
     };
 
     pub async fn get_client_config(url: &str) -> Client {
-        get_base_http_client(url, vec![(ACCEPT, "application/json")])
+        get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
     }
 
     pub async fn details(client: &Client, id: &str) -> Result<MediaDetails> {

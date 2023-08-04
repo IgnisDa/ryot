@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
+use http_types::mime;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
@@ -38,7 +39,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 
 impl GoogleBooksService {
     pub async fn new(_config: &GoogleBooksConfig) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")]);
+        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self { client }
     }
 }
