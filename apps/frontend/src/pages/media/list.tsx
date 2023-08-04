@@ -192,7 +192,6 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			invariant(searchSource, "Source must be defined");
 			invariant(lot, "Lot must be defined");
-			invariant(debouncedQuery.length > 0, "Must have search query");
 			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
 				input: {
 					query: debouncedQuery,
