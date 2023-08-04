@@ -11,7 +11,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     background::UpdateExerciseJob,
-    entities::{exercise, prelude::Exercise, user_measurement},
+    entities::{
+        exercise,
+        prelude::{Exercise, UserMeasurement},
+        user_measurement,
+    },
     models::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
@@ -39,6 +43,16 @@ impl ExerciseQuery {
     ) -> Result<SearchResults<exercise::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.exercises_list(input).await
+    }
+
+    /// Get all the measurements for a user
+    async fn user_measurements_list(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<user_measurement::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_measurements_list(user_id).await
     }
 }
 
@@ -184,6 +198,15 @@ impl ExerciseService {
             db_exercise.insert(&self.db).await?;
         }
         Ok(())
+    }
+
+    async fn user_measurements_list(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
+        let resp = UserMeasurement::find()
+            .filter(user_measurement::Column::UserId.eq(user_id))
+            .order_by_desc(user_measurement::Column::Timestamp)
+            .all(&self.db)
+            .await?;
+        Ok(resp)
     }
 
     async fn create_user_measurement(
