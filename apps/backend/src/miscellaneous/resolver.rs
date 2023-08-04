@@ -2530,7 +2530,7 @@ impl MiscellaneousService {
             };
             Ok(results)
         } else {
-            return Err(Error::new("Can not search without a query"));
+            Err(Error::new("Can not search without a query"))
         }
     }
 
