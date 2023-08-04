@@ -36,9 +36,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    background::{
-        RecalculateUserSummaryJob, SendMediaReminderJob, UpdateMetadataJob, UserCreatedJob,
-    },
+    background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
         collection, creator, genre, import_report, metadata, metadata_to_collection,
@@ -1124,7 +1122,6 @@ pub struct MiscellaneousService {
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
-    pub send_notifications_to_user_platform_job: SqliteStorage<SendMediaReminderJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
 }
 
@@ -1144,7 +1141,6 @@ impl MiscellaneousService {
         update_metadata: &SqliteStorage<UpdateMetadataJob>,
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
-        send_notifications_to_user_platform: &SqliteStorage<SendMediaReminderJob>,
     ) -> Self {
         let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary).await;
         let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
@@ -1187,7 +1183,6 @@ impl MiscellaneousService {
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
             user_created: user_created.clone(),
-            send_notifications_to_user_platform_job: send_notifications_to_user_platform.clone(),
         }
     }
 }
@@ -4477,16 +4472,22 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn send_media_reminder(
-        &self,
-        user_id: i32,
-        metadata_id: i32,
-        message: String,
-    ) -> Result<bool> {
-        self.send_notifications_to_user_platforms(user_id, &message)
-            .await?;
-        self.delete_media_reminder(user_id, metadata_id).await?;
-        Ok(true)
+    pub async fn send_pending_media_reminders(&self) -> Result<()> {
+        for utm in UserToMetadata::find()
+            .filter(user_to_metadata::Column::Reminder.is_not_null())
+            .all(&self.db)
+            .await?
+        {
+            if let Some(reminder) = utm.reminder {
+                if Utc::now().date_naive() == reminder.remind_on {
+                    self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
+                        .await?;
+                    self.delete_media_reminder(utm.user_id, utm.metadata_id)
+                        .await?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 

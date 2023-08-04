@@ -44,6 +44,8 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
         .update_watchlist_media_and_send_notifications()
         .await
         .unwrap();
+    tracing::trace!("Checking and sending any pending reminders");
+    service.send_pending_media_reminders().await.unwrap();
     Ok(())
 }
 
@@ -123,34 +125,6 @@ pub async fn user_created_job(
     service.user_created_job(information.user_id).await.unwrap();
     service
         .calculate_user_media_summary(information.user_id)
-        .await
-        .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SendMediaReminderJob {
-    pub user_id: i32,
-    pub metadata_id: i32,
-    pub message: String,
-}
-
-impl Job for SendMediaReminderJob {
-    const NAME: &'static str = "apalis::SendMediaReminderJob";
-}
-
-pub async fn send_media_reminder_to_user_platforms_job(
-    information: SendMediaReminderJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::trace!("Sending notifications to {}", information.user_id);
-    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    service
-        .send_media_reminder(
-            information.user_id,
-            information.metadata_id,
-            information.message,
-        )
         .await
         .unwrap();
     Ok(())

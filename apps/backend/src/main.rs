@@ -40,9 +40,8 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
     background::{
-        import_media, media_jobs, recalculate_user_summary_job,
-        send_media_reminder_to_user_platforms_job, update_exercise_job, update_metadata_job,
-        user_created_job, user_jobs, yank_integrations_data,
+        import_media, media_jobs, recalculate_user_summary_job, update_exercise_job,
+        update_metadata_job, user_created_job, user_jobs, yank_integrations_data,
     },
     config::load_app_config,
     config::AppConfig,
@@ -153,7 +152,6 @@ async fn main() -> Result<()> {
 
     let import_media_storage = create_storage(pool.clone()).await;
     let user_created_job_storage = create_storage(pool.clone()).await;
-    let send_notifications_to_user_platform_job_storage = create_storage(pool.clone()).await;
     let recalculate_user_summary_job_storage = create_storage(pool.clone()).await;
     let update_metadata_job_storage = create_storage(pool.clone()).await;
     let update_exercise_job_storage = create_storage(pool.clone()).await;
@@ -168,7 +166,6 @@ async fn main() -> Result<()> {
         &update_exercise_job_storage,
         &update_metadata_job_storage,
         &recalculate_user_summary_job_storage,
-        &send_notifications_to_user_platform_job_storage,
     )
     .await;
 
@@ -241,7 +238,6 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.media_service.clone();
     let media_service_6 = app_services.media_service.clone();
     let media_service_7 = app_services.media_service.clone();
-    let media_service_8 = app_services.media_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
@@ -294,13 +290,6 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(importer_service_1.clone()))
                     .with_storage(import_media_storage.clone())
                     .build_fn(import_media)
-            })
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("send_media_reminder-{c}"))
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_8.clone()))
-                    .with_storage(send_notifications_to_user_platform_job_storage.clone())
-                    .build_fn(send_media_reminder_to_user_platforms_job)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("user_created_job-{c}"))
