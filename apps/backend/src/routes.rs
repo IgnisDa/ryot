@@ -90,7 +90,7 @@ pub async fn graphql_handler(
     } else if let Some(h) = headers.get(AUTHORIZATION) {
         ctx.auth_token = h.to_str().map(strip).ok();
     } else if let Some(h) = headers.get("X-Auth-Token") {
-        ctx.auth_token = h.to_str().map(strip).ok();
+        ctx.auth_token = h.to_str().map(String::from).ok();
     }
     req = req.data(ctx);
     schema.execute(req).await.into()
