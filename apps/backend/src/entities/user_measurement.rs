@@ -21,7 +21,7 @@ use crate::models::fitness::UserMeasurementStats;
 #[sea_orm(table_name = "user_measurement")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub timestamp: DateTime,
+    pub timestamp: DateTimeUtc,
     #[graphql(skip)]
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: i32,

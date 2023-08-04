@@ -31,7 +31,7 @@ impl MigrationTrait for Migration {
                     .table(UserMeasurement::Table)
                     .col(
                         ColumnDef::new(UserMeasurement::Timestamp)
-                            .date_time()
+                            .timestamp_with_time_zone()
                             .not_null(),
                     )
                     .col(ColumnDef::new(UserMeasurement::UserId).integer().not_null())
