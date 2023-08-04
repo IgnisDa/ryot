@@ -1,12 +1,14 @@
+use std::sync::Arc;
+
 use apalis::prelude::{Job, JobContext, JobError};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::metadata,
-    fitness::exercise::resolver::get_exercise_service,
-    importer::{get_importer_service, DeployImportJobInput},
-    miscellaneous::resolver::get_miscellaneous_service,
+    fitness::exercise::resolver::ExerciseService,
+    importer::{DeployImportJobInput, ImporterService},
+    miscellaneous::resolver::MiscellaneousService,
     models::fitness::Exercise,
 };
 
@@ -25,13 +27,14 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn media_jobs(_information: ScheduledJob, _ctx: JobContext) -> Result<(), JobError> {
+pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Invalidating invalid media import jobs");
-    get_importer_service()
+    ctx.data::<Arc<ImporterService>>()
+        .unwrap()
         .invalidate_import_jobs()
         .await
         .unwrap();
-    let service = get_miscellaneous_service();
+    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     service
         .cleanup_data_without_associated_user_activities()
         .await
@@ -41,30 +44,43 @@ pub async fn media_jobs(_information: ScheduledJob, _ctx: JobContext) -> Result<
         .update_watchlist_media_and_send_notifications()
         .await
         .unwrap();
+    tracing::trace!("Checking and sending any pending reminders");
+    service.send_pending_media_reminders().await.unwrap();
     Ok(())
 }
 
-pub async fn user_jobs(_information: ScheduledJob, _ctx: JobContext) -> Result<(), JobError> {
+pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Cleaning up user and metadata association");
-    let service = get_miscellaneous_service();
-    service
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
     tracing::trace!("Removing old user summaries and regenerating them");
-    service.regenerate_user_summaries().await.unwrap();
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
+        .regenerate_user_summaries()
+        .await
+        .unwrap();
     tracing::trace!("Removing old user authentication tokens");
-    service.delete_expired_user_auth_tokens().await.unwrap();
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
+        .delete_expired_user_auth_tokens()
+        .await
+        .unwrap();
     Ok(())
 }
 
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
-    _ctx: JobContext,
+    ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::trace!("Getting data from yanked integrations for all users");
-    let service = get_miscellaneous_service();
-    service.yank_integrations_data().await.unwrap();
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
+        .yank_integrations_data()
+        .await
+        .unwrap();
     Ok(())
 }
 
@@ -80,10 +96,10 @@ impl Job for ImportMedia {
     const NAME: &'static str = "apalis::ImportMedia";
 }
 
-pub async fn import_media(information: ImportMedia, _ctx: JobContext) -> Result<(), JobError> {
+pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Importing media");
-    let service = get_importer_service();
-    service
+    ctx.data::<Arc<ImporterService>>()
+        .unwrap()
         .import_from_source(information.user_id, information.input)
         .await
         .unwrap();
@@ -101,41 +117,14 @@ impl Job for UserCreatedJob {
 
 pub async fn user_created_job(
     information: UserCreatedJob,
-    _ctx: JobContext,
+    ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::trace!("Running jobs after user creation");
-    let service = get_miscellaneous_service();
+    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    service.user_created_job(information.user_id).await.unwrap();
     service.user_created_job(information.user_id).await.unwrap();
     service
         .calculate_user_media_summary(information.user_id)
-        .await
-        .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SendMediaReminderJob {
-    pub user_id: i32,
-    pub metadata_id: i32,
-    pub message: String,
-}
-
-impl Job for SendMediaReminderJob {
-    const NAME: &'static str = "apalis::SendMediaReminderJob";
-}
-
-pub async fn send_media_reminder_to_user_platforms_job(
-    information: SendMediaReminderJob,
-    _ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::trace!("Sending notifications to {}", information.user_id);
-    let service = get_miscellaneous_service();
-    service
-        .send_media_reminder(
-            information.user_id,
-            information.metadata_id,
-            information.message,
-        )
         .await
         .unwrap();
     Ok(())
@@ -152,11 +141,11 @@ impl Job for RecalculateUserSummaryJob {
 
 pub async fn recalculate_user_summary_job(
     information: RecalculateUserSummaryJob,
-    _ctx: JobContext,
+    ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::trace!("Calculating summary for user {:?}", information.user_id);
-    let service = get_miscellaneous_service();
-    service
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
         .calculate_user_media_summary(information.user_id)
         .await
         .unwrap();
@@ -178,10 +167,10 @@ impl Job for UpdateMetadataJob {
 
 pub async fn update_metadata_job(
     information: UpdateMetadataJob,
-    _ctx: JobContext,
+    ctx: JobContext,
 ) -> Result<(), JobError> {
-    let service = get_miscellaneous_service();
-    service
+    ctx.data::<Arc<MiscellaneousService>>()
+        .unwrap()
         .update_metadata(information.metadata.id)
         .await
         .unwrap();
@@ -199,10 +188,13 @@ impl Job for UpdateExerciseJob {
 
 pub async fn update_exercise_job(
     information: UpdateExerciseJob,
-    _ctx: JobContext,
+    ctx: JobContext,
 ) -> Result<(), JobError> {
     tracing::trace!("Updating {:?}", information.exercise.name);
-    let service = get_exercise_service();
-    service.update_exercise(information.exercise).await.unwrap();
+    ctx.data::<Arc<ExerciseService>>()
+        .unwrap()
+        .update_exercise(information.exercise)
+        .await
+        .unwrap();
     Ok(())
 }

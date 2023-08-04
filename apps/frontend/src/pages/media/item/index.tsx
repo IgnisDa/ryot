@@ -34,7 +34,7 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { DateInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -63,7 +63,7 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/utilities";
+import { changeCase, formatDateToNaiveDate } from "@ryot/utilities";
 import {
 	IconAlertCircle,
 	IconBook,
@@ -278,7 +278,7 @@ function CreateReminderModal(props: {
 	refetchUserMediaDetails: () => void;
 }) {
 	const [message, setMessage] = useState(`Complete '${props.title}'`);
-	const [remindOn, setRemindOn] = useState(new Date());
+	const [remindOn, setRemindOn] = useState("");
 
 	const createMediaReminder = useMutation({
 		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
@@ -291,6 +291,12 @@ function CreateReminderModal(props: {
 		onSuccess: () => {
 			props.refetchUserMediaDetails();
 			props.onClose();
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				message: "Invalid inputs entered",
+			});
 		},
 	});
 
@@ -319,14 +325,13 @@ function CreateReminderModal(props: {
 					label="Message"
 					value={message}
 				/>
-				<DateTimePicker
-					dropdownType="modal"
+				<DateInput
 					label="Remind on"
+					popoverProps={{ withinPortal: true }}
 					onChange={(v) => {
-						if (v) setRemindOn(new Date(v.getTime()));
+						if (v) setRemindOn(formatDateToNaiveDate(v));
 					}}
-					value={remindOn}
-					modalProps={{ withinPortal: true }}
+					defaultValue={new Date()}
 				/>
 				<Button
 					data-autofocus
@@ -733,10 +738,7 @@ const Page: NextPageWithLayout = () => {
 							variant="outline"
 							color="violet"
 						>
-							Reminder for{" "}
-							{DateTime.fromJSDate(
-								userMediaDetails.data.reminder.remindOn,
-							).toLocaleString(DateTime.DATETIME_SHORT)}
+							Reminder for {userMediaDetails.data.reminder.remindOn}
 							<Text color="green">
 								{userMediaDetails.data.reminder.message}
 							</Text>

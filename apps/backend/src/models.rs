@@ -64,10 +64,8 @@ pub mod media {
     )]
     #[graphql(input_name = "UserMediaReminderInput")]
     pub struct UserMediaReminder {
-        pub remind_on: DateTimeUtc,
+        pub remind_on: NaiveDate,
         pub message: String,
-        /// To be used later if a cancellation is needed.
-        pub job_id: String,
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
