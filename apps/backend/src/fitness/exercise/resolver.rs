@@ -3,15 +3,15 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, InputObject, Object, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QueryTrait,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
+    EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
 };
 use sea_query::{Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     background::UpdateExerciseJob,
-    entities::{exercise, prelude::Exercise},
+    entities::{exercise, prelude::Exercise, user_measurement},
     models::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
@@ -51,6 +51,17 @@ impl ExerciseMutation {
     async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.deploy_update_exercise_library_job().await
+    }
+
+    /// Create a user measurement.
+    async fn create_user_measurement(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: user_measurement::Model,
+    ) -> Result<DateTimeUtc> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_measurement(user_id, input).await
     }
 }
 
@@ -173,5 +184,16 @@ impl ExerciseService {
             db_exercise.insert(&self.db).await?;
         }
         Ok(())
+    }
+
+    async fn create_user_measurement(
+        &self,
+        user_id: i32,
+        mut input: user_measurement::Model,
+    ) -> Result<DateTimeUtc> {
+        input.user_id = user_id;
+        let um: user_measurement::ActiveModel = input.into();
+        let um = um.insert(&self.db).await?;
+        Ok(um.timestamp)
     }
 }

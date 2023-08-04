@@ -5,6 +5,7 @@ use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
@@ -824,6 +825,7 @@ pub mod fitness {
         pub name: String,
     }
 
+    #[skip_serializing_none]
     #[derive(
         Debug,
         Clone,
