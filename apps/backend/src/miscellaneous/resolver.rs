@@ -1779,12 +1779,19 @@ impl MiscellaneousService {
             .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
             .collect();
         let mut items = vec![];
+        // TODO: Once https://github.com/SeaQL/sea-orm/issues/1802 is resolved
+        struct RoundFunction;
+        impl Iden for RoundFunction {
+            fn unquoted(&self, s: &mut dyn sea_query::Write) {
+                write!(s, "ROUND").unwrap();
+            }
+        }
         for m in metas {
             let avg_select = Query::select()
-                .expr(Func::avg(Expr::col((
+                .expr(Func::cust(RoundFunction).arg(Func::avg(Expr::col((
                     TempReview::Table,
                     TempReview::Rating,
-                ))))
+                )))))
                 .from(TempReview::Table)
                 .cond_where(
                     Cond::all()
