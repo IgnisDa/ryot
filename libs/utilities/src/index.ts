@@ -14,6 +14,13 @@ export const formatTimeAgo = (time: Date) => {
 };
 
 /**
+ * Format a `Date` into a Rust `NaiveDate`
+ */
+export const formatDateToNaiveDate = (t: Date) => {
+	return t.toISOString().split("T")[0];
+};
+
+/**
  * Generate initials for a given string.
  */
 export const getInitials = (name: string) => {
