@@ -836,7 +836,7 @@ pub mod fitness {
         InputObject,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
-    pub struct UserMeasurementData {
+    pub struct UserMeasurementStats {
         pub weight: Option<Decimal>,
         pub body_mass_index: Option<Decimal>,
         pub total_body_water: Option<Decimal>,

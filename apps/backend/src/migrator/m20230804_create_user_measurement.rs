@@ -15,9 +15,11 @@ impl MigrationName for Migration {
 #[derive(Iden)]
 pub enum UserMeasurement {
     Table,
-    UserId,
     Timestamp,
-    Data,
+    UserId,
+    Name,
+    Comment,
+    Stats,
 }
 
 #[async_trait::async_trait]
@@ -33,13 +35,15 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(UserMeasurement::UserId).integer().not_null())
+                    .col(ColumnDef::new(UserMeasurement::Name).string().null())
+                    .col(ColumnDef::new(UserMeasurement::Comment).text().null())
                     .primary_key(
                         Index::create()
                             .name(USER_MEASUREMENT_PRIMARY_KEY)
                             .col(UserMeasurement::UserId)
                             .col(UserMeasurement::Timestamp),
                     )
-                    .col(ColumnDef::new(UserMeasurement::Data).json().not_null())
+                    .col(ColumnDef::new(UserMeasurement::Stats).json().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_measurement-user_id")

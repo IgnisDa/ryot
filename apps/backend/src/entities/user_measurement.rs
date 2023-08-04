@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::fitness::UserMeasurementData;
+use crate::models::fitness::UserMeasurementStats;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "user_measurement")]
@@ -12,7 +12,9 @@ pub struct Model {
     pub timestamp: DateTime,
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: i32,
-    pub data: UserMeasurementData,
+    pub name: Option<String>,
+    pub comment: Option<String>,
+    pub stats: UserMeasurementStats,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
