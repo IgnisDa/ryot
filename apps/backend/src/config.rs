@@ -365,7 +365,7 @@ pub struct SchedulerConfig {
     /// The number of jobs to process every 5 seconds when updating metadata in
     /// the background.
     #[setting(default = 5)]
-    pub rate_limit_num: u64,
+    pub rate_limit_num: i32,
     /// Deploy a job every x hours that performs user cleanup and summary
     /// calculation.
     #[setting(default = 12)]
