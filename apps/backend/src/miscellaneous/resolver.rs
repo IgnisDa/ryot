@@ -1,15 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
-    str::FromStr,
     sync::Arc,
 };
 
 use anyhow::anyhow;
-use apalis::{
-    prelude::{JobId, JobRequest, JobState, Storage as ApalisStorage},
-    sqlite::SqliteStorage,
-};
+use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
@@ -542,7 +538,7 @@ struct UserMediaNextEpisode {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateMediaReminderInput {
     metadata_id: i32,
-    remind_on: DateTimeUtc,
+    remind_on: NaiveDate,
     message: String,
 }
 
@@ -4456,30 +4452,18 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateMediaReminderInput,
     ) -> Result<bool> {
-        if input.remind_on < Utc::now() {
+        if input.remind_on < Utc::now().date_naive() {
             return Ok(false);
         }
         let utm = associate_user_with_metadata(&user_id, &input.metadata_id, &self.db).await?;
-        let mut storage = self.send_notifications_to_user_platform_job.clone();
         if utm.reminder.is_some() {
             self.delete_media_reminder(user_id, input.metadata_id)
                 .await?;
         }
-        let job = storage
-            .schedule(
-                SendMediaReminderJob {
-                    user_id,
-                    metadata_id: input.metadata_id,
-                    message: input.message.clone(),
-                },
-                input.remind_on.clone(),
-            )
-            .await?;
         let mut utm: user_to_metadata::ActiveModel = utm.into();
         utm.reminder = ActiveValue::Set(Some(UserMediaReminder {
             remind_on: input.remind_on,
             message: input.message,
-            job_id: job.to_string(),
         }));
         utm.update(&self.db).await?;
         Ok(true)
@@ -4487,19 +4471,6 @@ impl MiscellaneousService {
 
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
-        if let Some(reminder) = utm.reminder.as_ref() {
-            let storage = self.send_notifications_to_user_platform_job.clone();
-            let mut job = JobRequest::new(SendMediaReminderJob {
-                user_id,
-                metadata_id,
-                message: reminder.message.clone(),
-            });
-            job.set_status(JobState::Killed);
-            storage
-                .update_by_id(&JobId::from_str(&reminder.job_id).unwrap(), &job)
-                .await
-                .ok();
-        }
         let mut utm: user_to_metadata::ActiveModel = utm.into();
         utm.reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
