@@ -107,6 +107,10 @@ pub struct UserSinkIntegrations(pub Vec<UserSinkIntegration>);
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
 pub enum UserNotificationSetting {
+    Apprise {
+        url: String,
+        key: String,
+    },
     Discord {
         url: String,
     },

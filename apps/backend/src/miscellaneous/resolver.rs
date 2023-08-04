@@ -150,6 +150,7 @@ struct CreateUserYankIntegrationInput {
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserNotificationPlatformLot {
+    Apprise,
     Discord,
     Gotify,
     Ntfy,
@@ -3649,6 +3650,9 @@ impl MiscellaneousService {
         let notifications = user.notifications.0;
         notifications.into_iter().for_each(|n| {
             let description = match n.settings {
+                UserNotificationSetting::Apprise { url, key } => {
+                    format!("Apprise URL: {}, Key: {}", url, key)
+                }
                 UserNotificationSetting::Discord { url } => {
                     format!("Discord webhook: {}", url)
                 }
@@ -3787,6 +3791,10 @@ impl MiscellaneousService {
             id: new_notification_id,
             timestamp: Utc::now(),
             settings: match input.lot {
+                UserNotificationPlatformLot::Apprise => UserNotificationSetting::Apprise {
+                    url: input.base_url.unwrap(),
+                    key: input.api_token.unwrap(),
+                },
                 UserNotificationPlatformLot::Discord => UserNotificationSetting::Discord {
                     url: input.base_url.unwrap(),
                 },

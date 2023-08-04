@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use convert_case::{Case, Casing};
+use http_types::mime;
 
 use crate::{
     users::UserNotificationSetting,
@@ -11,6 +12,17 @@ impl UserNotificationSetting {
     pub async fn send_message(&self, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
         match self {
+            Self::Apprise { url, key } => {
+                surf::post(format!("{}/notify/{}", url, key))
+                    .content_type(mime::JSON)
+                    .body_json(&serde_json::json!({
+                        "body": msg,
+                        "title": project_name,
+                    }))
+                    .unwrap()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            }
             Self::Discord { url } => {
                 surf::post(url)
                     .body_json(&serde_json::json!({

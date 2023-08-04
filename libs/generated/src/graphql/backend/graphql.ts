@@ -1245,6 +1245,7 @@ export type UserMediaSummary = {
 };
 
 export enum UserNotificationPlatformLot {
+  Apprise = 'APPRISE',
   Discord = 'DISCORD',
   Gotify = 'GOTIFY',
   Ntfy = 'NTFY',
