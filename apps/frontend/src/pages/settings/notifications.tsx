@@ -237,6 +237,10 @@ const Page: NextPageWithLayout = () => {
 										onChange={(v) => {
 											const t = match(v)
 												.with(
+													"APPRISE",
+													() => UserNotificationPlatformLot.Apprise,
+												)
+												.with(
 													"DISCORD",
 													() => UserNotificationPlatformLot.Discord,
 												)
@@ -263,6 +267,24 @@ const Page: NextPageWithLayout = () => {
 									/>
 									{createUserNotificationPlatformLot
 										? match(createUserNotificationPlatformLot)
+												.with(UserNotificationPlatformLot.Apprise, () => (
+													<>
+														<TextInput
+															label="Base Url"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+														<TextInput
+															label="Key"
+															required
+															{...createUserNotificationPlatformForm.getInputProps(
+																"apiToken",
+															)}
+														/>
+													</>
+												))
 												.with(UserNotificationPlatformLot.Discord, () => (
 													<>
 														<TextInput

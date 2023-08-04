@@ -61,11 +61,12 @@ use crate::{
             CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages,
-            MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            MediaSearchItemResponse, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -150,6 +151,7 @@ struct CreateUserYankIntegrationInput {
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserNotificationPlatformLot {
+    Apprise,
     Discord,
     Gotify,
     Ntfy,
@@ -360,19 +362,6 @@ struct MediaBaseData {
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct MediaSearchItemResponse {
-    item: MediaSearchItem,
-    database_id: Option<i32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-struct DetailedMediaSearchResults {
-    total: i32,
-    items: Vec<MediaSearchItemResponse>,
-    next_page: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -663,7 +652,7 @@ impl MiscellaneousQuery {
         lot: MetadataLot,
         source: MetadataSource,
         input: SearchInput,
-    ) -> Result<DetailedMediaSearchResults> {
+    ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.media_search(lot, source, input).await
     }
@@ -1778,12 +1767,19 @@ impl MiscellaneousService {
             .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
             .collect();
         let mut items = vec![];
+        // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
+        struct RoundFunction;
+        impl Iden for RoundFunction {
+            fn unquoted(&self, s: &mut dyn sea_query::Write) {
+                write!(s, "ROUND").unwrap();
+            }
+        }
         for m in metas {
             let avg_select = Query::select()
-                .expr(Func::avg(Expr::col((
+                .expr(Func::cust(RoundFunction).arg(Func::avg(Expr::col((
                     TempReview::Table,
                     TempReview::Rating,
-                ))))
+                )))))
                 .from(TempReview::Table)
                 .cond_where(
                     Cond::all()
@@ -2440,100 +2436,112 @@ impl MiscellaneousService {
         lot: MetadataLot,
         source: MetadataSource,
         input: SearchInput,
-    ) -> Result<DetailedMediaSearchResults> {
-        let provider = self.get_provider(lot, source)?;
-        let results = provider
-            .search(&input.query.unwrap_or_default(), input.page)
-            .await?;
-        let mut all_idens = results
-            .items
-            .iter()
-            .map(|i| i.identifier.to_owned())
-            .collect_vec();
-        let data = if all_idens.is_empty() {
-            vec![]
-        } else {
-            #[derive(Iden)]
-            #[iden = "identifiers"]
-            enum TempIdentifiers {
-                #[iden = "identifiers"]
-                Alias,
-                Identifier,
+    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+        if let Some(q) = input.query {
+            if q.is_empty() {
+                return Ok(SearchResults {
+                    total: 0,
+                    items: vec![],
+                    next_page: None,
+                });
             }
-            let metadata_alias = Alias::new("m");
-            // This can be done with `select id from metadata where identifier = '...'
-            // and lot = '...'` in a loop. But, I wanted to write a performant query.
-            let first_iden = all_idens.drain(..1).collect_vec().pop().unwrap();
-            let mut subquery = Query::select()
-                .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
-                .to_owned();
-            for identifier in all_idens {
-                subquery = subquery
-                    .union(
-                        UnionType::All,
-                        Query::select().expr(Expr::val(identifier)).to_owned(),
+            let provider = self.get_provider(lot, source)?;
+            let results = provider.search(&q, input.page).await?;
+            let mut all_idens = results
+                .items
+                .iter()
+                .map(|i| i.identifier.to_owned())
+                .collect_vec();
+            let data = if all_idens.is_empty() {
+                vec![]
+            } else {
+                #[derive(Iden)]
+                #[iden = "identifiers"]
+                enum TempIdentifiers {
+                    #[iden = "identifiers"]
+                    Alias,
+                    Identifier,
+                }
+                let metadata_alias = Alias::new("m");
+                // This can be done with `select id from metadata where identifier = '...'
+                // and lot = '...'` in a loop. But, I wanted to write a performant query.
+                let first_iden = all_idens.drain(..1).collect_vec().pop().unwrap();
+                let mut subquery = Query::select()
+                    .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
+                    .to_owned();
+                for identifier in all_idens {
+                    subquery = subquery
+                        .union(
+                            UnionType::All,
+                            Query::select().expr(Expr::val(identifier)).to_owned(),
+                        )
+                        .to_owned();
+                }
+                let identifiers_query = Query::select()
+                    .expr(Expr::col((
+                        TempIdentifiers::Alias,
+                        TempIdentifiers::Identifier,
+                    )))
+                    .expr_as(
+                        Expr::case(
+                            Expr::col((metadata_alias.clone(), TempMetadata::Id)).is_not_null(),
+                            Expr::col((metadata_alias.clone(), TempMetadata::Id)),
+                        )
+                        .finally(Keyword::Null),
+                        TempMetadata::Id,
+                    )
+                    .from_subquery(subquery, TempIdentifiers::Alias)
+                    .join_as(
+                        JoinType::LeftJoin,
+                        TempMetadata::Table,
+                        metadata_alias.clone(),
+                        Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
+                            .equals((metadata_alias.clone(), TempMetadata::Identifier)),
+                    )
+                    .and_where(
+                        Expr::col((metadata_alias.clone(), TempMetadata::Lot))
+                            .eq(lot)
+                            .and(
+                                Expr::col((metadata_alias.clone(), TempMetadata::Source))
+                                    .eq(source),
+                            )
+                            .or(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).is_null()),
                     )
                     .to_owned();
-            }
-            let identifiers_query = Query::select()
-                .expr(Expr::col((
-                    TempIdentifiers::Alias,
-                    TempIdentifiers::Identifier,
-                )))
-                .expr_as(
-                    Expr::case(
-                        Expr::col((metadata_alias.clone(), TempMetadata::Id)).is_not_null(),
-                        Expr::col((metadata_alias.clone(), TempMetadata::Id)),
-                    )
-                    .finally(Keyword::Null),
-                    TempMetadata::Id,
-                )
-                .from_subquery(subquery, TempIdentifiers::Alias)
-                .join_as(
-                    JoinType::LeftJoin,
-                    TempMetadata::Table,
-                    metadata_alias.clone(),
-                    Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
-                        .equals((metadata_alias.clone(), TempMetadata::Identifier)),
-                )
-                .and_where(
-                    Expr::col((metadata_alias.clone(), TempMetadata::Lot))
-                        .eq(lot)
-                        .and(Expr::col((metadata_alias.clone(), TempMetadata::Source)).eq(source))
-                        .or(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).is_null()),
-                )
-                .to_owned();
-            let stmt = self.get_db_stmt(identifiers_query);
-            #[derive(Debug, FromQueryResult)]
-            struct DbResponse {
-                identifier: String,
-                id: Option<i32>,
-            }
-            let identifiers: Vec<DbResponse> = self
-                .db
-                .query_all(stmt)
-                .await?
-                .iter()
-                .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
-                .collect();
-            results
-                .items
-                .into_iter()
-                .map(|i| MediaSearchItemResponse {
-                    database_id: identifiers
-                        .iter()
-                        .find(|&f| f.identifier == i.identifier)
-                        .and_then(|i| i.id),
-                    item: i,
-                })
-                .collect()
-        };
-        let results = DetailedMediaSearchResults {
-            total: results.total,
-            items: data,
-            next_page: results.next_page,
-        };
-        Ok(results)
+                let stmt = self.get_db_stmt(identifiers_query);
+                #[derive(Debug, FromQueryResult)]
+                struct DbResponse {
+                    identifier: String,
+                    id: Option<i32>,
+                }
+                let identifiers: Vec<DbResponse> = self
+                    .db
+                    .query_all(stmt)
+                    .await?
+                    .iter()
+                    .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
+                    .collect();
+                results
+                    .items
+                    .into_iter()
+                    .map(|i| MediaSearchItemResponse {
+                        database_id: identifiers
+                            .iter()
+                            .find(|&f| f.identifier == i.identifier)
+                            .and_then(|i| i.id),
+                        item: i,
+                    })
+                    .collect()
+            };
+            let results = SearchResults {
+                total: results.total,
+                items: data,
+                next_page: results.next_page,
+            };
+            Ok(results)
+        } else {
+            return Err(Error::new("Can not search without a query"));
+        }
     }
 
     async fn details_from_provider_for_existing_media(
@@ -3649,6 +3657,9 @@ impl MiscellaneousService {
         let notifications = user.notifications.0;
         notifications.into_iter().for_each(|n| {
             let description = match n.settings {
+                UserNotificationSetting::Apprise { url, key } => {
+                    format!("Apprise URL: {}, Key: {}", url, key)
+                }
                 UserNotificationSetting::Discord { url } => {
                     format!("Discord webhook: {}", url)
                 }
@@ -3787,6 +3798,10 @@ impl MiscellaneousService {
             id: new_notification_id,
             timestamp: Utc::now(),
             settings: match input.lot {
+                UserNotificationPlatformLot::Apprise => UserNotificationSetting::Apprise {
+                    url: input.base_url.unwrap(),
+                    key: input.api_token.unwrap(),
+                },
                 UserNotificationPlatformLot::Discord => UserNotificationSetting::Discord {
                     url: input.base_url.unwrap(),
                 },

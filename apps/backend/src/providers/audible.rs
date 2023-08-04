@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use http_types::mime;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
@@ -113,7 +114,7 @@ impl AudibleService {
 
     pub async fn new(config: &AudibleConfig) -> Self {
         let url = Self::url_from_locale(&config.locale);
-        let client = get_base_http_client(&url, vec![(ACCEPT, "application/json")]);
+        let client = get_base_http_client(&url, vec![(ACCEPT, mime::JSON)]);
         Self { client }
     }
 }

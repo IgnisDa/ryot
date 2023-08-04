@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
+use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
@@ -62,7 +63,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let client = get_base_http_client(
         &format!("{}/users/{}/", API_URL, input.username),
         vec![
-            (CONTENT_TYPE, "application/json"),
+            (CONTENT_TYPE, mime::JSON.to_string().as_str()),
             ("trakt-api-key".into(), CLIENT_ID),
             ("trakt-api-version".into(), API_VERSION),
         ],

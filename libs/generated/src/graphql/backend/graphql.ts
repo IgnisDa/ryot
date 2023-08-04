@@ -238,12 +238,6 @@ export type DeployTraktImportInput = {
   username: Scalars['String'];
 };
 
-export type DetailedMediaSearchResults = {
-  items: Array<MediaSearchItemResponse>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
-};
-
 export type Exercise = {
   attributes: ExerciseAttributes;
   id: Scalars['Int'];
@@ -531,6 +525,12 @@ export type MediaSearchItem = {
 export type MediaSearchItemResponse = {
   databaseId?: Maybe<Scalars['Int']>;
   item: MediaSearchItem;
+};
+
+export type MediaSearchResults = {
+  items: Array<MediaSearchItemResponse>;
+  nextPage?: Maybe<Scalars['Int']>;
+  total: Scalars['Int'];
 };
 
 export enum MediaSortBy {
@@ -916,7 +916,7 @@ export type QueryRoot = {
   /** Get all the media items related to a user for a specific media type. */
   mediaList: MediaListResults;
   /** Search for a list of media for a given type. */
-  mediaSearch: DetailedMediaSearchResults;
+  mediaSearch: MediaSearchResults;
   /** Get all the metadata sources possible for a lot. */
   mediaSourcesForLot: Array<MetadataSource>;
   /** Get all languages supported by all the providers. */
@@ -1245,6 +1245,7 @@ export type UserMediaSummary = {
 };
 
 export enum UserNotificationPlatformLot {
+  Apprise = 'APPRISE',
   Discord = 'DISCORD',
   Gotify = 'GOTIFY',
   Ntfy = 'NTFY',

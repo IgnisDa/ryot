@@ -3,6 +3,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
+use http_types::mime;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -109,7 +110,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, "application/json")])
+        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)])
             .with(OpenlibraryRedirectMiddleware);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
