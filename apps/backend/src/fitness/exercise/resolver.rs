@@ -16,7 +16,8 @@ use crate::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
     },
-    utils::{get_case_insensitive_like_query, PAGE_LIMIT},
+    traits::AuthProvider,
+    utils::{get_case_insensitive_like_query, MemoryDatabase, PAGE_LIMIT},
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -30,16 +31,14 @@ pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
-    /// Get all the exercises in the database
+    /// Get a paginated list of exercises in the database.
     async fn exercises_list(
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
     ) -> Result<SearchResults<exercise::Model>> {
-        gql_ctx
-            .data_unchecked::<Arc<ExerciseService>>()
-            .exercises_list(input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.exercises_list(input).await
     }
 }
 
@@ -48,32 +47,38 @@ pub struct ExerciseMutation;
 
 #[Object]
 impl ExerciseMutation {
-    /// Deploy a job to download update the exercise library
+    /// Deploy a job to download and update the exercise library.
     async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
-        gql_ctx
-            .data_unchecked::<Arc<ExerciseService>>()
-            .deploy_update_exercise_library_job()
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.deploy_update_exercise_library_job().await
     }
 }
 
-#[derive(Debug)]
 pub struct ExerciseService {
     db: DatabaseConnection,
     json_url: String,
+    auth_db: MemoryDatabase,
     image_prefix_url: String,
     update_exercise: SqliteStorage<UpdateExerciseJob>,
+}
+
+impl AuthProvider for ExerciseService {
+    fn get_auth_db(&self) -> &MemoryDatabase {
+        &self.auth_db
+    }
 }
 
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
+        auth_db: MemoryDatabase,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
         json_url: String,
         image_prefix_url: String,
     ) -> Self {
         Self {
             db: db.clone(),
+            auth_db,
             update_exercise: update_exercise.clone(),
             json_url,
             image_prefix_url,

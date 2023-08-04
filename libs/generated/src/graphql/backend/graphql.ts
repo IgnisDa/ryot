@@ -627,7 +627,7 @@ export type MutationRoot = {
   deleteUserNotificationPlatform: Scalars['Boolean'];
   /** Add job to import data from various sources. */
   deployImportJob: Scalars['String'];
-  /** Deploy a job to download update the exercise library */
+  /** Deploy a job to download and update the exercise library. */
   deployUpdateExerciseLibraryJob: Scalars['Int'];
   /** Deploy a job to update a media item's metadata. */
   deployUpdateMetadataJob: Scalars['String'];
@@ -901,7 +901,7 @@ export type QueryRoot = {
   creatorDetails: CreatorDetails;
   /** Get paginated list of creators. */
   creatorsList: MediaCreatorSearchResults;
-  /** Get all the exercises in the database */
+  /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseSearchResults;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedUrl: Scalars['String'];
