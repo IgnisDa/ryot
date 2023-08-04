@@ -1779,7 +1779,7 @@ impl MiscellaneousService {
             .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
             .collect();
         let mut items = vec![];
-        // TODO: Once https://github.com/SeaQL/sea-orm/issues/1802 is resolved
+        // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
         struct RoundFunction;
         impl Iden for RoundFunction {
             fn unquoted(&self, s: &mut dyn sea_query::Write) {
