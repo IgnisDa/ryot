@@ -381,7 +381,12 @@ const AccordionLabel = ({
 					size={16}
 					color="red"
 				>
-					<Avatar src={posterImages[0]} radius="xl" size="lg" />
+					<Avatar
+						src={posterImages[0]}
+						radius="xl"
+						size="lg"
+						imageProps={{ loading: "lazy" }}
+					/>
 				</Indicator>
 				{children}
 			</Flex>

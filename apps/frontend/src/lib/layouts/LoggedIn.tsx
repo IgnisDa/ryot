@@ -459,6 +459,7 @@ export default function ({ children }: { children: ReactElement }) {
 						>
 							<Group>
 								<Image
+									imageProps={{ loading: "lazy" }}
 									src={
 										colorScheme === "dark"
 											? "/logo-light.png"
