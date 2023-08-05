@@ -1,4 +1,11 @@
 
+# Version 2.2.0 (2023-08-05)
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.1.0 (2023-08-04)
 
 
