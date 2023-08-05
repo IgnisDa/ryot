@@ -214,7 +214,7 @@ impl ExerciseService {
     async fn user_measurements_list(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
         let resp = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id))
-            .order_by_desc(user_measurement::Column::Timestamp)
+            .order_by_asc(user_measurement::Column::Timestamp)
             .all(&self.db)
             .await?;
         Ok(resp)
