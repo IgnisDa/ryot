@@ -1,0 +1,32 @@
+query UserMeasurementsList {
+  userMeasurementsList {
+    timestamp
+    name
+    comment
+    stats {
+      weight
+      bodyMassIndex
+      totalBodyWater
+      muscle
+      leanBodyMass
+      bodyFat
+      boneMass
+      visceralFat
+      waistCircumference
+      waistToHeightRatio
+      hipCircumference
+      waistToHipRatio
+      chestCircumference
+      thighCircumference
+      bicepsCircumference
+      neckCircumference
+      bodyFatCaliper
+      chestSkinfold
+      abdominalSkinfold
+      thighSkinfold
+      basalMetabolicRate
+      totalDailyEnergyExpenditure
+      calories
+    }
+  }
+}

@@ -39,5 +39,6 @@ export const APP_ROUTES = {
 	},
 	fitness: {
 		home: "/fitness",
+		measurements: "/fitness/measurements",
 	},
 } as const;

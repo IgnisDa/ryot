@@ -18,6 +18,7 @@ const documents = {
     "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}": types.CreateCustomMediaDocument,
     "mutation CreateMediaReminder($input: CreateMediaReminderInput!) {\n  createMediaReminder(input: $input)\n}": types.CreateMediaReminderDocument,
     "mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {\n  createOrUpdateCollection(input: $input) {\n    id\n  }\n}": types.CreateOrUpdateCollectionDocument,
+    "mutation CreateUserMeasurement($input: UserMeasurementInput!) {\n  createUserMeasurement(input: $input)\n}": types.CreateUserMeasurementDocument,
     "mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {\n  createUserNotificationPlatform(input: $input)\n}": types.CreateUserNotificationPlatformDocument,
     "mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}": types.CreateUserSinkIntegrationDocument,
     "mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {\n  createUserYankIntegration(input: $input)\n}": types.CreateUserYankIntegrationDocument,
@@ -28,6 +29,7 @@ const documents = {
     "mutation DeleteUser($toDeleteUserId: Int!) {\n  deleteUser(toDeleteUserId: $toDeleteUserId)\n}": types.DeleteUserDocument,
     "mutation DeleteUserAuthToken($token: String!) {\n  deleteUserAuthToken(token: $token)\n}": types.DeleteUserAuthTokenDocument,
     "mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {\n  deleteUserIntegration(\n    integrationId: $integrationId\n    integrationLot: $integrationLot\n  )\n}": types.DeleteUserIntegrationDocument,
+    "mutation DeleteUserMeasurement($timestamp: DateTime!) {\n  deleteUserMeasurement(timestamp: $timestamp)\n}": types.DeleteUserMeasurementDocument,
     "mutation DeleteUserNotificationPlatform($notificationId: Int!) {\n  deleteUserNotificationPlatform(notificationId: $notificationId)\n}": types.DeleteUserNotificationPlatformDocument,
     "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
@@ -67,6 +69,7 @@ const documents = {
     "query UserCreatorDetails($creatorId: Int!) {\n  userCreatorDetails(creatorId: $creatorId) {\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n  }\n}": types.UserCreatorDetailsDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
     "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}": types.UserIntegrationsDocument,
+    "query UserMeasurementsList {\n  userMeasurementsList {\n    timestamp\n    name\n    comment\n    stats {\n      weight\n      bodyMassIndex\n      totalBodyWater\n      muscle\n      leanBodyMass\n      bodyFat\n      boneMass\n      visceralFat\n      waistCircumference\n      waistToHeightRatio\n      hipCircumference\n      waistToHipRatio\n      chestCircumference\n      thighCircumference\n      bicepsCircumference\n      neckCircumference\n      bodyFatCaliper\n      chestSkinfold\n      abdominalSkinfold\n      thighSkinfold\n      basalMetabolicRate\n      totalDailyEnergyExpenditure\n      calories\n    }\n  }\n}": types.UserMeasurementsListDocument,
     "fragment SeenPart on Seen {\n  id\n  progress\n  state\n  startedOn\n  finishedOn\n  lastUpdatedOn\n  showInformation {\n    episode\n    season\n  }\n  podcastInformation {\n    episode\n  }\n}\n\nquery UserMediaDetails($metadataId: Int!) {\n  userMediaDetails(metadataId: $metadataId) {\n    collections {\n      id\n      name\n    }\n    inProgress {\n      ...SeenPart\n    }\n    history {\n      ...SeenPart\n    }\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      showSeason\n      showEpisode\n      podcastEpisode\n      postedOn\n      postedBy {\n        id\n        name\n      }\n    }\n    reminder {\n      remindOn\n      message\n    }\n    isMonitored\n    seenBy\n    nextEpisode {\n      seasonNumber\n      episodeNumber\n    }\n  }\n}": types.SeenPartFragmentDoc,
     "query UserNotificationPlatforms {\n  userNotificationPlatforms {\n    id\n    description\n    timestamp\n  }\n}": types.UserNotificationPlatformsDocument,
     "query UserPreferences {\n  userPreferences {\n    notifications {\n      episodeReleased\n      statusChanged\n      releaseDateChanged\n      numberOfSeasonsChanged\n    }\n    featuresEnabled {\n      media {\n        anime\n        audioBooks\n        books\n        manga\n        movies\n        podcasts\n        shows\n        videoGames\n      }\n    }\n  }\n}": types.UserPreferencesDocument,
@@ -110,6 +113,10 @@ export function graphql(source: "mutation CreateOrUpdateCollection($input: Creat
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "mutation CreateUserMeasurement($input: UserMeasurementInput!) {\n  createUserMeasurement(input: $input)\n}"): (typeof documents)["mutation CreateUserMeasurement($input: UserMeasurementInput!) {\n  createUserMeasurement(input: $input)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {\n  createUserNotificationPlatform(input: $input)\n}"): (typeof documents)["mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {\n  createUserNotificationPlatform(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -147,6 +154,10 @@ export function graphql(source: "mutation DeleteUserAuthToken($token: String!) {
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {\n  deleteUserIntegration(\n    integrationId: $integrationId\n    integrationLot: $integrationLot\n  )\n}"): (typeof documents)["mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {\n  deleteUserIntegration(\n    integrationId: $integrationId\n    integrationLot: $integrationLot\n  )\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeleteUserMeasurement($timestamp: DateTime!) {\n  deleteUserMeasurement(timestamp: $timestamp)\n}"): (typeof documents)["mutation DeleteUserMeasurement($timestamp: DateTime!) {\n  deleteUserMeasurement(timestamp: $timestamp)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -303,6 +314,10 @@ export function graphql(source: "query UserDetails {\n  userDetails {\n    __typ
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"): (typeof documents)["query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query UserMeasurementsList {\n  userMeasurementsList {\n    timestamp\n    name\n    comment\n    stats {\n      weight\n      bodyMassIndex\n      totalBodyWater\n      muscle\n      leanBodyMass\n      bodyFat\n      boneMass\n      visceralFat\n      waistCircumference\n      waistToHeightRatio\n      hipCircumference\n      waistToHipRatio\n      chestCircumference\n      thighCircumference\n      bicepsCircumference\n      neckCircumference\n      bodyFatCaliper\n      chestSkinfold\n      abdominalSkinfold\n      thighSkinfold\n      basalMetabolicRate\n      totalDailyEnergyExpenditure\n      calories\n    }\n  }\n}"): (typeof documents)["query UserMeasurementsList {\n  userMeasurementsList {\n    timestamp\n    name\n    comment\n    stats {\n      weight\n      bodyMassIndex\n      totalBodyWater\n      muscle\n      leanBodyMass\n      bodyFat\n      boneMass\n      visceralFat\n      waistCircumference\n      waistToHeightRatio\n      hipCircumference\n      waistToHipRatio\n      chestCircumference\n      thighCircumference\n      bicepsCircumference\n      neckCircumference\n      bodyFatCaliper\n      chestSkinfold\n      abdominalSkinfold\n      thighSkinfold\n      basalMetabolicRate\n      totalDailyEnergyExpenditure\n      calories\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

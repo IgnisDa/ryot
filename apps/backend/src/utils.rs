@@ -80,6 +80,7 @@ pub async fn create_app_services(
     ));
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
+        auth_db.clone(),
         update_exercise_job,
         config.exercise.db.json_url.clone(),
         config.exercise.db.images_prefix_url.clone(),

@@ -1759,13 +1759,9 @@ impl MiscellaneousService {
             .offset(((input.page - 1) * PAGE_LIMIT) as u64)
             .to_owned();
         let stmt = self.get_db_stmt(main_select);
-        let metas: Vec<InnerMediaSearchItem> = self
-            .db
-            .query_all(stmt)
-            .await?
-            .into_iter()
-            .map(|qr| InnerMediaSearchItem::from_query_result(&qr, "").unwrap())
-            .collect();
+        let metas = InnerMediaSearchItem::find_by_statement(stmt)
+            .all(&self.db)
+            .await?;
         let mut items = vec![];
         // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
         struct RoundFunction;
@@ -2514,13 +2510,7 @@ impl MiscellaneousService {
                     identifier: String,
                     id: Option<i32>,
                 }
-                let identifiers: Vec<DbResponse> = self
-                    .db
-                    .query_all(stmt)
-                    .await?
-                    .iter()
-                    .map(|qr| DbResponse::from_query_result(qr, "").unwrap())
-                    .collect();
+                let identifiers = DbResponse::find_by_statement(stmt).all(&self.db).await?;
                 results
                     .items
                     .into_iter()
@@ -2540,7 +2530,7 @@ impl MiscellaneousService {
             };
             Ok(results)
         } else {
-            return Err(Error::new("Can not search without a query"));
+            Err(Error::new("Can not search without a query"))
         }
     }
 

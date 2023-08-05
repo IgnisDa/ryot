@@ -388,7 +388,14 @@ export default function ({ children }: { children: ReactElement }) {
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
-							links={[{ label: "Home", link: APP_ROUTES.fitness.home }]}
+							links={[
+								{ label: "Home", link: APP_ROUTES.fitness.home },
+
+								{
+									label: "Measurements",
+									link: APP_ROUTES.fitness.measurements,
+								},
+							]}
 						/>
 						<LinksGroup
 							label="Settings"
@@ -452,6 +459,7 @@ export default function ({ children }: { children: ReactElement }) {
 						>
 							<Group>
 								<Image
+									imageProps={{ loading: "lazy" }}
 									src={
 										colorScheme === "dark"
 											? "/logo-light.png"

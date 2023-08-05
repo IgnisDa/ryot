@@ -12,7 +12,7 @@ export const createGqlClient = (baseUrl: string, keepAlive = false) => {
 };
 
 export const getAuthHeader = (issuerString: string) => ({
-	"X-Auth-Token": `Bearer ${issuerString}`,
+	"X-Auth-Token": issuerString,
 });
 
 export type { GraphQLClient };

@@ -10,6 +10,7 @@ mod m20230505_create_review;
 mod m20230507_create_collection;
 mod m20230509_create_import_report;
 mod m20230622_create_exercise;
+mod m20230804_create_user_measurement;
 
 pub use m20230410_create_metadata::{Metadata, MetadataImageLot, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -32,6 +33,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230507_create_collection::Migration),
             Box::new(m20230509_create_import_report::Migration),
             Box::new(m20230622_create_exercise::Migration),
+            Box::new(m20230804_create_user_measurement::Migration),
         ]
     }
 }

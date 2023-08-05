@@ -28,7 +28,11 @@ export default function ({
 					<Carousel withIndicators={posterImages.length > 1} w={300}>
 						{[...posterImages, ...backdropImages].map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
-								<Image src={url} radius={"lg"} />
+								<Image
+									src={url}
+									radius={"lg"}
+									imageProps={{ loading: "lazy" }}
+								/>
 							</Carousel.Slide>
 						))}
 					</Carousel>

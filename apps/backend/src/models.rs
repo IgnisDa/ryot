@@ -5,6 +5,7 @@ use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
@@ -822,5 +823,44 @@ pub mod fitness {
         #[serde(flatten)]
         pub attributes: ExerciseAttributes,
         pub name: String,
+    }
+
+    #[skip_serializing_none]
+    #[derive(
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        InputObject,
+    )]
+    #[graphql(input_name = "UserMeasurementDataInput")]
+    pub struct UserMeasurementStats {
+        pub weight: Option<Decimal>,
+        pub body_mass_index: Option<Decimal>,
+        pub total_body_water: Option<Decimal>,
+        pub muscle: Option<Decimal>,
+        pub lean_body_mass: Option<Decimal>,
+        pub body_fat: Option<Decimal>,
+        pub bone_mass: Option<Decimal>,
+        pub visceral_fat: Option<Decimal>,
+        pub waist_circumference: Option<Decimal>,
+        pub waist_to_height_ratio: Option<Decimal>,
+        pub hip_circumference: Option<Decimal>,
+        pub waist_to_hip_ratio: Option<Decimal>,
+        pub chest_circumference: Option<Decimal>,
+        pub thigh_circumference: Option<Decimal>,
+        pub biceps_circumference: Option<Decimal>,
+        pub neck_circumference: Option<Decimal>,
+        pub body_fat_caliper: Option<Decimal>,
+        pub chest_skinfold: Option<Decimal>,
+        pub abdominal_skinfold: Option<Decimal>,
+        pub thigh_skinfold: Option<Decimal>,
+        pub basal_metabolic_rate: Option<Decimal>,
+        pub total_daily_energy_expenditure: Option<Decimal>,
+        pub calories: Option<Decimal>,
     }
 }

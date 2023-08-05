@@ -3,20 +3,25 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, InputObject, Object, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QueryTrait,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
+    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
 };
 use sea_query::{Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     background::UpdateExerciseJob,
-    entities::{exercise, prelude::Exercise},
+    entities::{
+        exercise,
+        prelude::{Exercise, UserMeasurement},
+        user_measurement,
+    },
     models::{
         fitness::{Exercise as GithubExercise, ExerciseAttributes},
         SearchResults,
     },
-    utils::{get_case_insensitive_like_query, PAGE_LIMIT},
+    traits::AuthProvider,
+    utils::{get_case_insensitive_like_query, MemoryDatabase, PAGE_LIMIT},
 };
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -30,16 +35,24 @@ pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
-    /// Get all the exercises in the database
+    /// Get a paginated list of exercises in the database.
     async fn exercises_list(
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
     ) -> Result<SearchResults<exercise::Model>> {
-        gql_ctx
-            .data_unchecked::<Arc<ExerciseService>>()
-            .exercises_list(input)
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.exercises_list(input).await
+    }
+
+    /// Get all the measurements for a user.
+    async fn user_measurements_list(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<user_measurement::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_measurements_list(user_id).await
     }
 }
 
@@ -48,32 +61,60 @@ pub struct ExerciseMutation;
 
 #[Object]
 impl ExerciseMutation {
-    /// Deploy a job to download update the exercise library
+    /// Deploy a job to download and update the exercise library.
     async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
-        gql_ctx
-            .data_unchecked::<Arc<ExerciseService>>()
-            .deploy_update_exercise_library_job()
-            .await
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.deploy_update_exercise_library_job().await
+    }
+
+    /// Create a user measurement.
+    async fn create_user_measurement(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: user_measurement::Model,
+    ) -> Result<DateTimeUtc> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_measurement(user_id, input).await
+    }
+
+    /// Delete a user measurement.
+    async fn delete_user_measurement(
+        &self,
+        gql_ctx: &Context<'_>,
+        timestamp: DateTimeUtc,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_user_measurement(user_id, timestamp).await
     }
 }
 
-#[derive(Debug)]
 pub struct ExerciseService {
     db: DatabaseConnection,
     json_url: String,
+    auth_db: MemoryDatabase,
     image_prefix_url: String,
     update_exercise: SqliteStorage<UpdateExerciseJob>,
+}
+
+impl AuthProvider for ExerciseService {
+    fn get_auth_db(&self) -> &MemoryDatabase {
+        &self.auth_db
+    }
 }
 
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
+        auth_db: MemoryDatabase,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
         json_url: String,
         image_prefix_url: String,
     ) -> Self {
         Self {
             db: db.clone(),
+            auth_db,
             update_exercise: update_exercise.clone(),
             json_url,
             image_prefix_url,
@@ -168,5 +209,37 @@ impl ExerciseService {
             db_exercise.insert(&self.db).await?;
         }
         Ok(())
+    }
+
+    async fn user_measurements_list(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
+        let resp = UserMeasurement::find()
+            .filter(user_measurement::Column::UserId.eq(user_id))
+            .order_by_asc(user_measurement::Column::Timestamp)
+            .all(&self.db)
+            .await?;
+        Ok(resp)
+    }
+
+    async fn create_user_measurement(
+        &self,
+        user_id: i32,
+        mut input: user_measurement::Model,
+    ) -> Result<DateTimeUtc> {
+        input.user_id = user_id;
+        let um: user_measurement::ActiveModel = input.into();
+        let um = um.insert(&self.db).await?;
+        Ok(um.timestamp)
+    }
+
+    async fn delete_user_measurement(&self, user_id: i32, timestamp: DateTimeUtc) -> Result<bool> {
+        if let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
+            .one(&self.db)
+            .await?
+        {
+            m.delete(&self.db).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }

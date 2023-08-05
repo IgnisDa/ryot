@@ -1,0 +1,3 @@
+mutation CreateUserMeasurement($input: UserMeasurementInput!) {
+  createUserMeasurement(input: $input)
+}

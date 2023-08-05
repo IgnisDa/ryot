@@ -207,13 +207,19 @@ function SelectCollectionModal(props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
-	refetchCollections: () => void;
-	collections: string[];
+	refetchUserMedia: () => void;
 }) {
 	const [selectedCollection, setSelectedCollection] = useState<string | null>(
 		null,
 	);
 
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { collections } = await gqlClient.request(CollectionsDocument, {});
+			return collections.map((c) => c.name);
+		},
+	});
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
 			const { addMediaToCollection } = await gqlClient.request(
@@ -223,25 +229,25 @@ function SelectCollectionModal(props: {
 			return addMediaToCollection;
 		},
 		onSuccess: () => {
-			props.refetchCollections();
+			props.refetchUserMedia();
 			props.onClose();
 		},
 	});
 
-	return (
+	return collections.data ? (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
 		>
-			{props.collections ? (
+			{collections ? (
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					{props.collections.length > 0 ? (
+					{collections.data.length > 0 ? (
 						<Select
 							withinPortal
-							data={props.collections}
+							data={collections.data}
 							onChange={setSelectedCollection}
 							searchable
 							nothingFound="Nothing found"
@@ -267,7 +273,7 @@ function SelectCollectionModal(props: {
 				</Stack>
 			) : null}
 		</Modal>
-	);
+	) : null;
 }
 
 function CreateReminderModal(props: {
@@ -375,7 +381,12 @@ const AccordionLabel = ({
 					size={16}
 					color="red"
 				>
-					<Avatar src={posterImages[0]} radius="xl" size="lg" />
+					<Avatar
+						src={posterImages[0]}
+						radius="xl"
+						size="lg"
+						imageProps={{ loading: "lazy" }}
+					/>
 				</Indicator>
 				{children}
 			</Flex>
@@ -440,13 +451,6 @@ const Page: NextPageWithLayout = () => {
 			return userMediaDetails;
 		},
 		enabled: !!metadataId,
-	});
-	const collections = useQuery({
-		queryKey: ["collections"],
-		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections;
-		},
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
@@ -1036,15 +1040,12 @@ const Page: NextPageWithLayout = () => {
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
 										</Button>
-										{collections.data && collections.data.length > 0 ? (
-											<SelectCollectionModal
-												onClose={collectionModalClose}
-												opened={collectionModalOpened}
-												metadataId={metadataId}
-												collections={collections.data.map((c) => c.name)}
-												refetchCollections={collections.refetch}
-											/>
-										) : null}
+										<SelectCollectionModal
+											onClose={collectionModalClose}
+											opened={collectionModalOpened}
+											metadataId={metadataId}
+											refetchUserMedia={userMediaDetails.refetch}
+										/>
 									</>
 									<Button
 										variant="outline"
