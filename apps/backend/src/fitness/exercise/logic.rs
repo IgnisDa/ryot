@@ -1,6 +1,5 @@
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(tag = "t", content = "d")]
@@ -25,6 +24,7 @@ pub struct DoneSetRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 pub struct DoneTotal {
+    /// The number of personal bests achieved.
     pub personal_bests: u16,
     pub weight: u32,
     pub reps: u32,
@@ -43,13 +43,13 @@ pub struct DoneExercise {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 struct DoneWorkout {
-    /// A unique identifier for this workout
-    pub client_id: Uuid,
+    /// A unique identifier for this workout.
+    pub identifier: String,
     pub name: String,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     pub exercises: Vec<DoneExercise>,
-    /// Each grouped superset of exercises will be in a vector
+    /// Each grouped superset of exercises will be in a vector.
     pub supersets: Vec<Vec<u16>>,
     pub total: DoneTotal,
     pub user_id: i32,
@@ -57,14 +57,14 @@ struct DoneWorkout {
 
 impl DoneWorkout {
     fn new(
-        client_id: Uuid,
+        identifier: String,
         name: String,
         start_time: DateTimeUtc,
         end_time: DateTimeUtc,
         user_id: i32,
     ) -> Self {
         Self {
-            client_id,
+            identifier,
             name,
             start_time,
             end_time,
