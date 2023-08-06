@@ -5,6 +5,17 @@
 // Workbox RuntimeCaching config: https://developers.google.com/web/tools/workbox/reference-docs/latest/module-workbox-build#.RuntimeCachingEntry
 module.exports = [
 	{
+		urlPattern: /https:\/\/.*\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
+		handler: "CacheFirst",
+		options: {
+			cacheName: "static-image-assets",
+			expiration: {
+				maxEntries: 64,
+				maxAgeSeconds: 365 * 24 * 60 * 60, // 365 days
+			},
+		},
+	},
+	{
 		urlPattern: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,
 		handler: "CacheFirst",
 		options: {
@@ -34,17 +45,6 @@ module.exports = [
 			expiration: {
 				maxEntries: 4,
 				maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
-			},
-		},
-	},
-	{
-		urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
-		handler: "CacheFirst",
-		options: {
-			cacheName: "static-image-assets",
-			expiration: {
-				maxEntries: 64,
-				maxAgeSeconds: 365 * 24 * 60 * 60, // 365 days
 			},
 		},
 	},
