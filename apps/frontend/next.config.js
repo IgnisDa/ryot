@@ -1,4 +1,5 @@
 const withPWAInit = require("next-pwa");
+const runtimeCaching = require("./worker/cache");
 
 /** @type {import('next-pwa').PWAConfig} */
 const withPWA = withPWAInit({
@@ -7,6 +8,7 @@ const withPWA = withPWAInit({
 	skipWaiting: true,
 	// Solution: https://github.com/shadowwalker/next-pwa/issues/424#issuecomment-1399683017
 	buildExcludes: ["app-build-manifest.json"],
+	runtimeCaching,
 });
 
 /** @type {import('next').NextConfig} */
