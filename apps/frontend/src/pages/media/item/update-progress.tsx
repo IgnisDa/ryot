@@ -18,6 +18,7 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
+	BulkProgressUpdateDocument,
 	MediaDetailsDocument,
 	MetadataLot,
 	ProgressUpdateDocument,
@@ -61,43 +62,39 @@ const Page: NextPageWithLayout = () => {
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+			const updates = [];
 			if (completeShow) {
 				for (const season of mediaDetails.data?.showSpecifics?.seasons || []) {
 					for (const episode of season.episodes) {
-						await gqlClient.request(ProgressUpdateDocument, {
-							input: {
-								...variables.input,
-								showSeasonNumber: season.seasonNumber,
-								showEpisodeNumber: episode.episodeNumber,
-							},
+						updates.push({
+							...variables.input,
+							showSeasonNumber: season.seasonNumber,
+							showEpisodeNumber: episode.episodeNumber,
 						});
 					}
 				}
-				return true;
 			}
 			if (completePodcast) {
 				for (const episode of mediaDetails.data?.podcastSpecifics?.episodes ||
 					[]) {
-					await gqlClient.request(ProgressUpdateDocument, {
-						input: {
-							...variables.input,
-							podcastEpisodeNumber: episode.number,
-						},
+					updates.push({
+						...variables.input,
+						podcastEpisodeNumber: episode.number,
 					});
 				}
-				return true;
 			}
 			if (onlySeason) {
 				for (const episode of mediaDetails.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
 				)?.episodes || []) {
-					await gqlClient.request(ProgressUpdateDocument, {
-						input: {
-							...variables.input,
-							showEpisodeNumber: episode.episodeNumber,
-						},
+					updates.push({
+						...variables.input,
+						showEpisodeNumber: episode.episodeNumber,
 					});
 				}
+			}
+			if (updates.length > 0) {
+				await gqlClient.request(BulkProgressUpdateDocument, { input: updates });
 				return true;
 			}
 			if (
