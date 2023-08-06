@@ -39,11 +39,11 @@ use crate::{
     background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
-        collection, creator, genre, import_report, metadata, metadata_to_collection,
-        metadata_to_creator, metadata_to_genre,
+        collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
+        metadata_to_genre,
         prelude::{
-            Collection, Creator, Genre, ImportReport, Metadata, MetadataToCollection,
-            MetadataToCreator, MetadataToGenre, Review, Seen, User, UserToMetadata,
+            Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
+            MetadataToGenre, Review, Seen, User, UserToMetadata,
         },
         review, seen, user, user_to_metadata,
     },
@@ -2964,16 +2964,6 @@ impl MiscellaneousService {
             collection_id: ActiveValue::Set(collection.id),
         };
         Ok(col.clone().insert(&self.db).await.is_ok())
-    }
-
-    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
-        let reports = ImportReport::find()
-            .filter(import_report::Column::UserId.eq(user_id))
-            .order_by_desc(import_report::Column::StartedOn)
-            .all(&self.db)
-            .await
-            .unwrap();
-        Ok(reports)
     }
 
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
