@@ -2550,6 +2550,7 @@ impl MiscellaneousService {
     }
 
     fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
+        let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
             MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
@@ -2559,17 +2560,15 @@ impl MiscellaneousService {
             MetadataSource::Tmdb => match lot {
                 MetadataLot::Show => Box::new(self.tmdb_shows_service.clone()),
                 MetadataLot::Movie => Box::new(self.tmdb_movies_service.clone()),
-                _ => unreachable!(),
+                _ => return err(),
             },
             MetadataSource::Anilist => match lot {
                 MetadataLot::Anime => Box::new(self.anilist_anime_service.clone()),
                 MetadataLot::Manga => Box::new(self.anilist_manga_service.clone()),
-                _ => unreachable!(),
+                _ => return err(),
             },
             MetadataSource::Igdb => Box::new(self.igdb_service.clone()),
-            MetadataSource::Custom => {
-                return Err(Error::new("This source is not supported".to_owned()));
-            }
+            MetadataSource::Custom => return err(),
         };
         Ok(service)
     }
