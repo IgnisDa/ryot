@@ -8,6 +8,7 @@ import {
 	Alert,
 	Autocomplete,
 	Button,
+	Checkbox,
 	Container,
 	Group,
 	LoadingOverlay,
@@ -30,6 +31,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
+import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
@@ -50,6 +52,7 @@ const Page: NextPageWithLayout = () => {
 			router.query.selectedPodcastEpisodeNumber?.toString() || null,
 		);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const [allSeasonsBefore, setAllSeasonsBefore] = useState(false);
 
 	const mediaDetails = useQuery({
 		queryKey: ["details", metadataId],
@@ -84,13 +87,28 @@ const Page: NextPageWithLayout = () => {
 				}
 			}
 			if (onlySeason) {
-				for (const episode of mediaDetails.data?.showSpecifics?.seasons.find(
+				const selectedSeason = mediaDetails.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
-				)?.episodes || []) {
-					updates.push({
-						...variables.input,
-						showEpisodeNumber: episode.episodeNumber,
-					});
+				);
+				invariant(selectedSeason, "No season selected");
+				if (allSeasonsBefore) {
+					for (const season of mediaDetails.data?.showSpecifics?.seasons ||
+						[]) {
+						if (season.seasonNumber > selectedSeason.seasonNumber) break;
+						for (const episode of season.episodes || []) {
+							updates.push({
+								...variables.input,
+								showEpisodeNumber: episode.episodeNumber,
+							});
+						}
+					}
+				} else {
+					for (const episode of selectedSeason?.episodes || []) {
+						updates.push({
+							...variables.input,
+							showEpisodeNumber: episode.episodeNumber,
+						});
+					}
 				}
 			}
 			if (updates.length > 0) {
@@ -174,6 +192,12 @@ const Page: NextPageWithLayout = () => {
 										defaultValue={selectedShowSeasonNumber}
 									/>
 								</>
+							) : null}
+							{onlySeason ? (
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									onChange={(e) => setAllSeasonsBefore(e.target.checked)}
+								/>
 							) : null}
 							{!onlySeason && selectedShowSeasonNumber ? (
 								<Select
