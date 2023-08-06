@@ -946,7 +946,8 @@ impl MiscellaneousMutation {
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.regenerate_user_summary(user_id).await
+        service.deploy_recalculate_summary_job(user_id).await.ok();
+        Ok(true)
     }
 
     /// Change a user's preferences.
@@ -3340,11 +3341,6 @@ impl MiscellaneousService {
             self.calculate_user_media_summary(user.id).await?;
         }
         Ok(())
-    }
-
-    pub async fn regenerate_user_summary(&self, user_id: i32) -> Result<bool> {
-        self.deploy_recalculate_summary_job(user_id).await?;
-        Ok(true)
     }
 
     async fn create_custom_media(
