@@ -2,11 +2,18 @@ use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
-#[serde(tag = "t", content = "d")]
-pub enum SetStatistic {
-    Duration(u16),
-    DistanceAndDuration(u16, u16),
-    RepsAndWeight(u16, u16),
+pub struct SetStatistic {
+    pub duration: Option<u16>,
+    pub distance: Option<u16>,
+    pub reps: Option<u16>,
+    pub weigth: Option<u16>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
+pub enum StatisticLot {
+    Duration,
+    DistanceAndDuration,
+    RepsAndWeight,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
@@ -22,6 +29,7 @@ pub mod done {
     #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
     pub struct DoneSetRecord {
         pub statistic: SetStatistic,
+        pub lot: StatisticLot,
         pub personal_bests: Vec<SetPersonalBest>,
     }
 
@@ -64,6 +72,7 @@ pub mod in_progress {
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct InProgressSetRecord {
         pub statistic: SetStatistic,
+        pub lot: StatisticLot,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
