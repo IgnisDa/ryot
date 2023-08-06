@@ -1135,17 +1135,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "boilermates"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b159337fa36894b98dc2f55dc0ada298afb38d64589bbdbb945128ba4c86ccd9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "borsh"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4298,7 +4287,6 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "axum",
- "boilermates",
  "chrono",
  "const-str",
  "convert_case",
