@@ -8,6 +8,7 @@ import {
 	Alert,
 	Autocomplete,
 	Button,
+	Checkbox,
 	Container,
 	Group,
 	LoadingOverlay,
@@ -18,6 +19,7 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
+	BulkProgressUpdateDocument,
 	MediaDetailsDocument,
 	MetadataLot,
 	ProgressUpdateDocument,
@@ -29,6 +31,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
+import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
@@ -49,6 +52,7 @@ const Page: NextPageWithLayout = () => {
 			router.query.selectedPodcastEpisodeNumber?.toString() || null,
 		);
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const [allSeasonsBefore, setAllSeasonsBefore] = useState(false);
 
 	const mediaDetails = useQuery({
 		queryKey: ["details", metadataId],
@@ -61,43 +65,54 @@ const Page: NextPageWithLayout = () => {
 	});
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+			const updates = [];
 			if (completeShow) {
 				for (const season of mediaDetails.data?.showSpecifics?.seasons || []) {
 					for (const episode of season.episodes) {
-						await gqlClient.request(ProgressUpdateDocument, {
-							input: {
-								...variables.input,
-								showSeasonNumber: season.seasonNumber,
-								showEpisodeNumber: episode.episodeNumber,
-							},
+						updates.push({
+							...variables.input,
+							showSeasonNumber: season.seasonNumber,
+							showEpisodeNumber: episode.episodeNumber,
 						});
 					}
 				}
-				return true;
 			}
 			if (completePodcast) {
 				for (const episode of mediaDetails.data?.podcastSpecifics?.episodes ||
 					[]) {
-					await gqlClient.request(ProgressUpdateDocument, {
-						input: {
-							...variables.input,
-							podcastEpisodeNumber: episode.number,
-						},
+					updates.push({
+						...variables.input,
+						podcastEpisodeNumber: episode.number,
 					});
 				}
-				return true;
 			}
 			if (onlySeason) {
-				for (const episode of mediaDetails.data?.showSpecifics?.seasons.find(
+				const selectedSeason = mediaDetails.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
-				)?.episodes || []) {
-					await gqlClient.request(ProgressUpdateDocument, {
-						input: {
+				);
+				invariant(selectedSeason, "No season selected");
+				if (allSeasonsBefore) {
+					for (const season of mediaDetails.data?.showSpecifics?.seasons ||
+						[]) {
+						if (season.seasonNumber > selectedSeason.seasonNumber) break;
+						for (const episode of season.episodes || []) {
+							updates.push({
+								...variables.input,
+								showEpisodeNumber: episode.episodeNumber,
+							});
+						}
+					}
+				} else {
+					for (const episode of selectedSeason?.episodes || []) {
+						updates.push({
 							...variables.input,
 							showEpisodeNumber: episode.episodeNumber,
-						},
-					});
+						});
+					}
 				}
+			}
+			if (updates.length > 0) {
+				await gqlClient.request(BulkProgressUpdateDocument, { input: updates });
 				return true;
 			}
 			if (
@@ -177,6 +192,12 @@ const Page: NextPageWithLayout = () => {
 										defaultValue={selectedShowSeasonNumber}
 									/>
 								</>
+							) : null}
+							{onlySeason ? (
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									onChange={(e) => setAllSeasonsBefore(e.target.checked)}
+								/>
 							) : null}
 							{!onlySeason && selectedShowSeasonNumber ? (
 								<Select

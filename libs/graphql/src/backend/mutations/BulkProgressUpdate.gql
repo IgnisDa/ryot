@@ -1,0 +1,3 @@
+mutation BulkProgressUpdate($input: [ProgressUpdateInput!]!) {
+  bulkProgressUpdate(input: $input)
+}

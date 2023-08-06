@@ -244,6 +244,11 @@ export interface UsersConfig {
 	 */
 	allow_registration: boolean;
 	/**
+	 * Whether users will be allowed to post reviews on this instance.
+	 * @default false
+	 */
+	reviews_disabled: boolean;
+	/**
 	 * The number of days till login auth token is valid.
 	 * @default 90
 	 */

@@ -6,7 +6,7 @@ use chrono::{Duration, Utc};
 use itertools::Itertools;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
-    FromJsonQueryResult, QueryFilter,
+    FromJsonQueryResult, QueryFilter, QueryOrder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -212,7 +212,13 @@ impl ImporterService {
     }
 
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
-        self.media_service.import_reports(user_id).await
+        let reports = ImportReport::find()
+            .filter(import_report::Column::UserId.eq(user_id))
+            .order_by_desc(import_report::Column::StartedOn)
+            .all(&self.db)
+            .await
+            .unwrap();
+        Ok(reports)
     }
 
     pub async fn import_from_source(

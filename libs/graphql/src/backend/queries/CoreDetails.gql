@@ -9,5 +9,6 @@ query CoreDetails {
     preferencesChangeAllowed
     usernameChangeAllowed
     itemDetailsHeight
+    reviewsDisabled
   }
 }

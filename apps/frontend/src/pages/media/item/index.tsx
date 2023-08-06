@@ -2,6 +2,7 @@ import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { MediaScrollArea, ReviewItemDisplay } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -429,6 +430,7 @@ const Page: NextPageWithLayout = () => {
 	const metadataId = parseInt(router.query.id?.toString() || "0");
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
+	const coreDetails = useCoreDetails();
 
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
@@ -617,7 +619,7 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return mediaDetails.data && userMediaDetails.data ? (
+	return coreDetails.data && mediaDetails.data && userMediaDetails.data ? (
 		<>
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
@@ -786,12 +788,14 @@ const Page: NextPageWithLayout = () => {
 									Episodes
 								</Tabs.Tab>
 							) : null}
-							<Tabs.Tab
-								value="reviews"
-								icon={<IconMessageCircle2 size="1rem" />}
-							>
-								Reviews
-							</Tabs.Tab>
+							{!coreDetails.data.reviewsDisabled ? (
+								<Tabs.Tab
+									value="reviews"
+									icon={<IconMessageCircle2 size="1rem" />}
+								>
+									Reviews
+								</Tabs.Tab>
+							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
@@ -1010,32 +1014,34 @@ const Page: NextPageWithLayout = () => {
 											) : null}
 										</Menu.Dropdown>
 									</Menu>
-									<Link
-										href={withQuery(APP_ROUTES.media.postReview, {
-											metadataId,
-											showSeasonNumber:
-												userMediaDetails.data.nextEpisode?.seasonNumber ??
-												undefined,
-											showEpisodeNumber:
-												mediaDetails.data.lot === MetadataLot.Show
-													? userMediaDetails.data.nextEpisode?.episodeNumber ??
-													  undefined
-													: undefined,
-											podcastEpisodeNumber:
-												mediaDetails.data.lot === MetadataLot.Podcast
-													? userMediaDetails.data.nextEpisode?.episodeNumber ??
-													  undefined
-													: undefined,
-										})}
-										passHref
-										legacyBehavior
-									>
-										<Anchor>
-											<Button variant="outline" w="100%">
-												Post a review
-											</Button>
-										</Anchor>
-									</Link>
+									{!coreDetails.data.reviewsDisabled ? (
+										<Link
+											href={withQuery(APP_ROUTES.media.postReview, {
+												metadataId,
+												showSeasonNumber:
+													userMediaDetails.data.nextEpisode?.seasonNumber ??
+													undefined,
+												showEpisodeNumber:
+													mediaDetails.data.lot === MetadataLot.Show
+														? userMediaDetails.data.nextEpisode
+																?.episodeNumber ?? undefined
+														: undefined,
+												podcastEpisodeNumber:
+													mediaDetails.data.lot === MetadataLot.Podcast
+														? userMediaDetails.data.nextEpisode
+																?.episodeNumber ?? undefined
+														: undefined,
+											})}
+											passHref
+											legacyBehavior
+										>
+											<Anchor>
+												<Button variant="outline" w="100%">
+													Post a review
+												</Button>
+											</Anchor>
+										</Link>
+									) : null}
 									<>
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
@@ -1349,23 +1355,25 @@ const Page: NextPageWithLayout = () => {
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}
-						<Tabs.Panel value="reviews">
-							{userMediaDetails.data.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{userMediaDetails.data.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												metadataId={metadataId}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
-							) : (
-								<Text fs="italic">No reviews posted</Text>
-							)}
-						</Tabs.Panel>
+						{!coreDetails.data.reviewsDisabled ? (
+							<Tabs.Panel value="reviews">
+								{userMediaDetails.data.reviews.length > 0 ? (
+									<MediaScrollArea>
+										<Stack>
+											{userMediaDetails.data.reviews.map((r) => (
+												<ReviewItemDisplay
+													review={r}
+													key={r.id}
+													metadataId={metadataId}
+												/>
+											))}
+										</Stack>
+									</MediaScrollArea>
+								) : (
+									<Text fs="italic">No reviews posted</Text>
+								)}
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>

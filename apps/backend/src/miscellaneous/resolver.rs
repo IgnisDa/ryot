@@ -11,7 +11,7 @@ use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObj
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
-use futures::TryStreamExt;
+use futures::{future::join_all, TryStreamExt};
 use harsh::Harsh;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
@@ -39,11 +39,11 @@ use crate::{
     background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
     config::AppConfig,
     entities::{
-        collection, creator, genre, import_report, metadata, metadata_to_collection,
-        metadata_to_creator, metadata_to_genre,
+        collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
+        metadata_to_genre,
         prelude::{
-            Collection, Creator, Genre, ImportReport, Metadata, MetadataToCollection,
-            MetadataToCreator, MetadataToGenre, Review, Seen, User, UserToMetadata,
+            Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
+            MetadataToGenre, Review, Seen, User, UserToMetadata,
         },
         review, seen, user, user_to_metadata,
     },
@@ -480,6 +480,7 @@ struct CoreDetails {
     preferences_change_allowed: bool,
     username_change_allowed: bool,
     item_details_height: u32,
+    reviews_disabled: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -873,6 +874,17 @@ impl MiscellaneousMutation {
         service.progress_update(input, user_id).await
     }
 
+    /// Update progress in bulk.
+    async fn bulk_progress_update(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: Vec<ProgressUpdateInput>,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.bulk_progress_update(user_id, input).await
+    }
+
     /// Deploy a job to update a media item's metadata.
     async fn deploy_update_metadata_job(
         &self,
@@ -946,7 +958,8 @@ impl MiscellaneousMutation {
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.regenerate_user_summary(user_id).await
+        service.deploy_recalculate_summary_job(user_id).await.ok();
+        Ok(true)
     }
 
     /// Change a user's preferences.
@@ -1188,6 +1201,7 @@ impl MiscellaneousService {
             preferences_change_allowed: self.config.users.allow_changing_preferences,
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
+            reviews_disabled: self.config.users.reviews_disabled,
         }
     }
 
@@ -2031,6 +2045,16 @@ impl MiscellaneousService {
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 
+    pub async fn bulk_progress_update(
+        &self,
+        user_id: i32,
+        input: Vec<ProgressUpdateInput>,
+    ) -> Result<bool> {
+        let updates = input.into_iter().map(|i| self.progress_update(i, user_id));
+        join_all(updates).await;
+        Ok(true)
+    }
+
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
         let mut storage = self.recalculate_user_summary.clone();
         storage.push(RecalculateUserSummaryJob { user_id }).await?;
@@ -2550,6 +2574,7 @@ impl MiscellaneousService {
     }
 
     fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
+        let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
             MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
@@ -2559,17 +2584,15 @@ impl MiscellaneousService {
             MetadataSource::Tmdb => match lot {
                 MetadataLot::Show => Box::new(self.tmdb_shows_service.clone()),
                 MetadataLot::Movie => Box::new(self.tmdb_movies_service.clone()),
-                _ => unreachable!(),
+                _ => return err(),
             },
             MetadataSource::Anilist => match lot {
                 MetadataLot::Anime => Box::new(self.anilist_anime_service.clone()),
                 MetadataLot::Manga => Box::new(self.anilist_manga_service.clone()),
-                _ => unreachable!(),
+                _ => return err(),
             },
             MetadataSource::Igdb => Box::new(self.igdb_service.clone()),
-            MetadataSource::Custom => {
-                return Err(Error::new("This source is not supported".to_owned()));
-            }
+            MetadataSource::Custom => return err(),
         };
         Ok(service)
     }
@@ -2805,6 +2828,9 @@ impl MiscellaneousService {
     }
 
     pub async fn post_review(&self, user_id: i32, input: PostReviewInput) -> Result<IdObject> {
+        if self.config.users.reviews_disabled {
+            return Err(Error::new("Posting reviews on this instance is disabled"));
+        }
         let review_id = match input.review_id {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
@@ -2959,16 +2985,6 @@ impl MiscellaneousService {
             collection_id: ActiveValue::Set(collection.id),
         };
         Ok(col.clone().insert(&self.db).await.is_ok())
-    }
-
-    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
-        let reports = ImportReport::find()
-            .filter(import_report::Column::UserId.eq(user_id))
-            .order_by_desc(import_report::Column::StartedOn)
-            .all(&self.db)
-            .await
-            .unwrap();
-        Ok(reports)
     }
 
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
@@ -3341,11 +3357,6 @@ impl MiscellaneousService {
             self.calculate_user_media_summary(user.id).await?;
         }
         Ok(())
-    }
-
-    pub async fn regenerate_user_summary(&self, user_id: i32) -> Result<bool> {
-        self.deploy_recalculate_summary_job(user_id).await?;
-        Ok(true)
     }
 
     async fn create_custom_media(
