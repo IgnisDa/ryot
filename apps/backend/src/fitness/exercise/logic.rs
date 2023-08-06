@@ -1,7 +1,8 @@
+use boilermates::boilermates;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(tag = "t", content = "d")]
 pub enum DoneSetStatistic {
     Duration(u16),
@@ -9,20 +10,26 @@ pub enum DoneSetStatistic {
     RepsAndWeight(u16, u16),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
 pub enum DoneSetPersonalBest {
     Weight,
     OneRm,
     Volume,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
+#[boilermates("InProgressSetRecord")]
+#[boilermates(attr_for(
+    "InProgressSetRecord",
+    "#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]"
+))]
 pub struct DoneSetRecord {
     pub statistic: DoneSetStatistic,
+    #[boilermates(not_in("InProgressSetRecord"))]
     pub personal_bests: Vec<DoneSetPersonalBest>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+#[derive(Debug, FromJsonQueryResult, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct DoneTotal {
     /// The number of personal bests achieved.
     pub personal_bests: u16,
@@ -31,17 +38,27 @@ pub struct DoneTotal {
     pub active_duration: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
+#[boilermates("InProgressExercise")]
+#[boilermates(attr_for(
+    "InProgressExercise",
+    "#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]"
+))]
 pub struct DoneExercise {
+    #[boilermates(not_in("InProgressExercise"))]
     pub idx: u16,
     pub exercise_id: i32,
-    pub sets: Vec<DoneSetRecord>,
+    #[boilermates(not_in("InProgressExercise"))]
+    pub done_sets: Vec<DoneSetRecord>,
     pub notes: Vec<String>,
     pub rest_time: Option<u16>,
+    #[boilermates(not_in("InProgressExercise"))]
     pub total: DoneTotal,
+    #[boilermates(only_in("InProgressExercise"))]
+    pub in_progress_sets: Vec<InProgressSetRecord>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
 struct DoneWorkout {
     /// A unique identifier for this workout.
     pub identifier: String,
