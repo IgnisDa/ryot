@@ -390,6 +390,9 @@ pub struct UsersConfig {
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
+    /// Whether users will be allowed to post reviews on this instance.
+    #[setting(default = false)]
+    pub reviews_disabled: bool,
     /// The number of days till login auth token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i64,

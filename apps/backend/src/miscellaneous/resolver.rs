@@ -480,6 +480,7 @@ struct CoreDetails {
     preferences_change_allowed: bool,
     username_change_allowed: bool,
     item_details_height: u32,
+    reviews_disabled: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1189,6 +1190,7 @@ impl MiscellaneousService {
             preferences_change_allowed: self.config.users.allow_changing_preferences,
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
+            reviews_disabled: self.config.users.reviews_disabled,
         }
     }
 
