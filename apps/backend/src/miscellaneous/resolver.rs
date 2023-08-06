@@ -2807,6 +2807,9 @@ impl MiscellaneousService {
     }
 
     pub async fn post_review(&self, user_id: i32, input: PostReviewInput) -> Result<IdObject> {
+        if self.config.users.reviews_disabled {
+            return Err(Error::new("Posting reviews on this instance is disabled"));
+        }
         let review_id = match input.review_id {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
