@@ -48,7 +48,7 @@ pub mod done {
     struct DoneWorkout {
         /// A unique identifier for this workout.
         pub identifier: String,
-        pub name: String,
+        pub name: Option<String>,
         pub start_time: DateTimeUtc,
         pub end_time: DateTimeUtc,
         pub exercises: Vec<DoneExercise>,
@@ -76,20 +76,14 @@ pub mod in_progress {
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     struct InProgressWorkout {
-        pub name: String,
-        pub start_time: DateTimeUtc,
-        pub end_time: DateTimeUtc,
         pub exercises: Vec<InProgressExercise>,
         /// Each grouped superset of exercises will be in a vector.
         pub supersets: Vec<Vec<u16>>,
     }
 
-    impl InProgressWorkout {
-        fn new(name: String, start_time: DateTimeUtc, end_time: DateTimeUtc) -> Self {
+    impl Default for InProgressWorkout {
+        fn default() -> Self {
             Self {
-                name,
-                start_time,
-                end_time,
                 exercises: vec![],
                 supersets: vec![],
             }
