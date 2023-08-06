@@ -11,7 +11,7 @@ use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObj
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
 use enum_meta::Meta;
-use futures::TryStreamExt;
+use futures::{future::join_all, TryStreamExt};
 use harsh::Harsh;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
@@ -872,6 +872,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.progress_update(input, user_id).await
+    }
+
+    /// Update progress in bulk.
+    async fn bulk_progress_update(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: Vec<ProgressUpdateInput>,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.bulk_progress_update(user_id, input).await
     }
 
     /// Deploy a job to update a media item's metadata.
@@ -2032,6 +2043,16 @@ impl MiscellaneousService {
         }
         self.after_media_seen_tasks(seen_item).await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
+    }
+
+    pub async fn bulk_progress_update(
+        &self,
+        user_id: i32,
+        input: Vec<ProgressUpdateInput>,
+    ) -> Result<bool> {
+        let updates = input.into_iter().map(|i| self.progress_update(i, user_id));
+        join_all(updates).await;
+        Ok(true)
     }
 
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
