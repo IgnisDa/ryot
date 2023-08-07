@@ -82,9 +82,10 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserNotification, UserNotificationSetting, UserNotifications, UserPreferences,
-        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrations, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
+        UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -128,11 +129,6 @@ enum UserIntegrationLot {
     Sink,
 }
 
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserYankIntegrationLot {
-    Audiobookshelf,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlUserIntegration {
     id: usize,
@@ -143,21 +139,10 @@ struct GraphqlUserIntegration {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserYankIntegrationInput {
-    lot: UserYankIntegrationLot,
+    lot: UserYankIntegrationSettingKind,
     base_url: String,
     #[graphql(secret)]
     token: String,
-}
-
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserNotificationPlatformLot {
-    Apprise,
-    Discord,
-    Gotify,
-    Ntfy,
-    PushBullet,
-    PushOver,
-    PushSafer,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -169,21 +154,16 @@ struct GraphqlUserNotificationPlatform {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserNotificationPlatformInput {
-    lot: UserNotificationPlatformLot,
+    lot: UserNotificationSettingKind,
     base_url: Option<String>,
     #[graphql(secret)]
     api_token: Option<String>,
     priority: Option<i32>,
 }
 
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserSinkIntegrationLot {
-    Jellyfin,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserSinkIntegrationInput {
-    lot: UserSinkIntegrationLot,
+    lot: UserSinkIntegrationSettingKind,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -3701,7 +3681,7 @@ impl MiscellaneousService {
             id: new_integration_id,
             timestamp: Utc::now(),
             settings: match input.lot {
-                UserSinkIntegrationLot::Jellyfin => {
+                UserSinkIntegrationSettingKind::Jellyfin => {
                     let slug = get_id_hasher(&self.config.integration.hasher_salt)
                         .encode(&[user_id.try_into().unwrap()]);
                     let slug = format!("{}--{}", slug, nanoid!(5));
@@ -3732,7 +3712,7 @@ impl MiscellaneousService {
             id: new_integration_id,
             timestamp: Utc::now(),
             settings: match input.lot {
-                UserYankIntegrationLot::Audiobookshelf => {
+                UserYankIntegrationSettingKind::Audiobookshelf => {
                     UserYankIntegrationSetting::Audiobookshelf {
                         base_url: input.base_url,
                         token: input.token,
@@ -3799,30 +3779,30 @@ impl MiscellaneousService {
             id: new_notification_id,
             timestamp: Utc::now(),
             settings: match input.lot {
-                UserNotificationPlatformLot::Apprise => UserNotificationSetting::Apprise {
+                UserNotificationSettingKind::Apprise => UserNotificationSetting::Apprise {
                     url: input.base_url.unwrap(),
                     key: input.api_token.unwrap(),
                 },
-                UserNotificationPlatformLot::Discord => UserNotificationSetting::Discord {
+                UserNotificationSettingKind::Discord => UserNotificationSetting::Discord {
                     url: input.base_url.unwrap(),
                 },
-                UserNotificationPlatformLot::Gotify => UserNotificationSetting::Gotify {
+                UserNotificationSettingKind::Gotify => UserNotificationSetting::Gotify {
                     url: input.base_url.unwrap(),
                     token: input.api_token.unwrap(),
                     priority: input.priority,
                 },
-                UserNotificationPlatformLot::Ntfy => UserNotificationSetting::Ntfy {
+                UserNotificationSettingKind::Ntfy => UserNotificationSetting::Ntfy {
                     url: input.base_url,
                     topic: input.api_token.unwrap(),
                     priority: input.priority,
                 },
-                UserNotificationPlatformLot::PushBullet => UserNotificationSetting::PushBullet {
+                UserNotificationSettingKind::PushBullet => UserNotificationSetting::PushBullet {
                     api_token: input.api_token.unwrap(),
                 },
-                UserNotificationPlatformLot::PushOver => UserNotificationSetting::PushOver {
+                UserNotificationSettingKind::PushOver => UserNotificationSetting::PushOver {
                     key: input.api_token.unwrap(),
                 },
-                UserNotificationPlatformLot::PushSafer => UserNotificationSetting::PushSafer {
+                UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
                     key: input.api_token.unwrap(),
                 },
             },
@@ -4085,7 +4065,7 @@ impl MiscellaneousService {
         payload: String,
     ) -> Result<()> {
         let integration = match integration.as_str() {
-            "jellyfin" => UserSinkIntegrationLot::Jellyfin,
+            "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
         let (user_hash, _) = user_hash_id
@@ -4101,7 +4081,9 @@ impl MiscellaneousService {
         for db_integration in user.sink_integrations.0.into_iter() {
             let progress = match db_integration.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    if slug == user_hash_id && integration == UserSinkIntegrationLot::Jellyfin {
+                    if slug == user_hash_id
+                        && integration == UserSinkIntegrationSettingKind::Jellyfin
+                    {
                         self.integration_service
                             .jellyfin_progress(&payload)
                             .await

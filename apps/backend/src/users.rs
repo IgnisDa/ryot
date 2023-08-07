@@ -1,4 +1,5 @@
-use async_graphql::SimpleObject;
+use async_graphql::{Enum, SimpleObject};
+use kinded::Kinded;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
@@ -70,8 +71,9 @@ pub struct UserPreferences {
     pub notifications: UserNotificationsPreferences,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
+#[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
 pub enum UserYankIntegrationSetting {
     Audiobookshelf { base_url: String, token: String },
 }
@@ -87,8 +89,9 @@ pub struct UserYankIntegration {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserYankIntegrations(pub Vec<UserYankIntegration>);
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
+#[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
 pub enum UserSinkIntegrationSetting {
     Jellyfin { slug: String },
 }
@@ -104,8 +107,9 @@ pub struct UserSinkIntegration {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserSinkIntegrations(pub Vec<UserSinkIntegration>);
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
+#[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
 pub enum UserNotificationSetting {
     Apprise {
         url: String,
