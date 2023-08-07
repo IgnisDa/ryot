@@ -390,7 +390,10 @@ export default function ({ children }: { children: ReactElement }) {
 							icon={IconStretching}
 							links={[
 								{ label: "Home", link: APP_ROUTES.fitness.home },
-
+								{
+									label: "Exercises",
+									link: APP_ROUTES.fitness.exercises,
+								},
 								{
 									label: "Measurements",
 									link: APP_ROUTES.fitness.measurements,
