@@ -25,8 +25,8 @@ import {
 	DeleteUserIntegrationDocument,
 	type DeleteUserIntegrationMutationVariables,
 	UserIntegrationsDocument,
-	UserSinkIntegrationLot,
-	UserYankIntegrationLot,
+	UserSinkIntegrationSettingKind,
+	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/utilities";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -52,9 +52,9 @@ const Page: NextPageWithLayout = () => {
 		},
 	] = useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
-		useState<UserYankIntegrationLot>();
+		useState<UserYankIntegrationSettingKind>();
 	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
-		useState<UserSinkIntegrationLot>();
+		useState<UserSinkIntegrationSettingKind>();
 
 	const createUserYankIntegrationForm = useForm<CreateUserYankIntegationSchema>(
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
@@ -191,19 +191,22 @@ const Page: NextPageWithLayout = () => {
 										required
 										withinPortal
 										data={[
-											...Object.values(UserYankIntegrationLot),
-											...Object.values(UserSinkIntegrationLot),
+											...Object.values(UserYankIntegrationSettingKind),
+											...Object.values(UserSinkIntegrationSettingKind),
 										]}
 										onChange={(v) => {
 											const t = match(v)
 												.with(
 													"AUDIOBOOKSHELF",
-													() => UserYankIntegrationLot.Audiobookshelf,
+													() => UserYankIntegrationSettingKind.Audiobookshelf,
 												)
 												.otherwise(() => undefined);
 											if (t) setCreateUserYankIntegrationLot(t);
 											const r = match(v)
-												.with("JELLYFIN", () => UserSinkIntegrationLot.Jellyfin)
+												.with(
+													"JELLYFIN",
+													() => UserSinkIntegrationSettingKind.Jellyfin,
+												)
 												.otherwise(() => undefined);
 											if (r) setCreateUserSinkIntegrationLot(r);
 										}}

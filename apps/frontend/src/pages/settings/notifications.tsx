@@ -29,8 +29,8 @@ import {
 	type DeleteUserNotificationPlatformMutationVariables,
 	TestUserNotificationPlatformsDocument,
 	type TestUserNotificationPlatformsMutationVariables,
-	UserNotificationPlatformLot,
 	UserNotificationPlatformsDocument,
+	UserNotificationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/utilities";
 import { IconTrash } from "@tabler/icons-react";
@@ -66,7 +66,7 @@ const Page: NextPageWithLayout = () => {
 	const [
 		createUserNotificationPlatformLot,
 		setCreateUserNotificationPlatformLot,
-	] = useState<UserNotificationPlatformLot>();
+	] = useState<UserNotificationSettingKind>();
 
 	const createUserNotificationPlatformForm =
 		useForm<CreateUserNotificationPlatformSchema>({
@@ -231,35 +231,35 @@ const Page: NextPageWithLayout = () => {
 										label="Select a platform"
 										required
 										withinPortal
-										data={Object.values(UserNotificationPlatformLot).map(
+										data={Object.values(UserNotificationSettingKind).map(
 											(v) => ({ label: changeCase(v), value: v }),
 										)}
 										onChange={(v) => {
 											const t = match(v)
 												.with(
 													"APPRISE",
-													() => UserNotificationPlatformLot.Apprise,
+													() => UserNotificationSettingKind.Apprise,
 												)
 												.with(
 													"DISCORD",
-													() => UserNotificationPlatformLot.Discord,
+													() => UserNotificationSettingKind.Discord,
 												)
 												.with(
 													"GOTIFY",
-													() => UserNotificationPlatformLot.Gotify,
+													() => UserNotificationSettingKind.Gotify,
 												)
-												.with("NTFY", () => UserNotificationPlatformLot.Ntfy)
+												.with("NTFY", () => UserNotificationSettingKind.Ntfy)
 												.with(
 													"PUSH_BULLET",
-													() => UserNotificationPlatformLot.PushBullet,
+													() => UserNotificationSettingKind.PushBullet,
 												)
 												.with(
 													"PUSH_OVER",
-													() => UserNotificationPlatformLot.PushOver,
+													() => UserNotificationSettingKind.PushOver,
 												)
 												.with(
 													"PUSH_SAFER",
-													() => UserNotificationPlatformLot.PushSafer,
+													() => UserNotificationSettingKind.PushSafer,
 												)
 												.otherwise(() => undefined);
 											if (t) setCreateUserNotificationPlatformLot(t);
@@ -267,7 +267,7 @@ const Page: NextPageWithLayout = () => {
 									/>
 									{createUserNotificationPlatformLot
 										? match(createUserNotificationPlatformLot)
-												.with(UserNotificationPlatformLot.Apprise, () => (
+												.with(UserNotificationSettingKind.Apprise, () => (
 													<>
 														<TextInput
 															label="Base Url"
@@ -285,7 +285,7 @@ const Page: NextPageWithLayout = () => {
 														/>
 													</>
 												))
-												.with(UserNotificationPlatformLot.Discord, () => (
+												.with(UserNotificationSettingKind.Discord, () => (
 													<>
 														<TextInput
 															label="Webhook Url"
@@ -296,7 +296,7 @@ const Page: NextPageWithLayout = () => {
 														/>
 													</>
 												))
-												.with(UserNotificationPlatformLot.Gotify, () => (
+												.with(UserNotificationSettingKind.Gotify, () => (
 													<>
 														<TextInput
 															label="Server Url"
@@ -320,7 +320,7 @@ const Page: NextPageWithLayout = () => {
 														/>
 													</>
 												))
-												.with(UserNotificationPlatformLot.Ntfy, () => (
+												.with(UserNotificationSettingKind.Ntfy, () => (
 													<>
 														<TextInput
 															label="Topic"
@@ -343,7 +343,7 @@ const Page: NextPageWithLayout = () => {
 														/>
 													</>
 												))
-												.with(UserNotificationPlatformLot.PushBullet, () => (
+												.with(UserNotificationSettingKind.PushBullet, () => (
 													<>
 														<TextInput
 															label="Token"
@@ -354,7 +354,7 @@ const Page: NextPageWithLayout = () => {
 														/>
 													</>
 												))
-												.with(UserNotificationPlatformLot.PushOver, () => (
+												.with(UserNotificationSettingKind.PushOver, () => (
 													<>
 														<TextInput
 															label="Key"
@@ -365,7 +365,7 @@ const Page: NextPageWithLayout = () => {
 														/>
 													</>
 												))
-												.with(UserNotificationPlatformLot.PushSafer, () => (
+												.with(UserNotificationSettingKind.PushSafer, () => (
 													<>
 														<TextInput
 															label="Key"

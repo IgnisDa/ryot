@@ -164,17 +164,17 @@ export type CreateOrUpdateCollectionInput = {
 export type CreateUserNotificationPlatformInput = {
   apiToken?: InputMaybe<Scalars['String']>;
   baseUrl?: InputMaybe<Scalars['String']>;
-  lot: UserNotificationPlatformLot;
+  lot: UserNotificationSettingKind;
   priority?: InputMaybe<Scalars['Int']>;
 };
 
 export type CreateUserSinkIntegrationInput = {
-  lot: UserSinkIntegrationLot;
+  lot: UserSinkIntegrationSettingKind;
 };
 
 export type CreateUserYankIntegrationInput = {
   baseUrl: Scalars['String'];
-  lot: UserYankIntegrationLot;
+  lot: UserYankIntegrationSettingKind;
   token: Scalars['String'];
 };
 
@@ -1334,7 +1334,7 @@ export type UserMediaSummary = {
   videoGames: VideoGamesSummary;
 };
 
-export enum UserNotificationPlatformLot {
+export enum UserNotificationSettingKind {
   Apprise = 'APPRISE',
   Discord = 'DISCORD',
   Gotify = 'GOTIFY',
@@ -1356,7 +1356,7 @@ export type UserPreferences = {
   notifications: UserNotificationsPreferences;
 };
 
-export enum UserSinkIntegrationLot {
+export enum UserSinkIntegrationSettingKind {
   Jellyfin = 'JELLYFIN'
 }
 
@@ -1365,7 +1365,7 @@ export type UserSummary = {
   media: UserMediaSummary;
 };
 
-export enum UserYankIntegrationLot {
+export enum UserYankIntegrationSettingKind {
   Audiobookshelf = 'AUDIOBOOKSHELF'
 }
 
