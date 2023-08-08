@@ -417,7 +417,6 @@ export type ImportReport = {
 export type ImportResultResponse = {
   failedItems: Array<ImportFailedItem>;
   import: ImportDetails;
-  source: ImportSource;
 };
 
 export enum ImportSource {

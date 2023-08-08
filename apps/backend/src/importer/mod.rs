@@ -122,7 +122,6 @@ pub struct ImportResult {
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
 )]
 pub struct ImportResultResponse {
-    pub source: ImportSource,
     pub import: ImportDetails,
     pub failed_items: Vec<ImportFailedItem>,
 }
@@ -388,7 +387,6 @@ impl ImporterService {
             source = db_import_job.source
         );
         let details = ImportResultResponse {
-            source: db_import_job.source,
             import: ImportDetails {
                 total: import.media.len(),
             },
