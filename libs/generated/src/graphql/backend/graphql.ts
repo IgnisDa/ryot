@@ -1166,7 +1166,7 @@ export type UpdateUserInput = {
 
 export type UpdateUserPreferenceInput = {
   property: Scalars['String'];
-  value: Scalars['Boolean'];
+  value: Scalars['String'];
 };
 
 export type User = {

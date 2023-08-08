@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
+    str::FromStr,
     sync::Arc,
 };
 
@@ -263,7 +264,7 @@ struct UpdateUserInput {
 #[derive(Debug, InputObject)]
 struct UpdateUserPreferenceInput {
     property: String,
-    value: bool,
+    value: String,
 }
 
 #[derive(Debug, InputObject)]
@@ -3540,6 +3541,7 @@ impl MiscellaneousService {
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
+        let value_bool = bool::from_str(&input.value);
         match left {
             "features_enabled" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
@@ -3547,17 +3549,29 @@ impl MiscellaneousService {
                     "media" => {
                         match right {
                             "audio_book" => {
-                                preferences.features_enabled.media.audio_books = input.value
+                                preferences.features_enabled.media.audio_books = value_bool.unwrap()
                             }
-                            "book" => preferences.features_enabled.media.books = input.value,
-                            "movie" => preferences.features_enabled.media.movies = input.value,
-                            "podcast" => preferences.features_enabled.media.podcasts = input.value,
-                            "show" => preferences.features_enabled.media.shows = input.value,
+                            "book" => {
+                                preferences.features_enabled.media.books = value_bool.unwrap()
+                            }
+                            "movie" => {
+                                preferences.features_enabled.media.movies = value_bool.unwrap()
+                            }
+                            "podcast" => {
+                                preferences.features_enabled.media.podcasts = value_bool.unwrap()
+                            }
+                            "show" => {
+                                preferences.features_enabled.media.shows = value_bool.unwrap()
+                            }
                             "video_game" => {
-                                preferences.features_enabled.media.video_games = input.value
+                                preferences.features_enabled.media.video_games = value_bool.unwrap()
                             }
-                            "manga" => preferences.features_enabled.media.manga = input.value,
-                            "anime" => preferences.features_enabled.media.anime = input.value,
+                            "manga" => {
+                                preferences.features_enabled.media.manga = value_bool.unwrap()
+                            }
+                            "anime" => {
+                                preferences.features_enabled.media.anime = value_bool.unwrap()
+                            }
                             _ => return Err(err()),
                         };
                     }
@@ -3565,13 +3579,15 @@ impl MiscellaneousService {
                 }
             }
             "notifications" => match right {
-                "episode_released" => preferences.notifications.episode_released = input.value,
-                "status_changed" => preferences.notifications.status_changed = input.value,
+                "episode_released" => {
+                    preferences.notifications.episode_released = value_bool.unwrap()
+                }
+                "status_changed" => preferences.notifications.status_changed = value_bool.unwrap(),
                 "release_date_changed" => {
-                    preferences.notifications.release_date_changed = input.value
+                    preferences.notifications.release_date_changed = value_bool.unwrap()
                 }
                 "number_of_seasons_changed" => {
-                    preferences.notifications.number_of_seasons_changed = input.value
+                    preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
                 }
                 _ => return Err(err()),
             },
