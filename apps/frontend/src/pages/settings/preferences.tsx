@@ -75,7 +75,7 @@ const Page: NextPageWithLayout = () => {
 											updateUserEnabledFeatures.mutate({
 												input: {
 													property: `features_enabled.media.${lot.toLowerCase()}`,
-													value: ev.currentTarget.checked,
+													value: String(ev.currentTarget.checked),
 												},
 											});
 									}}
@@ -110,7 +110,7 @@ const Page: NextPageWithLayout = () => {
 										updateUserEnabledFeatures.mutate({
 											input: {
 												property: `notifications.${snakeCase(name)}`,
-												value: ev.currentTarget.checked,
+												value: String(ev.currentTarget.checked),
 											},
 										});
 									}}
