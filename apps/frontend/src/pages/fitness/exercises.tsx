@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
+	Anchor,
 	Avatar,
 	Box,
 	Center,
@@ -119,7 +120,7 @@ const Page: NextPageWithLayout = () => {
 					) : (
 						<Text>No information to display</Text>
 					)}
-					{exercisesList.data ? (
+					{exercisesList.data && exercisesList.data.total > 0 ? (
 						<Center>
 							<Pagination
 								size="sm"
@@ -130,7 +131,19 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					) : null}
+					) : (
+						<Text>
+							It looks like you have not downloaded the exercises. Please follow
+							the{" "}
+							<Anchor
+								href="https://ignisda.github.io/ryot/guides/fitness.html"
+								target="_blank"
+							>
+								guide
+							</Anchor>{" "}
+							to do so.
+						</Text>
+					)}
 				</Stack>
 			</Container>
 		</>
