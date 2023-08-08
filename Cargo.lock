@@ -4329,7 +4329,6 @@ dependencies = [
  "mime_guess",
  "nanoid",
  "quick-xml",
- "regex",
  "retainer",
  "rstest",
  "rust-embed",

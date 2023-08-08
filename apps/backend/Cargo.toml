@@ -40,7 +40,6 @@ markdown = "1.0.0-alpha.11"
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
-regex = "1.9.1"
 retainer = "0.3.0"
 rust-embed = "6.8.1"
 rust_decimal = "1.31.0"
