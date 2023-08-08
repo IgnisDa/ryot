@@ -344,8 +344,8 @@ const Page: NextPageWithLayout = () => {
 															)
 															.with("UNSEEN", () => MediaGeneralFilter.Unseen)
 															.with(
-																"MONITORED",
-																() => MediaGeneralFilter.Monitored,
+																"EXPLICITLY_MONITORED",
+																() => MediaGeneralFilter.ExplicitlyMonitored,
 															)
 															.otherwise((_v) => {
 																throw new Error("Invalid filter selected");
