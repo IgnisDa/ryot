@@ -62,7 +62,6 @@ mod fitness;
 mod graphql;
 mod importer;
 mod integrations;
-mod length_vec;
 mod migrator;
 mod miscellaneous;
 mod models;

@@ -4062,6 +4062,9 @@ dependencies = [
 [[package]]
 name = "rs-utils"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "rsa"
