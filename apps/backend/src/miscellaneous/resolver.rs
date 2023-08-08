@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
-    str::FromStr,
     sync::Arc,
 };
 
@@ -3541,7 +3540,7 @@ impl MiscellaneousService {
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
-        let value_bool = bool::from_str(&input.value);
+        let value_bool = input.value.parse::<bool>();
         match left {
             "features_enabled" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
