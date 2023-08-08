@@ -8,6 +8,7 @@ import {
 	Alert,
 	Container,
 	Divider,
+	NumberInput,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -113,6 +114,36 @@ const Page: NextPageWithLayout = () => {
 												value: String(ev.currentTarget.checked),
 											},
 										});
+									}}
+								/>
+							),
+						)}
+					</SimpleGrid>
+					<Divider />
+					<Title order={3}>Exercises</Title>
+					<SimpleGrid cols={2}>
+						{Object.entries(userPrefs.data.exercises).map(
+							([name, previousValue], idx) => (
+								<NumberInput
+									key={idx}
+									size="xs"
+									label={match(name)
+										.with(
+											"saveHistory",
+											() =>
+												"The number of elements to save in your exercise history",
+										)
+										.otherwise(() => undefined)}
+									defaultValue={previousValue}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
+									onChange={(num) => {
+										if (num)
+											updateUserEnabledFeatures.mutate({
+												input: {
+													property: `exercises.${snakeCase(name)}`,
+													value: String(num),
+												},
+											});
 									}}
 								/>
 							),
