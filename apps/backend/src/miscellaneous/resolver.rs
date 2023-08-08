@@ -2179,7 +2179,7 @@ impl MiscellaneousService {
 
         let notifications = notifications
             .into_iter()
-            .map(|n| (format!("{} for {:?}", n.0, meta.title), n.1))
+            .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
             .collect_vec();
 
         let mut meta: metadata::ActiveModel = meta.into();
