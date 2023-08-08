@@ -4250,35 +4250,43 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+    /// Given a metadata id, get all the users that need to be sent notifications
+    /// for it's state change.
+    pub async fn users_to_be_notified_for_state_changes(
+        &self,
+        metadata_id: i32,
+    ) -> Result<Vec<i32>> {
+        let mut user_ids = vec![];
         let collections = Collection::find()
             .filter(collection::Column::Name.eq(DefaultCollection::Watchlist.to_string()))
             .find_with_related(Metadata)
             .all(&self.db)
             .await?;
-        let mut meta_map: HashMap<i32, HashSet<i32>> = HashMap::new();
-        for (col, metadata) in collections {
-            for meta in metadata {
-                meta_map
-                    .entry(meta.id)
-                    .and_modify(|e| {
-                        e.insert(col.user_id);
-                    })
-                    .or_insert(HashSet::from_iter([col.user_id]));
+        for (col, metadatas) in collections {
+            for metadata in metadatas {
+                if metadata.id == metadata_id {
+                    user_ids.push(col.user_id);
+                }
             }
         }
-
         let monitored_media = UserToMetadata::find()
             .filter(user_to_metadata::Column::Monitored.eq(true))
+            .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
             .all(&self.db)
             .await?;
         for meta in monitored_media {
-            meta_map
-                .entry(meta.metadata_id)
-                .and_modify(|e| {
-                    e.insert(meta.user_id);
-                })
-                .or_insert(HashSet::from_iter([meta.user_id]));
+            if meta.metadata_id == metadata_id {
+                user_ids.push(meta.user_id);
+            }
+        }
+        Ok(user_ids)
+    }
+
+    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+        let mut meta_map = HashMap::new();
+        for meta in Metadata::find().all(&self.db).await? {
+            let user_ids = self.users_to_be_notified_for_state_changes(meta.id).await?;
+            meta_map.insert(meta.id, user_ids);
         }
 
         for (meta, users) in meta_map {
