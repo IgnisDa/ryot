@@ -5,7 +5,7 @@ projects:
   kodi: 'apps/kodi'
   generated: 'libs/generated'
   graphql: 'libs/graphql'
-  utilities: 'libs/utilities'
+  ts-utils: 'libs/ts-utils'
 
 vcs:
   manager: 'git'

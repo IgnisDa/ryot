@@ -31,7 +31,7 @@ import {
 	UserDetailsDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/utilities";
+import { changeCase } from "@ryot/ts-utils";
 import {
 	IconChevronLeft,
 	IconChevronRight,

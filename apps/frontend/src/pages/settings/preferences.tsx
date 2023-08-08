@@ -18,7 +18,7 @@ import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/utilities";
+import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";

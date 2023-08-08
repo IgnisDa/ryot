@@ -4,7 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { Box, Container, Select, Stack, Title } from "@mantine/core";
 import { UserMeasurementsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/utilities";
+import { startCase } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";

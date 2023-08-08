@@ -25,7 +25,7 @@ import {
 	type UserInput,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, randomString } from "@ryot/utilities";
+import { changeCase, randomString } from "@ryot/ts-utils";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";

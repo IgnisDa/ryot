@@ -17,7 +17,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { CreatorsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials } from "@ryot/utilities";
+import { getInitials } from "@ryot/ts-utils";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";

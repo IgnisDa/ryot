@@ -19,7 +19,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/utilities";
+import { startCase } from "@ryot/ts-utils";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";

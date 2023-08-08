@@ -1,21 +1,24 @@
 {
-	"extends": "./tsconfig.options.json",
-	"files": [],
-	"references": [
-		{
-			"path": "apps/frontend"
-		},
-		{
-			"path": "apps/importer"
-		},
-		{
-			"path": "libs/generated"
-		},
-		{
-			"path": "libs/graphql"
-		},
-		{
-			"path": "libs/utilities"
-		}
-	]
+  "extends": "./tsconfig.options.json",
+  "files": [],
+  "references": [
+    {
+      "path": "apps/frontend"
+    },
+    {
+      "path": "apps/importer"
+    },
+    {
+      "path": "libs/generated"
+    },
+    {
+      "path": "libs/graphql"
+    },
+    {
+      "path": "libs/ts-utils"
+    },
+    {
+      "path": "libs/utilities"
+    }
+  ]
 }

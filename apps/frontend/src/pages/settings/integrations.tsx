@@ -28,7 +28,7 @@ import {
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatTimeAgo } from "@ryot/utilities";
+import { formatTimeAgo } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";

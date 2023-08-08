@@ -40,7 +40,7 @@ import {
 	MediaSourcesForLotDocument,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/utilities";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconFilterOff,

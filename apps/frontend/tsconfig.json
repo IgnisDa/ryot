@@ -1,61 +1,41 @@
 {
-  "extends": "../../tsconfig.options.json",
-  "compilerOptions": {
-    "target": "es2015",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
-    "emitDeclarationOnly": false,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@ryot/generated/*": [
-        "../../libs/generated/src/*"
-      ],
-      "@ryot/graphql/*": [
-        "../../libs/graphql/src/*"
-      ],
-      "@ryot/utilities": [
-        "../../libs/utilities/src/index.ts"
-      ],
-      "@ryot/utilities/*": [
-        "../../libs/utilities/src/*"
-      ]
-    },
-    "outDir": "../../.moon/cache/types/apps/frontend"
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
-  "references": [
-    {
-      "path": "../../libs/generated"
-    },
-    {
-      "path": "../../libs/graphql"
-    },
-    {
-      "path": "../../libs/utilities"
-    }
-  ]
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"target": "es2015",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"allowJs": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"forceConsistentCasingInFileNames": true,
+		"noEmit": true,
+		"emitDeclarationOnly": false,
+		"esModuleInterop": true,
+		"module": "esnext",
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"jsx": "preserve",
+		"incremental": true,
+		"paths": {
+			"@/*": ["./src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"]
+		},
+		"outDir": "../../.moon/cache/types/apps/frontend"
+	},
+	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+	"exclude": ["node_modules"],
+	"references": [
+		{
+			"path": "../../libs/generated"
+		},
+		{
+			"path": "../../libs/graphql"
+		},
+		{
+			"path": "../../libs/ts-utils"
+		}
+	]
 }
