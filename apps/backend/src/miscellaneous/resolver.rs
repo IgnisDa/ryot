@@ -4284,40 +4284,50 @@ impl MiscellaneousService {
         for (meta, users) in meta_map {
             let notifications = self.update_metadata(meta).await?;
             for user in users {
-                for (notification, change) in notifications.iter() {
-                    let preferences = self.user_preferences(user).await?;
-                    if matches!(change, MediaStateChanged::StatusChanged)
-                        && preferences.notifications.status_changed
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
-                    if matches!(change, MediaStateChanged::EpisodeReleased)
-                        && preferences.notifications.episode_released
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
-                    if matches!(change, MediaStateChanged::ReleaseDateChanged)
-                        && preferences.notifications.release_date_changed
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
-                    if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
-                        && preferences.notifications.number_of_seasons_changed
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
+                for notification in notifications.iter() {
+                    self.send_media_state_changed_notification_for_user(user, notification)
+                        .await?;
                 }
             }
         }
+        Ok(())
+    }
 
+    pub async fn send_media_state_changed_notification_for_user(
+        &self,
+        user_id: i32,
+        notification: &(String, MediaStateChanged),
+    ) -> Result<()> {
+        let (notification, change) = notification;
+        let preferences = self.user_preferences(user_id).await?;
+        if matches!(change, MediaStateChanged::StatusChanged)
+            && preferences.notifications.status_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::EpisodeReleased)
+            && preferences.notifications.episode_released
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::ReleaseDateChanged)
+            && preferences.notifications.release_date_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
+            && preferences.notifications.number_of_seasons_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
         Ok(())
     }
 
