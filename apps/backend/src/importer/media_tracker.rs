@@ -296,7 +296,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },
             reviews: Vec::from_iter(details.user_rating.map(|r| {
-                let review = if let Some(s) = r.clone().review {
+                let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
                         date: None,
                         spoiler: Some(false),
