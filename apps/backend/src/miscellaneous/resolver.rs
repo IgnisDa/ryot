@@ -3029,12 +3029,15 @@ impl MiscellaneousService {
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
         let metadatas = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
             .order_by_asc(metadata::Column::Id)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await
             .unwrap();
-        for metadata in metadatas {
-            self.deploy_update_metadata_job(metadata.id).await?;
+        for metadata_id in metadatas {
+            self.deploy_update_metadata_job(metadata_id).await?;
         }
         Ok(true)
     }
@@ -3332,9 +3335,15 @@ impl MiscellaneousService {
     }
 
     pub async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = User::find().all(&self.db).await.unwrap();
-        for user in all_users {
-            self.calculate_user_media_summary(user.id).await?;
+        let all_users = User::find()
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await
+            .unwrap();
+        for user_id in all_users {
+            self.calculate_user_media_summary(user_id).await?;
         }
         Ok(())
     }
@@ -3973,10 +3982,13 @@ impl MiscellaneousService {
     pub async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = User::find()
             .filter(user::Column::YankIntegrations.is_not_null())
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        for user in users_with_integrations {
-            self.yank_integrations_data_for_user(user.id).await?;
+        for user_id in users_with_integrations {
+            self.yank_integrations_data_for_user(user_id).await?;
         }
         Ok(())
     }
@@ -4304,9 +4316,17 @@ impl MiscellaneousService {
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
         let mut meta_map = HashMap::new();
-        for meta in Metadata::find().all(&self.db).await? {
-            let user_ids = self.users_to_be_notified_for_state_changes(meta.id).await?;
-            meta_map.insert(meta.id, user_ids);
+        for metadata_id in Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await?
+        {
+            let user_ids = self
+                .users_to_be_notified_for_state_changes(metadata_id)
+                .await?;
+            meta_map.insert(metadata_id, user_ids);
         }
 
         for (meta, users) in meta_map {
