@@ -1,5 +1,8 @@
 query UserPreferences {
   userPreferences {
+    exercises {
+      saveHistory
+    }
     notifications {
       episodeReleased
       statusChanged

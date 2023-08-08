@@ -3541,7 +3541,12 @@ impl MiscellaneousService {
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
         let value_bool = input.value.parse::<bool>();
+        let value_usize = input.value.parse::<usize>();
         match left {
+            "exercises" => match right {
+                "save_history" => preferences.exercises.save_history = value_usize.unwrap(),
+                _ => return Err(err()),
+            },
             "features_enabled" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                 match left {
