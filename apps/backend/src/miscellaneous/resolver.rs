@@ -414,7 +414,7 @@ enum MediaGeneralFilter {
     OnAHold,
     Completed,
     Unseen,
-    Monitored,
+    ExplicitlyMonitored,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1490,7 +1490,7 @@ impl MiscellaneousService {
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .apply_if(
                 match input.filter.as_ref().and_then(|f| f.general) {
-                    Some(MediaGeneralFilter::Monitored) => Some(true),
+                    Some(MediaGeneralFilter::ExplicitlyMonitored) => Some(true),
                     _ => None,
                 },
                 |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
@@ -1664,7 +1664,7 @@ impl MiscellaneousService {
                         .collect_vec()
                 };
                 match s {
-                    MediaGeneralFilter::Monitored => {}
+                    MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::All => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
