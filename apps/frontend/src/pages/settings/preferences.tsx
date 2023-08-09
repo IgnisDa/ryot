@@ -120,9 +120,9 @@ const Page: NextPageWithLayout = () => {
 						)}
 					</SimpleGrid>
 					<Divider />
-					<Title order={3}>Exercises</Title>
+					<Title order={3}>Fitness</Title>
 					<SimpleGrid cols={2}>
-						{Object.entries(userPrefs.data.exercises).map(
+						{Object.entries(userPrefs.data.fitness.exercises).map(
 							([name, previousValue], idx) => (
 								<NumberInput
 									key={idx}
@@ -140,7 +140,7 @@ const Page: NextPageWithLayout = () => {
 										if (num)
 											updateUserEnabledFeatures.mutate({
 												input: {
-													property: `exercises.${snakeCase(name)}`,
+													property: `fitness.exercises.${snakeCase(name)}`,
 													value: String(num),
 												},
 											});
