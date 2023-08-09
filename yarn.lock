@@ -3394,7 +3394,7 @@ __metadata:
     "@mantine/notifications": 6.0.8
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
-    "@ryot/utilities": "workspace:*"
+    "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": 2.16.0
     "@tanstack/react-query": 4.29.15
     "@types/luxon": 3.3.0
@@ -3451,9 +3451,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ryot/utilities@workspace:*, @ryot/utilities@workspace:libs/utilities":
+"@ryot/ts-utils@workspace:*, @ryot/ts-utils@workspace:libs/ts-utils":
   version: 0.0.0-use.local
-  resolution: "@ryot/utilities@workspace:libs/utilities"
+  resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
     "@types/lodash": 4.14.194
     javascript-time-ago: 2.5.9

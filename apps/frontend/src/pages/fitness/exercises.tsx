@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
+	Anchor,
 	Avatar,
 	Box,
 	Center,
@@ -18,7 +19,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/utilities";
+import { startCase } from "@ryot/ts-utils";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
@@ -119,7 +120,7 @@ const Page: NextPageWithLayout = () => {
 					) : (
 						<Text>No information to display</Text>
 					)}
-					{exercisesList.data ? (
+					{exercisesList.data && exercisesList.data.total > 0 ? (
 						<Center>
 							<Pagination
 								size="sm"
@@ -130,7 +131,19 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					) : null}
+					) : (
+						<Text>
+							It looks like you have not downloaded the exercises. Please follow
+							the{" "}
+							<Anchor
+								href="https://ignisda.github.io/ryot/guides/fitness.html"
+								target="_blank"
+							>
+								guide
+							</Anchor>{" "}
+							to do so.
+						</Text>
+					)}
 				</Stack>
 			</Container>
 		</>

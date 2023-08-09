@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTimeAgo } from "@ryot/utilities";
+import { changeCase, formatTimeAgo } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";

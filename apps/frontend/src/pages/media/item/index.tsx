@@ -64,7 +64,7 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate } from "@ryot/utilities";
+import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconBook,

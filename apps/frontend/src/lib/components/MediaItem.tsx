@@ -26,7 +26,7 @@ import {
 	MetadataSource,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/utilities";
+import { changeCase, getInitials } from "@ryot/ts-utils";
 import { IconEdit, IconStarFilled } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";

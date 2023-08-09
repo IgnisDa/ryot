@@ -15,7 +15,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { ImportReportsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/utilities";
+import { changeCase } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";

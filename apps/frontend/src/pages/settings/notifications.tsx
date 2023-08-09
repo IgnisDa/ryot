@@ -32,7 +32,7 @@ import {
 	UserNotificationPlatformsDocument,
 	UserNotificationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTimeAgo } from "@ryot/utilities";
+import { changeCase, formatTimeAgo } from "@ryot/ts-utils";
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";

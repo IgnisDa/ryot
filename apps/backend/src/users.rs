@@ -54,6 +54,19 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 }
 
 #[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserExercisePreferences {
+    pub save_history: usize,
+}
+
+impl Default for UserExercisePreferences {
+    fn default() -> Self {
+        Self { save_history: 15 }
+    }
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
@@ -64,11 +77,21 @@ pub struct UserFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
+pub struct UserFitnessPreferences {
+    #[serde(default)]
+    pub exercises: UserExercisePreferences,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+)]
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
     #[serde(default)]
     pub notifications: UserNotificationsPreferences,
+    #[serde(default)]
+    pub fitness: UserFitnessPreferences,
 }
 
 #[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

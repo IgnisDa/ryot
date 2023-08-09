@@ -862,5 +862,6 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
+        // TODO: Allow adding custom metrics in a hashmap
     }
 }

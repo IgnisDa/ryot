@@ -28,7 +28,7 @@ import {
 	LatestUserSummaryDocument,
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatTimeAgo } from "@ryot/utilities";
+import { formatTimeAgo } from "@ryot/ts-utils";
 import { IconFriends, IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";

@@ -263,7 +263,7 @@ struct UpdateUserInput {
 #[derive(Debug, InputObject)]
 struct UpdateUserPreferenceInput {
     property: String,
-    value: bool,
+    value: String,
 }
 
 #[derive(Debug, InputObject)]
@@ -414,7 +414,7 @@ enum MediaGeneralFilter {
     OnAHold,
     Completed,
     Unseen,
-    Monitored,
+    ExplicitlyMonitored,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1490,7 +1490,7 @@ impl MiscellaneousService {
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .apply_if(
                 match input.filter.as_ref().and_then(|f| f.general) {
-                    Some(MediaGeneralFilter::Monitored) => Some(true),
+                    Some(MediaGeneralFilter::ExplicitlyMonitored) => Some(true),
                     _ => None,
                 },
                 |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
@@ -1664,7 +1664,7 @@ impl MiscellaneousService {
                         .collect_vec()
                 };
                 match s {
-                    MediaGeneralFilter::Monitored => {}
+                    MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::All => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
@@ -2179,7 +2179,7 @@ impl MiscellaneousService {
 
         let notifications = notifications
             .into_iter()
-            .map(|n| (format!("{} for {:?}", n.0, meta.title), n.1))
+            .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
             .collect_vec();
 
         let mut meta: metadata::ActiveModel = meta.into();
@@ -3029,12 +3029,15 @@ impl MiscellaneousService {
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
         let metadatas = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
             .order_by_asc(metadata::Column::Id)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await
             .unwrap();
-        for metadata in metadatas {
-            self.deploy_update_metadata_job(metadata.id).await?;
+        for metadata_id in metadatas {
+            self.deploy_update_metadata_job(metadata_id).await?;
         }
         Ok(true)
     }
@@ -3332,9 +3335,15 @@ impl MiscellaneousService {
     }
 
     pub async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = User::find().all(&self.db).await.unwrap();
-        for user in all_users {
-            self.calculate_user_media_summary(user.id).await?;
+        let all_users = User::find()
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await
+            .unwrap();
+        for user_id in all_users {
+            self.calculate_user_media_summary(user_id).await?;
         }
         Ok(())
     }
@@ -3540,24 +3549,50 @@ impl MiscellaneousService {
         let user_model = self.user_by_id(user_id).await?;
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
+        let value_bool = input.value.parse::<bool>();
+        let value_usize = input.value.parse::<usize>();
         match left {
+            "fitness" => {
+                let (left, right) = right.split_once('.').ok_or_else(err)?;
+                match left {
+                    "exercises" => match right {
+                        "save_history" => {
+                            preferences.fitness.exercises.save_history = value_usize.unwrap()
+                        }
+                        _ => return Err(err()),
+                    },
+                    _ => return Err(err()),
+                }
+            }
             "features_enabled" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                 match left {
                     "media" => {
                         match right {
                             "audio_book" => {
-                                preferences.features_enabled.media.audio_books = input.value
+                                preferences.features_enabled.media.audio_books = value_bool.unwrap()
                             }
-                            "book" => preferences.features_enabled.media.books = input.value,
-                            "movie" => preferences.features_enabled.media.movies = input.value,
-                            "podcast" => preferences.features_enabled.media.podcasts = input.value,
-                            "show" => preferences.features_enabled.media.shows = input.value,
+                            "book" => {
+                                preferences.features_enabled.media.books = value_bool.unwrap()
+                            }
+                            "movie" => {
+                                preferences.features_enabled.media.movies = value_bool.unwrap()
+                            }
+                            "podcast" => {
+                                preferences.features_enabled.media.podcasts = value_bool.unwrap()
+                            }
+                            "show" => {
+                                preferences.features_enabled.media.shows = value_bool.unwrap()
+                            }
                             "video_game" => {
-                                preferences.features_enabled.media.video_games = input.value
+                                preferences.features_enabled.media.video_games = value_bool.unwrap()
                             }
-                            "manga" => preferences.features_enabled.media.manga = input.value,
-                            "anime" => preferences.features_enabled.media.anime = input.value,
+                            "manga" => {
+                                preferences.features_enabled.media.manga = value_bool.unwrap()
+                            }
+                            "anime" => {
+                                preferences.features_enabled.media.anime = value_bool.unwrap()
+                            }
                             _ => return Err(err()),
                         };
                     }
@@ -3565,13 +3600,15 @@ impl MiscellaneousService {
                 }
             }
             "notifications" => match right {
-                "episode_released" => preferences.notifications.episode_released = input.value,
-                "status_changed" => preferences.notifications.status_changed = input.value,
+                "episode_released" => {
+                    preferences.notifications.episode_released = value_bool.unwrap()
+                }
+                "status_changed" => preferences.notifications.status_changed = value_bool.unwrap(),
                 "release_date_changed" => {
-                    preferences.notifications.release_date_changed = input.value
+                    preferences.notifications.release_date_changed = value_bool.unwrap()
                 }
                 "number_of_seasons_changed" => {
-                    preferences.notifications.number_of_seasons_changed = input.value
+                    preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
                 }
                 _ => return Err(err()),
             },
@@ -3953,10 +3990,13 @@ impl MiscellaneousService {
     pub async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = User::find()
             .filter(user::Column::YankIntegrations.is_not_null())
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        for user in users_with_integrations {
-            self.yank_integrations_data_for_user(user.id).await?;
+        for user_id in users_with_integrations {
+            self.yank_integrations_data_for_user(user_id).await?;
         }
         Ok(())
     }
@@ -4250,74 +4290,100 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+    /// Given a metadata id, get all the users that need to be sent notifications
+    /// for it's state change.
+    pub async fn users_to_be_notified_for_state_changes(
+        &self,
+        metadata_id: i32,
+    ) -> Result<Vec<i32>> {
+        let mut user_ids = vec![];
         let collections = Collection::find()
             .filter(collection::Column::Name.eq(DefaultCollection::Watchlist.to_string()))
             .find_with_related(Metadata)
             .all(&self.db)
             .await?;
-        let mut meta_map: HashMap<i32, HashSet<i32>> = HashMap::new();
-        for (col, metadata) in collections {
-            for meta in metadata {
-                meta_map
-                    .entry(meta.id)
-                    .and_modify(|e| {
-                        e.insert(col.user_id);
-                    })
-                    .or_insert(HashSet::from_iter([col.user_id]));
+        for (col, metadatas) in collections {
+            for metadata in metadatas {
+                if metadata.id == metadata_id {
+                    user_ids.push(col.user_id);
+                }
             }
         }
-
         let monitored_media = UserToMetadata::find()
             .filter(user_to_metadata::Column::Monitored.eq(true))
+            .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
             .all(&self.db)
             .await?;
         for meta in monitored_media {
-            meta_map
-                .entry(meta.metadata_id)
-                .and_modify(|e| {
-                    e.insert(meta.user_id);
-                })
-                .or_insert(HashSet::from_iter([meta.user_id]));
+            if meta.metadata_id == metadata_id {
+                user_ids.push(meta.user_id);
+            }
+        }
+        Ok(user_ids)
+    }
+
+    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+        let mut meta_map = HashMap::new();
+        for metadata_id in Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await?
+        {
+            let user_ids = self
+                .users_to_be_notified_for_state_changes(metadata_id)
+                .await?;
+            meta_map.insert(metadata_id, user_ids);
         }
 
         for (meta, users) in meta_map {
             let notifications = self.update_metadata(meta).await?;
             for user in users {
-                for (notification, change) in notifications.iter() {
-                    let preferences = self.user_preferences(user).await?;
-                    if matches!(change, MediaStateChanged::StatusChanged)
-                        && preferences.notifications.status_changed
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
-                    if matches!(change, MediaStateChanged::EpisodeReleased)
-                        && preferences.notifications.episode_released
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
-                    if matches!(change, MediaStateChanged::ReleaseDateChanged)
-                        && preferences.notifications.release_date_changed
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
-                    if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
-                        && preferences.notifications.number_of_seasons_changed
-                    {
-                        self.send_notifications_to_user_platforms(user, notification)
-                            .await
-                            .ok();
-                    }
+                for notification in notifications.iter() {
+                    self.send_media_state_changed_notification_for_user(user, notification)
+                        .await?;
                 }
             }
         }
+        Ok(())
+    }
 
+    pub async fn send_media_state_changed_notification_for_user(
+        &self,
+        user_id: i32,
+        notification: &(String, MediaStateChanged),
+    ) -> Result<()> {
+        let (notification, change) = notification;
+        let preferences = self.user_preferences(user_id).await?;
+        if matches!(change, MediaStateChanged::StatusChanged)
+            && preferences.notifications.status_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::EpisodeReleased)
+            && preferences.notifications.episode_released
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::ReleaseDateChanged)
+            && preferences.notifications.release_date_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
+            && preferences.notifications.number_of_seasons_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
         Ok(())
     }
 

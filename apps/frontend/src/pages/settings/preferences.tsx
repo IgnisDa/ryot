@@ -8,6 +8,7 @@ import {
 	Alert,
 	Container,
 	Divider,
+	NumberInput,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -18,7 +19,7 @@ import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/utilities";
+import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
@@ -75,7 +76,7 @@ const Page: NextPageWithLayout = () => {
 											updateUserEnabledFeatures.mutate({
 												input: {
 													property: `features_enabled.media.${lot.toLowerCase()}`,
-													value: ev.currentTarget.checked,
+													value: String(ev.currentTarget.checked),
 												},
 											});
 									}}
@@ -110,9 +111,39 @@ const Page: NextPageWithLayout = () => {
 										updateUserEnabledFeatures.mutate({
 											input: {
 												property: `notifications.${snakeCase(name)}`,
-												value: ev.currentTarget.checked,
+												value: String(ev.currentTarget.checked),
 											},
 										});
+									}}
+								/>
+							),
+						)}
+					</SimpleGrid>
+					<Divider />
+					<Title order={3}>Fitness</Title>
+					<SimpleGrid cols={2}>
+						{Object.entries(userPrefs.data.fitness.exercises).map(
+							([name, previousValue], idx) => (
+								<NumberInput
+									key={idx}
+									size="xs"
+									label={match(name)
+										.with(
+											"saveHistory",
+											() =>
+												"The number of elements to save in your exercise history",
+										)
+										.otherwise(() => undefined)}
+									defaultValue={previousValue}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
+									onChange={(num) => {
+										if (num)
+											updateUserEnabledFeatures.mutate({
+												input: {
+													property: `fitness.exercises.${snakeCase(name)}`,
+													value: String(num),
+												},
+											});
 									}}
 								/>
 							),

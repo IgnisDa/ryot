@@ -25,7 +25,7 @@ import {
 	type GenerateApplicationTokenMutationVariables,
 	UserAuthTokensDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatTimeAgo } from "@ryot/utilities";
+import { formatTimeAgo } from "@ryot/ts-utils";
 import { IconCheck, IconCopy, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";

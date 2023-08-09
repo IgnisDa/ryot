@@ -24,7 +24,7 @@ import {
 	type DeployImportJobMutationVariables,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/utilities";
+import { changeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";

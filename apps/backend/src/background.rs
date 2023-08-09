@@ -169,11 +169,25 @@ pub async fn update_metadata_job(
     information: UpdateMetadataJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
+    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    let notifications = service
         .update_metadata(information.metadata.id)
         .await
         .unwrap();
+    if !notifications.is_empty() {
+        for notification in notifications {
+            let user_ids = service
+                .users_to_be_notified_for_state_changes(information.metadata.id)
+                .await
+                .unwrap();
+            for user_id in user_ids {
+                service
+                    .send_media_state_changed_notification_for_user(user_id, &notification)
+                    .await
+                    .unwrap();
+            }
+        }
+    }
     Ok(())
 }
 

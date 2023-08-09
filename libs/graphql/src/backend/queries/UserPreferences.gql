@@ -1,5 +1,10 @@
 query UserPreferences {
   userPreferences {
+    fitness {
+      exercises {
+        saveHistory
+      }
+    }
     notifications {
       episodeReleased
       statusChanged

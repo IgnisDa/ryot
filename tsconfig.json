@@ -15,7 +15,7 @@
 			"path": "libs/graphql"
 		},
 		{
-			"path": "libs/utilities"
+			"path": "libs/ts-utils"
 		}
 	]
 }

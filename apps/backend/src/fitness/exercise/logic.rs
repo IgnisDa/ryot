@@ -25,6 +25,7 @@ pub struct SetStatistic {
 pub enum StatisticLot {
     Duration,
     DistanceAndDuration,
+    Reps,
     RepsAndWeight,
 }
 
