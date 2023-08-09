@@ -1,7 +1,9 @@
 query UserPreferences {
   userPreferences {
-    exercises {
-      saveHistory
+    fitness {
+      exercises {
+        saveHistory
+      }
     }
     notifications {
       episodeReleased

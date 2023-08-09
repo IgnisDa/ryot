@@ -3552,10 +3552,18 @@ impl MiscellaneousService {
         let value_bool = input.value.parse::<bool>();
         let value_usize = input.value.parse::<usize>();
         match left {
-            "exercises" => match right {
-                "save_history" => preferences.exercises.save_history = value_usize.unwrap(),
-                _ => return Err(err()),
-            },
+            "fitness" => {
+                let (left, right) = right.split_once('.').ok_or_else(err)?;
+                match left {
+                    "exercises" => match right {
+                        "save_history" => {
+                            preferences.fitness.exercises.save_history = value_usize.unwrap()
+                        }
+                        _ => return Err(err()),
+                    },
+                    _ => return Err(err()),
+                }
+            }
             "features_enabled" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                 match left {

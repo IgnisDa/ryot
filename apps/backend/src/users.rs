@@ -77,13 +77,21 @@ pub struct UserFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
+pub struct UserFitnessPreferences {
+    #[serde(default)]
+    pub exercises: UserExercisePreferences,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+)]
 pub struct UserPreferences {
     #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
     #[serde(default)]
     pub notifications: UserNotificationsPreferences,
     #[serde(default)]
-    pub exercises: UserExercisePreferences,
+    pub fitness: UserFitnessPreferences,
 }
 
 #[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
