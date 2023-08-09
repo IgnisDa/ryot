@@ -1,6 +1,10 @@
 query UserPreferences {
   userPreferences {
     fitness {
+      measurements {
+        custom
+        inbuiltDisabled
+      }
       exercises {
         saveHistory
       }

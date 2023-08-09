@@ -67,6 +67,24 @@ impl Default for UserExercisePreferences {
 }
 
 #[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserMeasurementsPreferences {
+    pub custom: Vec<String>,
+    /// the inbuilt metrics that have been disabled
+    pub inbuilt_disabled: Vec<String>,
+}
+
+impl Default for UserMeasurementsPreferences {
+    fn default() -> Self {
+        Self {
+            custom: vec![],
+            inbuilt_disabled: vec![],
+        }
+    }
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
@@ -80,6 +98,8 @@ pub struct UserFeaturesEnabledPreferences {
 pub struct UserFitnessPreferences {
     #[serde(default)]
     pub exercises: UserExercisePreferences,
+    #[serde(default)]
+    pub measurements: UserMeasurementsPreferences,
 }
 
 #[derive(
