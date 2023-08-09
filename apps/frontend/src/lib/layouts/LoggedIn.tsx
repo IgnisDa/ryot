@@ -24,7 +24,7 @@ import {
 	useMantineColorScheme,
 	useMantineTheme,
 } from "@mantine/core";
-import { upperFirst, useDisclosure } from "@mantine/hooks";
+import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
@@ -46,7 +46,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
 import { withQuery } from "ufo";
 
@@ -197,7 +197,8 @@ interface LinksGroupProps {
 	icon: React.FC<any>;
 	label: string;
 	href?: string;
-	initiallyOpened?: boolean;
+	opened: boolean;
+	setOpened: (v: boolean) => void;
 	links?: { label: string; link: string }[];
 }
 
@@ -205,12 +206,12 @@ export function LinksGroup({
 	icon: Icon,
 	label,
 	href,
-	initiallyOpened,
+	setOpened,
+	opened,
 	links,
 }: LinksGroupProps) {
 	const { classes, theme } = useStyles();
 	const hasLinks = Array.isArray(links);
-	const [opened, setOpened] = useState(initiallyOpened || false);
 	const ChevronIcon = theme.dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const items = (hasLinks ? links : []).map((link) => (
 		<Link className={classes.link} href={link.link} key={link.label}>
@@ -226,7 +227,7 @@ export function LinksGroup({
 				onClick={
 					hasLinks
 						? () => {
-								setOpened((o) => !o);
+								setOpened(!opened);
 						  }
 						: undefined
 				}
@@ -259,6 +260,15 @@ export function LinksGroup({
 }
 
 export default function ({ children }: { children: ReactElement }) {
+	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<{
+		media: boolean;
+		fitness: boolean;
+		settings: boolean;
+	}>({
+		key: "openedLinkGroups",
+		defaultValue: { fitness: false, media: false, settings: false },
+		getInitialValueInEffect: true,
+	});
 	const theme = useMantineTheme();
 	const [opened, { toggle, close }] = useDisclosure(false);
 	const { classes, cx } = useStyles();
@@ -379,15 +389,33 @@ export default function ({ children }: { children: ReactElement }) {
 							label="Home"
 							icon={IconHome2}
 							href={APP_ROUTES.dashboard}
+							opened={false}
+							setOpened={() => {}}
 						/>
 						<LinksGroup
 							label="Media"
 							icon={IconDeviceSpeaker}
 							links={mediaLinks}
+							opened={openedLinkGroups.media}
+							setOpened={(k) =>
+								setOpenedLinkGroups((v) => {
+									const g = Object.assign({}, v);
+									g.media = k;
+									return g;
+								})
+							}
 						/>
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
+							opened={openedLinkGroups.fitness}
+							setOpened={(k) =>
+								setOpenedLinkGroups((v) => {
+									const g = Object.assign({}, v);
+									g.fitness = k;
+									return g;
+								})
+							}
 							links={[
 								{ label: "Home", link: APP_ROUTES.fitness.home },
 								{
@@ -403,6 +431,14 @@ export default function ({ children }: { children: ReactElement }) {
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
+							opened={openedLinkGroups.settings}
+							setOpened={(k) =>
+								setOpenedLinkGroups((v) => {
+									const g = Object.assign({}, v);
+									g.settings = k;
+									return g;
+								})
+							}
 							links={
 								[
 									{
