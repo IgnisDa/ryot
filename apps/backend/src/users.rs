@@ -125,18 +125,34 @@ impl Default for UserMeasurementsInBuiltPreferences {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+pub enum UserCustomMeasurementDataType {
+    Decimal,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserCustomMeasurement {
+    pub name: String,
+    pub data_type: UserCustomMeasurementDataType,
+}
+
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserMeasurementsPreferences {
-    pub custom: Vec<String>,
+    pub custom: Vec<UserCustomMeasurement>,
     pub inbuilt: UserMeasurementsInBuiltPreferences,
 }
 
 impl Default for UserMeasurementsPreferences {
     fn default() -> Self {
         Self {
-            custom: vec![],
+            custom: vec![UserCustomMeasurement {
+                name: "sugar_level".to_owned(),
+                data_type: UserCustomMeasurementDataType::Decimal,
+            }],
             inbuilt: UserMeasurementsInBuiltPreferences::default(),
         }
     }

@@ -2,7 +2,10 @@ query UserPreferences {
   userPreferences {
     fitness {
       measurements {
-        custom
+        custom {
+          name
+          dataType
+        }
         inbuilt {
           weight
           bodyMassIndex

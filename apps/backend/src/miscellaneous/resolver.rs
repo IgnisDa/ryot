@@ -3559,11 +3559,7 @@ impl MiscellaneousService {
                         let (left, right) = right.split_once('.').ok_or_else(err)?;
                         match left {
                             "custom" => {
-                                let value_vector = input
-                                    .value
-                                    .split(",")
-                                    .map(|s| s.trim().to_owned())
-                                    .collect();
+                                let value_vector = serde_json::from_str(&input.value).unwrap();
                                 preferences.fitness.measurements.custom = value_vector;
                             }
                             "inbuilt" => match right {
