@@ -50,7 +50,6 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Title>Preferences</Title>
 					{!coreDetails.data.preferencesChangeAllowed ? (
 						<Alert
 							icon={<IconAlertCircle size="1rem" />}
@@ -120,7 +119,35 @@ const Page: NextPageWithLayout = () => {
 						)}
 					</SimpleGrid>
 					<Divider />
-					<Title order={3}>Fitness</Title>
+					<Title order={3}>Measurements</Title>
+					<Text size="xs">
+						The default measurements you want to keep track of.
+					</Text>
+					<SimpleGrid cols={2}>
+						{Object.entries(userPrefs.data.fitness.measurements.inbuilt).map(
+							([name, isEnabled], idx) => (
+								<Switch
+									size="xs"
+									key={idx}
+									label={changeCase(snakeCase(name))}
+									checked={isEnabled}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
+									onChange={(ev) => {
+										updateUserEnabledFeatures.mutate({
+											input: {
+												property: `fitness.measurements.inbuilt.${snakeCase(
+													name,
+												)}`,
+												value: String(ev.currentTarget.checked),
+											},
+										});
+									}}
+								/>
+							),
+						)}
+					</SimpleGrid>
+					<Divider />
+					<Title order={3}>Exercises</Title>
 					<SimpleGrid cols={2}>
 						{Object.entries(userPrefs.data.fitness.exercises).map(
 							([name, previousValue], idx) => (
