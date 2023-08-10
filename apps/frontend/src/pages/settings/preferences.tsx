@@ -13,6 +13,7 @@ import {
 	Stack,
 	Switch,
 	Text,
+	TextInput,
 	Title,
 } from "@mantine/core";
 import {
@@ -146,6 +147,18 @@ const Page: NextPageWithLayout = () => {
 							),
 						)}
 					</SimpleGrid>
+					<TextInput
+						label="The custom metrics you want to keep track of"
+						description="Properties should be comma separated"
+						onChange={(ev) => {
+							updateUserEnabledFeatures.mutate({
+								input: {
+									property: `fitness.measurements.custom.dummy`,
+									value: ev.currentTarget.value,
+								},
+							});
+						}}
+					/>
 					<Divider />
 					<Title order={3}>Exercises</Title>
 					<SimpleGrid cols={2}>
