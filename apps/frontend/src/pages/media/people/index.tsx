@@ -18,6 +18,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import {
 	CreatorDetailsDocument,
 	UserCreatorDetailsDocument,
@@ -37,6 +38,12 @@ import { withQuery } from "ufo";
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const creatorId = parseInt(router.query.id?.toString() || "0");
+
+	const [activeTab, setActiveTab] = useLocalStorage({
+		key: "savedActiveCreatorDetailsTab",
+		getInitialValueInEffect: false,
+		defaultValue: "media",
+	});
 
 	const userCreatorDetails = useQuery({
 		queryKey: ["userCreatorDetails", creatorId],
@@ -82,7 +89,13 @@ const Page: NextPageWithLayout = () => {
 							media items
 						</Text>
 					</Flex>
-					<Tabs defaultValue={"media"} variant="outline">
+					<Tabs
+						value={activeTab}
+						onTabChange={(v) => {
+							if (v) setActiveTab(v);
+						}}
+						variant="outline"
+					>
 						<Tabs.List mb={"xs"}>
 							<Tabs.Tab value="media" icon={<IconDeviceTv size="1rem" />}>
 								Media
