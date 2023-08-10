@@ -3555,6 +3555,119 @@ impl MiscellaneousService {
             "fitness" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                 match left {
+                    "measurements" => {
+                        let (left, right) = right.split_once('.').ok_or_else(err)?;
+                        match left {
+                            "inbuilt" => match right {
+                                "weight" => {
+                                    preferences.fitness.measurements.inbuilt.weight =
+                                        value_bool.unwrap();
+                                }
+                                "body_mass_index" => {
+                                    preferences.fitness.measurements.inbuilt.body_mass_index =
+                                        value_bool.unwrap();
+                                }
+                                "total_body_water" => {
+                                    preferences.fitness.measurements.inbuilt.total_body_water =
+                                        value_bool.unwrap();
+                                }
+                                "muscle" => {
+                                    preferences.fitness.measurements.inbuilt.muscle =
+                                        value_bool.unwrap();
+                                }
+                                "lean_body_mass" => {
+                                    preferences.fitness.measurements.inbuilt.lean_body_mass =
+                                        value_bool.unwrap();
+                                }
+                                "body_fat" => {
+                                    preferences.fitness.measurements.inbuilt.body_fat =
+                                        value_bool.unwrap();
+                                }
+                                "bone_mass" => {
+                                    preferences.fitness.measurements.inbuilt.bone_mass =
+                                        value_bool.unwrap();
+                                }
+                                "visceral_fat" => {
+                                    preferences.fitness.measurements.inbuilt.visceral_fat =
+                                        value_bool.unwrap();
+                                }
+                                "waist_circumference" => {
+                                    preferences.fitness.measurements.inbuilt.waist_circumference =
+                                        value_bool.unwrap();
+                                }
+                                "waist_to_height_ratio" => {
+                                    preferences
+                                        .fitness
+                                        .measurements
+                                        .inbuilt
+                                        .waist_to_height_ratio = value_bool.unwrap();
+                                }
+                                "hip_circumference" => {
+                                    preferences.fitness.measurements.inbuilt.hip_circumference =
+                                        value_bool.unwrap();
+                                }
+                                "waist_to_hip_ratio" => {
+                                    preferences.fitness.measurements.inbuilt.waist_to_hip_ratio =
+                                        value_bool.unwrap();
+                                }
+                                "chest_circumference" => {
+                                    preferences.fitness.measurements.inbuilt.chest_circumference =
+                                        value_bool.unwrap();
+                                }
+                                "thigh_circumference" => {
+                                    preferences.fitness.measurements.inbuilt.thigh_circumference =
+                                        value_bool.unwrap();
+                                }
+                                "biceps_circumference" => {
+                                    preferences
+                                        .fitness
+                                        .measurements
+                                        .inbuilt
+                                        .biceps_circumference = value_bool.unwrap();
+                                }
+                                "neck_circumference" => {
+                                    preferences.fitness.measurements.inbuilt.neck_circumference =
+                                        value_bool.unwrap();
+                                }
+                                "body_fat_caliper" => {
+                                    preferences.fitness.measurements.inbuilt.body_fat_caliper =
+                                        value_bool.unwrap();
+                                }
+                                "chest_skinfold" => {
+                                    preferences.fitness.measurements.inbuilt.chest_skinfold =
+                                        value_bool.unwrap();
+                                }
+                                "abdominal_skinfold" => {
+                                    preferences.fitness.measurements.inbuilt.abdominal_skinfold =
+                                        value_bool.unwrap();
+                                }
+                                "thigh_skinfold" => {
+                                    preferences.fitness.measurements.inbuilt.thigh_skinfold =
+                                        value_bool.unwrap();
+                                }
+                                "basal_metabolic_rate" => {
+                                    preferences
+                                        .fitness
+                                        .measurements
+                                        .inbuilt
+                                        .basal_metabolic_rate = value_bool.unwrap();
+                                }
+                                "total_daily_energy_expenditure" => {
+                                    preferences
+                                        .fitness
+                                        .measurements
+                                        .inbuilt
+                                        .total_daily_energy_expenditure = value_bool.unwrap();
+                                }
+                                "calories" => {
+                                    preferences.fitness.measurements.inbuilt.calories =
+                                        value_bool.unwrap();
+                                }
+                                _ => return Err(err()),
+                            },
+                            _ => return Err(err()),
+                        }
+                    }
                     "exercises" => match right {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
