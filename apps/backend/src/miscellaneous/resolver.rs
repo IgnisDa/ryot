@@ -3558,6 +3558,14 @@ impl MiscellaneousService {
                     "measurements" => {
                         let (left, right) = right.split_once('.').ok_or_else(err)?;
                         match left {
+                            "custom" => {
+                                let value_vector = input
+                                    .value
+                                    .split(",")
+                                    .map(|s| s.trim().to_owned())
+                                    .collect();
+                                preferences.fitness.measurements.custom = value_vector;
+                            }
                             "inbuilt" => match right {
                                 "weight" => {
                                     preferences.fitness.measurements.inbuilt.weight =
