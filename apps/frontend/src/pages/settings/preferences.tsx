@@ -8,6 +8,7 @@ import {
 	Alert,
 	Container,
 	Divider,
+	JsonInput,
 	NumberInput,
 	SimpleGrid,
 	Stack,
@@ -147,14 +148,21 @@ const Page: NextPageWithLayout = () => {
 							),
 						)}
 					</SimpleGrid>
-					<TextInput
+					<JsonInput
 						label="The custom metrics you want to keep track of"
-						description="Properties should be comma separated"
-						onChange={(ev) => {
+						description="The name of the attribute along with the data type. Only decimal data type is supported."
+						defaultValue={JSON.stringify(
+							userPrefs.data.fitness.measurements.custom,
+							null,
+							4,
+						)}
+						autosize
+						formatOnBlur
+						onChange={(v) => {
 							updateUserEnabledFeatures.mutate({
 								input: {
 									property: "fitness.measurements.custom.dummy",
-									value: ev.currentTarget.value,
+									value: v,
 								},
 							});
 						}}
