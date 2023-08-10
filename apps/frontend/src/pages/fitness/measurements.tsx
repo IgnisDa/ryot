@@ -3,9 +3,23 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, Select, Stack, Title } from "@mantine/core";
+import {
+	ActionIcon,
+	Box,
+	Container,
+	Drawer,
+	Flex,
+	NumberInput,
+	Select,
+	SimpleGrid,
+	Stack,
+	Title,
+} from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import { useDisclosure } from "@mantine/hooks";
 import { UserMeasurementsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
@@ -27,6 +41,7 @@ const dateFormatter = (date: Date) => {
 
 const Page: NextPageWithLayout = () => {
 	const [stat, setState] = useState("weight");
+	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
 	const userMeasurementsList = useQuery(["userMeasurementsList"], async () => {
@@ -42,12 +57,56 @@ const Page: NextPageWithLayout = () => {
 				<title>Measurements | Ryot</title>
 			</Head>
 			<Container>
+				<Drawer opened={opened} onClose={close} title="Add new measurement">
+					<Stack>
+						<DateTimePicker
+							label="Timestamp"
+							defaultValue={new Date()}
+							dropdownType="modal"
+						/>
+						<SimpleGrid cols={2} style={{ alignItems: "end" }}>
+							{Object.keys(preferences.data.fitness.measurements.inbuilt)
+								.filter((n) => n !== "custom")
+								.filter(
+									(n) =>
+										(preferences as any).data.fitness.measurements.inbuilt[n],
+								)
+								.map((v) => (
+									<NumberInput
+										key={v}
+										label={changeCase(snakeCase(v))}
+										name={v}
+									/>
+								))}
+							{preferences.data.fitness.measurements.custom.map(({ name }) => (
+								<NumberInput
+									key={name}
+									label={changeCase(snakeCase(name))}
+									name={`custom.${name}`}
+								/>
+							))}
+						</SimpleGrid>
+					</Stack>
+				</Drawer>
 				<Stack>
-					<Title>Measurements</Title>
+					<Flex align={"center"} gap={"md"}>
+						<Title>Measurements</Title>
+						<ActionIcon
+							color="green"
+							variant="outline"
+							onClick={() => {
+								open();
+							}}
+						>
+							<IconPlus size="1.25rem" />
+						</ActionIcon>
+					</Flex>
 					<Select
 						data={[
 							...Object.keys(preferences.data.fitness.measurements.inbuilt),
-							...preferences.data.fitness.measurements.custom.map(c => c.name),
+							...preferences.data.fitness.measurements.custom.map(
+								(c) => c.name,
+							),
 						].map((v) => ({
 							value: v,
 							label: startCase(v),
