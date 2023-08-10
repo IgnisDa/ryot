@@ -98,6 +98,7 @@ const Page: NextPageWithLayout = () => {
 						for (const episode of season.episodes || []) {
 							updates.push({
 								...variables.input,
+								showSeasonNumber: season.seasonNumber,
 								showEpisodeNumber: episode.episodeNumber,
 							});
 						}

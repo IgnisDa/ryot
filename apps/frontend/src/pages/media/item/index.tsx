@@ -36,7 +36,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
@@ -411,6 +411,12 @@ const AccordionLabel = ({
 };
 
 const Page: NextPageWithLayout = () => {
+	const router = useRouter();
+	const metadataId = parseInt(router.query.id?.toString() || "0");
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+	const coreDetails = useCoreDetails();
+
 	const [
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
@@ -426,11 +432,11 @@ const Page: NextPageWithLayout = () => {
 			close: createMediaReminderModalClose,
 		},
 	] = useDisclosure(false);
-	const router = useRouter();
-	const metadataId = parseInt(router.query.id?.toString() || "0");
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
-	const coreDetails = useCoreDetails();
+	const [activeTab, setActiveTab] = useLocalStorage({
+		key: "savedActiveItemDetailsTab",
+		getInitialValueInEffect: false,
+		defaultValue: "overview",
+	});
 
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
@@ -757,10 +763,11 @@ const Page: NextPageWithLayout = () => {
 						</Alert>
 					) : null}
 					<Tabs
-						defaultValue={
-							userMediaDetails.data.history.length > 0 ? "actions" : "overview"
-						}
+						value={activeTab}
 						variant="outline"
+						onTabChange={(v) => {
+							if (v) setActiveTab(v);
+						}}
 					>
 						<Tabs.List mb={"xs"}>
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>

@@ -67,6 +67,100 @@ impl Default for UserExercisePreferences {
 }
 
 #[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserMeasurementsInBuiltPreferences {
+    pub weight: bool,
+    pub body_mass_index: bool,
+    pub total_body_water: bool,
+    pub muscle: bool,
+    pub body_fat: bool,
+    pub waist_to_height_ratio: bool,
+    pub waist_to_hip_ratio: bool,
+    pub basal_metabolic_rate: bool,
+    pub total_daily_energy_expenditure: bool,
+    pub calories: bool,
+    pub lean_body_mass: bool,
+    pub bone_mass: bool,
+    pub visceral_fat: bool,
+    pub waist_circumference: bool,
+    pub hip_circumference: bool,
+    pub chest_circumference: bool,
+    pub thigh_circumference: bool,
+    pub biceps_circumference: bool,
+    pub neck_circumference: bool,
+    pub body_fat_caliper: bool,
+    pub chest_skinfold: bool,
+    pub abdominal_skinfold: bool,
+    pub thigh_skinfold: bool,
+}
+
+impl Default for UserMeasurementsInBuiltPreferences {
+    fn default() -> Self {
+        Self {
+            weight: true,
+            body_mass_index: true,
+            total_body_water: true,
+            muscle: true,
+            body_fat: true,
+            waist_to_height_ratio: true,
+            waist_to_hip_ratio: true,
+            basal_metabolic_rate: true,
+            total_daily_energy_expenditure: true,
+            calories: false,
+            lean_body_mass: false,
+            bone_mass: false,
+            visceral_fat: false,
+            waist_circumference: false,
+            hip_circumference: false,
+            chest_circumference: false,
+            thigh_circumference: false,
+            biceps_circumference: false,
+            neck_circumference: false,
+            body_fat_caliper: false,
+            chest_skinfold: false,
+            abdominal_skinfold: false,
+            thigh_skinfold: false,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum UserCustomMeasurementDataType {
+    Decimal,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct UserCustomMeasurement {
+    pub name: String,
+    pub data_type: UserCustomMeasurementDataType,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserMeasurementsPreferences {
+    pub custom: Vec<UserCustomMeasurement>,
+    pub inbuilt: UserMeasurementsInBuiltPreferences,
+}
+
+impl Default for UserMeasurementsPreferences {
+    fn default() -> Self {
+        Self {
+            custom: vec![UserCustomMeasurement {
+                name: "sugar_level".to_owned(),
+                data_type: UserCustomMeasurementDataType::Decimal,
+            }],
+            inbuilt: UserMeasurementsInBuiltPreferences::default(),
+        }
+    }
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
@@ -80,6 +174,8 @@ pub struct UserFeaturesEnabledPreferences {
 pub struct UserFitnessPreferences {
     #[serde(default)]
     pub exercises: UserExercisePreferences,
+    #[serde(default)]
+    pub measurements: UserMeasurementsPreferences,
 }
 
 #[derive(

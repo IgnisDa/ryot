@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
@@ -862,6 +864,7 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
-        // TODO: Allow adding custom metrics in a hashmap
+        // DEV: The only custom data type we allow is decimal.
+        pub custom: Option<HashMap<String, Decimal>>,
     }
 }

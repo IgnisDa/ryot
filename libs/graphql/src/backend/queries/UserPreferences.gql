@@ -1,6 +1,37 @@
 query UserPreferences {
   userPreferences {
     fitness {
+      measurements {
+        custom {
+          name
+          dataType
+        }
+        inbuilt {
+          weight
+          bodyMassIndex
+          totalBodyWater
+          muscle
+          leanBodyMass
+          bodyFat
+          boneMass
+          visceralFat
+          waistCircumference
+          waistToHeightRatio
+          hipCircumference
+          waistToHipRatio
+          chestCircumference
+          thighCircumference
+          bicepsCircumference
+          neckCircumference
+          bodyFatCaliper
+          chestSkinfold
+          abdominalSkinfold
+          thighSkinfold
+          basalMetabolicRate
+          totalDailyEnergyExpenditure
+          calories
+        }
+      }
       exercises {
         saveHistory
       }
