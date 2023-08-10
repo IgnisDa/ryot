@@ -14,6 +14,8 @@ import {
 	Select,
 	SimpleGrid,
 	Stack,
+	TextInput,
+	Textarea,
 	Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
@@ -89,15 +91,24 @@ const Page: NextPageWithLayout = () => {
 							const submitData = {};
 							const formData = new FormData(e.currentTarget);
 							for (const [name, value] of formData.entries()) {
-								if (value !== "" && name !== "timestamp")
+								if (
+									value !== "" &&
+									name !== "timestamp" &&
+									name !== "name" &&
+									name !== "comment"
+								)
 									set(submitData, name, value);
 							}
 							const timestamp = formData.get("timestamp");
+							const name = formData.get("name");
+							const comment = formData.get("comment");
 							if (Object.keys(submitData).length > 0 && timestamp) {
 								createUserMeasurement.mutate({
 									input: {
 										stats: submitData,
 										timestamp: new Date(timestamp.toString()),
+										comment: comment?.toString(),
+										name: name?.toString(),
 									},
 								});
 								close();
@@ -111,6 +122,7 @@ const Page: NextPageWithLayout = () => {
 								name="timestamp"
 								required
 							/>
+							<TextInput label="Name" name="name" />
 							<SimpleGrid cols={2} style={{ alignItems: "end" }}>
 								{Object.keys(preferences.data.fitness.measurements.inbuilt)
 									.filter((n) => n !== "custom")
@@ -135,6 +147,7 @@ const Page: NextPageWithLayout = () => {
 									),
 								)}
 							</SimpleGrid>
+							<Textarea label="Comment" name="comment" />
 							<Button type="submit">Submit</Button>
 						</Stack>
 					</Box>
