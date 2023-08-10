@@ -47,7 +47,7 @@ const Page: NextPageWithLayout = () => {
 					<Select
 						data={[
 							...Object.keys(preferences.data.fitness.measurements.inbuilt),
-							...preferences.data.fitness.measurements.custom,
+							...preferences.data.fitness.measurements.custom.map(c => c.name),
 						].map((v) => ({
 							value: v,
 							label: startCase(v),
