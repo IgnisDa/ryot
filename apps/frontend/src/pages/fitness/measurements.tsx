@@ -1,4 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -27,6 +28,7 @@ const dateFormatter = (date: Date) => {
 const Page: NextPageWithLayout = () => {
 	const [stat, setState] = useState("weight");
 
+	const preferences = useUserPreferences();
 	const userMeasurementsList = useQuery(["userMeasurementsList"], async () => {
 		const { userMeasurementsList } = await gqlClient.request(
 			UserMeasurementsListDocument,
@@ -34,7 +36,7 @@ const Page: NextPageWithLayout = () => {
 		return userMeasurementsList;
 	});
 
-	return userMeasurementsList.data ? (
+	return userMeasurementsList.data && preferences.data ? (
 		<>
 			<Head>
 				<title>Measurements | Ryot</title>
@@ -43,12 +45,13 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Title>Measurements</Title>
 					<Select
-						data={Object.keys(userMeasurementsList.data.at(0)?.stats || {}).map(
-							(v) => ({
-								value: v,
-								label: startCase(v),
-							}),
-						)}
+						data={[
+							...Object.keys(preferences.data.fitness.measurements.inbuilt),
+							...preferences.data.fitness.measurements.custom,
+						].map((v) => ({
+							value: v,
+							label: startCase(v),
+						}))}
 						defaultValue={stat}
 						onChange={(s) => {
 							if (s) setState(s);

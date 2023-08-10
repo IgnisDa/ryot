@@ -153,7 +153,7 @@ const Page: NextPageWithLayout = () => {
 						onChange={(ev) => {
 							updateUserEnabledFeatures.mutate({
 								input: {
-									property: `fitness.measurements.custom.dummy`,
+									property: "fitness.measurements.custom.dummy",
 									value: ev.currentTarget.value,
 								},
 							});
