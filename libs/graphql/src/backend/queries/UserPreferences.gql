@@ -3,7 +3,31 @@ query UserPreferences {
     fitness {
       measurements {
         custom
-        inbuiltDisabled
+        inbuilt {
+          weight
+          bodyMassIndex
+          totalBodyWater
+          muscle
+          leanBodyMass
+          bodyFat
+          boneMass
+          visceralFat
+          waistCircumference
+          waistToHeightRatio
+          hipCircumference
+          waistToHipRatio
+          chestCircumference
+          thighCircumference
+          bicepsCircumference
+          neckCircumference
+          bodyFatCaliper
+          chestSkinfold
+          abdominalSkinfold
+          thighSkinfold
+          basalMetabolicRate
+          totalDailyEnergyExpenditure
+          calories
+        }
       }
       exercises {
         saveHistory
