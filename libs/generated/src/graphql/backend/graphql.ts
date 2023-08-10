@@ -19,6 +19,8 @@ export type Scalars = {
    */
   DateTime: Date;
   Decimal: any;
+  /** A scalar that can represent any JSON Object value. */
+  JSONObject: any;
   /**
    * ISO 8601 calendar date without timezone.
    * Format: %Y-%m-%d
@@ -1250,6 +1252,7 @@ export type UserMeasurementDataInput = {
   calories?: InputMaybe<Scalars['Decimal']>;
   chestCircumference?: InputMaybe<Scalars['Decimal']>;
   chestSkinfold?: InputMaybe<Scalars['Decimal']>;
+  custom?: InputMaybe<Scalars['JSONObject']>;
   hipCircumference?: InputMaybe<Scalars['Decimal']>;
   leanBodyMass?: InputMaybe<Scalars['Decimal']>;
   muscle?: InputMaybe<Scalars['Decimal']>;
@@ -1283,6 +1286,7 @@ export type UserMeasurementStats = {
   calories?: Maybe<Scalars['Decimal']>;
   chestCircumference?: Maybe<Scalars['Decimal']>;
   chestSkinfold?: Maybe<Scalars['Decimal']>;
+  custom?: Maybe<Scalars['JSONObject']>;
   hipCircumference?: Maybe<Scalars['Decimal']>;
   leanBodyMass?: Maybe<Scalars['Decimal']>;
   muscle?: Maybe<Scalars['Decimal']>;
