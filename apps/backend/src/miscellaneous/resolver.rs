@@ -2034,7 +2034,7 @@ impl MiscellaneousService {
             return Err(Error::new("Atleast two bulk update elements are required"));
         }
         // DEV: We have to do this sorcery because the `associate_user_with_metadata` operation
-        // fails if we do all of them together. So we perform one update and then the rest.
+        // fails if we do all of them together. So we perform one update and then the rest together.
         let mut updates = input
             .into_iter()
             .map(|i| self.progress_update(i, user_id))
