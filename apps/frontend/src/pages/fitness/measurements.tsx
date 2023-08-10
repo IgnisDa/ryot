@@ -15,6 +15,7 @@ import {
 	SimpleGrid,
 	Stack,
 	TextInput,
+	Text,
 	Textarea,
 	Title,
 } from "@mantine/core";
@@ -165,6 +166,7 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
+					<Text>Displaying measurements is still WIP.</Text>
 					<Select
 						data={[
 							...Object.keys(preferences.data.fitness.measurements.inbuilt),
