@@ -126,6 +126,7 @@ impl Default for UserMeasurementsInBuiltPreferences {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum UserCustomMeasurementDataType {
     Decimal,
 }
@@ -133,6 +134,7 @@ pub enum UserCustomMeasurementDataType {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct UserCustomMeasurement {
     pub name: String,
     pub data_type: UserCustomMeasurementDataType,
