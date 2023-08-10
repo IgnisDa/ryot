@@ -6,6 +6,7 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
 	Box,
+	Button,
 	Container,
 	Drawer,
 	Flex,
@@ -17,10 +18,16 @@ import {
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { UserMeasurementsListDocument } from "@ryot/generated/graphql/backend/graphql";
+import { notifications } from "@mantine/notifications";
+import {
+	CreateUserMeasurementDocument,
+	type CreateUserMeasurementMutationVariables,
+	UserMeasurementsListDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconPlus } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { set } from "lodash";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -50,6 +57,23 @@ const Page: NextPageWithLayout = () => {
 		);
 		return userMeasurementsList;
 	});
+	const createUserMeasurement = useMutation({
+		mutationFn: async (variables: CreateUserMeasurementMutationVariables) => {
+			const { createUserMeasurement } = await gqlClient.request(
+				CreateUserMeasurementDocument,
+				variables,
+			);
+			return createUserMeasurement;
+		},
+		onSuccess: () => {
+			userMeasurementsList.refetch();
+			notifications.show({
+				title: "Success",
+				message: "Added new measurement",
+				color: "green",
+			});
+		},
+	});
 
 	return userMeasurementsList.data && preferences.data ? (
 		<>
@@ -58,35 +82,62 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Drawer opened={opened} onClose={close} title="Add new measurement">
-					<Stack>
-						<DateTimePicker
-							label="Timestamp"
-							defaultValue={new Date()}
-							dropdownType="modal"
-						/>
-						<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-							{Object.keys(preferences.data.fitness.measurements.inbuilt)
-								.filter((n) => n !== "custom")
-								.filter(
-									(n) =>
-										(preferences as any).data.fitness.measurements.inbuilt[n],
-								)
-								.map((v) => (
-									<NumberInput
-										key={v}
-										label={changeCase(snakeCase(v))}
-										name={v}
-									/>
-								))}
-							{preferences.data.fitness.measurements.custom.map(({ name }) => (
-								<NumberInput
-									key={name}
-									label={changeCase(snakeCase(name))}
-									name={`custom.${name}`}
-								/>
-							))}
-						</SimpleGrid>
-					</Stack>
+					<Box
+						component="form"
+						onSubmit={(e) => {
+							e.preventDefault();
+							const submitData = {};
+							const formData = new FormData(e.currentTarget);
+							for (const [name, value] of formData.entries()) {
+								if (value !== "" && name !== "timestamp")
+									set(submitData, name, value);
+							}
+							const timestamp = formData.get("timestamp");
+							if (Object.keys(submitData).length > 0 && timestamp) {
+								createUserMeasurement.mutate({
+									input: {
+										stats: submitData,
+										timestamp: new Date(timestamp.toString()),
+									},
+								});
+								close();
+							}
+						}}
+					>
+						<Stack>
+							<DateTimePicker
+								label="Timestamp"
+								defaultValue={new Date()}
+								name="timestamp"
+								required
+							/>
+							<SimpleGrid cols={2} style={{ alignItems: "end" }}>
+								{Object.keys(preferences.data.fitness.measurements.inbuilt)
+									.filter((n) => n !== "custom")
+									.filter(
+										(n) =>
+											(preferences as any).data.fitness.measurements.inbuilt[n],
+									)
+									.map((v) => (
+										<NumberInput
+											key={v}
+											label={changeCase(snakeCase(v))}
+											name={v}
+										/>
+									))}
+								{preferences.data.fitness.measurements.custom.map(
+									({ name }) => (
+										<NumberInput
+											key={name}
+											label={changeCase(snakeCase(name))}
+											name={`custom.${name}`}
+										/>
+									),
+								)}
+							</SimpleGrid>
+							<Button type="submit">Submit</Button>
+						</Stack>
+					</Box>
 				</Drawer>
 				<Stack>
 					<Flex align={"center"} gap={"md"}>
