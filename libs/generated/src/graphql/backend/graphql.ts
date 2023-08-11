@@ -209,6 +209,7 @@ export type DeployGoodreadsImportInput = {
 
 export type DeployImportJobInput = {
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
+  lot: ImportLot;
   mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
@@ -404,6 +405,11 @@ export type ImportFailedItem = {
   lot: MetadataLot;
   step: ImportFailStep;
 };
+
+export enum ImportLot {
+  Exercise = 'EXERCISE',
+  Media = 'MEDIA'
+}
 
 export type ImportReport = {
   details?: Maybe<ImportResultResponse>;

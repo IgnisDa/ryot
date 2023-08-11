@@ -100,7 +100,7 @@ pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(
     tracing::trace!("Importing media");
     ctx.data::<Arc<ImporterService>>()
         .unwrap()
-        .import_from_source(information.user_id, information.input)
+        .import_from_lot(information.user_id, information.input)
         .await
         .unwrap();
     Ok(())
