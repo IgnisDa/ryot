@@ -12,6 +12,7 @@
 		"@mantine/modals": "6.0.8",
 		"@mantine/next": "6.0.8",
 		"@mantine/notifications": "6.0.8",
+		"@paralleldrive/cuid2": "2.2.2",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
