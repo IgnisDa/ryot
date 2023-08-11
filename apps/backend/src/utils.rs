@@ -42,12 +42,10 @@ pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PAGE_LIMIT: i32 = 20;
 pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
-pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
-pub const REPOSITORY_LINK: &str = "https://github.com/ignisda/ryot";
-pub const DOCS_LINK: &str = "https://ignisda.github.io/ryot";
 pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";

@@ -91,7 +91,7 @@ use crate::{
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        AUTHOR, COOKIE_NAME, PAGE_LIMIT, VERSION,
     },
 };
 
@@ -544,7 +544,7 @@ pub struct MiscellaneousQuery;
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
-    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
     }
@@ -1171,19 +1171,19 @@ impl MiscellaneousService {
 }
 
 impl MiscellaneousService {
-    async fn core_details(&self) -> CoreDetails {
-        CoreDetails {
-            docs_link: DOCS_LINK.to_owned(),
+    async fn core_details(&self) -> Result<CoreDetails> {
+        Ok(CoreDetails {
+            docs_link: "https://ignisda.github.io/ryot".to_owned(),
+            repository_link: "https://github.com/ignisda/ryot".to_owned(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
-            repository_link: REPOSITORY_LINK.to_owned(),
             username_change_allowed: self.config.users.allow_changing_username,
             password_change_allowed: self.config.users.allow_changing_password,
             preferences_change_allowed: self.config.users.allow_changing_preferences,
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
-        }
+        })
     }
 
     async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
