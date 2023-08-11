@@ -308,9 +308,8 @@ mod utils {
         }
     }
 
-    static TOKEN: OnceLock<Credentials> = OnceLock::new();
-
     pub async fn get_client(config: &VideoGameConfig) -> Client {
+        static TOKEN: OnceLock<Credentials> = OnceLock::new();
         async fn set_and_return_token(config: &VideoGameConfig) -> String {
             let creds = get_access_token(config).await;
             let tok = creds.access_token.clone();
