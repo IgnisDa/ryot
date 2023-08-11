@@ -51,7 +51,7 @@ const documents = {
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
     "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    results {\n      total\n      nextPage\n      items {\n        identifier\n        lot\n        title\n        image\n        publishYear\n      }\n    }\n    details {\n      name\n      description\n      visibility\n      createdOn\n    }\n  }\n}": types.CollectionContentsDocument,
     "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.CollectionsDocument,
-    "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n  }\n}": types.CoreDetailsDocument,
+    "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    upgrade\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query CreatorDetails($creatorId: Int!) {\n  creatorDetails(creatorId: $creatorId) {\n    details {\n      id\n      name\n      image\n    }\n    contents {\n      name\n      items {\n        identifier\n        lot\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.CreatorDetailsDocument,
     "query CreatorsList($input: SearchInput!) {\n  creatorsList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.CreatorsListDocument,
@@ -246,7 +246,7 @@ export function graphql(source: "query Collections($input: CollectionInput) {\n 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n  }\n}"];
+export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    upgrade\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    upgrade\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

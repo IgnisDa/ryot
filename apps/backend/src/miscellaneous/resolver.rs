@@ -33,7 +33,9 @@ use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
+use semver::Version;
 use serde::{Deserialize, Serialize};
+use surf::http::headers::USER_AGENT;
 use uuid::Uuid;
 
 use crate::{
@@ -91,7 +93,7 @@ use crate::{
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, PAGE_LIMIT, VERSION,
+        AUTHOR, COOKIE_NAME, PAGE_LIMIT, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -450,6 +452,12 @@ struct UserAuthToken {
     last_used_on: DateTimeUtc,
 }
 
+#[derive(Enum, Eq, PartialEq, Copy, Clone)]
+enum UpgradeType {
+    Minor,
+    Major,
+}
+
 #[derive(SimpleObject)]
 struct CoreDetails {
     docs_link: String,
@@ -462,6 +470,8 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
+    /// Whether an upgrade is required
+    upgrade: Option<UpgradeType>,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1172,6 +1182,30 @@ impl MiscellaneousService {
 
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
+        #[derive(Serialize, Deserialize, Debug)]
+        struct GithubResponse {
+            tag_name: String,
+        }
+        let github_response =
+            surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
+                .header(USER_AGENT, USER_AGENT_STR)
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json::<GithubResponse>()
+                .await
+                .map_err(|e| anyhow!(e))?;
+        let tag = github_response.tag_name.strip_prefix("v").unwrap();
+        let latest_version = Version::parse(tag).unwrap();
+        let current_version = Version::parse(VERSION).unwrap();
+        let upgrade = if latest_version > current_version {
+            Some(if latest_version.major > current_version.major {
+                UpgradeType::Major
+            } else {
+                UpgradeType::Minor
+            })
+        } else {
+            None
+        };
         Ok(CoreDetails {
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
@@ -1183,6 +1217,7 @@ impl MiscellaneousService {
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
+            upgrade,
         })
     }
 
