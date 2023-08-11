@@ -10,8 +10,8 @@ import {
 	Container,
 	Drawer,
 	Flex,
+	MultiSelect,
 	NumberInput,
-	Select,
 	SimpleGrid,
 	Stack,
 	TextInput,
@@ -48,8 +48,9 @@ const dateFormatter = (date: Date) => {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [stat, setState] = useLocalStorage({
-		key: "measurementsDisplayStat",
+	const [selectedStats, setselectedStates] = useLocalStorage<string[]>({
+		defaultValue: [],
+		key: "measurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);
@@ -147,7 +148,7 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<Select
+					<MultiSelect
 						data={[
 							...Object.keys(preferences.data.fitness.measurements.inbuilt)
 								.filter(
@@ -162,9 +163,9 @@ const Page: NextPageWithLayout = () => {
 							value: v.value,
 							label: startCase(v.name),
 						}))}
-						defaultValue={stat}
+						defaultValue={selectedStats}
 						onChange={(s) => {
-							if (s) setState(s);
+							if (s) setselectedStates(s);
 						}}
 					/>
 					<Box w={"100%"} ml={-15}>
@@ -177,17 +178,20 @@ const Page: NextPageWithLayout = () => {
 								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} />
 								<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
 								<Tooltip />
-								<Line
-									type="monotone"
-									dot={false}
-									dataKey={(s) => {
-										const data = get(s.stats, stat);
-										if (data) return Number(data);
-										return null;
-									}}
-									name={stat}
-									connectNulls
-								/>
+								{selectedStats.map((s) => (
+									<Line
+										key={s}
+										type="monotone"
+										dot={false}
+										dataKey={(v) => {
+											const data = get(v.stats, s);
+											if (data) return Number(data);
+											return null;
+										}}
+										name={s}
+										connectNulls
+									/>
+								))}
 							</LineChart>
 						</ResponsiveContainer>
 					</Box>
