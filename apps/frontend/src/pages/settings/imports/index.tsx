@@ -23,6 +23,7 @@ import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
 	ImportSource,
+	ImportLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
@@ -179,7 +180,11 @@ const Page: NextPageWithLayout = () => {
 									.exhaustive();
 								if (values) {
 									deployImportJob.mutate({
-										input: { source: deployImportSource, ...values },
+										input: {
+											lot: ImportLot.Media,
+											source: deployImportSource,
+											...values,
+										},
 									});
 								}
 							}
