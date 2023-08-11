@@ -10,6 +10,7 @@ import {
 	Divider,
 	JsonInput,
 	NumberInput,
+	Select,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -19,8 +20,9 @@ import {
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
+	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/ts-utils";
+import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
@@ -168,33 +170,38 @@ const Page: NextPageWithLayout = () => {
 					/>
 					<Divider />
 					<Title order={3}>Exercises</Title>
-					<SimpleGrid cols={2}>
-						{Object.entries(userPrefs.data.fitness.exercises).map(
-							([name, previousValue], idx) => (
-								<NumberInput
-									key={idx}
-									size="xs"
-									label={match(name)
-										.with(
-											"saveHistory",
-											() =>
-												"The number of elements to save in your exercise history",
-										)
-										.otherwise(() => undefined)}
-									defaultValue={previousValue}
-									disabled={!coreDetails.data.preferencesChangeAllowed}
-									onChange={(num) => {
-										if (num)
-											updateUserEnabledFeatures.mutate({
-												input: {
-													property: `fitness.exercises.${snakeCase(name)}`,
-													value: String(num),
-												},
-											});
-									}}
-								/>
-							),
-						)}
+					<SimpleGrid cols={1}>
+						<Select
+							size="xs"
+							label="Unit to use for weight measurements"
+							data={Object.values(UserWeightUnit).map((c) => startCase(c))}
+							defaultValue={userPrefs.data.fitness.exercises.weightUnit}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(val) => {
+								if (val)
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: "fitness.exercises.weight_unit",
+											value: val,
+										},
+									});
+							}}
+						/>
+						<NumberInput
+							size="xs"
+							label="The number of elements to save in your exercise history"
+							defaultValue={userPrefs.data.fitness.exercises.saveHistory}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(num) => {
+								if (num)
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: "fitness.exercises.save_history",
+											value: String(num),
+										},
+									});
+							}}
+						/>
 					</SimpleGrid>
 				</Stack>
 			</Container>
