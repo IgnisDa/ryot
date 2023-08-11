@@ -16,6 +16,7 @@ import {
 	MediaQuery,
 	Navbar,
 	ScrollArea,
+	Stack,
 	Text,
 	ThemeIcon,
 	UnstyledButton,
@@ -28,6 +29,7 @@ import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	LogoutUserDocument,
+	UpgradeType,
 	UserDetailsDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -48,34 +50,66 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
 const AUTH_COOKIE = "auth";
 
 const Footer = () => {
 	const coreDetails = useCoreDetails();
+	const [color, text] = match(coreDetails.data?.upgrade)
+		.with(undefined, null, () => [undefined, undefined])
+		.with(
+			UpgradeType.Minor,
+			() => ["blue", <>There is an update available.</>] as const,
+		)
+		.with(
+			UpgradeType.Major,
+			() =>
+				[
+					"red",
+					<>
+						There is a major upgrade, please follow{" "}
+						<Anchor
+							href="https://ignisda.github.io/ryot/migration.html"
+							target="_blank"
+						>
+							migration
+						</Anchor>{" "}
+						docs.
+					</>,
+				] as const,
+		)
+		.exhaustive();
 
 	return coreDetails.data ? (
-		<Flex gap={80} justify={"center"}>
-			<Anchor
-				href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
-				target="_blank"
-			>
-				<Text color="red" weight={"bold"}>
-					v{coreDetails.data.version}
+		<Stack>
+			{coreDetails.data.upgrade ? (
+				<Text align="center" color={color}>
+					{text}
 				</Text>
-			</Anchor>
-			<Anchor href="https://diptesh.me" target="_blank">
-				<Text color="indigo" weight={"bold"}>
-					{coreDetails.data.authorName}
-				</Text>
-			</Anchor>
-			<Anchor href={coreDetails.data.repositoryLink} target="_blank">
-				<Text color="orange" weight={"bold"}>
-					Github
-				</Text>
-			</Anchor>
-		</Flex>
+			) : null}
+			<Flex gap={80} justify={"center"}>
+				<Anchor
+					href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
+					target="_blank"
+				>
+					<Text color="red" weight={"bold"}>
+						v{coreDetails.data.version}
+					</Text>
+				</Anchor>
+				<Anchor href="https://diptesh.me" target="_blank">
+					<Text color="indigo" weight={"bold"}>
+						{coreDetails.data.authorName}
+					</Text>
+				</Anchor>
+				<Anchor href={coreDetails.data.repositoryLink} target="_blank">
+					<Text color="orange" weight={"bold"}>
+						Github
+					</Text>
+				</Anchor>
+			</Flex>
+		</Stack>
 	) : null;
 };
 
