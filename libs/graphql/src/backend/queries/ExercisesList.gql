@@ -6,16 +6,8 @@ query ExercisesList($input: ExercisesListInput!) {
       id
       name
       attributes {
-        force
-        level
-        mechanic
-        equipment
         primaryMuscles
-        secondaryMuscles
-        category
-        instructions
         images
-        alternateNames
       }
     }
   }

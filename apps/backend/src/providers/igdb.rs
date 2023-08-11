@@ -263,7 +263,7 @@ impl IgdbService {
 }
 
 mod utils {
-    use std::{env, fs};
+    use std::sync::OnceLock;
 
     use serde_json::json;
     use surf::{http::headers::AUTHORIZATION, Client};
@@ -271,7 +271,7 @@ mod utils {
     use super::*;
     use crate::{
         config::VideoGameConfig,
-        utils::{get_base_http_client, get_now_timestamp, read_file_to_json},
+        utils::{get_base_http_client, get_now_timestamp},
     };
 
     #[derive(Deserialize, Debug, Serialize)]
@@ -308,24 +308,25 @@ mod utils {
         }
     }
 
-    // FIXME: For some reason the logic to refresh the token does not work.
-    // TODO: Ideally, I want this to use a global variable to store the access token
-    // and expiry time.
     pub async fn get_client(config: &VideoGameConfig) -> Client {
-        let path = env::temp_dir().join("igdb-credentials.json");
-        let access_token =
-            if let Some(mut credential_details) = read_file_to_json::<Credentials>(&path) {
-                if credential_details.expires_at < get_now_timestamp() {
-                    tracing::debug!("Access token has expired, refreshing...");
-                    credential_details = get_access_token(config).await;
-                    fs::write(path, serde_json::to_string(&credential_details).unwrap()).ok();
-                }
-                credential_details.access_token
+        static TOKEN: OnceLock<Credentials> = OnceLock::new();
+        async fn set_and_return_token(config: &VideoGameConfig) -> String {
+            let creds = get_access_token(config).await;
+            let tok = creds.access_token.clone();
+            TOKEN.set(creds).ok();
+            tok
+        }
+        let access_token = if let Some(credential_details) = TOKEN.get() {
+            let tok = if credential_details.expires_at < get_now_timestamp() {
+                tracing::debug!("Access token has expired, refreshing...");
+                set_and_return_token(&config).await
             } else {
-                let creds = get_access_token(config).await;
-                fs::write(path, serde_json::to_string(&creds).unwrap()).ok();
-                creds.access_token
+                credential_details.access_token.clone()
             };
+            tok
+        } else {
+            set_and_return_token(&config).await
+        };
         get_base_http_client(
             URL,
             vec![

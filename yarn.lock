@@ -3405,6 +3405,7 @@ __metadata:
     embla-carousel-react: 7.1.0
     human-format: 1.2.0
     humanize-duration-ts: 2.1.1
+    jotai: 2.3.1
     luxon: 3.3.0
     next: 13.4.6
     next-pwa: 5.6.0
@@ -6484,6 +6485,21 @@ __metadata:
   version: 4.14.0
   resolution: "jose@npm:4.14.0"
   checksum: 107b64e005d1bac3ae648d57c141f80651d8956d4e7107a0c9e3481c685f74c8c8c4494463a412abd2ec0682dc0049c721883f2dac55fc8c25f4101093a4375a
+  languageName: node
+  linkType: hard
+
+"jotai@npm:2.3.1":
+  version: 2.3.1
+  resolution: "jotai@npm:2.3.1"
+  peerDependencies:
+    "@types/react": ">=17.0.0"
+    react: ">=17.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: c2e3dcb3206749cd7f63ab9cfec5d0bacd19ac8c1710e688716fcbdaa031c6bb78f10ed24ea8da65cd98b4dc3c04170c05eedb4d3284b9ad80858f834c69a914
   languageName: node
   linkType: hard
 

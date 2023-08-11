@@ -1,30 +1,85 @@
-# Migration
+# Installation
 
-## From `v1.*` to `v2.*`
+The first user you register is automatically set as admin of the instance.
 
-1. Stop the running server and create a backup of your database.
+## Using Docker
 
-2. Run the last release of the server to perform all migrations (make sure to connect it to the correct database).
-   ```bash
-   $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v1.22.1
-   ```
+!!! danger "Production Usage"
 
-3. Once the migrations from the above step are done, stop the server.
+    You will have to mount a directory to `/data`, giving it `1001:1001` permissions.
+    It is also recommended to use PostgreSQL in production.
 
-4. Before upgrading to the public release, connect to the database again and run these migrations:
-   ```sql
-   DELETE FROM seaql_migrations;
+To get a demo server running, use the docker image:
 
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230410_create_metadata', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230412_create_creator', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230417_create_user', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230419_create_seen', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230502_create_genre', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230505_create_review', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230507_create_collection', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230509_create_import_report', 1684693316);
-   ```
+```bash
+$ docker run \
+  --detach \
+  --name ryot \
+  --pull always \
+  --publish 8000:8000 \
+  --env "SERVER_INSECURE_COOKIE=true" \
+  ghcr.io/ignisda/ryot:latest
+```
 
-5. Now you can upgrade to the latest release safely.
+`docker-compose` with PostgreSQL
 
-6. **OPTIONAL**: Once you have the new server up and running, go to the "Miscellaneous" settings page and click on the button to "Update All Metadata".
+```yaml
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+
+  ryot:
+    image: "ghcr.io/ignisda/ryot:latest"
+    environment:
+      - SERVER_INSECURE_COOKIE=true
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ryot-data:/data
+    pull_policy: always
+    container_name: ryot
+
+volumes:
+  postgres_storage:
+```
+
+!!! warning
+
+    The `SERVER_INSECURE_COOKIE` configuration is only required if you are not
+    running HTTPs.
+
+In addition to the `latest` tag, we also publish an `unstable` tag from the latest
+pre-release or release, whichever is newer.
+
+## Quick-run a release
+
+Each release has an installation script that can be used to install the `ryot`
+binary. Follow the instructions in the release to use this script.
+
+**Alternatively** using [eget](https://github.com/zyedidia/eget):
+
+```bash
+$ eget ignisda/ryot
+```
+
+## Compile and run from source
+
+First install [moonrepo](https://moonrepo.dev/)
+
+```bash
+# Build the frontend
+$ moon run frontend:build
+
+# Run it
+$ cargo run --bin ryot --release
+```

@@ -1,4 +1,4 @@
-import type { NextPageWithLayout } from "../_app";
+import type { NextPageWithLayout } from "../../_app";
 import { LIMIT } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -100,7 +100,12 @@ const Page: NextPageWithLayout = () => {
 								]}
 							>
 								{exercisesList.data.items.map((exercise) => (
-									<Flex key={exercise.id} gap="lg" align={"center"}>
+									<Flex
+										key={exercise.id}
+										gap="lg"
+										align={"center"}
+										data-exercise-id={exercise.id}
+									>
 										<Avatar
 											imageProps={{ loading: "lazy" }}
 											src={exercise.attributes.images.at(0)}

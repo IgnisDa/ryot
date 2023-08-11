@@ -6,8 +6,11 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { currentWorkoutAtom } from "@/lib/state";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
+	Alert,
+	Anchor,
 	Box,
 	Button,
 	Center,
@@ -29,15 +32,23 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
-import { IconFriends, IconPhotoPlus } from "@tabler/icons-react";
+import {
+	IconAlertCircle,
+	IconBarbell,
+	IconFriends,
+	IconPhotoPlus,
+	IconStretching,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
+import { useAtom } from "jotai";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
 
@@ -124,6 +135,8 @@ const DisplayStatForMediaType = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
+	const router = useRouter();
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const latestUserSummary = useQuery(
 		["userSummary"],
@@ -157,6 +170,25 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
+					{currentWorkout ? (
+						<Alert
+							icon={<IconAlertCircle size="1rem" />}
+							variant="outline"
+							color="yellow"
+						>
+							<Text size="lg">
+								You have a workout in progress. Click{" "}
+								<Link
+									passHref
+									legacyBehavior
+									href={APP_ROUTES.fitness.exercises.inProgress}
+								>
+									<Anchor>here</Anchor>
+								</Link>{" "}
+								to continue.
+							</Text>
+						</Alert>
+					) : null}
 					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>
@@ -335,6 +367,18 @@ const Page: NextPageWithLayout = () => {
 								},
 							]}
 						/>
+						<ActualDisplayStat
+							icon={<IconStretching />}
+							lot="Fitness"
+							color={theme.colors.yellow[5]}
+							data={[
+								{
+									label: "Measurements",
+									value: latestUserSummary.data.fitness.measurementsRecorded,
+									type: "number",
+								},
+							]}
+						/>
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
@@ -359,6 +403,33 @@ const Page: NextPageWithLayout = () => {
 								Create a media item
 							</Button>
 						</Link>
+						{currentWorkout ? (
+							<Link
+								passHref
+								legacyBehavior
+								href={APP_ROUTES.fitness.exercises.inProgress}
+							>
+								<Button
+									variant="outline"
+									component="a"
+									leftIcon={<IconBarbell />}
+									onClick={() => {}}
+								>
+									Go to current workout
+								</Button>
+							</Link>
+						) : (
+							<Button
+								variant="outline"
+								leftIcon={<IconBarbell />}
+								onClick={() => {
+									setCurrentWorkout({ startTime: new Date().toISOString() });
+									router.push(APP_ROUTES.fitness.exercises.inProgress);
+								}}
+							>
+								Start a workout
+							</Button>
+						)}
 					</SimpleGrid>
 				</Stack>
 			</Container>

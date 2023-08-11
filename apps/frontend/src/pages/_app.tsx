@@ -9,6 +9,7 @@ import { useLocalStorage } from "@mantine/hooks";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { Provider as JotaiProvider } from "jotai";
 import type { NextPage } from "next";
 import { NextSeo } from "next-seo";
 import type { AppProps } from "next/app";
@@ -59,32 +60,34 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 				/>
 			</Head>
 			<QueryClientProvider client={queryClient}>
-				<ColorSchemeProvider
-					colorScheme={colorScheme}
-					toggleColorScheme={toggleColorScheme}
-				>
-					<MantineProvider
-						withGlobalStyles
-						withNormalizeCSS
-						theme={{
-							colorScheme,
-							fontFamily: "Poppins",
-							breakpoints: { "3xl": "112em" },
-						}}
+				<JotaiProvider>
+					<ColorSchemeProvider
+						colorScheme={colorScheme}
+						toggleColorScheme={toggleColorScheme}
 					>
-						<ModalsProvider
-							labels={{ confirm: "Confirm", cancel: "Cancel" }}
-							modalProps={{ centered: true, title: "Confirmation" }}
+						<MantineProvider
+							withGlobalStyles
+							withNormalizeCSS
+							theme={{
+								colorScheme,
+								fontFamily: "Poppins",
+								breakpoints: { "3xl": "112em" },
+							}}
 						>
-							<Notifications />
-							<Flex direction={"column"} style={{ minHeight: "100vh" }}>
-								<Flex style={{ flexGrow: 1 }}>
-									{getLayout(<Component {...pageProps} />)}
+							<ModalsProvider
+								labels={{ confirm: "Confirm", cancel: "Cancel" }}
+								modalProps={{ centered: true, title: "Confirmation" }}
+							>
+								<Notifications />
+								<Flex direction={"column"} style={{ minHeight: "100vh" }}>
+									<Flex style={{ flexGrow: 1 }}>
+										{getLayout(<Component {...pageProps} />)}
+									</Flex>
 								</Flex>
-							</Flex>
-						</ModalsProvider>
-					</MantineProvider>
-				</ColorSchemeProvider>
+							</ModalsProvider>
+						</MantineProvider>
+					</ColorSchemeProvider>
+				</JotaiProvider>
 			</QueryClientProvider>
 		</>
 	);

@@ -22,6 +22,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
+	ImportLot,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -179,7 +180,11 @@ const Page: NextPageWithLayout = () => {
 									.exhaustive();
 								if (values) {
 									deployImportJob.mutate({
-										input: { source: deployImportSource, ...values },
+										input: {
+											lot: ImportLot.Media,
+											source: deployImportSource,
+											...values,
+										},
 									});
 								}
 							}

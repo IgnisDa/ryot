@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.4.1"
+version = "2.5.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -65,6 +65,7 @@ sea-orm = { version = "0.12.1", features = [
 ] }
 sea-orm-migration = "0.12.1"
 sea-query = "0.30.0"
+semver = "1.0.18"
 serde = { workspace = true }
 serde_json = "1.0.104"
 serde_with = { version = "3.1.0", features = ["chrono_0_4"] }

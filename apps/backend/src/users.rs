@@ -2,6 +2,7 @@ use async_graphql::{Enum, SimpleObject};
 use kinded::Kinded;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use strum::EnumString;
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
@@ -54,15 +55,41 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 }
 
 #[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+    Copy,
+    EnumString,
+    Default,
+)]
+#[strum(ascii_case_insensitive)]
+pub enum UserWeightUnit {
+    #[default]
+    Kilogram,
+    Pound,
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
+    #[serde(default)]
     pub save_history: usize,
+    #[serde(default)]
+    pub weight_unit: UserWeightUnit,
 }
 
 impl Default for UserExercisePreferences {
     fn default() -> Self {
-        Self { save_history: 15 }
+        Self {
+            save_history: 15,
+            weight_unit: UserWeightUnit::Kilogram,
+        }
     }
 }
 

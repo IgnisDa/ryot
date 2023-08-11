@@ -466,7 +466,7 @@ pub mod media {
         #[serde(default)]
         pub manga: MangaSummary,
         #[serde(default)]
-        pub reviews_posted: usize,
+        pub reviews_posted: u64,
         #[serde(default)]
         pub creators_interacted_with: usize,
     }
@@ -482,8 +482,28 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    pub struct UserFitnessSummary {
+        #[serde(default)]
+        pub measurements_recorded: u64,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
     pub struct UserSummary {
+        #[serde(default)]
+        pub fitness: UserFitnessSummary,
+        #[serde(default)]
         pub media: UserMediaSummary,
+        #[serde(default)]
         pub calculated_on: DateTimeUtc,
     }
 
@@ -813,8 +833,6 @@ pub mod fitness {
         pub instructions: Vec<String>,
         #[serde(default)]
         pub images: Vec<String>,
-        #[serde(default)]
-        pub alternate_names: Vec<String>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]

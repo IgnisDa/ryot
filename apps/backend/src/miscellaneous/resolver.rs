@@ -1,7 +1,8 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
-    sync::Arc,
+    str::FromStr,
+    sync::{Arc, OnceLock},
 };
 
 use anyhow::anyhow;
@@ -32,7 +33,9 @@ use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
     PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
+use semver::Version;
 use serde::{Deserialize, Serialize};
+use surf::http::headers::USER_AGENT;
 use uuid::Uuid;
 
 use crate::{
@@ -43,9 +46,9 @@ use crate::{
         metadata_to_genre,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
-            MetadataToGenre, Review, Seen, User, UserToMetadata,
+            MetadataToGenre, Review, Seen, User, UserMeasurement, UserToMetadata,
         },
-        review, seen, user, user_to_metadata,
+        review, seen, user, user_measurement, user_to_metadata,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
@@ -84,13 +87,13 @@ use crate::{
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
         UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserYankIntegration,
+        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, DOCS_LINK, PAGE_LIMIT, REPOSITORY_LINK, VERSION,
+        AUTHOR, COOKIE_NAME, PAGE_LIMIT, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -449,6 +452,12 @@ struct UserAuthToken {
     last_used_on: DateTimeUtc,
 }
 
+#[derive(Enum, Eq, PartialEq, Copy, Clone)]
+enum UpgradeType {
+    Minor,
+    Major,
+}
+
 #[derive(SimpleObject)]
 struct CoreDetails {
     docs_link: String,
@@ -461,6 +470,8 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
+    /// Whether an upgrade is required
+    upgrade: Option<UpgradeType>,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -543,7 +554,7 @@ pub struct MiscellaneousQuery;
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
-    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
     }
@@ -1170,19 +1181,56 @@ impl MiscellaneousService {
 }
 
 impl MiscellaneousService {
-    async fn core_details(&self) -> CoreDetails {
-        CoreDetails {
-            docs_link: DOCS_LINK.to_owned(),
+    async fn core_details(&self) -> Result<CoreDetails> {
+        let latest_version_storage: OnceLock<String> = OnceLock::new();
+
+        let tag = if let Some(tag) = latest_version_storage.get() {
+            tag.clone()
+        } else {
+            #[derive(Serialize, Deserialize, Debug)]
+            struct GithubResponse {
+                tag_name: String,
+            }
+            let github_response =
+                surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
+                    .header(USER_AGENT, USER_AGENT_STR)
+                    .await
+                    .map_err(|e| anyhow!(e))?
+                    .body_json::<GithubResponse>()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            let tag = github_response
+                .tag_name
+                .strip_prefix("v")
+                .unwrap()
+                .to_owned();
+            latest_version_storage.set(tag.clone()).ok();
+            tag
+        };
+        let latest_version = Version::parse(&tag).unwrap();
+        let current_version = Version::parse(VERSION).unwrap();
+        let upgrade = if latest_version > current_version {
+            Some(if latest_version.major > current_version.major {
+                UpgradeType::Major
+            } else {
+                UpgradeType::Minor
+            })
+        } else {
+            None
+        };
+        Ok(CoreDetails {
+            docs_link: "https://ignisda.github.io/ryot".to_owned(),
+            repository_link: "https://github.com/ignisda/ryot".to_owned(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
-            repository_link: REPOSITORY_LINK.to_owned(),
             username_change_allowed: self.config.users.allow_changing_username,
             password_change_allowed: self.config.users.allow_changing_password,
             preferences_change_allowed: self.config.users.allow_changing_preferences,
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
-        }
+            upgrade,
+        })
     }
 
     async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
@@ -3076,7 +3124,7 @@ impl MiscellaneousService {
         Ok(ls.summary.unwrap_or_default())
     }
 
-    pub async fn calculate_user_media_summary(&self, user_id: i32) -> Result<IdObject> {
+    pub async fn calculate_user_summary(&self, user_id: i32) -> Result<IdObject> {
         let mut ls = UserSummary {
             calculated_on: Utc::now(),
             ..Default::default()
@@ -3087,7 +3135,13 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        ls.media.reviews_posted = usize::try_from(num_reviews).unwrap();
+        let num_measurements = UserMeasurement::find()
+            .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
+            .count(&self.db)
+            .await?;
+
+        ls.media.reviews_posted = num_reviews;
+        ls.fitness.measurements_recorded = num_measurements;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -3352,7 +3406,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_media_summary(user_id).await?;
+            self.calculate_user_summary(user_id).await?;
         }
         Ok(())
     }
@@ -3684,6 +3738,10 @@ impl MiscellaneousService {
                     "exercises" => match right {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
+                        }
+                        "weight_unit" => {
+                            preferences.fitness.exercises.weight_unit =
+                                UserWeightUnit::from_str(&input.value).unwrap();
                         }
                         _ => return Err(err()),
                     },
