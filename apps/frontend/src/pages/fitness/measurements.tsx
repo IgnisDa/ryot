@@ -35,7 +35,6 @@ import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import {
 	CartesianGrid,
-	Legend,
 	Line,
 	LineChart,
 	ResponsiveContainer,
@@ -165,7 +164,7 @@ const Page: NextPageWithLayout = () => {
 							if (s) setState(s);
 						}}
 					/>
-					<Box w={300}>
+					<Box w={"100%"} ml={-15}>
 						<ResponsiveContainer width="100%" height={300}>
 							<LineChart
 								data={userMeasurementsList.data}
@@ -175,7 +174,6 @@ const Page: NextPageWithLayout = () => {
 								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} />
 								<YAxis />
 								<Tooltip />
-								<Legend />
 								<Line
 									type="monotone"
 									dataKey={(s) => Number(get(s.stats, stat))}
