@@ -499,8 +499,11 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct UserSummary {
+        #[serde(default)]
         pub fitness: UserFitnessSummary,
+        #[serde(default)]
         pub media: UserMediaSummary,
+        #[serde(default)]
         pub calculated_on: DateTimeUtc,
     }
 
