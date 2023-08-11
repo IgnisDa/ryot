@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
+    str::FromStr,
     sync::Arc,
 };
 
@@ -84,7 +85,7 @@ use crate::{
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
         UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserYankIntegration,
+        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
@@ -3684,6 +3685,10 @@ impl MiscellaneousService {
                     "exercises" => match right {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
+                        }
+                        "weight_unit" => {
+                            preferences.fitness.exercises.weight_unit =
+                                UserWeightUnit::from_str(&input.value).unwrap();
                         }
                         _ => return Err(err()),
                     },
