@@ -30,7 +30,12 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
-import { IconBarbell, IconFriends, IconPhotoPlus } from "@tabler/icons-react";
+import {
+	IconBarbell,
+	IconFriends,
+	IconPhotoPlus,
+	IconStretching,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
@@ -336,6 +341,18 @@ const Page: NextPageWithLayout = () => {
 								{
 									label: "People",
 									value: latestUserSummary.data.media.creatorsInteractedWith,
+									type: "number",
+								},
+							]}
+						/>
+						<ActualDisplayStat
+							icon={<IconStretching />}
+							lot="Fitness"
+							color={theme.colors.yellow[5]}
+							data={[
+								{
+									label: "Measurements",
+									value: latestUserSummary.data.fitness.measurementsRecorded,
 									type: "number",
 								},
 							]}
