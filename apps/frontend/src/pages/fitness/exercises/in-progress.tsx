@@ -10,6 +10,7 @@ import {
 	Stack,
 	Text,
 	TextInput,
+	Textarea,
 } from "@mantine/core";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -33,7 +34,7 @@ const DurationTimer = ({ startTime }: { startTime?: string }) => {
 
 	return (
 		<Box mx="auto">
-			<Text color="dimmed" size="xs">
+			<Text color="dimmed" size="sm">
 				Duration
 			</Text>
 			<Text align="center" size="xl">
@@ -56,9 +57,10 @@ const Page: NextPageWithLayout = () => {
 				{currentWorkout ? (
 					<Stack>
 						{JSON.stringify(currentWorkout)}
-						<Flex align="center">
+						<Flex align="end">
 							<TextInput
-								size="lg"
+								size="sm"
+								label="Name"
 								placeholder="A name for your workout"
 								value={currentWorkout.name}
 								onChange={(e) =>
@@ -70,7 +72,21 @@ const Page: NextPageWithLayout = () => {
 							/>
 							<DurationTimer startTime={currentWorkout.startTime} />
 						</Flex>
+						<Textarea
+							size="sm"
+							label="Comment"
+							placeholder="Your thoughts about this workout"
+							value={currentWorkout.comment}
+							onChange={(e) =>
+								setCurrentWorkout({
+									...currentWorkout,
+									comment: e.currentTarget.value,
+								})
+							}
+						/>
 						<Button
+							color="red"
+							variant="light"
 							onClick={() => {
 								setCurrentWorkout(RESET);
 								return router.push(APP_ROUTES.dashboard);

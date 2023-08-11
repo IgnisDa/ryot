@@ -8,7 +8,8 @@ type Exercise = {
 type InProgressWorkout = {
 	identifier: string;
 	startTime: string;
-	name?: string;
+	name: string;
+	comment?: string;
 	exercises: Exercise[];
 	supersets: number[][];
 };
@@ -20,6 +21,7 @@ export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 
 export const getDefaultWorkout = (): InProgressWorkout => {
 	return {
+		name: "Workout",
 		identifier: createId(),
 		startTime: new Date().toISOString(),
 		exercises: [],
