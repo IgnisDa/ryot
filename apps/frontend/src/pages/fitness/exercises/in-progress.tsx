@@ -26,10 +26,10 @@ const offsetDate = (startTime: string) => {
 	return now.plus(duration).toJSDate();
 };
 
-const DurationTimer = ({ startTime }: { startTime?: string }) => {
+const DurationTimer = ({ startTime }: { startTime: string }) => {
 	const { totalSeconds } = useStopwatch({
 		autoStart: true,
-		offsetTimestamp: startTime ? offsetDate(startTime) : undefined,
+		offsetTimestamp: offsetDate(startTime),
 	});
 
 	return (
