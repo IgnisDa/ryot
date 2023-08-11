@@ -19,7 +19,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateUserMeasurementDocument,
@@ -32,7 +32,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
 import Head from "next/head";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import {
 	CartesianGrid,
 	Line,
@@ -48,7 +48,10 @@ const dateFormatter = (date: Date) => {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [stat, setState] = useState("weight");
+	const [stat, setState] = useLocalStorage({
+		key: "measurementsDisplayStat",
+		getInitialValueInEffect: true,
+	});
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
