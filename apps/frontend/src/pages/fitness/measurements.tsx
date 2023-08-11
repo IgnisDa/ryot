@@ -75,6 +75,7 @@ const Page: NextPageWithLayout = () => {
 				message: "Added new measurement",
 				color: "green",
 			});
+			close();
 		},
 	});
 
@@ -92,27 +93,12 @@ const Page: NextPageWithLayout = () => {
 							const submitData = {};
 							const formData = new FormData(e.currentTarget);
 							for (const [name, value] of formData.entries()) {
-								if (
-									value !== "" &&
-									name !== "timestamp" &&
-									name !== "name" &&
-									name !== "comment"
-								)
-									set(submitData, name, value);
+								if (value !== "") set(submitData, name, value);
 							}
-							const timestamp = formData.get("timestamp");
-							const name = formData.get("name");
-							const comment = formData.get("comment");
-							if (Object.keys(submitData).length > 0 && timestamp) {
+							if (Object.keys(submitData).length > 0) {
 								createUserMeasurement.mutate({
-									input: {
-										stats: submitData,
-										timestamp: new Date(timestamp.toString()),
-										comment: comment?.toString(),
-										name: name?.toString(),
-									},
+									input: submitData as any,
 								});
-								close();
 							}
 						}}
 					>
@@ -135,7 +121,7 @@ const Page: NextPageWithLayout = () => {
 										<NumberInput
 											key={v}
 											label={changeCase(snakeCase(v))}
-											name={v}
+											name={`stats.${v}`}
 										/>
 									))}
 								{preferences.data.fitness.measurements.custom.map(
@@ -143,7 +129,7 @@ const Page: NextPageWithLayout = () => {
 										<NumberInput
 											key={name}
 											label={changeCase(snakeCase(name))}
-											name={`custom.${name}`}
+											name={`stats.custom.${name}`}
 										/>
 									),
 								)}
