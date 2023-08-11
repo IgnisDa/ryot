@@ -2,12 +2,46 @@ import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { currentWorkoutAtom } from "@/lib/state";
-import { Button, Container, Stack, Text } from "@mantine/core";
+import {
+	Box,
+	Button,
+	Container,
+	Flex,
+	Stack,
+	Text,
+	TextInput,
+} from "@mantine/core";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
+import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import { useStopwatch } from "react-timer-hook";
+
+const offsetDate = (startTime: string) => {
+	const now = DateTime.now();
+	const duration = now.diff(DateTime.fromISO(startTime));
+	return now.plus(duration).toJSDate();
+};
+
+const DurationTimer = ({ startTime }: { startTime?: string }) => {
+	const { totalSeconds } = useStopwatch({
+		autoStart: true,
+		offsetTimestamp: startTime ? offsetDate(startTime) : undefined,
+	});
+
+	return (
+		<Box mx="auto">
+			<Text color="dimmed" size="xs">
+				Duration
+			</Text>
+			<Text align="center" size="xl">
+				{Duration.fromObject({ seconds: totalSeconds }).toFormat("mm:ss")}
+			</Text>
+		</Box>
+	);
+};
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -18,9 +52,23 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Workout in progress | Ryot</title>
 			</Head>
-			<Container>
+			<Container size="sm">
 				{currentWorkout ? (
 					<Stack>
+						{JSON.stringify(currentWorkout)}
+						<Flex align="center">
+							<TextInput
+								size="lg"
+								placeholder="A name for your workout"
+								onChange={(e) =>
+									setCurrentWorkout({
+										...currentWorkout,
+										name: e.currentTarget.value,
+									})
+								}
+							/>
+							<DurationTimer startTime={currentWorkout.startTime} />
+						</Flex>
 						<Button
 							onClick={() => {
 								setCurrentWorkout(RESET);
@@ -29,7 +77,6 @@ const Page: NextPageWithLayout = () => {
 						>
 							Finish workout
 						</Button>
-						<Text>Started workout at {currentWorkout.startTime}</Text>
 					</Stack>
 				) : (
 					<Text>
@@ -37,7 +84,6 @@ const Page: NextPageWithLayout = () => {
 						the dashboard.
 					</Text>
 				)}
-				<Text>This page is still a WIP.</Text>
 			</Container>
 		</>
 	);

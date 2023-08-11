@@ -1,6 +1,11 @@
 import { atomWithStorage } from "jotai/utils";
 
-export const currentWorkoutAtom = atomWithStorage<{ startTime: string } | null>(
+export type InProgressWorkout = {
+	startTime: string;
+	name?: string;
+};
+
+export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 	"currentWorkoutAtom",
 	null,
 );
