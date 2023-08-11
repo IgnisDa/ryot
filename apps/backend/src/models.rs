@@ -813,8 +813,6 @@ pub mod fitness {
         pub instructions: Vec<String>,
         #[serde(default)]
         pub images: Vec<String>,
-        #[serde(default)]
-        pub alternate_names: Vec<String>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]

@@ -15,7 +15,6 @@ query ExercisesList($input: ExercisesListInput!) {
         category
         instructions
         images
-        alternateNames
       }
     }
   }
