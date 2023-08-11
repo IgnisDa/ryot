@@ -15,12 +15,11 @@ import {
 	SimpleGrid,
 	Stack,
 	TextInput,
-	Text,
 	Textarea,
 	Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateUserMeasurementDocument,
@@ -30,13 +29,12 @@ import {
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { set } from "lodash";
+import { get, set } from "lodash";
 import { DateTime } from "luxon";
 import Head from "next/head";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import {
 	CartesianGrid,
-	Legend,
 	Line,
 	LineChart,
 	ResponsiveContainer,
@@ -50,7 +48,10 @@ const dateFormatter = (date: Date) => {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [stat, setState] = useState("weight");
+	const [stat, setState] = useLocalStorage({
+		key: "measurementsDisplayStat",
+		getInitialValueInEffect: true,
+	});
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
@@ -75,6 +76,7 @@ const Page: NextPageWithLayout = () => {
 				message: "Added new measurement",
 				color: "green",
 			});
+			close();
 		},
 	});
 
@@ -92,27 +94,12 @@ const Page: NextPageWithLayout = () => {
 							const submitData = {};
 							const formData = new FormData(e.currentTarget);
 							for (const [name, value] of formData.entries()) {
-								if (
-									value !== "" &&
-									name !== "timestamp" &&
-									name !== "name" &&
-									name !== "comment"
-								)
-									set(submitData, name, value);
+								if (value !== "") set(submitData, name, value);
 							}
-							const timestamp = formData.get("timestamp");
-							const name = formData.get("name");
-							const comment = formData.get("comment");
-							if (Object.keys(submitData).length > 0 && timestamp) {
+							if (Object.keys(submitData).length > 0) {
 								createUserMeasurement.mutate({
-									input: {
-										stats: submitData,
-										timestamp: new Date(timestamp.toString()),
-										comment: comment?.toString(),
-										name: name?.toString(),
-									},
+									input: submitData as any,
 								});
-								close();
 							}
 						}}
 					>
@@ -135,7 +122,7 @@ const Page: NextPageWithLayout = () => {
 										<NumberInput
 											key={v}
 											label={changeCase(snakeCase(v))}
-											name={v}
+											name={`stats.${v}`}
 										/>
 									))}
 								{preferences.data.fitness.measurements.custom.map(
@@ -143,7 +130,7 @@ const Page: NextPageWithLayout = () => {
 										<NumberInput
 											key={name}
 											label={changeCase(snakeCase(name))}
-											name={`custom.${name}`}
+											name={`stats.custom.${name}`}
 										/>
 									),
 								)}
@@ -156,55 +143,43 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Flex align={"center"} gap={"md"}>
 						<Title>Measurements</Title>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => {
-								open();
-							}}
-						>
+						<ActionIcon color="green" variant="outline" onClick={open}>
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<Text>Displaying measurements is still WIP.</Text>
 					<Select
 						data={[
-							...Object.keys(preferences.data.fitness.measurements.inbuilt),
+							...Object.keys(preferences.data.fitness.measurements.inbuilt)
+								.filter(
+									(n) =>
+										(preferences as any).data.fitness.measurements.inbuilt[n],
+								)
+								.map((v) => ({ name: v, value: v })),
 							...preferences.data.fitness.measurements.custom.map(
-								(c) => c.name,
+								({ name }) => ({ name, value: `custom.${name}` }),
 							),
 						].map((v) => ({
-							value: v,
-							label: startCase(v),
+							value: v.value,
+							label: startCase(v.name),
 						}))}
 						defaultValue={stat}
 						onChange={(s) => {
 							if (s) setState(s);
 						}}
 					/>
-					<Box w={300}>
+					<Box w={"100%"} ml={-15}>
 						<ResponsiveContainer width="100%" height={300}>
 							<LineChart
 								data={userMeasurementsList.data}
-								margin={{
-									top: 0,
-									right: 0,
-									left: 0,
-									bottom: 0,
-								}}
+								margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
 							>
 								<CartesianGrid strokeDasharray="3 3" />
 								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} />
 								<YAxis />
 								<Tooltip />
-								<Legend />
 								<Line
 									type="monotone"
-									dataKey={(s) =>
-										typeof s.stats[stat] === "string"
-											? Number(s.stats[stat])
-											: null
-									}
+									dataKey={(s) => Number(get(s.stats, stat))}
 									name={stat}
 									connectNulls
 								/>
