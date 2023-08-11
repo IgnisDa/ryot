@@ -60,6 +60,7 @@ const Page: NextPageWithLayout = () => {
 							<TextInput
 								size="lg"
 								placeholder="A name for your workout"
+								value={currentWorkout.name}
 								onChange={(e) =>
 									setCurrentWorkout({
 										...currentWorkout,

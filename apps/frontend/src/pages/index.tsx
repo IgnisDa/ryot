@@ -6,7 +6,7 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { currentWorkoutAtom } from "@/lib/state";
+import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/state";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
 	Alert,
@@ -423,7 +423,7 @@ const Page: NextPageWithLayout = () => {
 								variant="outline"
 								leftIcon={<IconBarbell />}
 								onClick={() => {
-									setCurrentWorkout({ startTime: new Date().toISOString() });
+									setCurrentWorkout(getDefaultWorkout());
 									router.push(APP_ROUTES.fitness.exercises.inProgress);
 								}}
 							>
