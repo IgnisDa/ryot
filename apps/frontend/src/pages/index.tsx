@@ -9,6 +9,8 @@ import { gqlClient } from "@/lib/services/api";
 import { currentWorkoutAtom } from "@/lib/state";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
+	Alert,
+	Anchor,
 	Box,
 	Button,
 	Center,
@@ -31,6 +33,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
 import {
+	IconAlertCircle,
 	IconBarbell,
 	IconFriends,
 	IconPhotoPlus,
@@ -167,6 +170,25 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
+					{currentWorkout ? (
+						<Alert
+							icon={<IconAlertCircle size="1rem" />}
+							variant="outline"
+							color="yellow"
+						>
+							<Text size="lg">
+								You have a workout in progress. Click{" "}
+								<Link
+									passHref
+									legacyBehavior
+									href={APP_ROUTES.fitness.exercises.inProgress}
+								>
+									<Anchor>here</Anchor>
+								</Link>{" "}
+								to continue.
+							</Text>
+						</Alert>
+					) : null}
 					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>
