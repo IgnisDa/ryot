@@ -1,3 +1,4 @@
+import { createId } from "@paralleldrive/cuid2";
 import { atomWithStorage } from "jotai/utils";
 
 type Exercise = {
@@ -5,6 +6,7 @@ type Exercise = {
 };
 
 type InProgressWorkout = {
+	identifier: string;
 	startTime: string;
 	name?: string;
 	exercises: Exercise[];
@@ -18,6 +20,7 @@ export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 
 export const getDefaultWorkout = (): InProgressWorkout => {
 	return {
+		identifier: createId(),
 		startTime: new Date().toISOString(),
 		exercises: [],
 		supersets: [],
