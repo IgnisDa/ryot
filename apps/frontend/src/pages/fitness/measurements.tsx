@@ -147,18 +147,18 @@ const Page: NextPageWithLayout = () => {
 					</Flex>
 					<Select
 						data={[
-							...Object.keys(
-								preferences.data.fitness.measurements.inbuilt,
-							).filter(
-								(n) =>
-									(preferences as any).data.fitness.measurements.inbuilt[n],
+							...Object.keys(preferences.data.fitness.measurements.inbuilt)
+								.filter(
+									(n) =>
+										(preferences as any).data.fitness.measurements.inbuilt[n],
+								)
+								.map((v) => ({ name: v, value: v })),
+							...preferences.data.fitness.measurements.custom.map(
+								({ name }) => ({ name, value: `custom.${name}` }),
 							),
-							...preferences.data.fitness.measurements.custom
-								.map((c) => c.name)
-								.map((d) => `custom.${d}`),
 						].map((v) => ({
-							value: v,
-							label: startCase(v),
+							value: v.value,
+							label: startCase(v.name),
 						}))}
 						defaultValue={stat}
 						onChange={(s) => {
