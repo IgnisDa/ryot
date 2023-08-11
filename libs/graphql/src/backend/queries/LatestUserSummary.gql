@@ -1,6 +1,9 @@
 query LatestUserSummary {
   latestUserSummary {
     calculatedOn
+    fitness {
+      measurementsRecorded
+     }
     media {
       reviewsPosted
       creatorsInteractedWith

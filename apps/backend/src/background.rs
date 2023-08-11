@@ -124,7 +124,7 @@ pub async fn user_created_job(
     service.user_created_job(information.user_id).await.unwrap();
     service.user_created_job(information.user_id).await.unwrap();
     service
-        .calculate_user_media_summary(information.user_id)
+        .calculate_user_summary(information.user_id)
         .await
         .unwrap();
     Ok(())
@@ -146,7 +146,7 @@ pub async fn recalculate_user_summary_job(
     tracing::trace!("Calculating summary for user {:?}", information.user_id);
     ctx.data::<Arc<MiscellaneousService>>()
         .unwrap()
-        .calculate_user_media_summary(information.user_id)
+        .calculate_user_summary(information.user_id)
         .await
         .unwrap();
     tracing::trace!(

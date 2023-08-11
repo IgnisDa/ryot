@@ -466,7 +466,7 @@ pub mod media {
         #[serde(default)]
         pub manga: MangaSummary,
         #[serde(default)]
-        pub reviews_posted: usize,
+        pub reviews_posted: u64,
         #[serde(default)]
         pub creators_interacted_with: usize,
     }
@@ -482,7 +482,24 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    pub struct UserFitnessSummary {
+        #[serde(default)]
+        pub measurements_recorded: u64,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
     pub struct UserSummary {
+        pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
         pub calculated_on: DateTimeUtc,
     }

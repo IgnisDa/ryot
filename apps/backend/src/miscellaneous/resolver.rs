@@ -44,9 +44,9 @@ use crate::{
         metadata_to_genre,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
-            MetadataToGenre, Review, Seen, User, UserToMetadata,
+            MetadataToGenre, Review, Seen, User, UserMeasurement, UserToMetadata,
         },
-        review, seen, user, user_to_metadata,
+        review, seen, user, user_measurement, user_to_metadata,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
@@ -3077,7 +3077,7 @@ impl MiscellaneousService {
         Ok(ls.summary.unwrap_or_default())
     }
 
-    pub async fn calculate_user_media_summary(&self, user_id: i32) -> Result<IdObject> {
+    pub async fn calculate_user_summary(&self, user_id: i32) -> Result<IdObject> {
         let mut ls = UserSummary {
             calculated_on: Utc::now(),
             ..Default::default()
@@ -3088,7 +3088,13 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        ls.media.reviews_posted = usize::try_from(num_reviews).unwrap();
+        let num_measurements = UserMeasurement::find()
+            .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
+            .count(&self.db)
+            .await?;
+
+        ls.media.reviews_posted = num_reviews;
+        ls.fitness.measurements_recorded = num_measurements;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -3353,7 +3359,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_media_summary(user_id).await?;
+            self.calculate_user_summary(user_id).await?;
         }
         Ok(())
     }
