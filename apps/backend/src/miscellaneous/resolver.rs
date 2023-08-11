@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     iter::zip,
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
 use anyhow::anyhow;
@@ -1180,22 +1180,34 @@ impl MiscellaneousService {
     }
 }
 
+static LATEST_VERSION: OnceLock<String> = OnceLock::new();
+
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        #[derive(Serialize, Deserialize, Debug)]
-        struct GithubResponse {
-            tag_name: String,
-        }
-        let github_response =
-            surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
-                .header(USER_AGENT, USER_AGENT_STR)
-                .await
-                .map_err(|e| anyhow!(e))?
-                .body_json::<GithubResponse>()
-                .await
-                .map_err(|e| anyhow!(e))?;
-        let tag = github_response.tag_name.strip_prefix("v").unwrap();
-        let latest_version = Version::parse(tag).unwrap();
+        let tag = if let Some(tag) = LATEST_VERSION.get() {
+            tag.clone()
+        } else {
+            #[derive(Serialize, Deserialize, Debug)]
+            struct GithubResponse {
+                tag_name: String,
+            }
+            let github_response =
+                surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
+                    .header(USER_AGENT, USER_AGENT_STR)
+                    .await
+                    .map_err(|e| anyhow!(e))?
+                    .body_json::<GithubResponse>()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            let tag = github_response
+                .tag_name
+                .strip_prefix("v")
+                .unwrap()
+                .to_owned();
+            LATEST_VERSION.set(tag.clone()).ok();
+            tag
+        };
+        let latest_version = Version::parse(&tag).unwrap();
         let current_version = Version::parse(VERSION).unwrap();
         let upgrade = if latest_version > current_version {
             Some(if latest_version.major > current_version.major {
