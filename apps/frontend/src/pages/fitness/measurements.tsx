@@ -175,11 +175,16 @@ const Page: NextPageWithLayout = () => {
 							>
 								<CartesianGrid strokeDasharray="3 3" />
 								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} />
-								<YAxis />
+								<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
 								<Tooltip />
 								<Line
 									type="monotone"
-									dataKey={(s) => Number(get(s.stats, stat))}
+									dot={false}
+									dataKey={(s) => {
+										const data = get(s.stats, stat);
+										if (data) return Number(data);
+										return null;
+									}}
 									name={stat}
 									connectNulls
 								/>
