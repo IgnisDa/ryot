@@ -85,11 +85,21 @@ const Page: NextPageWithLayout = () => {
 							}
 						/>
 						<Button
+							variant="subtle"
+							onClick={() => {
+								console.info(
+									"Redirect to exercises list page and allow exercise selection.",
+								);
+							}}
+						>
+							Add exercise
+						</Button>
+						<Button
 							color="red"
-							variant="light"
+							variant="subtle"
 							onClick={() => {
 								setCurrentWorkout(RESET);
-								return router.push(APP_ROUTES.dashboard);
+								router.push(APP_ROUTES.dashboard);
 							}}
 						>
 							Finish workout
