@@ -175,7 +175,7 @@ const Page: NextPageWithLayout = () => {
 								margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
 							>
 								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} />
+								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} hide />
 								<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
 								<Tooltip />
 								{selectedStats.map((s) => (
