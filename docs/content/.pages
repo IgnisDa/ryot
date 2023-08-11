@@ -1,5 +1,5 @@
 nav:
     - index.md
-    - installation.md
+    - migration.md
     - ...
     - architecture.md
