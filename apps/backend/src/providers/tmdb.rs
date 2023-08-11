@@ -80,6 +80,7 @@ impl MediaProvider for TmdbMovieService {
             runtime: i32,
             status: Option<String>,
             genres: Vec<NamedObject>,
+            production_companies: Option<Vec<utils::TmdbCompany>>,
         }
         let mut rsp = self
             .client
@@ -151,6 +152,17 @@ impl MediaProvider for TmdbMovieService {
                     }
                 })
                 .unique()
+                .collect_vec(),
+        );
+        creators.extend(
+            data.production_companies
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| MetadataCreator {
+                    name: p.name,
+                    role: "Production".to_owned(),
+                    image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
+                })
                 .collect_vec(),
         );
         let creators = creators
