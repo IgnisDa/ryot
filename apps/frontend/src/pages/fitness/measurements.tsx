@@ -15,7 +15,6 @@ import {
 	SimpleGrid,
 	Stack,
 	TextInput,
-	Text,
 	Textarea,
 	Title,
 } from "@mantine/core";
@@ -30,7 +29,7 @@ import {
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { set } from "lodash";
+import { get, set } from "lodash";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -142,23 +141,21 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Flex align={"center"} gap={"md"}>
 						<Title>Measurements</Title>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => {
-								open();
-							}}
-						>
+						<ActionIcon color="green" variant="outline" onClick={open}>
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<Text>Displaying measurements is still WIP.</Text>
 					<Select
 						data={[
-							...Object.keys(preferences.data.fitness.measurements.inbuilt),
-							...preferences.data.fitness.measurements.custom.map(
-								(c) => c.name,
+							...Object.keys(
+								preferences.data.fitness.measurements.inbuilt,
+							).filter(
+								(n) =>
+									(preferences as any).data.fitness.measurements.inbuilt[n],
 							),
+							...preferences.data.fitness.measurements.custom
+								.map((c) => c.name)
+								.map((d) => `custom.${d}`),
 						].map((v) => ({
 							value: v,
 							label: startCase(v),
@@ -186,11 +183,7 @@ const Page: NextPageWithLayout = () => {
 								<Legend />
 								<Line
 									type="monotone"
-									dataKey={(s) =>
-										typeof s.stats[stat] === "string"
-											? Number(s.stats[stat])
-											: null
-									}
+									dataKey={(s) => Number(get(s.stats, stat))}
 									name={stat}
 									connectNulls
 								/>
