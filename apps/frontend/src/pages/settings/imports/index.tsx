@@ -22,8 +22,8 @@ import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
-	ImportSource,
 	ImportLot,
+	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
