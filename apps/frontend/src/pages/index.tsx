@@ -37,7 +37,7 @@ import {
 	IconBarbell,
 	IconFriends,
 	IconPhotoPlus,
-	IconStretching,
+	IconScaleOutline,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
@@ -368,7 +368,7 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 						<ActualDisplayStat
-							icon={<IconStretching />}
+							icon={<IconScaleOutline stroke={1.3} />}
 							lot="Fitness"
 							color={theme.colors.yellow[5]}
 							data={[
