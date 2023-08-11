@@ -38,8 +38,10 @@ export const APP_ROUTES = {
 		},
 	},
 	fitness: {
-		home: "/fitness",
-		exercises: "/fitness/exercises",
+		exercises: {
+			list: "/fitness/exercises",
+			inProgress: "/fitness/exercises/in-progress",
+		},
 		measurements: "/fitness/measurements",
 	},
 } as const;

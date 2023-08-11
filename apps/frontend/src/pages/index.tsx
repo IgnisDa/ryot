@@ -6,6 +6,7 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { currentWorkoutAtom } from "@/lib/state";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
 	Box,
@@ -29,15 +30,17 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
-import { IconFriends, IconPhotoPlus } from "@tabler/icons-react";
+import { IconBarbell, IconFriends, IconPhotoPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
+import { useAtom } from "jotai";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
 
@@ -124,6 +127,8 @@ const DisplayStatForMediaType = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
+	const router = useRouter();
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const latestUserSummary = useQuery(
 		["userSummary"],
@@ -359,6 +364,33 @@ const Page: NextPageWithLayout = () => {
 								Create a media item
 							</Button>
 						</Link>
+						{currentWorkout ? (
+							<Link
+								passHref
+								legacyBehavior
+								href={APP_ROUTES.fitness.exercises.inProgress}
+							>
+								<Button
+									variant="outline"
+									component="a"
+									leftIcon={<IconBarbell />}
+									onClick={() => {}}
+								>
+									Go to current workout
+								</Button>
+							</Link>
+						) : (
+							<Button
+								variant="outline"
+								leftIcon={<IconBarbell />}
+								onClick={() => {
+									setCurrentWorkout({ startTime: new Date().toISOString() });
+									router.push(APP_ROUTES.fitness.exercises.inProgress);
+								}}
+							>
+								Start a workout
+							</Button>
+						)}
 					</SimpleGrid>
 				</Stack>
 			</Container>

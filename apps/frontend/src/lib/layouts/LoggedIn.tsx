@@ -417,10 +417,9 @@ export default function ({ children }: { children: ReactElement }) {
 								})
 							}
 							links={[
-								{ label: "Home", link: APP_ROUTES.fitness.home },
 								{
 									label: "Exercises",
-									link: APP_ROUTES.fitness.exercises,
+									link: APP_ROUTES.fitness.exercises.list,
 								},
 								{
 									label: "Measurements",
