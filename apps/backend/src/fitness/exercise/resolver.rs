@@ -6,7 +6,7 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
 };
-use sea_query::{Condition, Expr, Func};
+use sea_query::{Alias, Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -154,10 +154,20 @@ impl ExerciseService {
     ) -> Result<SearchResults<exercise::Model>> {
         let query = Exercise::find()
             .apply_if(input.query, |query, v| {
-                query.filter(Condition::all().add(get_case_insensitive_like_query(
-                    Func::lower(Expr::col(exercise::Column::Name)),
-                    &v,
-                )))
+                query.filter(
+                    Condition::any()
+                        .add(get_case_insensitive_like_query(
+                            Func::lower(Expr::col(exercise::Column::Name)),
+                            &v,
+                        ))
+                        .add(get_case_insensitive_like_query(
+                            Func::lower(Func::cast_as(
+                                Expr::col(exercise::Column::Attributes),
+                                Alias::new("text"),
+                            )),
+                            &v,
+                        )),
+                )
             })
             .order_by_asc(exercise::Column::Name);
         let total = query.clone().count(&self.db).await?;
