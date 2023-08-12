@@ -19,11 +19,20 @@ export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 	null,
 );
 
+function getTimeOfDay(date: Date) {
+	const hours = date.getHours();
+	if (hours >= 5 && hours < 12) return "Morning";
+	else if (hours >= 12 && hours < 17) return "Afternoon";
+	else if (hours >= 17 && hours < 21) return "Evening";
+	else return "Night";
+}
+
 export const getDefaultWorkout = (): InProgressWorkout => {
+	const date = new Date();
 	return {
-		name: "Workout",
+		name: `${getTimeOfDay(date)} Workout`,
 		identifier: createId(),
-		startTime: new Date().toISOString(),
+		startTime: date.toISOString(),
 		exercises: [],
 		supersets: [],
 	};
