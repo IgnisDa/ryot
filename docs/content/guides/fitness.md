@@ -4,8 +4,8 @@ Some pointers on Ryot and fitness tracking.
 
 ## Exercises
 
-Before you get exercises tracking working, you need to import all exercises data.
-Follow these steps to do so:
+Before you can get exercises tracking working, you will need to import all
+exercises data. Follow these steps to do so:
 
 1. Open your instance's `/graphql` endpoint. For example `https://ryot.fly.dev/graphql`.
 
