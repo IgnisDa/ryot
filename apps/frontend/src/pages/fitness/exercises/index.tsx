@@ -10,7 +10,6 @@ import {
 	Center,
 	Container,
 	Flex,
-	Grid as MantineGrid,
 	Pagination,
 	SimpleGrid,
 	Stack,
@@ -20,7 +19,7 @@ import {
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
-import { IconSearch, IconX } from "@tabler/icons-react";
+import { IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useEffect } from "react";
@@ -70,21 +69,28 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size={"lg"}>
 				<Stack spacing={"xl"}>
-					<MantineGrid grow>
-						<MantineGrid.Col span={12}>
-							<TextInput
-								name="query"
-								placeholder={"Search for exercises"}
-								icon={<IconSearch />}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={<ClearButton />}
-								style={{ flexGrow: 1 }}
-								autoCapitalize="none"
-								autoComplete="off"
-							/>
-						</MantineGrid.Col>
-					</MantineGrid>
+					<Flex align={"center"} gap={"md"}>
+						<TextInput
+							name="query"
+							placeholder={"Search for exercises"}
+							icon={<IconSearch />}
+							onChange={(e) => setQuery(e.currentTarget.value)}
+							value={query}
+							rightSection={<ClearButton />}
+							style={{ flexGrow: 1 }}
+							autoCapitalize="none"
+							autoComplete="off"
+						/>
+						<ActionIcon
+							color="green"
+							variant="outline"
+							onClick={() => {
+								alert("TODO: Create an exercise.");
+							}}
+						>
+							<IconPlus size="1rem" />
+						</ActionIcon>
+					</Flex>
 					{exercisesList.data && exercisesList.data.total > 0 ? (
 						<>
 							<Box>
@@ -136,19 +142,16 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					) : (
-						<Text>
-							It looks like you have not downloaded the exercises. Please follow
-							the{" "}
-							<Anchor
-								href="https://ignisda.github.io/ryot/guides/fitness.html"
-								target="_blank"
-							>
-								guide
-							</Anchor>{" "}
-							to do so.
-						</Text>
-					)}
+					) : null}
+					<Box mx="auto">
+						<Anchor
+							color="pink"
+							href="https://ignisda.github.io/ryot/guides/fitness.html"
+							target="_blank"
+						>
+							Fitness Documentation
+						</Anchor>
+					</Box>
 				</Stack>
 			</Container>
 		</>
