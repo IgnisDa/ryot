@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Error, InputObject, Object, Result};
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
@@ -43,6 +43,12 @@ impl ExerciseQuery {
     ) -> Result<SearchResults<exercise::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.exercises_list(input).await
+    }
+
+    /// Get information about an exercise.
+    async fn exercise(&self, gql_ctx: &Context<'_>, exercise_id: i32) -> Result<exercise::Model> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.exercise(exercise_id).await
     }
 
     /// Get all the measurements for a user.
@@ -146,6 +152,14 @@ impl ExerciseService {
                 ..e
             })
             .collect())
+    }
+
+    async fn exercise(&self, exercise_id: i32) -> Result<exercise::Model> {
+        let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
+        match maybe_exercise {
+            None => Err(Error::new("Exercise with the given ID could not be found.")),
+            Some(e) => Ok(e),
+        }
     }
 
     async fn exercises_list(
