@@ -1,4 +1,15 @@
 
+# Version 2.5.3 (2023-08-13)
+
+## Bug Fixes
+
+* **backend:** set correct env prefix
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.5.2 (2023-08-13)
 
 ## Bug Fixes
