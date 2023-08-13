@@ -16,9 +16,11 @@ import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { DateTime, Duration } from "luxon";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { useStopwatch } from "react-timer-hook";
+import { withQuery } from "ufo";
 
 const offsetDate = (startTime: string) => {
 	const now = DateTime.now();
@@ -84,16 +86,17 @@ const Page: NextPageWithLayout = () => {
 								})
 							}
 						/>
-						<Button
-							variant="subtle"
-							onClick={() => {
-								console.info(
-									"Redirect to exercises list page and allow exercise selection.",
-								);
-							}}
+						<Link
+							passHref
+							legacyBehavior
+							href={withQuery(APP_ROUTES.fitness.exercises.list, {
+								selectionEnabled: "yes",
+							})}
 						>
-							Add exercise
-						</Button>
+							<Button component="a" variant="subtle">
+								Add exercise
+							</Button>
+						</Link>
 						<Button
 							color="red"
 							variant="subtle"
