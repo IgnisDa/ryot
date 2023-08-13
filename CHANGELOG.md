@@ -1,4 +1,11 @@
 
+# Version 2.5.1 (2023-08-13)
+
+## Bug Fixes
+
+* **frontend:** apply box-shadow and border-radius to same elements ([#260](https://github.com/IgnisDa/ryot/issues/260))
+
+
 # Version 2.5.0 (2023-08-11)
 
 
