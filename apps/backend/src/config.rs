@@ -318,7 +318,7 @@ pub struct FileStorageConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "FRONTEND")]
+#[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// The height of the right section of an item's details page in pixels.
     #[setting(default = 300)]
