@@ -25,7 +25,7 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { snakeCase, startCase } from "@ryot/ts-utils";
 import { IconCheck, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
@@ -158,7 +158,9 @@ const Page: NextPageWithLayout = () => {
 										<Flex direction={"column"} justify={"space-around"}>
 											<Text>{exercise.name}</Text>
 											<Text size="xs">
-												{startCase(exercise.attributes.primaryMuscles.at(0))}
+												{startCase(
+													snakeCase(exercise.attributes.primaryMuscles.at(0)),
+												)}
 											</Text>
 										</Flex>
 									</Flex>
