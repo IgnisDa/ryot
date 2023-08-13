@@ -1,18 +1,22 @@
 import { createId } from "@paralleldrive/cuid2";
+import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
+
+type ExerciseSet = { idx: number };
 
 type Exercise = {
 	exercise_id: number;
+	sets: Array<ExerciseSet>;
 };
 
-type InProgressWorkout = {
+type InProgressWorkout = Immutable<{
 	identifier: string;
 	startTime: string;
 	name: string;
 	comment?: string;
-	exercises: Exercise[];
-	supersets: number[][];
-};
+	exercises: Array<Exercise>;
+	supersets: Array<Array<number>>;
+}>;
 
 export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 	"currentWorkoutAtom",
