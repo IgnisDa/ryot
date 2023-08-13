@@ -7,6 +7,7 @@ import {
 	Avatar,
 	Box,
 	Center,
+	Checkbox,
 	Container,
 	Flex,
 	Pagination,
@@ -15,15 +16,24 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
+import {
+	useDebouncedState,
+	useListState,
+	useLocalStorage,
+} from "@mantine/hooks";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 
 const Page: NextPageWithLayout = () => {
+	const router = useRouter();
+	const selectionEnabled = !!router.query.selectionEnabled;
+
+	const [selectedExercises, setSelectedExercises] = useListState<number>([]);
 	const [activePage, setPage] = useLocalStorage({
 		key: "savedExercisesPage",
 	});
@@ -67,6 +77,8 @@ const Page: NextPageWithLayout = () => {
 				<title>Exercises | Ryot</title>
 			</Head>
 			<Container size={"lg"}>
+				{JSON.stringify(selectionEnabled)}
+				{JSON.stringify(selectedExercises)}
 				<Stack spacing={"xl"}>
 					<Flex align={"center"} gap={"md"}>
 						<TextInput
@@ -97,6 +109,16 @@ const Page: NextPageWithLayout = () => {
 									{exercisesList.data.total}
 								</Text>{" "}
 								items found
+								{selectionEnabled ? (
+									<>
+										{" "}
+										and{" "}
+										<Text display={"inline"} fw="bold">
+											{selectedExercises.length}
+										</Text>{" "}
+										selected
+									</>
+								) : null}
 							</Box>
 							<SimpleGrid
 								breakpoints={[
@@ -111,6 +133,18 @@ const Page: NextPageWithLayout = () => {
 										align={"center"}
 										data-exercise-id={exercise.id}
 									>
+										{selectionEnabled ? (
+											<Checkbox
+												onChange={(e) => {
+													if (e.currentTarget.checked)
+														setSelectedExercises.append(exercise.id);
+													else
+														setSelectedExercises.filter(
+															(item) => item !== exercise.id,
+														);
+												}}
+											/>
+										) : null}
 										<Avatar
 											imageProps={{ loading: "lazy" }}
 											src={exercise.attributes.images.at(0)}
