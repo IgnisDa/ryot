@@ -1,17 +1,24 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { currentWorkoutAtom } from "@/lib/state";
+import { gqlClient } from "@/lib/services/api";
+import { type Exercise, currentWorkoutAtom } from "@/lib/state";
 import {
+	ActionIcon,
 	Box,
 	Button,
 	Container,
 	Flex,
+	Menu,
+	Skeleton,
 	Stack,
 	Text,
 	TextInput,
 	Textarea,
 } from "@mantine/core";
+import { ExerciseDocument } from "@ryot/generated/graphql/backend/graphql";
+import { IconDotsVertical, IconTrash } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -47,6 +54,56 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 	);
 };
 
+const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+
+	const exerciseDetails = useQuery(
+		["exercise", props.exercise.exerciseId],
+		async () => {
+			const { exercise } = await gqlClient.request(ExerciseDocument, {
+				exerciseId: props.exercise.exerciseId,
+			});
+			return exercise;
+		},
+	);
+
+	return exerciseDetails.data && currentWorkout ? (
+		<Stack>
+			<Flex justify={"space-between"}>
+				<Text>{exerciseDetails.data.name}</Text>
+				<Menu shadow="md" width={200}>
+					<Menu.Target>
+						<ActionIcon color="blue">
+							<IconDotsVertical />
+						</ActionIcon>
+					</Menu.Target>
+					<Menu.Dropdown>
+						<Menu.Item
+							color="red"
+							icon={<IconTrash size={14} />}
+							onClick={() => {
+								const yes = confirm(
+									`This removes '${exerciseDetails.data.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+								);
+								if (yes)
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.exercises.splice(props.idx, 1);
+										}),
+									);
+							}}
+						>
+							Remove exercise
+						</Menu.Item>
+					</Menu.Dropdown>
+				</Menu>
+			</Flex>
+		</Stack>
+	) : (
+		<Skeleton height={20} radius="xl" />
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -59,7 +116,6 @@ const Page: NextPageWithLayout = () => {
 			<Container size="sm">
 				{currentWorkout ? (
 					<Stack>
-						{JSON.stringify(currentWorkout)}
 						<Flex align="end">
 							<TextInput
 								size="sm"
@@ -76,6 +132,9 @@ const Page: NextPageWithLayout = () => {
 							/>
 							<DurationTimer startTime={currentWorkout.startTime} />
 						</Flex>
+						{currentWorkout.exercises.map((ex, idx) => (
+							<ExerciseDisplay key={idx} exercise={ex} idx={idx} />
+						))}
 						<Textarea
 							size="sm"
 							label="Comment"

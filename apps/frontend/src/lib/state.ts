@@ -2,12 +2,12 @@ import { createId } from "@paralleldrive/cuid2";
 import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
 
-type ExerciseSet = { idx: number };
+export type ExerciseSet = Immutable<{ idx: number }>;
 
-type Exercise = {
+export type Exercise = Immutable<{
 	exerciseId: number;
 	sets: Array<ExerciseSet>;
-};
+}>;
 
 type InProgressWorkout = Immutable<{
 	identifier: string;
