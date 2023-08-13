@@ -1,4 +1,15 @@
 
+# Version 2.5.2 (2023-08-13)
+
+## Bug Fixes
+
+* **frontend:** disable input if specified
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.5.1 (2023-08-13)
 
 ## Bug Fixes
