@@ -12,6 +12,7 @@ import {
 	TextInput,
 	Textarea,
 } from "@mantine/core";
+import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { DateTime, Duration } from "luxon";
@@ -66,10 +67,11 @@ const Page: NextPageWithLayout = () => {
 								placeholder="A name for your workout"
 								value={currentWorkout.name}
 								onChange={(e) =>
-									setCurrentWorkout({
-										...currentWorkout,
-										name: e.currentTarget.value,
-									})
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.name = e.currentTarget.value;
+										}),
+									)
 								}
 							/>
 							<DurationTimer startTime={currentWorkout.startTime} />
@@ -80,10 +82,11 @@ const Page: NextPageWithLayout = () => {
 							placeholder="Your thoughts about this workout"
 							value={currentWorkout.comment}
 							onChange={(e) =>
-								setCurrentWorkout({
-									...currentWorkout,
-									comment: e.currentTarget.value,
-								})
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.comment = e.currentTarget.value;
+									}),
+								)
 							}
 						/>
 						<Link
