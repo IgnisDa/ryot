@@ -195,6 +195,7 @@ const Page: NextPageWithLayout = () => {
 											draft.exercises.push({
 												exerciseId: exerciseId,
 												sets: [{ idx: 0 }],
+												notes: [],
 											});
 									}),
 								);

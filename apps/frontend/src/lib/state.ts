@@ -6,6 +6,7 @@ export type ExerciseSet = Immutable<{ idx: number }>;
 
 export type Exercise = Immutable<{
 	exerciseId: number;
+	notes: Array<string>;
 	sets: Array<ExerciseSet>;
 }>;
 
