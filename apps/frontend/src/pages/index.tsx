@@ -6,7 +6,7 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { currentWorkoutAtom } from "@/lib/state";
+import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/state";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
 import {
 	Alert,
@@ -37,7 +37,7 @@ import {
 	IconBarbell,
 	IconFriends,
 	IconPhotoPlus,
-	IconStretching,
+	IconScaleOutline,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
@@ -368,7 +368,7 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 						<ActualDisplayStat
-							icon={<IconStretching />}
+							icon={<IconScaleOutline stroke={1.3} />}
 							lot="Fitness"
 							color={theme.colors.yellow[5]}
 							data={[
@@ -423,7 +423,7 @@ const Page: NextPageWithLayout = () => {
 								variant="outline"
 								leftIcon={<IconBarbell />}
 								onClick={() => {
-									setCurrentWorkout({ startTime: new Date().toISOString() });
+									setCurrentWorkout(getDefaultWorkout());
 									router.push(APP_ROUTES.fitness.exercises.inProgress);
 								}}
 							>

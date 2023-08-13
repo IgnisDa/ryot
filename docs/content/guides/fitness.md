@@ -1,11 +1,18 @@
 # Fitness
 
+!!! danger "Experimental"
+
+    Fitness tracking with Ryot is experimental at best. I will do my best to not
+    make incompatible breaking changes, and if I do, I will add a migration path
+    in the release notes. Please make sure you always read migration notes before
+    upgrading to prevent loss of data.
+
 Some pointers on Ryot and fitness tracking.
 
 ## Exercises
 
-Before you get exercises tracking working, you need to import all exercises data.
-Follow these steps to do so:
+Before you can get exercises tracking working, you will need to import all
+exercises data. Follow these steps to do so:
 
 1. Open your instance's `/graphql` endpoint. For example `https://ryot.fly.dev/graphql`.
 
