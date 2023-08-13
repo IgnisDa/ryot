@@ -1,9 +1,11 @@
 import type { NextPageWithLayout } from "../../_app";
-import { LIMIT } from "@/lib/constants";
+import { APP_ROUTES, LIMIT } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { currentWorkoutAtom } from "@/lib/state";
 import {
 	ActionIcon,
+	Affix,
 	Avatar,
 	Box,
 	Center,
@@ -15,6 +17,7 @@ import {
 	Stack,
 	Text,
 	TextInput,
+	rem,
 } from "@mantine/core";
 import {
 	useDebouncedState,
@@ -23,8 +26,10 @@ import {
 } from "@mantine/hooks";
 import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
-import { IconPlus, IconSearch, IconX } from "@tabler/icons-react";
+import { IconCheck, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
+import { useAtom } from "jotai";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -42,6 +47,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const exercisesList = useQuery({
 		queryKey: ["exercisesList", activePage, debouncedQuery],
@@ -77,8 +83,6 @@ const Page: NextPageWithLayout = () => {
 				<title>Exercises | Ryot</title>
 			</Head>
 			<Container size={"lg"}>
-				{JSON.stringify(selectionEnabled)}
-				{JSON.stringify(selectedExercises)}
 				<Stack spacing={"xl"}>
 					<Flex align={"center"} gap={"md"}>
 						<TextInput
@@ -177,6 +181,31 @@ const Page: NextPageWithLayout = () => {
 						</Center>
 					) : null}
 				</Stack>
+				{currentWorkout && selectedExercises.length >= 1 ? (
+					<Affix position={{ bottom: rem(40), right: rem(30) }}>
+						<ActionIcon
+							color="blue"
+							variant="light"
+							radius="xl"
+							size="xl"
+							onClick={() => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										for (const exerciseId of selectedExercises)
+											draft.exercises.push({
+												exerciseId: exerciseId,
+												sets: [{ idx: 0 }],
+											});
+									}),
+								);
+								router.push(APP_ROUTES.fitness.exercises.inProgress);
+							}}
+						>
+							<IconCheck size="1.6rem" />
+						</ActionIcon>
+						{/* TODO: Add btn to add superset exercises */}
+					</Affix>
+				) : null}
 			</Container>
 		</>
 	);

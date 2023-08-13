@@ -5,7 +5,7 @@ import { atomWithStorage } from "jotai/utils";
 type ExerciseSet = { idx: number };
 
 type Exercise = {
-	exercise_id: number;
+	exerciseId: number;
 	sets: Array<ExerciseSet>;
 };
 
