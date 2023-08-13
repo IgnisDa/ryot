@@ -97,6 +97,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						<Flex key={idx} align={"center"} gap="xs">
 							<Textarea
 								style={{ flexGrow: 1 }}
+								placeholder="Add a note"
 								size="xs"
 								maxRows={1}
 								autosize
@@ -197,11 +198,9 @@ const Page: NextPageWithLayout = () => {
 								/>
 							*/}
 						</Flex>
-						{currentWorkout.exercises.map((ex, idx) => (
-							<ExerciseDisplay key={idx} exercise={ex} idx={idx} />
-						))}
 						<Textarea
 							size="sm"
+							minRows={2}
 							label="Comment"
 							placeholder="Your thoughts about this workout"
 							value={currentWorkout.comment}
@@ -213,6 +212,9 @@ const Page: NextPageWithLayout = () => {
 								)
 							}
 						/>
+						{currentWorkout.exercises.map((ex, idx) => (
+							<ExerciseDisplay key={idx} exercise={ex} idx={idx} />
+						))}
 						<Link
 							passHref
 							legacyBehavior
