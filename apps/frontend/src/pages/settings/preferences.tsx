@@ -157,6 +157,7 @@ const Page: NextPageWithLayout = () => {
 							null,
 							4,
 						)}
+						disabled={!coreDetails.data.preferencesChangeAllowed}
 						autosize
 						formatOnBlur
 						onChange={(v) => {
