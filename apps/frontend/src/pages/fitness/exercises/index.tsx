@@ -4,7 +4,6 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
-	Anchor,
 	Avatar,
 	Box,
 	Center,
@@ -143,15 +142,6 @@ const Page: NextPageWithLayout = () => {
 							/>
 						</Center>
 					) : null}
-					<Box mx="auto">
-						<Anchor
-							color="pink"
-							href="https://ignisda.github.io/ryot/guides/fitness.html"
-							target="_blank"
-						>
-							Fitness Documentation
-						</Anchor>
-					</Box>
 				</Stack>
 			</Container>
 		</>
