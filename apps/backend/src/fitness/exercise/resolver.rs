@@ -36,9 +36,19 @@ static IMAGES_PREFIX_URL: &str =
     "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct ExercisesListInput {
-    pub page: i32,
-    pub query: Option<String>,
+struct ExerciseListFilter {
+    lot: Option<ExerciseLot>,
+    level: Option<ExerciseLevel>,
+    force: Option<ExerciseForce>,
+    mechanic: Option<ExerciseMechanic>,
+    equipment: Option<ExerciseEquipment>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct ExercisesListInput {
+    page: i32,
+    query: Option<String>,
+    filter: Option<ExerciseListFilter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -58,9 +68,9 @@ struct ExerciseFilters {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct UserMeasurementsListInput {
-    pub start_time: Option<DateTimeUtc>,
-    pub end_time: Option<DateTimeUtc>,
+struct UserMeasurementsListInput {
+    start_time: Option<DateTimeUtc>,
+    end_time: Option<DateTimeUtc>,
 }
 
 #[derive(Default)]
@@ -215,6 +225,18 @@ impl ExerciseService {
         input: ExercisesListInput,
     ) -> Result<SearchResults<exercise::Model>> {
         let query = Exercise::find()
+            .apply_if(input.filter, |query, q| {
+                query
+                    .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
+                    .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
+                    .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
+                    .apply_if(q.mechanic, |q, v| {
+                        q.filter(exercise::Column::Mechanic.eq(v))
+                    })
+                    .apply_if(q.equipment, |q, v| {
+                        q.filter(exercise::Column::Equipment.eq(v))
+                    })
+            })
             .apply_if(input.query, |query, v| {
                 query.filter(
                     Condition::any()

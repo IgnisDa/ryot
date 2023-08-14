@@ -304,6 +304,14 @@ export enum ExerciseLevel {
   Intermediate = 'INTERMEDIATE'
 }
 
+export type ExerciseListFilter = {
+  equipment?: InputMaybe<ExerciseEquipment>;
+  force?: InputMaybe<ExerciseForce>;
+  level?: InputMaybe<ExerciseLevel>;
+  lot?: InputMaybe<ExerciseLot>;
+  mechanic?: InputMaybe<ExerciseMechanic>;
+};
+
 export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
   Duration = 'DURATION',
@@ -342,6 +350,7 @@ export type ExerciseSearchResults = {
 };
 
 export type ExercisesListInput = {
+  filter?: InputMaybe<ExerciseListFilter>;
   page: Scalars['Int'];
   query?: InputMaybe<Scalars['String']>;
 };
