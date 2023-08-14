@@ -15,7 +15,10 @@ import {
 	Checkbox,
 	Container,
 	Flex,
+	Group,
+	Modal,
 	Pagination,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -25,17 +28,21 @@ import {
 } from "@mantine/core";
 import {
 	useDebouncedState,
+	useDisclosure,
 	useListState,
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
 	ExerciseInformationDocument,
+	type ExerciseListFilter,
 	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconCheck,
+	IconFilter,
+	IconFilterOff,
 	IconPlus,
 	IconSearch,
 	IconX,
@@ -46,6 +53,14 @@ import { useAtom } from "jotai";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
+
+const defaultFilterValue = {
+	equipment: null,
+	force: null,
+	level: null,
+	lot: null,
+	mechanic: null,
+} as const;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -59,6 +74,16 @@ const Page: NextPageWithLayout = () => {
 		key: "savedExercisesQuery",
 		getInitialValueInEffect: false,
 	});
+	const [exerciseFilters, setExerciseFilters] =
+		useLocalStorage<ExerciseListFilter>({
+			key: "savedExerciseFilters",
+			defaultValue: defaultFilterValue,
+			getInitialValueInEffect: true,
+		});
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
@@ -74,12 +99,13 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	const exercisesList = useQuery({
-		queryKey: ["exercisesList", activePage, debouncedQuery],
+		queryKey: ["exercisesList", activePage, debouncedQuery, exerciseFilters],
 		queryFn: async () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: {
 					page: parseInt(activePage) || 1,
 					query: debouncedQuery || undefined,
+					filter: exerciseFilters,
 				},
 			});
 			return exercisesList;
@@ -93,6 +119,12 @@ const Page: NextPageWithLayout = () => {
 	useEffect(() => {
 		setDebouncedQuery(query?.trim());
 	}, [query]);
+
+	const isFilterChanged = exerciseFilters !== defaultFilterValue;
+
+	const resetFilters = () => {
+		setExerciseFilters(defaultFilterValue);
+	};
 
 	const ClearButton = () =>
 		query ? (
@@ -149,7 +181,48 @@ const Page: NextPageWithLayout = () => {
 									autoCapitalize="none"
 									autoComplete="off"
 								/>
-								{/* TODO: filter icon here */}
+								<ActionIcon
+									onClick={openFiltersModal}
+									color={isFilterChanged ? "blue" : undefined}
+								>
+									<IconFilter size="1.5rem" />
+								</ActionIcon>
+								<Modal
+									opened={filtersModalOpened}
+									onClose={closeFiltersModal}
+									centered
+									withCloseButton={false}
+								>
+									<Stack>
+										<Group>
+											<Title order={3}>Filters</Title>
+											<ActionIcon onClick={resetFilters}>
+												<IconFilterOff size="1.5rem" />
+											</ActionIcon>
+										</Group>
+										{Object.keys(defaultFilterValue).map((f, idx) => (
+											<Select
+												key={idx}
+												data={(exerciseInformation.data.filters as any)[f].map(
+													(v: any) => ({
+														label: startCase(snakeCase(v)),
+														value: v,
+													}),
+												)}
+												label={startCase(f)}
+												value={(exerciseFilters as any)[f]}
+												onChange={(v) => {
+													if (v)
+														setExerciseFilters(
+															produce(exerciseFilters, (draft) => {
+																(draft as any)[f] = v;
+															}),
+														);
+												}}
+											/>
+										))}
+									</Stack>
+								</Modal>
 							</Flex>
 							{exercisesList.data && exercisesList.data.total > 0 ? (
 								<>
