@@ -325,7 +325,8 @@ impl ExerciseService {
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
-                muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
+                // muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
+                muscles: ActiveValue::Set(muscles),
                 attributes: ActiveValue::Set(ExerciseAttributes {
                     instructions: ex.attributes.instructions,
                     images: ex.attributes.images,

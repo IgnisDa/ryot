@@ -25,8 +25,10 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
-    #[graphql(skip)]
-    pub muscles: ExerciseMuscles,
+    // #[graphql(skip)]
+    // pub muscles: ExerciseMuscles,
+    #[sea_orm(column_type = "Json")]
+    pub muscles: Vec<crate::migrator::ExerciseMuscle>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
