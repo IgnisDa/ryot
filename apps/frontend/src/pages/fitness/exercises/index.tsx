@@ -55,10 +55,10 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 
 const defaultFilterValue = {
+	type: undefined,
 	equipment: undefined,
 	force: undefined,
 	level: undefined,
-	lot: undefined,
 	mechanic: undefined,
 };
 
@@ -204,6 +204,7 @@ const Page: NextPageWithLayout = () => {
 										{Object.keys(defaultFilterValue).map((f, idx) => (
 											<Select
 												key={idx}
+												withinPortal
 												clearable
 												data={(exerciseInformation.data.filters as any)[f].map(
 													(v: any) => ({

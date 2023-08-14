@@ -37,6 +37,7 @@ static IMAGES_PREFIX_URL: &str =
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExerciseListFilter {
+    #[graphql(name = "type")]
     lot: Option<ExerciseLot>,
     level: Option<ExerciseLevel>,
     force: Option<ExerciseForce>,
@@ -60,6 +61,7 @@ struct ExerciseInformation {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct ExerciseFilters {
+    #[graphql(name = "type")]
     lot: Vec<ExerciseLot>,
     level: Vec<ExerciseLevel>,
     force: Vec<ExerciseForce>,

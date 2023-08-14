@@ -1,7 +1,7 @@
 query ExerciseInformation {
   exerciseInformation {
     filters {
-      lot
+      type
       level
       force
       mechanic
