@@ -6,7 +6,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-serde = { version = "1.0.179", features = ["derive"] }
+serde = { version = "1.0.183", features = ["derive"] }
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]
