@@ -44,6 +44,11 @@ I also recommend the following environment file:
 RUST_LOG="ryot=trace,sea_orm=debug"
 ```
 
+!!! note
+
+    You will need to run `moon run frontend:build` before you can get the
+    backend running. This needs to be done only once.
+
 ### Version Control
 
 Unless it is a very small change, I prefer creating a separate branch and merging it via an
