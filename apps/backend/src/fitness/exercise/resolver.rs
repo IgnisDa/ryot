@@ -322,6 +322,7 @@ impl ExerciseService {
             };
             let mut muscles = ex.attributes.primary_muscles;
             muscles.extend(ex.attributes.secondary_muscles);
+            muscles.sort_unstable();
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),

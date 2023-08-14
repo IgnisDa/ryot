@@ -24,6 +24,8 @@ impl MigrationName for Migration {
     PartialEq,
     Display,
     EnumIter,
+    PartialOrd,
+    Ord,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMuscle {
