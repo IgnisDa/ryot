@@ -17,6 +17,7 @@ import {
 	Stack,
 	Text,
 	TextInput,
+	Title,
 	rem,
 } from "@mantine/core";
 import {
@@ -85,6 +86,18 @@ const Page: NextPageWithLayout = () => {
 			<Container size={"lg"}>
 				<Stack spacing={"xl"}>
 					<Flex align={"center"} gap={"md"}>
+						<Title>Exercises</Title>
+						<ActionIcon
+							color="green"
+							variant="outline"
+							onClick={() => {
+								alert("TODO: Create an exercise.");
+							}}
+						>
+							<IconPlus size="1rem" />
+						</ActionIcon>
+					</Flex>
+					<Flex align={"center"} gap={"md"}>
 						<TextInput
 							name="query"
 							placeholder={"Search for exercises"}
@@ -96,15 +109,6 @@ const Page: NextPageWithLayout = () => {
 							autoCapitalize="none"
 							autoComplete="off"
 						/>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => {
-								alert("TODO: Create an exercise.");
-							}}
-						>
-							<IconPlus size="1rem" />
-						</ActionIcon>
 					</Flex>
 					{exercisesList.data && exercisesList.data.total > 0 ? (
 						<>
