@@ -10,10 +10,12 @@ import {
 	Container,
 	Drawer,
 	Flex,
+	Group,
 	MultiSelect,
 	NumberInput,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
 	TextInput,
@@ -45,6 +47,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { match } from "ts-pattern";
 
 const getValues = (m: UserMeasurement["stats"]) => {
 	const vals: { name: string; value: string }[] = [];
@@ -74,21 +77,51 @@ const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
 };
 
+enum TimeSpan {
+	Last7Days = "Last 7 days",
+	Last30Days = "Last 30 days",
+	Last90Days = "Last 90 days",
+	Last365Days = "Last 365 days",
+	AllTime = "All Time",
+}
+
 const Page: NextPageWithLayout = () => {
-	const [selectedStats, setselectedStates] = useLocalStorage<string[]>({
+	const [selectedStats, setselectedStats] = useLocalStorage<string[]>({
 		defaultValue: [],
 		key: "measurementsDisplaySelectedStats",
+		getInitialValueInEffect: true,
+	});
+	const [selectedTimespan, setselectedTimespan] = useLocalStorage({
+		defaultValue: TimeSpan.Last30Days,
+		key: "measurementsDisplaySelectedTimespan",
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
-	const userMeasurementsList = useQuery(["userMeasurementsList"], async () => {
-		const { userMeasurementsList } = await gqlClient.request(
-			UserMeasurementsListDocument,
-		);
-		return userMeasurementsList;
-	});
+	const userMeasurementsList = useQuery(
+		["userMeasurementsList", selectedTimespan],
+		async () => {
+			const now = DateTime.now();
+			const [startTime, endTime] = match(selectedTimespan)
+				.with(TimeSpan.Last7Days, () => [now, now.minus({ days: 7 })])
+				.with(TimeSpan.Last30Days, () => [now, now.minus({ days: 30 })])
+				.with(TimeSpan.Last90Days, () => [now, now.minus({ days: 90 })])
+				.with(TimeSpan.Last365Days, () => [now, now.minus({ days: 365 })])
+				.with(TimeSpan.AllTime, () => [null, null])
+				.exhaustive();
+			const { userMeasurementsList } = await gqlClient.request(
+				UserMeasurementsListDocument,
+				{
+					input: {
+						startTime: startTime?.toJSDate(),
+						endTime: endTime?.toJSDate(),
+					},
+				},
+			);
+			return userMeasurementsList;
+		},
+	);
 	const createUserMeasurement = useMutation({
 		mutationFn: async (variables: CreateUserMeasurementMutationVariables) => {
 			const { createUserMeasurement } = await gqlClient.request(
@@ -175,26 +208,37 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<MultiSelect
-						data={[
-							...Object.keys(preferences.data.fitness.measurements.inbuilt)
-								.filter(
-									(n) =>
-										(preferences as any).data.fitness.measurements.inbuilt[n],
-								)
-								.map((v) => ({ name: v, value: v })),
-							...preferences.data.fitness.measurements.custom.map(
-								({ name }) => ({ name, value: `custom.${name}` }),
-							),
-						].map((v) => ({
-							value: v.value,
-							label: startCase(v.name),
-						}))}
-						defaultValue={selectedStats}
-						onChange={(s) => {
-							if (s) setselectedStates(s);
-						}}
-					/>
+					<Group grow>
+						<MultiSelect
+							label="Statistics to display"
+							data={[
+								...Object.keys(preferences.data.fitness.measurements.inbuilt)
+									.filter(
+										(n) =>
+											(preferences as any).data.fitness.measurements.inbuilt[n],
+									)
+									.map((v) => ({ name: v, value: v })),
+								...preferences.data.fitness.measurements.custom.map(
+									({ name }) => ({ name, value: `custom.${name}` }),
+								),
+							].map((v) => ({
+								value: v.value,
+								label: startCase(v.name),
+							}))}
+							value={selectedStats}
+							onChange={(s) => {
+								if (s) setselectedStats(s);
+							}}
+						/>
+						<Select
+							label="Timespan"
+							value={selectedTimespan}
+							data={Object.values(TimeSpan)}
+							onChange={(v) => {
+								if (v) setselectedTimespan(v as TimeSpan);
+							}}
+						/>
+					</Group>
 					<Box w={"100%"} ml={-15}>
 						<ResponsiveContainer width="100%" height={300}>
 							<LineChart
