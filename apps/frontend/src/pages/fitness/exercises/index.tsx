@@ -1,11 +1,14 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES, LIMIT } from "@/lib/constants";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { currentWorkoutAtom } from "@/lib/state";
 import {
 	ActionIcon,
 	Affix,
+	Alert,
+	Anchor,
 	Avatar,
 	Box,
 	Center,
@@ -25,9 +28,18 @@ import {
 	useListState,
 	useLocalStorage,
 } from "@mantine/hooks";
-import { ExercisesListDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ExerciseInformationDocument,
+	ExercisesListDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
-import { IconCheck, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
+import {
+	IconAlertCircle,
+	IconCheck,
+	IconPlus,
+	IconSearch,
+	IconX,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -50,6 +62,17 @@ const Page: NextPageWithLayout = () => {
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
+	const exerciseInformation = useQuery({
+		queryKey: ["exerciseInformation"],
+		queryFn: async () => {
+			const { exerciseInformation } = await gqlClient.request(
+				ExerciseInformationDocument,
+				{},
+			);
+			return exerciseInformation;
+		},
+		staleTime: Infinity,
+	});
 	const exercisesList = useQuery({
 		queryKey: ["exercisesList", activePage, debouncedQuery],
 		queryFn: async () => {
@@ -78,7 +101,7 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : null;
 
-	return (
+	return exerciseInformation.data ? (
 		<>
 			<Head>
 				<title>Exercises | Ryot</title>
@@ -97,96 +120,117 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1rem" />
 						</ActionIcon>
 					</Flex>
-					<Flex align={"center"} gap={"md"}>
-						<TextInput
-							name="query"
-							placeholder={"Search for exercises"}
-							icon={<IconSearch />}
-							onChange={(e) => setQuery(e.currentTarget.value)}
-							value={query}
-							rightSection={<ClearButton />}
-							style={{ flexGrow: 1 }}
-							autoCapitalize="none"
-							autoComplete="off"
-						/>
-						{/* TODO: filter icon here */}
-					</Flex>
-					{exercisesList.data && exercisesList.data.total > 0 ? (
-						<>
-							<Box>
-								<Text display={"inline"} fw="bold">
-									{exercisesList.data.total}
-								</Text>{" "}
-								items found
-								{selectionEnabled ? (
-									<>
-										{" "}
-										and{" "}
-										<Text display={"inline"} fw="bold">
-											{selectedExercises.length}
-										</Text>{" "}
-										selected
-									</>
-								) : null}
-							</Box>
-							<SimpleGrid
-								breakpoints={[
-									{ minWidth: "md", cols: 2 },
-									{ minWidth: "lg", cols: 3 },
-								]}
+					{exerciseInformation.data.downloadRequired ? (
+						<Alert
+							icon={<IconAlertCircle size="1rem" />}
+							variant="outline"
+							color="violet"
+						>
+							Please follow the{" "}
+							<Anchor
+								href="https://ignisda.github.io/ryot/guides/fitness.html"
+								target="_blank"
 							>
-								{exercisesList.data.items.map((exercise) => (
-									<Flex
-										key={exercise.id}
-										gap="lg"
-										align={"center"}
-										data-exercise-id={exercise.id}
-									>
-										{selectionEnabled ? (
-											<Checkbox
-												onChange={(e) => {
-													if (e.currentTarget.checked)
-														setSelectedExercises.append(exercise.id);
-													else
-														setSelectedExercises.filter(
-															(item) => item !== exercise.id,
-														);
-												}}
-											/>
-										) : null}
-										<Avatar
-											imageProps={{ loading: "lazy" }}
-											src={exercise.attributes.images.at(0)}
-											radius={"xl"}
-											size="lg"
-										/>
-										<Flex direction={"column"} justify={"space-around"}>
-											<Text>{exercise.name}</Text>
-											<Text size="xs">
-												{startCase(
-													snakeCase(exercise.attributes.primaryMuscles.at(0)),
-												)}
-											</Text>
-										</Flex>
-									</Flex>
-								))}
-							</SimpleGrid>
-						</>
+								fitness guide
+							</Anchor>{" "}
+							to download the exercise dataset.
+						</Alert>
 					) : (
-						<Text>No information to display</Text>
+						<>
+							<Flex align={"center"} gap={"md"}>
+								<TextInput
+									name="query"
+									placeholder={"Search for exercises"}
+									icon={<IconSearch />}
+									onChange={(e) => setQuery(e.currentTarget.value)}
+									value={query}
+									rightSection={<ClearButton />}
+									style={{ flexGrow: 1 }}
+									autoCapitalize="none"
+									autoComplete="off"
+								/>
+								{/* TODO: filter icon here */}
+							</Flex>
+							{exercisesList.data && exercisesList.data.total > 0 ? (
+								<>
+									<Box>
+										<Text display={"inline"} fw="bold">
+											{exercisesList.data.total}
+										</Text>{" "}
+										items found
+										{selectionEnabled ? (
+											<>
+												{" "}
+												and{" "}
+												<Text display={"inline"} fw="bold">
+													{selectedExercises.length}
+												</Text>{" "}
+												selected
+											</>
+										) : null}
+									</Box>
+									<SimpleGrid
+										breakpoints={[
+											{ minWidth: "md", cols: 2 },
+											{ minWidth: "lg", cols: 3 },
+										]}
+									>
+										{exercisesList.data.items.map((exercise) => (
+											<Flex
+												key={exercise.id}
+												gap="lg"
+												align={"center"}
+												data-exercise-id={exercise.id}
+											>
+												{selectionEnabled ? (
+													<Checkbox
+														onChange={(e) => {
+															if (e.currentTarget.checked)
+																setSelectedExercises.append(exercise.id);
+															else
+																setSelectedExercises.filter(
+																	(item) => item !== exercise.id,
+																);
+														}}
+													/>
+												) : null}
+												<Avatar
+													imageProps={{ loading: "lazy" }}
+													src={exercise.attributes.images.at(0)}
+													radius={"xl"}
+													size="lg"
+												/>
+												<Flex direction={"column"} justify={"space-around"}>
+													<Text>{exercise.name}</Text>
+													<Text size="xs">
+														{startCase(
+															snakeCase(
+																exercise.attributes.primaryMuscles.at(0),
+															),
+														)}
+													</Text>
+												</Flex>
+											</Flex>
+										))}
+									</SimpleGrid>
+								</>
+							) : (
+								<Text>No information to display</Text>
+							)}
+							{exercisesList.data && exercisesList.data.total > 0 ? (
+								<Center>
+									<Pagination
+										size="sm"
+										value={parseInt(activePage)}
+										onChange={(v) => setPage(v.toString())}
+										total={Math.ceil(exercisesList.data.total / LIMIT)}
+										boundaries={1}
+										siblings={0}
+									/>
+								</Center>
+							) : null}
+						</>
 					)}
-					{exercisesList.data && exercisesList.data.total > 0 ? (
-						<Center>
-							<Pagination
-								size="sm"
-								value={parseInt(activePage)}
-								onChange={(v) => setPage(v.toString())}
-								total={Math.ceil(exercisesList.data.total / LIMIT)}
-								boundaries={1}
-								siblings={0}
-							/>
-						</Center>
-					) : null}
 				</Stack>
 				{currentWorkout && selectedExercises.length >= 1 ? (
 					<Affix position={{ bottom: rem(40), right: rem(30) }}>
@@ -216,6 +260,8 @@ const Page: NextPageWithLayout = () => {
 				) : null}
 			</Container>
 		</>
+	) : (
+		<LoadingPage />
 	);
 };
 
