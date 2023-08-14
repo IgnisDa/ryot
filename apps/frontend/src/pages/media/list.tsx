@@ -56,7 +56,6 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
 const defaultFilters = {
@@ -325,32 +324,8 @@ const Page: NextPageWithLayout = () => {
 														group: "General filters",
 													}))}
 													onChange={(v) => {
-														const filter = match(v)
-															.with("ALL", () => MediaGeneralFilter.All)
-															.with("RATED", () => MediaGeneralFilter.Rated)
-															.with("UNRATED", () => MediaGeneralFilter.Unrated)
-															.with("DROPPED", () => MediaGeneralFilter.Dropped)
-															.with(
-																"COMPLETED",
-																() => MediaGeneralFilter.Completed,
-															)
-															.with(
-																"ON_A_HOLD",
-																() => MediaGeneralFilter.OnAHold,
-															)
-															.with(
-																"IN_PROGRESS",
-																() => MediaGeneralFilter.InProgress,
-															)
-															.with("UNSEEN", () => MediaGeneralFilter.Unseen)
-															.with(
-																"EXPLICITLY_MONITORED",
-																() => MediaGeneralFilter.ExplicitlyMonitored,
-															)
-															.otherwise((_v) => {
-																throw new Error("Invalid filter selected");
-															});
-														setMineGeneralFilter(filter);
+														if (v)
+															setMineGeneralFilter(v as MediaGeneralFilter);
 													}}
 												/>
 												<Flex gap={"xs"} align={"center"}>
@@ -364,24 +339,7 @@ const Page: NextPageWithLayout = () => {
 														}))}
 														value={mineSortBy.toString()}
 														onChange={(v) => {
-															const orderBy = match(v)
-																.with(
-																	"RELEASE_DATE",
-																	() => MediaSortBy.ReleaseDate,
-																)
-																.with("RATING", () => MediaSortBy.Rating)
-																.with("LAST_SEEN", () => MediaSortBy.LastSeen)
-																.with(
-																	"LAST_UPDATED",
-																	() => MediaSortBy.LastUpdated,
-																)
-																.with("TITLE", () => MediaSortBy.Title)
-																.otherwise(() => {
-																	throw new Error(
-																		"Invalid sort order selected",
-																	);
-																});
-															setMineSortBy(orderBy);
+															if (v) setMineSortBy(v as MediaSortBy);
 														}}
 														rightSection={
 															<ActionIcon
