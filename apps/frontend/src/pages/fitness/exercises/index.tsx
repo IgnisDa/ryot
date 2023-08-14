@@ -55,12 +55,12 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 
 const defaultFilterValue = {
-	equipment: null,
-	force: null,
-	level: null,
-	lot: null,
-	mechanic: null,
-} as const;
+	equipment: undefined,
+	force: undefined,
+	level: undefined,
+	lot: undefined,
+	mechanic: undefined,
+};
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -120,7 +120,8 @@ const Page: NextPageWithLayout = () => {
 		setDebouncedQuery(query?.trim());
 	}, [query]);
 
-	const isFilterChanged = exerciseFilters !== defaultFilterValue;
+	const isFilterChanged =
+		Object.values(exerciseFilters).filter(Boolean).length > 0;
 
 	const resetFilters = () => {
 		setExerciseFilters(defaultFilterValue);
