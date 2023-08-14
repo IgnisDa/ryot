@@ -166,10 +166,10 @@ export const BaseDisplayItem = (props: {
 								transitionProperty: "transform",
 								transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
 								transitionDuration: "150ms",
-								'&:hover': {
+								"&:hover": {
 									boxShadow: "0 0 15px black",
-								}
-							}
+								},
+							},
 						})}
 					/>
 					{props.topRight}

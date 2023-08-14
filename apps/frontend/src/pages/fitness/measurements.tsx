@@ -12,6 +12,8 @@ import {
 	Flex,
 	MultiSelect,
 	NumberInput,
+	Paper,
+	ScrollArea,
 	SimpleGrid,
 	Stack,
 	TextInput,
@@ -24,6 +26,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateUserMeasurementDocument,
 	type CreateUserMeasurementMutationVariables,
+	type UserMeasurement,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
@@ -42,6 +45,30 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+
+const getValues = (m: UserMeasurement["stats"]) => {
+	const vals: { name: string; value: string }[] = [];
+	for (const [key, val] of Object.entries(m)) {
+		if (key !== "custom") {
+			if (val !== null) {
+				vals.push({ name: key, value: val });
+			}
+		} else {
+			for (const [keyC, valC] of Object.entries(m.custom || {}))
+				vals.push({ name: keyC, value: valC as any });
+		}
+	}
+	return vals;
+};
+
+const DisplayMeasurement = (props: { measurement: UserMeasurement }) => {
+	const values = getValues(props.measurement.stats);
+	return (
+		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
+			{JSON.stringify(values)}
+		</Paper>
+	);
+};
 
 const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
@@ -195,6 +222,11 @@ const Page: NextPageWithLayout = () => {
 							</LineChart>
 						</ResponsiveContainer>
 					</Box>
+					<ScrollArea h={400}>
+						{userMeasurementsList.data.map((m, idx) => (
+							<DisplayMeasurement key={idx} measurement={m} />
+						))}
+					</ScrollArea>
 				</Stack>
 			</Container>
 		</>
