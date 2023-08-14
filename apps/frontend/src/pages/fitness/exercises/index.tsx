@@ -170,10 +170,10 @@ const Page: NextPageWithLayout = () => {
 						</Alert>
 					) : (
 						<>
-							<Flex align={"center"} gap={"md"}>
+							<Flex align="center" gap="md">
 								<TextInput
 									name="query"
-									placeholder={"Search for exercises"}
+									placeholder="Search for exercises by name or instructions"
 									icon={<IconSearch />}
 									onChange={(e) => setQuery(e.currentTarget.value)}
 									value={query}
