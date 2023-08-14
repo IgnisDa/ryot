@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Error, InputObject, Object, Result};
+use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
+use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
 };
 use sea_query::{Alias, Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
 use crate::{
     background::UpdateExerciseJob,
@@ -16,7 +18,7 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
-    migrator::ExerciseLot,
+    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
@@ -39,6 +41,22 @@ pub struct ExercisesListInput {
     pub query: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct ExerciseInformation {
+    /// All filters applicable to an exercises query.
+    filters: ExerciseFilters,
+    download_required: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct ExerciseFilters {
+    lots: Vec<ExerciseLot>,
+    levels: Vec<ExerciseLevel>,
+    forces: Vec<ExerciseForce>,
+    mechanics: Vec<ExerciseMechanic>,
+    equipment: Vec<ExerciseEquipment>,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct UserMeasurementsListInput {
     pub start_time: Option<DateTimeUtc>,
@@ -50,6 +68,12 @@ pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
+    /// Get all the information related to exercises.
+    async fn exercise_information(&self, gql_ctx: &Context<'_>) -> Result<ExerciseInformation> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.exercise_information().await
+    }
+
     /// Get a paginated list of exercises in the database.
     async fn exercises_list(
         &self,
@@ -139,6 +163,20 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
+    async fn exercise_information(&self) -> Result<ExerciseInformation> {
+        let download_required = Exercise::find().count(&self.db).await? == 0;
+        Ok(ExerciseInformation {
+            filters: ExerciseFilters {
+                lots: ExerciseLot::iter().collect_vec(),
+                levels: ExerciseLevel::iter().collect_vec(),
+                forces: ExerciseForce::iter().collect_vec(),
+                mechanics: ExerciseMechanic::iter().collect_vec(),
+                equipment: ExerciseEquipment::iter().collect_vec(),
+            },
+            download_required,
+        })
+    }
+
     async fn get_all_exercises_from_dataset(&self) -> Result<Vec<GithubExercise>> {
         let data: Vec<GithubExercise> = surf::get(JSON_URL)
             .send()

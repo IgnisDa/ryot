@@ -109,6 +109,7 @@ const Page: NextPageWithLayout = () => {
 							autoCapitalize="none"
 							autoComplete="off"
 						/>
+						{/* TODO: filter icon here */}
 					</Flex>
 					{exercisesList.data && exercisesList.data.total > 0 ? (
 						<>

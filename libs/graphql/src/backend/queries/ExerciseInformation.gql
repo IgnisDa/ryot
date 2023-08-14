@@ -1,0 +1,12 @@
+query ExerciseInformation {
+  exerciseInformation {
+    filters {
+      lots
+      levels
+      forces
+      mechanics
+      equipment
+    }
+    downloadRequired
+  }
+}
