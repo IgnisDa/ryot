@@ -46,6 +46,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
@@ -432,11 +433,11 @@ export default function ({ children }: { children: ReactElement }) {
 							links={mediaLinks}
 							opened={openedLinkGroups.media}
 							setOpened={(k) =>
-								setOpenedLinkGroups((v) => {
-									const g = Object.assign({}, v);
-									g.media = k;
-									return g;
-								})
+								setOpenedLinkGroups(
+									produce(openedLinkGroups, (draft) => {
+										draft.media = k;
+									}),
+								)
 							}
 						/>
 						<LinksGroup
@@ -444,11 +445,11 @@ export default function ({ children }: { children: ReactElement }) {
 							icon={IconStretching}
 							opened={openedLinkGroups.fitness}
 							setOpened={(k) =>
-								setOpenedLinkGroups((v) => {
-									const g = Object.assign({}, v);
-									g.fitness = k;
-									return g;
-								})
+								setOpenedLinkGroups(
+									produce(openedLinkGroups, (draft) => {
+										draft.fitness = k;
+									}),
+								)
 							}
 							links={[
 								{
@@ -466,11 +467,11 @@ export default function ({ children }: { children: ReactElement }) {
 							icon={IconSettings}
 							opened={openedLinkGroups.settings}
 							setOpened={(k) =>
-								setOpenedLinkGroups((v) => {
-									const g = Object.assign({}, v);
-									g.settings = k;
-									return g;
-								})
+								setOpenedLinkGroups(
+									produce(openedLinkGroups, (draft) => {
+										draft.settings = k;
+									}),
+								)
 							}
 							links={
 								[
