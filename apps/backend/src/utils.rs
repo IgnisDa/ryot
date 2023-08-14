@@ -15,10 +15,10 @@ use darkbird::{
 };
 use http_types::headers::HeaderName;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection,
-    EntityTrait, QueryFilter,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, EntityTrait, QueryFilter,
 };
-use sea_query::{BinOper, Expr, Func, OnConflict, SimpleExpr};
+use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
@@ -144,22 +144,7 @@ where
                 metadata_id: ActiveValue::Set(*metadata_id),
                 ..Default::default()
             };
-            UserToMetadata::insert(user_to_meta.clone())
-                .on_conflict(
-                    OnConflict::columns([
-                        user_to_metadata::Column::UserId,
-                        user_to_metadata::Column::MetadataId,
-                    ])
-                    .update_column(user_to_metadata::Column::UserId)
-                    .value(user_to_metadata::Column::UserId, Expr::val(*user_id))
-                    .to_owned(),
-                )
-                .exec(db)
-                .await
-                .ok();
-            get_user_and_metadata_association(user_id, metadata_id, db)
-                .await
-                .unwrap()
+            user_to_meta.insert(db).await.unwrap()
         }
         Some(u) => u,
     })
