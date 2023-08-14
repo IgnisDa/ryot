@@ -21,7 +21,7 @@ use crate::{
     migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
     models::{
         fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscle,
             GithubExerciseAttributes,
         },
         SearchResults,
@@ -43,6 +43,7 @@ struct ExerciseListFilter {
     force: Option<ExerciseForce>,
     mechanic: Option<ExerciseMechanic>,
     equipment: Option<ExerciseEquipment>,
+    muscle: Option<ExerciseMuscle>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -67,6 +68,7 @@ struct ExerciseFilters {
     force: Vec<ExerciseForce>,
     mechanic: Vec<ExerciseMechanic>,
     equipment: Vec<ExerciseEquipment>,
+    muscle: Vec<ExerciseMuscle>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -184,6 +186,7 @@ impl ExerciseService {
                 force: ExerciseForce::iter().collect_vec(),
                 mechanic: ExerciseMechanic::iter().collect_vec(),
                 equipment: ExerciseEquipment::iter().collect_vec(),
+                muscle: ExerciseMuscle::iter().collect_vec(),
             },
             download_required,
         })
@@ -230,6 +233,15 @@ impl ExerciseService {
             .apply_if(input.filter, |query, q| {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
+                    .apply_if(q.muscle, |q, v| {
+                        q.filter(get_case_insensitive_like_query(
+                            Func::lower(Func::cast_as(
+                                Expr::col(exercise::Column::Attributes),
+                                Alias::new("text"),
+                            )),
+                            &v.to_string(),
+                        ))
+                    })
                     .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
                     .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
                     .apply_if(q.mechanic, |q, v| {

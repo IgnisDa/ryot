@@ -55,12 +55,13 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 
 const defaultFilterValue = {
+	muscle: undefined,
 	type: undefined,
 	equipment: undefined,
 	force: undefined,
 	level: undefined,
 	mechanic: undefined,
-};
+} as ExerciseListFilter;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -74,12 +75,11 @@ const Page: NextPageWithLayout = () => {
 		key: "savedExercisesQuery",
 		getInitialValueInEffect: false,
 	});
-	const [exerciseFilters, setExerciseFilters] =
-		useLocalStorage<ExerciseListFilter>({
-			key: "savedExerciseFilters",
-			defaultValue: defaultFilterValue,
-			getInitialValueInEffect: true,
-		});
+	const [exerciseFilters, setExerciseFilters] = useLocalStorage({
+		key: "savedExerciseFilters",
+		defaultValue: defaultFilterValue,
+		getInitialValueInEffect: true,
+	});
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },

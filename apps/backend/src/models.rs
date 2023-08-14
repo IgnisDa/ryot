@@ -9,6 +9,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use specta::Type;
+use strum::Display;
 
 use crate::{
     entities::exercise::Model as ExerciseModel,
@@ -728,7 +729,17 @@ pub mod fitness {
     use super::*;
 
     #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+        Debug,
+        Clone,
+        Serialize,
+        Enum,
+        Copy,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Display,
+        EnumIter,
     )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseMuscle {
