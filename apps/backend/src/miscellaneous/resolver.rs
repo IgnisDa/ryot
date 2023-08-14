@@ -1566,10 +1566,7 @@ impl MiscellaneousService {
         if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
                 get_case_insensitive_like_query(
-                    Func::lower(Func::cast_as(
-                        Expr::col((metadata_alias.clone(), col)),
-                        Alias::new("text"),
-                    )),
+                    Func::cast_as(Expr::col((metadata_alias.clone(), col)), Alias::new("text")),
                     &v,
                 )
             };
@@ -4608,7 +4605,7 @@ impl MiscellaneousService {
         let query = Creator::find()
             .apply_if(input.query, |query, v| {
                 query.filter(Condition::all().add(get_case_insensitive_like_query(
-                    Func::lower(Expr::col(creator::Column::Name)),
+                    Expr::col(creator::Column::Name),
                     &v,
                 )))
             })

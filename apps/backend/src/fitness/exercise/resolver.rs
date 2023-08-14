@@ -238,10 +238,7 @@ impl ExerciseService {
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
                     .apply_if(q.muscle, |q, v| {
                         q.filter(get_case_insensitive_like_query(
-                            Func::lower(Func::cast_as(
-                                Expr::col(exercise::Column::Muscles),
-                                Alias::new("text"),
-                            )),
+                            Func::cast_as(Expr::col(exercise::Column::Muscles), Alias::new("text")),
                             &v.to_string(),
                         ))
                     })
@@ -258,14 +255,14 @@ impl ExerciseService {
                 query.filter(
                     Condition::any()
                         .add(get_case_insensitive_like_query(
-                            Func::lower(Expr::col(exercise::Column::Name)),
+                            Expr::col(exercise::Column::Name),
                             &v,
                         ))
                         .add(get_case_insensitive_like_query(
-                            Func::lower(Func::cast_as(
+                            Func::cast_as(
                                 Expr::col(exercise::Column::Attributes),
                                 Alias::new("text"),
-                            )),
+                            ),
                             &v,
                         )),
                 )
