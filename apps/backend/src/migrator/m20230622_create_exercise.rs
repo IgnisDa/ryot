@@ -37,8 +37,10 @@ pub enum ExerciseMuscle {
     Glutes,
     Hamstrings,
     Lats,
+    #[strum(serialize = "lower_back")]
     #[serde(alias = "lower back")]
     LowerBack,
+    #[strum(serialize = "middle_back")]
     #[serde(alias = "middle back")]
     MiddleBack,
     Neck,

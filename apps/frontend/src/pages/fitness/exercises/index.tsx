@@ -277,13 +277,11 @@ const Page: NextPageWithLayout = () => {
 												/>
 												<Flex direction={"column"} justify={"space-around"}>
 													<Text>{exercise.name}</Text>
-													<Text size="xs">
-														{startCase(
-															snakeCase(
-																exercise.attributes.primaryMuscles.at(0),
-															),
-														)}
-													</Text>
+													{exercise.equipment ? (
+														<Text size="xs">
+															{startCase(snakeCase(exercise.equipment))}
+														</Text>
+													) : null}
 												</Flex>
 											</Flex>
 										))}
