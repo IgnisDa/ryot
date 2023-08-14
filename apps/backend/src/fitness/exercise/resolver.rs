@@ -28,6 +28,11 @@ use crate::{
     utils::{get_case_insensitive_like_query, MemoryDatabase, PAGE_LIMIT},
 };
 
+static JSON_URL: &str =
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
+static IMAGES_PREFIX_URL: &str =
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ExercisesListInput {
     pub page: i32,
@@ -109,9 +114,7 @@ impl ExerciseMutation {
 
 pub struct ExerciseService {
     db: DatabaseConnection,
-    json_url: String,
     auth_db: MemoryDatabase,
-    image_prefix_url: String,
     update_exercise: SqliteStorage<UpdateExerciseJob>,
 }
 
@@ -126,22 +129,18 @@ impl ExerciseService {
         db: &DatabaseConnection,
         auth_db: MemoryDatabase,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
-        json_url: String,
-        image_prefix_url: String,
     ) -> Self {
         Self {
             db: db.clone(),
             auth_db,
             update_exercise: update_exercise.clone(),
-            json_url,
-            image_prefix_url,
         }
     }
 }
 
 impl ExerciseService {
     async fn get_all_exercises_from_dataset(&self) -> Result<Vec<GithubExercise>> {
-        let data: Vec<GithubExercise> = surf::get(&self.json_url)
+        let data: Vec<GithubExercise> = surf::get(JSON_URL)
             .send()
             .await
             .unwrap()
@@ -156,7 +155,7 @@ impl ExerciseService {
                         .attributes
                         .images
                         .into_iter()
-                        .map(|i| format!("{}/{}", self.image_prefix_url, i))
+                        .map(|i| format!("{}/{}", IMAGES_PREFIX_URL, i))
                         .collect(),
                     ..e.attributes
                 },

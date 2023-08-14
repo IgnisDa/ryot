@@ -107,26 +107,7 @@ pub struct DatabaseConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
-#[config(rename_all = "snake_case", env_prefix = "EXERCISE_DB_")]
-pub struct FreeExerciseDbConfig {
-    /// The URL for the raw JSON for all exercises.
-    #[setting(
-        default = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json"
-    )]
-    pub json_url: String,
-    /// The base URL to prefix for all images.
-    #[setting(
-        default = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises"
-    )]
-    pub images_prefix_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
-pub struct ExerciseConfig {
-    //// Settings related to Free Exercise DB.
-    #[setting(nested)]
-    pub db: FreeExerciseDbConfig,
-}
+pub struct ExerciseConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
