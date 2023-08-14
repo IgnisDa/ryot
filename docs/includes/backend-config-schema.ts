@@ -52,21 +52,8 @@ export interface DatabaseConfig {
 	url: string;
 }
 
-export interface FreeExerciseDbConfig {
-	/**
-	 * The base URL to prefix for all images.
-	 * @default 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises'
-	 */
-	images_prefix_url: string;
-	/**
-	 * The URL for the raw JSON for all exercises.
-	 * @default 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json'
-	 */
-	json_url: string;
-}
-
 export interface ExerciseConfig {
-	db: FreeExerciseDbConfig;
+
 }
 
 export interface FileStorageConfig {

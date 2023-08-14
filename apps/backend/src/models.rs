@@ -12,7 +12,10 @@ use specta::Type;
 
 use crate::{
     entities::exercise::Model as ExerciseModel,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource, SeenState},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, MetadataImageLot,
+        MetadataLot, MetadataSource, SeenState,
+    },
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
@@ -728,59 +731,6 @@ pub mod fitness {
         Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
     )]
     #[serde(rename_all = "snake_case")]
-    pub enum ExerciseForce {
-        Static,
-        Pull,
-        Push,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseLevel {
-        Beginner,
-        Intermediate,
-        Expert,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseMechanic {
-        Isolation,
-        Compound,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseEquipment {
-        #[serde(rename = "medicine ball")]
-        MedicineBall,
-        Dumbbell,
-        #[serde(rename = "body only")]
-        BodyOnly,
-        Bands,
-        Kettlebells,
-        #[serde(rename = "foam roll")]
-        FoamRoll,
-        Cable,
-        Machine,
-        Barbell,
-        #[serde(rename = "exercise ball")]
-        ExerciseBall,
-        #[serde(rename = "e-z curl bar")]
-        EZCurlBar,
-        Other,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
     pub enum ExerciseMuscle {
         Abdominals,
         Abductors,
@@ -792,9 +742,9 @@ pub mod fitness {
         Glutes,
         Hamstrings,
         Lats,
-        #[serde(rename = "lower back")]
+        #[serde(alias = "lower back")]
         LowerBack,
-        #[serde(rename = "middle back")]
+        #[serde(alias = "middle back")]
         MiddleBack,
         Neck,
         Quadriceps,
@@ -812,7 +762,7 @@ pub mod fitness {
         Strength,
         Stretching,
         Cardio,
-        #[serde(rename = "olympic weightlifting")]
+        #[serde(alias = "olympic weightlifting")]
         OlympicWeightlifting,
         Strongman,
         Plyometrics,
@@ -823,13 +773,25 @@ pub mod fitness {
     )]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
-        pub force: Option<ExerciseForce>,
+        pub primary_muscles: Vec<ExerciseMuscle>,
+        pub secondary_muscles: Vec<ExerciseMuscle>,
+        pub instructions: Vec<String>,
+        #[serde(default)]
+        pub images: Vec<String>,
+    }
+
+    #[derive(
+        Debug, Clone, Serialize, SimpleObject, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
+    #[serde(rename_all = "camelCase")]
+    pub struct GithubExerciseAttributes {
         pub level: ExerciseLevel,
+        pub category: ExerciseCategory,
+        pub force: Option<ExerciseForce>,
         pub mechanic: Option<ExerciseMechanic>,
         pub equipment: Option<ExerciseEquipment>,
         pub primary_muscles: Vec<ExerciseMuscle>,
         pub secondary_muscles: Vec<ExerciseMuscle>,
-        pub category: ExerciseCategory,
         pub instructions: Vec<String>,
         #[serde(default)]
         pub images: Vec<String>,
@@ -838,10 +800,10 @@ pub mod fitness {
     #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct Exercise {
-        #[serde(rename = "id")]
+        #[serde(alias = "id")]
         pub identifier: String,
         #[serde(flatten)]
-        pub attributes: ExerciseAttributes,
+        pub attributes: GithubExerciseAttributes,
         pub name: String,
     }
 

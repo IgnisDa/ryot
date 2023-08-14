@@ -55,7 +55,8 @@ const documents = {
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query CreatorDetails($creatorId: Int!) {\n  creatorDetails(creatorId: $creatorId) {\n    details {\n      id\n      name\n      image\n    }\n    contents {\n      name\n      items {\n        identifier\n        lot\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.CreatorDetailsDocument,
     "query CreatorsList($input: SearchInput!) {\n  creatorsList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.CreatorsListDocument,
-    "query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    attributes {\n      force\n      level\n      mechanic\n      equipment\n      primaryMuscles\n      secondaryMuscles\n      category\n      instructions\n      images\n    }\n  }\n}": types.ExerciseDocument,
+    "query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}": types.ExerciseDocument,
+    "query ExerciseInformation {\n  exerciseInformation {\n    filters {\n      lot\n      level\n      force\n      mechanic\n      equipment\n    }\n    downloadRequired\n  }\n}": types.ExerciseInformationDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    total\n    nextPage\n    items {\n      id\n      name\n      attributes {\n        primaryMuscles\n        images\n      }\n    }\n  }\n}": types.ExercisesListDocument,
     "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}": types.GetPresignedUrlDocument,
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
@@ -263,7 +264,11 @@ export function graphql(source: "query CreatorsList($input: SearchInput!) {\n  c
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    attributes {\n      force\n      level\n      mechanic\n      equipment\n      primaryMuscles\n      secondaryMuscles\n      category\n      instructions\n      images\n    }\n  }\n}"): (typeof documents)["query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    attributes {\n      force\n      level\n      mechanic\n      equipment\n      primaryMuscles\n      secondaryMuscles\n      category\n      instructions\n      images\n    }\n  }\n}"];
+export function graphql(source: "query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}"): (typeof documents)["query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query ExerciseInformation {\n  exerciseInformation {\n    filters {\n      lot\n      level\n      force\n      mechanic\n      equipment\n    }\n    downloadRequired\n  }\n}"): (typeof documents)["query ExerciseInformation {\n  exerciseInformation {\n    filters {\n      lot\n      level\n      force\n      mechanic\n      equipment\n    }\n    downloadRequired\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

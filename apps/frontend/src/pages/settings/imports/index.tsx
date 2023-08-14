@@ -219,15 +219,7 @@ const Page: NextPageWithLayout = () => {
 								value: is,
 							}))}
 							onChange={(v) => {
-								const t = match(v)
-									.with("GOODREADS", () => ImportSource.Goodreads)
-									.with("MEDIA_TRACKER", () => ImportSource.MediaTracker)
-									.with("TRAKT", () => ImportSource.Trakt)
-									.with("MOVARY", () => ImportSource.Movary)
-									.with("STORY_GRAPH", () => ImportSource.StoryGraph)
-									.with("MEDIA_JSON", () => ImportSource.MediaJson)
-									.run();
-								if (t) setDeployImportSource(t);
+								if (v) setDeployImportSource(v as ImportSource);
 							}}
 						/>
 						{deployImportSource ? (

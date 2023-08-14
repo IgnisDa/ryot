@@ -32,7 +32,6 @@ import { formatTimeAgo } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
-import { match } from "ts-pattern";
 import { z } from "zod";
 
 const createUserYankIntegrationSchema = z.object({
@@ -194,21 +193,30 @@ const Page: NextPageWithLayout = () => {
 											...Object.values(UserYankIntegrationSettingKind),
 											...Object.values(UserSinkIntegrationSettingKind),
 										]}
-										onChange={(v) => {
-											const t = match(v)
-												.with(
-													"AUDIOBOOKSHELF",
-													() => UserYankIntegrationSettingKind.Audiobookshelf,
-												)
-												.otherwise(() => undefined);
-											if (t) setCreateUserYankIntegrationLot(t);
-											const r = match(v)
-												.with(
-													"JELLYFIN",
-													() => UserSinkIntegrationSettingKind.Jellyfin,
-												)
-												.otherwise(() => undefined);
-											if (r) setCreateUserSinkIntegrationLot(r);
+										onChange={(v: any) => {
+											console.log(v);
+											if (v) {
+												if (
+													Object.values(
+														UserYankIntegrationSettingKind,
+													).includes(v)
+												) {
+													setCreateUserYankIntegrationLot(
+														v as UserYankIntegrationSettingKind,
+													);
+													setCreateUserSinkIntegrationLot(undefined);
+												}
+												if (
+													Object.values(
+														UserSinkIntegrationSettingKind,
+													).includes(v)
+												) {
+													setCreateUserSinkIntegrationLot(
+														v as UserSinkIntegrationSettingKind,
+													);
+													setCreateUserYankIntegrationLot(undefined);
+												}
+											}
 										}}
 									/>
 									{createUserYankIntegrationLot ? (

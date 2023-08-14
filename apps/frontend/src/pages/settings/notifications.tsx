@@ -235,34 +235,10 @@ const Page: NextPageWithLayout = () => {
 											(v) => ({ label: changeCase(v), value: v }),
 										)}
 										onChange={(v) => {
-											const t = match(v)
-												.with(
-													"APPRISE",
-													() => UserNotificationSettingKind.Apprise,
-												)
-												.with(
-													"DISCORD",
-													() => UserNotificationSettingKind.Discord,
-												)
-												.with(
-													"GOTIFY",
-													() => UserNotificationSettingKind.Gotify,
-												)
-												.with("NTFY", () => UserNotificationSettingKind.Ntfy)
-												.with(
-													"PUSH_BULLET",
-													() => UserNotificationSettingKind.PushBullet,
-												)
-												.with(
-													"PUSH_OVER",
-													() => UserNotificationSettingKind.PushOver,
-												)
-												.with(
-													"PUSH_SAFER",
-													() => UserNotificationSettingKind.PushSafer,
-												)
-												.otherwise(() => undefined);
-											if (t) setCreateUserNotificationPlatformLot(t);
+											if (v)
+												setCreateUserNotificationPlatformLot(
+													v as UserNotificationSettingKind,
+												);
 										}}
 									/>
 									{createUserNotificationPlatformLot

@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Error, InputObject, Object, Result};
+use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
+use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
 };
 use sea_query::{Alias, Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
 use crate::{
     background::UpdateExerciseJob,
@@ -16,24 +18,59 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
+    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
     models::{
-        fitness::{Exercise as GithubExercise, ExerciseAttributes},
+        fitness::{
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
+            GithubExerciseAttributes,
+        },
         SearchResults,
     },
     traits::AuthProvider,
     utils::{get_case_insensitive_like_query, MemoryDatabase, PAGE_LIMIT},
 };
 
+static JSON_URL: &str =
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
+static IMAGES_PREFIX_URL: &str =
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct ExercisesListInput {
-    pub page: i32,
-    pub query: Option<String>,
+struct ExerciseListFilter {
+    lot: Option<ExerciseLot>,
+    level: Option<ExerciseLevel>,
+    force: Option<ExerciseForce>,
+    mechanic: Option<ExerciseMechanic>,
+    equipment: Option<ExerciseEquipment>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct UserMeasurementsListInput {
-    pub start_time: Option<DateTimeUtc>,
-    pub end_time: Option<DateTimeUtc>,
+struct ExercisesListInput {
+    page: i32,
+    query: Option<String>,
+    filter: Option<ExerciseListFilter>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct ExerciseInformation {
+    /// All filters applicable to an exercises query.
+    filters: ExerciseFilters,
+    download_required: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct ExerciseFilters {
+    lot: Vec<ExerciseLot>,
+    level: Vec<ExerciseLevel>,
+    force: Vec<ExerciseForce>,
+    mechanic: Vec<ExerciseMechanic>,
+    equipment: Vec<ExerciseEquipment>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct UserMeasurementsListInput {
+    start_time: Option<DateTimeUtc>,
+    end_time: Option<DateTimeUtc>,
 }
 
 #[derive(Default)]
@@ -41,6 +78,12 @@ pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
+    /// Get all the information related to exercises.
+    async fn exercise_information(&self, gql_ctx: &Context<'_>) -> Result<ExerciseInformation> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.exercise_information().await
+    }
+
     /// Get a paginated list of exercises in the database.
     async fn exercises_list(
         &self,
@@ -105,9 +148,7 @@ impl ExerciseMutation {
 
 pub struct ExerciseService {
     db: DatabaseConnection,
-    json_url: String,
     auth_db: MemoryDatabase,
-    image_prefix_url: String,
     update_exercise: SqliteStorage<UpdateExerciseJob>,
 }
 
@@ -122,22 +163,32 @@ impl ExerciseService {
         db: &DatabaseConnection,
         auth_db: MemoryDatabase,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
-        json_url: String,
-        image_prefix_url: String,
     ) -> Self {
         Self {
             db: db.clone(),
             auth_db,
             update_exercise: update_exercise.clone(),
-            json_url,
-            image_prefix_url,
         }
     }
 }
 
 impl ExerciseService {
+    async fn exercise_information(&self) -> Result<ExerciseInformation> {
+        let download_required = Exercise::find().count(&self.db).await? == 0;
+        Ok(ExerciseInformation {
+            filters: ExerciseFilters {
+                lot: ExerciseLot::iter().collect_vec(),
+                level: ExerciseLevel::iter().collect_vec(),
+                force: ExerciseForce::iter().collect_vec(),
+                mechanic: ExerciseMechanic::iter().collect_vec(),
+                equipment: ExerciseEquipment::iter().collect_vec(),
+            },
+            download_required,
+        })
+    }
+
     async fn get_all_exercises_from_dataset(&self) -> Result<Vec<GithubExercise>> {
-        let data: Vec<GithubExercise> = surf::get(&self.json_url)
+        let data: Vec<GithubExercise> = surf::get(JSON_URL)
             .send()
             .await
             .unwrap()
@@ -147,12 +198,12 @@ impl ExerciseService {
         Ok(data
             .into_iter()
             .map(|e| GithubExercise {
-                attributes: ExerciseAttributes {
+                attributes: GithubExerciseAttributes {
                     images: e
                         .attributes
                         .images
                         .into_iter()
-                        .map(|i| format!("{}/{}", self.image_prefix_url, i))
+                        .map(|i| format!("{}/{}", IMAGES_PREFIX_URL, i))
                         .collect(),
                     ..e.attributes
                 },
@@ -174,6 +225,18 @@ impl ExerciseService {
         input: ExercisesListInput,
     ) -> Result<SearchResults<exercise::Model>> {
         let query = Exercise::find()
+            .apply_if(input.filter, |query, q| {
+                query
+                    .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
+                    .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
+                    .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
+                    .apply_if(q.mechanic, |q, v| {
+                        q.filter(exercise::Column::Mechanic.eq(v))
+                    })
+                    .apply_if(q.equipment, |q, v| {
+                        q.filter(exercise::Column::Equipment.eq(v))
+                    })
+            })
             .apply_if(input.query, |query, v| {
                 query.filter(
                     Condition::any()
@@ -231,10 +294,29 @@ impl ExerciseService {
             .await?
             .is_none()
         {
+            let lot = match ex.attributes.category {
+                ExerciseCategory::Stretching => ExerciseLot::Duration,
+                ExerciseCategory::Plyometrics => ExerciseLot::Duration,
+                ExerciseCategory::Cardio => ExerciseLot::DistanceAndDuration,
+                ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::Strength => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::OlympicWeightlifting => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::Strongman => ExerciseLot::RepsAndWeight,
+            };
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
-                attributes: ActiveValue::Set(ex.attributes),
+                attributes: ActiveValue::Set(ExerciseAttributes {
+                    primary_muscles: ex.attributes.primary_muscles,
+                    secondary_muscles: ex.attributes.secondary_muscles,
+                    instructions: ex.attributes.instructions,
+                    images: ex.attributes.images,
+                }),
+                lot: ActiveValue::Set(lot),
+                level: ActiveValue::Set(ex.attributes.level),
+                force: ActiveValue::Set(ex.attributes.force),
+                equipment: ActiveValue::Set(ex.attributes.equipment),
+                mechanic: ActiveValue::Set(ex.attributes.mechanic),
                 ..Default::default()
             };
             db_exercise.insert(&self.db).await?;
