@@ -30,6 +30,12 @@ pub struct ExercisesListInput {
     pub query: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UserMeasurementsListInput {
+    pub start_time: Option<DateTimeUtc>,
+    pub end_time: Option<DateTimeUtc>,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
@@ -55,10 +61,11 @@ impl ExerciseQuery {
     async fn user_measurements_list(
         &self,
         gql_ctx: &Context<'_>,
+        input: UserMeasurementsListInput,
     ) -> Result<Vec<user_measurement::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_measurements_list(user_id).await
+        service.user_measurements_list(user_id, input).await
     }
 }
 
@@ -235,8 +242,18 @@ impl ExerciseService {
         Ok(())
     }
 
-    async fn user_measurements_list(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
+    async fn user_measurements_list(
+        &self,
+        user_id: i32,
+        input: UserMeasurementsListInput,
+    ) -> Result<Vec<user_measurement::Model>> {
         let resp = UserMeasurement::find()
+            .apply_if(input.start_time, |query, v| {
+                query.filter(user_measurement::Column::Timestamp.lte(v))
+            })
+            .apply_if(input.end_time, |query, v| {
+                query.filter(user_measurement::Column::Timestamp.gte(v))
+            })
             .filter(user_measurement::Column::UserId.eq(user_id))
             .order_by_asc(user_measurement::Column::Timestamp)
             .all(&self.db)

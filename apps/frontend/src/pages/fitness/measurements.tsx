@@ -7,13 +7,19 @@ import {
 	ActionIcon,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Drawer,
 	Flex,
+	Group,
 	MultiSelect,
 	NumberInput,
+	Paper,
+	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
+	Text,
 	TextInput,
 	Textarea,
 	Title,
@@ -24,10 +30,13 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateUserMeasurementDocument,
 	type CreateUserMeasurementMutationVariables,
+	DeleteUserMeasurementDocument,
+	type DeleteUserMeasurementMutationVariables,
+	type UserMeasurement,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
@@ -42,26 +51,129 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { match } from "ts-pattern";
+
+const getValues = (m: UserMeasurement["stats"]) => {
+	const vals: { name: string; value: string }[] = [];
+	for (const [key, val] of Object.entries(m)) {
+		if (key !== "custom") {
+			if (val !== null) {
+				vals.push({ name: key, value: val });
+			}
+		} else {
+			for (const [keyC, valC] of Object.entries(m.custom || {}))
+				vals.push({ name: keyC, value: valC as any });
+		}
+	}
+	return vals;
+};
+
+const DisplayMeasurement = (props: {
+	measurement: UserMeasurement;
+	refetch: () => void;
+}) => {
+	const [opened, { toggle }] = useDisclosure(false);
+	const values = getValues(props.measurement.stats);
+	const deleteUserMeasurement = useMutation({
+		mutationFn: async (variables: DeleteUserMeasurementMutationVariables) => {
+			const { deleteUserMeasurement } = await gqlClient.request(
+				DeleteUserMeasurementDocument,
+				variables,
+			);
+			return deleteUserMeasurement;
+		},
+		onSuccess: () => {
+			props.refetch();
+		},
+	});
+
+	return (
+		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
+			<Flex direction={"column"} justify={"center"} gap="xs">
+				<Flex justify={"space-around"}>
+					<Button onClick={toggle} variant="default" size="xs" compact>
+						{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
+							DateTime.DATETIME_SHORT,
+						)}
+					</Button>
+					<ActionIcon
+						variant="light"
+						color="red"
+						size="sm"
+						onClick={() => {
+							const yes = confirm(
+								"This action can not be undone. Are you sure you want to delete this measurement?",
+							);
+							if (yes)
+								deleteUserMeasurement.mutate({
+									timestamp: props.measurement.timestamp,
+								});
+						}}
+					>
+						<IconTrash size="1rem" />
+					</ActionIcon>
+				</Flex>
+				<Collapse in={opened}>
+					{values.map((v, idx) => (
+						<Text key={idx} align="center">
+							{startCase(snakeCase(v.name))}: {v.value}
+						</Text>
+					))}
+				</Collapse>
+			</Flex>
+		</Paper>
+	);
+};
 
 const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
 };
 
+enum TimeSpan {
+	Last7Days = "Last 7 days",
+	Last30Days = "Last 30 days",
+	Last90Days = "Last 90 days",
+	Last365Days = "Last 365 days",
+	AllTime = "All Time",
+}
+
 const Page: NextPageWithLayout = () => {
-	const [selectedStats, setselectedStates] = useLocalStorage<string[]>({
+	const [selectedStats, setselectedStats] = useLocalStorage<string[]>({
 		defaultValue: [],
 		key: "measurementsDisplaySelectedStats",
+		getInitialValueInEffect: true,
+	});
+	const [selectedTimespan, setselectedTimespan] = useLocalStorage({
+		defaultValue: TimeSpan.Last30Days,
+		key: "measurementsDisplaySelectedTimespan",
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
-	const userMeasurementsList = useQuery(["userMeasurementsList"], async () => {
-		const { userMeasurementsList } = await gqlClient.request(
-			UserMeasurementsListDocument,
-		);
-		return userMeasurementsList;
-	});
+	const userMeasurementsList = useQuery(
+		["userMeasurementsList", selectedTimespan],
+		async () => {
+			const now = DateTime.now();
+			const [startTime, endTime] = match(selectedTimespan)
+				.with(TimeSpan.Last7Days, () => [now, now.minus({ days: 7 })])
+				.with(TimeSpan.Last30Days, () => [now, now.minus({ days: 30 })])
+				.with(TimeSpan.Last90Days, () => [now, now.minus({ days: 90 })])
+				.with(TimeSpan.Last365Days, () => [now, now.minus({ days: 365 })])
+				.with(TimeSpan.AllTime, () => [null, null])
+				.exhaustive();
+			const { userMeasurementsList } = await gqlClient.request(
+				UserMeasurementsListDocument,
+				{
+					input: {
+						startTime: startTime?.toJSDate(),
+						endTime: endTime?.toJSDate(),
+					},
+				},
+			);
+			return userMeasurementsList;
+		},
+	);
 	const createUserMeasurement = useMutation({
 		mutationFn: async (variables: CreateUserMeasurementMutationVariables) => {
 			const { createUserMeasurement } = await gqlClient.request(
@@ -148,26 +260,37 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<MultiSelect
-						data={[
-							...Object.keys(preferences.data.fitness.measurements.inbuilt)
-								.filter(
-									(n) =>
-										(preferences as any).data.fitness.measurements.inbuilt[n],
-								)
-								.map((v) => ({ name: v, value: v })),
-							...preferences.data.fitness.measurements.custom.map(
-								({ name }) => ({ name, value: `custom.${name}` }),
-							),
-						].map((v) => ({
-							value: v.value,
-							label: startCase(v.name),
-						}))}
-						defaultValue={selectedStats}
-						onChange={(s) => {
-							if (s) setselectedStates(s);
-						}}
-					/>
+					<Group grow>
+						<MultiSelect
+							label="Statistics to display"
+							data={[
+								...Object.keys(preferences.data.fitness.measurements.inbuilt)
+									.filter(
+										(n) =>
+											(preferences as any).data.fitness.measurements.inbuilt[n],
+									)
+									.map((v) => ({ name: v, value: v })),
+								...preferences.data.fitness.measurements.custom.map(
+									({ name }) => ({ name, value: `custom.${name}` }),
+								),
+							].map((v) => ({
+								value: v.value,
+								label: startCase(v.name),
+							}))}
+							value={selectedStats}
+							onChange={(s) => {
+								if (s) setselectedStats(s);
+							}}
+						/>
+						<Select
+							label="Timespan"
+							value={selectedTimespan}
+							data={Object.values(TimeSpan)}
+							onChange={(v) => {
+								if (v) setselectedTimespan(v as TimeSpan);
+							}}
+						/>
+					</Group>
 					<Box w={"100%"} ml={-15}>
 						<ResponsiveContainer width="100%" height={300}>
 							<LineChart
@@ -195,6 +318,29 @@ const Page: NextPageWithLayout = () => {
 							</LineChart>
 						</ResponsiveContainer>
 					</Box>
+					{userMeasurementsList.data.length > 0 ? (
+						<ScrollArea h={400}>
+							<SimpleGrid
+								cols={2}
+								breakpoints={[
+									{ minWidth: "md", cols: 3 },
+									{ minWidth: "xl", cols: 4 },
+								]}
+							>
+								{userMeasurementsList.data.map((m, idx) => (
+									<DisplayMeasurement
+										key={idx}
+										measurement={m}
+										refetch={userMeasurementsList.refetch}
+									/>
+								))}
+							</SimpleGrid>
+						</ScrollArea>
+					) : (
+						<Text align="center">
+							You have not added any measurements in this time period.
+						</Text>
+					)}
 				</Stack>
 			</Container>
 		</>
