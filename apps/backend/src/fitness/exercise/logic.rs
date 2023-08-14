@@ -22,14 +22,6 @@ pub struct SetStatistic {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
-pub enum StatisticLot {
-    Duration,
-    DistanceAndDuration,
-    Reps,
-    RepsAndWeight,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
 pub enum SetPersonalBest {
     Weight,
     OneRm,
@@ -44,7 +36,6 @@ pub mod done {
     )]
     pub struct DoneSetRecord {
         pub statistic: SetStatistic,
-        pub lot: StatisticLot,
         pub personal_bests: Vec<SetPersonalBest>,
     }
 
@@ -94,7 +85,6 @@ pub mod in_progress {
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct InProgressSetRecord {
         pub statistic: SetStatistic,
-        pub lot: StatisticLot,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
