@@ -60,10 +60,10 @@ struct ExerciseInformation {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct ExerciseFilters {
-    lots: Vec<ExerciseLot>,
-    levels: Vec<ExerciseLevel>,
-    forces: Vec<ExerciseForce>,
-    mechanics: Vec<ExerciseMechanic>,
+    lot: Vec<ExerciseLot>,
+    level: Vec<ExerciseLevel>,
+    force: Vec<ExerciseForce>,
+    mechanic: Vec<ExerciseMechanic>,
     equipment: Vec<ExerciseEquipment>,
 }
 
@@ -177,10 +177,10 @@ impl ExerciseService {
         let download_required = Exercise::find().count(&self.db).await? == 0;
         Ok(ExerciseInformation {
             filters: ExerciseFilters {
-                lots: ExerciseLot::iter().collect_vec(),
-                levels: ExerciseLevel::iter().collect_vec(),
-                forces: ExerciseForce::iter().collect_vec(),
-                mechanics: ExerciseMechanic::iter().collect_vec(),
+                lot: ExerciseLot::iter().collect_vec(),
+                level: ExerciseLevel::iter().collect_vec(),
+                force: ExerciseForce::iter().collect_vec(),
+                mechanic: ExerciseMechanic::iter().collect_vec(),
                 equipment: ExerciseEquipment::iter().collect_vec(),
             },
             download_required,

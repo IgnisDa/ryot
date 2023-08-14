@@ -1,10 +1,10 @@
 query ExerciseInformation {
   exerciseInformation {
     filters {
-      lots
-      levels
-      forces
-      mechanics
+      lot
+      level
+      force
+      mechanic
       equipment
     }
     downloadRequired
