@@ -1,5 +1,5 @@
 use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -19,52 +19,34 @@ impl MigrationName for Migration {
     Enum,
     Copy,
     Deserialize,
-    DeriveActiveEnum,
+    FromJsonQueryResult,
     Eq,
     PartialEq,
     Display,
     EnumIter,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMuscle {
-    #[sea_orm(string_value = "ABDO")]
     Abdominals,
-    #[sea_orm(string_value = "ABDU")]
     Abductors,
-    #[sea_orm(string_value = "AD")]
     Adductors,
-    #[sea_orm(string_value = "B")]
     Biceps,
-    #[sea_orm(string_value = "CA")]
     Calves,
-    #[sea_orm(string_value = "CH")]
     Chest,
-    #[sea_orm(string_value = "F")]
     Forearms,
-    #[sea_orm(string_value = "G")]
     Glutes,
-    #[sea_orm(string_value = "H")]
     Hamstrings,
-    #[sea_orm(string_value = "LA")]
     Lats,
-    #[sea_orm(string_value = "LO")]
     #[strum(serialize = "lower_back")]
     #[serde(alias = "lower back")]
     LowerBack,
-    #[sea_orm(string_value = "MI")]
     #[strum(serialize = "middle_back")]
     #[serde(alias = "middle back")]
     MiddleBack,
-    #[sea_orm(string_value = "N")]
     Neck,
-    #[sea_orm(string_value = "Q")]
     Quadriceps,
-    #[sea_orm(string_value = "S")]
     Shoulders,
-    #[sea_orm(string_value = "TRA")]
     Traps,
-    #[sea_orm(string_value = "TRI")]
     Triceps,
 }
 

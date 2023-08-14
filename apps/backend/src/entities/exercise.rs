@@ -25,10 +25,10 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
-    // #[graphql(skip)]
-    // pub muscles: ExerciseMuscles,
-    #[sea_orm(column_type = "Json")]
-    pub muscles: Vec<crate::migrator::ExerciseMuscle>,
+    // FIXME: Display muscle in frontend list when https://github.com/SeaQL/sea-orm/issues/1517
+    // is fixed.
+    #[graphql(skip)]
+    pub muscles: ExerciseMuscles,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
