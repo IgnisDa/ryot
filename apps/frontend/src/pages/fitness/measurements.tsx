@@ -30,11 +30,13 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateUserMeasurementDocument,
 	type CreateUserMeasurementMutationVariables,
+	DeleteUserMeasurementDocument,
+	type DeleteUserMeasurementMutationVariables,
 	type UserMeasurement,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
@@ -66,17 +68,51 @@ const getValues = (m: UserMeasurement["stats"]) => {
 	return vals;
 };
 
-const DisplayMeasurement = (props: { measurement: UserMeasurement }) => {
+const DisplayMeasurement = (props: {
+	measurement: UserMeasurement;
+	refetch: () => void;
+}) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const values = getValues(props.measurement.stats);
+	const deleteUserMeasurement = useMutation({
+		mutationFn: async (variables: DeleteUserMeasurementMutationVariables) => {
+			const { deleteUserMeasurement } = await gqlClient.request(
+				DeleteUserMeasurementDocument,
+				variables,
+			);
+			return deleteUserMeasurement;
+		},
+		onSuccess: () => {
+			props.refetch();
+		},
+	});
+
 	return (
 		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
 			<Flex direction={"column"} justify={"center"} gap="xs">
-				<Button onClick={toggle} variant="default" size="xs">
-					{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
-						DateTime.DATETIME_SHORT,
-					)}
-				</Button>
+				<Flex justify={"space-around"}>
+					<Button onClick={toggle} variant="default" size="xs" compact>
+						{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
+							DateTime.DATETIME_SHORT,
+						)}
+					</Button>
+					<ActionIcon
+						variant="light"
+						color="red"
+						size="sm"
+						onClick={() => {
+							const yes = confirm(
+								"This action can not be undone. Are you sure you want to delete this measurement?",
+							);
+							if (yes)
+								deleteUserMeasurement.mutate({
+									timestamp: props.measurement.timestamp,
+								});
+						}}
+					>
+						<IconTrash size="1rem" />
+					</ActionIcon>
+				</Flex>
 				<Collapse in={opened}>
 					{values.map((v, idx) => (
 						<Text key={idx} align="center">
@@ -292,7 +328,11 @@ const Page: NextPageWithLayout = () => {
 								]}
 							>
 								{userMeasurementsList.data.map((m, idx) => (
-									<DisplayMeasurement key={idx} measurement={m} />
+									<DisplayMeasurement
+										key={idx}
+										measurement={m}
+										refetch={userMeasurementsList.refetch}
+									/>
 								))}
 							</SimpleGrid>
 						</ScrollArea>
