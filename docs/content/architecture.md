@@ -14,13 +14,15 @@ There is a [devcontainer](https://code.visualstudio.com/docs/devcontainers/conta
 configuration in the repository. You can use it to launch a development environment
 with all tools installed.
 
+### Environment
+
 In development, both servers are started independently running on `:3000` and `:8000`
 respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs), and
 run `mprocs` in the project root. If you do not want to install `mprocs`, take a look at
 [`mproc.yaml`]({{ extra.file_path }}/mprocs.yaml) to see what all commands are
 needed to get it working.
 
-Here is the minimal configuration required:
+Here is the minimal configuration required in development mode:
 
 ```json title="config/ryot.json"
 {
@@ -38,9 +40,11 @@ Here is the minimal configuration required:
 
 I also recommend the following environment file:
 
-```env title=".env"
+```bash title=".env"
 RUST_LOG="ryot=trace,sea_orm=debug"
 ```
+
+### Version Control
 
 Unless it is a very small change, I prefer creating a separate branch and merging it via an
 MR when it is done. The changelog is generated using
