@@ -204,6 +204,7 @@ const Page: NextPageWithLayout = () => {
 										{Object.keys(defaultFilterValue).map((f, idx) => (
 											<Select
 												key={idx}
+												clearable
 												data={(exerciseInformation.data.filters as any)[f].map(
 													(v: any) => ({
 														label: startCase(snakeCase(v)),
@@ -213,12 +214,11 @@ const Page: NextPageWithLayout = () => {
 												label={startCase(f)}
 												value={(exerciseFilters as any)[f]}
 												onChange={(v) => {
-													if (v)
-														setExerciseFilters(
-															produce(exerciseFilters, (draft) => {
-																(draft as any)[f] = v;
-															}),
-														);
+													setExerciseFilters(
+														produce(exerciseFilters, (draft) => {
+															(draft as any)[f] = v;
+														}),
+													);
 												}}
 											/>
 										))}
