@@ -18,10 +18,13 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
-    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+        ExerciseMuscle,
+    },
     models::{
         fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscle,
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes,
         },
         SearchResults,
@@ -236,7 +239,7 @@ impl ExerciseService {
                     .apply_if(q.muscle, |q, v| {
                         q.filter(get_case_insensitive_like_query(
                             Func::lower(Func::cast_as(
-                                Expr::col(exercise::Column::Attributes),
+                                Expr::col(exercise::Column::Muscles),
                                 Alias::new("text"),
                             )),
                             &v.to_string(),
@@ -317,12 +320,13 @@ impl ExerciseService {
                 ExerciseCategory::OlympicWeightlifting => ExerciseLot::RepsAndWeight,
                 ExerciseCategory::Strongman => ExerciseLot::RepsAndWeight,
             };
+            let mut muscles = ex.attributes.primary_muscles;
+            muscles.extend(ex.attributes.secondary_muscles);
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
+                muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(ExerciseAttributes {
-                    primary_muscles: ex.attributes.primary_muscles,
-                    secondary_muscles: ex.attributes.secondary_muscles,
                     instructions: ex.attributes.instructions,
                     images: ex.attributes.images,
                 }),

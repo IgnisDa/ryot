@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
-    models::fitness::ExerciseAttributes,
+    models::fitness::{ExerciseAttributes, ExerciseMuscles},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
@@ -25,6 +25,8 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
+    #[graphql(skip)]
+    pub muscles: ExerciseMuscles,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

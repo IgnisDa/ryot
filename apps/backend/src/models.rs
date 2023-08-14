@@ -9,13 +9,12 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use specta::Type;
-use strum::Display;
 
 use crate::{
     entities::exercise::Model as ExerciseModel,
     migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, MetadataImageLot,
-        MetadataLot, MetadataSource, SeenState,
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
+        MetadataImageLot, MetadataLot, MetadataSource, SeenState,
     },
 };
 
@@ -729,42 +728,6 @@ pub mod fitness {
     use super::*;
 
     #[derive(
-        Debug,
-        Clone,
-        Serialize,
-        Enum,
-        Copy,
-        Deserialize,
-        FromJsonQueryResult,
-        Eq,
-        PartialEq,
-        Display,
-        EnumIter,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseMuscle {
-        Abdominals,
-        Abductors,
-        Adductors,
-        Biceps,
-        Calves,
-        Chest,
-        Forearms,
-        Glutes,
-        Hamstrings,
-        Lats,
-        #[serde(alias = "lower back")]
-        LowerBack,
-        #[serde(alias = "middle back")]
-        MiddleBack,
-        Neck,
-        Quadriceps,
-        Shoulders,
-        Traps,
-        Triceps,
-    }
-
-    #[derive(
         Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
     )]
     #[serde(rename_all = "snake_case")]
@@ -779,13 +742,14 @@ pub mod fitness {
         Plyometrics,
     }
 
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
+
     #[derive(
         Debug, Clone, Serialize, SimpleObject, Deserialize, FromJsonQueryResult, Eq, PartialEq,
     )]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
-        pub primary_muscles: Vec<ExerciseMuscle>,
-        pub secondary_muscles: Vec<ExerciseMuscle>,
         pub instructions: Vec<String>,
         #[serde(default)]
         pub images: Vec<String>,

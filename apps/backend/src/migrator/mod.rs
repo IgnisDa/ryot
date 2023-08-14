@@ -13,6 +13,7 @@ mod m20230622_create_exercise;
 mod m20230804_create_user_measurement;
 mod m20230808_create_user_to_exercise;
 mod m20230814_add_lot_field_to_exercise;
+mod m20230814_add_muscles_field_to_exercise;
 
 pub use m20230410_create_metadata::{Metadata, MetadataImageLot, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -20,7 +21,7 @@ pub use m20230419_create_seen::{Seen, SeenState};
 pub use m20230505_create_review::Review;
 pub use m20230509_create_import_report::ImportSource;
 pub use m20230622_create_exercise::{
-    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
 
 pub struct Migrator;
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230804_create_user_measurement::Migration),
             Box::new(m20230808_create_user_to_exercise::Migration),
             Box::new(m20230814_add_lot_field_to_exercise::Migration),
+            Box::new(m20230814_add_muscles_field_to_exercise::Migration),
         ]
     }
 }

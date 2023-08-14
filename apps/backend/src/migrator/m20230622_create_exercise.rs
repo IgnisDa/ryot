@@ -1,7 +1,8 @@
 use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 pub struct Migration;
 
@@ -9,6 +10,42 @@ impl MigrationName for Migration {
     fn name(&self) -> &str {
         "m20230622_create_exercise"
     }
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Enum,
+    Copy,
+    Deserialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Display,
+    EnumIter,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ExerciseMuscle {
+    Abdominals,
+    Abductors,
+    Adductors,
+    Biceps,
+    Calves,
+    Chest,
+    Forearms,
+    Glutes,
+    Hamstrings,
+    Lats,
+    #[serde(alias = "lower back")]
+    LowerBack,
+    #[serde(alias = "middle back")]
+    MiddleBack,
+    Neck,
+    Quadriceps,
+    Shoulders,
+    Traps,
+    Triceps,
 }
 
 #[derive(
@@ -111,6 +148,7 @@ pub enum Exercise {
     Level,
     Mechanic,
     Equipment,
+    Muscles,
     Identifier,
     Attributes,
 }
@@ -135,6 +173,7 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Exercise::Muscles).json().not_null())
                     .col(ColumnDef::new(Exercise::Lot).string_len(2).not_null())
                     .col(ColumnDef::new(Exercise::Level).string_len(1).not_null())
                     .col(ColumnDef::new(Exercise::Force).string_len(3).null())
