@@ -1,11 +1,12 @@
 query ExerciseInformation {
   exerciseInformation {
     filters {
-      lot
+      type
       level
       force
       mechanic
       equipment
+      muscle
     }
     downloadRequired
   }

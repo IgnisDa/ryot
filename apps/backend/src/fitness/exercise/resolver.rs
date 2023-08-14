@@ -18,10 +18,13 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
-    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+        ExerciseMuscle,
+    },
     models::{
         fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes,
         },
         SearchResults,
@@ -37,11 +40,13 @@ static IMAGES_PREFIX_URL: &str =
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExerciseListFilter {
+    #[graphql(name = "type")]
     lot: Option<ExerciseLot>,
     level: Option<ExerciseLevel>,
     force: Option<ExerciseForce>,
     mechanic: Option<ExerciseMechanic>,
     equipment: Option<ExerciseEquipment>,
+    muscle: Option<ExerciseMuscle>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -60,11 +65,13 @@ struct ExerciseInformation {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct ExerciseFilters {
+    #[graphql(name = "type")]
     lot: Vec<ExerciseLot>,
     level: Vec<ExerciseLevel>,
     force: Vec<ExerciseForce>,
     mechanic: Vec<ExerciseMechanic>,
     equipment: Vec<ExerciseEquipment>,
+    muscle: Vec<ExerciseMuscle>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -182,6 +189,7 @@ impl ExerciseService {
                 force: ExerciseForce::iter().collect_vec(),
                 mechanic: ExerciseMechanic::iter().collect_vec(),
                 equipment: ExerciseEquipment::iter().collect_vec(),
+                muscle: ExerciseMuscle::iter().collect_vec(),
             },
             download_required,
         })
@@ -228,6 +236,12 @@ impl ExerciseService {
             .apply_if(input.filter, |query, q| {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
+                    .apply_if(q.muscle, |q, v| {
+                        q.filter(get_case_insensitive_like_query(
+                            Func::cast_as(Expr::col(exercise::Column::Muscles), Alias::new("text")),
+                            &v.to_string(),
+                        ))
+                    })
                     .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
                     .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
                     .apply_if(q.mechanic, |q, v| {
@@ -241,14 +255,14 @@ impl ExerciseService {
                 query.filter(
                     Condition::any()
                         .add(get_case_insensitive_like_query(
-                            Func::lower(Expr::col(exercise::Column::Name)),
+                            Expr::col(exercise::Column::Name),
                             &v,
                         ))
                         .add(get_case_insensitive_like_query(
-                            Func::lower(Func::cast_as(
+                            Func::cast_as(
                                 Expr::col(exercise::Column::Attributes),
                                 Alias::new("text"),
-                            )),
+                            ),
                             &v,
                         )),
                 )
@@ -303,12 +317,14 @@ impl ExerciseService {
                 ExerciseCategory::OlympicWeightlifting => ExerciseLot::RepsAndWeight,
                 ExerciseCategory::Strongman => ExerciseLot::RepsAndWeight,
             };
+            let mut muscles = ex.attributes.primary_muscles;
+            muscles.extend(ex.attributes.secondary_muscles);
+            muscles.sort_unstable();
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
+                muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(ExerciseAttributes {
-                    primary_muscles: ex.attributes.primary_muscles,
-                    secondary_muscles: ex.attributes.secondary_muscles,
                     instructions: ex.attributes.instructions,
                     images: ex.attributes.images,
                 }),

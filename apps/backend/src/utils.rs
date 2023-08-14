@@ -215,7 +215,7 @@ where
     E: Into<SimpleExpr>,
 {
     SimpleExpr::Binary(
-        Box::new(expr.into()),
+        Box::new(Func::lower(expr.into()).into()),
         BinOper::Like,
         Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
     )

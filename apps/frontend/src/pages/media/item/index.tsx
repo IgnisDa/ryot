@@ -434,7 +434,7 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const [activeTab, setActiveTab] = useLocalStorage({
 		key: "savedActiveItemDetailsTab",
-		getInitialValueInEffect: false,
+		getInitialValueInEffect: true,
 		defaultValue: "overview",
 	});
 

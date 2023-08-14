@@ -55,12 +55,13 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 
 const defaultFilterValue = {
+	muscle: undefined,
+	type: undefined,
 	equipment: undefined,
 	force: undefined,
 	level: undefined,
-	lot: undefined,
 	mechanic: undefined,
-};
+} as ExerciseListFilter;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -74,12 +75,11 @@ const Page: NextPageWithLayout = () => {
 		key: "savedExercisesQuery",
 		getInitialValueInEffect: false,
 	});
-	const [exerciseFilters, setExerciseFilters] =
-		useLocalStorage<ExerciseListFilter>({
-			key: "savedExerciseFilters",
-			defaultValue: defaultFilterValue,
-			getInitialValueInEffect: true,
-		});
+	const [exerciseFilters, setExerciseFilters] = useLocalStorage({
+		key: "savedExerciseFilters",
+		defaultValue: defaultFilterValue,
+		getInitialValueInEffect: true,
+	});
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -170,10 +170,10 @@ const Page: NextPageWithLayout = () => {
 						</Alert>
 					) : (
 						<>
-							<Flex align={"center"} gap={"md"}>
+							<Flex align="center" gap="md">
 								<TextInput
 									name="query"
-									placeholder={"Search for exercises"}
+									placeholder="Search for exercises by name or instructions"
 									icon={<IconSearch />}
 									onChange={(e) => setQuery(e.currentTarget.value)}
 									value={query}
@@ -204,6 +204,7 @@ const Page: NextPageWithLayout = () => {
 										{Object.keys(defaultFilterValue).map((f, idx) => (
 											<Select
 												key={idx}
+												withinPortal
 												clearable
 												data={(exerciseInformation.data.filters as any)[f].map(
 													(v: any) => ({
@@ -276,13 +277,11 @@ const Page: NextPageWithLayout = () => {
 												/>
 												<Flex direction={"column"} justify={"space-around"}>
 													<Text>{exercise.name}</Text>
-													<Text size="xs">
-														{startCase(
-															snakeCase(
-																exercise.attributes.primaryMuscles.at(0),
-															),
-														)}
-													</Text>
+													{exercise.equipment ? (
+														<Text size="xs">
+															{startCase(snakeCase(exercise.equipment))}
+														</Text>
+													) : null}
 												</Flex>
 											</Flex>
 										))}

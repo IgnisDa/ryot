@@ -10,7 +10,7 @@ use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
-use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie};
+use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie, SameSite};
 use enum_meta::Meta;
 use futures::{future::join_all, TryStreamExt};
 use harsh::Harsh;
@@ -526,6 +526,7 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
+    samesite_none: bool,
     token_valid_till: i64,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
@@ -534,6 +535,11 @@ fn create_cookie(
     } else {
         cookie
             .expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till)))
+    };
+    cookie = if samesite_none {
+        cookie.same_site(SameSite::None)
+    } else {
+        cookie.same_site(SameSite::Strict)
     };
     let cookie = cookie.finish();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
@@ -1566,10 +1572,7 @@ impl MiscellaneousService {
         if let Some(v) = input.query {
             let get_contains_expr = |col: metadata::Column| {
                 get_case_insensitive_like_query(
-                    Func::lower(Func::cast_as(
-                        Expr::col((metadata_alias.clone(), col)),
-                        Alias::new("text"),
-                    )),
+                    Func::cast_as(Expr::col((metadata_alias.clone(), col)), Alias::new("text")),
                     &v,
                 )
             };
@@ -3334,6 +3337,7 @@ impl MiscellaneousService {
             &api_key,
             false,
             self.config.server.insecure_cookie,
+            self.config.server.samesite_none,
             self.config.users.token_valid_for_days,
         )?;
         Ok(LoginResult::Ok(LoginResponse { api_key }))
@@ -3345,6 +3349,7 @@ impl MiscellaneousService {
             "",
             true,
             self.config.server.insecure_cookie,
+            self.config.server.samesite_none,
             self.config.users.token_valid_for_days,
         )?;
         let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
@@ -4608,7 +4613,7 @@ impl MiscellaneousService {
         let query = Creator::find()
             .apply_if(input.query, |query, v| {
                 query.filter(Condition::all().add(get_case_insensitive_like_query(
-                    Func::lower(Expr::col(creator::Column::Name)),
+                    Expr::col(creator::Column::Name),
                     &v,
                 )))
             })

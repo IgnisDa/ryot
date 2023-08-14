@@ -5,8 +5,8 @@ query ExercisesList($input: ExercisesListInput!) {
     items {
       id
       name
+      equipment
       attributes {
-        primaryMuscles
         images
       }
     }

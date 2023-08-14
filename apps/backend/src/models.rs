@@ -13,8 +13,8 @@ use specta::Type;
 use crate::{
     entities::exercise::Model as ExerciseModel,
     migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, MetadataImageLot,
-        MetadataLot, MetadataSource, SeenState,
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
+        MetadataImageLot, MetadataLot, MetadataSource, SeenState,
     },
 };
 
@@ -731,32 +731,6 @@ pub mod fitness {
         Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
     )]
     #[serde(rename_all = "snake_case")]
-    pub enum ExerciseMuscle {
-        Abdominals,
-        Abductors,
-        Adductors,
-        Biceps,
-        Calves,
-        Chest,
-        Forearms,
-        Glutes,
-        Hamstrings,
-        Lats,
-        #[serde(alias = "lower back")]
-        LowerBack,
-        #[serde(alias = "middle back")]
-        MiddleBack,
-        Neck,
-        Quadriceps,
-        Shoulders,
-        Traps,
-        Triceps,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
     pub enum ExerciseCategory {
         Powerlifting,
         Strength,
@@ -768,13 +742,14 @@ pub mod fitness {
         Plyometrics,
     }
 
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
+
     #[derive(
         Debug, Clone, Serialize, SimpleObject, Deserialize, FromJsonQueryResult, Eq, PartialEq,
     )]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
-        pub primary_muscles: Vec<ExerciseMuscle>,
-        pub secondary_muscles: Vec<ExerciseMuscle>,
         pub instructions: Vec<String>,
         #[serde(default)]
         pub images: Vec<String>,

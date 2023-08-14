@@ -192,6 +192,8 @@ export interface ServerConfig {
 	 * @default 2
 	 */
 	progress_update_threshold: number;
+	/** This will set SameSite=None on the auth cookies. */
+	samesite_none: boolean;
 }
 
 export interface ShowsTmdbConfig {

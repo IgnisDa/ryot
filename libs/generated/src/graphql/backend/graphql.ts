@@ -5,22 +5,24 @@ export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
-  ID: string;
-  String: string;
-  Boolean: boolean;
-  Int: number;
-  Float: number;
+  ID: { input: string; output: string; }
+  String: { input: string; output: string; }
+  Boolean: { input: boolean; output: boolean; }
+  Int: { input: number; output: number; }
+  Float: { input: number; output: number; }
   /**
    * Implement the DateTime<Utc> scalar
    *
    * The input/output is a string in RFC3339 format.
    */
-  DateTime: Date;
-  Decimal: any;
+  DateTime: { input: Date; output: Date; }
+  Decimal: { input: any; output: any; }
   /** A scalar that can represent any JSON Object value. */
-  JSONObject: any;
+  JSONObject: { input: any; output: any; }
   /**
    * ISO 8601 calendar date without timezone.
    * Format: %Y-%m-%d
@@ -30,58 +32,58 @@ export type Scalars = {
    * * `1994-11-13`
    * * `2000-02-24`
    */
-  NaiveDate: any;
+  NaiveDate: { input: any; output: any; }
 };
 
 export type AddMediaToCollection = {
-  collectionName: Scalars['String'];
-  mediaId: Scalars['Int'];
+  collectionName: Scalars['String']['input'];
+  mediaId: Scalars['Int']['input'];
 };
 
 export type AnimeSpecifics = {
-  episodes?: Maybe<Scalars['Int']>;
+  episodes?: Maybe<Scalars['Int']['output']>;
 };
 
 export type AnimeSpecificsInput = {
-  episodes?: InputMaybe<Scalars['Int']>;
+  episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type AnimeSummary = {
-  episodes: Scalars['Int'];
-  watched: Scalars['Int'];
+  episodes: Scalars['Int']['output'];
+  watched: Scalars['Int']['output'];
 };
 
 export type AudioBookSpecifics = {
-  runtime?: Maybe<Scalars['Int']>;
+  runtime?: Maybe<Scalars['Int']['output']>;
 };
 
 export type AudioBookSpecificsInput = {
-  runtime?: InputMaybe<Scalars['Int']>;
+  runtime?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type AudioBooksSummary = {
-  played: Scalars['Int'];
-  runtime: Scalars['Int'];
+  played: Scalars['Int']['output'];
+  runtime: Scalars['Int']['output'];
 };
 
 export type BookSpecifics = {
-  pages?: Maybe<Scalars['Int']>;
+  pages?: Maybe<Scalars['Int']['output']>;
 };
 
 export type BookSpecificsInput = {
-  pages?: InputMaybe<Scalars['Int']>;
+  pages?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type BooksSummary = {
-  pages: Scalars['Int'];
-  read: Scalars['Int'];
+  pages: Scalars['Int']['output'];
+  read: Scalars['Int']['output'];
 };
 
 export type Collection = {
-  createdOn: Scalars['DateTime'];
-  description?: Maybe<Scalars['String']>;
-  id: Scalars['Int'];
-  name: Scalars['String'];
+  createdOn: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
   visibility: Visibility;
 };
 
@@ -92,36 +94,36 @@ export type CollectionContents = {
 };
 
 export type CollectionContentsInput = {
-  collectionId: Scalars['Int'];
-  page?: InputMaybe<Scalars['Int']>;
-  take?: InputMaybe<Scalars['Int']>;
+  collectionId: Scalars['Int']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type CollectionInput = {
-  name?: InputMaybe<Scalars['String']>;
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CollectionItem = {
-  description?: Maybe<Scalars['String']>;
-  id: Scalars['Int'];
-  name: Scalars['String'];
-  numItems: Scalars['Int'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  numItems: Scalars['Int']['output'];
   visibility: Visibility;
 };
 
 export type CoreDetails = {
-  authorName: Scalars['String'];
-  defaultCredentials: Scalars['Boolean'];
-  docsLink: Scalars['String'];
-  itemDetailsHeight: Scalars['Int'];
-  passwordChangeAllowed: Scalars['Boolean'];
-  preferencesChangeAllowed: Scalars['Boolean'];
-  repositoryLink: Scalars['String'];
-  reviewsDisabled: Scalars['Boolean'];
+  authorName: Scalars['String']['output'];
+  defaultCredentials: Scalars['Boolean']['output'];
+  docsLink: Scalars['String']['output'];
+  itemDetailsHeight: Scalars['Int']['output'];
+  passwordChangeAllowed: Scalars['Boolean']['output'];
+  preferencesChangeAllowed: Scalars['Boolean']['output'];
+  repositoryLink: Scalars['String']['output'];
+  reviewsDisabled: Scalars['Boolean']['output'];
   /** Whether an upgrade is required */
   upgrade?: Maybe<UpgradeType>;
-  usernameChangeAllowed: Scalars['Boolean'];
-  version: Scalars['String'];
+  usernameChangeAllowed: Scalars['Boolean']['output'];
+  version: Scalars['String']['output'];
 };
 
 export type CreateCustomMediaError = {
@@ -136,40 +138,40 @@ export type CreateCustomMediaInput = {
   animeSpecifics?: InputMaybe<AnimeSpecificsInput>;
   audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
   bookSpecifics?: InputMaybe<BookSpecificsInput>;
-  creators?: InputMaybe<Array<Scalars['String']>>;
-  description?: InputMaybe<Scalars['String']>;
-  genres?: InputMaybe<Array<Scalars['String']>>;
-  images?: InputMaybe<Array<Scalars['String']>>;
+  creators?: InputMaybe<Array<Scalars['String']['input']>>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  genres?: InputMaybe<Array<Scalars['String']['input']>>;
+  images?: InputMaybe<Array<Scalars['String']['input']>>;
   lot: MetadataLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
-  publishYear?: InputMaybe<Scalars['Int']>;
+  publishYear?: InputMaybe<Scalars['Int']['input']>;
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
-  title: Scalars['String'];
+  title: Scalars['String']['input'];
   videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
 };
 
 export type CreateCustomMediaResult = CreateCustomMediaError | IdObject;
 
 export type CreateMediaReminderInput = {
-  message: Scalars['String'];
-  metadataId: Scalars['Int'];
-  remindOn: Scalars['NaiveDate'];
+  message: Scalars['String']['input'];
+  metadataId: Scalars['Int']['input'];
+  remindOn: Scalars['NaiveDate']['input'];
 };
 
 export type CreateOrUpdateCollectionInput = {
-  description?: InputMaybe<Scalars['String']>;
-  name: Scalars['String'];
-  updateId?: InputMaybe<Scalars['Int']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  updateId?: InputMaybe<Scalars['Int']['input']>;
   visibility?: InputMaybe<Visibility>;
 };
 
 export type CreateUserNotificationPlatformInput = {
-  apiToken?: InputMaybe<Scalars['String']>;
-  baseUrl?: InputMaybe<Scalars['String']>;
+  apiToken?: InputMaybe<Scalars['String']['input']>;
+  baseUrl?: InputMaybe<Scalars['String']['input']>;
   lot: UserNotificationSettingKind;
-  priority?: InputMaybe<Scalars['Int']>;
+  priority?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type CreateUserSinkIntegrationInput = {
@@ -177,16 +179,16 @@ export type CreateUserSinkIntegrationInput = {
 };
 
 export type CreateUserYankIntegrationInput = {
-  baseUrl: Scalars['String'];
+  baseUrl: Scalars['String']['input'];
   lot: UserYankIntegrationSettingKind;
-  token: Scalars['String'];
+  token: Scalars['String']['input'];
 };
 
 export type Creator = {
   extraInformation: CreatorExtraInformation;
-  id: Scalars['Int'];
-  image?: Maybe<Scalars['String']>;
-  name: Scalars['String'];
+  id: Scalars['Int']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
 };
 
 export type CreatorDetails = {
@@ -198,15 +200,15 @@ export type CreatorDetailsGroupedByRole = {
   /** The media items in which this role was performed. */
   items: Array<MediaSearchItem>;
   /** The name of the role performed. */
-  name: Scalars['String'];
+  name: Scalars['String']['output'];
 };
 
 export type CreatorExtraInformation = {
-  active: Scalars['Boolean'];
+  active: Scalars['Boolean']['output'];
 };
 
 export type DeployGoodreadsImportInput = {
-  rssUrl: Scalars['String'];
+  rssUrl: Scalars['String']['input'];
 };
 
 export type DeployImportJobInput = {
@@ -221,46 +223,44 @@ export type DeployImportJobInput = {
 };
 
 export type DeployMediaJsonImportInput = {
-  export: Scalars['String'];
+  export: Scalars['String']['input'];
 };
 
 export type DeployMediaTrackerImportInput = {
   /** An application token generated by an admin */
-  apiKey: Scalars['String'];
+  apiKey: Scalars['String']['input'];
   /** The base url where the resource is present at */
-  apiUrl: Scalars['String'];
+  apiUrl: Scalars['String']['input'];
 };
 
 export type DeployMovaryImportInput = {
-  history: Scalars['String'];
-  ratings: Scalars['String'];
+  history: Scalars['String']['input'];
+  ratings: Scalars['String']['input'];
 };
 
 export type DeployStoryGraphImportInput = {
-  export: Scalars['String'];
+  export: Scalars['String']['input'];
 };
 
 export type DeployTraktImportInput = {
-  username: Scalars['String'];
+  username: Scalars['String']['input'];
 };
 
 export type Exercise = {
   attributes: ExerciseAttributes;
   equipment?: Maybe<ExerciseEquipment>;
   force?: Maybe<ExerciseForce>;
-  id: Scalars['Int'];
-  identifier: Scalars['String'];
+  id: Scalars['Int']['output'];
+  identifier: Scalars['String']['output'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: Maybe<ExerciseMechanic>;
-  name: Scalars['String'];
+  name: Scalars['String']['output'];
 };
 
 export type ExerciseAttributes = {
-  images: Array<Scalars['String']>;
-  instructions: Array<Scalars['String']>;
-  primaryMuscles: Array<ExerciseMuscle>;
-  secondaryMuscles: Array<ExerciseMuscle>;
+  images: Array<Scalars['String']['output']>;
+  instructions: Array<Scalars['String']['output']>;
 };
 
 export enum ExerciseEquipment {
@@ -282,8 +282,9 @@ export type ExerciseFilters = {
   equipment: Array<ExerciseEquipment>;
   force: Array<ExerciseForce>;
   level: Array<ExerciseLevel>;
-  lot: Array<ExerciseLot>;
   mechanic: Array<ExerciseMechanic>;
+  muscle: Array<ExerciseMuscle>;
+  type: Array<ExerciseLot>;
 };
 
 export enum ExerciseForce {
@@ -293,7 +294,7 @@ export enum ExerciseForce {
 }
 
 export type ExerciseInformation = {
-  downloadRequired: Scalars['Boolean'];
+  downloadRequired: Scalars['Boolean']['output'];
   /** All filters applicable to an exercises query. */
   filters: ExerciseFilters;
 };
@@ -308,8 +309,9 @@ export type ExerciseListFilter = {
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   level?: InputMaybe<ExerciseLevel>;
-  lot?: InputMaybe<ExerciseLot>;
   mechanic?: InputMaybe<ExerciseMechanic>;
+  muscle?: InputMaybe<ExerciseMuscle>;
+  type?: InputMaybe<ExerciseLot>;
 };
 
 export enum ExerciseLot {
@@ -345,65 +347,65 @@ export enum ExerciseMuscle {
 
 export type ExerciseSearchResults = {
   items: Array<Exercise>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
+  nextPage?: Maybe<Scalars['Int']['output']>;
+  total: Scalars['Int']['output'];
 };
 
 export type ExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
-  page: Scalars['Int'];
-  query?: InputMaybe<Scalars['String']>;
+  page: Scalars['Int']['input'];
+  query?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GeneralFeatures = {
-  fileStorage: Scalars['Boolean'];
-  signupAllowed: Scalars['Boolean'];
+  fileStorage: Scalars['Boolean']['output'];
+  signupAllowed: Scalars['Boolean']['output'];
 };
 
 export type GraphqlMediaDetails = {
   animeSpecifics?: Maybe<AnimeSpecifics>;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
-  backdropImages: Array<Scalars['String']>;
+  backdropImages: Array<Scalars['String']['output']>;
   bookSpecifics?: Maybe<BookSpecifics>;
   creators: Array<MetadataCreatorGroupedByRole>;
-  description?: Maybe<Scalars['String']>;
-  genres: Array<Scalars['String']>;
-  id: Scalars['Int'];
-  identifier: Scalars['String'];
+  description?: Maybe<Scalars['String']['output']>;
+  genres: Array<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  identifier: Scalars['String']['output'];
   lot: MetadataLot;
   mangaSpecifics?: Maybe<MangaSpecifics>;
   movieSpecifics?: Maybe<MovieSpecifics>;
   podcastSpecifics?: Maybe<PodcastSpecifics>;
-  posterImages: Array<Scalars['String']>;
-  productionStatus: Scalars['String'];
-  publishDate?: Maybe<Scalars['NaiveDate']>;
-  publishYear?: Maybe<Scalars['Int']>;
+  posterImages: Array<Scalars['String']['output']>;
+  productionStatus: Scalars['String']['output'];
+  publishDate?: Maybe<Scalars['NaiveDate']['output']>;
+  publishYear?: Maybe<Scalars['Int']['output']>;
   showSpecifics?: Maybe<ShowSpecifics>;
   source: MetadataSource;
-  sourceUrl?: Maybe<Scalars['String']>;
-  title: Scalars['String'];
+  sourceUrl?: Maybe<Scalars['String']['output']>;
+  title: Scalars['String']['output'];
   videoGameSpecifics?: Maybe<VideoGameSpecifics>;
 };
 
 export type GraphqlUserIntegration = {
-  description: Scalars['String'];
-  id: Scalars['Int'];
+  description: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
   lot: UserIntegrationLot;
-  timestamp: Scalars['DateTime'];
+  timestamp: Scalars['DateTime']['output'];
 };
 
 export type GraphqlUserNotificationPlatform = {
-  description: Scalars['String'];
-  id: Scalars['Int'];
-  timestamp: Scalars['DateTime'];
+  description: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
+  timestamp: Scalars['DateTime']['output'];
 };
 
 export type IdObject = {
-  id: Scalars['Int'];
+  id: Scalars['Int']['output'];
 };
 
 export type ImportDetails = {
-  total: Scalars['Int'];
+  total: Scalars['Int']['output'];
 };
 
 /** The various steps in which media importing can fail */
@@ -421,8 +423,8 @@ export enum ImportFailStep {
 }
 
 export type ImportFailedItem = {
-  error?: Maybe<Scalars['String']>;
-  identifier: Scalars['String'];
+  error?: Maybe<Scalars['String']['output']>;
+  identifier: Scalars['String']['output'];
   lot: MetadataLot;
   step: ImportFailStep;
 };
@@ -434,12 +436,12 @@ export enum ImportLot {
 
 export type ImportReport = {
   details?: Maybe<ImportResultResponse>;
-  finishedOn?: Maybe<Scalars['DateTime']>;
-  id: Scalars['Int'];
+  finishedOn?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['Int']['output'];
   source: ImportSource;
-  startedOn: Scalars['DateTime'];
-  success?: Maybe<Scalars['Boolean']>;
-  userId: Scalars['Int'];
+  startedOn: Scalars['DateTime']['output'];
+  success?: Maybe<Scalars['Boolean']['output']>;
+  userId: Scalars['Int']['output'];
 };
 
 export type ImportResultResponse = {
@@ -467,47 +469,47 @@ export enum LoginErrorVariant {
 }
 
 export type LoginResponse = {
-  apiKey: Scalars['String'];
+  apiKey: Scalars['String']['output'];
 };
 
 export type LoginResult = LoginError | LoginResponse;
 
 export type MangaSpecifics = {
-  chapters?: Maybe<Scalars['Int']>;
-  volumes?: Maybe<Scalars['Int']>;
+  chapters?: Maybe<Scalars['Int']['output']>;
+  volumes?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MangaSpecificsInput = {
-  chapters?: InputMaybe<Scalars['Int']>;
-  volumes?: InputMaybe<Scalars['Int']>;
+  chapters?: InputMaybe<Scalars['Int']['input']>;
+  volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MangaSummary = {
-  chapters: Scalars['Int'];
-  read: Scalars['Int'];
+  chapters: Scalars['Int']['output'];
+  read: Scalars['Int']['output'];
 };
 
 export type MediaCollectionContentsResults = {
   items: Array<MediaSearchItem>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
+  nextPage?: Maybe<Scalars['Int']['output']>;
+  total: Scalars['Int']['output'];
 };
 
 export type MediaCreatorSearchItem = {
-  id: Scalars['Int'];
-  image?: Maybe<Scalars['String']>;
-  mediaCount: Scalars['Int'];
-  name: Scalars['String'];
+  id: Scalars['Int']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  mediaCount: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type MediaCreatorSearchResults = {
   items: Array<MediaCreatorSearchItem>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
+  nextPage?: Maybe<Scalars['Int']['output']>;
+  total: Scalars['Int']['output'];
 };
 
 export type MediaFilter = {
-  collection?: InputMaybe<Scalars['Int']>;
+  collection?: InputMaybe<Scalars['Int']['input']>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
 
@@ -526,39 +528,39 @@ export enum MediaGeneralFilter {
 export type MediaListInput = {
   filter?: InputMaybe<MediaFilter>;
   lot: MetadataLot;
-  page: Scalars['Int'];
-  query?: InputMaybe<Scalars['String']>;
+  page: Scalars['Int']['input'];
+  query?: InputMaybe<Scalars['String']['input']>;
   sort?: InputMaybe<MediaSortInput>;
 };
 
 export type MediaListItem = {
-  averageRating?: Maybe<Scalars['Decimal']>;
+  averageRating?: Maybe<Scalars['Decimal']['output']>;
   data: MediaSearchItem;
 };
 
 export type MediaListResults = {
   items: Array<MediaListItem>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
+  nextPage?: Maybe<Scalars['Int']['output']>;
+  total: Scalars['Int']['output'];
 };
 
 export type MediaSearchItem = {
-  identifier: Scalars['String'];
-  image?: Maybe<Scalars['String']>;
+  identifier: Scalars['String']['output'];
+  image?: Maybe<Scalars['String']['output']>;
   lot: MetadataLot;
-  publishYear?: Maybe<Scalars['Int']>;
-  title: Scalars['String'];
+  publishYear?: Maybe<Scalars['Int']['output']>;
+  title: Scalars['String']['output'];
 };
 
 export type MediaSearchItemResponse = {
-  databaseId?: Maybe<Scalars['Int']>;
+  databaseId?: Maybe<Scalars['Int']['output']>;
   item: MediaSearchItem;
 };
 
 export type MediaSearchResults = {
   items: Array<MediaSearchItemResponse>;
-  nextPage?: Maybe<Scalars['Int']>;
-  total: Scalars['Int'];
+  nextPage?: Maybe<Scalars['Int']['output']>;
+  total: Scalars['Int']['output'];
 };
 
 export enum MediaSortBy {
@@ -581,7 +583,7 @@ export enum MediaSortOrder {
 
 export type MetadataCreatorGroupedByRole = {
   items: Array<Creator>;
-  name: Scalars['String'];
+  name: Scalars['String']['output'];
 };
 
 export enum MetadataLot {
@@ -608,80 +610,80 @@ export enum MetadataSource {
 }
 
 export type MovieSpecifics = {
-  runtime?: Maybe<Scalars['Int']>;
+  runtime?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MovieSpecificsInput = {
-  runtime?: InputMaybe<Scalars['Int']>;
+  runtime?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MoviesSummary = {
-  runtime: Scalars['Int'];
-  watched: Scalars['Int'];
+  runtime: Scalars['Int']['output'];
+  watched: Scalars['Int']['output'];
 };
 
 export type MutationRoot = {
   /** Add a media item to a collection if it is not there, otherwise do nothing. */
-  addMediaToCollection: Scalars['Boolean'];
+  addMediaToCollection: Scalars['Boolean']['output'];
   /** Update progress in bulk. */
-  bulkProgressUpdate: Scalars['Boolean'];
+  bulkProgressUpdate: Scalars['Boolean']['output'];
   /** Fetch details about a media and create a media item in the database. */
   commitMedia: IdObject;
   /** Create a custom media item. */
   createCustomMedia: CreateCustomMediaResult;
   /** Create or update a reminder on a media for a user. */
-  createMediaReminder: Scalars['Boolean'];
+  createMediaReminder: Scalars['Boolean']['output'];
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: IdObject;
   /** Create a user measurement. */
-  createUserMeasurement: Scalars['DateTime'];
+  createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
-  createUserNotificationPlatform: Scalars['Int'];
+  createUserNotificationPlatform: Scalars['Int']['output'];
   /** Create a sink based integrations for the currently logged in user. */
-  createUserSinkIntegration: Scalars['Int'];
+  createUserSinkIntegration: Scalars['Int']['output'];
   /** Create a yank based integrations for the currently logged in user. */
-  createUserYankIntegration: Scalars['Int'];
+  createUserYankIntegration: Scalars['Int']['output'];
   /** Delete a collection. */
-  deleteCollection: Scalars['Boolean'];
+  deleteCollection: Scalars['Boolean']['output'];
   /** Delete a reminder on a media for a user if it exists. */
-  deleteMediaReminder: Scalars['Boolean'];
+  deleteMediaReminder: Scalars['Boolean']['output'];
   /** Delete a review if it belongs to the currently logged in user. */
-  deleteReview: Scalars['Boolean'];
+  deleteReview: Scalars['Boolean']['output'];
   /** Delete a seen item from a user's history. */
   deleteSeenItem: IdObject;
   /** Delete a user. The account making the user must an `Admin`. */
-  deleteUser: Scalars['Boolean'];
+  deleteUser: Scalars['Boolean']['output'];
   /** Delete an auth token for the currently logged in user. */
-  deleteUserAuthToken: Scalars['Boolean'];
+  deleteUserAuthToken: Scalars['Boolean']['output'];
   /** Delete an integration for the currently logged in user. */
-  deleteUserIntegration: Scalars['Boolean'];
+  deleteUserIntegration: Scalars['Boolean']['output'];
   /** Delete a user measurement. */
-  deleteUserMeasurement: Scalars['Boolean'];
+  deleteUserMeasurement: Scalars['Boolean']['output'];
   /** Delete a notification platform for the currently logged in user. */
-  deleteUserNotificationPlatform: Scalars['Boolean'];
+  deleteUserNotificationPlatform: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
-  deployImportJob: Scalars['String'];
+  deployImportJob: Scalars['String']['output'];
   /** Deploy a job to download and update the exercise library. */
-  deployUpdateExerciseLibraryJob: Scalars['Int'];
+  deployUpdateExerciseLibraryJob: Scalars['Int']['output'];
   /** Deploy a job to update a media item's metadata. */
-  deployUpdateMetadataJob: Scalars['String'];
+  deployUpdateMetadataJob: Scalars['String']['output'];
   /** Generate an auth token without any expiry. */
-  generateApplicationToken: Scalars['String'];
+  generateApplicationToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
   /** Logout a user from the server and delete their login token. */
-  logoutUser: Scalars['Boolean'];
+  logoutUser: Scalars['Boolean']['output'];
   /**
    * Merge a media item into another. This will move all `seen` and `review`
    * items with the new user and then delete the old media item completely.
    */
-  mergeMetadata: Scalars['Boolean'];
+  mergeMetadata: Scalars['Boolean']['output'];
   /** Create or update a review. */
   postReview: IdObject;
   /** Mark a user's progress on a specific media item. */
   progressUpdate: ProgressUpdateResultUnion;
   /** Delete all summaries for the currently logged in user and then generate one from scratch. */
-  regenerateUserSummary: Scalars['Boolean'];
+  regenerateUserSummary: Scalars['Boolean']['output'];
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -690,17 +692,17 @@ export type MutationRoot = {
   /** Remove a media item from a collection if it is not there, otherwise do nothing. */
   removeMediaFromCollection: IdObject;
   /** Test all notification platforms for the currently logged in user. */
-  testUserNotificationPlatforms: Scalars['Boolean'];
+  testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Toggle the monitor on a media for a user. */
-  toggleMediaMonitor: Scalars['Boolean'];
+  toggleMediaMonitor: Scalars['Boolean']['output'];
   /** Deploy jobs to update all media item's metadata. */
-  updateAllMetadata: Scalars['Boolean'];
+  updateAllMetadata: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
   updateUser: IdObject;
   /** Change a user's preferences. */
-  updateUserPreference: Scalars['Boolean'];
+  updateUserPreference: Scalars['Boolean']['output'];
   /** Yank data from all integrations for the currently logged in user. */
-  yankIntegrationData: Scalars['Int'];
+  yankIntegrationData: Scalars['Int']['output'];
 };
 
 
@@ -715,7 +717,7 @@ export type MutationRootBulkProgressUpdateArgs = {
 
 
 export type MutationRootCommitMediaArgs = {
-  identifier: Scalars['String'];
+  identifier: Scalars['String']['input'];
   lot: MetadataLot;
   source: MetadataSource;
 };
@@ -757,48 +759,48 @@ export type MutationRootCreateUserYankIntegrationArgs = {
 
 
 export type MutationRootDeleteCollectionArgs = {
-  collectionName: Scalars['String'];
+  collectionName: Scalars['String']['input'];
 };
 
 
 export type MutationRootDeleteMediaReminderArgs = {
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 };
 
 
 export type MutationRootDeleteReviewArgs = {
-  reviewId: Scalars['Int'];
+  reviewId: Scalars['Int']['input'];
 };
 
 
 export type MutationRootDeleteSeenItemArgs = {
-  seenId: Scalars['Int'];
+  seenId: Scalars['Int']['input'];
 };
 
 
 export type MutationRootDeleteUserArgs = {
-  toDeleteUserId: Scalars['Int'];
+  toDeleteUserId: Scalars['Int']['input'];
 };
 
 
 export type MutationRootDeleteUserAuthTokenArgs = {
-  token: Scalars['String'];
+  token: Scalars['String']['input'];
 };
 
 
 export type MutationRootDeleteUserIntegrationArgs = {
-  integrationId: Scalars['Int'];
+  integrationId: Scalars['Int']['input'];
   integrationLot: UserIntegrationLot;
 };
 
 
 export type MutationRootDeleteUserMeasurementArgs = {
-  timestamp: Scalars['DateTime'];
+  timestamp: Scalars['DateTime']['input'];
 };
 
 
 export type MutationRootDeleteUserNotificationPlatformArgs = {
-  notificationId: Scalars['Int'];
+  notificationId: Scalars['Int']['input'];
 };
 
 
@@ -808,7 +810,7 @@ export type MutationRootDeployImportJobArgs = {
 
 
 export type MutationRootDeployUpdateMetadataJobArgs = {
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 };
 
 
@@ -818,8 +820,8 @@ export type MutationRootLoginUserArgs = {
 
 
 export type MutationRootMergeMetadataArgs = {
-  mergeFrom: Scalars['Int'];
-  mergeInto: Scalars['Int'];
+  mergeFrom: Scalars['Int']['input'];
+  mergeInto: Scalars['Int']['input'];
 };
 
 
@@ -839,13 +841,13 @@ export type MutationRootRegisterUserArgs = {
 
 
 export type MutationRootRemoveMediaFromCollectionArgs = {
-  collectionName: Scalars['String'];
-  metadataId: Scalars['Int'];
+  collectionName: Scalars['String']['input'];
+  metadataId: Scalars['Int']['input'];
 };
 
 
 export type MutationRootToggleMediaMonitorArgs = {
-  toMonitorMetadataId: Scalars['Int'];
+  toMonitorMetadataId: Scalars['Int']['input'];
 };
 
 
@@ -859,53 +861,53 @@ export type MutationRootUpdateUserPreferenceArgs = {
 };
 
 export type PodcastEpisode = {
-  id: Scalars['String'];
-  number: Scalars['Int'];
-  overview?: Maybe<Scalars['String']>;
-  publishDate: Scalars['Int'];
-  runtime?: Maybe<Scalars['Int']>;
-  thumbnail?: Maybe<Scalars['String']>;
-  title: Scalars['String'];
+  id: Scalars['String']['output'];
+  number: Scalars['Int']['output'];
+  overview?: Maybe<Scalars['String']['output']>;
+  publishDate: Scalars['Int']['output'];
+  runtime?: Maybe<Scalars['Int']['output']>;
+  thumbnail?: Maybe<Scalars['String']['output']>;
+  title: Scalars['String']['output'];
 };
 
 export type PodcastEpisodeInput = {
-  id: Scalars['String'];
-  number: Scalars['Int'];
-  overview?: InputMaybe<Scalars['String']>;
-  publishDate: Scalars['Int'];
-  runtime?: InputMaybe<Scalars['Int']>;
-  thumbnail?: InputMaybe<Scalars['String']>;
-  title: Scalars['String'];
+  id: Scalars['String']['input'];
+  number: Scalars['Int']['input'];
+  overview?: InputMaybe<Scalars['String']['input']>;
+  publishDate: Scalars['Int']['input'];
+  runtime?: InputMaybe<Scalars['Int']['input']>;
+  thumbnail?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
 };
 
 export type PodcastSpecifics = {
   episodes: Array<PodcastEpisode>;
-  totalEpisodes: Scalars['Int'];
+  totalEpisodes: Scalars['Int']['output'];
 };
 
 export type PodcastSpecificsInput = {
   episodes: Array<PodcastEpisodeInput>;
-  totalEpisodes: Scalars['Int'];
+  totalEpisodes: Scalars['Int']['input'];
 };
 
 export type PodcastsSummary = {
-  played: Scalars['Int'];
-  playedEpisodes: Scalars['Int'];
-  runtime: Scalars['Int'];
+  played: Scalars['Int']['output'];
+  playedEpisodes: Scalars['Int']['output'];
+  runtime: Scalars['Int']['output'];
 };
 
 export type PostReviewInput = {
-  creatorId?: InputMaybe<Scalars['Int']>;
-  date?: InputMaybe<Scalars['DateTime']>;
-  metadataId?: InputMaybe<Scalars['Int']>;
-  podcastEpisodeNumber?: InputMaybe<Scalars['Int']>;
-  rating?: InputMaybe<Scalars['Decimal']>;
+  creatorId?: InputMaybe<Scalars['Int']['input']>;
+  date?: InputMaybe<Scalars['DateTime']['input']>;
+  metadataId?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  rating?: InputMaybe<Scalars['Decimal']['input']>;
   /** ID of the review if this is an update to an existing review */
-  reviewId?: InputMaybe<Scalars['Int']>;
-  showEpisodeNumber?: InputMaybe<Scalars['Int']>;
-  showSeasonNumber?: InputMaybe<Scalars['Int']>;
-  spoiler?: InputMaybe<Scalars['Boolean']>;
-  text?: InputMaybe<Scalars['String']>;
+  reviewId?: InputMaybe<Scalars['Int']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  spoiler?: InputMaybe<Scalars['Boolean']['input']>;
+  text?: InputMaybe<Scalars['String']['input']>;
   visibility?: InputMaybe<Visibility>;
 };
 
@@ -921,20 +923,20 @@ export enum ProgressUpdateErrorVariant {
 
 export type ProgressUpdateInput = {
   changeState?: InputMaybe<SeenState>;
-  date?: InputMaybe<Scalars['NaiveDate']>;
-  metadataId: Scalars['Int'];
-  podcastEpisodeNumber?: InputMaybe<Scalars['Int']>;
-  progress?: InputMaybe<Scalars['Int']>;
-  showEpisodeNumber?: InputMaybe<Scalars['Int']>;
-  showSeasonNumber?: InputMaybe<Scalars['Int']>;
+  date?: InputMaybe<Scalars['NaiveDate']['input']>;
+  metadataId: Scalars['Int']['input'];
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  progress?: InputMaybe<Scalars['Int']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ProgressUpdateResultUnion = IdObject | ProgressUpdateError;
 
 export type ProviderLanguageInformation = {
-  default: Scalars['String'];
+  default: Scalars['String']['output'];
   source: MetadataSource;
-  supported: Array<Scalars['String']>;
+  supported: Array<Scalars['String']['output']>;
 };
 
 export type QueryRoot = {
@@ -957,7 +959,7 @@ export type QueryRoot = {
   /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseSearchResults;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
-  getPresignedUrl: Scalars['String'];
+  getPresignedUrl: Scalars['String']['output'];
   /** Get all the import jobs deployed by the user. */
   importReports: Array<ImportReport>;
   /** Get a summary of all the media items that have been consumed by this user. */
@@ -1008,7 +1010,7 @@ export type QueryRootCollectionsArgs = {
 
 
 export type QueryRootCreatorDetailsArgs = {
-  creatorId: Scalars['Int'];
+  creatorId: Scalars['Int']['input'];
 };
 
 
@@ -1018,7 +1020,7 @@ export type QueryRootCreatorsListArgs = {
 
 
 export type QueryRootExerciseArgs = {
-  exerciseId: Scalars['Int'];
+  exerciseId: Scalars['Int']['input'];
 };
 
 
@@ -1028,17 +1030,17 @@ export type QueryRootExercisesListArgs = {
 
 
 export type QueryRootGetPresignedUrlArgs = {
-  key: Scalars['String'];
+  key: Scalars['String']['input'];
 };
 
 
 export type QueryRootMediaDetailsArgs = {
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 };
 
 
 export type QueryRootMediaExistsInDatabaseArgs = {
-  identifier: Scalars['String'];
+  identifier: Scalars['String']['input'];
   lot: MetadataLot;
   source: MetadataSource;
 };
@@ -1062,12 +1064,12 @@ export type QueryRootMediaSourcesForLotArgs = {
 
 
 export type QueryRootReviewByIdArgs = {
-  reviewId: Scalars['Int'];
+  reviewId: Scalars['Int']['input'];
 };
 
 
 export type QueryRootUserCreatorDetailsArgs = {
-  creatorId: Scalars['Int'];
+  creatorId: Scalars['Int']['input'];
 };
 
 
@@ -1077,7 +1079,7 @@ export type QueryRootUserMeasurementsListArgs = {
 
 
 export type QueryRootUserMediaDetailsArgs = {
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 };
 
 export type RegisterError = {
@@ -1092,48 +1094,48 @@ export enum RegisterErrorVariant {
 export type RegisterResult = IdObject | RegisterError;
 
 export type ReviewItem = {
-  id: Scalars['Int'];
-  podcastEpisode?: Maybe<Scalars['Int']>;
+  id: Scalars['Int']['output'];
+  podcastEpisode?: Maybe<Scalars['Int']['output']>;
   postedBy: ReviewPostedBy;
-  postedOn: Scalars['DateTime'];
-  rating?: Maybe<Scalars['Decimal']>;
-  showEpisode?: Maybe<Scalars['Int']>;
-  showSeason?: Maybe<Scalars['Int']>;
-  spoiler: Scalars['Boolean'];
-  text?: Maybe<Scalars['String']>;
+  postedOn: Scalars['DateTime']['output'];
+  rating?: Maybe<Scalars['Decimal']['output']>;
+  showEpisode?: Maybe<Scalars['Int']['output']>;
+  showSeason?: Maybe<Scalars['Int']['output']>;
+  spoiler: Scalars['Boolean']['output'];
+  text?: Maybe<Scalars['String']['output']>;
   visibility: Visibility;
 };
 
 export type ReviewPostedBy = {
-  id: Scalars['Int'];
-  name: Scalars['String'];
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type SearchInput = {
-  page?: InputMaybe<Scalars['Int']>;
-  query?: InputMaybe<Scalars['String']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  query?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Seen = {
-  finishedOn?: Maybe<Scalars['NaiveDate']>;
-  id: Scalars['Int'];
-  lastUpdatedOn: Scalars['DateTime'];
-  metadataId: Scalars['Int'];
+  finishedOn?: Maybe<Scalars['NaiveDate']['output']>;
+  id: Scalars['Int']['output'];
+  lastUpdatedOn: Scalars['DateTime']['output'];
+  metadataId: Scalars['Int']['output'];
   podcastInformation?: Maybe<SeenPodcastExtraInformation>;
-  progress: Scalars['Int'];
+  progress: Scalars['Int']['output'];
   showInformation?: Maybe<SeenShowExtraInformation>;
-  startedOn?: Maybe<Scalars['NaiveDate']>;
+  startedOn?: Maybe<Scalars['NaiveDate']['output']>;
   state: SeenState;
-  userId: Scalars['Int'];
+  userId: Scalars['Int']['output'];
 };
 
 export type SeenPodcastExtraInformation = {
-  episode: Scalars['Int'];
+  episode: Scalars['Int']['output'];
 };
 
 export type SeenShowExtraInformation = {
-  episode: Scalars['Int'];
-  season: Scalars['Int'];
+  episode: Scalars['Int']['output'];
+  season: Scalars['Int']['output'];
 };
 
 export enum SeenState {
@@ -1144,45 +1146,45 @@ export enum SeenState {
 }
 
 export type ShowEpisode = {
-  episodeNumber: Scalars['Int'];
-  id: Scalars['Int'];
-  name: Scalars['String'];
-  overview?: Maybe<Scalars['String']>;
-  posterImages: Array<Scalars['String']>;
-  publishDate?: Maybe<Scalars['NaiveDate']>;
-  runtime?: Maybe<Scalars['Int']>;
+  episodeNumber: Scalars['Int']['output'];
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  overview?: Maybe<Scalars['String']['output']>;
+  posterImages: Array<Scalars['String']['output']>;
+  publishDate?: Maybe<Scalars['NaiveDate']['output']>;
+  runtime?: Maybe<Scalars['Int']['output']>;
 };
 
 export type ShowEpisodeSpecificsInput = {
-  episodeNumber: Scalars['Int'];
-  id: Scalars['Int'];
-  name: Scalars['String'];
-  overview?: InputMaybe<Scalars['String']>;
-  posterImages: Array<Scalars['String']>;
-  publishDate?: InputMaybe<Scalars['NaiveDate']>;
-  runtime?: InputMaybe<Scalars['Int']>;
+  episodeNumber: Scalars['Int']['input'];
+  id: Scalars['Int']['input'];
+  name: Scalars['String']['input'];
+  overview?: InputMaybe<Scalars['String']['input']>;
+  posterImages: Array<Scalars['String']['input']>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  runtime?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ShowSeason = {
-  backdropImages: Array<Scalars['String']>;
+  backdropImages: Array<Scalars['String']['output']>;
   episodes: Array<ShowEpisode>;
-  id: Scalars['Int'];
-  name: Scalars['String'];
-  overview?: Maybe<Scalars['String']>;
-  posterImages: Array<Scalars['String']>;
-  publishDate?: Maybe<Scalars['NaiveDate']>;
-  seasonNumber: Scalars['Int'];
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  overview?: Maybe<Scalars['String']['output']>;
+  posterImages: Array<Scalars['String']['output']>;
+  publishDate?: Maybe<Scalars['NaiveDate']['output']>;
+  seasonNumber: Scalars['Int']['output'];
 };
 
 export type ShowSeasonSpecificsInput = {
-  backdropImages: Array<Scalars['String']>;
+  backdropImages: Array<Scalars['String']['input']>;
   episodes: Array<ShowEpisodeSpecificsInput>;
-  id: Scalars['Int'];
-  name: Scalars['String'];
-  overview?: InputMaybe<Scalars['String']>;
-  posterImages: Array<Scalars['String']>;
-  publishDate?: InputMaybe<Scalars['NaiveDate']>;
-  seasonNumber: Scalars['Int'];
+  id: Scalars['Int']['input'];
+  name: Scalars['String']['input'];
+  overview?: InputMaybe<Scalars['String']['input']>;
+  posterImages: Array<Scalars['String']['input']>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  seasonNumber: Scalars['Int']['input'];
 };
 
 export type ShowSpecifics = {
@@ -1194,21 +1196,21 @@ export type ShowSpecificsInput = {
 };
 
 export type ShowsSummary = {
-  runtime: Scalars['Int'];
-  watched: Scalars['Int'];
-  watchedEpisodes: Scalars['Int'];
-  watchedSeasons: Scalars['Int'];
+  runtime: Scalars['Int']['output'];
+  watched: Scalars['Int']['output'];
+  watchedEpisodes: Scalars['Int']['output'];
+  watchedSeasons: Scalars['Int']['output'];
 };
 
 export type UpdateUserInput = {
-  email?: InputMaybe<Scalars['String']>;
-  password?: InputMaybe<Scalars['String']>;
-  username?: InputMaybe<Scalars['String']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  password?: InputMaybe<Scalars['String']['input']>;
+  username?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateUserPreferenceInput = {
-  property: Scalars['String'];
-  value: Scalars['String'];
+  property: Scalars['String']['input'];
+  value: Scalars['String']['input'];
 };
 
 export enum UpgradeType {
@@ -1217,15 +1219,15 @@ export enum UpgradeType {
 }
 
 export type User = {
-  email?: Maybe<Scalars['String']>;
-  id: Scalars['Int'];
+  email?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
   lot: UserLot;
-  name: Scalars['String'];
+  name: Scalars['String']['output'];
 };
 
 export type UserAuthToken = {
-  lastUsedOn: Scalars['DateTime'];
-  token: Scalars['String'];
+  lastUsedOn: Scalars['DateTime']['output'];
+  token: Scalars['String']['output'];
 };
 
 export type UserCreatorDetails = {
@@ -1234,7 +1236,7 @@ export type UserCreatorDetails = {
 
 export type UserCustomMeasurement = {
   dataType: UserCustomMeasurementDataType;
-  name: Scalars['String'];
+  name: Scalars['String']['output'];
 };
 
 export enum UserCustomMeasurementDataType {
@@ -1252,7 +1254,7 @@ export enum UserDetailsErrorVariant {
 export type UserDetailsResult = User | UserDetailsError;
 
 export type UserExercisePreferences = {
-  saveHistory: Scalars['Int'];
+  saveHistory: Scalars['Int']['output'];
   weightUnit: UserWeightUnit;
 };
 
@@ -1266,12 +1268,12 @@ export type UserFitnessPreferences = {
 };
 
 export type UserFitnessSummary = {
-  measurementsRecorded: Scalars['Int'];
+  measurementsRecorded: Scalars['Int']['output'];
 };
 
 export type UserInput = {
-  password: Scalars['String'];
-  username: Scalars['String'];
+  password: Scalars['String']['input'];
+  username: Scalars['String']['input'];
 };
 
 export enum UserIntegrationLot {
@@ -1285,102 +1287,102 @@ export enum UserLot {
 }
 
 export type UserMeasurement = {
-  comment?: Maybe<Scalars['String']>;
-  name?: Maybe<Scalars['String']>;
+  comment?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
   stats: UserMeasurementStats;
-  timestamp: Scalars['DateTime'];
+  timestamp: Scalars['DateTime']['output'];
 };
 
 export type UserMeasurementDataInput = {
-  abdominalSkinfold?: InputMaybe<Scalars['Decimal']>;
-  basalMetabolicRate?: InputMaybe<Scalars['Decimal']>;
-  bicepsCircumference?: InputMaybe<Scalars['Decimal']>;
-  bodyFat?: InputMaybe<Scalars['Decimal']>;
-  bodyFatCaliper?: InputMaybe<Scalars['Decimal']>;
-  bodyMassIndex?: InputMaybe<Scalars['Decimal']>;
-  boneMass?: InputMaybe<Scalars['Decimal']>;
-  calories?: InputMaybe<Scalars['Decimal']>;
-  chestCircumference?: InputMaybe<Scalars['Decimal']>;
-  chestSkinfold?: InputMaybe<Scalars['Decimal']>;
-  custom?: InputMaybe<Scalars['JSONObject']>;
-  hipCircumference?: InputMaybe<Scalars['Decimal']>;
-  leanBodyMass?: InputMaybe<Scalars['Decimal']>;
-  muscle?: InputMaybe<Scalars['Decimal']>;
-  neckCircumference?: InputMaybe<Scalars['Decimal']>;
-  thighCircumference?: InputMaybe<Scalars['Decimal']>;
-  thighSkinfold?: InputMaybe<Scalars['Decimal']>;
-  totalBodyWater?: InputMaybe<Scalars['Decimal']>;
-  totalDailyEnergyExpenditure?: InputMaybe<Scalars['Decimal']>;
-  visceralFat?: InputMaybe<Scalars['Decimal']>;
-  waistCircumference?: InputMaybe<Scalars['Decimal']>;
-  waistToHeightRatio?: InputMaybe<Scalars['Decimal']>;
-  waistToHipRatio?: InputMaybe<Scalars['Decimal']>;
-  weight?: InputMaybe<Scalars['Decimal']>;
+  abdominalSkinfold?: InputMaybe<Scalars['Decimal']['input']>;
+  basalMetabolicRate?: InputMaybe<Scalars['Decimal']['input']>;
+  bicepsCircumference?: InputMaybe<Scalars['Decimal']['input']>;
+  bodyFat?: InputMaybe<Scalars['Decimal']['input']>;
+  bodyFatCaliper?: InputMaybe<Scalars['Decimal']['input']>;
+  bodyMassIndex?: InputMaybe<Scalars['Decimal']['input']>;
+  boneMass?: InputMaybe<Scalars['Decimal']['input']>;
+  calories?: InputMaybe<Scalars['Decimal']['input']>;
+  chestCircumference?: InputMaybe<Scalars['Decimal']['input']>;
+  chestSkinfold?: InputMaybe<Scalars['Decimal']['input']>;
+  custom?: InputMaybe<Scalars['JSONObject']['input']>;
+  hipCircumference?: InputMaybe<Scalars['Decimal']['input']>;
+  leanBodyMass?: InputMaybe<Scalars['Decimal']['input']>;
+  muscle?: InputMaybe<Scalars['Decimal']['input']>;
+  neckCircumference?: InputMaybe<Scalars['Decimal']['input']>;
+  thighCircumference?: InputMaybe<Scalars['Decimal']['input']>;
+  thighSkinfold?: InputMaybe<Scalars['Decimal']['input']>;
+  totalBodyWater?: InputMaybe<Scalars['Decimal']['input']>;
+  totalDailyEnergyExpenditure?: InputMaybe<Scalars['Decimal']['input']>;
+  visceralFat?: InputMaybe<Scalars['Decimal']['input']>;
+  waistCircumference?: InputMaybe<Scalars['Decimal']['input']>;
+  waistToHeightRatio?: InputMaybe<Scalars['Decimal']['input']>;
+  waistToHipRatio?: InputMaybe<Scalars['Decimal']['input']>;
+  weight?: InputMaybe<Scalars['Decimal']['input']>;
 };
 
 export type UserMeasurementInput = {
-  comment?: InputMaybe<Scalars['String']>;
-  name?: InputMaybe<Scalars['String']>;
+  comment?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
   stats: UserMeasurementDataInput;
-  timestamp: Scalars['DateTime'];
+  timestamp: Scalars['DateTime']['input'];
 };
 
 export type UserMeasurementStats = {
-  abdominalSkinfold?: Maybe<Scalars['Decimal']>;
-  basalMetabolicRate?: Maybe<Scalars['Decimal']>;
-  bicepsCircumference?: Maybe<Scalars['Decimal']>;
-  bodyFat?: Maybe<Scalars['Decimal']>;
-  bodyFatCaliper?: Maybe<Scalars['Decimal']>;
-  bodyMassIndex?: Maybe<Scalars['Decimal']>;
-  boneMass?: Maybe<Scalars['Decimal']>;
-  calories?: Maybe<Scalars['Decimal']>;
-  chestCircumference?: Maybe<Scalars['Decimal']>;
-  chestSkinfold?: Maybe<Scalars['Decimal']>;
-  custom?: Maybe<Scalars['JSONObject']>;
-  hipCircumference?: Maybe<Scalars['Decimal']>;
-  leanBodyMass?: Maybe<Scalars['Decimal']>;
-  muscle?: Maybe<Scalars['Decimal']>;
-  neckCircumference?: Maybe<Scalars['Decimal']>;
-  thighCircumference?: Maybe<Scalars['Decimal']>;
-  thighSkinfold?: Maybe<Scalars['Decimal']>;
-  totalBodyWater?: Maybe<Scalars['Decimal']>;
-  totalDailyEnergyExpenditure?: Maybe<Scalars['Decimal']>;
-  visceralFat?: Maybe<Scalars['Decimal']>;
-  waistCircumference?: Maybe<Scalars['Decimal']>;
-  waistToHeightRatio?: Maybe<Scalars['Decimal']>;
-  waistToHipRatio?: Maybe<Scalars['Decimal']>;
-  weight?: Maybe<Scalars['Decimal']>;
+  abdominalSkinfold?: Maybe<Scalars['Decimal']['output']>;
+  basalMetabolicRate?: Maybe<Scalars['Decimal']['output']>;
+  bicepsCircumference?: Maybe<Scalars['Decimal']['output']>;
+  bodyFat?: Maybe<Scalars['Decimal']['output']>;
+  bodyFatCaliper?: Maybe<Scalars['Decimal']['output']>;
+  bodyMassIndex?: Maybe<Scalars['Decimal']['output']>;
+  boneMass?: Maybe<Scalars['Decimal']['output']>;
+  calories?: Maybe<Scalars['Decimal']['output']>;
+  chestCircumference?: Maybe<Scalars['Decimal']['output']>;
+  chestSkinfold?: Maybe<Scalars['Decimal']['output']>;
+  custom?: Maybe<Scalars['JSONObject']['output']>;
+  hipCircumference?: Maybe<Scalars['Decimal']['output']>;
+  leanBodyMass?: Maybe<Scalars['Decimal']['output']>;
+  muscle?: Maybe<Scalars['Decimal']['output']>;
+  neckCircumference?: Maybe<Scalars['Decimal']['output']>;
+  thighCircumference?: Maybe<Scalars['Decimal']['output']>;
+  thighSkinfold?: Maybe<Scalars['Decimal']['output']>;
+  totalBodyWater?: Maybe<Scalars['Decimal']['output']>;
+  totalDailyEnergyExpenditure?: Maybe<Scalars['Decimal']['output']>;
+  visceralFat?: Maybe<Scalars['Decimal']['output']>;
+  waistCircumference?: Maybe<Scalars['Decimal']['output']>;
+  waistToHeightRatio?: Maybe<Scalars['Decimal']['output']>;
+  waistToHipRatio?: Maybe<Scalars['Decimal']['output']>;
+  weight?: Maybe<Scalars['Decimal']['output']>;
 };
 
 export type UserMeasurementsInBuiltPreferences = {
-  abdominalSkinfold: Scalars['Boolean'];
-  basalMetabolicRate: Scalars['Boolean'];
-  bicepsCircumference: Scalars['Boolean'];
-  bodyFat: Scalars['Boolean'];
-  bodyFatCaliper: Scalars['Boolean'];
-  bodyMassIndex: Scalars['Boolean'];
-  boneMass: Scalars['Boolean'];
-  calories: Scalars['Boolean'];
-  chestCircumference: Scalars['Boolean'];
-  chestSkinfold: Scalars['Boolean'];
-  hipCircumference: Scalars['Boolean'];
-  leanBodyMass: Scalars['Boolean'];
-  muscle: Scalars['Boolean'];
-  neckCircumference: Scalars['Boolean'];
-  thighCircumference: Scalars['Boolean'];
-  thighSkinfold: Scalars['Boolean'];
-  totalBodyWater: Scalars['Boolean'];
-  totalDailyEnergyExpenditure: Scalars['Boolean'];
-  visceralFat: Scalars['Boolean'];
-  waistCircumference: Scalars['Boolean'];
-  waistToHeightRatio: Scalars['Boolean'];
-  waistToHipRatio: Scalars['Boolean'];
-  weight: Scalars['Boolean'];
+  abdominalSkinfold: Scalars['Boolean']['output'];
+  basalMetabolicRate: Scalars['Boolean']['output'];
+  bicepsCircumference: Scalars['Boolean']['output'];
+  bodyFat: Scalars['Boolean']['output'];
+  bodyFatCaliper: Scalars['Boolean']['output'];
+  bodyMassIndex: Scalars['Boolean']['output'];
+  boneMass: Scalars['Boolean']['output'];
+  calories: Scalars['Boolean']['output'];
+  chestCircumference: Scalars['Boolean']['output'];
+  chestSkinfold: Scalars['Boolean']['output'];
+  hipCircumference: Scalars['Boolean']['output'];
+  leanBodyMass: Scalars['Boolean']['output'];
+  muscle: Scalars['Boolean']['output'];
+  neckCircumference: Scalars['Boolean']['output'];
+  thighCircumference: Scalars['Boolean']['output'];
+  thighSkinfold: Scalars['Boolean']['output'];
+  totalBodyWater: Scalars['Boolean']['output'];
+  totalDailyEnergyExpenditure: Scalars['Boolean']['output'];
+  visceralFat: Scalars['Boolean']['output'];
+  waistCircumference: Scalars['Boolean']['output'];
+  waistToHeightRatio: Scalars['Boolean']['output'];
+  waistToHipRatio: Scalars['Boolean']['output'];
+  weight: Scalars['Boolean']['output'];
 };
 
 export type UserMeasurementsListInput = {
-  endTime?: InputMaybe<Scalars['DateTime']>;
-  startTime?: InputMaybe<Scalars['DateTime']>;
+  endTime?: InputMaybe<Scalars['DateTime']['input']>;
+  startTime?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type UserMeasurementsPreferences = {
@@ -1396,7 +1398,7 @@ export type UserMediaDetails = {
   /** The seen item if it is in progress. */
   inProgress?: Maybe<Seen>;
   /** Whether the user is monitoring this media. */
-  isMonitored: Scalars['Boolean'];
+  isMonitored: Scalars['Boolean']['output'];
   /** The next episode of this media. */
   nextEpisode?: Maybe<UserMediaNextEpisode>;
   /** The reminder that the user has set for this media. */
@@ -1404,39 +1406,39 @@ export type UserMediaDetails = {
   /** The public reviews of this media. */
   reviews: Array<ReviewItem>;
   /** The number of users who have seen this media */
-  seenBy: Scalars['Int'];
+  seenBy: Scalars['Int']['output'];
 };
 
 export type UserMediaFeaturesEnabledPreferences = {
-  anime: Scalars['Boolean'];
-  audioBooks: Scalars['Boolean'];
-  books: Scalars['Boolean'];
-  manga: Scalars['Boolean'];
-  movies: Scalars['Boolean'];
-  podcasts: Scalars['Boolean'];
-  shows: Scalars['Boolean'];
-  videoGames: Scalars['Boolean'];
+  anime: Scalars['Boolean']['output'];
+  audioBooks: Scalars['Boolean']['output'];
+  books: Scalars['Boolean']['output'];
+  manga: Scalars['Boolean']['output'];
+  movies: Scalars['Boolean']['output'];
+  podcasts: Scalars['Boolean']['output'];
+  shows: Scalars['Boolean']['output'];
+  videoGames: Scalars['Boolean']['output'];
 };
 
 export type UserMediaNextEpisode = {
-  episodeNumber?: Maybe<Scalars['Int']>;
-  seasonNumber?: Maybe<Scalars['Int']>;
+  episodeNumber?: Maybe<Scalars['Int']['output']>;
+  seasonNumber?: Maybe<Scalars['Int']['output']>;
 };
 
 export type UserMediaReminder = {
-  message: Scalars['String'];
-  remindOn: Scalars['NaiveDate'];
+  message: Scalars['String']['output'];
+  remindOn: Scalars['NaiveDate']['output'];
 };
 
 export type UserMediaSummary = {
   anime: AnimeSummary;
   audioBooks: AudioBooksSummary;
   books: BooksSummary;
-  creatorsInteractedWith: Scalars['Int'];
+  creatorsInteractedWith: Scalars['Int']['output'];
   manga: MangaSummary;
   movies: MoviesSummary;
   podcasts: PodcastsSummary;
-  reviewsPosted: Scalars['Int'];
+  reviewsPosted: Scalars['Int']['output'];
   shows: ShowsSummary;
   videoGames: VideoGamesSummary;
 };
@@ -1452,10 +1454,10 @@ export enum UserNotificationSettingKind {
 }
 
 export type UserNotificationsPreferences = {
-  episodeReleased: Scalars['Boolean'];
-  numberOfSeasonsChanged: Scalars['Boolean'];
-  releaseDateChanged: Scalars['Boolean'];
-  statusChanged: Scalars['Boolean'];
+  episodeReleased: Scalars['Boolean']['output'];
+  numberOfSeasonsChanged: Scalars['Boolean']['output'];
+  releaseDateChanged: Scalars['Boolean']['output'];
+  statusChanged: Scalars['Boolean']['output'];
 };
 
 export type UserPreferences = {
@@ -1469,7 +1471,7 @@ export enum UserSinkIntegrationSettingKind {
 }
 
 export type UserSummary = {
-  calculatedOn: Scalars['DateTime'];
+  calculatedOn: Scalars['DateTime']['output'];
   fitness: UserFitnessSummary;
   media: UserMediaSummary;
 };
@@ -1484,15 +1486,15 @@ export enum UserYankIntegrationSettingKind {
 }
 
 export type VideoGameSpecifics = {
-  platforms: Array<Scalars['String']>;
+  platforms: Array<Scalars['String']['output']>;
 };
 
 export type VideoGameSpecificsInput = {
-  platforms: Array<Scalars['String']>;
+  platforms: Array<Scalars['String']['input']>;
 };
 
 export type VideoGamesSummary = {
-  played: Scalars['Int'];
+  played: Scalars['Int']['output'];
 };
 
 export enum Visibility {
@@ -1517,7 +1519,7 @@ export type BulkProgressUpdateMutation = { bulkProgressUpdate: boolean };
 export type CommitMediaMutationVariables = Exact<{
   lot: MetadataLot;
   source: MetadataSource;
-  identifier: Scalars['String'];
+  identifier: Scalars['String']['input'];
 }>;
 
 
@@ -1573,49 +1575,49 @@ export type CreateUserYankIntegrationMutationVariables = Exact<{
 export type CreateUserYankIntegrationMutation = { createUserYankIntegration: number };
 
 export type DeleteCollectionMutationVariables = Exact<{
-  collectionName: Scalars['String'];
+  collectionName: Scalars['String']['input'];
 }>;
 
 
 export type DeleteCollectionMutation = { deleteCollection: boolean };
 
 export type DeleteMediaReminderMutationVariables = Exact<{
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 }>;
 
 
 export type DeleteMediaReminderMutation = { deleteMediaReminder: boolean };
 
 export type DeleteReviewMutationVariables = Exact<{
-  reviewId: Scalars['Int'];
+  reviewId: Scalars['Int']['input'];
 }>;
 
 
 export type DeleteReviewMutation = { deleteReview: boolean };
 
 export type DeleteSeenItemMutationVariables = Exact<{
-  seenId: Scalars['Int'];
+  seenId: Scalars['Int']['input'];
 }>;
 
 
 export type DeleteSeenItemMutation = { deleteSeenItem: { id: number } };
 
 export type DeleteUserMutationVariables = Exact<{
-  toDeleteUserId: Scalars['Int'];
+  toDeleteUserId: Scalars['Int']['input'];
 }>;
 
 
 export type DeleteUserMutation = { deleteUser: boolean };
 
 export type DeleteUserAuthTokenMutationVariables = Exact<{
-  token: Scalars['String'];
+  token: Scalars['String']['input'];
 }>;
 
 
 export type DeleteUserAuthTokenMutation = { deleteUserAuthToken: boolean };
 
 export type DeleteUserIntegrationMutationVariables = Exact<{
-  integrationId: Scalars['Int'];
+  integrationId: Scalars['Int']['input'];
   integrationLot: UserIntegrationLot;
 }>;
 
@@ -1623,14 +1625,14 @@ export type DeleteUserIntegrationMutationVariables = Exact<{
 export type DeleteUserIntegrationMutation = { deleteUserIntegration: boolean };
 
 export type DeleteUserMeasurementMutationVariables = Exact<{
-  timestamp: Scalars['DateTime'];
+  timestamp: Scalars['DateTime']['input'];
 }>;
 
 
 export type DeleteUserMeasurementMutation = { deleteUserMeasurement: boolean };
 
 export type DeleteUserNotificationPlatformMutationVariables = Exact<{
-  notificationId: Scalars['Int'];
+  notificationId: Scalars['Int']['input'];
 }>;
 
 
@@ -1644,7 +1646,7 @@ export type DeployImportJobMutationVariables = Exact<{
 export type DeployImportJobMutation = { deployImportJob: string };
 
 export type DeployUpdateMetadataJobMutationVariables = Exact<{
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 }>;
 
 
@@ -1668,8 +1670,8 @@ export type LogoutUserMutationVariables = Exact<{ [key: string]: never; }>;
 export type LogoutUserMutation = { logoutUser: boolean };
 
 export type MergeMetadataMutationVariables = Exact<{
-  mergeFrom: Scalars['Int'];
-  mergeInto: Scalars['Int'];
+  mergeFrom: Scalars['Int']['input'];
+  mergeInto: Scalars['Int']['input'];
 }>;
 
 
@@ -1702,8 +1704,8 @@ export type RegisterUserMutationVariables = Exact<{
 export type RegisterUserMutation = { registerUser: { __typename: 'IdObject', id: number } | { __typename: 'RegisterError', error: RegisterErrorVariant } };
 
 export type RemoveMediaFromCollectionMutationVariables = Exact<{
-  metadataId: Scalars['Int'];
-  collectionName: Scalars['String'];
+  metadataId: Scalars['Int']['input'];
+  collectionName: Scalars['String']['input'];
 }>;
 
 
@@ -1715,7 +1717,7 @@ export type TestUserNotificationPlatformsMutationVariables = Exact<{ [key: strin
 export type TestUserNotificationPlatformsMutation = { testUserNotificationPlatforms: boolean };
 
 export type ToggleMediaMonitorMutationVariables = Exact<{
-  toMonitorMetadataId: Scalars['Int'];
+  toMonitorMetadataId: Scalars['Int']['input'];
 }>;
 
 
@@ -1770,7 +1772,7 @@ export type CoreEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>
 export type CoreEnabledFeaturesQuery = { coreEnabledFeatures: { fileStorage: boolean, signupAllowed: boolean } };
 
 export type CreatorDetailsQueryVariables = Exact<{
-  creatorId: Scalars['Int'];
+  creatorId: Scalars['Int']['input'];
 }>;
 
 
@@ -1784,7 +1786,7 @@ export type CreatorsListQueryVariables = Exact<{
 export type CreatorsListQuery = { creatorsList: { total: number, nextPage?: number | null, items: Array<{ id: number, name: string, image?: string | null, mediaCount: number }> } };
 
 export type ExerciseQueryVariables = Exact<{
-  exerciseId: Scalars['Int'];
+  exerciseId: Scalars['Int']['input'];
 }>;
 
 
@@ -1793,17 +1795,17 @@ export type ExerciseQuery = { exercise: { name: string, lot: ExerciseLot } };
 export type ExerciseInformationQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ExerciseInformationQuery = { exerciseInformation: { downloadRequired: boolean, filters: { lot: Array<ExerciseLot>, level: Array<ExerciseLevel>, force: Array<ExerciseForce>, mechanic: Array<ExerciseMechanic>, equipment: Array<ExerciseEquipment> } } };
+export type ExerciseInformationQuery = { exerciseInformation: { downloadRequired: boolean, filters: { type: Array<ExerciseLot>, level: Array<ExerciseLevel>, force: Array<ExerciseForce>, mechanic: Array<ExerciseMechanic>, equipment: Array<ExerciseEquipment>, muscle: Array<ExerciseMuscle> } } };
 
 export type ExercisesListQueryVariables = Exact<{
   input: ExercisesListInput;
 }>;
 
 
-export type ExercisesListQuery = { exercisesList: { total: number, nextPage?: number | null, items: Array<{ id: number, name: string, attributes: { primaryMuscles: Array<ExerciseMuscle>, images: Array<string> } }> } };
+export type ExercisesListQuery = { exercisesList: { total: number, nextPage?: number | null, items: Array<{ id: number, name: string, equipment?: ExerciseEquipment | null, attributes: { images: Array<string> } }> } };
 
 export type GetPresignedUrlQueryVariables = Exact<{
-  key: Scalars['String'];
+  key: Scalars['String']['input'];
 }>;
 
 
@@ -1820,7 +1822,7 @@ export type LatestUserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 export type LatestUserSummaryQuery = { latestUserSummary: { calculatedOn: Date, fitness: { measurementsRecorded: number }, media: { reviewsPosted: number, creatorsInteractedWith: number, manga: { chapters: number, read: number }, books: { pages: number, read: number }, movies: { runtime: number, watched: number }, anime: { episodes: number, watched: number }, podcasts: { runtime: number, played: number, playedEpisodes: number }, videoGames: { played: number }, shows: { runtime: number, watchedEpisodes: number, watchedSeasons: number, watched: number }, audioBooks: { runtime: number, played: number } } } };
 
 export type MediaDetailsQueryVariables = Exact<{
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 }>;
 
 
@@ -1857,7 +1859,7 @@ export type ProvidersLanguageInformationQueryVariables = Exact<{ [key: string]: 
 export type ProvidersLanguageInformationQuery = { providersLanguageInformation: Array<{ supported: Array<string>, default: string, source: MetadataSource }> };
 
 export type ReviewByIdQueryVariables = Exact<{
-  reviewId: Scalars['Int'];
+  reviewId: Scalars['Int']['input'];
 }>;
 
 
@@ -1869,7 +1871,7 @@ export type UserAuthTokensQueryVariables = Exact<{ [key: string]: never; }>;
 export type UserAuthTokensQuery = { userAuthTokens: Array<{ lastUsedOn: Date, token: string }> };
 
 export type UserCreatorDetailsQueryVariables = Exact<{
-  creatorId: Scalars['Int'];
+  creatorId: Scalars['Int']['input'];
 }>;
 
 
@@ -1895,7 +1897,7 @@ export type UserMeasurementsListQuery = { userMeasurementsList: Array<{ timestam
 export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null };
 
 export type UserMediaDetailsQueryVariables = Exact<{
-  metadataId: Scalars['Int'];
+  metadataId: Scalars['Int']['input'];
 }>;
 
 
@@ -1961,8 +1963,8 @@ export const CoreEnabledFeaturesDocument = {"kind":"Document","definitions":[{"k
 export const CreatorDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CreatorDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"creatorId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"creatorDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"creatorId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"creatorId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}}]}},{"kind":"Field","name":{"kind":"Name","value":"contents"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]}}]} as unknown as DocumentNode<CreatorDetailsQuery, CreatorDetailsQueryVariables>;
 export const CreatorsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CreatorsList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"creatorsList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"mediaCount"}}]}}]}}]}}]} as unknown as DocumentNode<CreatorsListQuery, CreatorsListQueryVariables>;
 export const ExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Exercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"exerciseId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"exerciseId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"exerciseId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}}]}}]}}]} as unknown as DocumentNode<ExerciseQuery, ExerciseQueryVariables>;
-export const ExerciseInformationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExerciseInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exerciseInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"force"}},{"kind":"Field","name":{"kind":"Name","value":"mechanic"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"downloadRequired"}}]}}]}}]} as unknown as DocumentNode<ExerciseInformationQuery, ExerciseInformationQueryVariables>;
-export const ExercisesListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExercisesList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ExercisesListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exercisesList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"attributes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"primaryMuscles"}},{"kind":"Field","name":{"kind":"Name","value":"images"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ExercisesListQuery, ExercisesListQueryVariables>;
+export const ExerciseInformationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExerciseInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exerciseInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"force"}},{"kind":"Field","name":{"kind":"Name","value":"mechanic"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}},{"kind":"Field","name":{"kind":"Name","value":"muscle"}}]}},{"kind":"Field","name":{"kind":"Name","value":"downloadRequired"}}]}}]}}]} as unknown as DocumentNode<ExerciseInformationQuery, ExerciseInformationQueryVariables>;
+export const ExercisesListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExercisesList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ExercisesListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exercisesList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}},{"kind":"Field","name":{"kind":"Name","value":"attributes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"images"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ExercisesListQuery, ExercisesListQueryVariables>;
 export const GetPresignedUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPresignedUrl"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getPresignedUrl"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<GetPresignedUrlQuery, GetPresignedUrlQueryVariables>;
 export const ImportReportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"import"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ImportReportsQuery, ImportReportsQueryVariables>;
 export const LatestUserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"LatestUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"latestUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"calculatedOn"}},{"kind":"Field","name":{"kind":"Name","value":"fitness"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"measurementsRecorded"}}]}},{"kind":"Field","name":{"kind":"Name","value":"media"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviewsPosted"}},{"kind":"Field","name":{"kind":"Name","value":"creatorsInteractedWith"}},{"kind":"Field","name":{"kind":"Name","value":"manga"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"chapters"}},{"kind":"Field","name":{"kind":"Name","value":"read"}}]}},{"kind":"Field","name":{"kind":"Name","value":"books"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}},{"kind":"Field","name":{"kind":"Name","value":"read"}}]}},{"kind":"Field","name":{"kind":"Name","value":"movies"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"anime"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcasts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"played"}},{"kind":"Field","name":{"kind":"Name","value":"playedEpisodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"videoGames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"played"}}]}},{"kind":"Field","name":{"kind":"Name","value":"shows"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"watchedEpisodes"}},{"kind":"Field","name":{"kind":"Name","value":"watchedSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"audioBooks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"played"}}]}}]}}]}}]}}]} as unknown as DocumentNode<LatestUserSummaryQuery, LatestUserSummaryQueryVariables>;

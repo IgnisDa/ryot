@@ -33,7 +33,8 @@ Here is the minimal configuration required in development mode:
   "server": {
     "cors_origins": ["http://localhost:3000"],
     "config_dump_path": "/tmp/ryot.json",
-    "insecure_cookie": true
+    "insecure_cookie": true,
+		"samesite_none": true
   }
 }
 ```
@@ -43,6 +44,11 @@ I also recommend the following environment file:
 ```bash title=".env"
 RUST_LOG="ryot=trace,sea_orm=debug"
 ```
+
+!!! note
+
+    You will need to run `moon run frontend:build` before you can get the
+    backend running. This needs to be done only once.
 
 ### Version Control
 

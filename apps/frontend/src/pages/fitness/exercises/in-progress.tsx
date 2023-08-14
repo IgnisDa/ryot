@@ -230,11 +230,17 @@ const Page: NextPageWithLayout = () => {
 							color="red"
 							variant="subtle"
 							onClick={() => {
-								setCurrentWorkout(RESET);
-								router.push(APP_ROUTES.dashboard);
+								const yes = confirm(
+									"Are you sure you want to finish this workout?",
+								);
+								if (yes) {
+									setCurrentWorkout(RESET);
+									router.replace(APP_ROUTES.dashboard);
+								}
 							}}
 						>
-							Finish workout
+							{currentWorkout.exercises.length === 0 ? "Cancel" : "Finish"}{" "}
+							workout
 						</Button>
 					</Stack>
 				) : (
