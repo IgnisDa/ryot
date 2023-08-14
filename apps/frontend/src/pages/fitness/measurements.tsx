@@ -282,19 +282,25 @@ const Page: NextPageWithLayout = () => {
 							</LineChart>
 						</ResponsiveContainer>
 					</Box>
-					<ScrollArea h={400}>
-						<SimpleGrid
-							cols={2}
-							breakpoints={[
-								{ minWidth: "md", cols: 3 },
-								{ minWidth: "xl", cols: 4 },
-							]}
-						>
-							{userMeasurementsList.data.map((m, idx) => (
-								<DisplayMeasurement key={idx} measurement={m} />
-							))}
-						</SimpleGrid>
-					</ScrollArea>
+					{userMeasurementsList.data.length > 0 ? (
+						<ScrollArea h={400}>
+							<SimpleGrid
+								cols={2}
+								breakpoints={[
+									{ minWidth: "md", cols: 3 },
+									{ minWidth: "xl", cols: 4 },
+								]}
+							>
+								{userMeasurementsList.data.map((m, idx) => (
+									<DisplayMeasurement key={idx} measurement={m} />
+								))}
+							</SimpleGrid>
+						</ScrollArea>
+					) : (
+						<Text align="center">
+							You have not added any measurements in this time period.
+						</Text>
+					)}
 				</Stack>
 			</Container>
 		</>
