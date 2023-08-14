@@ -4,7 +4,10 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{migrator::ExerciseLot, models::fitness::ExerciseAttributes};
+use crate::{
+    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
+    models::fitness::ExerciseAttributes,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "exercise")]
@@ -17,6 +20,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub identifier: String,
     pub lot: ExerciseLot,
+    pub level: ExerciseLevel,
+    pub force: Option<ExerciseForce>,
+    pub mechanic: Option<ExerciseMechanic>,
+    pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
 }
 

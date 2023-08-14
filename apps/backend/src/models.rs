@@ -728,59 +728,6 @@ pub mod fitness {
         Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
     )]
     #[serde(rename_all = "snake_case")]
-    pub enum ExerciseForce {
-        Static,
-        Pull,
-        Push,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseLevel {
-        Beginner,
-        Intermediate,
-        Expert,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseMechanic {
-        Isolation,
-        Compound,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
-    pub enum ExerciseEquipment {
-        #[serde(alias = "medicine ball")]
-        MedicineBall,
-        Dumbbell,
-        #[serde(alias = "body only")]
-        BodyOnly,
-        Bands,
-        Kettlebells,
-        #[serde(alias = "foam roll")]
-        FoamRoll,
-        Cable,
-        Machine,
-        Barbell,
-        #[serde(alias = "exercise ball")]
-        ExerciseBall,
-        #[serde(alias = "e-z curl bar")]
-        EZCurlBar,
-        Other,
-    }
-
-    #[derive(
-        Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq,
-    )]
-    #[serde(rename_all = "snake_case")]
     pub enum ExerciseMuscle {
         Abdominals,
         Abductors,
@@ -823,13 +770,9 @@ pub mod fitness {
     )]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
-        pub force: Option<ExerciseForce>,
-        pub level: ExerciseLevel,
-        pub mechanic: Option<ExerciseMechanic>,
-        pub equipment: Option<ExerciseEquipment>,
+        pub category: ExerciseCategory,
         pub primary_muscles: Vec<ExerciseMuscle>,
         pub secondary_muscles: Vec<ExerciseMuscle>,
-        pub category: ExerciseCategory,
         pub instructions: Vec<String>,
         #[serde(default)]
         pub images: Vec<String>,

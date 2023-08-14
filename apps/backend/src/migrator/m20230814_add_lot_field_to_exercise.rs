@@ -27,6 +27,46 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        if !manager.has_column("exercise", "level").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Exercise::Table)
+                        .add_column(ColumnDef::new(Exercise::Level).string_len(1).not_null())
+                        .to_owned(),
+                )
+                .await?;
+        }
+        if !manager.has_column("exercise", "force").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Exercise::Table)
+                        .add_column(ColumnDef::new(Exercise::Force).string_len(3).null())
+                        .to_owned(),
+                )
+                .await?;
+        }
+        if !manager.has_column("exercise", "mechanic").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Exercise::Table)
+                        .add_column(ColumnDef::new(Exercise::Mechanic).string_len(1).null())
+                        .to_owned(),
+                )
+                .await?;
+        }
+        if !manager.has_column("exercise", "equipment").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Exercise::Table)
+                        .add_column(ColumnDef::new(Exercise::Equipment).string_len(3).null())
+                        .to_owned(),
+                )
+                .await?;
+        }
         Ok(())
     }
 

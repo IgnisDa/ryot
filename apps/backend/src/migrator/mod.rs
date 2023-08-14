@@ -19,7 +19,9 @@ pub use m20230417_create_user::{UserLot, UserToMetadata};
 pub use m20230419_create_seen::{Seen, SeenState};
 pub use m20230505_create_review::Review;
 pub use m20230509_create_import_report::ImportSource;
-pub use m20230622_create_exercise::ExerciseLot;
+pub use m20230622_create_exercise::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+};
 
 pub struct Migrator;
 
