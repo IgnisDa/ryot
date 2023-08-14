@@ -2078,16 +2078,10 @@ impl MiscellaneousService {
         user_id: i32,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
-        if input.len() < 2 {
-            return Err(Error::new("Atleast two bulk update elements are required"));
-        }
-        // DEV: We have to do this sorcery because the `associate_user_with_metadata` operation
-        // fails if we do all of them together. So we perform one update and then the rest together.
-        let mut updates = input
+        let updates = input
             .into_iter()
             .map(|i| self.progress_update(i, user_id))
             .collect_vec();
-        updates.drain(..1).collect_vec().pop().unwrap().await?;
         join_all(updates).await;
         Ok(true)
     }
