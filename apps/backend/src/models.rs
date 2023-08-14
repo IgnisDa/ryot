@@ -758,21 +758,21 @@ pub mod fitness {
     )]
     #[serde(rename_all = "snake_case")]
     pub enum ExerciseEquipment {
-        #[serde(rename = "medicine ball")]
+        #[serde(alias = "medicine ball")]
         MedicineBall,
         Dumbbell,
-        #[serde(rename = "body only")]
+        #[serde(alias = "body only")]
         BodyOnly,
         Bands,
         Kettlebells,
-        #[serde(rename = "foam roll")]
+        #[serde(alias = "foam roll")]
         FoamRoll,
         Cable,
         Machine,
         Barbell,
-        #[serde(rename = "exercise ball")]
+        #[serde(alias = "exercise ball")]
         ExerciseBall,
-        #[serde(rename = "e-z curl bar")]
+        #[serde(alias = "e-z curl bar")]
         EZCurlBar,
         Other,
     }
@@ -792,9 +792,9 @@ pub mod fitness {
         Glutes,
         Hamstrings,
         Lats,
-        #[serde(rename = "lower back")]
+        #[serde(alias = "lower back")]
         LowerBack,
-        #[serde(rename = "middle back")]
+        #[serde(alias = "middle back")]
         MiddleBack,
         Neck,
         Quadriceps,
@@ -812,7 +812,7 @@ pub mod fitness {
         Strength,
         Stretching,
         Cardio,
-        #[serde(rename = "olympic weightlifting")]
+        #[serde(alias = "olympic weightlifting")]
         OlympicWeightlifting,
         Strongman,
         Plyometrics,
@@ -838,7 +838,7 @@ pub mod fitness {
     #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct Exercise {
-        #[serde(rename = "id")]
+        #[serde(alias = "id")]
         pub identifier: String,
         #[serde(flatten)]
         pub attributes: ExerciseAttributes,
