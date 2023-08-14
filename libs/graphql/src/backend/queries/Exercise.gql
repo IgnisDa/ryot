@@ -1,6 +1,7 @@
 query Exercise($exerciseId: Int!) {
   exercise(exerciseId: $exerciseId) {
     name
+    lot
     attributes {
       force
       level

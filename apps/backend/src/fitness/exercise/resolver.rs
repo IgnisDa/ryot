@@ -16,8 +16,9 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
+    migrator::ExerciseLot,
     models::{
-        fitness::{Exercise as GithubExercise, ExerciseAttributes},
+        fitness::{Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory},
         SearchResults,
     },
     traits::AuthProvider,
@@ -231,10 +232,20 @@ impl ExerciseService {
             .await?
             .is_none()
         {
+            let lot = match ex.attributes.category {
+                ExerciseCategory::Stretching => ExerciseLot::Duration,
+                ExerciseCategory::Plyometrics => ExerciseLot::Duration,
+                ExerciseCategory::Cardio => ExerciseLot::DistanceAndDuration,
+                ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::Strength => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::OlympicWeightlifting => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::Strongman => ExerciseLot::RepsAndWeight,
+            };
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
                 attributes: ActiveValue::Set(ex.attributes),
+                lot: ActiveValue::Set(lot),
                 ..Default::default()
             };
             db_exercise.insert(&self.db).await?;
