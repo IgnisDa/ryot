@@ -12,7 +12,10 @@ use specta::Type;
 
 use crate::{
     entities::exercise::Model as ExerciseModel,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource, SeenState},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, MetadataImageLot,
+        MetadataLot, MetadataSource, SeenState,
+    },
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
@@ -770,7 +773,23 @@ pub mod fitness {
     )]
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
+        pub primary_muscles: Vec<ExerciseMuscle>,
+        pub secondary_muscles: Vec<ExerciseMuscle>,
+        pub instructions: Vec<String>,
+        #[serde(default)]
+        pub images: Vec<String>,
+    }
+
+    #[derive(
+        Debug, Clone, Serialize, SimpleObject, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+    )]
+    #[serde(rename_all = "camelCase")]
+    pub struct GithubExerciseAttributes {
+        pub level: ExerciseLevel,
         pub category: ExerciseCategory,
+        pub force: Option<ExerciseForce>,
+        pub mechanic: Option<ExerciseMechanic>,
+        pub equipment: Option<ExerciseEquipment>,
         pub primary_muscles: Vec<ExerciseMuscle>,
         pub secondary_muscles: Vec<ExerciseMuscle>,
         pub instructions: Vec<String>,
@@ -784,7 +803,7 @@ pub mod fitness {
         #[serde(alias = "id")]
         pub identifier: String,
         #[serde(flatten)]
-        pub attributes: ExerciseAttributes,
+        pub attributes: GithubExerciseAttributes,
         pub name: String,
     }
 

@@ -18,7 +18,10 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::{
-        fitness::{Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory},
+        fitness::{
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
+            GithubExerciseAttributes,
+        },
         SearchResults,
     },
     traits::AuthProvider,
@@ -148,7 +151,7 @@ impl ExerciseService {
         Ok(data
             .into_iter()
             .map(|e| GithubExercise {
-                attributes: ExerciseAttributes {
+                attributes: GithubExerciseAttributes {
                     images: e
                         .attributes
                         .images
@@ -244,8 +247,17 @@ impl ExerciseService {
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
-                attributes: ActiveValue::Set(ex.attributes),
+                attributes: ActiveValue::Set(ExerciseAttributes {
+                    primary_muscles: ex.attributes.primary_muscles,
+                    secondary_muscles: ex.attributes.secondary_muscles,
+                    instructions: ex.attributes.instructions,
+                    images: ex.attributes.images,
+                }),
                 lot: ActiveValue::Set(lot),
+                level: ActiveValue::Set(ex.attributes.level),
+                force: ActiveValue::Set(ex.attributes.force),
+                equipment: ActiveValue::Set(ex.attributes.equipment),
+                mechanic: ActiveValue::Set(ex.attributes.mechanic),
                 ..Default::default()
             };
             db_exercise.insert(&self.db).await?;
