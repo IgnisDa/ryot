@@ -1,5 +1,5 @@
-query UserMeasurementsList {
-  userMeasurementsList {
+query UserMeasurementsList($input: UserMeasurementsListInput!) {
+  userMeasurementsList(input: $input) {
     timestamp
     name
     comment
