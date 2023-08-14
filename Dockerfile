@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:19.8.1 AS base
+FROM --platform=$BUILDPLATFORM node:latest AS base
 WORKDIR /app
 RUN npm install -g @moonrepo/cli && moon --version
 
