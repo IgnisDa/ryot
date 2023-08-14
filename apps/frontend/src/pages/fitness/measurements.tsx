@@ -7,6 +7,7 @@ import {
 	ActionIcon,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Drawer,
 	Flex,
@@ -18,6 +19,7 @@ import {
 	Select,
 	SimpleGrid,
 	Stack,
+	Text,
 	TextInput,
 	Textarea,
 	Title,
@@ -65,10 +67,24 @@ const getValues = (m: UserMeasurement["stats"]) => {
 };
 
 const DisplayMeasurement = (props: { measurement: UserMeasurement }) => {
+	const [opened, { toggle }] = useDisclosure(false);
 	const values = getValues(props.measurement.stats);
 	return (
 		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
-			{JSON.stringify(values)}
+			<Flex direction={"column"} justify={"center"} gap="xs">
+				<Button onClick={toggle} variant="default" size="xs">
+					{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
+						DateTime.DATETIME_SHORT,
+					)}
+				</Button>
+				<Collapse in={opened}>
+					{values.map((v, idx) => (
+						<Text key={idx} align="center">
+							{startCase(snakeCase(v.name))}: {v.value}
+						</Text>
+					))}
+				</Collapse>
+			</Flex>
 		</Paper>
 	);
 };
@@ -267,9 +283,17 @@ const Page: NextPageWithLayout = () => {
 						</ResponsiveContainer>
 					</Box>
 					<ScrollArea h={400}>
-						{userMeasurementsList.data.map((m, idx) => (
-							<DisplayMeasurement key={idx} measurement={m} />
-						))}
+						<SimpleGrid
+							cols={2}
+							breakpoints={[
+								{ minWidth: "md", cols: 3 },
+								{ minWidth: "xl", cols: 4 },
+							]}
+						>
+							{userMeasurementsList.data.map((m, idx) => (
+								<DisplayMeasurement key={idx} measurement={m} />
+							))}
+						</SimpleGrid>
 					</ScrollArea>
 				</Stack>
 			</Container>
