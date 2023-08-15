@@ -100,10 +100,32 @@ pub enum UserWeightUnit {
 }
 
 #[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+    Copy,
+    EnumString,
+    Default,
+)]
+#[strum(ascii_case_insensitive)]
+pub enum UserDistanceUnit {
+    #[default]
+    Kilometer,
+    Mile,
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
     pub save_history: usize,
+    #[serde(default)]
+    pub distance_unit: UserDistanceUnit,
     #[serde(default)]
     pub weight_unit: UserWeightUnit,
 }
@@ -112,6 +134,7 @@ impl Default for UserExercisePreferences {
     fn default() -> Self {
         Self {
             save_history: 15,
+            distance_unit: UserDistanceUnit::Kilometer,
             weight_unit: UserWeightUnit::Kilogram,
         }
     }
