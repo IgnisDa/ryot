@@ -334,6 +334,7 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const mediaLinks = [
 		...(Object.entries(userPrefs?.data?.featuresEnabled.media || {})
+			.filter(([v, _]) => v !== "enabled")
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -394,7 +395,7 @@ export default function ({ children }: { children: ReactElement }) {
 		};
 	}, [router]);
 
-	return (
+	return userPrefs.data ? (
 		<AppShell
 			my={{ sm: "xl" }}
 			padding={0}
@@ -427,41 +428,45 @@ export default function ({ children }: { children: ReactElement }) {
 							opened={false}
 							setOpened={() => {}}
 						/>
-						<LinksGroup
-							label="Media"
-							icon={IconDeviceSpeaker}
-							links={mediaLinks}
-							opened={openedLinkGroups.media}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										draft.media = k;
-									}),
-								)
-							}
-						/>
-						<LinksGroup
-							label="Fitness"
-							icon={IconStretching}
-							opened={openedLinkGroups.fitness}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										draft.fitness = k;
-									}),
-								)
-							}
-							links={[
-								{
-									label: "Exercises",
-									link: APP_ROUTES.fitness.exercises.list,
-								},
-								{
-									label: "Measurements",
-									link: APP_ROUTES.fitness.measurements,
-								},
-							]}
-						/>
+						{userPrefs.data.featuresEnabled.media.enabled ? (
+							<LinksGroup
+								label="Media"
+								icon={IconDeviceSpeaker}
+								links={mediaLinks}
+								opened={openedLinkGroups.media}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											draft.media = k;
+										}),
+									)
+								}
+							/>
+						) : null}
+						{userPrefs.data.featuresEnabled.fitness.enabled ? (
+							<LinksGroup
+								label="Fitness"
+								icon={IconStretching}
+								opened={openedLinkGroups.fitness}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											draft.fitness = k;
+										}),
+									)
+								}
+								links={[
+									{
+										label: "Exercises",
+										link: APP_ROUTES.fitness.exercises.list,
+									},
+									{
+										label: "Measurements",
+										link: APP_ROUTES.fitness.measurements,
+									},
+								]}
+							/>
+						) : null}
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
@@ -564,5 +569,5 @@ export default function ({ children }: { children: ReactElement }) {
 				</MediaQuery>
 			</Flex>
 		</AppShell>
-	);
+	) : null;
 }

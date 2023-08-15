@@ -29,28 +29,53 @@ impl Default for UserNotificationsPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserMediaFeaturesEnabledPreferences {
+    // FIXME: Remove these
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
     pub anime: bool,
-    pub audio_books: bool,
-    pub books: bool,
+    #[serde(default)]
+    pub audio_book: bool,
+    #[serde(default)]
+    pub book: bool,
+    #[serde(default)]
     pub manga: bool,
-    pub movies: bool,
-    pub podcasts: bool,
-    pub shows: bool,
-    pub video_games: bool,
+    #[serde(default)]
+    pub movie: bool,
+    #[serde(default)]
+    pub podcast: bool,
+    #[serde(default)]
+    pub show: bool,
+    #[serde(default)]
+    pub video_game: bool,
 }
 
 impl Default for UserMediaFeaturesEnabledPreferences {
     fn default() -> Self {
         Self {
+            enabled: true,
             anime: true,
-            audio_books: true,
-            books: true,
+            audio_book: true,
+            book: true,
             manga: true,
-            movies: true,
-            podcasts: true,
-            shows: true,
-            video_games: true,
+            movie: true,
+            podcast: true,
+            show: true,
+            video_game: true,
         }
+    }
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserFitnessFeaturesEnabledPreferences {
+    pub enabled: bool,
+}
+
+impl Default for UserFitnessFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self { enabled: true }
     }
 }
 
@@ -78,7 +103,6 @@ pub enum UserWeightUnit {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
-    #[serde(default)]
     pub save_history: usize,
     #[serde(default)]
     pub weight_unit: UserWeightUnit,
@@ -191,17 +215,16 @@ impl Default for UserMeasurementsPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
-    #[serde(default)]
     pub media: UserMediaFeaturesEnabledPreferences,
+    #[serde(default)]
+    pub fitness: UserFitnessFeaturesEnabledPreferences,
 }
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFitnessPreferences {
-    #[serde(default)]
     pub exercises: UserExercisePreferences,
-    #[serde(default)]
     pub measurements: UserMeasurementsPreferences,
 }
 
@@ -209,11 +232,8 @@ pub struct UserFitnessPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserPreferences {
-    #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
-    #[serde(default)]
     pub notifications: UserNotificationsPreferences,
-    #[serde(default)]
     pub fitness: UserFitnessPreferences,
 }
 
@@ -279,6 +299,7 @@ pub enum UserNotificationSetting {
     },
     PushOver {
         key: String,
+        app_key: Option<String>,
     },
     PushSafer {
         key: String,

@@ -111,7 +111,7 @@ const DisplayStatForMediaType = (props: {
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
-		isEnabled[1] ? (
+		isEnabled[1] && userPrefs.data?.featuresEnabled.media.enabled ? (
 			<Link
 				href={withQuery(APP_ROUTES.media.list, {
 					lot: props.lot.toLowerCase(),
@@ -138,6 +138,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
+	const userPrefs = useUserPreferences();
 	const latestUserSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -160,7 +161,8 @@ const Page: NextPageWithLayout = () => {
 		return collectionContents;
 	});
 
-	return latestUserSummary.data &&
+	return userPrefs.data &&
+		latestUserSummary.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.results &&
 		inProgressCollection.data.details ? (
@@ -350,35 +352,39 @@ const Page: NextPageWithLayout = () => {
 								},
 							]}
 						/>
-						<ActualDisplayStat
-							icon={<IconFriends />}
-							lot="General stats"
-							color={theme.colors.grape[8]}
-							data={[
-								{
-									label: "Reviews",
-									value: latestUserSummary.data.media.reviewsPosted,
-									type: "number",
-								},
-								{
-									label: "People",
-									value: latestUserSummary.data.media.creatorsInteractedWith,
-									type: "number",
-								},
-							]}
-						/>
-						<ActualDisplayStat
-							icon={<IconScaleOutline stroke={1.3} />}
-							lot="Fitness"
-							color={theme.colors.yellow[5]}
-							data={[
-								{
-									label: "Measurements",
-									value: latestUserSummary.data.fitness.measurementsRecorded,
-									type: "number",
-								},
-							]}
-						/>
+						{userPrefs.data.featuresEnabled.media.enabled ? (
+							<ActualDisplayStat
+								icon={<IconFriends />}
+								lot="General stats"
+								color={theme.colors.grape[8]}
+								data={[
+									{
+										label: "Reviews",
+										value: latestUserSummary.data.media.reviewsPosted,
+										type: "number",
+									},
+									{
+										label: "People",
+										value: latestUserSummary.data.media.creatorsInteractedWith,
+										type: "number",
+									},
+								]}
+							/>
+						) : null}
+						{userPrefs.data.featuresEnabled.fitness.enabled ? (
+							<ActualDisplayStat
+								icon={<IconScaleOutline stroke={1.3} />}
+								lot="Fitness"
+								color={theme.colors.yellow[5]}
+								data={[
+									{
+										label: "Measurements",
+										value: latestUserSummary.data.fitness.measurementsRecorded,
+										type: "number",
+									},
+								]}
+							/>
+						) : null}
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>

@@ -44,15 +44,19 @@ query UserPreferences {
       numberOfSeasonsChanged
     }
     featuresEnabled {
+      fitness {
+        enabled
+      }
       media {
+        enabled
         anime
-        audioBooks
-        books
+        audioBook
+        book
         manga
-        movies
-        podcasts
-        shows
-        videoGames
+        movie
+        podcast
+        show
+        videoGame
       }
     }
   }

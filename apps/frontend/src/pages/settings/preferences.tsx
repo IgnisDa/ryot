@@ -3,7 +3,6 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
 import {
 	Alert,
 	Container,
@@ -26,7 +25,7 @@ import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
-import { type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 import { match } from "ts-pattern";
 
 const Page: NextPageWithLayout = () => {
@@ -62,32 +61,36 @@ const Page: NextPageWithLayout = () => {
 							Changing preferences is disabled on this instance.
 						</Alert>
 					) : null}
-					<Title order={3}>Enabled features</Title>
-					<SimpleGrid cols={2}>
-						{Object.entries(userPrefs.data.featuresEnabled.media).map(
-							([name, isEnabled], idx) => (
-								<Switch
-									size="xs"
-									key={idx}
-									label={changeCase(name)}
-									checked={isEnabled}
-									disabled={!coreDetails.data.preferencesChangeAllowed}
-									onChange={(ev) => {
-										const lot = getLot(name);
-										if (lot)
+					<Title order={2}>Enabled features</Title>
+					{["media", "fitness"].map((facet) => (
+						<Fragment key={facet}>
+							<Title order={4}>{startCase(facet)}</Title>
+							<SimpleGrid cols={2}>
+								{Object.entries(
+									(userPrefs.data.featuresEnabled as any)[facet],
+								).map(([name, isEnabled], idx) => (
+									<Switch
+										size="xs"
+										key={idx}
+										label={changeCase(snakeCase(name))}
+										checked={isEnabled as any}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(ev) => {
+											const lot = snakeCase(name);
 											updateUserEnabledFeatures.mutate({
 												input: {
-													property: `features_enabled.media.${lot.toLowerCase()}`,
+													property: `features_enabled.${facet}.${lot}`,
 													value: String(ev.currentTarget.checked),
 												},
 											});
-									}}
-								/>
-							),
-						)}
-					</SimpleGrid>
+										}}
+									/>
+								))}
+							</SimpleGrid>
+						</Fragment>
+					))}
 					<Divider />
-					<Title order={3}>Notifications</Title>
+					<Title order={2}>Notifications</Title>
 					<Text size="xs">
 						The following applies to media in your Watchlist or the ones you
 						have monitored explicitly.
@@ -122,7 +125,7 @@ const Page: NextPageWithLayout = () => {
 						)}
 					</SimpleGrid>
 					<Divider />
-					<Title order={3}>Measurements</Title>
+					<Title order={2}>Measurements</Title>
 					<Text size="xs">
 						The default measurements you want to keep track of.
 					</Text>
@@ -170,7 +173,7 @@ const Page: NextPageWithLayout = () => {
 						}}
 					/>
 					<Divider />
-					<Title order={3}>Exercises</Title>
+					<Title order={2}>Exercises</Title>
 					<SimpleGrid cols={1}>
 						<Select
 							size="xs"
