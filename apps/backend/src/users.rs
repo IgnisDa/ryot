@@ -104,6 +104,7 @@ pub enum UserWeightUnit {
 )]
 pub struct UserExercisePreferences {
     pub save_history: usize,
+    #[serde(default)]
     pub weight_unit: UserWeightUnit,
 }
 
