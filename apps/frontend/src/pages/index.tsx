@@ -371,18 +371,20 @@ const Page: NextPageWithLayout = () => {
 								]}
 							/>
 						) : null}
-						<ActualDisplayStat
-							icon={<IconScaleOutline stroke={1.3} />}
-							lot="Fitness"
-							color={theme.colors.yellow[5]}
-							data={[
-								{
-									label: "Measurements",
-									value: latestUserSummary.data.fitness.measurementsRecorded,
-									type: "number",
-								},
-							]}
-						/>
+						{userPrefs.data.featuresEnabled.fitness.enabled ? (
+							<ActualDisplayStat
+								icon={<IconScaleOutline stroke={1.3} />}
+								lot="Fitness"
+								color={theme.colors.yellow[5]}
+								data={[
+									{
+										label: "Measurements",
+										value: latestUserSummary.data.fitness.measurementsRecorded,
+										type: "number",
+									},
+								]}
+							/>
+						) : null}
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
