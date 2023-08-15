@@ -333,7 +333,7 @@ const Page: NextPageWithLayout = () => {
 												.with(UserNotificationSettingKind.PushOver, () => (
 													<>
 														<TextInput
-															label="Key"
+															label="User Key"
 															required
 															{...createUserNotificationPlatformForm.getInputProps(
 																"apiToken",
