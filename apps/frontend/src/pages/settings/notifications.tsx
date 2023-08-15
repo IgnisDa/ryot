@@ -339,6 +339,12 @@ const Page: NextPageWithLayout = () => {
 																"apiToken",
 															)}
 														/>
+														<TextInput
+															label="App Key"
+															{...createUserNotificationPlatformForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
 													</>
 												))
 												.with(UserNotificationSettingKind.PushSafer, () => (
