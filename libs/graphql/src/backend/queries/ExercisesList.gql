@@ -5,6 +5,7 @@ query ExercisesList($input: ExercisesListInput!) {
     items {
       id
       name
+      lot
       equipment
       attributes {
         images
