@@ -26,6 +26,35 @@ impl Default for UserNotificationsPreferences {
 }
 
 #[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserMediaFeaturesEnabledPreferences {
+    pub anime: bool,
+    pub audio_books: bool,
+    pub books: bool,
+    pub manga: bool,
+    pub movies: bool,
+    pub podcasts: bool,
+    pub shows: bool,
+    pub video_games: bool,
+}
+
+impl Default for UserMediaFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self {
+            anime: true,
+            audio_books: true,
+            books: true,
+            manga: true,
+            movies: true,
+            podcasts: true,
+            shows: true,
+            video_games: true,
+        }
+    }
+}
+
+#[derive(
     Debug,
     Serialize,
     Deserialize,
@@ -159,46 +188,11 @@ impl Default for UserMeasurementsPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
     #[serde(default)]
-    pub media: bool,
-    #[serde(default)]
-    pub anime: bool,
-    #[serde(default)]
-    pub audio_book: bool,
-    #[serde(default)]
-    pub book: bool,
-    #[serde(default)]
-    pub manga: bool,
-    #[serde(default)]
-    pub movie: bool,
-    #[serde(default)]
-    pub podcast: bool,
-    #[serde(default)]
-    pub show: bool,
-    #[serde(default)]
-    pub video_game: bool,
-    #[serde(default)]
-    pub fitness: bool,
-}
-
-impl Default for UserFeaturesEnabledPreferences {
-    fn default() -> Self {
-        Self {
-            media: true,
-            anime: true,
-            audio_book: true,
-            book: true,
-            manga: true,
-            movie: true,
-            podcast: true,
-            show: true,
-            video_game: true,
-            fitness: true,
-        }
-    }
+    pub media: UserMediaFeaturesEnabledPreferences,
 }
 
 #[derive(

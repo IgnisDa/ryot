@@ -2460,20 +2460,22 @@ impl MiscellaneousService {
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
-        prefs.features_enabled.anime =
-            self.config.anime.is_enabled() && prefs.features_enabled.anime;
-        prefs.features_enabled.audio_book =
-            self.config.audio_books.is_enabled() && prefs.features_enabled.audio_book;
-        prefs.features_enabled.book = self.config.books.is_enabled() && prefs.features_enabled.book;
-        prefs.features_enabled.show = self.config.shows.is_enabled() && prefs.features_enabled.show;
-        prefs.features_enabled.manga =
-            self.config.manga.is_enabled() && prefs.features_enabled.manga;
-        prefs.features_enabled.movie =
-            self.config.movies.is_enabled() && prefs.features_enabled.movie;
-        prefs.features_enabled.podcast =
-            self.config.podcasts.is_enabled() && prefs.features_enabled.podcast;
-        prefs.features_enabled.video_game =
-            self.config.video_games.is_enabled() && prefs.features_enabled.video_game;
+        prefs.features_enabled.media.anime =
+            self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
+        prefs.features_enabled.media.audio_books =
+            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_books;
+        prefs.features_enabled.media.books =
+            self.config.books.is_enabled() && prefs.features_enabled.media.books;
+        prefs.features_enabled.media.shows =
+            self.config.shows.is_enabled() && prefs.features_enabled.media.shows;
+        prefs.features_enabled.media.manga =
+            self.config.manga.is_enabled() && prefs.features_enabled.media.manga;
+        prefs.features_enabled.media.movies =
+            self.config.movies.is_enabled() && prefs.features_enabled.media.movies;
+        prefs.features_enabled.media.podcasts =
+            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcasts;
+        prefs.features_enabled.media.video_games =
+            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_games;
         Ok(prefs)
     }
 
@@ -3752,19 +3754,39 @@ impl MiscellaneousService {
                 }
             }
             "features_enabled" => {
-                match right {
-                    "media" => preferences.features_enabled.media = value_bool.unwrap(),
-                    "audio_book" => preferences.features_enabled.audio_book = value_bool.unwrap(),
-                    "book" => preferences.features_enabled.book = value_bool.unwrap(),
-                    "movie" => preferences.features_enabled.movie = value_bool.unwrap(),
-                    "podcast" => preferences.features_enabled.podcast = value_bool.unwrap(),
-                    "show" => preferences.features_enabled.show = value_bool.unwrap(),
-                    "video_game" => preferences.features_enabled.video_game = value_bool.unwrap(),
-                    "manga" => preferences.features_enabled.manga = value_bool.unwrap(),
-                    "anime" => preferences.features_enabled.anime = value_bool.unwrap(),
-                    "fitness" => preferences.features_enabled.fitness = value_bool.unwrap(),
+                let (left, right) = right.split_once('.').ok_or_else(err)?;
+                match left {
+                    "media" => {
+                        match right {
+                            "audio_book" => {
+                                preferences.features_enabled.media.audio_books = value_bool.unwrap()
+                            }
+                            "book" => {
+                                preferences.features_enabled.media.books = value_bool.unwrap()
+                            }
+                            "movie" => {
+                                preferences.features_enabled.media.movies = value_bool.unwrap()
+                            }
+                            "podcast" => {
+                                preferences.features_enabled.media.podcasts = value_bool.unwrap()
+                            }
+                            "show" => {
+                                preferences.features_enabled.media.shows = value_bool.unwrap()
+                            }
+                            "video_game" => {
+                                preferences.features_enabled.media.video_games = value_bool.unwrap()
+                            }
+                            "manga" => {
+                                preferences.features_enabled.media.manga = value_bool.unwrap()
+                            }
+                            "anime" => {
+                                preferences.features_enabled.media.anime = value_bool.unwrap()
+                            }
+                            _ => return Err(err()),
+                        };
+                    }
                     _ => return Err(err()),
-                };
+                }
             }
             "notifications" => match right {
                 "episode_released" => {

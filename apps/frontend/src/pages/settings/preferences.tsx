@@ -64,12 +64,12 @@ const Page: NextPageWithLayout = () => {
 					) : null}
 					<Title order={3}>Enabled features</Title>
 					<SimpleGrid cols={2}>
-						{Object.entries(userPrefs.data.featuresEnabled).map(
+						{Object.entries(userPrefs.data.featuresEnabled.media).map(
 							([name, isEnabled], idx) => (
 								<Switch
 									size="xs"
 									key={idx}
-									label={changeCase(snakeCase(name))}
+									label={changeCase(name)}
 									checked={isEnabled}
 									disabled={!coreDetails.data.preferencesChangeAllowed}
 									onChange={(ev) => {
@@ -77,7 +77,7 @@ const Page: NextPageWithLayout = () => {
 										if (lot)
 											updateUserEnabledFeatures.mutate({
 												input: {
-													property: `features_enabled.${lot.toLowerCase()}`,
+													property: `features_enabled.media.${lot.toLowerCase()}`,
 													value: String(ev.currentTarget.checked),
 												},
 											});
