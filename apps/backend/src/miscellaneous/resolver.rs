@@ -2462,20 +2462,20 @@ impl MiscellaneousService {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
         prefs.features_enabled.media.anime =
             self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
-        prefs.features_enabled.media.audio_books =
-            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_books;
-        prefs.features_enabled.media.books =
-            self.config.books.is_enabled() && prefs.features_enabled.media.books;
-        prefs.features_enabled.media.shows =
-            self.config.shows.is_enabled() && prefs.features_enabled.media.shows;
+        prefs.features_enabled.media.audio_book =
+            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_book;
+        prefs.features_enabled.media.book =
+            self.config.books.is_enabled() && prefs.features_enabled.media.book;
+        prefs.features_enabled.media.show =
+            self.config.shows.is_enabled() && prefs.features_enabled.media.show;
         prefs.features_enabled.media.manga =
             self.config.manga.is_enabled() && prefs.features_enabled.media.manga;
-        prefs.features_enabled.media.movies =
-            self.config.movies.is_enabled() && prefs.features_enabled.media.movies;
-        prefs.features_enabled.media.podcasts =
-            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcasts;
-        prefs.features_enabled.media.video_games =
-            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_games;
+        prefs.features_enabled.media.movie =
+            self.config.movies.is_enabled() && prefs.features_enabled.media.movie;
+        prefs.features_enabled.media.podcast =
+            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcast;
+        prefs.features_enabled.media.video_game =
+            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_game;
         Ok(prefs)
     }
 
@@ -3759,22 +3759,18 @@ impl MiscellaneousService {
                     "media" => {
                         match right {
                             "audio_book" => {
-                                preferences.features_enabled.media.audio_books = value_bool.unwrap()
+                                preferences.features_enabled.media.audio_book = value_bool.unwrap()
                             }
-                            "book" => {
-                                preferences.features_enabled.media.books = value_bool.unwrap()
-                            }
+                            "book" => preferences.features_enabled.media.book = value_bool.unwrap(),
                             "movie" => {
-                                preferences.features_enabled.media.movies = value_bool.unwrap()
+                                preferences.features_enabled.media.movie = value_bool.unwrap()
                             }
                             "podcast" => {
-                                preferences.features_enabled.media.podcasts = value_bool.unwrap()
+                                preferences.features_enabled.media.podcast = value_bool.unwrap()
                             }
-                            "show" => {
-                                preferences.features_enabled.media.shows = value_bool.unwrap()
-                            }
+                            "show" => preferences.features_enabled.media.show = value_bool.unwrap(),
                             "video_game" => {
-                                preferences.features_enabled.media.video_games = value_bool.unwrap()
+                                preferences.features_enabled.media.video_game = value_bool.unwrap()
                             }
                             "manga" => {
                                 preferences.features_enabled.media.manga = value_bool.unwrap()

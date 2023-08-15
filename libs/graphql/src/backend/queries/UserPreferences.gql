@@ -47,13 +47,13 @@ query UserPreferences {
       media {
         enabled
         anime
-        audioBooks
-        books
+        audioBook
+        book
         manga
-        movies
-        podcasts
-        shows
-        videoGames
+        movie
+        podcast
+        show
+        videoGame
       }
     }
   }

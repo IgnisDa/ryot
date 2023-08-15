@@ -32,14 +32,22 @@ pub struct UserMediaFeaturesEnabledPreferences {
     // FIXME: Remove this
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
     pub anime: bool,
-    pub audio_books: bool,
-    pub books: bool,
+    #[serde(default)]
+    pub audio_book: bool,
+    #[serde(default)]
+    pub book: bool,
+    #[serde(default)]
     pub manga: bool,
-    pub movies: bool,
-    pub podcasts: bool,
-    pub shows: bool,
-    pub video_games: bool,
+    #[serde(default)]
+    pub movie: bool,
+    #[serde(default)]
+    pub podcast: bool,
+    #[serde(default)]
+    pub show: bool,
+    #[serde(default)]
+    pub video_game: bool,
 }
 
 impl Default for UserMediaFeaturesEnabledPreferences {
@@ -47,13 +55,13 @@ impl Default for UserMediaFeaturesEnabledPreferences {
         Self {
             enabled: true,
             anime: true,
-            audio_books: true,
-            books: true,
+            audio_book: true,
+            book: true,
             manga: true,
-            movies: true,
-            podcasts: true,
-            shows: true,
-            video_games: true,
+            movie: true,
+            podcast: true,
+            show: true,
+            video_game: true,
         }
     }
 }
