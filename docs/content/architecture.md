@@ -39,10 +39,14 @@ Here is the minimal configuration required in development mode:
 }
 ```
 
-I also recommend the following environment file:
+I also recommend the following environment files:
 
 ```bash title=".env"
 RUST_LOG="ryot=trace,sea_orm=debug"
+```
+
+```bash title="apps/frontend/.env"
+NEXT_PUBLIC_BASE_URL="http://localhost:8000"
 ```
 
 !!! note
