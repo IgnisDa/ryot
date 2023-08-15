@@ -69,7 +69,7 @@ const Page: NextPageWithLayout = () => {
 								<Switch
 									size="xs"
 									key={idx}
-									label={changeCase(name)}
+									label={changeCase(snakeCase(name))}
 									checked={isEnabled}
 									disabled={!coreDetails.data.preferencesChangeAllowed}
 									onChange={(ev) => {
