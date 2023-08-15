@@ -194,7 +194,6 @@ const Page: NextPageWithLayout = () => {
 											...Object.values(UserSinkIntegrationSettingKind),
 										]}
 										onChange={(v: any) => {
-											console.log(v);
 											if (v) {
 												if (
 													Object.values(
