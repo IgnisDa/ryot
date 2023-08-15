@@ -3758,6 +3758,9 @@ impl MiscellaneousService {
                 match left {
                     "media" => {
                         match right {
+                            "enabled" => {
+                                preferences.features_enabled.media.enabled = value_bool.unwrap()
+                            }
                             "audio_book" => {
                                 preferences.features_enabled.media.audio_book = value_bool.unwrap()
                             }
