@@ -45,6 +45,7 @@ query UserPreferences {
     }
     featuresEnabled {
       media {
+        enabled
         anime
         audioBooks
         books

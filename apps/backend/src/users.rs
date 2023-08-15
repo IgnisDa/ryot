@@ -29,6 +29,9 @@ impl Default for UserNotificationsPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserMediaFeaturesEnabledPreferences {
+    // FIXME: Remove this
+    #[serde(default)]
+    pub enabled: bool,
     pub anime: bool,
     pub audio_books: bool,
     pub books: bool,
@@ -42,6 +45,7 @@ pub struct UserMediaFeaturesEnabledPreferences {
 impl Default for UserMediaFeaturesEnabledPreferences {
     fn default() -> Self {
         Self {
+            enabled: true,
             anime: true,
             audio_books: true,
             books: true,
