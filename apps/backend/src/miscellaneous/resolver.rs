@@ -3884,8 +3884,8 @@ impl MiscellaneousService {
                 UserNotificationSetting::PushBullet { api_token } => {
                     format!("Pushbullet API Token: {}", api_token)
                 }
-                UserNotificationSetting::PushOver { key } => {
-                    format!("PushOver Key: {}", key)
+                UserNotificationSetting::PushOver { key, app_key } => {
+                    format!("PushOver Key: {}, App Key: {:?}", key, app_key)
                 }
                 UserNotificationSetting::PushSafer { key } => {
                     format!("PushSafer Key: {}", key)
@@ -4032,6 +4032,7 @@ impl MiscellaneousService {
                 },
                 UserNotificationSettingKind::PushOver => UserNotificationSetting::PushOver {
                     key: input.api_token.unwrap(),
+                    app_key: input.base_url,
                 },
                 UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
                     key: input.api_token.unwrap(),

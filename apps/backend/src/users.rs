@@ -299,6 +299,7 @@ pub enum UserNotificationSetting {
     },
     PushOver {
         key: String,
+        app_key: Option<String>,
     },
     PushSafer {
         key: String,

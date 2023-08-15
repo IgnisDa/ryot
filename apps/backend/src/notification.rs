@@ -89,10 +89,10 @@ impl UserNotificationSetting {
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
-            Self::PushOver { key } => {
+            Self::PushOver { key, app_key } => {
                 surf::post("https://api.pushover.net/1/messages.json")
                     .query(&serde_json::json!({
-                        "token": "abd1semr21hv1i5j5kfkm23wf1kd4u",
+                        "token":  app_key.clone().unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_owned()),
                         "user": key,
                         "message": msg,
                         "title": project_name
