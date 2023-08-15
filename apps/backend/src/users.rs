@@ -29,7 +29,7 @@ impl Default for UserNotificationsPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserMediaFeaturesEnabledPreferences {
-    // FIXME: Remove this
+    // FIXME: Remove these
     #[serde(default)]
     pub enabled: bool,
     #[serde(default)]
@@ -90,9 +90,7 @@ pub enum UserWeightUnit {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
-    #[serde(default)]
     pub save_history: usize,
-    #[serde(default)]
     pub weight_unit: UserWeightUnit,
 }
 
@@ -203,7 +201,6 @@ impl Default for UserMeasurementsPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
-    #[serde(default)]
     pub media: UserMediaFeaturesEnabledPreferences,
 }
 
@@ -211,9 +208,7 @@ pub struct UserFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFitnessPreferences {
-    #[serde(default)]
     pub exercises: UserExercisePreferences,
-    #[serde(default)]
     pub measurements: UserMeasurementsPreferences,
 }
 
@@ -221,11 +216,8 @@ pub struct UserFitnessPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserPreferences {
-    #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
-    #[serde(default)]
     pub notifications: UserNotificationsPreferences,
-    #[serde(default)]
     pub fitness: UserFitnessPreferences,
 }
 
