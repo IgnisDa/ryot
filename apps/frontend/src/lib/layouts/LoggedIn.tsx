@@ -443,28 +443,30 @@ export default function ({ children }: { children: ReactElement }) {
 								}
 							/>
 						) : null}
-						<LinksGroup
-							label="Fitness"
-							icon={IconStretching}
-							opened={openedLinkGroups.fitness}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										draft.fitness = k;
-									}),
-								)
-							}
-							links={[
-								{
-									label: "Exercises",
-									link: APP_ROUTES.fitness.exercises.list,
-								},
-								{
-									label: "Measurements",
-									link: APP_ROUTES.fitness.measurements,
-								},
-							]}
-						/>
+						{userPrefs.data.featuresEnabled.fitness.enabled ? (
+							<LinksGroup
+								label="Fitness"
+								icon={IconStretching}
+								opened={openedLinkGroups.fitness}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											draft.fitness = k;
+										}),
+									)
+								}
+								links={[
+									{
+										label: "Exercises",
+										link: APP_ROUTES.fitness.exercises.list,
+									},
+									{
+										label: "Measurements",
+										link: APP_ROUTES.fitness.measurements,
+									},
+								]}
+							/>
+						) : null}
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
