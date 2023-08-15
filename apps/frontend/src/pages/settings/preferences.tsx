@@ -19,6 +19,7 @@ import {
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
+	UserDistanceUnit,
 	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
@@ -186,6 +187,22 @@ const Page: NextPageWithLayout = () => {
 									updateUserEnabledFeatures.mutate({
 										input: {
 											property: "fitness.exercises.weight_unit",
+											value: val,
+										},
+									});
+							}}
+						/>
+						<Select
+							size="xs"
+							label="Unit to use for distance measurements"
+							data={Object.values(UserDistanceUnit).map((c) => startCase(c))}
+							defaultValue={userPrefs.data.fitness.exercises.distanceUnit}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(val) => {
+								if (val)
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: "fitness.exercises.distance_unit",
 											value: val,
 										},
 									});
