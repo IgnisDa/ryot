@@ -73,14 +73,13 @@ const Page: NextPageWithLayout = () => {
 									checked={isEnabled}
 									disabled={!coreDetails.data.preferencesChangeAllowed}
 									onChange={(ev) => {
-										const lot = getLot(name);
-										if (lot)
-											updateUserEnabledFeatures.mutate({
-												input: {
-													property: `features_enabled.media.${lot.toLowerCase()}`,
-													value: String(ev.currentTarget.checked),
-												},
-											});
+										const lot = snakeCase(name);
+										updateUserEnabledFeatures.mutate({
+											input: {
+												property: `features_enabled.media.${lot}`,
+												value: String(ev.currentTarget.checked),
+											},
+										});
 									}}
 								/>
 							),
