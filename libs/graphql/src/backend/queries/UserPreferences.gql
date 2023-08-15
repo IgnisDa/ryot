@@ -44,6 +44,9 @@ query UserPreferences {
       numberOfSeasonsChanged
     }
     featuresEnabled {
+      fitness {
+        enabled
+      }
       media {
         enabled
         anime

@@ -67,6 +67,19 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 }
 
 #[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserFitnessFeaturesEnabledPreferences {
+    pub enabled: bool,
+}
+
+impl Default for UserFitnessFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+#[derive(
     Debug,
     Serialize,
     Deserialize,
@@ -202,6 +215,8 @@ impl Default for UserMeasurementsPreferences {
 )]
 pub struct UserFeaturesEnabledPreferences {
     pub media: UserMediaFeaturesEnabledPreferences,
+    #[serde(default)]
+    pub fitness: UserFitnessFeaturesEnabledPreferences,
 }
 
 #[derive(

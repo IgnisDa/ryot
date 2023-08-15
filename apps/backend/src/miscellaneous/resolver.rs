@@ -3756,6 +3756,12 @@ impl MiscellaneousService {
             "features_enabled" => {
                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                 match left {
+                    "fitness" => match right {
+                        "enabled" => {
+                            preferences.features_enabled.fitness.enabled = value_bool.unwrap()
+                        }
+                        _ => return Err(err()),
+                    },
                     "media" => {
                         match right {
                             "enabled" => {
