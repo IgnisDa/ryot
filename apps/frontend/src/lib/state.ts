@@ -1,11 +1,14 @@
 import { createId } from "@paralleldrive/cuid2";
+import type { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
 
 export type ExerciseSet = Immutable<{ idx: number }>;
 
 export type Exercise = Immutable<{
+	name: string;
 	exerciseId: number;
+	lot: ExerciseLot;
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
 }>;

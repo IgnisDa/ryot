@@ -35,6 +35,7 @@ import {
 import {
 	ExerciseInformationDocument,
 	type ExerciseListFilter,
+	ExerciseLot,
 	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
@@ -67,7 +68,11 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const selectionEnabled = !!router.query.selectionEnabled;
 
-	const [selectedExercises, setSelectedExercises] = useListState<number>([]);
+	const [selectedExercises, setSelectedExercises] = useListState<{
+		name: string;
+		id: number;
+		lot: ExerciseLot;
+	}>([]);
 	const [activePage, setPage] = useLocalStorage({
 		key: "savedExercisesPage",
 	});
@@ -261,10 +266,14 @@ const Page: NextPageWithLayout = () => {
 													<Checkbox
 														onChange={(e) => {
 															if (e.currentTarget.checked)
-																setSelectedExercises.append(exercise.id);
+																setSelectedExercises.append({
+																	name: exercise.name,
+																	id: exercise.id,
+																	lot: exercise.lot,
+																});
 															else
 																setSelectedExercises.filter(
-																	(item) => item !== exercise.id,
+																	(item) => item.id !== exercise.id,
 																);
 														}}
 													/>
@@ -315,9 +324,11 @@ const Page: NextPageWithLayout = () => {
 							onClick={() => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
-										for (const exerciseId of selectedExercises)
+										for (const exercise of selectedExercises)
 											draft.exercises.push({
-												exerciseId: exerciseId,
+												exerciseId: exercise.id,
+												lot: exercise.lot,
+												name: exercise.name,
 												sets: [{ idx: 0 }],
 												notes: [],
 											});

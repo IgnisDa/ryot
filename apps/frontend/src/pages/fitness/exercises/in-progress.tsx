@@ -1,7 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { gqlClient } from "@/lib/services/api";
 import { type Exercise, currentWorkoutAtom } from "@/lib/state";
 import {
 	ActionIcon,
@@ -17,13 +16,11 @@ import {
 	TextInput,
 	Textarea,
 } from "@mantine/core";
-import { ExerciseDocument } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconClipboard,
 	IconDotsVertical,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -71,22 +68,12 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
-	const exerciseDetails = useQuery(
-		["exercise", props.exercise.exerciseId],
-		async () => {
-			const { exercise } = await gqlClient.request(ExerciseDocument, {
-				exerciseId: props.exercise.exerciseId,
-			});
-			return exercise;
-		},
-	);
-
-	return exerciseDetails.data && currentWorkout ? (
+	return currentWorkout ? (
 		<Paper withBorder p="xs">
 			<Menu shadow="md" width={200}>
 				<Stack>
 					<Flex justify={"space-between"}>
-						<Text>{exerciseDetails.data.name}</Text>
+						<Text>{props.exercise.name}</Text>
 						<Menu.Target>
 							<ActionIcon color="blue">
 								<IconDotsVertical />
@@ -144,7 +131,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						icon={<IconTrash size={14} />}
 						onClick={() => {
 							const yes = confirm(
-								`This removes '${exerciseDetails.data.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+								`This removes '${props.exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 							);
 							if (yes)
 								setCurrentWorkout(
