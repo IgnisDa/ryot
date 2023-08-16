@@ -8,9 +8,9 @@ import {
 	Button,
 	Container,
 	Flex,
-	Grid,
 	Menu,
 	Paper,
+	SimpleGrid,
 	Skeleton,
 	Stack,
 	Text,
@@ -157,65 +157,38 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
-				<Grid grow>
-					<Grid.Col span={4}>
-						<Text size="xs">SET</Text>
-					</Grid.Col>
-					{durationCol ? (
-						<Grid.Col span={4}>
-							<Text size="xs">DURATION</Text>
-						</Grid.Col>
-					) : null}
-					{distanceCol ? (
-						<Grid.Col span={4}>
-							<Text size="xs">DISTANCE</Text>
-						</Grid.Col>
-					) : null}
-					{weightCol ? (
-						<Grid.Col span={4}>
-							<Text size="xs">WEIGHT</Text>
-						</Grid.Col>
-					) : null}
-					{repsCol ? (
-						<Grid.Col span={4}>
-							<Text size="xs">REPS</Text>
-						</Grid.Col>
-					) : null}
-					<Grid.Col span={4}>
-						<Text size="xs">Done</Text>
-					</Grid.Col>
-				</Grid>
+				<SimpleGrid
+					cols={
+						2 +
+						[durationCol, distanceCol, weightCol, repsCol].filter(Boolean)
+							.length
+					}
+				>
+					<Text size="xs">SET</Text>
+					{durationCol ? <Text size="xs">DURATION</Text> : null}
+					{distanceCol ? <Text size="xs">DISTANCE</Text> : null}
+					{weightCol ? <Text size="xs">WEIGHT</Text> : null}
+					{repsCol ? <Text size="xs">REPS</Text> : null}
+					<Text size="xs">DONE</Text>
+				</SimpleGrid>
 				{props.exercise.sets.map((s) => (
-					<Grid key={s.idx} grow>
-						<Grid.Col span={4}>
-							<Text size="xs" color="blue">
-								{s.idx + 1}
-							</Text>
-						</Grid.Col>
-						{durationCol ? (
-							<Grid.Col span={4}>
-								<Text size="xs">duration</Text>
-							</Grid.Col>
-						) : null}
-						{distanceCol ? (
-							<Grid.Col span={4}>
-								<Text size="xs">distance</Text>
-							</Grid.Col>
-						) : null}
-						{weightCol ? (
-							<Grid.Col span={4}>
-								<Text size="xs">weight</Text>
-							</Grid.Col>
-						) : null}
-						{repsCol ? (
-							<Grid.Col span={4}>
-								<Text size="xs">reps</Text>
-							</Grid.Col>
-						) : null}
-						<Grid.Col span={4}>
-							<Text size="xs">done</Text>
-						</Grid.Col>
-					</Grid>
+					<SimpleGrid
+						key={s.idx}
+						cols={
+							2 +
+							[durationCol, distanceCol, weightCol, repsCol].filter(Boolean)
+								.length
+						}
+					>
+						<Text size="xs" color="blue">
+							{s.idx + 1}
+						</Text>
+						{durationCol ? <Text size="xs">DURATION</Text> : null}
+						{distanceCol ? <Text size="xs">DISTANCE</Text> : null}
+						{weightCol ? <Text size="xs">WEIGHT</Text> : null}
+						{repsCol ? <Text size="xs">REPS</Text> : null}
+						<Text size="xs">DONE</Text>
+					</SimpleGrid>
 				))}
 				<Button
 					variant="subtle"
