@@ -7,6 +7,7 @@ import {
 	Box,
 	Button,
 	Container,
+	Divider,
 	Flex,
 	Menu,
 	Paper,
@@ -29,7 +30,7 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -79,7 +80,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 		.exhaustive();
 
 	return currentWorkout ? (
-		<Paper withBorder p="md">
+		<Paper px="xs">
 			<Stack>
 				<Menu shadow="md" width={200}>
 					<Stack>
@@ -250,8 +251,9 @@ const Page: NextPageWithLayout = () => {
 			<Container size="sm">
 				{currentWorkout ? (
 					<Stack>
-						<Flex align="end">
+						<Flex align="end" justify={"space-between"}>
 							<TextInput
+								style={{ flex: 0.7 }}
 								size="sm"
 								label="Name"
 								placeholder="A name for your workout"
@@ -265,12 +267,10 @@ const Page: NextPageWithLayout = () => {
 								}
 							/>
 							<DurationTimer startTime={currentWorkout.startTime} />
-							{/*
-								<StatDisplay
-									name="Exercises"
-									value={currentWorkout.exercises.length.toString()}
-								/>
-							*/}
+							<StatDisplay
+								name="Exercises"
+								value={currentWorkout.exercises.length.toString()}
+							/>
 						</Flex>
 						<Textarea
 							size="sm"
@@ -286,8 +286,12 @@ const Page: NextPageWithLayout = () => {
 								)
 							}
 						/>
+						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
-							<ExerciseDisplay key={idx} exercise={ex} idx={idx} />
+							<Fragment key={idx}>
+								<ExerciseDisplay exercise={ex} idx={idx} />
+								<Divider />
+							</Fragment>
 						))}
 						<Link
 							passHref
@@ -323,7 +327,6 @@ const Page: NextPageWithLayout = () => {
 						the dashboard.
 					</Text>
 				)}
-				{JSON.stringify(currentWorkout)}
 			</Container>
 		</>
 	);
