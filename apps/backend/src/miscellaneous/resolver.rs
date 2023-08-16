@@ -79,8 +79,8 @@ use crate::{
         google_books::GoogleBooksService,
         igdb::IgdbService,
         itunes::ITunesService,
-        last_fm::LastFmService,
         listennotes::ListennotesService,
+        music_brainz::MusicBrainzService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
@@ -1119,7 +1119,7 @@ pub struct MiscellaneousService {
     pub tmdb_shows_service: TmdbShowService,
     pub anilist_anime_service: AnilistAnimeService,
     pub anilist_manga_service: AnilistMangaService,
-    pub last_fm_service: LastFmService,
+    pub music_brainz_service: MusicBrainzService,
     pub integration_service: IntegrationService,
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -1148,7 +1148,7 @@ impl MiscellaneousService {
         let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
         let tmdb_movies_service = TmdbMovieService::new(&config.movies.tmdb).await;
         let tmdb_shows_service = TmdbShowService::new(&config.shows.tmdb).await;
-        let last_fm_service = LastFmService::new(&config.music.last_fm).await;
+        let music_brainz_service = MusicBrainzService::new(&config.music.music_brainz).await;
         let audible_service = AudibleService::new(&config.audio_books.audible).await;
         let igdb_service = IgdbService::new(&config.video_games).await;
         let itunes_service = ITunesService::new(&config.podcasts.itunes).await;
@@ -1182,7 +1182,7 @@ impl MiscellaneousService {
             tmdb_shows_service,
             anilist_anime_service,
             anilist_manga_service,
-            last_fm_service,
+            music_brainz_service,
             integration_service,
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1339,7 +1339,7 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
-            MetadataSource::LastFm => todo!(),
+            MetadataSource::MusicBrainz => todo!(),
             MetadataSource::Itunes => Some(format!(
                 "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
             )),
@@ -2628,7 +2628,7 @@ impl MiscellaneousService {
     fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MetadataSource::LastFm => Box::new(self.last_fm_service.clone()),
+            MetadataSource::MusicBrainz => Box::new(self.music_brainz_service.clone()),
             MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
             MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
             MetadataSource::GoogleBooks => Box::new(self.google_books_service.clone()),
@@ -4123,7 +4123,7 @@ impl MiscellaneousService {
 
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
         match lot {
-            MetadataLot::Music => vec![MetadataSource::LastFm],
+            MetadataLot::Music => vec![MetadataSource::MusicBrainz],
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
@@ -4137,9 +4137,9 @@ impl MiscellaneousService {
         MetadataSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
-                    MetadataSource::LastFm => (
-                        LastFmService::supported_languages(),
-                        LastFmService::default_language(),
+                    MetadataSource::MusicBrainz => (
+                        MusicBrainzService::supported_languages(),
+                        MusicBrainzService::default_language(),
                     ),
                     MetadataSource::Itunes => (
                         ITunesService::supported_languages(),

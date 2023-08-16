@@ -3,7 +3,7 @@ pub mod audible;
 pub mod google_books;
 pub mod igdb;
 pub mod itunes;
-pub mod last_fm;
 pub mod listennotes;
+pub mod music_brainz;
 pub mod openlibrary;
 pub mod tmdb;

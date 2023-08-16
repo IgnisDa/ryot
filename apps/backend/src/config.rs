@@ -150,17 +150,17 @@ pub struct MovieConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "LASTFM_")]
-pub struct LastFmConfig {
-    /// The api key for LastFM.
-    pub api_key: String,
+#[config(rename_all = "snake_case", env_prefix = "MUSIC_BRAINZ_")]
+pub struct MusicBrainzConfig {
+    /// Used for changing the user agent if your requests are being rate limited.
+    pub user_agent: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MusicConfig {
-    /// Settings related to LastFM.
+    /// Settings related to Music Brainz.
     #[setting(nested)]
-    pub last_fm: LastFmConfig,
+    pub music_brainz: MusicBrainzConfig,
 }
 
 impl IsFeatureEnabled for MovieConfig {}
