@@ -336,7 +336,7 @@ struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<MediaSearchItem>,
+    items: Vec<CollectionContentResult>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -4709,7 +4709,7 @@ impl MiscellaneousService {
             .find_also_related(Metadata)
             .all(&self.db)
             .await?;
-        let mut contents: HashMap<String, Vec<MediaSearchItem>> = HashMap::new();
+        let mut contents: HashMap<String, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
             let image = if let Some(i) = m.images.0.first() {
@@ -4717,11 +4717,14 @@ impl MiscellaneousService {
             } else {
                 None
             };
-            let metadata = MediaSearchItem {
-                identifier: m.id.to_string(),
-                title: m.title,
-                publish_year: m.publish_year,
-                image,
+            let metadata = CollectionContentResult {
+                details: MediaSearchItem {
+                    identifier: m.id.to_string(),
+                    title: m.title,
+                    publish_year: m.publish_year,
+                    image,
+                },
+                lot: m.lot,
             };
             contents
                 .entry(assoc.role)

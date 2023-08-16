@@ -56,7 +56,7 @@ pub struct IdObject {
 pub mod media {
     use super::*;
 
-    #[derive(Debug, SimpleObject)]
+    #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct CollectionContentResult {
         pub details: MediaSearchItem,
         pub lot: MetadataLot,
