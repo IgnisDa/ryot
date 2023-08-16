@@ -61,15 +61,15 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
-            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, MetadataImages, MovieSpecifics, MusicSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility,
+            CollectionContentResult, CreateOrUpdateCollectionInput, CreatorExtraInformation,
+            ImportOrExportItem, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportItemSeen, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
+            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSpecifics,
+            MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics,
+            MusicSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -280,7 +280,7 @@ struct CollectionContentsInput {
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
     details: collection::Model,
-    results: SearchResults<MediaSearchItem>,
+    results: SearchResults<CollectionContentResult>,
     user: user::Model,
 }
 
@@ -2860,10 +2860,18 @@ impl MiscellaneousService {
                     publish_year: m.publish_year,
                 },
                 u_t_m.map(|d| d.last_updated_on).unwrap_or_default(),
+                m.lot,
             ));
         }
         meta_data.sort_by_key(|item| item.1);
-        let items = meta_data.into_iter().rev().map(|a| a.0).collect();
+        let items = meta_data
+            .into_iter()
+            .rev()
+            .map(|a| CollectionContentResult {
+                details: a.0,
+                lot: a.2,
+            })
+            .collect();
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         Ok(CollectionContents {
             details: collection,

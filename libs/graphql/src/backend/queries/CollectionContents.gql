@@ -7,11 +7,13 @@ query CollectionContents($input: CollectionContentsInput!) {
       total
       nextPage
       items {
-        identifier
         lot
-        title
-        image
-        publishYear
+        details {
+          identifier
+          title
+          image
+          publishYear
+        }
       }
     }
     details {
