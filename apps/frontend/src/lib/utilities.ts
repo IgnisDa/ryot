@@ -82,6 +82,7 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 					() => "watch",
 				)
 				.with(
+					MetadataLot.Music,
 					MetadataLot.AudioBook,
 					MetadataLot.VideoGame,
 					MetadataLot.Podcast,
