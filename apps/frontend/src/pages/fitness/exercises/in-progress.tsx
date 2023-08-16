@@ -245,13 +245,7 @@ const ExerciseDisplay = (props: {
 						<Flex key={idx} justify="space-between" align="start">
 							<Menu>
 								<Menu.Target>
-									<Text
-										mt={2}
-										fw="bold"
-										color={s.confirmed ? "green" : "blue"}
-										w="5%"
-										align="center"
-									>
+									<Text mt={2} fw="bold" color="blue" w="5%" align="center">
 										{idx + 1}
 									</Text>
 								</Menu.Target>
@@ -311,7 +305,7 @@ const ExerciseDisplay = (props: {
 							) : null}
 							<Group w="10%" position="center">
 								<ActionIcon
-									variant="outline"
+									variant={s.confirmed ? "filled" : "outline"}
 									disabled={Object.values(s.stats).filter(Boolean).length === 0}
 									color="green"
 									onClick={() => {
