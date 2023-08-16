@@ -8,9 +8,13 @@ use strum::EnumString;
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserNotificationsPreferences {
+    #[serde(default)]
     pub status_changed: bool,
+    #[serde(default)]
     pub episode_released: bool,
+    #[serde(default)]
     pub release_date_changed: bool,
+    #[serde(default)]
     pub number_of_seasons_changed: bool,
 }
 
@@ -70,6 +74,7 @@ impl Default for UserMediaFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserFitnessFeaturesEnabledPreferences {
+    #[serde(default)]
     pub enabled: bool,
 }
 
@@ -123,6 +128,7 @@ pub enum UserDistanceUnit {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
+    #[serde(default)]
     pub save_history: usize,
     #[serde(default)]
     pub distance_unit: UserDistanceUnit,
@@ -144,28 +150,51 @@ impl Default for UserExercisePreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserMeasurementsInBuiltPreferences {
+    #[serde(default)]
     pub weight: bool,
+    #[serde(default)]
     pub body_mass_index: bool,
+    #[serde(default)]
     pub total_body_water: bool,
+    #[serde(default)]
     pub muscle: bool,
+    #[serde(default)]
     pub body_fat: bool,
+    #[serde(default)]
     pub waist_to_height_ratio: bool,
+    #[serde(default)]
     pub waist_to_hip_ratio: bool,
+    #[serde(default)]
     pub basal_metabolic_rate: bool,
+    #[serde(default)]
     pub total_daily_energy_expenditure: bool,
+    #[serde(default)]
     pub calories: bool,
+    #[serde(default)]
     pub lean_body_mass: bool,
+    #[serde(default)]
     pub bone_mass: bool,
+    #[serde(default)]
     pub visceral_fat: bool,
+    #[serde(default)]
     pub waist_circumference: bool,
+    #[serde(default)]
     pub hip_circumference: bool,
+    #[serde(default)]
     pub chest_circumference: bool,
+    #[serde(default)]
     pub thigh_circumference: bool,
+    #[serde(default)]
     pub biceps_circumference: bool,
+    #[serde(default)]
     pub neck_circumference: bool,
+    #[serde(default)]
     pub body_fat_caliper: bool,
+    #[serde(default)]
     pub chest_skinfold: bool,
+    #[serde(default)]
     pub abdominal_skinfold: bool,
+    #[serde(default)]
     pub thigh_skinfold: bool,
 }
 
@@ -199,9 +228,12 @@ impl Default for UserMeasurementsInBuiltPreferences {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[derive(
+    Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy, Default,
+)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum UserCustomMeasurementDataType {
+    #[default]
     Decimal,
 }
 
@@ -210,7 +242,9 @@ pub enum UserCustomMeasurementDataType {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserCustomMeasurement {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub data_type: UserCustomMeasurementDataType,
 }
 
@@ -218,7 +252,9 @@ pub struct UserCustomMeasurement {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserMeasurementsPreferences {
+    #[serde(default)]
     pub custom: Vec<UserCustomMeasurement>,
+    #[serde(default)]
     pub inbuilt: UserMeasurementsInBuiltPreferences,
 }
 
@@ -238,6 +274,7 @@ impl Default for UserMeasurementsPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFeaturesEnabledPreferences {
+    #[serde(default)]
     pub media: UserMediaFeaturesEnabledPreferences,
     #[serde(default)]
     pub fitness: UserFitnessFeaturesEnabledPreferences,
@@ -247,7 +284,9 @@ pub struct UserFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFitnessPreferences {
+    #[serde(default)]
     pub exercises: UserExercisePreferences,
+    #[serde(default)]
     pub measurements: UserMeasurementsPreferences,
 }
 
@@ -255,8 +294,11 @@ pub struct UserFitnessPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserPreferences {
+    #[serde(default)]
     pub features_enabled: UserFeaturesEnabledPreferences,
+    #[serde(default)]
     pub notifications: UserNotificationsPreferences,
+    #[serde(default)]
     pub fitness: UserFitnessPreferences,
 }
 
