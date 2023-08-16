@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import {
 	type Exercise,
@@ -21,7 +22,6 @@ import {
 	Text,
 	TextInput,
 	Textarea,
-	rem,
 } from "@mantine/core";
 import { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -81,6 +81,7 @@ const StatInput = (props: {
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify={"center"}>
 			<NumberInput
@@ -95,7 +96,7 @@ const StatInput = (props: {
 						);
 				}}
 				size="xs"
-				styles={{ input: { width: rem(64), textAlign: "center" } }}
+				styles={{ input: { textAlign: "center" } }}
 				step={props.inputStep}
 				hideControls
 				required
@@ -106,6 +107,7 @@ const StatInput = (props: {
 
 const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const userPreferences = useUserPreferences();
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -115,7 +117,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.exhaustive();
 
-	return currentWorkout ? (
+	return userPreferences.data && currentWorkout ? (
 		<Paper px="xs">
 			<Stack>
 				<Menu shadow="md" width={200}>
@@ -205,12 +207,12 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						) : null}
 						{distanceCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
-								DISTANCE
+								DISTANCE ({userPreferences.data.fitness.exercises.distanceUnit})
 							</Text>
 						) : null}
 						{weightCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
-								WEIGHT
+								WEIGHT ({userPreferences.data.fitness.exercises.weightUnit})
 							</Text>
 						) : null}
 						{repsCol ? (
