@@ -92,17 +92,28 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify={"center"}>
 			<NumberInput
+				type="number"
+				value={
+					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx].stats[
+						props.stat
+					]
+				}
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
 								props.stat
-							] = typeof v === "number" ? v : 0;
+							] = typeof v === "number" ? v : undefined;
 						}),
 					);
 				}}
 				size="xs"
 				styles={{ input: { width: rem(72), textAlign: "center" } }}
+				precision={
+					typeof props.inputStep === "number"
+						? Math.log10(1 / props.inputStep)
+						: undefined
+				}
 				step={props.inputStep}
 				hideControls
 				required
@@ -206,16 +217,16 @@ const ExerciseDisplay = (props: {
 				</Menu>
 				<Stack spacing="xs">
 					<Flex justify="space-between" align="center">
-						<Text size="sm" w="5%" align="center">
+						<Text size="xs" w="5%" align="center">
 							SET
 						</Text>
 						{durationCol ? (
-							<Text size="sm" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} align="center">
 								DURATION (MIN)
 							</Text>
 						) : null}
 						{distanceCol ? (
-							<Text size="sm" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} align="center">
 								DISTANCE (
 								{match(userPreferences.data.fitness.exercises.distanceUnit)
 									.with(UserDistanceUnit.Kilometer, () => "KM")
@@ -225,7 +236,7 @@ const ExerciseDisplay = (props: {
 							</Text>
 						) : null}
 						{weightCol ? (
-							<Text size="sm" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} align="center">
 								WEIGHT (
 								{match(userPreferences.data.fitness.exercises.weightUnit)
 									.with(UserWeightUnit.Kilogram, () => "KG")
@@ -235,11 +246,11 @@ const ExerciseDisplay = (props: {
 							</Text>
 						) : null}
 						{repsCol ? (
-							<Text size="sm" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} align="center">
 								REPS
 							</Text>
 						) : null}
-						<Text size="sm" w="10%" align="center" />
+						<Box w="10%" />
 					</Flex>
 					{props.exercise.sets.map((s, idx) => (
 						<Flex key={idx} justify="space-between" align="start">
