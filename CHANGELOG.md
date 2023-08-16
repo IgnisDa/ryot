@@ -1,4 +1,15 @@
 
+# Version 2.7.3 (2023-08-16)
+
+## Bug Fixes
+
+* **frontend:** increase max entries for cached images
+
+## Performance Improvements
+
+* **frontend:** lazy load carousel images ([#273](https://github.com/IgnisDa/ryot/issues/273))
+
+
 # Version 2.7.2 (2023-08-16)
 
 ## Bug Fixes
