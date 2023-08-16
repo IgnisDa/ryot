@@ -22,6 +22,14 @@ pub struct SetStatistic {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
+pub enum SetLot {
+    Normal,
+    WarmUp,
+    Drop,
+    Failure,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
 pub enum SetPersonalBest {
     Weight,
     OneRm,
@@ -36,6 +44,7 @@ pub mod done {
     )]
     pub struct DoneSetRecord {
         pub statistic: SetStatistic,
+        pub lot: SetLot,
         pub personal_bests: Vec<SetPersonalBest>,
     }
 

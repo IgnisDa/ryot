@@ -347,15 +347,15 @@ const Page: NextPageWithLayout = () => {
 							</Button>
 						</Link>
 						<Button
-							color="red"
+							color={currentWorkout.exercises.length === 0 ? "red" : "green"}
 							variant="subtle"
-							onClick={() => {
+							onClick={async () => {
 								const yes = confirm(
 									"Are you sure you want to finish this workout?",
 								);
 								if (yes) {
+									await router.replace(APP_ROUTES.dashboard);
 									setCurrentWorkout(RESET);
-									router.replace(APP_ROUTES.dashboard);
 								}
 							}}
 						>
