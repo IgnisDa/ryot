@@ -11,6 +11,7 @@ import {
 	IconDeviceTvOld,
 	IconHeadphones,
 	IconMicrophone,
+	IconMusic,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
 
@@ -25,6 +26,7 @@ export const getLot = (lot: unknown) => {
 		.with("manga", "mangas", () => MetadataLot.Manga)
 		.with("books", "book", () => MetadataLot.Book)
 		.with("movies", "movie", () => MetadataLot.Movie)
+		.with("music", () => MetadataLot.Music)
 		.with("tv", "show", "shows", () => MetadataLot.Show)
 		.with(
 			"games",
@@ -137,5 +139,6 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Podcast, () => IconMicrophone)
 		.with(MetadataLot.Manga, () => IconDeviceTvOld)
 		.with(MetadataLot.Anime, () => IconBooks)
+		.with(MetadataLot.Music, () => IconMusic)
 		.exhaustive();
 };

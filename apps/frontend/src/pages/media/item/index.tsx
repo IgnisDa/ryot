@@ -575,6 +575,7 @@ const Page: NextPageWithLayout = () => {
 			from: "yellow",
 			to: "purple",
 		}))
+		.with(MetadataLot.Music, () => ({ from: "orange", to: "yellow" }))
 		.exhaustive();
 
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
