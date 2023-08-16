@@ -65,8 +65,8 @@ use crate::{
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MetadataImageUrl, MetadataImages, MovieSpecifics, MusicSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, Visibility,
@@ -370,6 +370,7 @@ struct GraphqlMediaDetails {
     audio_book_specifics: Option<AudioBookSpecifics>,
     podcast_specifics: Option<PodcastSpecifics>,
     manga_specifics: Option<MangaSpecifics>,
+    music_specifics: Option<MusicSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
 }
@@ -1395,6 +1396,7 @@ impl MiscellaneousService {
             video_game_specifics: None,
             audio_book_specifics: None,
             podcast_specifics: None,
+            music_specifics: None,
             manga_specifics: None,
             anime_specifics: None,
             source_url,
@@ -1405,6 +1407,9 @@ impl MiscellaneousService {
             }
             MediaSpecifics::Book(a) => {
                 resp.book_specifics = Some(a);
+            }
+            MediaSpecifics::Music(a) => {
+                resp.music_specifics = Some(a);
             }
             MediaSpecifics::Movie(a) => {
                 resp.movie_specifics = Some(a);
@@ -3222,6 +3227,12 @@ impl MiscellaneousService {
                     ls.media.movies.watched += 1;
                     if let Some(r) = item.runtime {
                         ls.media.movies.runtime += r;
+                    }
+                }
+                MediaSpecifics::Music(item) => {
+                    ls.media.music.listened += 1;
+                    if let Some(r) = item.runtime {
+                        ls.media.music.runtime += r;
                     }
                 }
                 MediaSpecifics::Show(item) => {

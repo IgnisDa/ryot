@@ -122,6 +122,14 @@ pub mod media {
     #[derive(
         Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
     )]
+    #[graphql(input_name = "MusicSpecificsInput")]
+    pub struct MusicSpecifics {
+        pub runtime: Option<i32>,
+    }
+
+    #[derive(
+        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
+    )]
     #[graphql(input_name = "MovieSpecificsInput")]
     pub struct MovieSpecifics {
         pub runtime: Option<i32>,
@@ -158,8 +166,8 @@ pub mod media {
         InputObject,
     )]
     #[graphql(input_name = "PodcastEpisodeInput")]
+    #[serde(default)]
     pub struct PodcastEpisode {
-        #[serde(default)]
         pub number: i32,
         pub id: String,
         #[serde(rename = "audio_length_sec")]
@@ -384,6 +392,22 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    pub struct MusicSummary {
+        pub runtime: i32,
+        pub listened: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
     pub struct PodcastsSummary {
         pub runtime: i32,
         pub played: i32,
@@ -451,26 +475,18 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    #[serde(default)]
     pub struct UserMediaSummary {
-        #[serde(default)]
         pub books: BooksSummary,
-        #[serde(default)]
         pub movies: MoviesSummary,
-        #[serde(default)]
+        pub music: MusicSummary,
         pub podcasts: PodcastsSummary,
-        #[serde(default)]
         pub shows: ShowsSummary,
-        #[serde(default)]
         pub video_games: VideoGamesSummary,
-        #[serde(default)]
         pub audio_books: AudioBooksSummary,
-        #[serde(default)]
         pub anime: AnimeSummary,
-        #[serde(default)]
         pub manga: MangaSummary,
-        #[serde(default)]
         pub reviews_posted: u64,
-        #[serde(default)]
         pub creators_interacted_with: usize,
     }
 
@@ -485,8 +501,8 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    #[serde(default)]
     pub struct UserFitnessSummary {
-        #[serde(default)]
         pub measurements_recorded: u64,
     }
 
@@ -501,12 +517,10 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    #[serde(default)]
     pub struct UserSummary {
-        #[serde(default)]
         pub fitness: UserFitnessSummary,
-        #[serde(default)]
         pub media: UserMediaSummary,
-        #[serde(default)]
         pub calculated_on: DateTimeUtc,
     }
 
@@ -649,6 +663,7 @@ pub mod media {
         AudioBook(AudioBookSpecifics),
         Book(BookSpecifics),
         Movie(MovieSpecifics),
+        Music(MusicSpecifics),
         Podcast(PodcastSpecifics),
         Show(ShowSpecifics),
         VideoGame(VideoGameSpecifics),
