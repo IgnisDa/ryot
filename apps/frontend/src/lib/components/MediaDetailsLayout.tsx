@@ -4,20 +4,10 @@ import { IconExternalLink } from "@tabler/icons-react";
 import { useState } from "react";
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {
-	if (array.length === 1) {
-		return [0];
-	}
-
+	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
-
-	if (element === 0) {
-		return [lastIndex, element, element + 1];
-	}
-
-	if (element === lastIndex) {
-		return [element - 1, element, 0];
-	}
-
+	if (element === 0) return [lastIndex, element, element + 1];
+	if (element === lastIndex) return [element - 1, element, 0];
 	return [element - 1, element, element + 1];
 }
 
@@ -47,10 +37,16 @@ export default function ({
 				})}
 			>
 				{posterImages.length > 1 ? (
-					<Carousel withIndicators={posterImages.length > 1} w={300} onSlideChange={setActiveImageId}>
+					<Carousel
+						withIndicators={posterImages.length > 1}
+						w={300}
+						onSlideChange={setActiveImageId}
+					>
 						{images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
-								{getSurroundingElements(images, activeImageId).includes(idx) && (
+								{getSurroundingElements(images, activeImageId).includes(
+									idx,
+								) && (
 									<Image
 										src={url}
 										radius={"lg"}
