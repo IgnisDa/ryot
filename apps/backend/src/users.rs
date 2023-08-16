@@ -47,6 +47,8 @@ pub struct UserMediaFeaturesEnabledPreferences {
     #[serde(default)]
     pub movie: bool,
     #[serde(default)]
+    pub music: bool,
+    #[serde(default)]
     pub podcast: bool,
     #[serde(default)]
     pub show: bool,
@@ -63,6 +65,7 @@ impl Default for UserMediaFeaturesEnabledPreferences {
             book: true,
             manga: true,
             movie: true,
+            music: true,
             podcast: true,
             show: true,
             video_game: true,

@@ -55,6 +55,7 @@ query UserPreferences {
         book
         manga
         movie
+        music
         podcast
         show
         videoGame

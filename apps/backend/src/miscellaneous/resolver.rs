@@ -3781,6 +3781,9 @@ impl MiscellaneousService {
                             "movie" => {
                                 preferences.features_enabled.media.movie = value_bool.unwrap()
                             }
+                            "music" => {
+                                preferences.features_enabled.media.music = value_bool.unwrap()
+                            }
                             "podcast" => {
                                 preferences.features_enabled.media.podcast = value_bool.unwrap()
                             }
