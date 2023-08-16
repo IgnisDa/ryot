@@ -283,7 +283,6 @@ mod utils {
             .flatten()
             .map(|b| MediaSearchItem {
                 identifier: b.id.to_string(),
-                lot: MetadataLot::Anime,
                 title: b.title.unwrap().user_preferred.unwrap(),
                 image: b.banner_image,
                 publish_year: b

@@ -307,7 +307,6 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaSearchItem {
         pub identifier: String,
-        pub lot: MetadataLot,
         pub title: String,
         pub image: Option<String>,
         pub publish_year: Option<i32>,

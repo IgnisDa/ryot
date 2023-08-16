@@ -126,7 +126,6 @@ impl MediaProvider for ListennotesService {
             .into_iter()
             .map(|r| MediaSearchItem {
                 identifier: r.id,
-                lot: MetadataLot::Podcast,
                 title: r.title_original,
                 image: r.image,
                 publish_year: r.publish_date.map(|r| r.year()),

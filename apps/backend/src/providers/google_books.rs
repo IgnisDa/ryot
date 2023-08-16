@@ -120,7 +120,6 @@ impl MediaProvider for GoogleBooksService {
                 let MediaDetails {
                     identifier,
                     title,
-                    lot,
                     images,
                     publish_year,
                     ..
@@ -136,7 +135,6 @@ impl MediaProvider for GoogleBooksService {
                     .cloned();
                 MediaSearchItem {
                     identifier,
-                    lot,
                     title,
                     image,
                     publish_year,

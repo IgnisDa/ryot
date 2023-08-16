@@ -235,7 +235,6 @@ fn get_search_response(item: ITunesItem) -> MediaSearchItem {
     let publish_year = date.map(|d| d.year());
     MediaSearchItem {
         identifier: item.collection_id.to_string(),
-        lot: MetadataLot::Podcast,
         title: item.collection_name,
         image: images.get(0).cloned(),
         publish_year,

@@ -1790,7 +1790,6 @@ impl MiscellaneousService {
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
             id: i32,
-            lot: MetadataLot,
             title: String,
             publish_year: Option<i32>,
             images: serde_json::Value,
@@ -1855,7 +1854,6 @@ impl MiscellaneousService {
             let m_small = MediaListItem {
                 data: MediaSearchItem {
                     identifier: m.id.to_string(),
-                    lot: m.lot,
                     title: m.title,
                     image: poster_images.get(0).cloned(),
                     publish_year: m.publish_year,
@@ -2854,7 +2852,6 @@ impl MiscellaneousService {
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.id.to_string(),
-                    lot: m.lot,
                     image: self.metadata_images(&m).await?.0.first().cloned(),
                     title: m.title,
                     publish_year: m.publish_year,
@@ -4722,7 +4719,6 @@ impl MiscellaneousService {
             };
             let metadata = MediaSearchItem {
                 identifier: m.id.to_string(),
-                lot: m.lot,
                 title: m.title,
                 publish_year: m.publish_year,
                 image,

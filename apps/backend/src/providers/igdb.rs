@@ -162,7 +162,6 @@ offset: {offset};
                 let a = self.igdb_response_to_search_response(r);
                 MediaSearchItem {
                     identifier: a.identifier,
-                    lot: MetadataLot::VideoGame,
                     title: a.title,
                     image: a
                         .images

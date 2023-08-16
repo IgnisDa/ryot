@@ -243,7 +243,6 @@ impl MediaProvider for TmdbMovieService {
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                lot: MetadataLot::Movie,
                 title: d.title,
                 publish_year: convert_date_to_year(&d.release_date),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
@@ -534,7 +533,6 @@ impl MediaProvider for TmdbShowService {
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                lot: MetadataLot::Show,
                 title: d.name,
                 publish_year: convert_date_to_year(&d.first_air_date),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),

@@ -90,7 +90,6 @@ impl MediaProvider for MusicBrainzService {
             .map(|r| MediaSearchItem {
                 image: Some(format!("{}/release-group/{}/front", IMAGES_URL, r.id)),
                 identifier: r.id,
-                lot: MetadataLot::Music,
                 title: r.title,
                 publish_year: r.first_release_date.and_then(|d| convert_date_to_year(&d)),
             })

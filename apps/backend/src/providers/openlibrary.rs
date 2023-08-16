@@ -362,7 +362,6 @@ impl MediaProvider for OpenlibraryService {
                 .into_iter()
                 .map(|b| MediaSearchItem {
                     identifier: b.identifier,
-                    lot: MetadataLot::Book,
                     title: b.title,
                     image: b.images.get(0).cloned(),
                     publish_year: b.publish_year,
