@@ -330,10 +330,10 @@ export default function ({ children }: { children: ReactElement }) {
 		},
 		staleTime: Infinity,
 	});
-	const userPrefs = useUserPreferences();
+	const userPreferences = useUserPreferences();
 
 	const mediaLinks = [
-		...(Object.entries(userPrefs?.data?.featuresEnabled.media || {})
+		...(Object.entries(userPreferences?.data?.featuresEnabled.media || {})
 			.filter(([v, _]) => v !== "enabled")
 			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
 			?.filter((f) => f.enabled)
@@ -395,7 +395,7 @@ export default function ({ children }: { children: ReactElement }) {
 		};
 	}, [router]);
 
-	return userPrefs.data ? (
+	return userPreferences.data ? (
 		<AppShell
 			my={{ sm: "xl" }}
 			padding={0}
@@ -428,7 +428,7 @@ export default function ({ children }: { children: ReactElement }) {
 							opened={false}
 							setOpened={() => {}}
 						/>
-						{userPrefs.data.featuresEnabled.media.enabled ? (
+						{userPreferences.data.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
 								icon={IconDeviceSpeaker}
@@ -443,7 +443,7 @@ export default function ({ children }: { children: ReactElement }) {
 								}
 							/>
 						) : null}
-						{userPrefs.data.featuresEnabled.fitness.enabled ? (
+						{userPreferences.data.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
 								icon={IconStretching}

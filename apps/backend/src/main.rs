@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use apalis::{
     cron::{CronStream, Schedule},
     layers::{
@@ -148,6 +148,17 @@ async fn main() -> Result<()> {
     tracing::info!("Using database backend: {selected_database:?}");
 
     Migrator::up(&db, None).await.unwrap();
+
+    match env::args().nth(1) {
+        None => {}
+        Some(cmd) => {
+            if cmd == "migrate" {
+                return Ok(());
+            } else {
+                bail!("Command {:#?} is not supported.", cmd)
+            }
+        }
+    }
 
     let pool = SqlitePool::connect(&config.scheduler.database_url).await?;
 

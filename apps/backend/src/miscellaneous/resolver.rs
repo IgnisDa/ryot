@@ -85,8 +85,8 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
-        UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
+        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
         UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
@@ -3743,6 +3743,10 @@ impl MiscellaneousService {
                     "exercises" => match right {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
+                        }
+                        "distance_unit" => {
+                            preferences.fitness.exercises.distance_unit =
+                                UserDistanceUnit::from_str(&input.value).unwrap();
                         }
                         "weight_unit" => {
                             preferences.fitness.exercises.weight_unit =

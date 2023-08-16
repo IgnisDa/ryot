@@ -19,6 +19,7 @@ import {
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
+	UserDistanceUnit,
 	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
@@ -29,7 +30,7 @@ import { Fragment, type ReactElement } from "react";
 import { match } from "ts-pattern";
 
 const Page: NextPageWithLayout = () => {
-	const userPrefs = useUserPreferences();
+	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 
 	const updateUserEnabledFeatures = useMutation({
@@ -41,11 +42,11 @@ const Page: NextPageWithLayout = () => {
 			return updateUserPreference;
 		},
 		onSuccess: () => {
-			userPrefs.refetch();
+			userPreferences.refetch();
 		},
 	});
 
-	return userPrefs.data && coreDetails.data ? (
+	return userPreferences.data && coreDetails.data ? (
 		<>
 			<Head>
 				<title>Preferences | Ryot</title>
@@ -67,7 +68,7 @@ const Page: NextPageWithLayout = () => {
 							<Title order={4}>{startCase(facet)}</Title>
 							<SimpleGrid cols={2}>
 								{Object.entries(
-									(userPrefs.data.featuresEnabled as any)[facet],
+									(userPreferences.data.featuresEnabled as any)[facet],
 								).map(([name, isEnabled], idx) => (
 									<Switch
 										size="xs"
@@ -96,7 +97,7 @@ const Page: NextPageWithLayout = () => {
 						have monitored explicitly.
 					</Text>
 					<SimpleGrid cols={2}>
-						{Object.entries(userPrefs.data.notifications).map(
+						{Object.entries(userPreferences.data.notifications).map(
 							([name, isEnabled], idx) => (
 								<Switch
 									key={idx}
@@ -130,33 +131,33 @@ const Page: NextPageWithLayout = () => {
 						The default measurements you want to keep track of.
 					</Text>
 					<SimpleGrid cols={2}>
-						{Object.entries(userPrefs.data.fitness.measurements.inbuilt).map(
-							([name, isEnabled], idx) => (
-								<Switch
-									size="xs"
-									key={idx}
-									label={changeCase(snakeCase(name))}
-									checked={isEnabled}
-									disabled={!coreDetails.data.preferencesChangeAllowed}
-									onChange={(ev) => {
-										updateUserEnabledFeatures.mutate({
-											input: {
-												property: `fitness.measurements.inbuilt.${snakeCase(
-													name,
-												)}`,
-												value: String(ev.currentTarget.checked),
-											},
-										});
-									}}
-								/>
-							),
-						)}
+						{Object.entries(
+							userPreferences.data.fitness.measurements.inbuilt,
+						).map(([name, isEnabled], idx) => (
+							<Switch
+								size="xs"
+								key={idx}
+								label={changeCase(snakeCase(name))}
+								checked={isEnabled}
+								disabled={!coreDetails.data.preferencesChangeAllowed}
+								onChange={(ev) => {
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: `fitness.measurements.inbuilt.${snakeCase(
+												name,
+											)}`,
+											value: String(ev.currentTarget.checked),
+										},
+									});
+								}}
+							/>
+						))}
 					</SimpleGrid>
 					<JsonInput
 						label="The custom metrics you want to keep track of"
 						description="The name of the attribute along with the data type. Only decimal data type is supported."
 						defaultValue={JSON.stringify(
-							userPrefs.data.fitness.measurements.custom,
+							userPreferences.data.fitness.measurements.custom,
 							null,
 							4,
 						)}
@@ -179,7 +180,7 @@ const Page: NextPageWithLayout = () => {
 							size="xs"
 							label="Unit to use for weight measurements"
 							data={Object.values(UserWeightUnit).map((c) => startCase(c))}
-							defaultValue={userPrefs.data.fitness.exercises.weightUnit}
+							defaultValue={userPreferences.data.fitness.exercises.weightUnit}
 							disabled={!coreDetails.data.preferencesChangeAllowed}
 							onChange={(val) => {
 								if (val)
@@ -191,10 +192,26 @@ const Page: NextPageWithLayout = () => {
 									});
 							}}
 						/>
+						<Select
+							size="xs"
+							label="Unit to use for distance measurements"
+							data={Object.values(UserDistanceUnit).map((c) => startCase(c))}
+							defaultValue={userPreferences.data.fitness.exercises.distanceUnit}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(val) => {
+								if (val)
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: "fitness.exercises.distance_unit",
+											value: val,
+										},
+									});
+							}}
+						/>
 						<NumberInput
 							size="xs"
 							label="The number of elements to save in your exercise history"
-							defaultValue={userPrefs.data.fitness.exercises.saveHistory}
+							defaultValue={userPreferences.data.fitness.exercises.saveHistory}
 							disabled={!coreDetails.data.preferencesChangeAllowed}
 							onChange={(num) => {
 								if (num)

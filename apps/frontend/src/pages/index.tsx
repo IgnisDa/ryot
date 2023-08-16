@@ -104,14 +104,14 @@ const DisplayStatForMediaType = (props: {
 }) => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
-	const userPrefs = useUserPreferences();
+	const userPreferences = useUserPreferences();
 	const isEnabled = Object.entries(
-		userPrefs.data?.featuresEnabled.media || {},
+		userPreferences.data?.featuresEnabled.media || {},
 	).find(([name, _]) => getLot(name) === props.lot)!;
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (
-		isEnabled[1] && userPrefs.data?.featuresEnabled.media.enabled ? (
+		isEnabled[1] && userPreferences.data?.featuresEnabled.media.enabled ? (
 			<Link
 				href={withQuery(APP_ROUTES.media.list, {
 					lot: props.lot.toLowerCase(),
@@ -138,7 +138,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
-	const userPrefs = useUserPreferences();
+	const userPreferences = useUserPreferences();
 	const latestUserSummary = useQuery(
 		["userSummary"],
 		async () => {
@@ -161,7 +161,7 @@ const Page: NextPageWithLayout = () => {
 		return collectionContents;
 	});
 
-	return userPrefs.data &&
+	return userPreferences.data &&
 		latestUserSummary.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.results &&
@@ -352,7 +352,7 @@ const Page: NextPageWithLayout = () => {
 								},
 							]}
 						/>
-						{userPrefs.data.featuresEnabled.media.enabled ? (
+						{userPreferences.data.featuresEnabled.media.enabled ? (
 							<ActualDisplayStat
 								icon={<IconFriends />}
 								lot="General stats"
@@ -371,7 +371,7 @@ const Page: NextPageWithLayout = () => {
 								]}
 							/>
 						) : null}
-						{userPrefs.data.featuresEnabled.fitness.enabled ? (
+						{userPreferences.data.featuresEnabled.fitness.enabled ? (
 							<ActualDisplayStat
 								icon={<IconScaleOutline stroke={1.3} />}
 								lot="Fitness"
