@@ -3,7 +3,17 @@ import type { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
 
-export type ExerciseSet = Immutable<{ idx: number }>;
+export type ExerciseSetStats = Immutable<{
+	duration?: number;
+	weight?: number;
+	reps?: number;
+	distance?: number;
+}>;
+
+export type ExerciseSet = Immutable<{
+	idx: number;
+	stats: ExerciseSetStats;
+}>;
 
 export type Exercise = Immutable<{
 	name: string;

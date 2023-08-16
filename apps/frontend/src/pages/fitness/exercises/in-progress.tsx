@@ -10,7 +10,6 @@ import {
 	Flex,
 	Menu,
 	Paper,
-	SimpleGrid,
 	Skeleton,
 	Stack,
 	Text,
@@ -157,39 +156,66 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
-				<SimpleGrid
-					cols={
-						2 +
-						[durationCol, distanceCol, weightCol, repsCol].filter(Boolean)
-							.length
-					}
-				>
-					<Text size="xs">SET</Text>
-					{durationCol ? <Text size="xs">DURATION</Text> : null}
-					{distanceCol ? <Text size="xs">DISTANCE</Text> : null}
-					{weightCol ? <Text size="xs">WEIGHT</Text> : null}
-					{repsCol ? <Text size="xs">REPS</Text> : null}
-					<Text size="xs">DONE</Text>
-				</SimpleGrid>
-				{props.exercise.sets.map((s) => (
-					<SimpleGrid
-						key={s.idx}
-						cols={
-							2 +
-							[durationCol, distanceCol, weightCol, repsCol].filter(Boolean)
-								.length
-						}
-					>
-						<Text size="xs" color="blue">
-							{s.idx + 1}
+				<Stack spacing={"xs"}>
+					<Flex justify={"space-between"}>
+						<Text size="xs" w="5%" align="center">
+							SET
 						</Text>
-						{durationCol ? <Text size="xs">DURATION</Text> : null}
-						{distanceCol ? <Text size="xs">DISTANCE</Text> : null}
-						{weightCol ? <Text size="xs">WEIGHT</Text> : null}
-						{repsCol ? <Text size="xs">REPS</Text> : null}
-						<Text size="xs">DONE</Text>
-					</SimpleGrid>
-				))}
+						{durationCol ? (
+							<Text size="xs" style={{ flex: 1 }} align="center">
+								DURATION
+							</Text>
+						) : null}
+						{distanceCol ? (
+							<Text size="xs" style={{ flex: 1 }} align="center">
+								DISTANCE
+							</Text>
+						) : null}
+						{weightCol ? (
+							<Text size="xs" style={{ flex: 1 }} align="center">
+								WEIGHT
+							</Text>
+						) : null}
+						{repsCol ? (
+							<Text size="xs" style={{ flex: 1 }} align="center">
+								REPS
+							</Text>
+						) : null}
+						<Text size="xs" w="10%" align="center">
+							DONE
+						</Text>
+					</Flex>
+					{props.exercise.sets.map((s) => (
+						<Flex key={s.idx} justify={"space-between"}>
+							<Text size="xs" color="blue" w="5%" align="center">
+								{s.idx + 1}
+							</Text>
+							{durationCol ? (
+								<Text size="xs" style={{ flex: 1 }} align="center">
+									DURATION
+								</Text>
+							) : null}
+							{distanceCol ? (
+								<Text size="xs" style={{ flex: 1 }} align="center">
+									DISTANCE
+								</Text>
+							) : null}
+							{weightCol ? (
+								<Text size="xs" style={{ flex: 1 }} align="center">
+									WEIGHT
+								</Text>
+							) : null}
+							{repsCol ? (
+								<Text size="xs" style={{ flex: 1 }} align="center">
+									REPS
+								</Text>
+							) : null}
+							<Text size="xs" w="10%" align="center">
+								DONE
+							</Text>
+						</Flex>
+					))}
+				</Stack>
 				<Button
 					variant="subtle"
 					onClick={() => {
