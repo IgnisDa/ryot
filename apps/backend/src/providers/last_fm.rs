@@ -13,10 +13,11 @@ use crate::{
         SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, PAGE_LIMIT},
+    utils::{convert_date_to_year, get_base_http_client, PAGE_LIMIT},
 };
 
-pub static URL: &str = "https://ws.audioscrobbler.com/2.0/";
+pub static URL: &str = "https://musicbrainz.org/ws/2/";
+pub static IMAGES_URL: &str = "https://coverartarchive.org/";
 
 #[derive(Debug, Clone)]
 pub struct LastFmService {
@@ -45,39 +46,18 @@ impl LastFmService {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ItemImage {
-    #[serde(rename = "#text")]
-    text: String,
+#[serde(rename_all = "kebab-case")]
+struct ItemReleaseGroup {
+    id: String,
+    title: String,
+    first_release_date: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct SearchItem {
-    mbid: String,
-    name: String,
-    image: Vec<ItemImage>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Trackmatches {
-    track: Vec<SearchItem>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct OpenSearchData {
-    #[serde(rename = "opensearch:totalResults")]
-    count: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct SearchResponseInner {
-    #[serde(flatten)]
-    opensearch: OpenSearchData,
-    trackmatches: Trackmatches,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "kebab-case")]
 struct SearchResponse {
-    results: SearchResponseInner,
+    count: i32,
+    release_groups: Vec<ItemReleaseGroup>,
 }
 
 #[async_trait]
@@ -94,42 +74,35 @@ impl MediaProvider for LastFmService {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
-            .get("")
+            .get("release-group")
             .query(&serde_json::json!({
-                "api_key": self.api_key,
-                "method": "track.search",
-                "track": query,
+                "query": format!("release:{}", query),
                 "limit": PAGE_LIMIT,
-                "page": page,
-                "format": "json",
+                "offset": (page - 1) * PAGE_LIMIT,
+                "fmt": "json",
             }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let items = search
-            .results
-            .trackmatches
-            .track
+            .release_groups
             .into_iter()
             .map(|r| MediaSearchItem {
-                image: r.image.into_iter().nth(1).map(|i| i.text),
-                identifier: r.mbid,
+                image: Some(format!("{}/release-group/{}/front", IMAGES_URL, r.id)),
+                identifier: r.id,
                 lot: MetadataLot::Music,
-                title: r.name,
-                publish_year: None,
+                title: r.title,
+                publish_year: r.first_release_date.and_then(|d| convert_date_to_year(&d)),
             })
             .collect_vec();
-        let next_page = if search.results.opensearch.count.parse::<i32>().unwrap()
-            - ((page) * PAGE_LIMIT)
-            > 0
-        {
+        let next_page = if search.count - ((page) * PAGE_LIMIT) > 0 {
             Some(page + 1)
         } else {
             None
         };
         Ok(SearchResults {
-            total: search.results.opensearch.count.parse::<i32>().unwrap(),
+            total: search.count,
             items,
             next_page,
         })

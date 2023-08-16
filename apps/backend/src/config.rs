@@ -142,8 +142,6 @@ pub struct MoviesTmdbConfig {
     pub locale: String,
 }
 
-impl IsFeatureEnabled for MovieConfig {}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MovieConfig {
     /// Settings related to TMDB (movies).
@@ -152,25 +150,20 @@ pub struct MovieConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MUSIC_LAST_FM_")]
+#[config(rename_all = "snake_case", env_prefix = "LASTFM_")]
 pub struct LastFmConfig {
     /// The api key for LastFM.
     pub api_key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
 pub struct MusicConfig {
     /// Settings related to LastFM.
     #[setting(nested)]
     pub last_fm: LastFmConfig,
 }
 
-impl IsFeatureEnabled for MusicConfig {
-    fn is_enabled(&self) -> bool {
-        !self.last_fm.api_key.is_empty()
-    }
-}
+impl IsFeatureEnabled for MovieConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
@@ -498,7 +491,6 @@ impl AppConfig {
         cl.file_storage.s3_url = gt();
         cl.integration.hasher_salt = gt();
         cl.movies.tmdb.access_token = gt();
-        cl.music.last_fm.api_key = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();
         cl.scheduler.database_url = gt();
