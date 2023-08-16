@@ -2470,6 +2470,8 @@ impl MiscellaneousService {
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
+        prefs.features_enabled.media.music =
+            self.config.music.is_enabled() && prefs.features_enabled.media.music;
         prefs.features_enabled.media.anime =
             self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
         prefs.features_enabled.media.audio_book =
