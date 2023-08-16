@@ -23,8 +23,13 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	rem,
 } from "@mantine/core";
-import { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ExerciseLot,
+	UserDistanceUnit,
+	UserWeightUnit,
+} from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconCheck,
 	IconClipboard,
@@ -88,17 +93,16 @@ const StatInput = (props: {
 		<Flex style={{ flex: 1 }} justify={"center"}>
 			<NumberInput
 				onChange={(v) => {
-					if (typeof v === "number")
-						setCurrentWorkout(
-							produce(currentWorkout, (draft) => {
-								draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
-									props.stat
-								] = v;
-							}),
-						);
+					setCurrentWorkout(
+						produce(currentWorkout, (draft) => {
+							draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
+								props.stat
+							] = typeof v === "number" ? v : 0;
+						}),
+					);
 				}}
 				size="xs"
-				styles={{ input: { textAlign: "center" } }}
+				styles={{ input: { width: rem(72), textAlign: "center" } }}
 				step={props.inputStep}
 				hideControls
 				required
@@ -120,11 +124,11 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 		.exhaustive();
 
 	return userPreferences.data && currentWorkout ? (
-		<Paper px="xs">
+		<Paper px="sm">
 			<Stack>
 				<Menu shadow="md" width={200}>
 					<Stack>
-						<Flex justify={"space-between"}>
+						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
 							<Menu.Target>
 								<ActionIcon color="blue">
@@ -133,7 +137,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 							</Menu.Target>
 						</Flex>
 						{currentWorkout.exercises[props.idx].notes.map((n, idx) => (
-							<Flex key={idx} align={"center"} gap="xs">
+							<Flex key={idx} align="center" gap="xs">
 								<Textarea
 									style={{ flexGrow: 1 }}
 									placeholder="Add a note"
@@ -197,8 +201,8 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
-				<Stack spacing={"xs"}>
-					<Flex justify="space-between">
+				<Stack spacing="xs">
+					<Flex justify="space-between" align="center">
 						<Text size="xs" w="5%" align="center">
 							SET
 						</Text>
@@ -209,12 +213,22 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						) : null}
 						{distanceCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
-								DISTANCE ({userPreferences.data.fitness.exercises.distanceUnit})
+								DISTANCE (
+								{match(userPreferences.data.fitness.exercises.distanceUnit)
+									.with(UserDistanceUnit.Kilometer, () => "KM")
+									.with(UserDistanceUnit.Mile, () => "MI")
+									.exhaustive()}
+								)
 							</Text>
 						) : null}
 						{weightCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
-								WEIGHT ({userPreferences.data.fitness.exercises.weightUnit})
+								WEIGHT (
+								{match(userPreferences.data.fitness.exercises.weightUnit)
+									.with(UserWeightUnit.Kilogram, () => "KG")
+									.with(UserWeightUnit.Pound, () => "LB")
+									.exhaustive()}
+								)
 							</Text>
 						) : null}
 						{repsCol ? (
@@ -222,7 +236,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 								REPS
 							</Text>
 						) : null}
-						<Text size="xs" w="10%" align="center"></Text>
+						<Text size="xs" w="10%" align="center" />
 					</Flex>
 					{props.exercise.sets.map((s) => (
 						<Flex key={s.idx} justify="space-between" align="start">
