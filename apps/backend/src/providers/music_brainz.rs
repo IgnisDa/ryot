@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub static URL: &str = "https://musicbrainz.org/ws/2/";
-pub static IMAGES_URL: &str = "https://coverartarchive.org/release";
+pub static IMAGES_URL: &str = "https://coverartarchive.org/";
 
 #[derive(Debug, Clone)]
 pub struct MusicBrainzService {
@@ -46,18 +46,17 @@ impl MusicBrainzService {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
-struct ItemResponse {
+struct ItemReleaseGroup {
     id: String,
     title: String,
-    date: Option<String>,
-    status: Option<String>,
+    first_release_date: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 struct SearchResponse {
     count: i32,
-    releases: Vec<ItemResponse>,
+    release_groups: Vec<ItemReleaseGroup>,
 }
 
 #[async_trait]
@@ -74,7 +73,7 @@ impl MediaProvider for MusicBrainzService {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
-            .get("release")
+            .get("release-group")
             .query(&serde_json::json!({
                 "query": format!("release:{}", query),
                 "limit": PAGE_LIMIT,
@@ -86,14 +85,14 @@ impl MediaProvider for MusicBrainzService {
             .map_err(|e| anyhow!(e))?;
         let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let items = search
-            .releases
+            .release_groups
             .into_iter()
             .map(|r| MediaSearchItem {
-                image: Some(format!("{}/{}/front", IMAGES_URL, r.id)),
+                image: Some(format!("{}/release-group/{}/front", IMAGES_URL, r.id)),
                 identifier: r.id,
                 lot: MetadataLot::Music,
                 title: r.title,
-                publish_year: r.date.and_then(|d| convert_date_to_year(&d)),
+                publish_year: r.first_release_date.and_then(|d| convert_date_to_year(&d)),
             })
             .collect_vec();
         let next_page = if search.count - ((page) * PAGE_LIMIT) > 0 {
