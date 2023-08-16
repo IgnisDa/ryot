@@ -44,15 +44,13 @@ export default function ({
 					>
 						{images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
-								{getSurroundingElements(images, activeImageId).includes(
-									idx,
-								) && (
+								{getSurroundingElements(images, activeImageId).includes(idx) ? (
 									<Image
 										src={url}
-										radius={"lg"}
+										radius="lg"
 										imageProps={{ loading: "lazy" }}
 									/>
-								)}
+								) : null}
 							</Carousel.Slide>
 						))}
 					</Carousel>
