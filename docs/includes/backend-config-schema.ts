@@ -132,14 +132,14 @@ export interface MovieConfig {
 	tmdb: MoviesTmdbConfig;
 }
 
-export interface MusicBrainzConfig {
-	/** Used for changing the user agent if your requests are being rate limited. */
-	user_agent: string | null;
+export interface LastFmConfig {
+	/** The api key for LastFM. */
+	api_key: string;
 }
 
 export interface MusicConfig {
-	/** Settings related to Music Brainz. */
-	musicBrainz: MusicBrainzConfig;
+	/** Settings related to LastFM. */
+	lastFm: LastFmConfig;
 }
 
 export interface ITunesConfig {

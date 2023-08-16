@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use http_types::mime;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::USER_AGENT, Client};
+use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::MusicBrainzConfig,
+    config::LastFmConfig,
     migrator::MetadataLot,
     models::{
         media::{MediaDetails, MediaSearchItem},
@@ -19,11 +20,12 @@ pub static URL: &str = "https://musicbrainz.org/ws/2/";
 pub static IMAGES_URL: &str = "https://coverartarchive.org/";
 
 #[derive(Debug, Clone)]
-pub struct MusicBrainzService {
+pub struct LastFmService {
     client: Client,
+    api_key: String,
 }
 
-impl MediaProviderLanguages for MusicBrainzService {
+impl MediaProviderLanguages for LastFmService {
     fn supported_languages() -> Vec<String> {
         vec!["us".to_owned()]
     }
@@ -33,14 +35,13 @@ impl MediaProviderLanguages for MusicBrainzService {
     }
 }
 
-impl MusicBrainzService {
-    pub async fn new(config: &MusicBrainzConfig) -> Self {
-        let mut headers = vec![];
-        if let Some(ref u) = config.user_agent {
-            headers.push((USER_AGENT, u.clone()));
+impl LastFmService {
+    pub async fn new(config: &LastFmConfig) -> Self {
+        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
+        Self {
+            client,
+            api_key: config.api_key.clone(),
         }
-        let client = get_base_http_client(URL, headers);
-        Self { client }
     }
 }
 
@@ -60,7 +61,7 @@ struct SearchResponse {
 }
 
 #[async_trait]
-impl MediaProvider for MusicBrainzService {
+impl MediaProvider for LastFmService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         todo!();
     }
