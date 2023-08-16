@@ -14,6 +14,7 @@ import {
 	Container,
 	Divider,
 	Flex,
+	Group,
 	Menu,
 	NumberInput,
 	Paper,
@@ -287,6 +288,11 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
+	const finishWorkout = async () => {
+		await router.replace(APP_ROUTES.dashboard);
+		setCurrentWorkout(RESET);
+	};
+
 	return (
 		<>
 			<Head>
@@ -337,33 +343,47 @@ const Page: NextPageWithLayout = () => {
 								<Divider />
 							</Fragment>
 						))}
-						<Link
-							passHref
-							legacyBehavior
-							href={withQuery(APP_ROUTES.fitness.exercises.list, {
-								selectionEnabled: "yes",
-							})}
-						>
-							<Button component="a" variant="subtle">
-								Add exercise
+						<Group position="center">
+							<Link
+								passHref
+								legacyBehavior
+								href={withQuery(APP_ROUTES.fitness.exercises.list, {
+									selectionEnabled: "yes",
+								})}
+							>
+								<Button component="a" variant="subtle">
+									Add exercise
+								</Button>
+							</Link>
+						</Group>
+						<Group position="center">
+							<Button
+								color="red"
+								variant="subtle"
+								onClick={async () => {
+									const yes = confirm(
+										"Are you sure you want to cancel this workout?",
+									);
+									if (yes) await finishWorkout();
+								}}
+							>
+								Cancel workout
 							</Button>
-						</Link>
-						<Button
-							color={currentWorkout.exercises.length === 0 ? "red" : "green"}
-							variant="subtle"
-							onClick={async () => {
-								const yes = confirm(
-									"Are you sure you want to finish this workout?",
-								);
-								if (yes) {
-									await router.replace(APP_ROUTES.dashboard);
-									setCurrentWorkout(RESET);
-								}
-							}}
-						>
-							{currentWorkout.exercises.length === 0 ? "Cancel" : "Finish"}{" "}
-							workout
-						</Button>
+							{currentWorkout.exercises.length > 0 ? (
+								<Button
+									color="green"
+									variant="subtle"
+									onClick={async () => {
+										const yes = confirm(
+											"Are you sure you want to finish this workout?",
+										);
+										if (yes) await finishWorkout();
+									}}
+								>
+									Finish workout
+								</Button>
+							) : null}
+						</Group>
 						{JSON.stringify(currentWorkout)}
 					</Stack>
 				) : (
