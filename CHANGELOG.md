@@ -1,4 +1,11 @@
 
+# Version 2.7.2 (2023-08-16)
+
+## Bug Fixes
+
+* **frontend:** fix media item images always displayed as carousel ([#268](https://github.com/IgnisDa/ryot/issues/268))
+
+
 # Version 2.7.1 (2023-08-15)
 
 
