@@ -26,6 +26,7 @@ import {
 } from "@mantine/core";
 import { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
 import {
+	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
 	IconTrash,
@@ -197,7 +198,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 					</Menu.Dropdown>
 				</Menu>
 				<Stack spacing={"xs"}>
-					<Flex justify={"space-between"}>
+					<Flex justify="space-between">
 						<Text size="xs" w="5%" align="center">
 							SET
 						</Text>
@@ -221,13 +222,16 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 								REPS
 							</Text>
 						) : null}
-						<Text size="xs" w="10%" align="center">
-							DONE
-						</Text>
+						<Text size="xs" w="10%" align="center"></Text>
 					</Flex>
 					{props.exercise.sets.map((s) => (
-						<Flex key={s.idx} justify={"space-between"}>
-							<Text fw="bold" color="blue" w="5%" align="center">
+						<Flex key={s.idx} justify="space-between" align="start">
+							<Text
+								fw="bold"
+								color={s.confirmed ? "green" : "blue"}
+								w="5%"
+								align="center"
+							>
 								{s.idx + 1}
 							</Text>
 							{durationCol ? (
@@ -256,9 +260,23 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 							{repsCol ? (
 								<StatInput exerciseIdx={props.idx} setIdx={s.idx} stat="reps" />
 							) : null}
-							<Text size="xs" w="10%" align="center">
-								DONE
-							</Text>
+							<Group w="10%" position="center">
+								<ActionIcon
+									variant="outline"
+									disabled={Object.values(s.stats).filter(Boolean).length === 0}
+									color="green"
+									onClick={() => {
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.idx].sets[s.idx].confirmed =
+													!draft.exercises[props.idx].sets[s.idx].confirmed;
+											}),
+										);
+									}}
+								>
+									<IconCheck />
+								</ActionIcon>
+							</Group>
 						</Flex>
 					))}
 				</Stack>
@@ -270,6 +288,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 								draft.exercises[props.idx].sets.push({
 									idx: props.exercise.sets.length,
 									stats: {},
+									confirmed: false,
 								});
 							}),
 						);
