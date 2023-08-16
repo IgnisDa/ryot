@@ -175,7 +175,7 @@ module.exports = [
 		options: {
 			cacheName: "cross-origin",
 			expiration: {
-				maxEntries: 32,
+				maxEntries: 512,
 				maxAgeSeconds: 365 * 24 * 60 * 60, // 365 days
 			},
 		},
