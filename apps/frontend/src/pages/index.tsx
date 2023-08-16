@@ -238,6 +238,21 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 						<DisplayStatForMediaType
+							lot={MetadataLot.Music}
+							data={[
+								{
+									label: "Songs",
+									value: latestUserSummary.data.media.music.listened,
+									type: "number",
+								},
+								{
+									label: "Runtime",
+									value: latestUserSummary.data.media.music.runtime,
+									type: "duration",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
 							lot={MetadataLot.Show}
 							data={[
 								{
