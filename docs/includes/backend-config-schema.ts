@@ -139,7 +139,7 @@ export interface LastFmConfig {
 
 export interface MusicConfig {
 	/** Settings related to LastFM. */
-	lastFm: LastFmConfig;
+	last_fm: LastFmConfig;
 }
 
 export interface ITunesConfig {
