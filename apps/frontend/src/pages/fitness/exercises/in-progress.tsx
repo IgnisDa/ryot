@@ -1,7 +1,11 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { type Exercise, currentWorkoutAtom } from "@/lib/state";
+import {
+	type Exercise,
+	type ExerciseSet,
+	currentWorkoutAtom,
+} from "@/lib/state";
 import {
 	ActionIcon,
 	Box,
@@ -10,12 +14,14 @@ import {
 	Divider,
 	Flex,
 	Menu,
+	NumberInput,
 	Paper,
 	Skeleton,
 	Stack,
 	Text,
 	TextInput,
 	Textarea,
+	rem,
 } from "@mantine/core";
 import { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -66,6 +72,36 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 			value={Duration.fromObject({ seconds: totalSeconds }).toFormat("mm:ss")}
 		/>
 	);
+};
+
+const StatInput = (props: {
+	exerciseIdx: number;
+	setIdx: number;
+	stat: keyof ExerciseSet["stats"];
+	inputStep?: number;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	return currentWorkout ? (
+		<Flex style={{ flex: 1 }} justify={"center"}>
+			<NumberInput
+				onChange={(v) => {
+					if (typeof v === "number")
+						setCurrentWorkout(
+							produce(currentWorkout, (draft) => {
+								draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
+									props.stat
+								] = v;
+							}),
+						);
+				}}
+				size="xs"
+				styles={{ input: { width: rem(64), textAlign: "center" } }}
+				step={props.inputStep}
+				hideControls
+				required
+			/>
+		</Flex>
+	) : null;
 };
 
 const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
@@ -164,7 +200,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 						</Text>
 						{durationCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
-								DURATION
+								DURATION (MIN)
 							</Text>
 						) : null}
 						{distanceCol ? (
@@ -188,28 +224,34 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 					</Flex>
 					{props.exercise.sets.map((s) => (
 						<Flex key={s.idx} justify={"space-between"}>
-							<Text size="xs" color="blue" w="5%" align="center">
+							<Text fw="bold" color="blue" w="5%" align="center">
 								{s.idx + 1}
 							</Text>
 							{durationCol ? (
-								<Text size="xs" style={{ flex: 1 }} align="center">
-									DURATION
-								</Text>
+								<StatInput
+									exerciseIdx={props.idx}
+									setIdx={s.idx}
+									stat="duration"
+									inputStep={0.1}
+								/>
 							) : null}
 							{distanceCol ? (
-								<Text size="xs" style={{ flex: 1 }} align="center">
-									DISTANCE
-								</Text>
+								<StatInput
+									exerciseIdx={props.idx}
+									setIdx={s.idx}
+									stat="distance"
+									inputStep={0.01}
+								/>
 							) : null}
 							{weightCol ? (
-								<Text size="xs" style={{ flex: 1 }} align="center">
-									WEIGHT
-								</Text>
+								<StatInput
+									exerciseIdx={props.idx}
+									setIdx={s.idx}
+									stat="weight"
+								/>
 							) : null}
 							{repsCol ? (
-								<Text size="xs" style={{ flex: 1 }} align="center">
-									REPS
-								</Text>
+								<StatInput exerciseIdx={props.idx} setIdx={s.idx} stat="reps" />
 							) : null}
 							<Text size="xs" w="10%" align="center">
 								DONE
@@ -320,6 +362,7 @@ const Page: NextPageWithLayout = () => {
 							{currentWorkout.exercises.length === 0 ? "Cancel" : "Finish"}{" "}
 							workout
 						</Button>
+						{JSON.stringify(currentWorkout)}
 					</Stack>
 				) : (
 					<Text>
