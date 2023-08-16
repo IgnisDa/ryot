@@ -11,7 +11,6 @@ export type ExerciseSetStats = Immutable<{
 }>;
 
 export type ExerciseSet = Immutable<{
-	idx: number;
 	stats: ExerciseSetStats;
 	confirmed: boolean;
 }>;

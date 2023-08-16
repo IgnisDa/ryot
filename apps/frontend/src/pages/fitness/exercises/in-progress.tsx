@@ -241,8 +241,8 @@ const ExerciseDisplay = (props: {
 						) : null}
 						<Text size="xs" w="10%" align="center" />
 					</Flex>
-					{props.exercise.sets.map((s) => (
-						<Flex key={s.idx} justify="space-between" align="start">
+					{props.exercise.sets.map((s, idx) => (
+						<Flex key={idx} justify="space-between" align="start">
 							<Menu>
 								<Menu.Target>
 									<Text
@@ -252,7 +252,7 @@ const ExerciseDisplay = (props: {
 										w="5%"
 										align="center"
 									>
-										{s.idx + 1}
+										{idx + 1}
 									</Text>
 								</Menu.Target>
 
@@ -268,7 +268,7 @@ const ExerciseDisplay = (props: {
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														draft.exercises[props.exerciseIdx].sets.splice(
-															s.idx,
+															idx,
 															1,
 														);
 													}),
@@ -282,7 +282,7 @@ const ExerciseDisplay = (props: {
 							{durationCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
-									setIdx={s.idx}
+									setIdx={idx}
 									stat="duration"
 									inputStep={0.1}
 								/>
@@ -290,7 +290,7 @@ const ExerciseDisplay = (props: {
 							{distanceCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
-									setIdx={s.idx}
+									setIdx={idx}
 									stat="distance"
 									inputStep={0.01}
 								/>
@@ -298,14 +298,14 @@ const ExerciseDisplay = (props: {
 							{weightCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
-									setIdx={s.idx}
+									setIdx={idx}
 									stat="weight"
 								/>
 							) : null}
 							{repsCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
-									setIdx={s.idx}
+									setIdx={idx}
 									stat="reps"
 								/>
 							) : null}
@@ -317,10 +317,8 @@ const ExerciseDisplay = (props: {
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].sets[
-													s.idx
-												].confirmed =
-													!draft.exercises[props.exerciseIdx].sets[s.idx]
+												draft.exercises[props.exerciseIdx].sets[idx].confirmed =
+													!draft.exercises[props.exerciseIdx].sets[idx]
 														.confirmed;
 											}),
 										);
@@ -338,7 +336,6 @@ const ExerciseDisplay = (props: {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].sets.push({
-									idx: props.exercise.sets.length,
 									stats: {},
 									confirmed: false,
 								});

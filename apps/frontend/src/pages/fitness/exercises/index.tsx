@@ -329,7 +329,7 @@ const Page: NextPageWithLayout = () => {
 												exerciseId: exercise.id,
 												lot: exercise.lot,
 												name: exercise.name,
-												sets: [{ idx: 0, stats: {} }],
+												sets: [{ confirmed: false, stats: {} }],
 												notes: [],
 											});
 									}),
