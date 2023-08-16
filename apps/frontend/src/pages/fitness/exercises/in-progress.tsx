@@ -206,16 +206,16 @@ const ExerciseDisplay = (props: {
 				</Menu>
 				<Stack spacing="xs">
 					<Flex justify="space-between" align="center">
-						<Text size="xs" w="5%" align="center">
+						<Text size="sm" w="5%" align="center">
 							SET
 						</Text>
 						{durationCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="sm" style={{ flex: 1 }} align="center">
 								DURATION (MIN)
 							</Text>
 						) : null}
 						{distanceCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="sm" style={{ flex: 1 }} align="center">
 								DISTANCE (
 								{match(userPreferences.data.fitness.exercises.distanceUnit)
 									.with(UserDistanceUnit.Kilometer, () => "KM")
@@ -225,7 +225,7 @@ const ExerciseDisplay = (props: {
 							</Text>
 						) : null}
 						{weightCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="sm" style={{ flex: 1 }} align="center">
 								WEIGHT (
 								{match(userPreferences.data.fitness.exercises.weightUnit)
 									.with(UserWeightUnit.Kilogram, () => "KG")
@@ -235,11 +235,11 @@ const ExerciseDisplay = (props: {
 							</Text>
 						) : null}
 						{repsCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="sm" style={{ flex: 1 }} align="center">
 								REPS
 							</Text>
 						) : null}
-						<Text size="xs" w="10%" align="center" />
+						<Text size="sm" w="10%" align="center" />
 					</Flex>
 					{props.exercise.sets.map((s, idx) => (
 						<Flex key={idx} justify="space-between" align="start">
@@ -249,7 +249,6 @@ const ExerciseDisplay = (props: {
 										{idx + 1}
 									</Text>
 								</Menu.Target>
-
 								<Menu.Dropdown>
 									<Menu.Item
 										color="red"
@@ -446,7 +445,6 @@ const Page: NextPageWithLayout = () => {
 								</Button>
 							) : null}
 						</Group>
-						{JSON.stringify(currentWorkout)}
 					</Stack>
 				) : (
 					<Text>
