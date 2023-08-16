@@ -26,10 +26,10 @@ export default function ({
 	const [activeImageId, setActiveImageId] = useState<number>(0);
 
 	return (
-		<Flex direction={{ base: "column", md: "row" }} gap={"lg"}>
+		<Flex direction={{ base: "column", md: "row" }} gap="lg">
 			<Box
 				id="images-container"
-				pos={"relative"}
+				pos="relative"
 				sx={(t) => ({
 					width: "100%",
 					flex: "none",
@@ -60,14 +60,14 @@ export default function ({
 							src={posterImages[0] || backdropImages[0]}
 							withPlaceholder
 							height={400}
-							radius={"lg"}
+							radius="lg"
 						/>
 					</Box>
 				)}
 				{externalLink ? (
 					<Badge
 						id="data-source"
-						pos={"absolute"}
+						pos="absolute"
 						size="lg"
 						top={10}
 						left={10}
