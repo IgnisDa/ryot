@@ -111,7 +111,10 @@ const StatInput = (props: {
 	) : null;
 };
 
-const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
+const ExerciseDisplay = (props: {
+	exerciseIdx: number;
+	exercise: Exercise;
+}) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
 
@@ -136,7 +139,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 								</ActionIcon>
 							</Menu.Target>
 						</Flex>
-						{currentWorkout.exercises[props.idx].notes.map((n, idx) => (
+						{currentWorkout.exercises[props.exerciseIdx].notes.map((n, idx) => (
 							<Flex key={idx} align="center" gap="xs">
 								<Textarea
 									style={{ flexGrow: 1 }}
@@ -148,7 +151,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 									onChange={(e) => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
-												draft.exercises[props.idx].notes[idx] =
+												draft.exercises[props.exerciseIdx].notes[idx] =
 													e.currentTarget.value;
 											}),
 										);
@@ -159,7 +162,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
-												draft.exercises[props.idx].notes.splice(idx, 1);
+												draft.exercises[props.exerciseIdx].notes.splice(idx, 1);
 											}),
 										);
 									}}
@@ -175,7 +178,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 							onClick={() => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
-										draft.exercises[props.idx].notes.push("");
+										draft.exercises[props.exerciseIdx].notes.push("");
 									}),
 								);
 							}}
@@ -192,7 +195,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 								if (yes)
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											draft.exercises.splice(props.idx, 1);
+											draft.exercises.splice(props.exerciseIdx, 1);
 										}),
 									);
 							}}
@@ -240,17 +243,45 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 					</Flex>
 					{props.exercise.sets.map((s) => (
 						<Flex key={s.idx} justify="space-between" align="start">
-							<Text
-								fw="bold"
-								color={s.confirmed ? "green" : "blue"}
-								w="5%"
-								align="center"
-							>
-								{s.idx + 1}
-							</Text>
+							<Menu>
+								<Menu.Target>
+									<Text
+										mt={2}
+										fw="bold"
+										color={s.confirmed ? "green" : "blue"}
+										w="5%"
+										align="center"
+									>
+										{s.idx + 1}
+									</Text>
+								</Menu.Target>
+
+								<Menu.Dropdown>
+									<Menu.Item
+										color="red"
+										fz={"xs"}
+										onClick={() => {
+											const yes = confirm(
+												"Are you sure you want to delete this set?",
+											);
+											if (yes)
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].sets.splice(
+															s.idx,
+															1,
+														);
+													}),
+												);
+										}}
+									>
+										Delete Set
+									</Menu.Item>
+								</Menu.Dropdown>
+							</Menu>
 							{durationCol ? (
 								<StatInput
-									exerciseIdx={props.idx}
+									exerciseIdx={props.exerciseIdx}
 									setIdx={s.idx}
 									stat="duration"
 									inputStep={0.1}
@@ -258,7 +289,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 							) : null}
 							{distanceCol ? (
 								<StatInput
-									exerciseIdx={props.idx}
+									exerciseIdx={props.exerciseIdx}
 									setIdx={s.idx}
 									stat="distance"
 									inputStep={0.01}
@@ -266,13 +297,17 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 							) : null}
 							{weightCol ? (
 								<StatInput
-									exerciseIdx={props.idx}
+									exerciseIdx={props.exerciseIdx}
 									setIdx={s.idx}
 									stat="weight"
 								/>
 							) : null}
 							{repsCol ? (
-								<StatInput exerciseIdx={props.idx} setIdx={s.idx} stat="reps" />
+								<StatInput
+									exerciseIdx={props.exerciseIdx}
+									setIdx={s.idx}
+									stat="reps"
+								/>
 							) : null}
 							<Group w="10%" position="center">
 								<ActionIcon
@@ -282,8 +317,11 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
-												draft.exercises[props.idx].sets[s.idx].confirmed =
-													!draft.exercises[props.idx].sets[s.idx].confirmed;
+												draft.exercises[props.exerciseIdx].sets[
+													s.idx
+												].confirmed =
+													!draft.exercises[props.exerciseIdx].sets[s.idx]
+														.confirmed;
 											}),
 										);
 									}}
@@ -299,7 +337,7 @@ const ExerciseDisplay = (props: { idx: number; exercise: Exercise }) => {
 					onClick={() => {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
-								draft.exercises[props.idx].sets.push({
+								draft.exercises[props.exerciseIdx].sets.push({
 									idx: props.exercise.sets.length,
 									stats: {},
 									confirmed: false,
@@ -372,7 +410,7 @@ const Page: NextPageWithLayout = () => {
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
 							<Fragment key={idx}>
-								<ExerciseDisplay exercise={ex} idx={idx} />
+								<ExerciseDisplay exercise={ex} exerciseIdx={idx} />
 								<Divider />
 							</Fragment>
 						))}
