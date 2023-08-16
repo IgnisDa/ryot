@@ -592,6 +592,7 @@ export enum MetadataLot {
   Book = 'BOOK',
   Manga = 'MANGA',
   Movie = 'MOVIE',
+  Music = 'MUSIC',
   Podcast = 'PODCAST',
   Show = 'SHOW',
   VideoGame = 'VIDEO_GAME'
@@ -605,6 +606,7 @@ export enum MetadataSource {
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
+  MusicBrainz = 'MUSIC_BRAINZ',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB'
 }

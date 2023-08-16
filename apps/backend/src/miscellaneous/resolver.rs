@@ -1334,6 +1334,7 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
+            MetadataSource::MusicBrainz => todo!(),
             MetadataSource::Itunes => Some(format!(
                 "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
             )),
@@ -2616,6 +2617,7 @@ impl MiscellaneousService {
     fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
+            MetadataSource::MusicBrainz => todo!(),
             MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
             MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
             MetadataSource::GoogleBooks => Box::new(self.google_books_service.clone()),
@@ -3428,6 +3430,7 @@ impl MiscellaneousService {
             }))
         };
         let specifics = match input.lot {
+            MetadataLot::Music => todo!(),
             MetadataLot::AudioBook => match input.audio_book_specifics {
                 None => return err(),
                 Some(ref mut s) => MediaSpecifics::AudioBook(s.clone()),
@@ -4100,6 +4103,7 @@ impl MiscellaneousService {
 
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
         match lot {
+            MetadataLot::Music => vec![MetadataSource::MusicBrainz],
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
@@ -4113,6 +4117,7 @@ impl MiscellaneousService {
         MetadataSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
+                    MetadataSource::MusicBrainz => todo!(),
                     MetadataSource::Itunes => (
                         ITunesService::supported_languages(),
                         ITunesService::default_language(),
