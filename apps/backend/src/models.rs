@@ -33,7 +33,7 @@ pub struct SearchInput {
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
-    params(media::CollectionContentResult)
+    params(media::MediaSearchItemWithLot)
 ))]
 #[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItemResponse)))]
 #[graphql(concrete(
@@ -57,7 +57,7 @@ pub mod media {
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
-    pub struct CollectionContentResult {
+    pub struct MediaSearchItemWithLot {
         pub details: MediaSearchItem,
         pub lot: MetadataLot,
     }

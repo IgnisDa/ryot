@@ -87,11 +87,6 @@ export type Collection = {
   visibility: Visibility;
 };
 
-export type CollectionContentResult = {
-  details: MediaSearchItem;
-  lot: MetadataLot;
-};
-
 export type CollectionContents = {
   details: Collection;
   results: MediaCollectionContentsResults;
@@ -203,7 +198,7 @@ export type CreatorDetails = {
 
 export type CreatorDetailsGroupedByRole = {
   /** The media items in which this role was performed. */
-  items: Array<CollectionContentResult>;
+  items: Array<MediaSearchItemWithLot>;
   /** The name of the role performed. */
   name: Scalars['String']['output'];
 };
@@ -496,7 +491,7 @@ export type MangaSummary = {
 };
 
 export type MediaCollectionContentsResults = {
-  items: Array<CollectionContentResult>;
+  items: Array<MediaSearchItemWithLot>;
   nextPage?: Maybe<Scalars['Int']['output']>;
   total: Scalars['Int']['output'];
 };
@@ -560,6 +555,11 @@ export type MediaSearchItem = {
 export type MediaSearchItemResponse = {
   databaseId?: Maybe<Scalars['Int']['output']>;
   item: MediaSearchItem;
+};
+
+export type MediaSearchItemWithLot = {
+  details: MediaSearchItem;
+  lot: MetadataLot;
 };
 
 export type MediaSearchResults = {

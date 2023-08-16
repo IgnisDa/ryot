@@ -61,15 +61,15 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CollectionContentResult, CreateOrUpdateCollectionInput, CreatorExtraInformation,
-            ImportOrExportItem, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportItemSeen, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSpecifics,
-            MetadataCreator, MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics,
-            MusicSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
+            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, MusicSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchInput, SearchResults,
     },
@@ -280,7 +280,7 @@ struct CollectionContentsInput {
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
     details: collection::Model,
-    results: SearchResults<CollectionContentResult>,
+    results: SearchResults<MediaSearchItemWithLot>,
     user: user::Model,
 }
 
@@ -336,7 +336,7 @@ struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<CollectionContentResult>,
+    items: Vec<MediaSearchItemWithLot>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -2864,7 +2864,7 @@ impl MiscellaneousService {
         let items = meta_data
             .into_iter()
             .rev()
-            .map(|a| CollectionContentResult {
+            .map(|a| MediaSearchItemWithLot {
                 details: a.0,
                 lot: a.2,
             })
@@ -4709,7 +4709,7 @@ impl MiscellaneousService {
             .find_also_related(Metadata)
             .all(&self.db)
             .await?;
-        let mut contents: HashMap<String, Vec<_>> = HashMap::new();
+        let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
             let image = if let Some(i) = m.images.0.first() {
@@ -4717,7 +4717,7 @@ impl MiscellaneousService {
             } else {
                 None
             };
-            let metadata = CollectionContentResult {
+            let metadata = MediaSearchItemWithLot {
                 details: MediaSearchItem {
                     identifier: m.id.to_string(),
                     title: m.title,
