@@ -142,6 +142,8 @@ pub struct MoviesTmdbConfig {
     pub locale: String,
 }
 
+impl IsFeatureEnabled for MovieConfig {}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MovieConfig {
     /// Settings related to TMDB (movies).
@@ -150,20 +152,21 @@ pub struct MovieConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MUSIC_BRAINZ_")]
+#[config(rename_all = "snake_case", env_prefix = "MUSIC_MUSIC_BRAINZ_")]
 pub struct MusicBrainzConfig {
     /// Used for changing the user agent if your requests are being rate limited.
     pub user_agent: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct MusicConfig {
     /// Settings related to Music Brainz.
     #[setting(nested)]
     pub music_brainz: MusicBrainzConfig,
 }
 
-impl IsFeatureEnabled for MovieConfig {}
+impl IsFeatureEnabled for MusicConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]

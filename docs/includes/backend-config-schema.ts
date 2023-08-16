@@ -138,13 +138,8 @@ export interface MusicBrainzConfig {
 }
 
 export interface MusicConfig {
-<<<<<<< HEAD
-	/** Settings related to LastFM. */
-	last_fm: LastFmConfig;
-=======
 	/** Settings related to Music Brainz. */
-	musicBrainz: MusicBrainzConfig;
->>>>>>> parent of b3a1baa... refactor(backend): rewrite to use LastFm instead of MusicBrainz
+	music_brainz: MusicBrainzConfig;
 }
 
 export interface ITunesConfig {
