@@ -474,6 +474,8 @@ struct CoreDetails {
     reviews_disabled: bool,
     /// Whether an upgrade is required
     upgrade: Option<UpgradeType>,
+    /// The number of elements on a page
+    page_limit: i32,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1241,6 +1243,7 @@ impl MiscellaneousService {
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
             upgrade,
+            page_limit: PAGE_LIMIT,
         })
     }
 

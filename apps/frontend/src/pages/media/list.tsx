@@ -3,7 +3,8 @@ import Grid from "@/lib/components/Grid";
 import MediaItem, {
 	MediaItemWithoutUpdateModal,
 } from "@/lib/components/MediaItem";
-import { APP_ROUTES, LIMIT } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -123,7 +124,7 @@ const Page: NextPageWithLayout = () => {
 
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
-	const offset = (parseInt(activeSearchPage || "1") - 1) * LIMIT;
+	const coreDetails = useCoreDetails();
 
 	const listMedia = useQuery({
 		queryKey: [
@@ -248,7 +249,7 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return lot && collections.data ? (
+	return lot && collections.data && coreDetails.data ? (
 		<>
 			<Head>
 				<title>List {changeCase(lot).toLowerCase()}s | Ryot</title>
@@ -411,7 +412,9 @@ const Page: NextPageWithLayout = () => {
 										size="sm"
 										value={parseInt(activeMinePage)}
 										onChange={(v) => setMinePage(v.toString())}
-										total={Math.ceil(listMedia.data.details.total / LIMIT)}
+										total={Math.ceil(
+											listMedia.data.details.total / coreDetails.data.pageLimit,
+										)}
 										boundaries={1}
 										siblings={0}
 									/>
@@ -459,7 +462,6 @@ const Page: NextPageWithLayout = () => {
 												item={b.item}
 												maybeItemId={b.databaseId ?? undefined}
 												query={query}
-												offset={offset}
 												lot={lot}
 												searchQueryRefetch={searchQuery.refetch}
 												source={searchSource as unknown as MetadataSource}
@@ -476,7 +478,10 @@ const Page: NextPageWithLayout = () => {
 										size="sm"
 										value={parseInt(activeSearchPage)}
 										onChange={(v) => setSearchPage(v.toString())}
-										total={Math.ceil(searchQuery.data.details.total / LIMIT)}
+										total={Math.ceil(
+											searchQuery.data.details.total /
+												coreDetails.data.pageLimit,
+										)}
 										boundaries={1}
 										siblings={0}
 									/>

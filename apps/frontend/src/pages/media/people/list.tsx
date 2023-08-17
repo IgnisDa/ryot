@@ -1,7 +1,9 @@
 import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
 import { BaseDisplayItem } from "@/lib/components/MediaItem";
-import { APP_ROUTES, LIMIT } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -34,6 +36,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
+	const coreDetails = useCoreDetails();
 
 	const listCreators = useQuery({
 		queryKey: ["creatorsList", activePage, debouncedQuery],
@@ -63,7 +66,7 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : null;
 
-	return (
+	return coreDetails.data ? (
 		<>
 			<Head>
 				<title>List People | Ryot</title>
@@ -117,7 +120,9 @@ const Page: NextPageWithLayout = () => {
 								size="sm"
 								value={parseInt(activePage)}
 								onChange={(v) => setPage(v.toString())}
-								total={Math.ceil(listCreators.data.details.total / LIMIT)}
+								total={Math.ceil(
+									listCreators.data.details.total / coreDetails.data.pageLimit,
+								)}
 								boundaries={1}
 								siblings={0}
 							/>
@@ -126,6 +131,8 @@ const Page: NextPageWithLayout = () => {
 				</Stack>
 			</Container>
 		</>
+	) : (
+		<LoadingPage />
 	);
 };
 

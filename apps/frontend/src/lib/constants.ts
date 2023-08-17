@@ -1,5 +1,3 @@
-export const LIMIT = 20;
-
 export const APP_ROUTES = {
 	dashboard: "/",
 	auth: {
