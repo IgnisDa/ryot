@@ -152,23 +152,6 @@ pub struct MovieConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MUSIC_MUSIC_BRAINZ_")]
-pub struct MusicBrainzConfig {
-    /// Used for changing the user agent if your requests are being rate limited.
-    pub user_agent: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
-pub struct MusicConfig {
-    /// Settings related to Music Brainz.
-    #[setting(nested)]
-    pub music_brainz: MusicBrainzConfig,
-}
-
-impl IsFeatureEnabled for MusicConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
 pub struct MangaAnilistConfig {}
 
@@ -460,9 +443,6 @@ pub struct AppConfig {
     /// Settings related to movies.
     #[setting(nested)]
     pub movies: MovieConfig,
-    /// Settings related to music.
-    #[setting(nested)]
-    pub music: MusicConfig,
     /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,

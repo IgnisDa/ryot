@@ -65,11 +65,11 @@ use crate::{
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, MusicSpecifics,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults,
     },
@@ -369,7 +369,6 @@ struct GraphqlMediaDetails {
     audio_book_specifics: Option<AudioBookSpecifics>,
     podcast_specifics: Option<PodcastSpecifics>,
     manga_specifics: Option<MangaSpecifics>,
-    music_specifics: Option<MusicSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
 }
@@ -1403,7 +1402,6 @@ impl MiscellaneousService {
             video_game_specifics: None,
             audio_book_specifics: None,
             podcast_specifics: None,
-            music_specifics: None,
             manga_specifics: None,
             anime_specifics: None,
             source_url,
@@ -1414,9 +1412,6 @@ impl MiscellaneousService {
             }
             MediaSpecifics::Book(a) => {
                 resp.book_specifics = Some(a);
-            }
-            MediaSpecifics::Music(a) => {
-                resp.music_specifics = Some(a);
             }
             MediaSpecifics::Movie(a) => {
                 resp.movie_specifics = Some(a);
@@ -2474,8 +2469,6 @@ impl MiscellaneousService {
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut prefs = self.user_by_id(user_id).await?.preferences;
-        prefs.features_enabled.media.music =
-            self.config.music.is_enabled() && prefs.features_enabled.media.music;
         prefs.features_enabled.media.anime =
             self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
         prefs.features_enabled.media.audio_book =
@@ -3246,12 +3239,6 @@ impl MiscellaneousService {
                         ls.media.movies.runtime += r;
                     }
                 }
-                MediaSpecifics::Music(item) => {
-                    ls.media.music.listened += 1;
-                    if let Some(r) = item.runtime {
-                        ls.media.music.runtime += r;
-                    }
-                }
                 MediaSpecifics::Show(item) => {
                     unique_shows.insert(seen.metadata_id);
                     for season in item.seasons {
@@ -3811,9 +3798,6 @@ impl MiscellaneousService {
                             "book" => preferences.features_enabled.media.book = value_bool.unwrap(),
                             "movie" => {
                                 preferences.features_enabled.media.movie = value_bool.unwrap()
-                            }
-                            "music" => {
-                                preferences.features_enabled.media.music = value_bool.unwrap()
                             }
                             "podcast" => {
                                 preferences.features_enabled.media.podcast = value_bool.unwrap()

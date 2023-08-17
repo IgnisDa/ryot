@@ -133,14 +133,6 @@ pub mod media {
     #[derive(
         Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
     )]
-    #[graphql(input_name = "MusicSpecificsInput")]
-    pub struct MusicSpecifics {
-        pub runtime: Option<i32>,
-    }
-
-    #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
-    )]
     #[graphql(input_name = "MovieSpecificsInput")]
     pub struct MovieSpecifics {
         pub runtime: Option<i32>,
@@ -402,22 +394,6 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    pub struct MusicSummary {
-        pub runtime: i32,
-        pub listened: i32,
-    }
-
-    #[derive(
-        SimpleObject,
-        Debug,
-        PartialEq,
-        Eq,
-        Clone,
-        Default,
-        Serialize,
-        Deserialize,
-        FromJsonQueryResult,
-    )]
     pub struct PodcastsSummary {
         pub runtime: i32,
         pub played: i32,
@@ -489,7 +465,6 @@ pub mod media {
     pub struct UserMediaSummary {
         pub books: BooksSummary,
         pub movies: MoviesSummary,
-        pub music: MusicSummary,
         pub podcasts: PodcastsSummary,
         pub shows: ShowsSummary,
         pub video_games: VideoGamesSummary,
@@ -673,7 +648,6 @@ pub mod media {
         AudioBook(AudioBookSpecifics),
         Book(BookSpecifics),
         Movie(MovieSpecifics),
-        Music(MusicSpecifics),
         Podcast(PodcastSpecifics),
         Show(ShowSpecifics),
         VideoGame(VideoGameSpecifics),
