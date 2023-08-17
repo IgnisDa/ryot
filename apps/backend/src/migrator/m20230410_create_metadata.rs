@@ -69,8 +69,6 @@ pub enum MetadataSource {
     Itunes,
     #[sea_orm(string_value = "LI")]
     Listennotes,
-    #[sea_orm(string_value = "MU")]
-    MusicBrainz,
     #[sea_orm(string_value = "OL")]
     Openlibrary,
     #[sea_orm(string_value = "TM")]
@@ -108,8 +106,6 @@ pub enum MetadataLot {
     Manga,
     #[sea_orm(string_value = "MO")]
     Movie,
-    #[sea_orm(string_value = "MU")]
-    Music,
     #[sea_orm(string_value = "SH")]
     Show,
     #[sea_orm(string_value = "VG")]

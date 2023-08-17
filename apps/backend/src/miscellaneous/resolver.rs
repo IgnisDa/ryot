@@ -80,7 +80,6 @@ use crate::{
         igdb::IgdbService,
         itunes::ITunesService,
         listennotes::ListennotesService,
-        music_brainz::MusicBrainzService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
@@ -1120,7 +1119,6 @@ pub struct MiscellaneousService {
     pub tmdb_shows_service: TmdbShowService,
     pub anilist_anime_service: AnilistAnimeService,
     pub anilist_manga_service: AnilistMangaService,
-    pub music_brainz_service: MusicBrainzService,
     pub integration_service: IntegrationService,
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -1154,8 +1152,6 @@ impl MiscellaneousService {
             TmdbMovieService::new(&config.movies.tmdb, config.frontend.page_size).await;
         let tmdb_shows_service =
             TmdbShowService::new(&config.shows.tmdb, config.frontend.page_size).await;
-        let music_brainz_service =
-            MusicBrainzService::new(&config.music.music_brainz, config.frontend.page_size).await;
         let audible_service =
             AudibleService::new(&config.audio_books.audible, config.frontend.page_size).await;
         let igdb_service = IgdbService::new(&config.video_games, config.frontend.page_size).await;
@@ -1194,7 +1190,6 @@ impl MiscellaneousService {
             tmdb_shows_service,
             anilist_anime_service,
             anilist_manga_service,
-            music_brainz_service,
             integration_service,
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1352,7 +1347,6 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
-            MetadataSource::MusicBrainz => todo!(),
             MetadataSource::Itunes => Some(format!(
                 "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
             )),
@@ -2639,7 +2633,6 @@ impl MiscellaneousService {
     fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MetadataSource::MusicBrainz => Box::new(self.music_brainz_service.clone()),
             MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
             MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
             MetadataSource::GoogleBooks => Box::new(self.google_books_service.clone()),
@@ -3469,7 +3462,6 @@ impl MiscellaneousService {
             }))
         };
         let specifics = match input.lot {
-            MetadataLot::Music => todo!(),
             MetadataLot::AudioBook => match input.audio_book_specifics {
                 None => return err(),
                 Some(ref mut s) => MediaSpecifics::AudioBook(s.clone()),
@@ -4145,7 +4137,6 @@ impl MiscellaneousService {
 
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
         match lot {
-            MetadataLot::Music => vec![MetadataSource::MusicBrainz],
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
@@ -4159,10 +4150,6 @@ impl MiscellaneousService {
         MetadataSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
-                    MetadataSource::MusicBrainz => (
-                        MusicBrainzService::supported_languages(),
-                        MusicBrainzService::default_language(),
-                    ),
                     MetadataSource::Itunes => (
                         ITunesService::supported_languages(),
                         ITunesService::default_language(),
