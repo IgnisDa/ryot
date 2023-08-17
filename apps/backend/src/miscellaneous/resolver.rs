@@ -2356,7 +2356,7 @@ impl MiscellaneousService {
             production_status: ActiveValue::Set(details.production_status),
             ..Default::default()
         };
-        let metadata = metadata.insert(&self.db).await.unwrap();
+        let metadata = metadata.insert(&self.db).await?;
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
             .exec(&self.db)
