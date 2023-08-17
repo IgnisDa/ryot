@@ -64,14 +64,14 @@ use crate::{
             CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, Visibility,
         },
-        IdObject, SearchInput, SearchResults,
+        IdObject, SearchDetails, SearchInput, SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -93,7 +93,7 @@ use crate::{
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, PAGE_LIMIT, USER_AGENT_STR, VERSION,
+        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -279,7 +279,7 @@ struct CollectionContentsInput {
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
     details: collection::Model,
-    results: SearchResults<MediaSearchItem>,
+    results: SearchResults<MediaSearchItemWithLot>,
     user: user::Model,
 }
 
@@ -335,7 +335,7 @@ struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<MediaSearchItem>,
+    items: Vec<MediaSearchItemWithLot>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -472,6 +472,8 @@ struct CoreDetails {
     reviews_disabled: bool,
     /// Whether an upgrade is required
     upgrade: Option<UpgradeType>,
+    /// The number of elements on a page
+    page_limit: i32,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1105,7 +1107,6 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
-    pub config: Arc<AppConfig>,
     pub files_storage_service: Arc<FileStorageService>,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
@@ -1122,6 +1123,7 @@ pub struct MiscellaneousService {
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
+    config: Arc<AppConfig>,
 }
 
 impl AuthProvider for MiscellaneousService {
@@ -1141,16 +1143,25 @@ impl MiscellaneousService {
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
-        let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary).await;
-        let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
-        let tmdb_movies_service = TmdbMovieService::new(&config.movies.tmdb).await;
-        let tmdb_shows_service = TmdbShowService::new(&config.shows.tmdb).await;
-        let audible_service = AudibleService::new(&config.audio_books.audible).await;
-        let igdb_service = IgdbService::new(&config.video_games).await;
-        let itunes_service = ITunesService::new(&config.podcasts.itunes).await;
-        let listennotes_service = ListennotesService::new(&config.podcasts).await;
-        let anilist_anime_service = AnilistAnimeService::new(&config.anime.anilist).await;
-        let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
+        let openlibrary_service =
+            OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await;
+        let google_books_service =
+            GoogleBooksService::new(&config.books.google_books, config.frontend.page_size).await;
+        let tmdb_movies_service =
+            TmdbMovieService::new(&config.movies.tmdb, config.frontend.page_size).await;
+        let tmdb_shows_service =
+            TmdbShowService::new(&config.shows.tmdb, config.frontend.page_size).await;
+        let audible_service =
+            AudibleService::new(&config.audio_books.audible, config.frontend.page_size).await;
+        let igdb_service = IgdbService::new(&config.video_games, config.frontend.page_size).await;
+        let itunes_service =
+            ITunesService::new(&config.podcasts.itunes, config.frontend.page_size).await;
+        let listennotes_service =
+            ListennotesService::new(&config.podcasts, config.frontend.page_size).await;
+        let anilist_anime_service =
+            AnilistAnimeService::new(&config.anime.anilist, config.frontend.page_size).await;
+        let anilist_manga_service =
+            AnilistMangaService::new(&config.manga.anilist, config.frontend.page_size).await;
         let integration_service = IntegrationService::new().await;
 
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1236,6 +1247,7 @@ impl MiscellaneousService {
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
             upgrade,
+            page_limit: self.config.frontend.page_size,
         })
     }
 
@@ -1780,7 +1792,6 @@ impl MiscellaneousService {
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
             id: i32,
-            lot: MetadataLot,
             title: String,
             publish_year: Option<i32>,
             images: serde_json::Value,
@@ -1800,8 +1811,8 @@ impl MiscellaneousService {
         let total: i32 = total.try_into().unwrap();
 
         let main_select = main_select
-            .limit(PAGE_LIMIT as u64)
-            .offset(((input.page - 1) * PAGE_LIMIT) as u64)
+            .limit(self.config.frontend.page_size as u64)
+            .offset(((input.page - 1) * self.config.frontend.page_size) as u64)
             .to_owned();
         let stmt = self.get_db_stmt(main_select);
         let metas = InnerMediaSearchItem::find_by_statement(stmt)
@@ -1845,7 +1856,6 @@ impl MiscellaneousService {
             let m_small = MediaListItem {
                 data: MediaSearchItem {
                     identifier: m.id.to_string(),
-                    lot: m.lot,
                     title: m.title,
                     image: poster_images.get(0).cloned(),
                     publish_year: m.publish_year,
@@ -1854,15 +1864,14 @@ impl MiscellaneousService {
             };
             items.push(m_small);
         }
-        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+        let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
             Some(input.page + 1)
         } else {
             None
         };
         Ok(SearchResults {
-            total,
+            details: SearchDetails { next_page, total },
             items,
-            next_page,
         })
     }
 
@@ -2500,9 +2509,11 @@ impl MiscellaneousService {
         if let Some(q) = input.query {
             if q.is_empty() {
                 return Ok(SearchResults {
-                    total: 0,
+                    details: SearchDetails {
+                        total: 0,
+                        next_page: None,
+                    },
                     items: vec![],
-                    next_page: None,
                 });
             }
             let provider = self.get_provider(lot, source)?;
@@ -2588,9 +2599,8 @@ impl MiscellaneousService {
                     .collect()
             };
             let results = SearchResults {
-                total: results.total,
+                details: results.details,
                 items: data,
-                next_page: results.next_page,
             };
             Ok(results)
         } else {
@@ -2819,7 +2829,9 @@ impl MiscellaneousService {
         }
         let metas = collection.find_related(Metadata).paginate(
             &self.db,
-            input.take.unwrap_or_else(|| PAGE_LIMIT.try_into().unwrap()),
+            input
+                .take
+                .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
         );
 
         let ItemsAndPagesNumber {
@@ -2841,27 +2853,36 @@ impl MiscellaneousService {
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.id.to_string(),
-                    lot: m.lot,
                     image: self.metadata_images(&m).await?.0.first().cloned(),
                     title: m.title,
                     publish_year: m.publish_year,
                 },
                 u_t_m.map(|d| d.last_updated_on).unwrap_or_default(),
+                m.lot,
             ));
         }
         meta_data.sort_by_key(|item| item.1);
-        let items = meta_data.into_iter().rev().map(|a| a.0).collect();
+        let items = meta_data
+            .into_iter()
+            .rev()
+            .map(|a| MediaSearchItemWithLot {
+                details: a.0,
+                lot: a.2,
+            })
+            .collect();
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         Ok(CollectionContents {
             details: collection,
             results: SearchResults {
-                total: number_of_items.try_into().unwrap(),
-                items,
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
+                details: SearchDetails {
+                    total: number_of_items.try_into().unwrap(),
+                    next_page: if page < number_of_pages {
+                        Some((page + 1).try_into().unwrap())
+                    } else {
+                        None
+                    },
                 },
+                items,
             },
             user,
         })
@@ -4646,7 +4667,7 @@ impl MiscellaneousService {
         let creators_paginator = query
             .clone()
             .into_model::<MediaCreatorSearchItem>()
-            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -4656,13 +4677,15 @@ impl MiscellaneousService {
             creators.push(c);
         }
         Ok(SearchResults {
-            total: number_of_items.try_into().unwrap(),
-            items: creators,
-            next_page: if page < number_of_pages {
-                Some((page + 1).try_into().unwrap())
-            } else {
-                None
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
             },
+            items: creators,
         })
     }
 
@@ -4676,7 +4699,7 @@ impl MiscellaneousService {
             .find_also_related(Metadata)
             .all(&self.db)
             .await?;
-        let mut contents: HashMap<String, Vec<MediaSearchItem>> = HashMap::new();
+        let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
             let image = if let Some(i) = m.images.0.first() {
@@ -4684,12 +4707,14 @@ impl MiscellaneousService {
             } else {
                 None
             };
-            let metadata = MediaSearchItem {
-                identifier: m.id.to_string(),
+            let metadata = MediaSearchItemWithLot {
+                details: MediaSearchItem {
+                    identifier: m.id.to_string(),
+                    title: m.title,
+                    publish_year: m.publish_year,
+                    image,
+                },
                 lot: m.lot,
-                title: m.title,
-                publish_year: m.publish_year,
-                image,
             };
             contents
                 .entry(assoc.role)

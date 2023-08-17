@@ -15,7 +15,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataImageUrl, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date},
@@ -54,7 +54,7 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &MoviesTmdbConfig) -> Self {
+    pub async fn new(config: &MoviesTmdbConfig, _page_limit: i32) -> Self {
         let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
@@ -243,7 +243,6 @@ impl MediaProvider for TmdbMovieService {
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                lot: MetadataLot::Movie,
                 title: d.title,
                 publish_year: convert_date_to_year(&d.release_date),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
@@ -255,8 +254,10 @@ impl MediaProvider for TmdbMovieService {
             None
         };
         Ok(SearchResults {
-            total: search.total_results,
-            next_page,
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
             items: resp.to_vec(),
         })
     }
@@ -269,7 +270,7 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &ShowsTmdbConfig) -> Self {
+    pub async fn new(config: &ShowsTmdbConfig, _page_limit: i32) -> Self {
         let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
@@ -534,7 +535,6 @@ impl MediaProvider for TmdbShowService {
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                lot: MetadataLot::Show,
                 title: d.name,
                 publish_year: convert_date_to_year(&d.first_air_date),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
@@ -546,8 +546,10 @@ impl MediaProvider for TmdbShowService {
             None
         };
         Ok(SearchResults {
-            total: search.total_results,
-            next_page,
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
             items: resp.to_vec(),
         })
     }

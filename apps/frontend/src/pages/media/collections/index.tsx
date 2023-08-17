@@ -1,7 +1,8 @@
 import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
-import { APP_ROUTES, LIMIT } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -26,6 +27,7 @@ import { withQuery } from "ufo";
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const collectionId = parseInt(router.query.collectionId?.toString() || "0");
+	const coreDetails = useCoreDetails();
 
 	const [activePage, setPage] = useLocalStorage({
 		key: "savedPage",
@@ -44,7 +46,7 @@ const Page: NextPageWithLayout = () => {
 		{ enabled: !!collectionId },
 	);
 
-	return collectionId && collectionContents.data ? (
+	return collectionId && coreDetails.data && collectionContents.data ? (
 		<>
 			<Head>
 				<title>{collectionContents.data.details.name} | Ryot</title>
@@ -57,7 +59,7 @@ const Page: NextPageWithLayout = () => {
 						</Text>
 						<Title>{collectionContents.data.details.name}</Title>{" "}
 						<Text size="sm">
-							{collectionContents.data.results.total} items, created by{" "}
+							{collectionContents.data.results.details.total} items, created by{" "}
 							{collectionContents.data.user.name}{" "}
 							{formatTimeAgo(collectionContents.data.details.createdOn)}
 						</Text>
@@ -67,12 +69,12 @@ const Page: NextPageWithLayout = () => {
 						<Grid>
 							{collectionContents.data.results.items.map((lm) => (
 								<MediaItemWithoutUpdateModal
-									key={lm.identifier}
-									item={lm}
+									key={lm.details.identifier}
+									item={lm.details}
 									lot={lm.lot}
 									href={withQuery(
 										APP_ROUTES.media.individualMediaItem.details,
-										{ id: lm.identifier },
+										{ id: lm.details.identifier },
 									)}
 								/>
 							))}
@@ -86,7 +88,10 @@ const Page: NextPageWithLayout = () => {
 								size="sm"
 								value={parseInt(activePage)}
 								onChange={(v) => setPage(v.toString())}
-								total={Math.ceil(collectionContents.data.results.total / LIMIT)}
+								total={Math.ceil(
+									collectionContents.data.results.details.total /
+										coreDetails.data.pageLimit,
+								)}
 								boundaries={1}
 								siblings={0}
 							/>

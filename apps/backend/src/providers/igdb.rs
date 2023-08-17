@@ -14,10 +14,9 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataImageUrl, VideoGameSpecifics,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::PAGE_LIMIT,
 };
 
 pub static URL: &str = "https://api.igdb.com/v4/";
@@ -81,6 +80,7 @@ pub struct IgdbService {
     image_url: String,
     image_size: String,
     config: VideoGameConfig,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for IgdbService {
@@ -94,11 +94,12 @@ impl MediaProviderLanguages for IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(config: &VideoGameConfig) -> Self {
+    pub async fn new(config: &VideoGameConfig, page_limit: i32) -> Self {
         Self {
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
             config: config.clone(),
+            page_limit,
         }
     }
 }
@@ -142,8 +143,8 @@ limit {limit};
 offset: {offset};
             "#,
             field = FIELDS,
-            limit = PAGE_LIMIT,
-            offset = (page - 1) * PAGE_LIMIT
+            limit = self.page_limit,
+            offset = (page - 1) * self.page_limit
         );
         let mut rsp = client
             .post("games")
@@ -162,7 +163,6 @@ offset: {offset};
                 let a = self.igdb_response_to_search_response(r);
                 MediaSearchItem {
                     identifier: a.identifier,
-                    lot: MetadataLot::VideoGame,
                     title: a.title,
                     image: a
                         .images
@@ -179,9 +179,11 @@ offset: {offset};
             })
             .collect_vec();
         Ok(SearchResults {
-            total,
+            details: SearchDetails {
+                total,
+                next_page: Some(page + 1),
+            },
             items: resp,
-            next_page: Some(page + 1),
         })
     }
 }

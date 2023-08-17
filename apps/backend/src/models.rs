@@ -31,9 +31,15 @@ pub struct SearchInput {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+pub struct SearchDetails {
+    pub total: i32,
+    pub next_page: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
-    params(media::MediaSearchItem)
+    params(media::MediaSearchItemWithLot)
 ))]
 #[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItemResponse)))]
 #[graphql(concrete(
@@ -43,9 +49,8 @@ pub struct SearchInput {
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
 #[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
-    pub total: i32,
+    pub details: SearchDetails,
     pub items: Vec<T>,
-    pub next_page: Option<i32>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
@@ -55,6 +60,12 @@ pub struct IdObject {
 
 pub mod media {
     use super::*;
+
+    #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
+    pub struct MediaSearchItemWithLot {
+        pub details: MediaSearchItem,
+        pub lot: MetadataLot,
+    }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaSearchItemResponse {
@@ -158,8 +169,8 @@ pub mod media {
         InputObject,
     )]
     #[graphql(input_name = "PodcastEpisodeInput")]
+    #[serde(default)]
     pub struct PodcastEpisode {
-        #[serde(default)]
         pub number: i32,
         pub id: String,
         #[serde(rename = "audio_length_sec")]
@@ -293,7 +304,6 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaSearchItem {
         pub identifier: String,
-        pub lot: MetadataLot,
         pub title: String,
         pub image: Option<String>,
         pub publish_year: Option<i32>,
@@ -451,26 +461,17 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    #[serde(default)]
     pub struct UserMediaSummary {
-        #[serde(default)]
         pub books: BooksSummary,
-        #[serde(default)]
         pub movies: MoviesSummary,
-        #[serde(default)]
         pub podcasts: PodcastsSummary,
-        #[serde(default)]
         pub shows: ShowsSummary,
-        #[serde(default)]
         pub video_games: VideoGamesSummary,
-        #[serde(default)]
         pub audio_books: AudioBooksSummary,
-        #[serde(default)]
         pub anime: AnimeSummary,
-        #[serde(default)]
         pub manga: MangaSummary,
-        #[serde(default)]
         pub reviews_posted: u64,
-        #[serde(default)]
         pub creators_interacted_with: usize,
     }
 
@@ -485,8 +486,8 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    #[serde(default)]
     pub struct UserFitnessSummary {
-        #[serde(default)]
         pub measurements_recorded: u64,
     }
 
@@ -501,12 +502,10 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    #[serde(default)]
     pub struct UserSummary {
-        #[serde(default)]
         pub fitness: UserFitnessSummary,
-        #[serde(default)]
         pub media: UserMediaSummary,
-        #[serde(default)]
         pub calculated_on: DateTimeUtc,
     }
 

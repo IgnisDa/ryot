@@ -40,13 +40,22 @@ use crate::{
 
 pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 
-pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
-pub const PAGE_LIMIT: i32 = 20;
 pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
-pub const USER_AGENT_STR: &str = const_str::concat!(AUTHOR, "/", PROJECT_NAME);
+pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
+pub const USER_AGENT_STR: &str = const_str::concat!(
+    AUTHOR,
+    "/",
+    PROJECT_NAME,
+    "-v",
+    VERSION,
+    " (",
+    AUTHOR_EMAIL,
+    ")"
+);
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 
@@ -78,6 +87,7 @@ pub async fn create_app_services(
     ));
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
+        config.clone(),
         auth_db.clone(),
         update_exercise_job,
     ));

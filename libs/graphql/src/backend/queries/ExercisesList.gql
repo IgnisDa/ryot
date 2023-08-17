@@ -1,7 +1,9 @@
 query ExercisesList($input: ExercisesListInput!) {
   exercisesList(input: $input) {
-    total
-    nextPage
+    details {
+      total
+      nextPage
+    }
     items {
       id
       name

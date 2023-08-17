@@ -6,10 +6,12 @@ use surf::Client;
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
     migrator::MetadataLot,
-    models::media::{MediaDetails, MediaSearchItem},
     models::SearchResults,
+    models::{
+        media::{MediaDetails, MediaSearchItem},
+        SearchDetails,
+    },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::PAGE_LIMIT,
 };
 
 static URL: &str = "https://graphql.anilist.co";
@@ -33,6 +35,7 @@ struct DetailsQuery;
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -51,10 +54,10 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(_config: &AnimeAnilistConfig) -> Self {
+    pub async fn new(_config: &AnimeAnilistConfig, page_limit: i32) -> Self {
         let client = utils::get_client_config(URL).await;
         Self {
-            base: AnilistService { client },
+            base: AnilistService { client, page_limit },
         }
     }
 }
@@ -76,11 +79,11 @@ impl MediaProvider for AnilistAnimeService {
             search_query::MediaType::ANIME,
             query,
             page,
+            self.base.page_limit,
         )
         .await?;
         Ok(SearchResults {
-            total,
-            next_page,
+            details: SearchDetails { total, next_page },
             items,
         })
     }
@@ -92,10 +95,10 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(_config: &MangaAnilistConfig) -> Self {
+    pub async fn new(_config: &MangaAnilistConfig, page_limit: i32) -> Self {
         let client = utils::get_client_config(URL).await;
         Self {
-            base: AnilistService { client },
+            base: AnilistService { client, page_limit },
         }
     }
 }
@@ -117,11 +120,11 @@ impl MediaProvider for AnilistMangaService {
             search_query::MediaType::MANGA,
             query,
             page,
+            self.base.page_limit,
         )
         .await?;
         Ok(SearchResults {
-            total,
-            next_page,
+            details: SearchDetails { total, next_page },
             items,
         })
     }
@@ -247,13 +250,14 @@ mod utils {
         media_type: search_query::MediaType,
         query: &str,
         page: Option<i32>,
+        page_limit: i32,
     ) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
         let page = page.unwrap_or(1);
         let variables = search_query::Variables {
             page: page.into(),
             search: query.to_owned(),
             type_: media_type,
-            per_page: PAGE_LIMIT.into(),
+            per_page: page_limit.into(),
         };
         let body = SearchQuery::build_query(variables);
         let search = client
@@ -271,7 +275,7 @@ mod utils {
             .page
             .unwrap();
         let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-        let next_page = if total - (page * PAGE_LIMIT) > 0 {
+        let next_page = if total - (page * page_limit) > 0 {
             Some(page + 1)
         } else {
             None
@@ -283,7 +287,6 @@ mod utils {
             .flatten()
             .map(|b| MediaSearchItem {
                 identifier: b.id.to_string(),
-                lot: MetadataLot::Anime,
                 title: b.title.unwrap().user_preferred.unwrap(),
                 image: b.banner_image,
                 publish_year: b

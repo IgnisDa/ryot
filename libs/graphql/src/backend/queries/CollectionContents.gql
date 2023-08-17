@@ -4,14 +4,18 @@ query CollectionContents($input: CollectionContentsInput!) {
       name
     }
     results {
-      total
-      nextPage
+      details {
+        total
+        nextPage
+      }
       items {
-        identifier
         lot
-        title
-        image
-        publishYear
+        details {
+          identifier
+          title
+          image
+          publishYear
+        }
       }
     }
     details {

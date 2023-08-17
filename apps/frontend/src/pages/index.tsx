@@ -197,12 +197,12 @@ const Page: NextPageWithLayout = () => {
 							<Grid>
 								{inProgressCollection.data.results.items.map((lm) => (
 									<MediaItemWithoutUpdateModal
-										key={lm.identifier}
-										item={lm}
+										key={lm.details.identifier}
+										item={lm.details}
 										lot={lm.lot}
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.details,
-											{ id: lm.identifier },
+											{ id: lm.details.identifier },
 										)}
 									/>
 								))}

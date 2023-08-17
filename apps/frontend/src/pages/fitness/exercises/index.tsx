@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
-import { APP_ROUTES, LIMIT } from "@/lib/constants";
+import { APP_ROUTES } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -67,6 +68,7 @@ const defaultFilterValue = {
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const selectionEnabled = !!router.query.selectionEnabled;
+	const coreDetails = useCoreDetails();
 
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -139,7 +141,7 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : null;
 
-	return exerciseInformation.data ? (
+	return coreDetails.data && exerciseInformation.data ? (
 		<>
 			<Head>
 				<title>Exercises | Ryot</title>
@@ -231,11 +233,11 @@ const Page: NextPageWithLayout = () => {
 									</Stack>
 								</Modal>
 							</Flex>
-							{exercisesList.data && exercisesList.data.total > 0 ? (
+							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<>
 									<Box>
 										<Text display={"inline"} fw="bold">
-											{exercisesList.data.total}
+											{exercisesList.data.details.total}
 										</Text>{" "}
 										items found
 										{selectionEnabled ? (
@@ -299,13 +301,16 @@ const Page: NextPageWithLayout = () => {
 							) : (
 								<Text>No information to display</Text>
 							)}
-							{exercisesList.data && exercisesList.data.total > 0 ? (
+							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<Center>
 									<Pagination
 										size="sm"
 										value={parseInt(activePage)}
 										onChange={(v) => setPage(v.toString())}
-										total={Math.ceil(exercisesList.data.total / LIMIT)}
+										total={Math.ceil(
+											exercisesList.data.details.total /
+												coreDetails.data.pageLimit,
+										)}
 										boundaries={1}
 										siblings={0}
 									/>

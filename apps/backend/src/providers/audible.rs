@@ -14,10 +14,10 @@ use crate::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
             MetadataImage, MetadataImageUrl,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client, PAGE_LIMIT},
+    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
 };
 
 pub static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
@@ -82,6 +82,7 @@ pub struct AudibleItem {
 #[derive(Debug, Clone)]
 pub struct AudibleService {
     client: Client,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AudibleService {
@@ -112,10 +113,10 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products/", suffix)
     }
 
-    pub async fn new(config: &AudibleConfig) -> Self {
+    pub async fn new(config: &AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
         let client = get_base_http_client(&url, vec![(ACCEPT, mime::JSON)]);
-        Self { client }
+        Self { client, page_limit }
     }
 }
 
@@ -154,7 +155,7 @@ impl MediaProvider for AudibleService {
             .get("")
             .query(&SearchQuery {
                 title: query.to_owned(),
-                num_results: PAGE_LIMIT,
+                num_results: self.page_limit,
                 page: page - 1,
                 products_sort_by: "Relevance".to_owned(),
                 primary: PrimaryQuery::default(),
@@ -170,7 +171,6 @@ impl MediaProvider for AudibleService {
                 let a = self.audible_response_to_search_response(d);
                 MediaSearchItem {
                     identifier: a.identifier,
-                    lot: MetadataLot::AudioBook,
                     title: a.title,
                     image: a
                         .images
@@ -186,15 +186,17 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = if search.total_results - ((page) * PAGE_LIMIT) > 0 {
+        let next_page = if search.total_results - ((page) * self.page_limit) > 0 {
             Some(page + 1)
         } else {
             None
         };
         Ok(SearchResults {
-            total: search.total_results,
+            details: SearchDetails {
+                next_page,
+                total: search.total_results,
+            },
             items: resp,
-            next_page,
         })
     }
 }

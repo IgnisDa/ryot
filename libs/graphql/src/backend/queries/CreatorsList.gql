@@ -1,7 +1,9 @@
 query CreatorsList($input: SearchInput!) {
   creatorsList(input: $input) {
-    total
-    nextPage
+    details {
+      total
+      nextPage
+    }
     items {
       id
       name
