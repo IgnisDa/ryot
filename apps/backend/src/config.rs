@@ -142,14 +142,14 @@ pub struct MoviesTmdbConfig {
     pub locale: String,
 }
 
-impl IsFeatureEnabled for MovieConfig {}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MovieConfig {
     /// Settings related to TMDB (movies).
     #[setting(nested)]
     pub tmdb: MoviesTmdbConfig,
 }
+
+impl IsFeatureEnabled for MovieConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
