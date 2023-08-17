@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
@@ -21,17 +23,17 @@ use crate::{
     utils::{convert_date_to_year, convert_string_to_date},
 };
 
-pub static URL: &str = "https://api.themoviedb.org/3/";
+static URL: &str = "https://api.themoviedb.org/3/";
+static IMAGE_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct TmdbService {
-    image_url: String,
     language: String,
 }
 
 impl TmdbService {
     fn get_cover_image_url(&self, c: String) -> String {
-        format!("{}{}{}", self.image_url, "original", c)
+        format!("{}{}{}", IMAGE_URL.get().unwrap(), "original", c)
     }
 }
 
@@ -55,11 +57,10 @@ pub struct TmdbMovieService {
 
 impl TmdbMovieService {
     pub async fn new(config: &MoviesTmdbConfig, _page_limit: i32) -> Self {
-        let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
+        let client = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
-                image_url,
                 language: config.locale.clone(),
             },
         }
@@ -271,11 +272,10 @@ pub struct TmdbShowService {
 
 impl TmdbShowService {
     pub async fn new(config: &ShowsTmdbConfig, _page_limit: i32) -> Self {
-        let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
+        let client = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
-                image_url,
                 language: config.locale.clone(),
             },
         }
@@ -556,11 +556,9 @@ impl MediaProvider for TmdbShowService {
 }
 
 mod utils {
-    use std::{env, fs};
-
     use surf::http::headers::AUTHORIZATION;
 
-    use crate::utils::{get_base_http_client, read_file_to_json};
+    use crate::utils::get_base_http_client;
 
     use super::*;
 
@@ -589,27 +587,23 @@ mod utils {
         pub posters: Option<Vec<utils::TmdbImage>>,
     }
 
-    pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
-        let path = env::temp_dir().join("tmdb-config.json");
+    pub async fn get_client_config(url: &str, access_token: &str) -> Client {
         let client: Client =
             get_base_http_client(url, vec![(AUTHORIZATION, format!("Bearer {access_token}"))]);
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
-            details.images.secure_base_url
-        } else {
+        if IMAGE_URL.get().is_none() {
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbImageConfiguration {
+                secure_base_url: String,
+            }
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbConfiguration {
+                images: TmdbImageConfiguration,
+            }
             let mut rsp = client.get("configuration").await.unwrap();
             let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
-            data.images.secure_base_url
+            IMAGE_URL.set(data.images.secure_base_url).ok();
         };
-        (client, image_url)
+        client
     }
 
     pub async fn save_all_images(

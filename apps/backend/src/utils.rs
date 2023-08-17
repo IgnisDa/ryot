@@ -1,7 +1,4 @@
 use std::{
-    fs::File,
-    io::Read,
-    path::PathBuf,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -19,7 +16,7 @@ use sea_orm::{
     DatabaseConnection, EntityTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -188,13 +185,6 @@ pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
         NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         Utc,
     )
-}
-
-pub fn read_file_to_json<T: DeserializeOwned>(path: &PathBuf) -> Option<T> {
-    let mut file = File::open(path).ok()?;
-    let mut data = String::new();
-    file.read_to_string(&mut data).unwrap();
-    serde_json::from_str::<T>(&data).ok()
 }
 
 pub fn get_now_timestamp() -> u128 {

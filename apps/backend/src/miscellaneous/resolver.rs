@@ -1108,16 +1108,6 @@ pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
     pub files_storage_service: Arc<FileStorageService>,
-    pub audible_service: AudibleService,
-    pub google_books_service: GoogleBooksService,
-    pub igdb_service: IgdbService,
-    pub itunes_service: ITunesService,
-    pub listennotes_service: ListennotesService,
-    pub openlibrary_service: OpenlibraryService,
-    pub tmdb_movies_service: TmdbMovieService,
-    pub tmdb_shows_service: TmdbShowService,
-    pub anilist_anime_service: AnilistAnimeService,
-    pub anilist_manga_service: AnilistMangaService,
     pub integration_service: IntegrationService,
     pub update_metadata: SqliteStorage<UpdateMetadataJob>,
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
@@ -1143,27 +1133,7 @@ impl MiscellaneousService {
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
-        let openlibrary_service =
-            OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await;
-        let google_books_service =
-            GoogleBooksService::new(&config.books.google_books, config.frontend.page_size).await;
-        let tmdb_movies_service =
-            TmdbMovieService::new(&config.movies.tmdb, config.frontend.page_size).await;
-        let tmdb_shows_service =
-            TmdbShowService::new(&config.shows.tmdb, config.frontend.page_size).await;
-        let audible_service =
-            AudibleService::new(&config.audio_books.audible, config.frontend.page_size).await;
-        let igdb_service = IgdbService::new(&config.video_games, config.frontend.page_size).await;
-        let itunes_service =
-            ITunesService::new(&config.podcasts.itunes, config.frontend.page_size).await;
-        let listennotes_service =
-            ListennotesService::new(&config.podcasts, config.frontend.page_size).await;
-        let anilist_anime_service =
-            AnilistAnimeService::new(&config.anime.anilist, config.frontend.page_size).await;
-        let anilist_manga_service =
-            AnilistMangaService::new(&config.manga.anilist, config.frontend.page_size).await;
         let integration_service = IntegrationService::new().await;
-
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
 
@@ -1179,16 +1149,6 @@ impl MiscellaneousService {
             config,
             files_storage_service,
             seen_progress_cache,
-            audible_service,
-            google_books_service,
-            igdb_service,
-            itunes_service,
-            listennotes_service,
-            openlibrary_service,
-            tmdb_movies_service,
-            tmdb_shows_service,
-            anilist_anime_service,
-            anilist_manga_service,
             integration_service,
             update_metadata: update_metadata.clone(),
             recalculate_user_summary: recalculate_user_summary.clone(),
@@ -1199,9 +1159,8 @@ impl MiscellaneousService {
 
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        let latest_version_storage: OnceLock<String> = OnceLock::new();
-
-        let tag = if let Some(tag) = latest_version_storage.get() {
+        static LATEST_VERSION: OnceLock<String> = OnceLock::new();
+        let tag = if let Some(tag) = LATEST_VERSION.get() {
             tag.clone()
         } else {
             #[derive(Serialize, Deserialize, Debug)]
@@ -1218,10 +1177,10 @@ impl MiscellaneousService {
                     .map_err(|e| anyhow!(e))?;
             let tag = github_response
                 .tag_name
-                .strip_prefix("v")
+                .strip_prefix('v')
                 .unwrap()
                 .to_owned();
-            latest_version_storage.set(tag.clone()).ok();
+            LATEST_VERSION.set(tag.clone()).ok();
             tag
         };
         let latest_version = Version::parse(&tag).unwrap();
@@ -2356,7 +2315,7 @@ impl MiscellaneousService {
             production_status: ActiveValue::Set(details.production_status),
             ..Default::default()
         };
-        let metadata = metadata.insert(&self.db).await.unwrap();
+        let metadata = metadata.insert(&self.db).await?;
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
             .exec(&self.db)
@@ -2516,7 +2475,7 @@ impl MiscellaneousService {
                     items: vec![],
                 });
             }
-            let provider = self.get_provider(lot, source)?;
+            let provider = self.get_provider(lot, source).await?;
             let results = provider.search(&q, input.page).await?;
             let mut all_idens = results
                 .items
@@ -2623,25 +2582,72 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
+    pub async fn get_openlibrary_service(&self) -> Result<OpenlibraryService> {
+        Ok(OpenlibraryService::new(
+            &self.config.books.openlibrary,
+            self.config.frontend.page_size,
+        )
+        .await)
+    }
+
+    async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
+
         let service: Provider = match source {
-            MetadataSource::Openlibrary => Box::new(self.openlibrary_service.clone()),
-            MetadataSource::Itunes => Box::new(self.itunes_service.clone()),
-            MetadataSource::GoogleBooks => Box::new(self.google_books_service.clone()),
-            MetadataSource::Audible => Box::new(self.audible_service.clone()),
-            MetadataSource::Listennotes => Box::new(self.listennotes_service.clone()),
+            MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
+            MetadataSource::Itunes => Box::new(
+                ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
+                    .await,
+            ),
+            MetadataSource::GoogleBooks => Box::new(
+                GoogleBooksService::new(
+                    &self.config.books.google_books,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
+            MetadataSource::Audible => Box::new(
+                AudibleService::new(
+                    &self.config.audio_books.audible,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
+            MetadataSource::Listennotes => Box::new(
+                ListennotesService::new(&self.config.podcasts, self.config.frontend.page_size)
+                    .await,
+            ),
             MetadataSource::Tmdb => match lot {
-                MetadataLot::Show => Box::new(self.tmdb_shows_service.clone()),
-                MetadataLot::Movie => Box::new(self.tmdb_movies_service.clone()),
+                MetadataLot::Show => Box::new(
+                    TmdbShowService::new(&self.config.shows.tmdb, self.config.frontend.page_size)
+                        .await,
+                ),
+                MetadataLot::Movie => Box::new(
+                    TmdbMovieService::new(&self.config.movies.tmdb, self.config.frontend.page_size)
+                        .await,
+                ),
                 _ => return err(),
             },
             MetadataSource::Anilist => match lot {
-                MetadataLot::Anime => Box::new(self.anilist_anime_service.clone()),
-                MetadataLot::Manga => Box::new(self.anilist_manga_service.clone()),
+                MetadataLot::Anime => Box::new(
+                    AnilistAnimeService::new(
+                        &self.config.anime.anilist,
+                        self.config.frontend.page_size,
+                    )
+                    .await,
+                ),
+                MetadataLot::Manga => Box::new(
+                    AnilistMangaService::new(
+                        &self.config.manga.anilist,
+                        self.config.frontend.page_size,
+                    )
+                    .await,
+                ),
                 _ => return err(),
             },
-            MetadataSource::Igdb => Box::new(self.igdb_service.clone()),
+            MetadataSource::Igdb => Box::new(
+                IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
+            ),
             MetadataSource::Custom => return err(),
         };
         Ok(service)
@@ -2653,7 +2659,7 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
-        let provider = self.get_provider(lot, source)?;
+        let provider = self.get_provider(lot, source).await?;
         let results = provider.details(identifier).await?;
         Ok(results)
     }
