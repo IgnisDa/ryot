@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::OnceLock};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -23,12 +23,12 @@ use crate::{
     traits::{MediaProvider, MediaProviderLanguages},
 };
 
-pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";
+static URL: &str = "https://listen-api.listennotes.com/api/v2/";
+static GENRES: OnceLock<HashMap<i32, String>> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
     client: Client,
-    genres: HashMap<i32, String>,
     page_limit: i32,
 }
 
@@ -44,12 +44,8 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
-        let (client, genres) = utils::get_client_config(URL, &config.listennotes.api_token).await;
-        Self {
-            client,
-            genres,
-            page_limit,
-        }
+        let client = utils::get_client_config(URL, &config.listennotes.api_token).await;
+        Self { client, page_limit }
     }
 }
 
@@ -193,7 +189,7 @@ impl ListennotesService {
             genres: d
                 .genre_ids
                 .into_iter()
-                .filter_map(|g| self.genres.get(&g).cloned())
+                .filter_map(|g| GENRES.get().unwrap().get(&g).cloned())
                 .unique()
                 .collect(),
             images: Vec::from_iter(d.image.map(|a| MetadataImage {
@@ -220,18 +216,14 @@ impl ListennotesService {
 }
 
 mod utils {
-    use std::{collections::HashMap, sync::OnceLock};
 
     use crate::utils::get_base_http_client;
 
     use super::*;
 
-    pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
-        static GENRES: OnceLock<HashMap<i32, String>> = OnceLock::new();
+    pub async fn get_client_config(url: &str, api_token: &str) -> Client {
         let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
-        let genres = if let Some(gens) = GENRES.get() {
-            gens.clone()
-        } else {
+        if GENRES.get().is_none() {
             #[derive(Debug, Serialize, Deserialize, Default)]
             struct Genre {
                 id: i32,
@@ -248,8 +240,7 @@ mod utils {
                 genres.insert(genre.id, genre.name);
             }
             GENRES.set(genres).ok();
-            GENRES.get().unwrap().clone()
         };
-        (client, genres)
+        client
     }
 }
