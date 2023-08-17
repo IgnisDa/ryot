@@ -556,11 +556,11 @@ impl MediaProvider for TmdbShowService {
 }
 
 mod utils {
-    use std::{env, fs};
+    use std::sync::OnceLock;
 
     use surf::http::headers::AUTHORIZATION;
 
-    use crate::utils::{get_base_http_client, read_file_to_json};
+    use crate::utils::get_base_http_client;
 
     use super::*;
 
@@ -590,24 +590,24 @@ mod utils {
     }
 
     pub async fn get_client_config(url: &str, access_token: &str) -> (Client, String) {
-        let path = env::temp_dir().join("tmdb-config.json");
+        static IMAGE_URL: OnceLock<String> = OnceLock::new();
         let client: Client =
             get_base_http_client(url, vec![(AUTHORIZATION, format!("Bearer {access_token}"))]);
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let image_url = if let Some(details) = read_file_to_json::<TmdbConfiguration>(&path) {
-            details.images.secure_base_url
+        let image_url = if let Some(url) = IMAGE_URL.get() {
+            url.clone()
         } else {
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbImageConfiguration {
+                secure_base_url: String,
+            }
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbConfiguration {
+                images: TmdbImageConfiguration,
+            }
             let mut rsp = client.get("configuration").await.unwrap();
             let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-            fs::write(path, serde_json::to_string(&data).unwrap()).ok();
-            data.images.secure_base_url
+            IMAGE_URL.set(data.images.secure_base_url).ok();
+            IMAGE_URL.get().unwrap().clone()
         };
         (client, image_url)
     }

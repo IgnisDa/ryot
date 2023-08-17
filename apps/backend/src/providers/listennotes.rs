@@ -220,35 +220,35 @@ impl ListennotesService {
 }
 
 mod utils {
-    use std::{collections::HashMap, env, fs};
+    use std::{collections::HashMap, sync::OnceLock};
 
-    use crate::utils::{get_base_http_client, read_file_to_json};
+    use crate::utils::get_base_http_client;
 
     use super::*;
 
     pub async fn get_client_config(url: &str, api_token: &str) -> (Client, HashMap<i32, String>) {
-        let path = env::temp_dir().join("listennotes.json");
+        static GENRES: OnceLock<HashMap<i32, String>> = OnceLock::new();
         let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
-        #[derive(Debug, Serialize, Deserialize, Default)]
-        struct Genre {
-            id: i32,
-            name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Default)]
-        struct GenreResponse {
-            genres: Vec<Genre>,
-        }
-        let genres = if let Some(details) = read_file_to_json::<HashMap<i32, String>>(&path) {
-            details
+        let genres = if let Some(gens) = GENRES.get() {
+            gens.clone()
         } else {
+            #[derive(Debug, Serialize, Deserialize, Default)]
+            struct Genre {
+                id: i32,
+                name: String,
+            }
+            #[derive(Debug, Serialize, Deserialize, Default)]
+            struct GenreResponse {
+                genres: Vec<Genre>,
+            }
             let mut rsp = client.get("genres").await.unwrap();
             let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
             let mut genres = HashMap::new();
             for genre in data.genres {
                 genres.insert(genre.id, genre.name);
             }
-            fs::write(path, serde_json::to_string(&genres).unwrap()).ok();
-            genres
+            GENRES.set(genres).ok();
+            GENRES.get().unwrap().clone()
         };
         (client, genres)
     }
