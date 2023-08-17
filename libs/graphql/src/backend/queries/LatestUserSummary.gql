@@ -19,10 +19,6 @@ query LatestUserSummary {
         runtime
         watched
       }
-      music {
-        runtime
-        listened
-      }
       anime {
         episodes
         watched
