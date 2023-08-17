@@ -1177,7 +1177,7 @@ impl MiscellaneousService {
                     .map_err(|e| anyhow!(e))?;
             let tag = github_response
                 .tag_name
-                .strip_prefix("v")
+                .strip_prefix('v')
                 .unwrap()
                 .to_owned();
             LATEST_VERSION.set(tag.clone()).ok();

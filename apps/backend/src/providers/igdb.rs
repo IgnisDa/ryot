@@ -319,15 +319,14 @@ mod utils {
             tok
         }
         let access_token = if let Some(credential_details) = TOKEN.get() {
-            let tok = if credential_details.expires_at < get_now_timestamp() {
+            if credential_details.expires_at < get_now_timestamp() {
                 tracing::debug!("Access token has expired, refreshing...");
-                set_and_return_token(&config).await
+                set_and_return_token(config).await
             } else {
                 credential_details.access_token.clone()
-            };
-            tok
+            }
         } else {
-            set_and_return_token(&config).await
+            set_and_return_token(config).await
         };
         get_base_http_client(
             URL,
