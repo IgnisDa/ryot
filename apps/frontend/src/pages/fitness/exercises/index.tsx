@@ -231,11 +231,11 @@ const Page: NextPageWithLayout = () => {
 									</Stack>
 								</Modal>
 							</Flex>
-							{exercisesList.data && exercisesList.data.total > 0 ? (
+							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<>
 									<Box>
 										<Text display={"inline"} fw="bold">
-											{exercisesList.data.total}
+											{exercisesList.data.details.total}
 										</Text>{" "}
 										items found
 										{selectionEnabled ? (
@@ -299,13 +299,13 @@ const Page: NextPageWithLayout = () => {
 							) : (
 								<Text>No information to display</Text>
 							)}
-							{exercisesList.data && exercisesList.data.total > 0 ? (
+							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<Center>
 									<Pagination
 										size="sm"
 										value={parseInt(activePage)}
 										onChange={(v) => setPage(v.toString())}
-										total={Math.ceil(exercisesList.data.total / LIMIT)}
+										total={Math.ceil(exercisesList.data.details.total / LIMIT)}
 										boundaries={1}
 										siblings={0}
 									/>

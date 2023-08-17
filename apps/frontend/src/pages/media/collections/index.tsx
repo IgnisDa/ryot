@@ -57,7 +57,7 @@ const Page: NextPageWithLayout = () => {
 						</Text>
 						<Title>{collectionContents.data.details.name}</Title>{" "}
 						<Text size="sm">
-							{collectionContents.data.results.total} items, created by{" "}
+							{collectionContents.data.results.details.total} items, created by{" "}
 							{collectionContents.data.user.name}{" "}
 							{formatTimeAgo(collectionContents.data.details.createdOn)}
 						</Text>
@@ -86,7 +86,7 @@ const Page: NextPageWithLayout = () => {
 								size="sm"
 								value={parseInt(activePage)}
 								onChange={(v) => setPage(v.toString())}
-								total={Math.ceil(collectionContents.data.results.total / LIMIT)}
+								total={Math.ceil(collectionContents.data.results.details.total / LIMIT)}
 								boundaries={1}
 								siblings={0}
 							/>

@@ -379,11 +379,11 @@ const Page: NextPageWithLayout = () => {
 									</Flex>
 								</MantineGrid.Col>
 							</MantineGrid>
-							{listMedia.data && listMedia.data.total > 0 ? (
+							{listMedia.data && listMedia.data.details.total > 0 ? (
 								<>
 									<Box>
 										<Text display={"inline"} fw="bold">
-											{listMedia.data.total}
+											{listMedia.data.details.total}
 										</Text>{" "}
 										items found
 									</Box>
@@ -411,7 +411,7 @@ const Page: NextPageWithLayout = () => {
 										size="sm"
 										value={parseInt(activeMinePage)}
 										onChange={(v) => setMinePage(v.toString())}
-										total={Math.ceil(listMedia.data.total / LIMIT)}
+										total={Math.ceil(listMedia.data.details.total / LIMIT)}
 										boundaries={1}
 										siblings={0}
 									/>
@@ -443,11 +443,11 @@ const Page: NextPageWithLayout = () => {
 									/>
 								) : null}
 							</Flex>
-							{searchQuery.data && searchQuery.data.total > 0 ? (
+							{searchQuery.data && searchQuery.data.details.total > 0 ? (
 								<>
 									<Box>
 										<Text display={"inline"} fw="bold">
-											{searchQuery.data.total}
+											{searchQuery.data.details.total}
 										</Text>{" "}
 										items found
 									</Box>
@@ -476,7 +476,7 @@ const Page: NextPageWithLayout = () => {
 										size="sm"
 										value={parseInt(activeSearchPage)}
 										onChange={(v) => setSearchPage(v.toString())}
-										total={Math.ceil(searchQuery.data.total / LIMIT)}
+										total={Math.ceil(searchQuery.data.details.total / LIMIT)}
 										boundaries={1}
 										siblings={0}
 									/>

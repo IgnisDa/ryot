@@ -85,11 +85,11 @@ const Page: NextPageWithLayout = () => {
 							/>
 						</MantineGrid.Col>
 					</MantineGrid>
-					{listCreators.data && listCreators.data.total > 0 ? (
+					{listCreators.data && listCreators.data.details.total > 0 ? (
 						<>
 							<Box>
 								<Text display={"inline"} fw="bold">
-									{listCreators.data.total}
+									{listCreators.data.details.total}
 								</Text>{" "}
 								items found
 							</Box>
@@ -117,7 +117,7 @@ const Page: NextPageWithLayout = () => {
 								size="sm"
 								value={parseInt(activePage)}
 								onChange={(v) => setPage(v.toString())}
-								total={Math.ceil(listCreators.data.total / LIMIT)}
+								total={Math.ceil(listCreators.data.details.total / LIMIT)}
 								boundaries={1}
 								siblings={0}
 							/>
