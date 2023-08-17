@@ -84,6 +84,11 @@ export interface FrontendConfig {
 	 * @default 300
 	 */
 	item_details_height: number;
+	/**
+	 * The number of items to display in a list view.
+	 * @default 20
+	 */
+	page_size: number;
 }
 
 export interface IntegrationConfig {
