@@ -247,7 +247,7 @@ impl ImporterService {
             ImportSource::StoryGraph => {
                 story_graph::import(
                     input.story_graph.unwrap(),
-                    &self.media_service.openlibrary_service,
+                    &self.media_service.get_openlibrary_service().await?,
                 )
                 .await?
             }
