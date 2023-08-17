@@ -17,7 +17,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client, PAGE_LIMIT},
+    utils::{convert_date_to_year, get_base_http_client},
 };
 
 pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
@@ -25,6 +25,7 @@ pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 #[derive(Debug, Clone)]
 pub struct GoogleBooksService {
     client: Client,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for GoogleBooksService {
@@ -38,9 +39,9 @@ impl MediaProviderLanguages for GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub async fn new(_config: &GoogleBooksConfig) -> Self {
+    pub async fn new(_config: &GoogleBooksConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
-        Self { client }
+        Self { client, page_limit }
     }
 }
 
@@ -98,13 +99,13 @@ impl MediaProvider for GoogleBooksService {
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
-        let index = (page - 1) * PAGE_LIMIT;
+        let index = (page - 1) * self.page_limit;
         let mut rsp = self
             .client
             .get("")
             .query(&serde_json::json!({
                 "q": format!("intitle:{}", query),
-                "maxResults": PAGE_LIMIT,
+                "maxResults": self.page_limit,
                 "printType": "books",
                 "startIndex": index
             }))
@@ -141,7 +142,7 @@ impl MediaProvider for GoogleBooksService {
                 }
             })
             .collect();
-        let next_page = if search.total_items - ((page) * PAGE_LIMIT) > 0 {
+        let next_page = if search.total_items - ((page) * self.page_limit) > 0 {
             Some(page + 1)
         } else {
             None

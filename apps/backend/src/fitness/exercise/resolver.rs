@@ -13,6 +13,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     background::UpdateExerciseJob,
+    config::AppConfig,
     entities::{
         exercise,
         prelude::{Exercise, UserMeasurement},
@@ -30,7 +31,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, MemoryDatabase, PAGE_LIMIT},
+    utils::{get_case_insensitive_like_query, MemoryDatabase},
 };
 
 static JSON_URL: &str =
@@ -157,6 +158,7 @@ pub struct ExerciseService {
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
     update_exercise: SqliteStorage<UpdateExerciseJob>,
+    config: Arc<AppConfig>,
 }
 
 impl AuthProvider for ExerciseService {
@@ -168,11 +170,13 @@ impl AuthProvider for ExerciseService {
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
+        config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
         update_exercise: &SqliteStorage<UpdateExerciseJob>,
     ) -> Self {
         Self {
             db: db.clone(),
+            config,
             auth_db,
             update_exercise: update_exercise.clone(),
         }
@@ -270,7 +274,7 @@ impl ExerciseService {
             .order_by_asc(exercise::Column::Name);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+        let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let mut items = vec![];
         for ex in data
             .fetch_page((input.page - 1).try_into().unwrap())
@@ -278,7 +282,7 @@ impl ExerciseService {
         {
             items.push(ex);
         }
-        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+        let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
             Some(input.page + 1)
         } else {
             None

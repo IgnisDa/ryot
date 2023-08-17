@@ -43,7 +43,6 @@ pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
-pub const PAGE_LIMIT: i32 = 20;
 pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
@@ -88,6 +87,7 @@ pub async fn create_app_services(
     ));
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
+        config.clone(),
         auth_db.clone(),
         update_exercise_job,
     ));

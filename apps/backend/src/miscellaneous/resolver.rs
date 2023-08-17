@@ -94,7 +94,7 @@ use crate::{
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, PAGE_LIMIT, USER_AGENT_STR, VERSION,
+        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -1109,7 +1109,6 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
-    pub config: Arc<AppConfig>,
     pub files_storage_service: Arc<FileStorageService>,
     pub audible_service: AudibleService,
     pub google_books_service: GoogleBooksService,
@@ -1127,6 +1126,7 @@ pub struct MiscellaneousService {
     pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
     pub user_created: SqliteStorage<UserCreatedJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
+    config: Arc<AppConfig>,
 }
 
 impl AuthProvider for MiscellaneousService {
@@ -1146,17 +1146,27 @@ impl MiscellaneousService {
         recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
         user_created: &SqliteStorage<UserCreatedJob>,
     ) -> Self {
-        let openlibrary_service = OpenlibraryService::new(&config.books.openlibrary).await;
-        let google_books_service = GoogleBooksService::new(&config.books.google_books).await;
-        let tmdb_movies_service = TmdbMovieService::new(&config.movies.tmdb).await;
-        let tmdb_shows_service = TmdbShowService::new(&config.shows.tmdb).await;
-        let music_brainz_service = MusicBrainzService::new(&config.music.music_brainz).await;
-        let audible_service = AudibleService::new(&config.audio_books.audible).await;
-        let igdb_service = IgdbService::new(&config.video_games).await;
-        let itunes_service = ITunesService::new(&config.podcasts.itunes).await;
-        let listennotes_service = ListennotesService::new(&config.podcasts).await;
-        let anilist_anime_service = AnilistAnimeService::new(&config.anime.anilist).await;
-        let anilist_manga_service = AnilistMangaService::new(&config.manga.anilist).await;
+        let openlibrary_service =
+            OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await;
+        let google_books_service =
+            GoogleBooksService::new(&config.books.google_books, config.frontend.page_size).await;
+        let tmdb_movies_service =
+            TmdbMovieService::new(&config.movies.tmdb, config.frontend.page_size).await;
+        let tmdb_shows_service =
+            TmdbShowService::new(&config.shows.tmdb, config.frontend.page_size).await;
+        let music_brainz_service =
+            MusicBrainzService::new(&config.music.music_brainz, config.frontend.page_size).await;
+        let audible_service =
+            AudibleService::new(&config.audio_books.audible, config.frontend.page_size).await;
+        let igdb_service = IgdbService::new(&config.video_games, config.frontend.page_size).await;
+        let itunes_service =
+            ITunesService::new(&config.podcasts.itunes, config.frontend.page_size).await;
+        let listennotes_service =
+            ListennotesService::new(&config.podcasts, config.frontend.page_size).await;
+        let anilist_anime_service =
+            AnilistAnimeService::new(&config.anime.anilist, config.frontend.page_size).await;
+        let anilist_manga_service =
+            AnilistMangaService::new(&config.manga.anilist, config.frontend.page_size).await;
         let integration_service = IntegrationService::new().await;
 
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1243,7 +1253,7 @@ impl MiscellaneousService {
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
             upgrade,
-            page_limit: PAGE_LIMIT,
+            page_limit: self.config.frontend.page_size,
         })
     }
 
@@ -1812,8 +1822,8 @@ impl MiscellaneousService {
         let total: i32 = total.try_into().unwrap();
 
         let main_select = main_select
-            .limit(PAGE_LIMIT as u64)
-            .offset(((input.page - 1) * PAGE_LIMIT) as u64)
+            .limit(self.config.frontend.page_size as u64)
+            .offset(((input.page - 1) * self.config.frontend.page_size) as u64)
             .to_owned();
         let stmt = self.get_db_stmt(main_select);
         let metas = InnerMediaSearchItem::find_by_statement(stmt)
@@ -1865,7 +1875,7 @@ impl MiscellaneousService {
             };
             items.push(m_small);
         }
-        let next_page = if total - ((input.page) * PAGE_LIMIT) > 0 {
+        let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
             Some(input.page + 1)
         } else {
             None
@@ -2833,7 +2843,9 @@ impl MiscellaneousService {
         }
         let metas = collection.find_related(Metadata).paginate(
             &self.db,
-            input.take.unwrap_or_else(|| PAGE_LIMIT.try_into().unwrap()),
+            input
+                .take
+                .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
         );
 
         let ItemsAndPagesNumber {
@@ -4684,7 +4696,7 @@ impl MiscellaneousService {
         let creators_paginator = query
             .clone()
             .into_model::<MediaCreatorSearchItem>()
-            .paginate(&self.db, PAGE_LIMIT.try_into().unwrap());
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,

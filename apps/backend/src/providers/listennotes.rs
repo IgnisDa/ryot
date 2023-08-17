@@ -21,7 +21,6 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::PAGE_LIMIT,
 };
 
 pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -30,6 +29,7 @@ pub static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 pub struct ListennotesService {
     client: Client,
     genres: HashMap<i32, String>,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for ListennotesService {
@@ -43,9 +43,13 @@ impl MediaProviderLanguages for ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(config: &PodcastConfig) -> Self {
+    pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
         let (client, genres) = utils::get_client_config(URL, &config.listennotes.api_token).await;
-        Self { client, genres }
+        Self {
+            client,
+            genres,
+            page_limit,
+        }
     }
 }
 
@@ -110,7 +114,7 @@ impl MediaProvider for ListennotesService {
             .get("search")
             .query(&json!({
                 "q": query.to_owned(),
-                "offset": (page - 1) * PAGE_LIMIT,
+                "offset": (page - 1) * self.page_limit,
                 "type": "podcast"
             }))
             .unwrap()

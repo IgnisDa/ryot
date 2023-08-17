@@ -18,7 +18,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, PAGE_LIMIT},
+    utils::get_base_http_client,
 };
 
 pub static URL: &str = "https://itunes.apple.com/";
@@ -27,6 +27,7 @@ pub static URL: &str = "https://itunes.apple.com/";
 pub struct ITunesService {
     client: Client,
     language: String,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for ITunesService {
@@ -40,11 +41,12 @@ impl MediaProviderLanguages for ITunesService {
 }
 
 impl ITunesService {
-    pub async fn new(config: &ITunesConfig) -> Self {
+    pub async fn new(config: &ITunesConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             client,
             language: config.locale.clone(),
+            page_limit,
         }
     }
 }
@@ -190,7 +192,7 @@ impl MediaProvider for ITunesService {
             .get("search")
             .query(&serde_json::json!({
                 "term": query,
-                "limit": PAGE_LIMIT,
+                "limit": self.page_limit,
                 "media": "podcast",
                 "entity": "podcast",
                 "lang": self.language

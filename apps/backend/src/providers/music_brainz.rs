@@ -11,7 +11,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client, PAGE_LIMIT},
+    utils::{convert_date_to_year, get_base_http_client},
 };
 
 pub static URL: &str = "https://musicbrainz.org/ws/2/";
@@ -20,6 +20,7 @@ pub static IMAGES_URL: &str = "https://coverartarchive.org/";
 #[derive(Debug, Clone)]
 pub struct MusicBrainzService {
     client: Client,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for MusicBrainzService {
@@ -33,13 +34,13 @@ impl MediaProviderLanguages for MusicBrainzService {
 }
 
 impl MusicBrainzService {
-    pub async fn new(config: &MusicBrainzConfig) -> Self {
+    pub async fn new(config: &MusicBrainzConfig, page_limit: i32) -> Self {
         let mut headers = vec![];
         if let Some(ref u) = config.user_agent {
             headers.push((USER_AGENT, u.clone()));
         }
         let client = get_base_http_client(URL, headers);
-        Self { client }
+        Self { client, page_limit }
     }
 }
 
@@ -75,8 +76,8 @@ impl MediaProvider for MusicBrainzService {
             .get("release-group")
             .query(&serde_json::json!({
                 "query": format!("release:{}", query),
-                "limit": PAGE_LIMIT,
-                "offset": (page - 1) * PAGE_LIMIT,
+                "limit": self.page_limit,
+                "offset": (page - 1) * self.page_limit,
                 "fmt": "json",
             }))
             .unwrap()
@@ -93,7 +94,7 @@ impl MediaProvider for MusicBrainzService {
                 publish_year: r.first_release_date.and_then(|d| convert_date_to_year(&d)),
             })
             .collect_vec();
-        let next_page = if search.count - ((page) * PAGE_LIMIT) > 0 {
+        let next_page = if search.count - ((page) * self.page_limit) > 0 {
             Some(page + 1)
         } else {
             None

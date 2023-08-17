@@ -26,7 +26,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, PAGE_LIMIT},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://openlibrary.org/";
@@ -67,13 +67,13 @@ impl Middleware for OpenlibraryRedirectMiddleware {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct BookSearchResults {
     total: i32,
     items: Vec<BookSearchItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct BookSearchItem {
     identifier: String,
     title: String,
@@ -96,6 +96,7 @@ pub struct OpenlibraryService {
     image_url: String,
     image_size: String,
     client: Client,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for OpenlibraryService {
@@ -109,13 +110,14 @@ impl MediaProviderLanguages for OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub async fn new(config: &OpenlibraryConfig) -> Self {
+    pub async fn new(config: &OpenlibraryConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)])
             .with(OpenlibraryRedirectMiddleware);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
+            page_limit,
         }
     }
 }
@@ -317,8 +319,8 @@ impl MediaProvider for OpenlibraryService {
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,
-                "offset": (page - 1) * PAGE_LIMIT,
-                "limit": PAGE_LIMIT,
+                "offset": (page - 1) * self.page_limit,
+                "limit": self.page_limit,
                 "type": "work".to_owned(),
             }))
             .unwrap()
@@ -349,7 +351,7 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
-        let next_page = if search.num_found - ((page) * PAGE_LIMIT) > 0 {
+        let next_page = if search.num_found - ((page) * self.page_limit) > 0 {
             Some(page + 1)
         } else {
             None
