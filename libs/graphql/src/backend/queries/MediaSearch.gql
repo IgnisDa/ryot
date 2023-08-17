@@ -1,7 +1,9 @@
 query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {
   mediaSearch(lot: $lot, source: $source, input: $input) {
-    total
-    nextPage
+    details {
+      total
+      nextPage
+    }
     items {
       databaseId
       item {

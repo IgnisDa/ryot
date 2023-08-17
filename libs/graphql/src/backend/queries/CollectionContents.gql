@@ -4,8 +4,10 @@ query CollectionContents($input: CollectionContentsInput!) {
       name
     }
     results {
-      total
-      nextPage
+      details {
+        total
+        nextPage
+      }
       items {
         lot
         details {

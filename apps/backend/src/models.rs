@@ -31,6 +31,12 @@ pub struct SearchInput {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+pub struct SearchDetails {
+    pub total: i32,
+    pub next_page: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media::MediaSearchItemWithLot)
@@ -43,9 +49,8 @@ pub struct SearchInput {
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
 #[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
-    pub total: i32,
+    pub details: SearchDetails,
     pub items: Vec<T>,
-    pub next_page: Option<i32>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]

@@ -71,7 +71,7 @@ use crate::{
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
             UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
-        IdObject, SearchInput, SearchResults,
+        IdObject, SearchDetails, SearchInput, SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -1868,9 +1868,8 @@ impl MiscellaneousService {
             None
         };
         Ok(SearchResults {
-            total,
+            details: SearchDetails { next_page, total },
             items,
-            next_page,
         })
     }
 
@@ -2510,9 +2509,11 @@ impl MiscellaneousService {
         if let Some(q) = input.query {
             if q.is_empty() {
                 return Ok(SearchResults {
-                    total: 0,
+                    details: SearchDetails {
+                        total: 0,
+                        next_page: None,
+                    },
                     items: vec![],
-                    next_page: None,
                 });
             }
             let provider = self.get_provider(lot, source)?;
@@ -2598,9 +2599,8 @@ impl MiscellaneousService {
                     .collect()
             };
             let results = SearchResults {
-                total: results.total,
+                details: results.details,
                 items: data,
-                next_page: results.next_page,
             };
             Ok(results)
         } else {
@@ -2873,13 +2873,15 @@ impl MiscellaneousService {
         Ok(CollectionContents {
             details: collection,
             results: SearchResults {
-                total: number_of_items.try_into().unwrap(),
-                items,
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
+                details: SearchDetails {
+                    total: number_of_items.try_into().unwrap(),
+                    next_page: if page < number_of_pages {
+                        Some((page + 1).try_into().unwrap())
+                    } else {
+                        None
+                    },
                 },
+                items,
             },
             user,
         })
@@ -4689,13 +4691,15 @@ impl MiscellaneousService {
             creators.push(c);
         }
         Ok(SearchResults {
-            total: number_of_items.try_into().unwrap(),
-            items: creators,
-            next_page: if page < number_of_pages {
-                Some((page + 1).try_into().unwrap())
-            } else {
-                None
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
             },
+            items: creators,
         })
     }
 

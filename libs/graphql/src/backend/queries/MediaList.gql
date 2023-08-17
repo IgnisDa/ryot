@@ -1,7 +1,9 @@
 query MediaList($input: MediaListInput!) {
   mediaList(input: $input) {
-    total
-    nextPage
+    details {
+      total
+      nextPage
+    }
     items {
       averageRating
       data {

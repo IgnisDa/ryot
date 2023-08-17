@@ -18,7 +18,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataImageUrl, PodcastEpisode, PodcastSpecifics,
         },
-        SearchResults,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::PAGE_LIMIT,
@@ -132,9 +132,8 @@ impl MediaProvider for ListennotesService {
             })
             .collect_vec();
         Ok(SearchResults {
-            total,
+            details: SearchDetails { total, next_page },
             items: resp,
-            next_page,
         })
     }
 }

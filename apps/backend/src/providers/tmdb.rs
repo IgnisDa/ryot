@@ -15,7 +15,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataImageUrl, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date},
@@ -254,8 +254,10 @@ impl MediaProvider for TmdbMovieService {
             None
         };
         Ok(SearchResults {
-            total: search.total_results,
-            next_page,
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
             items: resp.to_vec(),
         })
     }
@@ -544,8 +546,10 @@ impl MediaProvider for TmdbShowService {
             None
         };
         Ok(SearchResults {
-            total: search.total_results,
-            next_page,
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
             items: resp.to_vec(),
         })
     }

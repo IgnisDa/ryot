@@ -6,10 +6,9 @@ use surf::{http::headers::USER_AGENT, Client};
 
 use crate::{
     config::MusicBrainzConfig,
-    migrator::MetadataLot,
     models::{
         media::{MediaDetails, MediaSearchItem},
-        SearchResults,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client, PAGE_LIMIT},
@@ -100,9 +99,11 @@ impl MediaProvider for MusicBrainzService {
             None
         };
         Ok(SearchResults {
-            total: search.count,
+            details: SearchDetails {
+                total: search.count,
+                next_page,
+            },
             items,
-            next_page,
         })
     }
 }

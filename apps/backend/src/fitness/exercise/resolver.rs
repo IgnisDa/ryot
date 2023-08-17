@@ -27,7 +27,7 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes,
         },
-        SearchResults,
+        SearchDetails, SearchResults,
     },
     traits::AuthProvider,
     utils::{get_case_insensitive_like_query, MemoryDatabase, PAGE_LIMIT},
@@ -284,9 +284,8 @@ impl ExerciseService {
             None
         };
         Ok(SearchResults {
-            total,
+            details: SearchDetails { total, next_page },
             items,
-            next_page,
         })
     }
 

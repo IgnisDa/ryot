@@ -15,7 +15,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataImageUrl, PodcastEpisode, PodcastSpecifics,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, PAGE_LIMIT},
@@ -210,9 +210,11 @@ impl MediaProvider for ITunesService {
         let total = 100;
 
         Ok(SearchResults {
-            total,
+            details: SearchDetails {
+                total,
+                next_page: Some(page + 1),
+            },
             items: resp,
-            next_page: Some(page + 1),
         })
     }
 }

@@ -14,7 +14,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataImageUrl, VideoGameSpecifics,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::PAGE_LIMIT,
@@ -178,9 +178,11 @@ offset: {offset};
             })
             .collect_vec();
         Ok(SearchResults {
-            total,
+            details: SearchDetails {
+                total,
+                next_page: Some(page + 1),
+            },
             items: resp,
-            next_page: Some(page + 1),
         })
     }
 }

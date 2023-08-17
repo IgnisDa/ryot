@@ -14,7 +14,7 @@ use crate::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
             MetadataImage, MetadataImageUrl,
         },
-        NamedObject, SearchResults,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client, PAGE_LIMIT},
@@ -191,9 +191,11 @@ impl MediaProvider for AudibleService {
             None
         };
         Ok(SearchResults {
-            total: search.total_results,
+            details: SearchDetails {
+                next_page,
+                total: search.total_results,
+            },
             items: resp,
-            next_page,
         })
     }
 }

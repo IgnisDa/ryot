@@ -23,7 +23,7 @@ use crate::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
             MetadataImage, MetadataImageUrl,
         },
-        SearchResults,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, PAGE_LIMIT},
@@ -355,8 +355,10 @@ impl MediaProvider for OpenlibraryService {
             None
         };
         Ok(SearchResults {
-            total: data.total,
-            next_page,
+            details: SearchDetails {
+                total: data.total,
+                next_page,
+            },
             items: data
                 .items
                 .into_iter()

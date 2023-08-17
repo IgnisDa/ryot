@@ -6,8 +6,11 @@ use surf::Client;
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
     migrator::MetadataLot,
-    models::media::{MediaDetails, MediaSearchItem},
     models::SearchResults,
+    models::{
+        media::{MediaDetails, MediaSearchItem},
+        SearchDetails,
+    },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::PAGE_LIMIT,
 };
@@ -79,8 +82,7 @@ impl MediaProvider for AnilistAnimeService {
         )
         .await?;
         Ok(SearchResults {
-            total,
-            next_page,
+            details: SearchDetails { total, next_page },
             items,
         })
     }
@@ -120,8 +122,7 @@ impl MediaProvider for AnilistMangaService {
         )
         .await?;
         Ok(SearchResults {
-            total,
-            next_page,
+            details: SearchDetails { total, next_page },
             items,
         })
     }

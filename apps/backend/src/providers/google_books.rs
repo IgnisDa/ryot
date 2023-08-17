@@ -14,7 +14,7 @@ use crate::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
             MetadataImage, MetadataImageUrl,
         },
-        SearchResults,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client, PAGE_LIMIT},
@@ -147,9 +147,11 @@ impl MediaProvider for GoogleBooksService {
             None
         };
         Ok(SearchResults {
-            total: search.total_items,
+            details: SearchDetails {
+                total: search.total_items,
+                next_page,
+            },
             items: resp,
-            next_page,
         })
     }
 }
