@@ -1159,9 +1159,8 @@ impl MiscellaneousService {
 
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        let latest_version_storage: OnceLock<String> = OnceLock::new();
-
-        let tag = if let Some(tag) = latest_version_storage.get() {
+        static LATEST_VERSION: OnceLock<String> = OnceLock::new();
+        let tag = if let Some(tag) = LATEST_VERSION.get() {
             tag.clone()
         } else {
             #[derive(Serialize, Deserialize, Debug)]
@@ -1181,7 +1180,7 @@ impl MiscellaneousService {
                 .strip_prefix("v")
                 .unwrap()
                 .to_owned();
-            latest_version_storage.set(tag.clone()).ok();
+            LATEST_VERSION.set(tag.clone()).ok();
             tag
         };
         let latest_version = Version::parse(&tag).unwrap();
