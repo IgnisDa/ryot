@@ -27,7 +27,6 @@ pub static URL: &str = "https://api.themoviedb.org/3/";
 pub struct TmdbService {
     image_url: String,
     language: String,
-    page_limit: i32,
 }
 
 impl TmdbService {
@@ -55,14 +54,13 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &MoviesTmdbConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &MoviesTmdbConfig, _page_limit: i32) -> Self {
         let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
                 image_url,
                 language: config.locale.clone(),
-                page_limit,
             },
         }
     }
@@ -272,14 +270,13 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &ShowsTmdbConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &ShowsTmdbConfig, _page_limit: i32) -> Self {
         let (client, image_url) = utils::get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
                 image_url,
                 language: config.locale.clone(),
-                page_limit,
             },
         }
     }
