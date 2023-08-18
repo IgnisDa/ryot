@@ -88,25 +88,12 @@ pub async fn yank_integrations_data(
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum ApplicationJob {
-    ImportMedia {
-        user_id: i32,
-        input: DeployImportJobInput,
-    },
-    UserCreated {
-        user_id: i32,
-    },
-    RecalculateUserSummary {
-        user_id: i32,
-    },
-    UpdateMetadata {
-        metadata: metadata::Model,
-    },
-    UpdateExerciseJob {
-        exercise: Exercise,
-    },
-    AfterMediaSeen {
-        seen: seen::Model,
-    },
+    ImportMedia(i32, DeployImportJobInput),
+    UserCreated(i32),
+    RecalculateUserSummary(i32),
+    UpdateMetadata(metadata::Model),
+    UpdateExerciseJob(Exercise),
+    AfterMediaSeen(seen::Model),
 }
 
 impl Job for ApplicationJob {
@@ -121,25 +108,25 @@ pub async fn perform_application_job(
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     match information {
-        ApplicationJob::ImportMedia { user_id, input } => {
+        ApplicationJob::ImportMedia(user_id, input) => {
             tracing::trace!("Importing media");
             importer_service
                 .import_from_lot(user_id, input)
                 .await
                 .unwrap();
         }
-        ApplicationJob::UserCreated { user_id } => {
+        ApplicationJob::UserCreated(user_id) => {
             tracing::trace!("Running jobs after user creation");
             misc_service.user_created_job(user_id).await.unwrap();
             misc_service.user_created_job(user_id).await.unwrap();
             misc_service.calculate_user_summary(user_id).await.unwrap();
         }
-        ApplicationJob::RecalculateUserSummary { user_id } => {
+        ApplicationJob::RecalculateUserSummary(user_id) => {
             tracing::trace!("Calculating summary for user {:?}", user_id);
             misc_service.calculate_user_summary(user_id).await.unwrap();
             tracing::trace!("Summary calculation complete for user {:?}", user_id);
         }
-        ApplicationJob::UpdateMetadata { metadata } => {
+        ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
             if !notifications.is_empty() {
                 for notification in notifications {
@@ -156,11 +143,11 @@ pub async fn perform_application_job(
                 }
             }
         }
-        ApplicationJob::UpdateExerciseJob { exercise } => {
+        ApplicationJob::UpdateExerciseJob(exercise) => {
             tracing::trace!("Updating {:?}", exercise.name);
             exercise_service.update_exercise(exercise).await.unwrap();
         }
-        ApplicationJob::AfterMediaSeen { seen } => {
+        ApplicationJob::AfterMediaSeen(seen) => {
             misc_service.after_media_seen_tasks(seen).await.unwrap();
         }
     };

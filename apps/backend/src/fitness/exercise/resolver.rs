@@ -312,7 +312,7 @@ impl ExerciseService {
         let mut job_ids = vec![];
         for exercise in exercises {
             let job = storage
-                .push(ApplicationJob::UpdateExerciseJob { exercise })
+                .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
             job_ids.push(job.to_string());
         }

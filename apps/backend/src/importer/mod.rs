@@ -190,7 +190,7 @@ impl ImporterService {
             .media_service
             .perform_application_job
             .clone()
-            .push(ApplicationJob::ImportMedia { user_id, input })
+            .push(ApplicationJob::ImportMedia(user_id, input))
             .await
             .unwrap();
         Ok(job.to_string())

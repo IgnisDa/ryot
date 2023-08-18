@@ -2062,7 +2062,7 @@ impl MiscellaneousService {
         }
         self.perform_application_job
             .clone()
-            .push(ApplicationJob::AfterMediaSeen { seen })
+            .push(ApplicationJob::AfterMediaSeen(seen))
             .await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
@@ -2089,7 +2089,7 @@ impl MiscellaneousService {
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
         self.perform_application_job
             .clone()
-            .push(ApplicationJob::RecalculateUserSummary { user_id })
+            .push(ApplicationJob::RecalculateUserSummary(user_id))
             .await?;
         Ok(())
     }
@@ -2414,7 +2414,7 @@ impl MiscellaneousService {
         let job_id = self
             .perform_application_job
             .clone()
-            .push(ApplicationJob::UpdateMetadata { metadata })
+            .push(ApplicationJob::UpdateMetadata(metadata))
             .await?;
         Ok(job_id.to_string())
     }
@@ -3351,7 +3351,7 @@ impl MiscellaneousService {
         let user = user.insert(&self.db).await.unwrap();
         self.perform_application_job
             .clone()
-            .push(ApplicationJob::UserCreated { user_id: user.id })
+            .push(ApplicationJob::UserCreated(user.id))
             .await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
