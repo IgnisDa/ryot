@@ -1,0 +1,3 @@
+mutation CreateUserWorkout($input: UserWorkoutInput!) {
+  createUserWorkout(input: $input)
+}

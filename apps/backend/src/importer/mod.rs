@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
-use apalis::{prelude::Storage, sqlite::SqliteStorage};
+use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
 use itertools::Itertools;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
-    FromJsonQueryResult, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromJsonQueryResult, QueryFilter,
+    QueryOrder,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    background::ImportMedia,
+    background::ApplicationJob,
     entities::{import_report, prelude::ImportReport},
     migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
@@ -164,9 +164,7 @@ impl ImporterMutation {
 }
 
 pub struct ImporterService {
-    db: DatabaseConnection,
     media_service: Arc<MiscellaneousService>,
-    import_media: SqliteStorage<ImportMedia>,
 }
 
 impl AuthProvider for ImporterService {
@@ -176,16 +174,8 @@ impl AuthProvider for ImporterService {
 }
 
 impl ImporterService {
-    pub fn new(
-        db: &DatabaseConnection,
-        media_service: Arc<MiscellaneousService>,
-        import_media: &SqliteStorage<ImportMedia>,
-    ) -> Self {
-        Self {
-            db: db.clone(),
-            media_service,
-            import_media: import_media.clone(),
-        }
+    pub fn new(media_service: Arc<MiscellaneousService>) -> Self {
+        Self { media_service }
     }
 
     pub async fn deploy_import_job(
@@ -193,25 +183,30 @@ impl ImporterService {
         user_id: i32,
         mut input: DeployImportJobInput,
     ) -> Result<String> {
-        let mut storage = self.import_media.clone();
         if let Some(s) = input.media_tracker.as_mut() {
             s.api_url = s.api_url.trim_end_matches('/').to_owned()
         }
-        let job = storage.push(ImportMedia { user_id, input }).await.unwrap();
+        let job = self
+            .media_service
+            .perform_application_job
+            .clone()
+            .push(ApplicationJob::ImportMedia(user_id, input))
+            .await
+            .unwrap();
         Ok(job.to_string())
     }
 
     pub async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::Success.is_null())
-            .all(&self.db)
+            .all(&self.media_service.db)
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > Duration::hours(24) {
                 tracing::trace!("Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
                 job.success = ActiveValue::Set(Some(false));
-                job.save(&self.db).await?;
+                job.save(&self.media_service.db).await?;
             }
         }
         Ok(())
@@ -221,7 +216,7 @@ impl ImporterService {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)
-            .all(&self.db)
+            .all(&self.media_service.db)
             .await
             .unwrap();
         Ok(reports)
@@ -416,7 +411,7 @@ impl ImporterService {
             source: ActiveValue::Set(source),
             ..Default::default()
         };
-        let model = model.insert(&self.db).await.unwrap();
+        let model = model.insert(&self.media_service.db).await.unwrap();
         tracing::trace!("Started import job with id = {id}", id = model.id);
         Ok(model)
     }
@@ -430,7 +425,7 @@ impl ImporterService {
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
         model.success = ActiveValue::Set(Some(true));
-        let model = model.update(&self.db).await.unwrap();
+        let model = model.update(&self.media_service.db).await.unwrap();
         Ok(model)
     }
 }

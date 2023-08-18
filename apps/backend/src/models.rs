@@ -821,4 +821,19 @@ pub mod fitness {
         // DEV: The only custom data type we allow is decimal.
         pub custom: Option<HashMap<String, Decimal>>,
     }
+
+    #[derive(
+        Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    )]
+    pub struct UserToExerciseHistoryExtraInformation {
+        pub workout_id: String,
+        pub idx: i32,
+    }
+
+    #[derive(
+        Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    )]
+    pub struct UserToExerciseExtraInformation {
+        pub history: Vec<UserToExerciseHistoryExtraInformation>,
+    }
 }

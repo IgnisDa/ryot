@@ -38,6 +38,7 @@ import {
 	type ExerciseListFilter,
 	ExerciseLot,
 	ExercisesListDocument,
+	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -334,7 +335,9 @@ const Page: NextPageWithLayout = () => {
 												exerciseId: exercise.id,
 												lot: exercise.lot,
 												name: exercise.name,
-												sets: [{ confirmed: false, stats: {} }],
+												sets: [
+													{ confirmed: false, stats: {}, lot: SetLot.Normal },
+												],
 												notes: [],
 											});
 									}),

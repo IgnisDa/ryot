@@ -23,10 +23,7 @@ use surf::{
 };
 
 use crate::{
-    background::{
-        ImportMedia, RecalculateUserSummaryJob, UpdateExerciseJob, UpdateMetadataJob,
-        UserCreatedJob,
-    },
+    background::ApplicationJob,
     config::AppConfig,
     entities::{prelude::UserToMetadata, user_to_metadata},
     file_storage::FileStorageService,
@@ -72,11 +69,7 @@ pub async fn create_app_services(
     auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
-    import_media_job: &SqliteStorage<ImportMedia>,
-    user_created_job: &SqliteStorage<UserCreatedJob>,
-    update_exercise_job: &SqliteStorage<UpdateExerciseJob>,
-    update_metadata_job: &SqliteStorage<UpdateMetadataJob>,
-    recalculate_user_summary_job: &SqliteStorage<RecalculateUserSummaryJob>,
+    perform_application_job: &SqliteStorage<ApplicationJob>,
 ) -> AppServices {
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -86,7 +79,7 @@ pub async fn create_app_services(
         &db,
         config.clone(),
         auth_db.clone(),
-        update_exercise_job,
+        perform_application_job,
     ));
 
     let media_service = Arc::new(
@@ -95,17 +88,11 @@ pub async fn create_app_services(
             config.clone(),
             auth_db.clone(),
             file_storage_service.clone(),
-            update_metadata_job,
-            recalculate_user_summary_job,
-            user_created_job,
+            perform_application_job,
         )
         .await,
     );
-    let importer_service = Arc::new(ImporterService::new(
-        &db,
-        media_service.clone(),
-        import_media_job,
-    ));
+    let importer_service = Arc::new(ImporterService::new(media_service.clone()));
     AppServices {
         config,
         media_service,
