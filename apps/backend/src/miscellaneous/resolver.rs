@@ -1925,7 +1925,7 @@ impl MiscellaneousService {
                 error: ProgressUpdateErrorVariant::NoSeenInProgress,
             }))
         };
-        let seen_item = match action {
+        let seen = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
                 let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
@@ -2048,8 +2048,8 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
-        let id = seen_item.id;
-        if seen_item.state == SeenState::Completed {
+        let id = seen.id;
+        if seen.state == SeenState::Completed {
             self.seen_progress_cache
                 .insert(
                     cache,
@@ -2060,7 +2060,10 @@ impl MiscellaneousService {
                 )
                 .await;
         }
-        self.after_media_seen_tasks(seen_item).await?;
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::AfterMediaSeen { seen })
+            .await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 

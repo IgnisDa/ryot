@@ -5,7 +5,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::metadata,
+    entities::{metadata, seen},
     fitness::exercise::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
@@ -104,6 +104,9 @@ pub enum ApplicationJob {
     UpdateExerciseJob {
         exercise: Exercise,
     },
+    AfterMediaSeen {
+        seen: seen::Model,
+    },
 }
 
 impl Job for ApplicationJob {
@@ -156,6 +159,9 @@ pub async fn perform_application_job(
         ApplicationJob::UpdateExerciseJob { exercise } => {
             tracing::trace!("Updating {:?}", exercise.name);
             exercise_service.update_exercise(exercise).await.unwrap();
+        }
+        ApplicationJob::AfterMediaSeen { seen } => {
+            misc_service.after_media_seen_tasks(seen).await.unwrap();
         }
     };
     Ok(())
