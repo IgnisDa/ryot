@@ -62,11 +62,11 @@ const getSetColor = (l: SetLot) =>
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
 		<Box mx="auto">
-			<Text color="dimmed" size="sm">
-				{props.name}
-			</Text>
 			<Text align="center" size="xl">
 				{props.value}
+			</Text>
+			<Text color="dimmed" size="sm">
+				{props.name}
 			</Text>
 		</Box>
 	);
