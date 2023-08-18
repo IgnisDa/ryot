@@ -1,4 +1,15 @@
 
+# Version 2.7.5 (2023-08-18)
+
+## Bug Fixes
+
+* **frontend:** add spacing to h3 titles on people item ([#269](https://github.com/IgnisDa/ryot/issues/269))
+
+## Features
+
+* **backend:** utility fn to group by key
+
+
 # Version 2.7.5-beta.1 (2023-08-17)
 
 
