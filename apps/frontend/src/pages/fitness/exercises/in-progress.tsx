@@ -2,10 +2,12 @@ import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
+import { gqlClient } from "@/lib/services/api";
 import {
 	type Exercise,
 	type ExerciseSet,
 	currentWorkoutAtom,
+	currentWorkoutToCreateWorkoutInput,
 } from "@/lib/state";
 import {
 	ActionIcon,
@@ -27,6 +29,8 @@ import {
 	rem,
 } from "@mantine/core";
 import {
+	CreateUserWorkoutDocument,
+	type CreateUserWorkoutMutationVariables,
 	ExerciseLot,
 	SetLot,
 	UserDistanceUnit,
@@ -39,6 +43,7 @@ import {
 	IconDotsVertical,
 	IconTrash,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -112,9 +117,14 @@ const StatInput = (props: {
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
+							const value = typeof v === "number" ? v : undefined;
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
 								props.stat
-							] = typeof v === "number" ? v : undefined;
+							] = value;
+							if (value === undefined)
+								draft.exercises[props.exerciseIdx].sets[
+									props.setIdx
+								].confirmed = false;
 						}),
 					);
 				}}
@@ -431,6 +441,16 @@ const Page: NextPageWithLayout = () => {
 		setCurrentWorkout(RESET);
 	};
 
+	const createUserWorkout = useMutation({
+		mutationFn: async (input: CreateUserWorkoutMutationVariables) => {
+			const { createUserWorkout } = await gqlClient.request(
+				CreateUserWorkoutDocument,
+				input,
+			);
+			return createUserWorkout;
+		},
+	});
+
 	return (
 		<>
 			<Head>
@@ -516,12 +536,9 @@ const Page: NextPageWithLayout = () => {
 											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
 										if (yes) {
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													draft.endTime = new Date().toISOString();
-												}),
-											);
-											console.log(currentWorkout);
+											const input =
+												currentWorkoutToCreateWorkoutInput(currentWorkout);
+											createUserWorkout.mutate(input);
 											// await finishWorkout();
 										}
 									}}
