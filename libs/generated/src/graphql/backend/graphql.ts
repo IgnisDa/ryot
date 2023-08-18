@@ -1169,7 +1169,7 @@ export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Int']['input']>;
   duration?: InputMaybe<Scalars['Int']['input']>;
   reps?: InputMaybe<Scalars['Int']['input']>;
-  weigth?: InputMaybe<Scalars['Int']['input']>;
+  weight?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ShowEpisode = {

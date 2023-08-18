@@ -18,7 +18,7 @@ pub struct SetStatistic {
     pub duration: Option<u16>,
     pub distance: Option<u16>,
     pub reps: Option<u16>,
-    pub weigth: Option<u16>,
+    pub weight: Option<u16>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
