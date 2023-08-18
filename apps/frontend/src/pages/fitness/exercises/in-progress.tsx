@@ -362,7 +362,26 @@ const ExerciseDisplay = (props: {
 							<Group w="10%" position="center">
 								<ActionIcon
 									variant={s.confirmed ? "filled" : "outline"}
-									disabled={Object.values(s.stats).filter(Boolean).length === 0}
+									disabled={
+										!match(props.exercise.lot)
+											.with(
+												ExerciseLot.DistanceAndDuration,
+												() =>
+													typeof s.stats.distance === "number" &&
+													typeof s.stats.duration === "number",
+											)
+											.with(
+												ExerciseLot.Duration,
+												() => typeof s.stats.duration === "number",
+											)
+											.with(
+												ExerciseLot.RepsAndWeight,
+												() =>
+													typeof s.stats.reps === "number" &&
+													typeof s.stats.weight === "number",
+											)
+											.exhaustive()
+									}
 									color="green"
 									onClick={() => {
 										setCurrentWorkout(
@@ -494,7 +513,7 @@ const Page: NextPageWithLayout = () => {
 									variant="subtle"
 									onClick={async () => {
 										const yes = confirm(
-											"Only sets with valid values and marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
 										if (yes) {
 											setCurrentWorkout(
