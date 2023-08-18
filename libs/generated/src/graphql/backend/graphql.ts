@@ -1528,6 +1528,7 @@ export enum UserWeightUnit {
 }
 
 export type UserWorkoutInput = {
+  comment?: InputMaybe<Scalars['String']['input']>;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;
   identifier: Scalars['String']['input'];

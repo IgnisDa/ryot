@@ -97,6 +97,7 @@ pub struct UserExerciseInput {
 pub struct UserWorkoutInput {
     pub identifier: String,
     pub name: Option<String>,
+    pub comment: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
