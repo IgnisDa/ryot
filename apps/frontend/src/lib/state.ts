@@ -69,7 +69,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
-			// DEV: I should have updated `currentWorkout` first but it does not matter
 			endTime: new Date(),
 			identifier: currentWorkout.identifier,
 			startTime: new Date(currentWorkout.startTime),
@@ -87,6 +86,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 					lot: set.lot,
 					statistic: set.stats,
 				});
+		if (sets.length == 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
 		input.input.exercises.push({
