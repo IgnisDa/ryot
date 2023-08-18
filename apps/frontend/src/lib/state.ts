@@ -34,7 +34,8 @@ type InProgressWorkout = Immutable<{
 	name: string;
 	comment?: string;
 	exercises: Array<Exercise>;
-	supersets: Array<Array<number>>;
+	// TODO: Superset support pending
+	// supersets: Array<Array<number>>;
 }>;
 
 export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
@@ -57,6 +58,6 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 		identifier: createId(),
 		startTime: date.toISOString(),
 		exercises: [],
-		supersets: [],
+		// supersets: [],
 	};
 };
