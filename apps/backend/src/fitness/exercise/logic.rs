@@ -60,7 +60,6 @@ pub struct WorkoutTotals {
     Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
 pub struct ProcessedExercise {
-    pub idx: u16,
     pub exercise_id: i32,
     pub sets: Vec<WorkoutSetRecord>,
     pub notes: Vec<String>,

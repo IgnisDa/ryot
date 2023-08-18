@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::models::fitness::UserToExerciseExtraInformation;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "user_to_exercise")]
 pub struct Model {
@@ -12,7 +14,7 @@ pub struct Model {
     pub exercise_id: i32,
     pub num_times_performed: i32,
     pub last_updated_on: DateTimeUtc,
-    pub extra_information: Json,
+    pub extra_information: UserToExerciseExtraInformation,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
