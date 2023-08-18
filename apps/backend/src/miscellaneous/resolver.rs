@@ -27,7 +27,7 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
     Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait, Statement,
+    QueryTrait, RelationTrait, Statement,
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
@@ -1250,20 +1250,46 @@ impl MiscellaneousService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
-        for cl in MetadataToCreator::find()
+        #[derive(Debug, FromQueryResult)]
+        struct PartialCreator {
+            id: i32,
+            name: String,
+            image: Option<String>,
+            extra_information: CreatorExtraInformation,
+            role: String,
+        }
+        let crts = MetadataToCreator::find()
+            .expr(Expr::col(Asterisk))
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .join(
+                JoinType::Join,
+                metadata_to_creator::Relation::Creator
+                    .def()
+                    .on_condition(|left, right| {
+                        Condition::all().add(
+                            Expr::col((left, metadata_to_creator::Column::CreatorId))
+                                .equals((right, creator::Column::Id)),
+                        )
+                    }),
+            )
             .order_by_asc(metadata_to_creator::Column::Index)
+            .into_model::<PartialCreator>()
             .all(&self.db)
-            .await?
-        {
-            let creator = cl.find_related(Creator).one(&self.db).await?.unwrap();
+            .await?;
+        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
+        for cr in crts {
+            let creator = creator::Model {
+                id: cr.id,
+                name: cr.name,
+                image: cr.image,
+                extra_information: cr.extra_information,
+            };
             creators
-                .entry(cl.role)
+                .entry(cr.role)
                 .and_modify(|e| {
                     e.push(creator.clone());
                 })
-                .or_insert(vec![creator]);
+                .or_insert(vec![creator.clone()]);
         }
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
