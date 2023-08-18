@@ -39,7 +39,7 @@ use surf::http::headers::USER_AGENT;
 use uuid::Uuid;
 
 use crate::{
-    background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
+    background::ApplicationJob,
     config::AppConfig,
     entities::{
         collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
@@ -1107,11 +1107,9 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
-    pub files_storage_service: Arc<FileStorageService>,
-    pub integration_service: IntegrationService,
-    pub update_metadata: SqliteStorage<UpdateMetadataJob>,
-    pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
-    pub user_created: SqliteStorage<UserCreatedJob>,
+    files_storage_service: Arc<FileStorageService>,
+    integration_service: IntegrationService,
+    pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<AppConfig>,
 }
@@ -1129,9 +1127,7 @@ impl MiscellaneousService {
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
         files_storage_service: Arc<FileStorageService>,
-        update_metadata: &SqliteStorage<UpdateMetadataJob>,
-        recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
-        user_created: &SqliteStorage<UserCreatedJob>,
+        perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         let integration_service = IntegrationService::new().await;
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1150,9 +1146,7 @@ impl MiscellaneousService {
             files_storage_service,
             seen_progress_cache,
             integration_service,
-            update_metadata: update_metadata.clone(),
-            recalculate_user_summary: recalculate_user_summary.clone(),
-            user_created: user_created.clone(),
+            perform_application_job: perform_application_job.clone(),
         }
     }
 }
@@ -2090,8 +2084,10 @@ impl MiscellaneousService {
     }
 
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
-        let mut storage = self.recalculate_user_summary.clone();
-        storage.push(RecalculateUserSummaryJob { user_id }).await?;
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::RecalculateUserSummary { user_id })
+            .await?;
         Ok(())
     }
 
@@ -2412,8 +2408,11 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let mut storage = self.update_metadata.clone();
-        let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
+        let job_id = self
+            .perform_application_job
+            .clone()
+            .push(ApplicationJob::UpdateMetadata { metadata })
+            .await?;
         Ok(job_id.to_string())
     }
 
@@ -3321,7 +3320,6 @@ impl MiscellaneousService {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
-        let mut storage = self.user_created.clone();
         if User::find()
             .filter(user::Column::Name.eq(username))
             .count(&self.db)
@@ -3348,7 +3346,10 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
-        storage.push(UserCreatedJob { user_id: user.id }).await?;
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::UserCreated { user_id: user.id })
+            .await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::{
-    background::UpdateExerciseJob,
+    background::ApplicationJob,
     config::AppConfig,
     entities::{
         exercise,
@@ -170,7 +170,7 @@ impl ExerciseMutation {
 pub struct ExerciseService {
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
-    update_exercise: SqliteStorage<UpdateExerciseJob>,
+    perform_application_job: SqliteStorage<ApplicationJob>,
     config: Arc<AppConfig>,
 }
 
@@ -185,13 +185,13 @@ impl ExerciseService {
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
-        update_exercise: &SqliteStorage<UpdateExerciseJob>,
+        perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
             auth_db,
-            update_exercise: update_exercise.clone(),
+            perform_application_job: perform_application_job.clone(),
         }
     }
 }
@@ -307,11 +307,13 @@ impl ExerciseService {
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
-        let mut storage = self.update_exercise.clone();
+        let mut storage = self.perform_application_job.clone();
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
-            let job = storage.push(UpdateExerciseJob { exercise }).await?;
+            let job = storage
+                .push(ApplicationJob::UpdateExerciseJob { exercise })
+                .await?;
             job_ids.push(job.to_string());
         }
         Ok(job_ids.len().try_into().unwrap())

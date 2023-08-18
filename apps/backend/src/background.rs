@@ -87,128 +87,76 @@ pub async fn yank_integrations_data(
 // Application Jobs
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ImportMedia {
-    pub user_id: i32,
-    pub input: DeployImportJobInput,
+pub enum ApplicationJob {
+    ImportMedia {
+        user_id: i32,
+        input: DeployImportJobInput,
+    },
+    UserCreated {
+        user_id: i32,
+    },
+    RecalculateUserSummary {
+        user_id: i32,
+    },
+    UpdateMetadata {
+        metadata: metadata::Model,
+    },
+    UpdateExerciseJob {
+        exercise: Exercise,
+    },
 }
 
-impl Job for ImportMedia {
-    const NAME: &'static str = "apalis::ImportMedia";
+impl Job for ApplicationJob {
+    const NAME: &'static str = "apalis::ApplicationJob";
 }
 
-pub async fn import_media(information: ImportMedia, ctx: JobContext) -> Result<(), JobError> {
-    tracing::trace!("Importing media");
-    ctx.data::<Arc<ImporterService>>()
-        .unwrap()
-        .import_from_lot(information.user_id, information.input)
-        .await
-        .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UserCreatedJob {
-    pub user_id: i32,
-}
-
-impl Job for UserCreatedJob {
-    const NAME: &'static str = "apalis::UserCreatedJob";
-}
-
-pub async fn user_created_job(
-    information: UserCreatedJob,
+pub async fn perform_application_job(
+    information: ApplicationJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
-    tracing::trace!("Running jobs after user creation");
-    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    service.user_created_job(information.user_id).await.unwrap();
-    service.user_created_job(information.user_id).await.unwrap();
-    service
-        .calculate_user_summary(information.user_id)
-        .await
-        .unwrap();
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct RecalculateUserSummaryJob {
-    pub user_id: i32,
-}
-
-impl Job for RecalculateUserSummaryJob {
-    const NAME: &'static str = "apalis::RecalculateUserSummaryJob";
-}
-
-pub async fn recalculate_user_summary_job(
-    information: RecalculateUserSummaryJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::trace!("Calculating summary for user {:?}", information.user_id);
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
-        .calculate_user_summary(information.user_id)
-        .await
-        .unwrap();
-    tracing::trace!(
-        "Summary calculation complete for user {:?}",
-        information.user_id
-    );
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpdateMetadataJob {
-    pub metadata: metadata::Model,
-}
-
-impl Job for UpdateMetadataJob {
-    const NAME: &'static str = "apalis::UpdateMetadataJob";
-}
-
-pub async fn update_metadata_job(
-    information: UpdateMetadataJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    let notifications = service
-        .update_metadata(information.metadata.id)
-        .await
-        .unwrap();
-    if !notifications.is_empty() {
-        for notification in notifications {
-            let user_ids = service
-                .users_to_be_notified_for_state_changes(information.metadata.id)
+    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
+    match information {
+        ApplicationJob::ImportMedia { user_id, input } => {
+            tracing::trace!("Importing media");
+            importer_service
+                .import_from_lot(user_id, input)
                 .await
                 .unwrap();
-            for user_id in user_ids {
-                service
-                    .send_media_state_changed_notification_for_user(user_id, &notification)
-                    .await
-                    .unwrap();
+        }
+        ApplicationJob::UserCreated { user_id } => {
+            tracing::trace!("Running jobs after user creation");
+            misc_service.user_created_job(user_id).await.unwrap();
+            misc_service.user_created_job(user_id).await.unwrap();
+            misc_service.calculate_user_summary(user_id).await.unwrap();
+        }
+        ApplicationJob::RecalculateUserSummary { user_id } => {
+            tracing::trace!("Calculating summary for user {:?}", user_id);
+            misc_service.calculate_user_summary(user_id).await.unwrap();
+            tracing::trace!("Summary calculation complete for user {:?}", user_id);
+        }
+        ApplicationJob::UpdateMetadata { metadata } => {
+            let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
+            if !notifications.is_empty() {
+                for notification in notifications {
+                    let user_ids = misc_service
+                        .users_to_be_notified_for_state_changes(metadata.id)
+                        .await
+                        .unwrap();
+                    for user_id in user_ids {
+                        misc_service
+                            .send_media_state_changed_notification_for_user(user_id, &notification)
+                            .await
+                            .unwrap();
+                    }
+                }
             }
         }
-    }
-    Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpdateExerciseJob {
-    pub exercise: Exercise,
-}
-
-impl Job for UpdateExerciseJob {
-    const NAME: &'static str = "apalis::UpdateExerciseJob";
-}
-
-pub async fn update_exercise_job(
-    information: UpdateExerciseJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    tracing::trace!("Updating {:?}", information.exercise.name);
-    ctx.data::<Arc<ExerciseService>>()
-        .unwrap()
-        .update_exercise(information.exercise)
-        .await
-        .unwrap();
+        ApplicationJob::UpdateExerciseJob { exercise } => {
+            tracing::trace!("Updating {:?}", exercise.name);
+            exercise_service.update_exercise(exercise).await.unwrap();
+        }
+    };
     Ok(())
 }
