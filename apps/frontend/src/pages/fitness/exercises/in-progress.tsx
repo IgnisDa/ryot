@@ -55,6 +55,7 @@ import { Fragment, type ReactElement } from "react";
 import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import useSound from "use-sound";
 
 const getSetColor = (l: SetLot) =>
 	match(l)
@@ -149,6 +150,7 @@ const ExerciseDisplay = (props: {
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
+	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -392,6 +394,7 @@ const ExerciseDisplay = (props: {
 											)
 											.exhaustive()
 									}
+									onMouseDown={() => playCheckSound()}
 									color="green"
 									onClick={() => {
 										setCurrentWorkout(
@@ -435,6 +438,7 @@ const ExerciseDisplay = (props: {
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [playCompleteSound] = useSound("/completed.mp3", { interrupt: true });
 
 	const finishWorkout = async () => {
 		await router.replace(APP_ROUTES.dashboard);
@@ -539,7 +543,8 @@ const Page: NextPageWithLayout = () => {
 											const input =
 												currentWorkoutToCreateWorkoutInput(currentWorkout);
 											createUserWorkout.mutate(input);
-											await finishWorkout();
+											playCompleteSound();
+											// await finishWorkout();
 										}
 									}}
 								>

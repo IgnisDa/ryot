@@ -86,7 +86,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 					lot: set.lot,
 					statistic: set.stats,
 				});
-		if (sets.length == 0) continue;
+		if (sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
 		input.input.exercises.push({
