@@ -539,7 +539,7 @@ const Page: NextPageWithLayout = () => {
 											const input =
 												currentWorkoutToCreateWorkoutInput(currentWorkout);
 											createUserWorkout.mutate(input);
-											// await finishWorkout();
+											await finishWorkout();
 										}
 									}}
 								>
