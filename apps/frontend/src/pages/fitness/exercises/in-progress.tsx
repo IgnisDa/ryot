@@ -23,13 +23,16 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	UnstyledButton,
 	rem,
 } from "@mantine/core";
 import {
 	ExerciseLot,
+	SetLot,
 	UserDistanceUnit,
 	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
+import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconClipboard,
@@ -47,6 +50,14 @@ import { Fragment, type ReactElement } from "react";
 import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+
+const getSetColor = (l: SetLot) =>
+	match(l)
+		.with(SetLot.WarmUp, () => "yellow")
+		.with(SetLot.Drop, () => "purple")
+		.with(SetLot.Failure, () => "red")
+		.with(SetLot.Normal, () => "blue")
+		.exhaustive();
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -256,14 +267,47 @@ const ExerciseDisplay = (props: {
 						<Flex key={idx} justify="space-between" align="start">
 							<Menu>
 								<Menu.Target>
-									<Text mt={2} fw="bold" color="blue" w="5%" align="center">
-										{idx + 1}
-									</Text>
+									<UnstyledButton w="5%">
+										<Text
+											mt={2}
+											fw="bold"
+											color={getSetColor(s.lot)}
+											align="center"
+										>
+											{idx + 1}
+										</Text>
+									</UnstyledButton>
 								</Menu.Target>
 								<Menu.Dropdown>
+									<Menu.Label>Set type</Menu.Label>
+									{Object.values(SetLot).map((lot) => (
+										<Menu.Item
+											key={lot}
+											disabled={s.lot === lot}
+											fz="xs"
+											icon={
+												<Text fw="bold" fz="xs" w={10} color={getSetColor(lot)}>
+													{lot.at(0)}
+												</Text>
+											}
+											onClick={() => {
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].sets[idx].lot =
+															lot;
+													}),
+												);
+											}}
+										>
+											{startCase(snakeCase(lot))}
+										</Menu.Item>
+									))}
+									<Menu.Divider />
+									<Menu.Label>Actions</Menu.Label>
 									<Menu.Item
 										color="red"
 										fz={"xs"}
+										icon={<IconTrash size={14} />}
 										onClick={() => {
 											const yes = confirm(
 												"Are you sure you want to delete this set?",
@@ -341,6 +385,7 @@ const ExerciseDisplay = (props: {
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].sets.push({
 									stats: {},
+									lot: SetLot.Normal,
 									confirmed: false,
 								});
 							}),
@@ -447,9 +492,17 @@ const Page: NextPageWithLayout = () => {
 									variant="subtle"
 									onClick={async () => {
 										const yes = confirm(
-											"Are you sure you want to finish this workout?",
+											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
-										if (yes) await finishWorkout();
+										if (yes) {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.endTime = new Date().toISOString();
+												}),
+											);
+											console.log(currentWorkout);
+											// await finishWorkout();
+										}
 									}}
 								>
 									Finish workout
