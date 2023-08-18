@@ -54,9 +54,9 @@ import { withQuery } from "ufo";
 const getSetColor = (l: SetLot) =>
 	match(l)
 		.with(SetLot.WarmUp, () => "yellow")
-		.with(SetLot.Drop, () => "purple")
+		.with(SetLot.Drop, () => "grape.6")
 		.with(SetLot.Failure, () => "red")
-		.with(SetLot.Normal, () => "blue")
+		.with(SetLot.Normal, () => "indigo.6")
 		.exhaustive();
 
 const StatDisplay = (props: { name: string; value: string }) => {
@@ -274,7 +274,9 @@ const ExerciseDisplay = (props: {
 											color={getSetColor(s.lot)}
 											align="center"
 										>
-											{idx + 1}
+											{match(s.lot)
+												.with(SetLot.Normal, () => idx + 1)
+												.otherwise(() => s.lot.at(0))}
 										</Text>
 									</UnstyledButton>
 								</Menu.Target>
@@ -492,7 +494,7 @@ const Page: NextPageWithLayout = () => {
 									variant="subtle"
 									onClick={async () => {
 										const yes = confirm(
-											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+											"Only sets with valid values and marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
 										if (yes) {
 											setCurrentWorkout(
