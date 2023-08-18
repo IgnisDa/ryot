@@ -2,10 +2,12 @@ import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
+import { gqlClient } from "@/lib/services/api";
 import {
 	type Exercise,
 	type ExerciseSet,
 	currentWorkoutAtom,
+	currentWorkoutToCreateWorkoutInput,
 } from "@/lib/state";
 import {
 	ActionIcon,
@@ -23,19 +25,25 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	UnstyledButton,
 	rem,
 } from "@mantine/core";
 import {
+	CreateUserWorkoutDocument,
+	type CreateUserWorkoutMutationVariables,
 	ExerciseLot,
+	SetLot,
 	UserDistanceUnit,
 	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
+import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
 	IconTrash,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -48,14 +56,22 @@ import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
+const getSetColor = (l: SetLot) =>
+	match(l)
+		.with(SetLot.WarmUp, () => "yellow")
+		.with(SetLot.Drop, () => "grape.6")
+		.with(SetLot.Failure, () => "red")
+		.with(SetLot.Normal, () => "indigo.6")
+		.exhaustive();
+
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
 		<Box mx="auto">
-			<Text color="dimmed" size="sm">
-				{props.name}
-			</Text>
 			<Text align="center" size="xl">
 				{props.value}
+			</Text>
+			<Text color="dimmed" size="sm">
+				{props.name}
 			</Text>
 		</Box>
 	);
@@ -101,9 +117,14 @@ const StatInput = (props: {
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
+							const value = typeof v === "number" ? v : undefined;
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
 								props.stat
-							] = typeof v === "number" ? v : undefined;
+							] = value;
+							if (value === undefined)
+								draft.exercises[props.exerciseIdx].sets[
+									props.setIdx
+								].confirmed = false;
 						}),
 					);
 				}}
@@ -256,14 +277,49 @@ const ExerciseDisplay = (props: {
 						<Flex key={idx} justify="space-between" align="start">
 							<Menu>
 								<Menu.Target>
-									<Text mt={2} fw="bold" color="blue" w="5%" align="center">
-										{idx + 1}
-									</Text>
+									<UnstyledButton w="5%">
+										<Text
+											mt={2}
+											fw="bold"
+											color={getSetColor(s.lot)}
+											align="center"
+										>
+											{match(s.lot)
+												.with(SetLot.Normal, () => idx + 1)
+												.otherwise(() => s.lot.at(0))}
+										</Text>
+									</UnstyledButton>
 								</Menu.Target>
 								<Menu.Dropdown>
+									<Menu.Label>Set type</Menu.Label>
+									{Object.values(SetLot).map((lot) => (
+										<Menu.Item
+											key={lot}
+											disabled={s.lot === lot}
+											fz="xs"
+											icon={
+												<Text fw="bold" fz="xs" w={10} color={getSetColor(lot)}>
+													{lot.at(0)}
+												</Text>
+											}
+											onClick={() => {
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].sets[idx].lot =
+															lot;
+													}),
+												);
+											}}
+										>
+											{startCase(snakeCase(lot))}
+										</Menu.Item>
+									))}
+									<Menu.Divider />
+									<Menu.Label>Actions</Menu.Label>
 									<Menu.Item
 										color="red"
 										fz={"xs"}
+										icon={<IconTrash size={14} />}
 										onClick={() => {
 											const yes = confirm(
 												"Are you sure you want to delete this set?",
@@ -316,7 +372,26 @@ const ExerciseDisplay = (props: {
 							<Group w="10%" position="center">
 								<ActionIcon
 									variant={s.confirmed ? "filled" : "outline"}
-									disabled={Object.values(s.stats).filter(Boolean).length === 0}
+									disabled={
+										!match(props.exercise.lot)
+											.with(
+												ExerciseLot.DistanceAndDuration,
+												() =>
+													typeof s.stats.distance === "number" &&
+													typeof s.stats.duration === "number",
+											)
+											.with(
+												ExerciseLot.Duration,
+												() => typeof s.stats.duration === "number",
+											)
+											.with(
+												ExerciseLot.RepsAndWeight,
+												() =>
+													typeof s.stats.reps === "number" &&
+													typeof s.stats.weight === "number",
+											)
+											.exhaustive()
+									}
 									color="green"
 									onClick={() => {
 										setCurrentWorkout(
@@ -341,6 +416,7 @@ const ExerciseDisplay = (props: {
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].sets.push({
 									stats: {},
+									lot: SetLot.Normal,
 									confirmed: false,
 								});
 							}),
@@ -364,6 +440,16 @@ const Page: NextPageWithLayout = () => {
 		await router.replace(APP_ROUTES.dashboard);
 		setCurrentWorkout(RESET);
 	};
+
+	const createUserWorkout = useMutation({
+		mutationFn: async (input: CreateUserWorkoutMutationVariables) => {
+			const { createUserWorkout } = await gqlClient.request(
+				CreateUserWorkoutDocument,
+				input,
+			);
+			return createUserWorkout;
+		},
+	});
 
 	return (
 		<>
@@ -447,9 +533,14 @@ const Page: NextPageWithLayout = () => {
 									variant="subtle"
 									onClick={async () => {
 										const yes = confirm(
-											"Are you sure you want to finish this workout?",
+											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
-										if (yes) await finishWorkout();
+										if (yes) {
+											const input =
+												currentWorkoutToCreateWorkoutInput(currentWorkout);
+											createUserWorkout.mutate(input);
+											await finishWorkout();
+										}
 									}}
 								>
 									Finish workout

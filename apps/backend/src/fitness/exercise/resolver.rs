@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::{
-    background::UpdateExerciseJob,
+    background::ApplicationJob,
     config::AppConfig,
     entities::{
         exercise,
@@ -33,6 +33,8 @@ use crate::{
     traits::AuthProvider,
     utils::{get_case_insensitive_like_query, MemoryDatabase},
 };
+
+use super::logic::UserWorkoutInput;
 
 static JSON_URL: &str =
     "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
@@ -152,12 +154,23 @@ impl ExerciseMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_measurement(user_id, timestamp).await
     }
+
+    /// Take a user workout, process it and commit it to database.
+    async fn create_user_workout(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserWorkoutInput,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_workout(user_id, input).await
+    }
 }
 
 pub struct ExerciseService {
     db: DatabaseConnection,
     auth_db: MemoryDatabase,
-    update_exercise: SqliteStorage<UpdateExerciseJob>,
+    perform_application_job: SqliteStorage<ApplicationJob>,
     config: Arc<AppConfig>,
 }
 
@@ -172,13 +185,13 @@ impl ExerciseService {
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
-        update_exercise: &SqliteStorage<UpdateExerciseJob>,
+        perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
             auth_db,
-            update_exercise: update_exercise.clone(),
+            perform_application_job: perform_application_job.clone(),
         }
     }
 }
@@ -294,11 +307,13 @@ impl ExerciseService {
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
-        let mut storage = self.update_exercise.clone();
+        let mut storage = self.perform_application_job.clone();
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
-            let job = storage.push(UpdateExerciseJob { exercise }).await?;
+            let job = storage
+                .push(ApplicationJob::UpdateExerciseJob(exercise))
+                .await?;
             job_ids.push(job.to_string());
         }
         Ok(job_ids.len().try_into().unwrap())
@@ -383,5 +398,10 @@ impl ExerciseService {
         } else {
             Ok(false)
         }
+    }
+
+    async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
+        dbg!(input);
+        todo!()
     }
 }

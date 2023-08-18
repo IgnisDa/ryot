@@ -27,7 +27,7 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
     Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait, Statement,
+    QueryTrait, RelationTrait, Statement,
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
@@ -39,7 +39,7 @@ use surf::http::headers::USER_AGENT;
 use uuid::Uuid;
 
 use crate::{
-    background::{RecalculateUserSummaryJob, UpdateMetadataJob, UserCreatedJob},
+    background::ApplicationJob,
     config::AppConfig,
     entities::{
         collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
@@ -1107,11 +1107,9 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
-    pub files_storage_service: Arc<FileStorageService>,
-    pub integration_service: IntegrationService,
-    pub update_metadata: SqliteStorage<UpdateMetadataJob>,
-    pub recalculate_user_summary: SqliteStorage<RecalculateUserSummaryJob>,
-    pub user_created: SqliteStorage<UserCreatedJob>,
+    files_storage_service: Arc<FileStorageService>,
+    integration_service: IntegrationService,
+    pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<AppConfig>,
 }
@@ -1129,9 +1127,7 @@ impl MiscellaneousService {
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
         files_storage_service: Arc<FileStorageService>,
-        update_metadata: &SqliteStorage<UpdateMetadataJob>,
-        recalculate_user_summary: &SqliteStorage<RecalculateUserSummaryJob>,
-        user_created: &SqliteStorage<UserCreatedJob>,
+        perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         let integration_service = IntegrationService::new().await;
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1150,9 +1146,7 @@ impl MiscellaneousService {
             files_storage_service,
             seen_progress_cache,
             integration_service,
-            update_metadata: update_metadata.clone(),
-            recalculate_user_summary: recalculate_user_summary.clone(),
-            user_created: user_created.clone(),
+            perform_application_job: perform_application_job.clone(),
         }
     }
 }
@@ -1250,20 +1244,46 @@ impl MiscellaneousService {
             .into_iter()
             .map(|g| g.name)
             .collect();
-        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
-        for cl in MetadataToCreator::find()
+        #[derive(Debug, FromQueryResult)]
+        struct PartialCreator {
+            id: i32,
+            name: String,
+            image: Option<String>,
+            extra_information: CreatorExtraInformation,
+            role: String,
+        }
+        let crts = MetadataToCreator::find()
+            .expr(Expr::col(Asterisk))
             .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .join(
+                JoinType::Join,
+                metadata_to_creator::Relation::Creator
+                    .def()
+                    .on_condition(|left, right| {
+                        Condition::all().add(
+                            Expr::col((left, metadata_to_creator::Column::CreatorId))
+                                .equals((right, creator::Column::Id)),
+                        )
+                    }),
+            )
             .order_by_asc(metadata_to_creator::Column::Index)
+            .into_model::<PartialCreator>()
             .all(&self.db)
-            .await?
-        {
-            let creator = cl.find_related(Creator).one(&self.db).await?.unwrap();
+            .await?;
+        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
+        for cr in crts {
+            let creator = creator::Model {
+                id: cr.id,
+                name: cr.name,
+                image: cr.image,
+                extra_information: cr.extra_information,
+            };
             creators
-                .entry(cl.role)
+                .entry(cr.role)
                 .and_modify(|e| {
                     e.push(creator.clone());
                 })
-                .or_insert(vec![creator]);
+                .or_insert(vec![creator.clone()]);
         }
         let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
@@ -1905,7 +1925,7 @@ impl MiscellaneousService {
                 error: ProgressUpdateErrorVariant::NoSeenInProgress,
             }))
         };
-        let seen_item = match action {
+        let seen = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
                 let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
@@ -2028,8 +2048,8 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
-        let id = seen_item.id;
-        if seen_item.state == SeenState::Completed {
+        let id = seen.id;
+        if seen.state == SeenState::Completed {
             self.seen_progress_cache
                 .insert(
                     cache,
@@ -2040,7 +2060,10 @@ impl MiscellaneousService {
                 )
                 .await;
         }
-        self.after_media_seen_tasks(seen_item).await?;
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::AfterMediaSeen(seen))
+            .await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 
@@ -2064,8 +2087,10 @@ impl MiscellaneousService {
     }
 
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
-        let mut storage = self.recalculate_user_summary.clone();
-        storage.push(RecalculateUserSummaryJob { user_id }).await?;
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::RecalculateUserSummary(user_id))
+            .await?;
         Ok(())
     }
 
@@ -2386,8 +2411,11 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let mut storage = self.update_metadata.clone();
-        let job_id = storage.push(UpdateMetadataJob { metadata }).await?;
+        let job_id = self
+            .perform_application_job
+            .clone()
+            .push(ApplicationJob::UpdateMetadata(metadata))
+            .await?;
         Ok(job_id.to_string())
     }
 
@@ -3295,7 +3323,6 @@ impl MiscellaneousService {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
-        let mut storage = self.user_created.clone();
         if User::find()
             .filter(user::Column::Name.eq(username))
             .count(&self.db)
@@ -3322,7 +3349,10 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
-        storage.push(UserCreatedJob { user_id: user.id }).await?;
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::UserCreated(user.id))
+            .await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 

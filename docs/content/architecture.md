@@ -34,7 +34,7 @@ Here is the minimal configuration required in development mode:
     "cors_origins": ["http://localhost:3000"],
     "config_dump_path": "/tmp/ryot.json",
     "insecure_cookie": true,
-		"samesite_none": true
+    "samesite_none": true
   }
 }
 ```

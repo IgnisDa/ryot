@@ -22,6 +22,7 @@ const documents = {
     "mutation CreateUserMeasurement($input: UserMeasurementInput!) {\n  createUserMeasurement(input: $input)\n}": types.CreateUserMeasurementDocument,
     "mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {\n  createUserNotificationPlatform(input: $input)\n}": types.CreateUserNotificationPlatformDocument,
     "mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}": types.CreateUserSinkIntegrationDocument,
+    "mutation CreateUserWorkout($input: UserWorkoutInput!) {\n  createUserWorkout(input: $input)\n}": types.CreateUserWorkoutDocument,
     "mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {\n  createUserYankIntegration(input: $input)\n}": types.CreateUserYankIntegrationDocument,
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
     "mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}": types.DeleteMediaReminderDocument,
@@ -129,6 +130,10 @@ export function graphql(source: "mutation CreateUserNotificationPlatform($input:
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}"): (typeof documents)["mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {\n  createUserSinkIntegration(input: $input)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation CreateUserWorkout($input: UserWorkoutInput!) {\n  createUserWorkout(input: $input)\n}"): (typeof documents)["mutation CreateUserWorkout($input: UserWorkoutInput!) {\n  createUserWorkout(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

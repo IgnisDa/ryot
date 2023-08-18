@@ -115,7 +115,7 @@ const Page: NextPageWithLayout = () => {
 								<Stack>
 									{creatorDetails.data.contents.map((role) => (
 										<Box key={role.name}>
-											<Title order={3} align="center">
+											<Title order={3} mb="xs" align="center">
 												{role.name}
 											</Title>
 											<SimpleGrid
