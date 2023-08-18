@@ -34,6 +34,8 @@ use crate::{
     utils::{get_case_insensitive_like_query, MemoryDatabase},
 };
 
+use super::logic::UserWorkoutInput;
+
 static JSON_URL: &str =
     "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
 static IMAGES_PREFIX_URL: &str =
@@ -151,6 +153,17 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_measurement(user_id, timestamp).await
+    }
+
+    /// Take a user workout, process it and commit it to database.
+    async fn create_user_workout(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserWorkoutInput,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_user_workout(user_id, input).await
     }
 }
 
@@ -383,5 +396,10 @@ impl ExerciseService {
         } else {
             Ok(false)
         }
+    }
+
+    async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
+        dbg!(input);
+        todo!()
     }
 }

@@ -642,6 +642,8 @@ export type MutationRoot = {
   createUserNotificationPlatform: Scalars['Int']['output'];
   /** Create a sink based integrations for the currently logged in user. */
   createUserSinkIntegration: Scalars['Int']['output'];
+  /** Take a user workout, process it and commit it to database. */
+  createUserWorkout: Scalars['String']['output'];
   /** Create a yank based integrations for the currently logged in user. */
   createUserYankIntegration: Scalars['Int']['output'];
   /** Delete a collection. */
@@ -751,6 +753,11 @@ export type MutationRootCreateUserNotificationPlatformArgs = {
 
 export type MutationRootCreateUserSinkIntegrationArgs = {
   input: CreateUserSinkIntegrationInput;
+};
+
+
+export type MutationRootCreateUserWorkoutArgs = {
+  input: UserWorkoutInput;
 };
 
 
@@ -1151,6 +1158,20 @@ export enum SeenState {
   OnAHold = 'ON_A_HOLD'
 }
 
+export enum SetLot {
+  Drop = 'DROP',
+  Failure = 'FAILURE',
+  Normal = 'NORMAL',
+  WarmUp = 'WARM_UP'
+}
+
+export type SetStatisticInput = {
+  distance?: InputMaybe<Scalars['Int']['input']>;
+  duration?: InputMaybe<Scalars['Int']['input']>;
+  reps?: InputMaybe<Scalars['Int']['input']>;
+  weigth?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type ShowEpisode = {
   episodeNumber: Scalars['Int']['output'];
   id: Scalars['Int']['output'];
@@ -1263,6 +1284,13 @@ export enum UserDistanceUnit {
   Kilometer = 'KILOMETER',
   Mile = 'MILE'
 }
+
+export type UserExerciseInput = {
+  exerciseId: Scalars['Int']['input'];
+  notes: Array<Scalars['String']['input']>;
+  restTime?: InputMaybe<Scalars['Int']['input']>;
+  sets: Array<UserWorkoutSetRecord>;
+};
 
 export type UserExercisePreferences = {
   distanceUnit: UserDistanceUnit;
@@ -1499,6 +1527,20 @@ export enum UserWeightUnit {
   Pound = 'POUND'
 }
 
+export type UserWorkoutInput = {
+  endTime: Scalars['DateTime']['input'];
+  exercises: Array<UserExerciseInput>;
+  identifier: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  startTime: Scalars['DateTime']['input'];
+  supersets: Array<Array<Scalars['Int']['input']>>;
+};
+
+export type UserWorkoutSetRecord = {
+  lot: SetLot;
+  statistic: SetStatisticInput;
+};
+
 export enum UserYankIntegrationSettingKind {
   Audiobookshelf = 'AUDIOBOOKSHELF'
 }
@@ -1584,6 +1626,13 @@ export type CreateUserSinkIntegrationMutationVariables = Exact<{
 
 
 export type CreateUserSinkIntegrationMutation = { createUserSinkIntegration: number };
+
+export type CreateUserWorkoutMutationVariables = Exact<{
+  input: UserWorkoutInput;
+}>;
+
+
+export type CreateUserWorkoutMutation = { createUserWorkout: string };
 
 export type CreateUserYankIntegrationMutationVariables = Exact<{
   input: CreateUserYankIntegrationInput;
@@ -1947,6 +1996,7 @@ export const CreateOrUpdateCollectionDocument = {"kind":"Document","definitions"
 export const CreateUserMeasurementDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserMeasurement"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserMeasurementInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserMeasurement"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserMeasurementMutation, CreateUserMeasurementMutationVariables>;
 export const CreateUserNotificationPlatformDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserNotificationPlatform"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserNotificationPlatformInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserNotificationPlatform"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserNotificationPlatformMutation, CreateUserNotificationPlatformMutationVariables>;
 export const CreateUserSinkIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserSinkIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserSinkIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserSinkIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserSinkIntegrationMutation, CreateUserSinkIntegrationMutationVariables>;
+export const CreateUserWorkoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserWorkout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserWorkoutInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserWorkout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserWorkoutMutation, CreateUserWorkoutMutationVariables>;
 export const CreateUserYankIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserYankIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserYankIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserYankIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserYankIntegrationMutation, CreateUserYankIntegrationMutationVariables>;
 export const DeleteCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}]}]}}]} as unknown as DocumentNode<DeleteCollectionMutation, DeleteCollectionMutationVariables>;
 export const DeleteMediaReminderDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteMediaReminder"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteMediaReminder"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DeleteMediaReminderMutation, DeleteMediaReminderMutationVariables>;
