@@ -183,7 +183,7 @@ const Page: NextPageWithLayout = () => {
 								<Link
 									passHref
 									legacyBehavior
-									href={APP_ROUTES.fitness.exercises.inProgress}
+									href={APP_ROUTES.fitness.exercises.currentWorkout}
 								>
 									<Anchor>here</Anchor>
 								</Link>{" "}
@@ -216,6 +216,7 @@ const Page: NextPageWithLayout = () => {
 					</Text>
 					<SimpleGrid
 						cols={1}
+						style={{ alignItems: "center" }}
 						spacing="lg"
 						breakpoints={[
 							{ minWidth: "sm", cols: 2 },
@@ -413,7 +414,7 @@ const Page: NextPageWithLayout = () => {
 							<Link
 								passHref
 								legacyBehavior
-								href={APP_ROUTES.fitness.exercises.inProgress}
+								href={APP_ROUTES.fitness.exercises.currentWorkout}
 							>
 								<Button
 									variant="outline"
@@ -430,7 +431,7 @@ const Page: NextPageWithLayout = () => {
 								leftIcon={<IconBarbell />}
 								onClick={() => {
 									setCurrentWorkout(getDefaultWorkout());
-									router.push(APP_ROUTES.fitness.exercises.inProgress);
+									router.push(APP_ROUTES.fitness.exercises.currentWorkout);
 								}}
 							>
 								Start a workout

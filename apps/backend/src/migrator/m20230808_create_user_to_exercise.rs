@@ -2,15 +2,10 @@ use sea_orm_migration::prelude::*;
 
 use super::{m20230417_create_user::User, m20230622_create_exercise::Exercise};
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static USER_TO_EXERCISE_PRIMARY_KEY: &str = "pk-user_to_exercise";
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230808_create_user_to_exercise"
-    }
-}
 
 #[derive(Iden)]
 pub enum UserToExercise {

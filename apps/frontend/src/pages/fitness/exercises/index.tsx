@@ -289,9 +289,11 @@ const Page: NextPageWithLayout = () => {
 												/>
 												<Flex direction={"column"} justify={"space-around"}>
 													<Text>{exercise.name}</Text>
-													{exercise.equipment ? (
+													{exercise.attributes.muscles.at(0) ? (
 														<Text size="xs">
-															{startCase(snakeCase(exercise.equipment))}
+															{startCase(
+																snakeCase(exercise.attributes.muscles.at(0)),
+															)}
 														</Text>
 													) : null}
 												</Flex>
@@ -342,7 +344,7 @@ const Page: NextPageWithLayout = () => {
 											});
 									}),
 								);
-								router.push(APP_ROUTES.fitness.exercises.inProgress);
+								router.replace(APP_ROUTES.fitness.exercises.currentWorkout);
 							}}
 						>
 							<IconCheck size="1.6rem" />

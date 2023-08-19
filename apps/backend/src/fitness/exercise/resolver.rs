@@ -19,6 +19,7 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
+    file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle,
@@ -28,7 +29,7 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes,
         },
-        SearchDetails, SearchResults,
+        SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
     utils::{get_case_insensitive_like_query, MemoryDatabase},
@@ -169,9 +170,10 @@ impl ExerciseMutation {
 
 pub struct ExerciseService {
     db: DatabaseConnection,
-    auth_db: MemoryDatabase,
-    perform_application_job: SqliteStorage<ApplicationJob>,
     config: Arc<AppConfig>,
+    auth_db: MemoryDatabase,
+    file_storage_service: Arc<FileStorageService>,
+    perform_application_job: SqliteStorage<ApplicationJob>,
 }
 
 impl AuthProvider for ExerciseService {
@@ -185,12 +187,14 @@ impl ExerciseService {
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
+        file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
             auth_db,
+            file_storage_service,
             perform_application_job: perform_application_job.clone(),
         }
     }
@@ -241,7 +245,7 @@ impl ExerciseService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
-            Some(e) => Ok(e),
+            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
         }
     }
 
@@ -293,7 +297,7 @@ impl ExerciseService {
             .fetch_page((input.page - 1).try_into().unwrap())
             .await?
         {
-            items.push(ex);
+            items.push(ex.graphql_repr(&self.file_storage_service).await);
         }
         let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
             Some(input.page + 1)
@@ -307,11 +311,12 @@ impl ExerciseService {
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
-        let mut storage = self.perform_application_job.clone();
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
-            let job = storage
+            let job = self
+                .perform_application_job
+                .clone()
                 .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
             job_ids.push(job.to_string());
@@ -343,8 +348,15 @@ impl ExerciseService {
                 identifier: ActiveValue::Set(ex.identifier),
                 muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(ExerciseAttributes {
+                    muscles: vec![],
                     instructions: ex.attributes.instructions,
-                    images: ex.attributes.images,
+                    internal_images: ex
+                        .attributes
+                        .images
+                        .into_iter()
+                        .map(StoredUrl::Url)
+                        .collect(),
+                    images: vec![],
                 }),
                 lot: ActiveValue::Set(lot),
                 level: ActiveValue::Set(ex.attributes.level),

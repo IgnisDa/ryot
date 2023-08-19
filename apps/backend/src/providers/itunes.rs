@@ -13,9 +13,9 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, PodcastEpisode, PodcastSpecifics,
+            PodcastEpisode, PodcastSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults,
+        NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,
@@ -138,7 +138,7 @@ impl MediaProvider for ITunesService {
             .image
             .into_iter()
             .map(|a| MetadataImage {
-                url: MetadataImageUrl::Url(a),
+                url: StoredUrl::Url(a),
                 lot: MetadataImageLot::Poster,
             })
             .collect();

@@ -5,13 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::migrator::{m20230417_create_user::User, Metadata};
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230419_create_seen"
-    }
-}
 
 // The different possible states of a seen item.
 #[derive(

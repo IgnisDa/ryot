@@ -25,6 +25,7 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	Transition,
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
@@ -372,42 +373,54 @@ const ExerciseDisplay = (props: {
 								/>
 							) : null}
 							<Group w="10%" position="center">
-								<ActionIcon
-									variant={s.confirmed ? "filled" : "outline"}
-									disabled={
-										!match(props.exercise.lot)
-											.with(
-												ExerciseLot.DistanceAndDuration,
-												() =>
-													typeof s.stats.distance === "number" &&
-													typeof s.stats.duration === "number",
-											)
-											.with(
-												ExerciseLot.Duration,
-												() => typeof s.stats.duration === "number",
-											)
-											.with(
-												ExerciseLot.RepsAndWeight,
-												() =>
-													typeof s.stats.reps === "number" &&
-													typeof s.stats.weight === "number",
-											)
-											.exhaustive()
-									}
-									onMouseDown={() => playCheckSound()}
-									color="green"
-									onClick={() => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].sets[idx].confirmed =
-													!draft.exercises[props.exerciseIdx].sets[idx]
-														.confirmed;
-											}),
-										);
-									}}
+								<Transition
+									mounted
+									transition={{ in: {}, out: {}, transitionProperty: "all" }}
+									duration={200}
+									timingFunction="ease-in-out"
 								>
-									<IconCheck />
-								</ActionIcon>
+									{(style) => (
+										<ActionIcon
+											variant={s.confirmed ? "filled" : "outline"}
+											style={style}
+											disabled={
+												!match(props.exercise.lot)
+													.with(
+														ExerciseLot.DistanceAndDuration,
+														() =>
+															typeof s.stats.distance === "number" &&
+															typeof s.stats.duration === "number",
+													)
+													.with(
+														ExerciseLot.Duration,
+														() => typeof s.stats.duration === "number",
+													)
+													.with(
+														ExerciseLot.RepsAndWeight,
+														() =>
+															typeof s.stats.reps === "number" &&
+															typeof s.stats.weight === "number",
+													)
+													.exhaustive()
+											}
+											onMouseDown={() => playCheckSound()}
+											color="green"
+											onClick={() => {
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].sets[
+															idx
+														].confirmed =
+															!draft.exercises[props.exerciseIdx].sets[idx]
+																.confirmed;
+													}),
+												);
+											}}
+										>
+											<IconCheck />
+										</ActionIcon>
+									)}
+								</Transition>
 							</Group>
 						</Flex>
 					))}
@@ -458,7 +471,7 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<>
 			<Head>
-				<title>Workout in progress | Ryot</title>
+				<title>Current Workout | Ryot</title>
 			</Head>
 			<Container size="sm">
 				{currentWorkout ? (

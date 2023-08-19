@@ -114,6 +114,12 @@ const DisplayMeasurement = (props: {
 					</ActionIcon>
 				</Flex>
 				<Collapse in={opened}>
+					{props.measurement.name ? (
+						<Text align="center">Name: {props.measurement.name}</Text>
+					) : null}
+					{props.measurement.comment ? (
+						<Text align="center">Comment: {props.measurement.comment}</Text>
+					) : null}
 					{values.map((v, idx) => (
 						<Text key={idx} align="center">
 							{startCase(snakeCase(v.name))}: {v.value}

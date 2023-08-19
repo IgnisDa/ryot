@@ -5,13 +5,8 @@ use crate::{
     models::media::Visibility,
 };
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230507_create_collection"
-    }
-}
 
 #[derive(Iden)]
 pub enum MetadataToCollection {

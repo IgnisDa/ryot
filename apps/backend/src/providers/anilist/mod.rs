@@ -139,9 +139,11 @@ mod utils {
 
     use crate::{
         migrator::{MetadataImageLot, MetadataSource},
-        models::media::{
-            AnimeSpecifics, MangaSpecifics, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl,
+        models::{
+            media::{
+                AnimeSpecifics, MangaSpecifics, MediaSpecifics, MetadataCreator, MetadataImage,
+            },
+            StoredUrl,
         },
         utils::get_base_http_client,
     };
@@ -176,7 +178,7 @@ mod utils {
         let images = images
             .into_iter()
             .map(|i| MetadataImage {
-                url: MetadataImageUrl::Url(i),
+                url: StoredUrl::Url(i),
                 lot: MetadataImageLot::Poster,
             })
             .unique()

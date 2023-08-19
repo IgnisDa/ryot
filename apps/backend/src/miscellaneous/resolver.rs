@@ -65,13 +65,13 @@ use crate::{
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MetadataImage, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, Visibility,
         },
-        IdObject, SearchDetails, SearchInput, SearchResults,
+        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -92,8 +92,8 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_user_and_metadata_association, user_id_from_token, MemoryAuthData, MemoryDatabase,
-        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        get_stored_image, get_user_and_metadata_association, user_id_from_token, MemoryAuthData,
+        MemoryDatabase, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -629,7 +629,7 @@ impl MiscellaneousQuery {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.files_storage_service.get_presigned_url(key).await
+        service.file_storage_service.get_presigned_url(key).await
     }
 
     /// Get all the features that are enabled for the service
@@ -1107,7 +1107,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
-    files_storage_service: Arc<FileStorageService>,
+    file_storage_service: Arc<FileStorageService>,
     integration_service: IntegrationService,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
@@ -1126,7 +1126,7 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
-        files_storage_service: Arc<FileStorageService>,
+        file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         let integration_service = IntegrationService::new().await;
@@ -1143,7 +1143,7 @@ impl MiscellaneousService {
             db: db.clone(),
             auth_db,
             config,
-            files_storage_service,
+            file_storage_service,
             seen_progress_cache,
             integration_service,
             perform_application_job: perform_application_job.clone(),
@@ -1204,23 +1204,16 @@ impl MiscellaneousService {
         })
     }
 
-    async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
-        match m {
-            MetadataImageUrl::Url(u) => u,
-            MetadataImageUrl::S3(u) => self.files_storage_service.get_presigned_url(u).await,
-        }
-    }
-
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
         let mut poster_images = vec![];
         let mut backdrop_images = vec![];
         for i in meta.images.0.clone() {
             match i.lot {
                 MetadataImageLot::Backdrop => {
-                    backdrop_images.push(self.get_stored_image(i.url).await);
+                    backdrop_images.push(get_stored_image(i.url, &self.file_storage_service).await);
                 }
                 MetadataImageLot::Poster => {
-                    poster_images.push(self.get_stored_image(i.url).await);
+                    poster_images.push(get_stored_image(i.url, &self.file_storage_service).await);
                 }
             };
         }
@@ -2477,7 +2470,7 @@ impl MiscellaneousService {
 
     async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
         let mut files_enabled = self.config.file_storage.is_enabled();
-        if files_enabled && !self.files_storage_service.is_enabled().await {
+        if files_enabled && !self.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
         let general = GeneralFeatures {
@@ -3524,7 +3517,7 @@ impl MiscellaneousService {
             .unwrap_or_default()
             .into_iter()
             .map(|i| MetadataImage {
-                url: MetadataImageUrl::S3(i),
+                url: StoredUrl::S3(i),
                 lot: MetadataImageLot::Poster,
             })
             .collect();
@@ -4739,7 +4732,7 @@ impl MiscellaneousService {
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
             let image = if let Some(i) = m.images.0.first() {
-                Some(self.get_stored_image(i.url.clone()).await)
+                Some(get_stored_image(i.url.clone(), &self.file_storage_service).await)
             } else {
                 None
             };

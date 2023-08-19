@@ -5,13 +5,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum::Display;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230410_create_metadata"
-    }
-}
 
 pub static UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 

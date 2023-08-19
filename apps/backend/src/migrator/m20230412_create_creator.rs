@@ -2,15 +2,10 @@ use sea_orm_migration::prelude::*;
 
 use super::Metadata;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static METADATA_TO_CREATOR_PRIMARY_KEY: &str = "pk-media-item_creator";
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230412_create_creator"
-    }
-}
 
 #[derive(Iden)]
 pub enum Creator {

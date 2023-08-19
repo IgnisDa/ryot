@@ -12,9 +12,9 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageUrl,
+            MetadataImage,
         },
-        NamedObject, SearchDetails, SearchResults,
+        NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
@@ -176,8 +176,8 @@ impl MediaProvider for AudibleService {
                         .images
                         .into_iter()
                         .map(|i| match i.url {
-                            MetadataImageUrl::S3(_u) => unreachable!(),
-                            MetadataImageUrl::Url(u) => u,
+                            StoredUrl::S3(_u) => unreachable!(),
+                            StoredUrl::Url(u) => u,
                         })
                         .collect_vec()
                         .get(0)
@@ -204,7 +204,7 @@ impl MediaProvider for AudibleService {
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
         let images = Vec::from_iter(item.product_images.image.map(|a| MetadataImage {
-            url: MetadataImageUrl::Url(a),
+            url: StoredUrl::Url(a),
             lot: MetadataImageLot::Poster,
         }));
         let release_date = item.release_date.unwrap_or_default();

@@ -4,13 +4,8 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230622_create_exercise"
-    }
-}
 
 #[derive(
     Debug,

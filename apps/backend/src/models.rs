@@ -18,6 +18,18 @@ use crate::{
     },
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+pub enum StoredUrl {
+    S3(String),
+    Url(String),
+}
+
+impl Default for StoredUrl {
+    fn default() -> Self {
+        Self::Url("".to_owned())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
 #[graphql(input_name = "NamedObjectInput")]
 pub struct NamedObject {
@@ -657,23 +669,11 @@ pub mod media {
         Unknown,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-    pub enum MetadataImageUrl {
-        S3(String),
-        Url(String),
-    }
-
-    impl Default for MetadataImageUrl {
-        fn default() -> Self {
-            Self::Url("".to_owned())
-        }
-    }
-
     #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
-        pub url: MetadataImageUrl,
+        pub url: StoredUrl,
         pub lot: MetadataImageLot,
     }
 
@@ -750,8 +750,13 @@ pub mod fitness {
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
         pub instructions: Vec<String>,
+        #[graphql(skip)]
+        #[serde(default)]
+        pub internal_images: Vec<StoredUrl>,
         #[serde(default)]
         pub images: Vec<String>,
+        #[serde(default)]
+        pub muscles: Vec<ExerciseMuscle>,
     }
 
     #[derive(
