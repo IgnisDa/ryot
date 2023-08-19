@@ -143,7 +143,7 @@ mod utils {
             media::{
                 AnimeSpecifics, MangaSpecifics, MediaSpecifics, MetadataCreator, MetadataImage,
             },
-            ApplicationImageUrl,
+            StoredUrl,
         },
         utils::get_base_http_client,
     };
@@ -178,7 +178,7 @@ mod utils {
         let images = images
             .into_iter()
             .map(|i| MetadataImage {
-                url: ApplicationImageUrl::Url(i),
+                url: StoredUrl::Url(i),
                 lot: MetadataImageLot::Poster,
             })
             .unique()

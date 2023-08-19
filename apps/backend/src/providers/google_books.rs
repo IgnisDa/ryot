@@ -14,7 +14,7 @@ use crate::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
             MetadataImage,
         },
-        ApplicationImageUrl, SearchDetails, SearchResults,
+        SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client},
@@ -128,8 +128,8 @@ impl MediaProvider for GoogleBooksService {
                 let image = images
                     .into_iter()
                     .map(|i| match i.url {
-                        ApplicationImageUrl::S3(_u) => unreachable!(),
-                        ApplicationImageUrl::Url(u) => u,
+                        StoredUrl::S3(_u) => unreachable!(),
+                        StoredUrl::Url(u) => u,
                     })
                     .collect_vec()
                     .get(0)
@@ -184,7 +184,7 @@ impl GoogleBooksService {
             }
         };
         let images = images.into_iter().map(|a| MetadataImage {
-            url: ApplicationImageUrl::Url(a),
+            url: StoredUrl::Url(a),
             lot: MetadataImageLot::Poster,
         });
         let mut creators = item

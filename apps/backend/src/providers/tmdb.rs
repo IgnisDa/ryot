@@ -17,7 +17,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
-        ApplicationImageUrl, NamedObject, SearchDetails, SearchResults,
+        NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date},
@@ -192,7 +192,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImage {
-                    url: ApplicationImageUrl::Url(self.base.get_cover_image_url(p)),
+                    url: StoredUrl::Url(self.base.get_cover_image_url(p)),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -447,7 +447,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImage {
-                    url: ApplicationImageUrl::Url(self.base.get_cover_image_url(p)),
+                    url: StoredUrl::Url(self.base.get_cover_image_url(p)),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),

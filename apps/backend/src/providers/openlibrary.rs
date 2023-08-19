@@ -23,7 +23,7 @@ use crate::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
             MetadataImage,
         },
-        ApplicationImageUrl, SearchDetails, SearchResults,
+        SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,
@@ -253,7 +253,7 @@ impl MediaProvider for OpenlibraryService {
             .into_iter()
             .filter(|c| c > &0)
             .map(|c| MetadataImage {
-                url: ApplicationImageUrl::Url(self.get_book_cover_image_url(c)),
+                url: StoredUrl::Url(self.get_book_cover_image_url(c)),
                 lot: MetadataImageLot::Poster,
             })
             .unique()

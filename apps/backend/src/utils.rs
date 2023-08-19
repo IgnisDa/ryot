@@ -30,6 +30,7 @@ use crate::{
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
+    models::StoredUrl,
 };
 
 pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
@@ -79,6 +80,7 @@ pub async fn create_app_services(
         &db,
         config.clone(),
         auth_db.clone(),
+        file_storage_service.clone(),
         perform_application_job,
     ));
 
@@ -206,6 +208,16 @@ where
         BinOper::Like,
         Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
     )
+}
+
+pub async fn get_stored_image(
+    url: StoredUrl,
+    files_storage_service: &Arc<FileStorageService>,
+) -> String {
+    match url {
+        StoredUrl::Url(u) => u,
+        StoredUrl::S3(u) => files_storage_service.get_presigned_url(u).await,
+    }
 }
 
 #[derive(Debug)]

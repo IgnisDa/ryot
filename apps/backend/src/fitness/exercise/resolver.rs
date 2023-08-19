@@ -19,6 +19,7 @@ use crate::{
         prelude::{Exercise, UserMeasurement},
         user_measurement,
     },
+    file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle,
@@ -28,10 +29,10 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes,
         },
-        SearchDetails, SearchResults,
+        SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, MemoryDatabase},
+    utils::{get_case_insensitive_like_query, get_stored_image, MemoryDatabase},
 };
 
 use super::logic::UserWorkoutInput;
@@ -169,9 +170,10 @@ impl ExerciseMutation {
 
 pub struct ExerciseService {
     db: DatabaseConnection,
-    auth_db: MemoryDatabase,
-    perform_application_job: SqliteStorage<ApplicationJob>,
     config: Arc<AppConfig>,
+    auth_db: MemoryDatabase,
+    file_storage_service: Arc<FileStorageService>,
+    perform_application_job: SqliteStorage<ApplicationJob>,
 }
 
 impl AuthProvider for ExerciseService {
@@ -185,12 +187,14 @@ impl ExerciseService {
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
         auth_db: MemoryDatabase,
+        file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
             auth_db,
+            file_storage_service,
             perform_application_job: perform_application_job.clone(),
         }
     }

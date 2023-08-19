@@ -19,12 +19,12 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-pub enum ApplicationImageUrl {
+pub enum StoredUrl {
     S3(String),
     Url(String),
 }
 
-impl Default for ApplicationImageUrl {
+impl Default for StoredUrl {
     fn default() -> Self {
         Self::Url("".to_owned())
     }
@@ -673,7 +673,7 @@ pub mod media {
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
-        pub url: ApplicationImageUrl,
+        pub url: StoredUrl,
         pub lot: MetadataImageLot,
     }
 
