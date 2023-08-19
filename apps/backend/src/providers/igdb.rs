@@ -12,9 +12,9 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, VideoGameSpecifics,
+            VideoGameSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults,
+        ApplicationImageUrl, NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
 };
@@ -168,8 +168,8 @@ offset: {offset};
                         .images
                         .into_iter()
                         .map(|i| match i.url {
-                            MetadataImageUrl::S3(_u) => unreachable!(),
-                            MetadataImageUrl::Url(u) => u,
+                            ApplicationImageUrl::S3(_u) => unreachable!(),
+                            ApplicationImageUrl::Url(u) => u,
                         })
                         .collect_vec()
                         .get(0)
@@ -191,7 +191,7 @@ offset: {offset};
 impl IgdbService {
     fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImage {
-            url: MetadataImageUrl::Url(self.get_cover_image_url(a.image_id)),
+            url: ApplicationImageUrl::Url(self.get_cover_image_url(a.image_id)),
             lot: MetadataImageLot::Poster,
         }));
         let additional_images =
@@ -199,7 +199,7 @@ impl IgdbService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|a| MetadataImage {
-                    url: MetadataImageUrl::Url(self.get_cover_image_url(a.image_id)),
+                    url: ApplicationImageUrl::Url(self.get_cover_image_url(a.image_id)),
                     lot: MetadataImageLot::Poster,
                 });
         images.extend(additional_images);

@@ -16,9 +16,9 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageUrl, PodcastEpisode, PodcastSpecifics,
+            PodcastEpisode, PodcastSpecifics,
         },
-        SearchDetails, SearchResults,
+        ApplicationImageUrl, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
 };
@@ -193,7 +193,7 @@ impl ListennotesService {
                 .unique()
                 .collect(),
             images: Vec::from_iter(d.image.map(|a| MetadataImage {
-                url: MetadataImageUrl::Url(a),
+                url: ApplicationImageUrl::Url(a),
                 lot: MetadataImageLot::Poster,
             })),
             publish_year: d.publish_date.map(|r| r.year()),

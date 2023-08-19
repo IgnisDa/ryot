@@ -11,9 +11,12 @@ use crate::{
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
-    models::media::{
-        BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
-        MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage, MetadataImageUrl,
+    models::{
+        media::{
+            BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportItemSeen, MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage,
+        },
+        ApplicationImageUrl,
     },
 };
 
@@ -125,7 +128,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             }],
                             genres: vec![],
                             images: vec![MetadataImage {
-                                url: MetadataImageUrl::Url(d.book_large_image_url),
+                                url: ApplicationImageUrl::Url(d.book_large_image_url),
                                 lot: MetadataImageLot::Poster,
                             }],
                             publish_year: d.book_published.parse().ok(),

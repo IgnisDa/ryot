@@ -18,6 +18,18 @@ use crate::{
     },
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+pub enum ApplicationImageUrl {
+    S3(String),
+    Url(String),
+}
+
+impl Default for ApplicationImageUrl {
+    fn default() -> Self {
+        Self::Url("".to_owned())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]
 #[graphql(input_name = "NamedObjectInput")]
 pub struct NamedObject {
@@ -657,23 +669,11 @@ pub mod media {
         Unknown,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-    pub enum MetadataImageUrl {
-        S3(String),
-        Url(String),
-    }
-
-    impl Default for MetadataImageUrl {
-        fn default() -> Self {
-            Self::Url("".to_owned())
-        }
-    }
-
     #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
-        pub url: MetadataImageUrl,
+        pub url: ApplicationImageUrl,
         pub lot: MetadataImageLot,
     }
 

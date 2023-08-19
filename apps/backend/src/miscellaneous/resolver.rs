@@ -65,13 +65,13 @@ use crate::{
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageUrl, MetadataImages, MovieSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MetadataImage, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, Visibility,
         },
-        IdObject, SearchDetails, SearchInput, SearchResults,
+        ApplicationImageUrl, IdObject, SearchDetails, SearchInput, SearchResults,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -1204,10 +1204,10 @@ impl MiscellaneousService {
         })
     }
 
-    async fn get_stored_image(&self, m: MetadataImageUrl) -> String {
+    async fn get_stored_image(&self, m: ApplicationImageUrl) -> String {
         match m {
-            MetadataImageUrl::Url(u) => u,
-            MetadataImageUrl::S3(u) => self.files_storage_service.get_presigned_url(u).await,
+            ApplicationImageUrl::Url(u) => u,
+            ApplicationImageUrl::S3(u) => self.files_storage_service.get_presigned_url(u).await,
         }
     }
 
@@ -3524,7 +3524,7 @@ impl MiscellaneousService {
             .unwrap_or_default()
             .into_iter()
             .map(|i| MetadataImage {
-                url: MetadataImageUrl::S3(i),
+                url: ApplicationImageUrl::S3(i),
                 lot: MetadataImageLot::Poster,
             })
             .collect();
