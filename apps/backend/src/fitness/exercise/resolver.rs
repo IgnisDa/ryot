@@ -348,6 +348,7 @@ impl ExerciseService {
                 identifier: ActiveValue::Set(ex.identifier),
                 muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(ExerciseAttributes {
+                    muscles: vec![],
                     instructions: ex.attributes.instructions,
                     internal_images: ex
                         .attributes

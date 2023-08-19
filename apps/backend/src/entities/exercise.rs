@@ -29,8 +29,6 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
-    // FIXME: Display muscle in frontend list when https://github.com/SeaQL/sea-orm/issues/1517
-    // is fixed.
     #[graphql(skip)]
     pub muscles: ExerciseMuscles,
 }
@@ -43,6 +41,8 @@ impl Model {
             images.push(get_stored_image(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
+        // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
+        converted_exercise.attributes.muscles = self.muscles.0;
         converted_exercise
     }
 }

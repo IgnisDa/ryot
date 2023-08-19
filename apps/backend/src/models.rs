@@ -755,6 +755,8 @@ pub mod fitness {
         pub internal_images: Vec<StoredUrl>,
         #[serde(default)]
         pub images: Vec<String>,
+        #[serde(default)]
+        pub muscles: Vec<ExerciseMuscle>,
     }
 
     #[derive(
