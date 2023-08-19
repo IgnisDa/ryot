@@ -14,6 +14,7 @@ mod m20230804_create_user_measurement;
 mod m20230808_create_user_to_exercise;
 mod m20230814_add_lot_field_to_exercise;
 mod m20230814_add_muscles_field_to_exercise;
+mod m20230819_change_exercise_structure;
 
 pub use m20230410_create_metadata::{Metadata, MetadataImageLot, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -43,6 +44,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230808_create_user_to_exercise::Migration),
             Box::new(m20230814_add_lot_field_to_exercise::Migration),
             Box::new(m20230814_add_muscles_field_to_exercise::Migration),
+            Box::new(m20230819_change_exercise_structure::Migration),
         ]
     }
 }
