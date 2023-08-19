@@ -62,14 +62,14 @@ their ratings, history, comments and lists. A few points to note.
 
 ## Movary
 
-All movies can be imported from [Movary](https://movary.org) along with
-their ratings, history, and comments.
+The Watchlist and all movies can be imported from [Movary](https://movary.org)
+along with ratings, history, and comments.
   
 ### Steps
 
 - Login to your Movary account and go to the settings page. Go to "Personal data"
   under the "Account" section.
-- Export "history.csv" and "ratings.csv".
+- Export "history.csv", "watchlist.csv" and "ratings.csv".
 - Upload these files in the input.
 
 ## StoryGraph
