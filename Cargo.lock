@@ -413,6 +413,7 @@ dependencies = [
  "handlebars",
  "http",
  "indexmap 2.0.0",
+ "iso8601",
  "log",
  "mime",
  "multer",
@@ -2774,6 +2775,15 @@ name = "is_ci"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "616cde7c720bb2bb5824a224687d8f77bfd38922027f01d825cd7453be5099fb"
+
+[[package]]
+name = "iso8601"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "924e5d73ea28f59011fec52a0d12185d496a9b075d360657aed2a5707f701153"
+dependencies = [
+ "nom 7.1.3",
+]
 
 [[package]]
 name = "isolang"
