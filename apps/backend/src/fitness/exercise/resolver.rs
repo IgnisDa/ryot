@@ -324,11 +324,12 @@ impl ExerciseService {
     }
 
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
-        let mut storage = self.perform_application_job.clone();
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
-            let job = storage
+            let job = self
+                .perform_application_job
+                .clone()
                 .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
             job_ids.push(job.to_string());
