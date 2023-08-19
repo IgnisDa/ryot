@@ -17,3 +17,4 @@ pub mod user;
 pub mod user_measurement;
 pub mod user_to_exercise;
 pub mod user_to_metadata;
+pub mod workout;
