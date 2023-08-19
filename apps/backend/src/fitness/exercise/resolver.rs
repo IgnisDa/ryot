@@ -32,7 +32,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, get_stored_image, MemoryDatabase},
+    utils::{get_case_insensitive_like_query, MemoryDatabase},
 };
 
 use super::logic::UserWorkoutInput;
@@ -245,14 +245,7 @@ impl ExerciseService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
-            Some(mut e) => {
-                let mut images = vec![];
-                for image in e.attributes.internal_images.iter() {
-                    images.push(get_stored_image(image.clone(), &self.file_storage_service).await);
-                }
-                e.attributes.images = images;
-                Ok(e)
-            }
+            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
         }
     }
 
@@ -304,13 +297,7 @@ impl ExerciseService {
             .fetch_page((input.page - 1).try_into().unwrap())
             .await?
         {
-            let mut ex = ex;
-            let mut images = vec![];
-            for image in ex.attributes.internal_images.iter() {
-                images.push(get_stored_image(image.clone(), &self.file_storage_service).await);
-            }
-            ex.attributes.images = images;
-            items.push(ex);
+            items.push(ex.graphql_repr(&self.file_storage_service).await);
         }
         let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
             Some(input.page + 1)
