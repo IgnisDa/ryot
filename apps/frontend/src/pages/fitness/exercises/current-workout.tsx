@@ -471,7 +471,7 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<>
 			<Head>
-				<title>Workout in progress | Ryot</title>
+				<title>Current Workout | Ryot</title>
 			</Head>
 			<Container size="sm">
 				{currentWorkout ? (
