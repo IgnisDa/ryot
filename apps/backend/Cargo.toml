@@ -11,7 +11,6 @@ apalis = { version = "0.4.4", features = ["cron", "extensions", "limit", "sqlite
 argon2 = "0.5.1"
 async-graphql = { version = "6.0.1", features = [
     "chrono",
-    "chrono-duration",
     "decimal",
     "log",
     "uuid",
