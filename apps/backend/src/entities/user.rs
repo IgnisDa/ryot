@@ -54,9 +54,9 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_measurement::Entity")]
     UserMeasurement,
-    #[sea_orm(has_one = "super::user_to_exercise::Entity")]
+    #[sea_orm(has_many = "super::user_to_exercise::Entity")]
     UserToExercise,
-    #[sea_orm(has_one = "super::user_to_metadata::Entity")]
+    #[sea_orm(has_many = "super::user_to_metadata::Entity")]
     UserToMetadata,
     #[sea_orm(has_many = "super::workout::Entity")]
     Workout,
