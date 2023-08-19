@@ -354,7 +354,7 @@ impl ExerciseService {
                         .attributes
                         .images
                         .into_iter()
-                        .map(|i| StoredUrl::Url(i))
+                        .map(StoredUrl::Url)
                         .collect(),
                     images: vec![],
                 }),
