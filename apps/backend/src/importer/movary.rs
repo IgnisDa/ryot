@@ -11,6 +11,7 @@ use crate::{
         ImportOrExportItemIdentifier, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
+    miscellaneous::DefaultCollection,
     models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
     utils::convert_naive_to_utc,
 };
@@ -75,6 +76,30 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 podcast_episode_number: None,
             }],
             collections: vec![],
+        })
+    }
+    let mut watchlist_reader = Reader::from_reader(input.watchlist.as_bytes());
+    for (idx, result) in watchlist_reader.deserialize().enumerate() {
+        let record: Common = match result {
+            Ok(r) => r,
+            Err(e) => {
+                failed_items.push(ImportFailedItem {
+                    lot,
+                    step: ImportFailStep::InputTransformation,
+                    identifier: idx.to_string(),
+                    error: Some(e.to_string()),
+                });
+                continue;
+            }
+        };
+        media.push(ImportOrExportItem {
+            source_id: record.title,
+            lot,
+            source,
+            identifier: ImportOrExportItemIdentifier::NeedsDetails(record.tmdb_id.to_string()),
+            seen_history: vec![],
+            reviews: vec![],
+            collections: vec![DefaultCollection::Watchlist.to_string()],
         })
     }
     let mut history_reader = Reader::from_reader(input.history.as_bytes());
