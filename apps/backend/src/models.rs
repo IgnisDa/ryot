@@ -750,6 +750,9 @@ pub mod fitness {
     #[serde(rename_all = "camelCase")]
     pub struct ExerciseAttributes {
         pub instructions: Vec<String>,
+        #[graphql(skip)]
+        #[serde(default)]
+        pub internal_images: Vec<StoredUrl>,
         #[serde(default)]
         pub images: Vec<String>,
     }

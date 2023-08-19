@@ -245,7 +245,14 @@ impl ExerciseService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
-            Some(e) => Ok(e),
+            Some(mut e) => {
+                let mut images = vec![];
+                for image in e.attributes.internal_images.iter() {
+                    images.push(get_stored_image(image.clone(), &self.file_storage_service).await);
+                }
+                e.attributes.images = images;
+                Ok(e)
+            }
         }
     }
 
@@ -297,6 +304,12 @@ impl ExerciseService {
             .fetch_page((input.page - 1).try_into().unwrap())
             .await?
         {
+            let mut ex = ex;
+            let mut images = vec![];
+            for image in ex.attributes.internal_images.iter() {
+                images.push(get_stored_image(image.clone(), &self.file_storage_service).await);
+            }
+            ex.attributes.images = images;
             items.push(ex);
         }
         let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
@@ -348,7 +361,13 @@ impl ExerciseService {
                 muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(ExerciseAttributes {
                     instructions: ex.attributes.instructions,
-                    images: ex.attributes.images,
+                    internal_images: ex
+                        .attributes
+                        .images
+                        .into_iter()
+                        .map(|i| StoredUrl::Url(i))
+                        .collect(),
+                    images: vec![],
                 }),
                 lot: ActiveValue::Set(lot),
                 level: ActiveValue::Set(ex.attributes.level),
