@@ -216,6 +216,7 @@ const Page: NextPageWithLayout = () => {
 					</Text>
 					<SimpleGrid
 						cols={1}
+						style={{ alignItems: "center" }}
 						spacing="lg"
 						breakpoints={[
 							{ minWidth: "sm", cols: 2 },
