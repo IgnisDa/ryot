@@ -37,7 +37,7 @@ export const APP_ROUTES = {
 	},
 	fitness: {
 		exercises: {
-			list: "/fitness/exercises",
+			list: "/fitness/exercises/list",
 			currentWorkout: "/fitness/exercises/current-workout",
 		},
 		measurements: "/fitness/measurements",
