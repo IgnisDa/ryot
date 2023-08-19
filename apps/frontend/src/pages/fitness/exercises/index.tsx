@@ -342,7 +342,7 @@ const Page: NextPageWithLayout = () => {
 											});
 									}),
 								);
-								router.push(APP_ROUTES.fitness.exercises.inProgress);
+								router.replace(APP_ROUTES.fitness.exercises.inProgress);
 							}}
 						>
 							<IconCheck size="1.6rem" />
