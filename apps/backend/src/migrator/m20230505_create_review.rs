@@ -5,13 +5,8 @@ use crate::{
     models::media::Visibility,
 };
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230505_create_review"
-    }
-}
 
 pub static CREATOR_TO_REVIEW_FOREIGN_KEY: &str = "review_to_creator_foreign_key";
 

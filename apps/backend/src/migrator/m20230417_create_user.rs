@@ -5,13 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::migrator::Metadata;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230417_create_user"
-    }
-}
 
 /// This exists if a media item is related to a user. A media is related to a
 /// user if:

@@ -2,13 +2,8 @@ use sea_orm_migration::prelude::*;
 
 use crate::migrator::Metadata;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230502_create_genre"
-    }
-}
 
 #[derive(Iden)]
 pub enum MetadataToGenre {

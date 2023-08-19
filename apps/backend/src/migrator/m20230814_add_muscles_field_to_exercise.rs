@@ -4,13 +4,8 @@ use sea_orm_migration::prelude::*;
 use super::m20230622_create_exercise::Exercise;
 use crate::entities::prelude::Exercise as ExerciseModel;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230814_add_muscles_field_to_exercise"
-    }
-}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {

@@ -6,13 +6,8 @@ use strum::Display;
 
 use super::m20230417_create_user::User;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230509_create_import_report"
-    }
-}
 
 #[derive(
     Debug,

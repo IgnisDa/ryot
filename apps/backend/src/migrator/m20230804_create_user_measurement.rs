@@ -2,15 +2,10 @@ use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static USER_MEASUREMENT_PRIMARY_KEY: &str = "pk-user_measurement";
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20230804_create_user_measurement"
-    }
-}
 
 #[derive(Iden)]
 pub enum UserMeasurement {
