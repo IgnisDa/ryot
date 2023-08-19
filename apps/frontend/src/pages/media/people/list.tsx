@@ -32,6 +32,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
+		defaultValue: "1",
 		key: "savedCreatorPage",
 		getInitialValueInEffect: false,
 	});
@@ -48,9 +49,6 @@ const Page: NextPageWithLayout = () => {
 				},
 			});
 			return creatorsList;
-		},
-		onSuccess: () => {
-			if (!activePage) setPage("1");
 		},
 		staleTime: Infinity,
 	});
