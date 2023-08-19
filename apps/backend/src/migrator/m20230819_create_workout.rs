@@ -9,12 +9,14 @@ pub struct Migration;
 pub enum Workout {
     Table,
     Id,
+    /// Whether this workout has its records (PRs) calculated.
+    Processed,
     UserId,
     Name,
     Comment,
     StartTime,
     EndTime,
-    /// General information like total weights lifted, number of records etc
+    /// General information like total weights lifted, number of records etc.
     Summary,
     /// Actual exercises performed, supersets, etc.
     Information,
@@ -32,6 +34,12 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .string()
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Workout::Processed)
+                            .boolean()
+                            .not_null()
+                            .default(true),
                     )
                     .col(
                         ColumnDef::new(Workout::StartTime)

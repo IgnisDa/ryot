@@ -10,6 +10,7 @@ use crate::fitness::exercise::logic::{WorkoutInformation, WorkoutSummary};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub processed: bool,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     pub user_id: i32,
