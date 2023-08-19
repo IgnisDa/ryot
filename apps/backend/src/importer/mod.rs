@@ -56,6 +56,8 @@ pub struct DeployMovaryImportInput {
     history: String,
     // The CSV contents of the ratings file.
     ratings: String,
+    // The CSV contents of the watchlist file.
+    watchlist: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

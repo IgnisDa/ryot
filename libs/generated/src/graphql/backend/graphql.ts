@@ -238,6 +238,7 @@ export type DeployMediaTrackerImportInput = {
 export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
+  watchlist: Scalars['String']['input'];
 };
 
 export type DeployStoryGraphImportInput = {

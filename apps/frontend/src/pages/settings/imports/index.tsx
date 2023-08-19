@@ -60,6 +60,7 @@ type GoodreadsImportFormSchema = z.infer<typeof goodreadsImportFormSchema>;
 const movaryImportFormSchema = z.object({
 	ratings: z.any(),
 	history: z.any(),
+	watchlist: z.any(),
 });
 type MovaryImportFormSchema = z.infer<typeof movaryImportFormSchema>;
 
@@ -160,6 +161,9 @@ const Page: NextPageWithLayout = () => {
 											),
 											history: await fileToText(
 												movaryImportForm.values.history,
+											),
+											watchlist: await fileToText(
+												movaryImportForm.values.watchlist
 											),
 										},
 									}))
@@ -271,6 +275,12 @@ const Page: NextPageWithLayout = () => {
 												accept=".csv"
 												required
 												{...movaryImportForm.getInputProps("ratings")}
+											/>
+											<FileInput
+												label="Watchlist CSV file"
+												accept=".csv"
+												required
+												{...movaryImportForm.getInputProps("watchlist")}
 											/>
 										</>
 									))
