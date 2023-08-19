@@ -53,7 +53,8 @@ pub struct WorkoutTotals {
     pub personal_bests: u16,
     pub weight: u32,
     pub reps: u32,
-    pub active_duration: u32,
+    // The time in seconds.
+    pub active_duration: u64,
 }
 
 #[derive(
@@ -80,8 +81,18 @@ pub struct WorkoutInformation {
 #[derive(
     Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
+pub struct WorkoutSummaryExercise {
+    pub num_sets: u16,
+    pub name: String,
+    pub best_set: WorkoutSetRecord,
+}
+
+#[derive(
+    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+)]
 pub struct WorkoutSummary {
     pub total: WorkoutTotals,
+    pub exercises: Vec<WorkoutSummaryExercise>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
