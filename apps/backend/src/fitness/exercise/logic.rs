@@ -70,11 +70,17 @@ pub struct ProcessedExercise {
 #[derive(
     Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
-struct ProcessedWorkout {
-    pub exercises: Vec<ProcessedExercise>,
+struct WorkoutInformation {
     /// Each grouped superset of exercises will be in a vector. They will contain
     /// the `exercise.idx`.
     pub supersets: Vec<Vec<u16>>,
+    pub exercises: Vec<ProcessedExercise>,
+}
+
+#[derive(
+    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+)]
+struct WorkoutSummary {
     pub total: WorkoutTotals,
 }
 
