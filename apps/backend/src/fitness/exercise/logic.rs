@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_graphql::{Enum, InputObject, SimpleObject};
-use sea_orm::{prelude::DateTimeUtc, DatabaseConnection, FromJsonQueryResult};
+use sea_orm::{prelude::DateTimeUtc, ActiveModelTrait, DatabaseConnection, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::entities::workout;
@@ -124,8 +124,13 @@ pub struct UserWorkoutInput {
 }
 
 impl UserWorkoutInput {
-    pub async fn calculate(self, user_id: i32, db: &DatabaseConnection) -> Result<workout::Model> {
-        Ok(workout::Model {
+    /// Create a workout in the database and also update user and exercise associations.
+    pub async fn calculate_and_commit(
+        self,
+        user_id: i32,
+        db: &DatabaseConnection,
+    ) -> Result<String> {
+        let model = workout::Model {
             id: self.identifier,
             start_time: self.start_time,
             end_time: self.end_time,
@@ -173,6 +178,9 @@ impl UserWorkoutInput {
                     })
                     .collect(),
             },
-        })
+        };
+        let insert: workout::ActiveModel = model.into();
+        let data = insert.insert(db).await?;
+        Ok(data.id)
     }
 }
