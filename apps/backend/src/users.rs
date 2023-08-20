@@ -284,6 +284,7 @@ pub struct UserYankIntegrations(pub Vec<UserYankIntegration>);
 #[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
 pub enum UserSinkIntegrationSetting {
     Jellyfin { slug: String },
+    Plex { slug: String },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
