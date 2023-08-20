@@ -1,6 +1,9 @@
+use anyhow::Result;
 use async_graphql::{Enum, InputObject, SimpleObject};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::{prelude::DateTimeUtc, DatabaseConnection, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+
+use crate::entities::workout;
 
 #[derive(
     Clone,
@@ -118,4 +121,58 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
+}
+
+impl UserWorkoutInput {
+    pub async fn calculate(self, user_id: i32, db: &DatabaseConnection) -> Result<workout::Model> {
+        Ok(workout::Model {
+            id: self.identifier,
+            start_time: self.start_time,
+            end_time: self.end_time,
+            user_id,
+            name: self.name,
+            comment: self.comment,
+            // TODO: Mark as true when calculation code is complete.
+            processed: false,
+            // FIXME: Correct calculations
+            summary: WorkoutSummary {
+                total: WorkoutTotals {
+                    personal_bests: 0,
+                    weight: 0,
+                    reps: 0,
+                    active_duration: 0,
+                },
+                exercises: vec![],
+            },
+            information: WorkoutInformation {
+                supersets: self.supersets,
+                exercises: self
+                    .exercises
+                    .into_iter()
+                    .map(|e| ProcessedExercise {
+                        exercise_id: e.exercise_id,
+                        sets: e
+                            .sets
+                            .into_iter()
+                            .map(|s| WorkoutSetRecord {
+                                statistic: s.statistic,
+                                lot: s.lot,
+                                // FIXME: Correct calculations
+                                personal_bests: vec![],
+                            })
+                            .collect(),
+                        notes: e.notes,
+                        rest_time: e.rest_time,
+                        // FIXME: Correct calculations
+                        total: WorkoutTotals {
+                            personal_bests: 0,
+                            weight: 0,
+                            reps: 0,
+                            active_duration: 0,
+                        },
+                    })
+                    .collect(),
+            },
+        })
+    }
 }

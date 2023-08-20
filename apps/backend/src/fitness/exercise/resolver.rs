@@ -17,7 +17,7 @@ use crate::{
     entities::{
         exercise,
         prelude::{Exercise, UserMeasurement},
-        user_measurement,
+        user_measurement, workout,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -413,7 +413,9 @@ impl ExerciseService {
     }
 
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
-        dbg!(input);
-        todo!()
+        let model = input.calculate(user_id, &self.db).await?;
+        let insert: workout::ActiveModel = model.into();
+        let data = insert.insert(&self.db).await?;
+        Ok(data.id)
     }
 }
