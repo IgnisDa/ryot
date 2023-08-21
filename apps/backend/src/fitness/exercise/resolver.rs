@@ -9,6 +9,7 @@ use sea_orm::{
 };
 use sea_query::{Alias, Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
+use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -413,7 +414,9 @@ impl ExerciseService {
     }
 
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
-        let identifier = input.calculate_and_commit(user_id, &self.db).await?;
+        let sf = Sonyflake::new().unwrap();
+        let id = sf.next_id().unwrap().to_string();
+        let identifier = input.calculate_and_commit(user_id, &self.db, id).await?;
         Ok(identifier)
     }
 }

@@ -9,7 +9,6 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use sonyflake::Sonyflake;
 
 use crate::{
     entities::{
@@ -143,9 +142,8 @@ impl UserWorkoutInput {
         self,
         user_id: i32,
         db: &DatabaseConnection,
+        id: String,
     ) -> Result<String> {
-        let sf = Sonyflake::new().unwrap();
-        let id = sf.next_id().unwrap().to_string();
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         for (idx, ex) in self.exercises.into_iter().enumerate() {
@@ -188,7 +186,7 @@ impl UserWorkoutInput {
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
                     up.last_updated_on = ActiveValue::Set(Utc::now());
-                    (up.update(db).await?, vec!["testing".to_owned()])
+                    (up.update(db).await?, vec!["testing"])
                 }
             };
             for set in ex.sets {
