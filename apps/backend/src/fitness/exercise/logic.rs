@@ -164,7 +164,7 @@ impl UserWorkoutInput {
                 workout_id: self.identifier.clone(),
                 idx,
             };
-            let all_sets: Vec<String> = match association {
+            let (association, all_sets) = match association {
                 None => {
                     let user_to_ex = user_to_exercise::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
@@ -173,10 +173,10 @@ impl UserWorkoutInput {
                         last_updated_on: ActiveValue::Set(Utc::now()),
                         extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
                             history: vec![history_item],
+                            lifetime_stats: TotalMeasurement::default(),
                         }),
                     };
-                    user_to_ex.insert(db).await.unwrap();
-                    vec![]
+                    (user_to_ex.insert(db).await.unwrap(), vec![])
                 }
                 Some(e) => {
                     let performed = e.num_times_performed;
@@ -186,8 +186,7 @@ impl UserWorkoutInput {
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
                     up.last_updated_on = ActiveValue::Set(Utc::now());
-                    up.update(db).await?;
-                    vec![]
+                    (up.update(db).await?, vec!["testing".to_owned()])
                 }
             };
             for set in ex.sets {
@@ -213,6 +212,11 @@ impl UserWorkoutInput {
                 });
             }
             workout_totals.push(total.clone());
+            let mut association_totals = association.extra_information.clone();
+            let mut association: user_to_exercise::ActiveModel = association.into();
+            association_totals.lifetime_stats += total.clone();
+            association.extra_information = ActiveValue::Set(association_totals);
+            association.update(db).await?;
             exercises.push(ProcessedExercise {
                 exercise_id: ex.exercise_id,
                 exercise_name: db_ex.name,

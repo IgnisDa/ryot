@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
-use derive_more::{Add, Sum};
+use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
@@ -840,6 +840,7 @@ pub mod fitness {
         Default,
         Sum,
         Add,
+        AddAssign,
     )]
     pub struct TotalMeasurement {
         /// The number of personal bests achieved.
@@ -863,5 +864,6 @@ pub mod fitness {
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
+        pub lifetime_stats: TotalMeasurement,
     }
 }
