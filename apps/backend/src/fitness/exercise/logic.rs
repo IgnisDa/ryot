@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::Utc;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -32,10 +34,10 @@ use crate::{
 )]
 #[graphql(input_name = "SetStatisticInput")]
 pub struct SetStatistic {
-    pub duration: Option<usize>,
-    pub distance: Option<usize>,
-    pub reps: Option<usize>,
-    pub weight: Option<usize>,
+    pub duration: Option<Decimal>,
+    pub distance: Option<Decimal>,
+    pub reps: Option<Decimal>,
+    pub weight: Option<Decimal>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
@@ -64,10 +66,10 @@ pub struct WorkoutSetRecord {
 
 fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
     records.iter().max_by_key(|record| {
-        record.statistic.duration.unwrap_or(0)
-            + record.statistic.distance.unwrap_or(0)
-            + record.statistic.reps.unwrap_or(0)
-            + record.statistic.weight.unwrap_or(0)
+        record.statistic.duration.unwrap_or(dec!(0))
+            + record.statistic.distance.unwrap_or(dec!(0))
+            + record.statistic.reps.unwrap_or(dec!(0))
+            + record.statistic.weight.unwrap_or(dec!(0))
     })
 }
 

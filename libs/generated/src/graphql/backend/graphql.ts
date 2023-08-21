@@ -1168,10 +1168,10 @@ export enum SetLot {
 }
 
 export type SetStatisticInput = {
-  distance?: InputMaybe<Scalars['Int']['input']>;
-  duration?: InputMaybe<Scalars['Int']['input']>;
-  reps?: InputMaybe<Scalars['Int']['input']>;
-  weight?: InputMaybe<Scalars['Int']['input']>;
+  distance?: InputMaybe<Scalars['Decimal']['input']>;
+  duration?: InputMaybe<Scalars['Decimal']['input']>;
+  reps?: InputMaybe<Scalars['Decimal']['input']>;
+  weight?: InputMaybe<Scalars['Decimal']['input']>;
 };
 
 export type ShowEpisode = {
