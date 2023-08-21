@@ -70,8 +70,6 @@ pub struct TotalMeasurement {
     pub reps: u16,
     pub distance: u16,
     pub duration: u16,
-    // The time in seconds.
-    pub active_duration: u64,
 }
 
 #[derive(
@@ -234,7 +232,6 @@ impl UserWorkoutInput {
                     reps: 0,
                     distance: 0,
                     duration: 0,
-                    active_duration: 0,
                 },
                 exercises: vec![],
             },
