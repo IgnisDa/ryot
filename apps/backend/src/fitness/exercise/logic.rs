@@ -1,9 +1,11 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_graphql::{Enum, InputObject, SimpleObject};
-use sea_orm::{prelude::DateTimeUtc, ActiveModelTrait, DatabaseConnection, FromJsonQueryResult};
+use sea_orm::{
+    prelude::DateTimeUtc, ActiveModelTrait, DatabaseConnection, EntityTrait, FromJsonQueryResult,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::workout;
+use crate::entities::{prelude::Exercise, workout};
 
 #[derive(
     Clone,
@@ -64,6 +66,7 @@ pub struct WorkoutTotals {
     Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
 pub struct ProcessedExercise {
+    pub exercise_name: String,
     pub exercise_id: i32,
     pub sets: Vec<WorkoutSetRecord>,
     pub notes: Vec<String>,
@@ -130,6 +133,36 @@ impl UserWorkoutInput {
         user_id: i32,
         db: &DatabaseConnection,
     ) -> Result<String> {
+        let mut exercises = vec![];
+        for ex in self.exercises {
+            let db_ex = Exercise::find_by_id(ex.exercise_id)
+                .one(db)
+                .await?
+                .ok_or_else(|| anyhow!("No exercise found!"))?;
+            exercises.push(ProcessedExercise {
+                exercise_id: ex.exercise_id,
+                exercise_name: db_ex.name,
+                sets: ex
+                    .sets
+                    .into_iter()
+                    .map(|s| WorkoutSetRecord {
+                        statistic: s.statistic,
+                        lot: s.lot,
+                        // FIXME: Correct calculations
+                        personal_bests: vec![],
+                    })
+                    .collect(),
+                notes: ex.notes,
+                rest_time: ex.rest_time,
+                // FIXME: Correct calculations
+                total: WorkoutTotals {
+                    personal_bests: 0,
+                    weight: 0,
+                    reps: 0,
+                    active_duration: 0,
+                },
+            });
+        }
         let model = workout::Model {
             id: self.identifier,
             start_time: self.start_time,
@@ -151,32 +184,7 @@ impl UserWorkoutInput {
             },
             information: WorkoutInformation {
                 supersets: self.supersets,
-                exercises: self
-                    .exercises
-                    .into_iter()
-                    .map(|e| ProcessedExercise {
-                        exercise_id: e.exercise_id,
-                        sets: e
-                            .sets
-                            .into_iter()
-                            .map(|s| WorkoutSetRecord {
-                                statistic: s.statistic,
-                                lot: s.lot,
-                                // FIXME: Correct calculations
-                                personal_bests: vec![],
-                            })
-                            .collect(),
-                        notes: e.notes,
-                        rest_time: e.rest_time,
-                        // FIXME: Correct calculations
-                        total: WorkoutTotals {
-                            personal_bests: 0,
-                            weight: 0,
-                            reps: 0,
-                            active_duration: 0,
-                        },
-                    })
-                    .collect(),
+                exercises,
             },
         };
         let insert: workout::ActiveModel = model.into();
