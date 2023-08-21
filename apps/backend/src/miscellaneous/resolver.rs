@@ -1108,7 +1108,6 @@ pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
     file_storage_service: Arc<FileStorageService>,
-    integration_service: IntegrationService,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<AppConfig>,
@@ -1129,7 +1128,6 @@ impl MiscellaneousService {
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
-        let integration_service = IntegrationService::new().await;
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
 
@@ -1145,7 +1143,6 @@ impl MiscellaneousService {
             config,
             file_storage_service,
             seen_progress_cache,
-            integration_service,
             perform_application_job: perform_application_job.clone(),
         }
     }
@@ -1202,6 +1199,10 @@ impl MiscellaneousService {
             upgrade,
             page_limit: self.config.frontend.page_size,
         })
+    }
+
+    async fn get_integration_service(&self) -> IntegrationService {
+        IntegrationService::new().await
     }
 
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
@@ -4215,7 +4216,8 @@ impl MiscellaneousService {
             for integration in integrations.0.iter() {
                 let response = match &integration.settings {
                     UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
-                        self.integration_service
+                        self.get_integration_service()
+                            .await
                             .audiobookshelf_progress(base_url, token)
                             .await
                     }
@@ -4373,7 +4375,8 @@ impl MiscellaneousService {
                     if slug == user_hash_id
                         && integration == UserSinkIntegrationSettingKind::Jellyfin
                     {
-                        self.integration_service
+                        self.get_integration_service()
+                            .await
                             .jellyfin_progress(&payload)
                             .await
                             .ok()
