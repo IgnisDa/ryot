@@ -143,7 +143,7 @@ impl UserWorkoutInput {
                         extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
                             history: vec![history_item],
                             lifetime_stats: TotalMeasurement::default(),
-                            best_set: None,
+                            personal_bests: vec![],
                         }),
                     };
                     user_to_ex.insert(db).await.unwrap()
@@ -179,11 +179,8 @@ impl UserWorkoutInput {
                 });
             }
             workout_totals.push(total.clone());
-            let best_set = association.extra_information.best_set.clone();
+            let personal_bests = association.extra_information.personal_bests.clone();
             let mut m_d = sets.clone();
-            if let Some(bs) = &best_set {
-                m_d.push(bs.data.clone());
-            }
             for set in sets.iter_mut() {
                 let mut personal_bests = vec![];
                 let types_of_prs = match db_ex.lot {
@@ -211,7 +208,7 @@ impl UserWorkoutInput {
             let mut association_extra_information = association.extra_information.clone();
             let mut association: user_to_exercise::ActiveModel = association.into();
             association_extra_information.lifetime_stats += total.clone();
-            association_extra_information.best_set = best_set;
+            association_extra_information.personal_bests = personal_bests;
             association.extra_information = ActiveValue::Set(association_extra_information);
             association.update(db).await?;
             exercises.push(ProcessedExercise {

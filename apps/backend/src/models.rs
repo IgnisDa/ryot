@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use derive_more::{Add, AddAssign, Sum};
+use rs_utils::LengthVec;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -969,9 +970,25 @@ pub mod fitness {
         SimpleObject,
         Default,
     )]
+    pub struct UserToExerciseBestSetExtraInformation {
+        pub lot: WorkoutSetPersonalBest,
+        pub sets: LengthVec<ExerciseBestSetRecord>,
+    }
+
+    #[derive(
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
+    )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
         pub lifetime_stats: TotalMeasurement,
-        pub best_set: Option<ExerciseBestSetRecord>,
+        pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
     }
 }
