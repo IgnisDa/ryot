@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
@@ -8,6 +10,7 @@ use sea_orm::{
     EntityTrait, FromJsonQueryResult, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
 use crate::{
     entities::{
@@ -29,19 +32,15 @@ fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
     })
 }
 
-pub fn get_highest_element_by_personal_best<'a>(
-    record1: &'a WorkoutSetRecord,
-    record2: &'a WorkoutSetRecord,
+pub fn get_highest_personal_best(
+    records: &[WorkoutSetRecord],
     pb_type: WorkoutSetPersonalBest,
-) -> Option<&'a WorkoutSetRecord> {
-    let pb1 = record1.get_personal_best(pb_type)?;
-    let pb2 = record2.get_personal_best(pb_type)?;
-
-    if pb1 > pb2 {
-        Some(record1)
-    } else {
-        Some(record2)
-    }
+) -> Option<&WorkoutSetRecord> {
+    records.iter().max_by(|record1, record2| {
+        let pb1 = record1.get_personal_best(pb_type).unwrap_or(dec!(0.0));
+        let pb2 = record2.get_personal_best(pb_type).unwrap_or(dec!(0.0));
+        pb1.partial_cmp(&pb2).unwrap_or(Ordering::Equal)
+    })
 }
 
 #[derive(
@@ -182,9 +181,20 @@ impl UserWorkoutInput {
             }
             workout_totals.push(total.clone());
             let best_set = association.extra_information.best_set.clone();
+            let mut m_d = sets.clone();
+            if let Some(bs) = &best_set {
+                m_d.push(bs.data.clone());
+            }
             for set in sets.iter_mut() {
-                // FIXME: Correct calculations
                 let mut personal_bests = vec![];
+                for best_type in WorkoutSetPersonalBest::iter() {
+                    let best_s = get_highest_personal_best(&m_d, best_type);
+                    if let Some(s) = best_s {
+                        if s == set {
+                            personal_bests.push(best_type);
+                        }
+                    }
+                }
                 total.personal_bests_achieved = personal_bests.len();
                 set.personal_bests = personal_bests;
             }
