@@ -164,6 +164,7 @@ const Page: NextPageWithLayout = () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
 			return collections;
 		},
+		staleTime: Infinity,
 	});
 	const mediaSources = useQuery({
 		queryKey: ["sources", lot],
@@ -179,6 +180,7 @@ const Page: NextPageWithLayout = () => {
 			if (!data.includes(searchSource as unknown as MetadataSource))
 				setSearchSource(data[0]);
 		},
+		staleTime: Infinity,
 	});
 	const searchQuery = useQuery({
 		queryKey: [
