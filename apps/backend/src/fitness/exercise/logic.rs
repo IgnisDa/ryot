@@ -68,6 +68,8 @@ pub struct TotalMeasurement {
     pub personal_bests: u16,
     pub weight: u16,
     pub reps: u16,
+    pub distance: u16,
+    pub duration: u16,
     // The time in seconds.
     pub active_duration: u64,
 }
@@ -193,6 +195,12 @@ impl UserWorkoutInput {
                         total.weight += w * r;
                     }
                 }
+                if let Some(d) = set.statistic.duration {
+                    total.duration += d;
+                }
+                if let Some(d) = set.statistic.distance {
+                    total.distance += d;
+                }
                 sets.push(WorkoutSetRecord {
                     statistic: set.statistic,
                     lot: set.lot,
@@ -224,6 +232,8 @@ impl UserWorkoutInput {
                     personal_bests: 0,
                     weight: 0,
                     reps: 0,
+                    distance: 0,
+                    duration: 0,
                     active_duration: 0,
                 },
                 exercises: vec![],
