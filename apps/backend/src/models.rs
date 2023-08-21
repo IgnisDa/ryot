@@ -899,9 +899,19 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Enum,
+        Copy,
+        Default,
     )]
     pub enum WorkoutSetPersonalBest {
+        #[default]
         Weight,
         OneRm,
         Volume,
