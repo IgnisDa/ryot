@@ -867,6 +867,54 @@ pub mod fitness {
         pub idx: usize,
     }
 
+    #[skip_serializing_none]
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        InputObject,
+    )]
+    #[graphql(input_name = "SetStatisticInput")]
+    pub struct SetStatistic {
+        pub duration: Option<Decimal>,
+        pub distance: Option<Decimal>,
+        pub reps: Option<Decimal>,
+        pub weight: Option<Decimal>,
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
+    )]
+    pub enum SetLot {
+        Normal,
+        WarmUp,
+        Drop,
+        Failure,
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
+    )]
+    pub enum WorkoutSetPersonalBest {
+        Weight,
+        OneRm,
+        Volume,
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    )]
+    pub struct WorkoutSetRecord {
+        pub statistic: SetStatistic,
+        pub lot: SetLot,
+        pub personal_bests: Vec<WorkoutSetPersonalBest>,
+    }
+
     #[derive(
         Debug,
         Clone,
@@ -881,5 +929,6 @@ pub mod fitness {
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
         pub lifetime_stats: TotalMeasurement,
+        pub best_set: Option<WorkoutSetRecord>,
     }
 }

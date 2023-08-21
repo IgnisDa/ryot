@@ -1,68 +1,23 @@
 use anyhow::{anyhow, Result};
-use async_graphql::{Enum, InputObject, SimpleObject};
+use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 
 use crate::{
     entities::{
-        prelude::{Exercise, UserToExercise, Workout},
+        prelude::{Exercise, UserToExercise},
         user_to_exercise, workout,
     },
     models::fitness::{
-        TotalMeasurement, UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation,
+        SetLot, SetStatistic, TotalMeasurement, UserToExerciseExtraInformation,
+        UserToExerciseHistoryExtraInformation, WorkoutSetRecord,
     },
 };
-
-#[skip_serializing_none]
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    InputObject,
-)]
-#[graphql(input_name = "SetStatisticInput")]
-pub struct SetStatistic {
-    pub duration: Option<Decimal>,
-    pub distance: Option<Decimal>,
-    pub reps: Option<Decimal>,
-    pub weight: Option<Decimal>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
-pub enum SetLot {
-    Normal,
-    WarmUp,
-    Drop,
-    Failure,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
-pub enum WorkoutSetPersonalBest {
-    Weight,
-    OneRm,
-    Volume,
-}
-
-#[derive(
-    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
-)]
-pub struct WorkoutSetRecord {
-    pub statistic: SetStatistic,
-    pub lot: SetLot,
-    pub personal_bests: Vec<WorkoutSetPersonalBest>,
-}
 
 fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
     records.iter().max_by_key(|record| {
@@ -164,7 +119,7 @@ impl UserWorkoutInput {
                 workout_id: id.clone(),
                 idx,
             };
-            let (association, all_sets) = match association {
+            let association = match association {
                 None => {
                     let user_to_ex = user_to_exercise::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
@@ -174,27 +129,12 @@ impl UserWorkoutInput {
                         extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
                             history: vec![history_item],
                             lifetime_stats: TotalMeasurement::default(),
+                            best_set: None,
                         }),
                     };
-                    (user_to_ex.insert(db).await.unwrap(), vec![])
+                    user_to_ex.insert(db).await.unwrap()
                 }
                 Some(e) => {
-                    let previous_workouts = e.extra_information.history.clone();
-                    let previous_db_workouts = Workout::find()
-                        .filter(
-                            workout::Column::Id
-                                .is_in(previous_workouts.iter().map(|e| e.workout_id.clone())),
-                        )
-                        .all(db)
-                        .await?;
-                    let mut all_sets = vec![];
-                    for wkt in previous_db_workouts {
-                        let wiq = previous_workouts
-                            .iter()
-                            .find(|w| w.workout_id == wkt.id)
-                            .unwrap();
-                        all_sets.extend(wkt.information.exercises[wiq.idx].sets.clone());
-                    }
                     let performed = e.num_times_performed;
                     let mut extra_info = e.extra_information.clone();
                     extra_info.history.push(history_item);
@@ -202,13 +142,10 @@ impl UserWorkoutInput {
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
                     up.last_updated_on = ActiveValue::Set(Utc::now());
-                    (up.update(db).await?, all_sets)
+                    up.update(db).await?
                 }
             };
-            dbg!(&all_sets);
             for set in ex.sets {
-                // FIXME: Correct calculations
-                let mut personal_bests = vec![];
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
@@ -221,18 +158,25 @@ impl UserWorkoutInput {
                 if let Some(d) = set.statistic.distance {
                     total.distance += d;
                 }
-                total.personal_bests_achieved = personal_bests.len();
                 sets.push(WorkoutSetRecord {
                     statistic: set.statistic,
                     lot: set.lot,
-                    personal_bests,
+                    personal_bests: vec![],
                 });
             }
             workout_totals.push(total.clone());
-            let mut association_totals = association.extra_information.clone();
+            let best_set = None;
+            for set in sets.iter_mut() {
+                // FIXME: Correct calculations
+                let mut personal_bests = vec![];
+                total.personal_bests_achieved = personal_bests.len();
+                set.personal_bests = personal_bests;
+            }
+            let mut association_extra_information = association.extra_information.clone();
             let mut association: user_to_exercise::ActiveModel = association.into();
-            association_totals.lifetime_stats += total.clone();
-            association.extra_information = ActiveValue::Set(association_totals);
+            association_extra_information.lifetime_stats += total.clone();
+            association_extra_information.best_set = best_set;
+            association.extra_information = ActiveValue::Set(association_extra_information);
             association.update(db).await?;
             exercises.push(ProcessedExercise {
                 exercise_id: ex.exercise_id,
