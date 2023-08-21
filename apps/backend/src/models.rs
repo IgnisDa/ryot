@@ -832,7 +832,7 @@ pub mod fitness {
     )]
     pub struct UserToExerciseHistoryExtraInformation {
         pub workout_id: String,
-        pub idx: i32,
+        pub idx: usize,
     }
 
     #[derive(
