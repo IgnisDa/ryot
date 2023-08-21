@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
+use derive_more::{Add, Sum};
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
@@ -825,6 +826,28 @@ pub mod fitness {
         pub calories: Option<Decimal>,
         // DEV: The only custom data type we allow is decimal.
         pub custom: Option<HashMap<String, Decimal>>,
+    }
+
+    #[derive(
+        Debug,
+        FromJsonQueryResult,
+        Clone,
+        Serialize,
+        Deserialize,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
+        Sum,
+        Add,
+    )]
+    pub struct TotalMeasurement {
+        /// The number of personal bests achieved.
+        pub personal_bests_achieved: u16,
+        pub weight: u16,
+        pub reps: u16,
+        pub distance: u16,
+        pub duration: u16,
     }
 
     #[derive(

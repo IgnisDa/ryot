@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::Utc;
-use derive_more::{Add, Sum};
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -14,7 +13,9 @@ use crate::{
         prelude::{Exercise, UserToExercise},
         user_to_exercise, workout,
     },
-    models::fitness::{UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation},
+    models::fitness::{
+        TotalMeasurement, UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation,
+    },
 };
 
 #[skip_serializing_none]
@@ -68,28 +69,6 @@ fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
             + record.statistic.reps.unwrap_or(0)
             + record.statistic.weight.unwrap_or(0)
     })
-}
-
-#[derive(
-    Debug,
-    FromJsonQueryResult,
-    Clone,
-    Serialize,
-    Deserialize,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    Default,
-    Sum,
-    Add,
-)]
-pub struct TotalMeasurement {
-    /// The number of personal bests achieved.
-    pub personal_bests: u16,
-    pub weight: u16,
-    pub reps: u16,
-    pub distance: u16,
-    pub duration: u16,
 }
 
 #[derive(
@@ -183,7 +162,7 @@ impl UserWorkoutInput {
                 workout_id: self.identifier.clone(),
                 idx,
             };
-            let association = match association {
+            let all_sets: Vec<String> = match association {
                 None => {
                     let user_to_ex = user_to_exercise::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
@@ -194,7 +173,8 @@ impl UserWorkoutInput {
                             history: vec![history_item],
                         }),
                     };
-                    user_to_ex.insert(db).await.unwrap()
+                    user_to_ex.insert(db).await.unwrap();
+                    vec![]
                 }
                 Some(e) => {
                     let performed = e.num_times_performed;
@@ -204,7 +184,8 @@ impl UserWorkoutInput {
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
                     up.last_updated_on = ActiveValue::Set(Utc::now());
-                    up.update(db).await?
+                    up.update(db).await?;
+                    vec![]
                 }
             };
             for set in ex.sets {
