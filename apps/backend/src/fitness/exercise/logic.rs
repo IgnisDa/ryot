@@ -12,7 +12,7 @@ use serde_with::skip_serializing_none;
 
 use crate::{
     entities::{
-        prelude::{Exercise, UserToExercise},
+        prelude::{Exercise, UserToExercise, Workout},
         user_to_exercise, workout,
     },
     models::fitness::{
@@ -179,6 +179,22 @@ impl UserWorkoutInput {
                     (user_to_ex.insert(db).await.unwrap(), vec![])
                 }
                 Some(e) => {
+                    let previous_workouts = e.extra_information.history.clone();
+                    let previous_db_workouts = Workout::find()
+                        .filter(
+                            workout::Column::Id
+                                .is_in(previous_workouts.iter().map(|e| e.workout_id.clone())),
+                        )
+                        .all(db)
+                        .await?;
+                    let mut all_sets = vec![];
+                    for wkt in previous_db_workouts {
+                        let wiq = previous_workouts
+                            .iter()
+                            .find(|w| w.workout_id == wkt.id)
+                            .unwrap();
+                        all_sets.extend(wkt.information.exercises[wiq.idx].sets.clone());
+                    }
                     let performed = e.num_times_performed;
                     let mut extra_info = e.extra_information.clone();
                     extra_info.history.push(history_item);
@@ -186,9 +202,10 @@ impl UserWorkoutInput {
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
                     up.last_updated_on = ActiveValue::Set(Utc::now());
-                    (up.update(db).await?, vec!["testing"])
+                    (up.update(db).await?, all_sets)
                 }
             };
+            dbg!(&all_sets);
             for set in ex.sets {
                 // FIXME: Correct calculations
                 let mut personal_bests = vec![];
