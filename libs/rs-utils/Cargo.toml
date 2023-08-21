@@ -4,7 +4,4 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-async-graphql = { workspace = true }
-sea-orm = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }

@@ -4204,10 +4204,7 @@ dependencies = [
 name = "rs-utils"
 version = "0.0.0"
 dependencies = [
- "async-graphql",
- "sea-orm",
  "serde",
- "serde_json",
 ]
 
 [[package]]
