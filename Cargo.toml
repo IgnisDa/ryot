@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "apps/backend",
+    "libs/rs-utils",
 ]
 resolver = "2"
 
