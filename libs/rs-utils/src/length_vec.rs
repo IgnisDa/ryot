@@ -1,6 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use async_graphql::{OutputType, SimpleObject};
+use sea_orm::FromJsonQueryResult;
+use serde::{Deserialize, Serialize};
 
 /// A fixed-length vector-like data structure that automatically removes the oldest element
 /// when a new element is added, ensuring that the length of the vector does not exceed
@@ -32,7 +34,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// assert_eq!(length_vec.len(), 5);
 /// assert_eq!(*length_vec, vec![0, 2, 3, 4, 5]);
 /// ```
-pub struct LengthVec<T> {
+#[derive(
+    Deserialize, Serialize, Debug, Clone, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+)]
+pub struct LengthVec<T: OutputType> {
     data: Vec<T>,
     max_length: usize,
 }
@@ -71,32 +76,6 @@ impl<T> Deref for LengthVec<T> {
 impl<T> DerefMut for LengthVec<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
-    }
-}
-
-impl<T> Serialize for LengthVec<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.data.serialize(serializer)
-    }
-}
-
-impl<'de, T> Deserialize<'de> for LengthVec<T>
-where
-    T: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let data = Vec::deserialize(deserializer)?;
-        let max_length = data.capacity();
-        Ok(LengthVec { data, max_length })
     }
 }
 
