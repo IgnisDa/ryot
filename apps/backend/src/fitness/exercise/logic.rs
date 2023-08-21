@@ -109,7 +109,7 @@ pub struct WorkoutInformation {
     Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
 pub struct WorkoutSummaryExercise {
-    pub num_sets: u16,
+    pub num_sets: usize,
     pub name: String,
     pub best_set: WorkoutSetRecord,
 }
@@ -239,10 +239,17 @@ impl UserWorkoutInput {
             comment: self.comment,
             // TODO: Mark as true when calculation code is complete.
             processed: false,
-            // FIXME: Correct calculations
             summary: WorkoutSummary {
                 total: summary_total,
-                exercises: vec![],
+                exercises: exercises
+                    .iter()
+                    .map(|e| WorkoutSummaryExercise {
+                        num_sets: e.sets.len(),
+                        name: e.exercise_name.clone(),
+                        // FIXME: Correct calculation for best set
+                        best_set: e.sets[0].clone(),
+                    })
+                    .collect(),
             },
             information: WorkoutInformation {
                 supersets: self.supersets,
