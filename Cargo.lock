@@ -1806,6 +1806,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "deunicode"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4333,6 +4344,7 @@ dependencies = [
  "cookie 0.17.0",
  "csv",
  "darkbird",
+ "derive_more",
  "dotenvy",
  "enum_meta",
  "futures 0.3.28",

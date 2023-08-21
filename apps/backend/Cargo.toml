@@ -25,6 +25,7 @@ const-str = "0.5.6"
 cookie = "0.17.0"
 csv = "1.2.2"
 darkbird = "6.1.8"
+derive_more = { version = "0.99.17", features = ["add", "sum"], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 futures = "0.3.28"
