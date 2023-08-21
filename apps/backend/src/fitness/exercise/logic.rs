@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::Utc;
+use derive_more::{Add, Sum};
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -61,7 +62,17 @@ pub struct WorkoutSetRecord {
 }
 
 #[derive(
-    Debug, FromJsonQueryResult, Clone, Serialize, Deserialize, Eq, PartialEq, SimpleObject, Default,
+    Debug,
+    FromJsonQueryResult,
+    Clone,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    SimpleObject,
+    Default,
+    Sum,
+    Add,
 )]
 pub struct TotalMeasurement {
     /// The number of personal bests achieved.
@@ -144,6 +155,7 @@ impl UserWorkoutInput {
         db: &DatabaseConnection,
     ) -> Result<String> {
         let mut exercises = vec![];
+        let mut workout_totals = vec![];
         for (idx, ex) in self.exercises.into_iter().enumerate() {
             let db_ex = Exercise::find_by_id(ex.exercise_id)
                 .one(db)
@@ -207,6 +219,7 @@ impl UserWorkoutInput {
                     personal_bests: vec![],
                 });
             }
+            workout_totals.push(total.clone());
             exercises.push(ProcessedExercise {
                 exercise_id: ex.exercise_id,
                 exercise_name: db_ex.name,
@@ -216,6 +229,7 @@ impl UserWorkoutInput {
                 total,
             });
         }
+        let summary_total = workout_totals.into_iter().sum();
         let model = workout::Model {
             id: self.identifier,
             start_time: self.start_time,
@@ -227,13 +241,7 @@ impl UserWorkoutInput {
             processed: false,
             // FIXME: Correct calculations
             summary: WorkoutSummary {
-                total: TotalMeasurement {
-                    personal_bests: 0,
-                    weight: 0,
-                    reps: 0,
-                    distance: 0,
-                    duration: 0,
-                },
+                total: summary_total,
                 exercises: vec![],
             },
             information: WorkoutInformation {
