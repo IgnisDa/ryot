@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -15,7 +16,7 @@ use crate::{
     },
     models::fitness::{
         SetLot, SetStatistic, TotalMeasurement, UserToExerciseExtraInformation,
-        UserToExerciseHistoryExtraInformation, WorkoutSetRecord,
+        UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
 };
 
@@ -26,6 +27,21 @@ fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
             + record.statistic.reps.unwrap_or(dec!(0))
             + record.statistic.weight.unwrap_or(dec!(0))
     })
+}
+
+pub fn get_highest_element_by_personal_best<'a>(
+    record1: &'a WorkoutSetRecord,
+    record2: &'a WorkoutSetRecord,
+    pb_type: WorkoutSetPersonalBest,
+) -> Option<&'a WorkoutSetRecord> {
+    let pb1 = record1.get_personal_best(pb_type)?;
+    let pb2 = record2.get_personal_best(pb_type)?;
+
+    if pb1 > pb2 {
+        Some(record1)
+    } else {
+        Some(record2)
+    }
 }
 
 #[derive(
@@ -165,7 +181,7 @@ impl UserWorkoutInput {
                 });
             }
             workout_totals.push(total.clone());
-            let best_set = None;
+            let best_set = association.extra_information.best_set.clone();
             for set in sets.iter_mut() {
                 // FIXME: Correct calculations
                 let mut personal_bests = vec![];

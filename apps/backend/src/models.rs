@@ -4,6 +4,7 @@ use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
@@ -898,12 +899,22 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Enum,
+        Copy,
+        EnumIter,
     )]
     pub enum WorkoutSetPersonalBest {
         Weight,
         OneRm,
         Volume,
+        Pace,
     }
 
     #[derive(
@@ -913,6 +924,45 @@ pub mod fitness {
         pub statistic: SetStatistic,
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
+    }
+
+    impl WorkoutSetRecord {
+        // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
+        pub fn calculate_one_rm(&self) -> Option<Decimal> {
+            let weight = self.statistic.weight?;
+            let reps = self.statistic.reps?;
+            Some(weight * dec!(36.0) / (dec!(37.0) - reps))
+        }
+
+        pub fn calculate_volume(&self) -> Option<Decimal> {
+            let weight = self.statistic.weight?;
+            let reps = self.statistic.reps?;
+            Some(weight * reps)
+        }
+
+        pub fn calculate_pace(&self) -> Option<Decimal> {
+            let distance = self.statistic.distance?;
+            let duration = self.statistic.duration?;
+            Some(distance / duration)
+        }
+
+        pub fn get_personal_best(&self, pb_type: WorkoutSetPersonalBest) -> Option<Decimal> {
+            match pb_type {
+                WorkoutSetPersonalBest::Weight => self.statistic.weight,
+                WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
+                WorkoutSetPersonalBest::Volume => self.calculate_volume(),
+                WorkoutSetPersonalBest::Pace => self.calculate_pace(),
+            }
+        }
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    )]
+    pub struct ExerciseBestSetRecord {
+        pub workout_id: String,
+        pub idx: usize,
+        pub data: WorkoutSetRecord,
     }
 
     #[derive(
@@ -929,6 +979,6 @@ pub mod fitness {
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
         pub lifetime_stats: TotalMeasurement,
-        pub best_set: Option<WorkoutSetRecord>,
+        pub best_set: Option<ExerciseBestSetRecord>,
     }
 }
