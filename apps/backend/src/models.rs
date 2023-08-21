@@ -852,7 +852,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
     )]
     pub struct UserToExerciseHistoryExtraInformation {
         pub workout_id: String,
@@ -860,7 +868,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
