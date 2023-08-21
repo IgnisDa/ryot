@@ -61,17 +61,13 @@ pub struct WorkoutSetRecord {
     pub personal_bests: Vec<WorkoutSetPersonalBest>,
 }
 
-fn get_best_set(records: &[WorkoutSetRecord]) -> WorkoutSetRecord {
-    records
-        .iter()
-        .max_by_key(|record| {
-            record.statistic.duration.unwrap_or(0)
-                + record.statistic.distance.unwrap_or(0)
-                + record.statistic.reps.unwrap_or(0)
-                + record.statistic.weight.unwrap_or(0)
-        })
-        .cloned()
-        .unwrap()
+fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
+    records.iter().max_by_key(|record| {
+        record.statistic.duration.unwrap_or(0)
+            + record.statistic.distance.unwrap_or(0)
+            + record.statistic.reps.unwrap_or(0)
+            + record.statistic.weight.unwrap_or(0)
+    })
 }
 
 #[derive(
@@ -258,7 +254,7 @@ impl UserWorkoutInput {
                     .map(|e| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
                         name: e.exercise_name.clone(),
-                        best_set: get_best_set(e.sets.as_slice()),
+                        best_set: get_best_set(&e.sets).unwrap().clone(),
                     })
                     .collect(),
             },
