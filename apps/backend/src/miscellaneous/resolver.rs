@@ -3127,7 +3127,7 @@ impl MiscellaneousService {
                 .await?
             }
             Err(e) => {
-                tracing::error!("Error while updating: {:?}", e);
+                tracing::error!("Error while updating metadata = {:?}: {:?}", metadata_id, e);
                 vec![]
             }
         };
