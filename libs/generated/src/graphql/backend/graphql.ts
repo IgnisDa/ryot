@@ -1533,7 +1533,6 @@ export type UserWorkoutInput = {
   comment?: InputMaybe<Scalars['String']['input']>;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;
-  identifier: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   startTime: Scalars['DateTime']['input'];
   supersets: Array<Array<Scalars['Int']['input']>>;

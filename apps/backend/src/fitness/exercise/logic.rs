@@ -9,6 +9,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use sonyflake::Sonyflake;
 
 use crate::{
     entities::{
@@ -128,7 +129,6 @@ pub struct UserExerciseInput {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutInput {
-    pub identifier: String,
     pub name: Option<String>,
     pub comment: Option<String>,
     pub start_time: DateTimeUtc,
@@ -144,6 +144,8 @@ impl UserWorkoutInput {
         user_id: i32,
         db: &DatabaseConnection,
     ) -> Result<String> {
+        let sf = Sonyflake::new().unwrap();
+        let id = sf.next_id().unwrap().to_string();
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         for (idx, ex) in self.exercises.into_iter().enumerate() {
@@ -161,7 +163,7 @@ impl UserWorkoutInput {
                 .ok()
                 .flatten();
             let history_item = UserToExerciseHistoryExtraInformation {
-                workout_id: self.identifier.clone(),
+                workout_id: id.clone(),
                 idx,
             };
             let (association, all_sets) = match association {
@@ -228,7 +230,7 @@ impl UserWorkoutInput {
         }
         let summary_total = workout_totals.into_iter().sum();
         let model = workout::Model {
-            id: self.identifier,
+            id,
             start_time: self.start_time,
             end_time: self.end_time,
             user_id,
