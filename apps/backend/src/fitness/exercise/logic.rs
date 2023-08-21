@@ -4,9 +4,11 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, DatabaseConnection, EntityTrait, FromJsonQueryResult,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 use crate::entities::{prelude::Exercise, workout};
 
+#[skip_serializing_none]
 #[derive(
     Clone,
     Debug,
@@ -51,13 +53,13 @@ pub struct WorkoutSetRecord {
 }
 
 #[derive(
-    Debug, FromJsonQueryResult, Clone, Serialize, Deserialize, Eq, PartialEq, SimpleObject,
+    Debug, FromJsonQueryResult, Clone, Serialize, Deserialize, Eq, PartialEq, SimpleObject, Default,
 )]
-pub struct WorkoutTotals {
+pub struct TotalMeasurement {
     /// The number of personal bests achieved.
     pub personal_bests: u16,
-    pub weight: u32,
-    pub reps: u32,
+    pub weight: u16,
+    pub reps: u16,
     // The time in seconds.
     pub active_duration: u64,
 }
@@ -71,7 +73,7 @@ pub struct ProcessedExercise {
     pub sets: Vec<WorkoutSetRecord>,
     pub notes: Vec<String>,
     pub rest_time: Option<u16>,
-    pub total: WorkoutTotals,
+    pub total: TotalMeasurement,
 }
 
 #[derive(
@@ -97,7 +99,7 @@ pub struct WorkoutSummaryExercise {
     Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
 pub struct WorkoutSummary {
-    pub total: WorkoutTotals,
+    pub total: TotalMeasurement,
     pub exercises: Vec<WorkoutSummaryExercise>,
 }
 
@@ -139,28 +141,29 @@ impl UserWorkoutInput {
                 .one(db)
                 .await?
                 .ok_or_else(|| anyhow!("No exercise found!"))?;
+            let mut sets = vec![];
+            let mut total = TotalMeasurement::default();
+            for set in ex.sets {
+                if let Some(r) = set.statistic.reps {
+                    total.reps += r;
+                    if let Some(w) = set.statistic.weight {
+                        total.weight += w * r;
+                    }
+                }
+                sets.push(WorkoutSetRecord {
+                    statistic: set.statistic,
+                    lot: set.lot,
+                    // FIXME: Correct calculations
+                    personal_bests: vec![],
+                });
+            }
             exercises.push(ProcessedExercise {
                 exercise_id: ex.exercise_id,
                 exercise_name: db_ex.name,
-                sets: ex
-                    .sets
-                    .into_iter()
-                    .map(|s| WorkoutSetRecord {
-                        statistic: s.statistic,
-                        lot: s.lot,
-                        // FIXME: Correct calculations
-                        personal_bests: vec![],
-                    })
-                    .collect(),
+                sets,
                 notes: ex.notes,
                 rest_time: ex.rest_time,
-                // FIXME: Correct calculations
-                total: WorkoutTotals {
-                    personal_bests: 0,
-                    weight: 0,
-                    reps: 0,
-                    active_duration: 0,
-                },
+                total,
             });
         }
         let model = workout::Model {
@@ -174,7 +177,7 @@ impl UserWorkoutInput {
             processed: false,
             // FIXME: Correct calculations
             summary: WorkoutSummary {
-                total: WorkoutTotals {
+                total: TotalMeasurement {
                     personal_bests: 0,
                     weight: 0,
                     reps: 0,
