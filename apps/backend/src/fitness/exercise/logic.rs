@@ -1,12 +1,20 @@
 use anyhow::{anyhow, Result};
 use async_graphql::{Enum, InputObject, SimpleObject};
+use chrono::Utc;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, DatabaseConnection, EntityTrait, FromJsonQueryResult,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
+    EntityTrait, FromJsonQueryResult, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use crate::entities::{prelude::Exercise, workout};
+use crate::{
+    entities::{
+        prelude::{Exercise, UserToExercise},
+        user_to_exercise, workout,
+    },
+    models::fitness::{UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation},
+};
 
 #[skip_serializing_none]
 #[derive(
@@ -136,13 +144,48 @@ impl UserWorkoutInput {
         db: &DatabaseConnection,
     ) -> Result<String> {
         let mut exercises = vec![];
-        for ex in self.exercises {
+        for (idx, ex) in self.exercises.into_iter().enumerate() {
             let db_ex = Exercise::find_by_id(ex.exercise_id)
                 .one(db)
                 .await?
                 .ok_or_else(|| anyhow!("No exercise found!"))?;
             let mut sets = vec![];
             let mut total = TotalMeasurement::default();
+            let association = UserToExercise::find()
+                .filter(user_to_exercise::Column::UserId.eq(user_id))
+                .filter(user_to_exercise::Column::ExerciseId.eq(ex.exercise_id))
+                .one(db)
+                .await
+                .ok()
+                .flatten();
+            let history_item = UserToExerciseHistoryExtraInformation {
+                workout_id: self.identifier.clone(),
+                idx,
+            };
+            match association {
+                None => {
+                    let user_to_ex = user_to_exercise::ActiveModel {
+                        user_id: ActiveValue::Set(user_id),
+                        exercise_id: ActiveValue::Set(ex.exercise_id),
+                        num_times_performed: ActiveValue::Set(1),
+                        last_updated_on: ActiveValue::Set(Utc::now()),
+                        extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
+                            history: vec![history_item],
+                        }),
+                        ..Default::default()
+                    };
+                    user_to_ex.insert(db).await.unwrap();
+                }
+                Some(e) => {
+                    let performed = e.num_times_performed;
+                    let mut extra_info = e.extra_information.clone();
+                    extra_info.history.push(history_item);
+                    let mut up: user_to_exercise::ActiveModel = e.into();
+                    up.num_times_performed = ActiveValue::Set(performed + 1);
+                    up.extra_information = ActiveValue::Set(extra_info);
+                    up.update(db).await?;
+                }
+            }
             for set in ex.sets {
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;

@@ -70,7 +70,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
 			endTime: new Date(),
-			identifier: currentWorkout.identifier,
+			identifier: createId(),
 			startTime: new Date(currentWorkout.startTime),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
