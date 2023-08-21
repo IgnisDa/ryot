@@ -3,20 +3,19 @@ use std::cmp::Ordering;
 use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, FromJsonQueryResult, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 
 use crate::{
     entities::{
         prelude::{Exercise, UserToExercise},
         user_to_exercise, workout,
     },
+    migrator::ExerciseLot,
     models::fitness::{
         SetLot, SetStatistic, TotalMeasurement, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
@@ -187,7 +186,18 @@ impl UserWorkoutInput {
             }
             for set in sets.iter_mut() {
                 let mut personal_bests = vec![];
-                for best_type in WorkoutSetPersonalBest::iter() {
+                let types_of_prs = match db_ex.lot {
+                    ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
+                    ExerciseLot::DistanceAndDuration => {
+                        vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time]
+                    }
+                    ExerciseLot::RepsAndWeight => vec![
+                        WorkoutSetPersonalBest::Weight,
+                        WorkoutSetPersonalBest::OneRm,
+                        WorkoutSetPersonalBest::Volume,
+                    ],
+                };
+                for best_type in types_of_prs {
                     let best_s = get_highest_personal_best(&m_d, best_type);
                     if let Some(s) = best_s {
                         if s == set {

@@ -899,21 +899,13 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone,
-        Debug,
-        Deserialize,
-        Serialize,
-        FromJsonQueryResult,
-        Eq,
-        PartialEq,
-        Enum,
-        Copy,
-        EnumIter,
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
     )]
     pub enum WorkoutSetPersonalBest {
         Weight,
         OneRm,
         Volume,
+        Time,
         Pace,
     }
 
@@ -949,6 +941,7 @@ pub mod fitness {
         pub fn get_personal_best(&self, pb_type: WorkoutSetPersonalBest) -> Option<Decimal> {
             match pb_type {
                 WorkoutSetPersonalBest::Weight => self.statistic.weight,
+                WorkoutSetPersonalBest::Time => self.statistic.duration,
                 WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
                 WorkoutSetPersonalBest::Volume => self.calculate_volume(),
                 WorkoutSetPersonalBest::Pace => self.calculate_pace(),
@@ -961,7 +954,7 @@ pub mod fitness {
     )]
     pub struct ExerciseBestSetRecord {
         pub workout_id: String,
-        pub idx: usize,
+        pub set_idx: usize,
         pub data: WorkoutSetRecord,
     }
 
