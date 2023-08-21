@@ -94,6 +94,10 @@ import { withQuery } from "ufo";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
+const formatter = new Intl.ListFormat("en", {
+	style: "long",
+	type: "conjunction",
+});
 
 function ProgressModal(props: {
 	opened: boolean;
@@ -683,7 +687,7 @@ const Page: NextPageWithLayout = () => {
 					<Flex id="media-details" wrap={"wrap"} gap={4}>
 						{mediaDetails.data.genres.length > 0 ? (
 							<Text color="dimmed">
-								{mediaDetails.data.genres.slice(0, 3).join(", ")}
+								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : null}
 						{mediaDetails.data.bookSpecifics?.pages ? (
