@@ -65,11 +65,10 @@ fn get_best_set(records: &[WorkoutSetRecord]) -> WorkoutSetRecord {
     records
         .iter()
         .max_by_key(|record| {
-            let sum = record.statistic.duration.unwrap_or(0)
+            record.statistic.duration.unwrap_or(0)
                 + record.statistic.distance.unwrap_or(0)
                 + record.statistic.reps.unwrap_or(0)
-                + record.statistic.weight.unwrap_or(0);
-            sum
+                + record.statistic.weight.unwrap_or(0)
         })
         .cloned()
         .unwrap()
@@ -198,7 +197,6 @@ impl UserWorkoutInput {
                         extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
                             history: vec![history_item],
                         }),
-                        ..Default::default()
                     };
                     user_to_ex.insert(db).await.unwrap()
                 }
