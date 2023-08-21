@@ -67,15 +67,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("workout__start-time__index")
-                    .table(Workout::Table)
-                    .col(Workout::StartTime)
-                    .to_owned(),
-            )
-            .await?;
         Ok(())
     }
 
