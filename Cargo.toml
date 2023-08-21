@@ -1,8 +1,12 @@
 [workspace]
 members = [
     "apps/backend",
+    "libs/rs-utils",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0.183", features = ["derive"] }
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]
