@@ -954,7 +954,13 @@ const Page: NextPageWithLayout = () => {
 															<PutOnHoldBtn />
 														</>
 													) : null}
-													<DropBtn />
+													{userMediaDetails.data.history.length !== 0 ? (
+														<DropBtn />
+													) : (
+														<Menu.Item disabled>
+															No history. Update from the seasons/episodes tab.
+														</Menu.Item>
+													)}
 												</>
 											) : null}
 											{userMediaDetails.data.inProgress ? (
