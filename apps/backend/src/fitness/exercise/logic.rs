@@ -32,10 +32,10 @@ use crate::{
 )]
 #[graphql(input_name = "SetStatisticInput")]
 pub struct SetStatistic {
-    pub duration: Option<u16>,
-    pub distance: Option<u16>,
-    pub reps: Option<u16>,
-    pub weight: Option<u16>,
+    pub duration: Option<usize>,
+    pub distance: Option<usize>,
+    pub reps: Option<usize>,
+    pub weight: Option<usize>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy)]
@@ -189,6 +189,8 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets {
+                // FIXME: Correct calculations
+                let mut personal_bests = vec![];
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
@@ -201,11 +203,11 @@ impl UserWorkoutInput {
                 if let Some(d) = set.statistic.distance {
                     total.distance += d;
                 }
+                total.personal_bests_achieved = personal_bests.len();
                 sets.push(WorkoutSetRecord {
                     statistic: set.statistic,
                     lot: set.lot,
-                    // FIXME: Correct calculations
-                    personal_bests: vec![],
+                    personal_bests,
                 });
             }
             workout_totals.push(total.clone());

@@ -843,11 +843,11 @@ pub mod fitness {
     )]
     pub struct TotalMeasurement {
         /// The number of personal bests achieved.
-        pub personal_bests_achieved: u16,
-        pub weight: u16,
-        pub reps: u16,
-        pub distance: u16,
-        pub duration: u16,
+        pub personal_bests_achieved: usize,
+        pub weight: usize,
+        pub reps: usize,
+        pub distance: usize,
+        pub duration: usize,
     }
 
     #[derive(
