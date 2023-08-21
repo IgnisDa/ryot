@@ -162,7 +162,7 @@ impl UserWorkoutInput {
                 workout_id: self.identifier.clone(),
                 idx,
             };
-            match association {
+            let association = match association {
                 None => {
                     let user_to_ex = user_to_exercise::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
@@ -174,7 +174,7 @@ impl UserWorkoutInput {
                         }),
                         ..Default::default()
                     };
-                    user_to_ex.insert(db).await.unwrap();
+                    user_to_ex.insert(db).await.unwrap()
                 }
                 Some(e) => {
                     let performed = e.num_times_performed;
@@ -183,9 +183,10 @@ impl UserWorkoutInput {
                     let mut up: user_to_exercise::ActiveModel = e.into();
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
-                    up.update(db).await?;
+                    up.last_updated_on = ActiveValue::Set(Utc::now());
+                    up.update(db).await?
                 }
-            }
+            };
             for set in ex.sets {
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
