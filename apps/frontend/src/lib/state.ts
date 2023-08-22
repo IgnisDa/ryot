@@ -1,4 +1,3 @@
-import { createId } from "@paralleldrive/cuid2";
 import type {
 	CreateUserWorkoutMutationVariables,
 	ExerciseLot,
@@ -30,7 +29,6 @@ export type Exercise = Immutable<{
 }>;
 
 type InProgressWorkout = Immutable<{
-	identifier: string;
 	startTime: string;
 	endTime?: string;
 	name: string;
@@ -57,7 +55,6 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 	const date = new Date();
 	return {
 		name: `${getTimeOfDay(date)} Workout`,
-		identifier: createId(),
 		startTime: date.toISOString(),
 		exercises: [],
 		// supersets: [],
@@ -70,7 +67,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
 			endTime: new Date(),
-			identifier: currentWorkout.identifier,
 			startTime: new Date(currentWorkout.startTime),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,

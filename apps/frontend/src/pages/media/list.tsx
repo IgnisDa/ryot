@@ -102,6 +102,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
+		defaultValue: "1",
 		key: "savedSearchPage",
 	});
 	const [query, setQuery] = useLocalStorage({
@@ -112,6 +113,7 @@ const Page: NextPageWithLayout = () => {
 		key: "savedSearchSource",
 	});
 	const [activeMinePage, setMinePage] = useLocalStorage({
+		defaultValue: "1",
 		key: "savedMinePage",
 		getInitialValueInEffect: false,
 	});
@@ -153,9 +155,6 @@ const Page: NextPageWithLayout = () => {
 			});
 			return mediaList;
 		},
-		onSuccess: () => {
-			if (!activeMinePage) setMinePage("1");
-		},
 		enabled: lot !== undefined && activeTab === "mine",
 		staleTime: Infinity,
 	});
@@ -165,6 +164,7 @@ const Page: NextPageWithLayout = () => {
 			const { collections } = await gqlClient.request(CollectionsDocument, {});
 			return collections;
 		},
+		staleTime: Infinity,
 	});
 	const mediaSources = useQuery({
 		queryKey: ["sources", lot],
@@ -180,6 +180,7 @@ const Page: NextPageWithLayout = () => {
 			if (!data.includes(searchSource as unknown as MetadataSource))
 				setSearchSource(data[0]);
 		},
+		staleTime: Infinity,
 	});
 	const searchQuery = useQuery({
 		queryKey: [
@@ -201,9 +202,6 @@ const Page: NextPageWithLayout = () => {
 				source: searchSource as MetadataSource,
 			});
 			return mediaSearch;
-		},
-		onSuccess: () => {
-			if (!activeSearchPage) setSearchPage("1");
 		},
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,

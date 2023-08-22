@@ -94,6 +94,10 @@ import { withQuery } from "ufo";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
+const formatter = new Intl.ListFormat("en", {
+	style: "long",
+	type: "conjunction",
+});
 
 function ProgressModal(props: {
 	opened: boolean;
@@ -683,7 +687,7 @@ const Page: NextPageWithLayout = () => {
 					<Flex id="media-details" wrap={"wrap"} gap={4}>
 						{mediaDetails.data.genres.length > 0 ? (
 							<Text color="dimmed">
-								{mediaDetails.data.genres.slice(0, 3).join(", ")}
+								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : null}
 						{mediaDetails.data.bookSpecifics?.pages ? (
@@ -954,7 +958,13 @@ const Page: NextPageWithLayout = () => {
 															<PutOnHoldBtn />
 														</>
 													) : null}
-													<DropBtn />
+													{userMediaDetails.data.history.length !== 0 ? (
+														<DropBtn />
+													) : (
+														<Menu.Item disabled>
+															No history. Update from the seasons/episodes tab.
+														</Menu.Item>
+													)}
 												</>
 											) : null}
 											{userMediaDetails.data.inProgress ? (
@@ -1250,24 +1260,29 @@ const Page: NextPageWithLayout = () => {
 															.map((e) => e.runtime || 0)
 															.reduce((i, a) => i + a, 0)}
 													>
-														<Button
-															variant="outline"
-															onClick={() => {
-																router.push(
-																	withQuery(
-																		APP_ROUTES.media.individualMediaItem
-																			.updateProgress,
-																		{
-																			id: metadataId,
-																			selectedShowSeasonNumber: s.seasonNumber,
-																			onlySeason: 1,
-																		},
-																	),
-																);
-															}}
-														>
-															Mark as seen
-														</Button>
+														<>
+															{s.episodes.length > 0 ? (
+																<Button
+																	variant="outline"
+																	onClick={() => {
+																		router.push(
+																			withQuery(
+																				APP_ROUTES.media.individualMediaItem
+																					.updateProgress,
+																				{
+																					id: metadataId,
+																					selectedShowSeasonNumber:
+																						s.seasonNumber,
+																					onlySeason: 1,
+																				},
+																			),
+																		);
+																	}}
+																>
+																	Mark as seen
+																</Button>
+															) : null}
+														</>
 													</AccordionLabel>
 												</Accordion.Control>
 												<Accordion.Panel>

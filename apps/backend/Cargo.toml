@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.7.8"
+version = "2.8.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -25,6 +25,7 @@ const-str = "0.5.6"
 cookie = "0.17.0"
 csv = "1.2.2"
 darkbird = "6.1.8"
+derive_more = { version = "0.99.17", features = ["add", "sum", "add_assign"], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 futures = "0.3.28"
@@ -66,11 +67,12 @@ sea-orm = { version = "0.12.2", features = [
 sea-orm-migration = "0.12.2"
 sea-query = "0.30.0"
 semver = "1.0.18"
-serde = { workspace = true }
+serde = { version = "1.0.183", features = ["derive"] }
 serde_json = "1.0.104"
 serde_with = { version = "3.2.0", features = ["chrono_0_4"] }
 slug = "0.1.4"
 sqlx = "*"
+sonyflake = "0.2.0"
 specta = { version = "1.0.5", features = ["typescript", "chrono", "rust_decimal", "export"] }
 strum = { version = "0.25.0", features = ["derive"] }
 surf = { version = "2.3.2", features = [

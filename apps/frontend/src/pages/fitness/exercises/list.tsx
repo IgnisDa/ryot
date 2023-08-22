@@ -77,6 +77,7 @@ const Page: NextPageWithLayout = () => {
 		lot: ExerciseLot;
 	}>([]);
 	const [activePage, setPage] = useLocalStorage({
+		defaultValue: "1",
 		key: "savedExercisesPage",
 	});
 	const [query, setQuery] = useLocalStorage({
@@ -117,9 +118,6 @@ const Page: NextPageWithLayout = () => {
 				},
 			});
 			return exercisesList;
-		},
-		onSuccess: () => {
-			if (!activePage) setPage("1");
 		},
 		staleTime: Infinity,
 	});

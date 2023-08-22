@@ -245,6 +245,7 @@ const Page: NextPageWithLayout = () => {
 									)
 									.map((v) => (
 										<NumberInput
+											precision={3}
 											key={v}
 											label={changeCase(snakeCase(v))}
 											name={`stats.${v}`}

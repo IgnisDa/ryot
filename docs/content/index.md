@@ -16,7 +16,7 @@ $ docker run \
   --detach \
   --name ryot \
   --pull always \
-  --publish 8000:8000 \
+  --publish "8000:8000" \
   --env "SERVER_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```

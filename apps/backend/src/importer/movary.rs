@@ -54,7 +54,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     lot,
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
-                    error: Some(e.to_string()),
+                    error: Some(format!("Ratings file: {:#?}", e)),
                 });
                 continue;
             }
@@ -87,7 +87,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     lot,
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
-                    error: Some(e.to_string()),
+                    error: Some(format!("Watchlist file: {:#?}", e)),
                 });
                 continue;
             }
@@ -111,7 +111,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     lot,
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
-                    error: Some(e.to_string()),
+                    error: Some(format!("History file: {:#?}", e)),
                 });
                 continue;
             }

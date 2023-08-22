@@ -25,6 +25,7 @@ import { z } from "zod";
 
 const formSchema = z
 	.object({
+		honeypot: z.string().length(0).optional(),
 		username: z.string(),
 		password: z
 			.string()
@@ -114,6 +115,10 @@ export default function Page() {
 					mt="md"
 					{...form.getInputProps("confirm")}
 					required
+				/>
+				<input
+					style={{ display: "none" }}
+					{...form.getInputProps("honeypot")}
 				/>
 				<Tooltip
 					label="Sign ups are disabled on this instance"
