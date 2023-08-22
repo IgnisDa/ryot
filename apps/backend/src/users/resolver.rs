@@ -3,16 +3,20 @@ use std::{str::FromStr, sync::Arc};
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::Utc;
+use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie, SameSite};
+use enum_meta::Meta;
+use futures::TryStreamExt;
 use harsh::Harsh;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
 
 use nanoid::nanoid;
+use rust_decimal::Decimal;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    EntityTrait, Iden, Iterable, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait,
 };
 
 use serde::{Deserialize, Serialize};
@@ -21,10 +25,18 @@ use uuid::Uuid;
 use crate::{
     background::ApplicationJob,
     config::AppConfig,
-    entities::{prelude::User, user},
-    migrator::UserLot,
-    models::{IdObject, UserSummary},
-    traits::{AuthProvider, IsFeatureEnabled},
+    entities::{collection, creator, metadata, prelude::User, seen, user},
+    integrations::IntegrationService,
+    migrator::{MetadataLot, MetadataSource, UserLot},
+    models::{
+        media::{
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics,
+            MediaSearchItemWithLot, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+        },
+        IdObject, SearchResults,
+    },
+    traits::{AuthProvider, IsFeatureEnabled, MediaProvider},
     users::{
         UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
         UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
@@ -33,6 +45,33 @@ use crate::{
     },
     utils::{user_id_from_token, MemoryAuthData, MemoryDatabase, COOKIE_NAME},
 };
+
+#[derive(Debug)]
+pub enum MediaStateChanged {
+    StatusChanged,
+    EpisodeReleased,
+    ReleaseDateChanged,
+    NumberOfSeasonsChanged,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateCustomMediaInput {
+    title: String,
+    lot: MetadataLot,
+    description: Option<String>,
+    creators: Option<Vec<String>>,
+    genres: Option<Vec<String>>,
+    images: Option<Vec<String>>,
+    publish_year: Option<i32>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
+}
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserIntegrationLot {
@@ -80,6 +119,24 @@ struct CreateUserSinkIntegrationInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+struct ProviderLanguageInformation {
+    source: MetadataSource,
+    supported: Vec<String>,
+    default: String,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CreateCustomMediaError {
+    error: CreateCustomMediaErrorVariant,
+}
+
+#[derive(Union)]
+enum CreateCustomMediaResult {
+    Ok(IdObject),
+    Error(CreateCustomMediaError),
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -159,10 +216,258 @@ struct UpdateUserPreferenceInput {
     value: String,
 }
 
+#[derive(Debug, InputObject)]
+struct CollectionContentsInput {
+    collection_id: i32,
+    page: Option<u64>,
+    take: Option<u64>,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CollectionContents {
+    details: collection::Model,
+    results: SearchResults<MediaSearchItemWithLot>,
+    user: user::Model,
+}
+
+#[derive(Debug, SimpleObject)]
+struct ReviewPostedBy {
+    id: i32,
+    name: String,
+}
+
+#[derive(Debug, SimpleObject)]
+struct ReviewItem {
+    id: i32,
+    posted_on: DateTimeUtc,
+    rating: Option<Decimal>,
+    text: Option<String>,
+    visibility: Visibility,
+    spoiler: bool,
+    posted_by: ReviewPostedBy,
+    show_season: Option<i32>,
+    show_episode: Option<i32>,
+    podcast_episode: Option<i32>,
+}
+
+#[derive(Debug, SimpleObject)]
+struct CollectionItem {
+    id: i32,
+    name: String,
+    num_items: u64,
+    description: Option<String>,
+    visibility: Visibility,
+}
+
+#[derive(SimpleObject)]
+struct GeneralFeatures {
+    file_storage: bool,
+    signup_allowed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataCreatorGroupedByRole {
+    name: String,
+    items: Vec<creator::Model>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct CreatorDetails {
+    details: creator::Model,
+    contents: Vec<CreatorDetailsGroupedByRole>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct CreatorDetailsGroupedByRole {
+    /// The name of the role performed.
+    name: String,
+    /// The media items in which this role was performed.
+    items: Vec<MediaSearchItemWithLot>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct MediaBaseData {
+    model: metadata::Model,
+    creators: Vec<MetadataCreatorGroupedByRole>,
+    poster_images: Vec<String>,
+    backdrop_images: Vec<String>,
+    genres: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlMediaDetails {
+    id: i32,
+    title: String,
+    identifier: String,
+    description: Option<String>,
+    production_status: String,
+    lot: MetadataLot,
+    source: MetadataSource,
+    creators: Vec<MetadataCreatorGroupedByRole>,
+    genres: Vec<String>,
+    poster_images: Vec<String>,
+    backdrop_images: Vec<String>,
+    publish_year: Option<i32>,
+    publish_date: Option<NaiveDate>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
+    source_url: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum MediaSortOrder {
+    Desc,
+    #[default]
+    Asc,
+}
+
+impl From<MediaSortOrder> for Order {
+    fn from(value: MediaSortOrder) -> Self {
+        match value {
+            MediaSortOrder::Desc => Self::Desc,
+            MediaSortOrder::Asc => Self::Asc,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum MediaSortBy {
+    Title,
+    #[default]
+    ReleaseDate,
+    LastSeen,
+    LastUpdated,
+    Rating,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MediaSortInput {
+    #[graphql(default)]
+    order: MediaSortOrder,
+    #[graphql(default)]
+    by: MediaSortBy,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
+enum MediaGeneralFilter {
+    All,
+    Rated,
+    Unrated,
+    InProgress,
+    Dropped,
+    OnAHold,
+    Completed,
+    Unseen,
+    ExplicitlyMonitored,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MediaFilter {
+    general: Option<MediaGeneralFilter>,
+    collection: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MediaListInput {
+    page: i32,
+    lot: MetadataLot,
+    query: Option<String>,
+    filter: Option<MediaFilter>,
+    sort: Option<MediaSortInput>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CollectionInput {
+    name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MediaConsumedInput {
+    identifier: String,
+    lot: MetadataLot,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserAuthToken {
     token: String,
     last_used_on: DateTimeUtc,
+}
+
+#[derive(Enum, Eq, PartialEq, Copy, Clone)]
+enum UpgradeType {
+    Minor,
+    Major,
+}
+
+#[derive(SimpleObject)]
+struct CoreDetails {
+    docs_link: String,
+    version: String,
+    author_name: String,
+    repository_link: String,
+    default_credentials: bool,
+    password_change_allowed: bool,
+    preferences_change_allowed: bool,
+    username_change_allowed: bool,
+    item_details_height: u32,
+    reviews_disabled: bool,
+    /// Whether an upgrade is required
+    upgrade: Option<UpgradeType>,
+    /// The number of elements on a page
+    page_limit: i32,
+}
+
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
+struct ProgressUpdateCache {
+    user_id: i32,
+    metadata_id: i32,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
+}
+
+#[derive(SimpleObject)]
+struct UserCreatorDetails {
+    reviews: Vec<ReviewItem>,
+}
+
+#[derive(SimpleObject)]
+struct UserMediaDetails {
+    /// The collections in which this media is present.
+    collections: Vec<collection::Model>,
+    /// The public reviews of this media.
+    reviews: Vec<ReviewItem>,
+    /// The seen history of this media.
+    history: Vec<seen::Model>,
+    /// The seen item if it is in progress.
+    in_progress: Option<seen::Model>,
+    /// The next episode of this media.
+    next_episode: Option<UserMediaNextEpisode>,
+    /// Whether the user is monitoring this media.
+    is_monitored: bool,
+    /// The reminder that the user has set for this media.
+    reminder: Option<UserMediaReminder>,
+    /// The number of users who have seen this media
+    seen_by: i32,
+}
+
+#[derive(SimpleObject)]
+struct UserMediaNextEpisode {
+    season_number: Option<i32>,
+    episode_number: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateMediaReminderInput {
+    metadata_id: i32,
+    remind_on: NaiveDate,
+    message: String,
 }
 
 fn create_cookie(
@@ -443,6 +748,10 @@ impl UsersService {
 }
 
 impl UsersService {
+    async fn get_integration_service(&self) -> IntegrationService {
+        IntegrationService::new().await
+    }
+
     pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
         self.perform_application_job
             .clone()
@@ -1121,6 +1430,23 @@ impl UsersService {
             .rev()
             .collect();
         Ok(tokens)
+    }
+
+    pub async fn delete_expired_user_auth_tokens(&self) -> Result<()> {
+        let mut deleted_tokens = 0;
+        for user in self.users_list().await? {
+            let tokens = self.all_user_auth_tokens(user.id).await?;
+            for token in tokens {
+                if Utc::now() - token.last_used_on
+                    > ChronoDuration::days(self.config.users.token_valid_for_days)
+                    && self.get_auth_db().remove(token.token).await.is_ok()
+                {
+                    deleted_tokens += 1;
+                }
+            }
+        }
+        tracing::debug!("Deleted {} expired user auth tokens", deleted_tokens);
+        Ok(())
     }
 
     async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {

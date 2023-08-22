@@ -22,7 +22,6 @@ use crate::{
     file_storage::FileStorageService,
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
-    traits::AuthProvider,
     utils::{user_id_from_token, GqlCtx, COOKIE_NAME},
 };
 
@@ -136,12 +135,9 @@ pub async fn json_export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(
-        authorization.token().to_owned(),
-        &media_service.get_auth_db(),
-    )
-    .await
-    .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
+    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
+        .await
+        .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = media_service.export(user_id).await.unwrap();
     Ok(Json(json!(resp)))
 }

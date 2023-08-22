@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     migrator::UserLot,
-    models::UserSummary,
+    models::media::UserSummary,
     users::{UserNotifications, UserPreferences, UserSinkIntegrations, UserYankIntegrations},
 };
 

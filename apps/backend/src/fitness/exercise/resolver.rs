@@ -33,7 +33,6 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    users::resolver::UsersService,
     utils::{get_case_insensitive_like_query, MemoryDatabase},
 };
 
@@ -173,14 +172,14 @@ impl ExerciseMutation {
 pub struct ExerciseService {
     db: DatabaseConnection,
     config: Arc<AppConfig>,
-    users_service: Arc<UsersService>,
+    auth_db: MemoryDatabase,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: SqliteStorage<ApplicationJob>,
 }
 
 impl AuthProvider for ExerciseService {
     fn get_auth_db(&self) -> &MemoryDatabase {
-        &self.users_service.auth_db
+        &self.auth_db
     }
 }
 
@@ -188,15 +187,15 @@ impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
+        auth_db: MemoryDatabase,
         file_storage_service: Arc<FileStorageService>,
-        users_service: Arc<UsersService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
+            auth_db,
             file_storage_service,
-            users_service,
             perform_application_job: perform_application_job.clone(),
         }
     }
@@ -415,12 +414,10 @@ impl ExerciseService {
     }
 
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
-        let user = self.users_service.user_preferences(user_id).await?;
         let sf = Sonyflake::new().unwrap();
         let id = sf.next_id().unwrap().to_string();
-        let identifier = input
-            .calculate_and_commit(user_id, &self.db, id, user.fitness.exercises.save_history)
-            .await?;
-        Ok(identifier)
+        todo!("COrrect save history");
+        // let identifier = input.calculate_and_commit(user_id, &self.db, id).await?;
+        // Ok(identifier)
     }
 }

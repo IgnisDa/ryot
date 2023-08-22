@@ -72,107 +72,6 @@ pub struct IdObject {
     pub id: i32,
 }
 
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AudioBooksSummary {
-    pub runtime: i32,
-    pub played: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct VideoGamesSummary {
-    pub played: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct BooksSummary {
-    pub pages: i32,
-    pub read: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MoviesSummary {
-    pub runtime: i32,
-    pub watched: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct PodcastsSummary {
-    pub runtime: i32,
-    pub played: i32,
-    pub played_episodes: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct ShowsSummary {
-    pub runtime: i32,
-    pub watched: i32,
-    pub watched_episodes: i32,
-    pub watched_seasons: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MangaSummary {
-    pub chapters: i32,
-    pub read: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AnimeSummary {
-    pub episodes: i32,
-    pub watched: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-#[serde(default)]
-pub struct UserMediaSummary {
-    pub books: BooksSummary,
-    pub movies: MoviesSummary,
-    pub podcasts: PodcastsSummary,
-    pub shows: ShowsSummary,
-    pub video_games: VideoGamesSummary,
-    pub audio_books: AudioBooksSummary,
-    pub anime: AnimeSummary,
-    pub manga: MangaSummary,
-    pub reviews_posted: u64,
-    pub creators_interacted_with: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-#[serde(default)]
-pub struct UserFitnessSummary {
-    pub measurements_recorded: u64,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-#[serde(default)]
-pub struct UserSummary {
-    pub fitness: UserFitnessSummary,
-    pub media: UserMediaSummary,
-    pub calculated_on: DateTimeUtc,
-}
-
 pub mod media {
     use super::*;
 
@@ -433,6 +332,195 @@ pub mod media {
         Public,
         #[sea_orm(string_value = "PR")]
         Private,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct AudioBooksSummary {
+        pub runtime: i32,
+        pub played: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct VideoGamesSummary {
+        pub played: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct BooksSummary {
+        pub pages: i32,
+        pub read: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct MoviesSummary {
+        pub runtime: i32,
+        pub watched: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct PodcastsSummary {
+        pub runtime: i32,
+        pub played: i32,
+        pub played_episodes: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct ShowsSummary {
+        pub runtime: i32,
+        pub watched: i32,
+        pub watched_episodes: i32,
+        pub watched_seasons: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct MangaSummary {
+        pub chapters: i32,
+        pub read: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct AnimeSummary {
+        pub episodes: i32,
+        pub watched: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    #[serde(default)]
+    pub struct UserMediaSummary {
+        pub books: BooksSummary,
+        pub movies: MoviesSummary,
+        pub podcasts: PodcastsSummary,
+        pub shows: ShowsSummary,
+        pub video_games: VideoGamesSummary,
+        pub audio_books: AudioBooksSummary,
+        pub anime: AnimeSummary,
+        pub manga: MangaSummary,
+        pub reviews_posted: u64,
+        pub creators_interacted_with: usize,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    #[serde(default)]
+    pub struct UserFitnessSummary {
+        pub measurements_recorded: u64,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    #[serde(default)]
+    pub struct UserSummary {
+        pub fitness: UserFitnessSummary,
+        pub media: UserMediaSummary,
+        pub calculated_on: DateTimeUtc,
     }
 
     #[derive(Debug, InputObject)]
