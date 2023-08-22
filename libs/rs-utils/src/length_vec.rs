@@ -114,6 +114,15 @@ mod tests {
     }
 
     #[test]
+    fn test_from_vec_and_length() {
+        let vec = vec![1, 2, 3, 4, 5, 6, 7];
+        let length_vec = LengthVec::from_vec_and_length(vec.clone(), 5);
+
+        assert_eq!(length_vec.len(), 5);
+        assert_eq!(*length_vec, vec![3, 4, 5, 6, 7]);
+    }
+
+    #[test]
     fn test_push_front() {
         let mut length_vec = LengthVec::new(5);
         length_vec.push_front(5);
