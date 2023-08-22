@@ -557,7 +557,7 @@ const Page: NextPageWithLayout = () => {
 												currentWorkoutToCreateWorkoutInput(currentWorkout);
 											createUserWorkout.mutate(input);
 											playCompleteSound();
-											// await finishWorkout();
+											await finishWorkout();
 										}
 									}}
 								>
