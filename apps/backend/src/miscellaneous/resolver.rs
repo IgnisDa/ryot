@@ -68,10 +68,10 @@ use crate::{
             MetadataImage, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, VideoGameSpecifics,
+            Visibility,
         },
-        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl, UserSummary,
     },
     providers::{
         anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
@@ -85,10 +85,11 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
+        resolver::UsersService, UserDistanceUnit, UserNotification, UserNotificationSetting,
+        UserNotificationSettingKind, UserNotifications, UserPreferences, UserSinkIntegration,
+        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
+        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -126,49 +127,6 @@ struct CreateCustomMediaInput {
     anime_specifics: Option<AnimeSpecifics>,
 }
 
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserIntegrationLot {
-    Yank,
-    Sink,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserIntegration {
-    id: usize,
-    description: String,
-    timestamp: DateTimeUtc,
-    lot: UserIntegrationLot,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserYankIntegrationInput {
-    lot: UserYankIntegrationSettingKind,
-    base_url: String,
-    #[graphql(secret)]
-    token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserNotificationPlatform {
-    id: usize,
-    description: String,
-    timestamp: DateTimeUtc,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserNotificationPlatformInput {
-    lot: UserNotificationSettingKind,
-    base_url: Option<String>,
-    #[graphql(secret)]
-    api_token: Option<String>,
-    priority: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserSinkIntegrationInput {
-    lot: UserSinkIntegrationSettingKind,
-}
-
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
@@ -191,84 +149,6 @@ enum CreateCustomMediaResult {
     Ok(IdObject),
     Error(CreateCustomMediaError),
 }
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserDetailsErrorVariant {
-    AuthTokenInvalid,
-}
-
-#[derive(Debug, SimpleObject)]
-struct UserDetailsError {
-    error: UserDetailsErrorVariant,
-}
-
-#[derive(Union)]
-enum UserDetailsResult {
-    Ok(Box<user::Model>),
-    Error(UserDetailsError),
-}
-
-#[derive(Debug, InputObject)]
-struct UserInput {
-    username: String,
-    #[graphql(secret)]
-    password: String,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum RegisterErrorVariant {
-    UsernameAlreadyExists,
-    Disabled,
-}
-
-#[derive(Debug, SimpleObject)]
-struct RegisterError {
-    error: RegisterErrorVariant,
-}
-
-#[derive(Union)]
-enum RegisterResult {
-    Ok(IdObject),
-    Error(RegisterError),
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-enum LoginErrorVariant {
-    UsernameDoesNotExist,
-    CredentialsMismatch,
-    MutexError,
-}
-
-#[derive(Debug, SimpleObject)]
-struct LoginError {
-    error: LoginErrorVariant,
-}
-
-#[derive(Debug, SimpleObject)]
-struct LoginResponse {
-    api_key: String,
-}
-
-#[derive(Union)]
-enum LoginResult {
-    Ok(LoginResponse),
-    Error(LoginError),
-}
-
-#[derive(Debug, InputObject)]
-struct UpdateUserInput {
-    username: Option<String>,
-    email: Option<String>,
-    #[graphql(secret)]
-    password: Option<String>,
-}
-
-#[derive(Debug, InputObject)]
-struct UpdateUserPreferenceInput {
-    property: String,
-    value: String,
-}
-
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
@@ -523,39 +403,6 @@ struct CreateMediaReminderInput {
     message: String,
 }
 
-fn create_cookie(
-    ctx: &Context<'_>,
-    api_key: &str,
-    expires: bool,
-    insecure_cookie: bool,
-    samesite_none: bool,
-    token_valid_till: i64,
-) -> Result<()> {
-    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
-    cookie = if expires {
-        cookie.expires(OffsetDateTime::now_utc())
-    } else {
-        cookie
-            .expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till)))
-    };
-    cookie = if samesite_none {
-        cookie.same_site(SameSite::None)
-    } else {
-        cookie.same_site(SameSite::Strict)
-    };
-    let cookie = cookie.finish();
-    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
-    Ok(())
-}
-
-fn get_password_hasher() -> Argon2<'static> {
-    Argon2::default()
-}
-
-fn get_id_hasher(salt: &str) -> Harsh {
-    Harsh::builder().length(10).salt(salt).build().unwrap()
-}
-
 #[derive(Default)]
 pub struct MiscellaneousQuery;
 
@@ -638,13 +485,6 @@ impl MiscellaneousQuery {
         service.core_enabled_features().await
     }
 
-    /// Get a user's preferences.
-    async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_preferences(user_id).await
-    }
-
     /// Search for a list of media for a given type.
     async fn media_search(
         &self,
@@ -688,55 +528,6 @@ impl MiscellaneousQuery {
     ) -> Vec<ProviderLanguageInformation> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.providers_language_information()
-    }
-
-    /// Get details about all the users in the service.
-    async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.admin_account_guard(user_id).await?;
-        service.users_list().await
-    }
-
-    /// Get details about the currently logged in user.
-    async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let token = service.user_auth_token_from_ctx(gql_ctx)?;
-        service.user_details(&token).await
-    }
-
-    /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.latest_user_summary(user_id).await
-    }
-
-    /// Get all the integrations for the currently logged in user.
-    async fn user_integrations(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserIntegration>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_integrations(user_id).await
-    }
-
-    /// Get all the notification platforms for the currently logged in user.
-    async fn user_notification_platforms(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_notification_platforms(user_id).await
-    }
-
-    /// Get all the auth tokens issued to the currently logged in user.
-    async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<UserAuthToken>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_auth_tokens(user_id).await
     }
 
     /// Get details that can be displayed to a user for a media.
@@ -918,41 +709,6 @@ impl MiscellaneousMutation {
         service.commit_media(lot, source, &identifier).await
     }
 
-    /// Create a new user for the service. Also set their `lot` as admin if
-    /// they are the first user.
-    async fn register_user(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UserInput,
-    ) -> Result<RegisterResult> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service
-            .register_user(&input.username, &input.password)
-            .await
-    }
-
-    /// Login a user using their username and password and return an auth token.
-    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service
-            .login_user(&input.username, &input.password, gql_ctx)
-            .await
-    }
-
-    /// Logout a user from the server and delete their login token.
-    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_auth_token_from_ctx(gql_ctx)?;
-        service.logout_user(&user_id, gql_ctx).await
-    }
-
-    /// Update a user's profile details.
-    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.update_user(user_id, input).await
-    }
-
     /// Delete all summaries for the currently logged in user and then generate one from scratch.
     pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
@@ -961,115 +717,11 @@ impl MiscellaneousMutation {
         Ok(true)
     }
 
-    /// Change a user's preferences.
-    async fn update_user_preference(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UpdateUserPreferenceInput,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_preference(input, user_id).await
-    }
-
-    /// Generate an auth token without any expiry.
-    async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.generate_application_token(user_id).await
-    }
-
-    /// Create a sink based integrations for the currently logged in user.
-    async fn create_user_sink_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserSinkIntegrationInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_sink_integration(user_id, input).await
-    }
-
-    /// Create a yank based integrations for the currently logged in user.
-    async fn create_user_yank_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserYankIntegrationInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_yank_integration(user_id, input).await
-    }
-
-    /// Delete an integration for the currently logged in user.
-    async fn delete_user_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        integration_id: usize,
-        integration_lot: UserIntegrationLot,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .delete_user_integration(user_id, integration_id, integration_lot)
-            .await
-    }
-
-    /// Add a notification platform for the currently logged in user.
-    async fn create_user_notification_platform(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserNotificationPlatformInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .create_user_notification_platform(user_id, input)
-            .await
-    }
-
-    /// Test all notification platforms for the currently logged in user.
-    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
-            .await
-    }
-
-    /// Delete a notification platform for the currently logged in user.
-    async fn delete_user_notification_platform(
-        &self,
-        gql_ctx: &Context<'_>,
-        notification_id: usize,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .delete_user_notification_platform(user_id, notification_id)
-            .await
-    }
-
     /// Yank data from all integrations for the currently logged in user.
     async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.yank_integrations_data_for_user(user_id).await
-    }
-
-    /// Delete an auth token for the currently logged in user.
-    async fn delete_user_auth_token(&self, gql_ctx: &Context<'_>, token: String) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_user_auth_token(user_id, token).await
-    }
-
-    /// Delete a user. The account making the user must an `Admin`.
-    async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.admin_account_guard(user_id).await?;
-        service.delete_user(to_delete_user_id).await
     }
 
     /// Toggle the monitor on a media for a user.
@@ -1106,26 +758,25 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub auth_db: MemoryDatabase,
     file_storage_service: Arc<FileStorageService>,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
+    users_service: Arc<UsersService>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<AppConfig>,
 }
 
 impl AuthProvider for MiscellaneousService {
     fn get_auth_db(&self) -> &MemoryDatabase {
-        &self.auth_db
+        &self.users_service.auth_db
     }
 }
 
 impl MiscellaneousService {
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
-        auth_db: MemoryDatabase,
         file_storage_service: Arc<FileStorageService>,
+        users_service: Arc<UsersService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1139,9 +790,9 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            auth_db,
             config,
             file_storage_service,
+            users_service,
             seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
         }
@@ -3151,31 +2802,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
-        if let Ok(user_id) = found_token {
-            let user = self.user_by_id(user_id).await?;
-            Ok(UserDetailsResult::Ok(Box::new(user)))
-        } else {
-            Ok(UserDetailsResult::Error(UserDetailsError {
-                error: UserDetailsErrorVariant::AuthTokenInvalid,
-            }))
-        }
-    }
-
-    async fn user_by_id(&self, user_id: i32) -> Result<user::Model> {
-        User::find_by_id(user_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .ok_or_else(|| Error::new("No user found"))
-    }
-
-    async fn latest_user_summary(&self, user_id: i32) -> Result<UserSummary> {
-        let ls = self.user_by_id(user_id).await?;
-        Ok(ls.summary.unwrap_or_default())
-    }
-
     pub async fn calculate_user_summary(&self, user_id: i32) -> Result<IdObject> {
         let mut ls = UserSummary {
             calculated_on: Utc::now(),
@@ -3348,68 +2974,6 @@ impl MiscellaneousService {
             .push(ApplicationJob::UserCreated(user.id))
             .await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
-    }
-
-    async fn login_user(
-        &self,
-        username: &str,
-        password: &str,
-        gql_ctx: &Context<'_>,
-    ) -> Result<LoginResult> {
-        let user = User::find()
-            .filter(user::Column::Name.eq(username))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if user.is_none() {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::UsernameDoesNotExist,
-            }));
-        };
-        let user = user.unwrap();
-        let parsed_hash = PasswordHash::new(&user.password).unwrap();
-        if get_password_hasher()
-            .verify_password(password.as_bytes(), &parsed_hash)
-            .is_err()
-        {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::CredentialsMismatch,
-            }));
-        }
-        let api_key = Uuid::new_v4().to_string();
-
-        if self.set_auth_token(&api_key, user.id).await.is_err() {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::MutexError,
-            }));
-        };
-        create_cookie(
-            gql_ctx,
-            &api_key,
-            false,
-            self.config.server.insecure_cookie,
-            self.config.server.samesite_none,
-            self.config.users.token_valid_for_days,
-        )?;
-        Ok(LoginResult::Ok(LoginResponse { api_key }))
-    }
-
-    async fn logout_user(&self, token: &str, gql_ctx: &Context<'_>) -> Result<bool> {
-        create_cookie(
-            gql_ctx,
-            "",
-            true,
-            self.config.server.insecure_cookie,
-            self.config.server.samesite_none,
-            self.config.users.token_valid_for_days,
-        )?;
-        let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
-        if found_token.is_ok() {
-            self.get_auth_db().remove(token.to_owned()).await.unwrap();
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 
     // this job is run when a user is created for the first time

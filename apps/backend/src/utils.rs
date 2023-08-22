@@ -31,6 +31,7 @@ use crate::{
     importer::ImporterService,
     miscellaneous::resolver::MiscellaneousService,
     models::StoredUrl,
+    users::resolver::UsersService,
 };
 
 pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
@@ -62,6 +63,7 @@ pub struct AppServices {
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
     pub auth_db: MemoryDatabase,
+    pub users_service: Arc<UsersService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -76,20 +78,25 @@ pub async fn create_app_services(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
     ));
-    let exercise_service = Arc::new(ExerciseService::new(
+    let users_service = Arc::new(UsersService::new(
         &db,
         config.clone(),
         auth_db.clone(),
-        file_storage_service.clone(),
         perform_application_job,
     ));
-
+    let exercise_service = Arc::new(ExerciseService::new(
+        &db,
+        config.clone(),
+        file_storage_service.clone(),
+        users_service.clone(),
+        perform_application_job,
+    ));
     let media_service = Arc::new(
         MiscellaneousService::new(
             &db,
             config.clone(),
-            auth_db.clone(),
             file_storage_service.clone(),
+            users_service.clone(),
             perform_application_job,
         )
         .await,
@@ -102,6 +109,7 @@ pub async fn create_app_services(
         file_storage_service,
         exercise_service,
         auth_db,
+        users_service,
     }
 }
 
