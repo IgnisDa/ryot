@@ -4,8 +4,6 @@ use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use strum::EnumString;
 
-pub mod resolver;
-
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
