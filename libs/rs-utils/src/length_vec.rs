@@ -43,7 +43,13 @@ impl<T> LengthVec<T> {
         }
     }
 
-    pub fn from_vec_and_length(data: Vec<T>, max_length: usize) -> Self {
+    pub fn from_vec_and_length(vec: Vec<T>, max_length: usize) -> Self {
+        let mut data = vec;
+        let len = data.len();
+        if len > max_length {
+            data.drain(0..(len - max_length));
+        }
+
         LengthVec { data, max_length }
     }
 
