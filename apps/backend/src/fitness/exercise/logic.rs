@@ -260,8 +260,7 @@ impl UserWorkoutInput {
             user_id,
             name: self.name,
             comment: self.comment,
-            // TODO: Mark as true when calculation code is complete.
-            processed: false,
+            processed: true,
             summary: WorkoutSummary {
                 total: summary_total,
                 exercises: exercises
