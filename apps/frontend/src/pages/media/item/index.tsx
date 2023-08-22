@@ -1260,24 +1260,29 @@ const Page: NextPageWithLayout = () => {
 															.map((e) => e.runtime || 0)
 															.reduce((i, a) => i + a, 0)}
 													>
-														<Button
-															variant="outline"
-															onClick={() => {
-																router.push(
-																	withQuery(
-																		APP_ROUTES.media.individualMediaItem
-																			.updateProgress,
-																		{
-																			id: metadataId,
-																			selectedShowSeasonNumber: s.seasonNumber,
-																			onlySeason: 1,
-																		},
-																	),
-																);
-															}}
-														>
-															Mark as seen
-														</Button>
+														<>
+															{s.episodes.length > 0 ? (
+																<Button
+																	variant="outline"
+																	onClick={() => {
+																		router.push(
+																			withQuery(
+																				APP_ROUTES.media.individualMediaItem
+																					.updateProgress,
+																				{
+																					id: metadataId,
+																					selectedShowSeasonNumber:
+																						s.seasonNumber,
+																					onlySeason: 1,
+																				},
+																			),
+																		);
+																	}}
+																>
+																	Mark as seen
+																</Button>
+															) : null}
+														</>
 													</AccordionLabel>
 												</Accordion.Control>
 												<Accordion.Panel>
