@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
@@ -20,23 +22,37 @@ use crate::{
     },
 };
 
-fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
-    records.iter().max_by_key(|record| {
-        record.statistic.duration.unwrap_or(dec!(0))
-            + record.statistic.distance.unwrap_or(dec!(0))
-            + record.statistic.reps.unwrap_or(dec!(0))
-            + record.statistic.weight.unwrap_or(dec!(0))
-    })
+fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
+    records
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, record)| {
+            record.statistic.duration.unwrap_or(dec!(0))
+                + record.statistic.distance.unwrap_or(dec!(0))
+                + record.statistic.reps.unwrap_or(dec!(0))
+                + record.statistic.weight.unwrap_or(dec!(0))
+        })
+        .map(|(index, _)| index)
 }
 
-fn get_highest_element_by_personal_best<'a>(
-    records: &'a [WorkoutSetRecord],
-    pb_type: &'a WorkoutSetPersonalBest,
-) -> Option<(usize, &'a WorkoutSetRecord)> {
-    records.iter().enumerate().max_by_key(|(_, record)| {
-        let pb_value = record.get_personal_best(pb_type).unwrap_or(dec!(0.0));
-        pb_value
-    })
+fn get_index_of_highest_pb(
+    records: &[WorkoutSetRecord],
+    pb_type: &WorkoutSetPersonalBest,
+) -> Option<usize> {
+    records
+        .iter()
+        .enumerate()
+        .max_by(|(_, record1), (_, record2)| {
+            let pb1 = record1.get_personal_best(pb_type);
+            let pb2 = record2.get_personal_best(pb_type);
+            match (pb1, pb2) {
+                (Some(pb1), Some(pb2)) => pb1.cmp(&pb2),
+                (Some(_), None) => Ordering::Greater,
+                (None, Some(_)) => Ordering::Less,
+                (None, None) => Ordering::Equal,
+            }
+        })
+        .map(|(index, _)| index)
 }
 
 #[derive(
@@ -177,7 +193,6 @@ impl UserWorkoutInput {
             }
             workout_totals.push(total.clone());
             let personal_bests = association.extra_information.personal_bests.clone();
-            let m_d = sets.clone();
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
                 ExerciseLot::DistanceAndDuration => {
@@ -190,7 +205,7 @@ impl UserWorkoutInput {
                 ],
             };
             for best_type in types_of_prs.iter() {
-                let (set_idx, _) = get_highest_element_by_personal_best(&m_d, best_type).unwrap();
+                let set_idx = get_index_of_highest_pb(&sets, best_type).unwrap();
                 let possible_record = personal_bests
                     .iter()
                     .find(|pb| pb.lot == *best_type)
@@ -236,7 +251,7 @@ impl UserWorkoutInput {
                     .map(|e| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
                         name: e.exercise_name.clone(),
-                        best_set: get_best_set(&e.sets).unwrap().clone(),
+                        best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
                     .collect(),
             },
