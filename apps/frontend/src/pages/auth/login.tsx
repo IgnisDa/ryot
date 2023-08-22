@@ -20,6 +20,7 @@ import { z } from "zod";
 const formSchema = z.object({
 	username: z.string(),
 	password: z.string(),
+	honeypot: z.string().length(0).optional(),
 });
 type FormSchema = z.infer<typeof formSchema>;
 
@@ -100,6 +101,10 @@ export default function Page() {
 					mt="md"
 					{...form.getInputProps("password")}
 					required
+				/>
+				<input
+					style={{ display: "none" }}
+					{...form.getInputProps("honeypot")}
 				/>
 				<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
 					Login
