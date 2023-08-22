@@ -118,6 +118,7 @@ async fn main() -> Result<()> {
 
     let opt = ConnectOptions::new(config.database.url.clone())
         .min_connections(5)
+        .max_connections(10)
         .connect_timeout(Duration::from_secs(10))
         .acquire_timeout(Duration::from_secs(10))
         .to_owned();

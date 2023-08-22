@@ -92,8 +92,8 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_stored_image, get_user_and_metadata_association, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        get_stored_image, get_user_and_metadata_association, user_by_id, user_id_from_token,
+        MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -2449,7 +2449,7 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
-        let mut prefs = self.user_by_id(user_id).await?.preferences;
+        let mut prefs = user_by_id(&self.db, user_id).await?.preferences;
         prefs.features_enabled.media.anime =
             self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
         prefs.features_enabled.media.audio_book =
@@ -3154,7 +3154,7 @@ impl MiscellaneousService {
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
         if let Ok(user_id) = found_token {
-            let user = self.user_by_id(user_id).await?;
+            let user = user_by_id(&self.db, user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
@@ -3163,16 +3163,8 @@ impl MiscellaneousService {
         }
     }
 
-    async fn user_by_id(&self, user_id: i32) -> Result<user::Model> {
-        User::find_by_id(user_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .ok_or_else(|| Error::new("No user found"))
-    }
-
     async fn latest_user_summary(&self, user_id: i32) -> Result<UserSummary> {
-        let ls = self.user_by_id(user_id).await?;
+        let ls = user_by_id(&self.db, user_id).await?;
         Ok(ls.summary.unwrap_or_default())
     }
 
@@ -3665,7 +3657,7 @@ impl MiscellaneousService {
             return Ok(false);
         }
         let err = || Error::new("Incorrect property value encountered");
-        let user_model = self.user_by_id(user_id).await?;
+        let user_model = user_by_id(&self.db, user_id).await?;
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
         let value_bool = input.value.parse::<bool>();
@@ -3878,7 +3870,7 @@ impl MiscellaneousService {
     }
 
     async fn user_integrations(&self, user_id: i32) -> Result<Vec<GraphqlUserIntegration>> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut all_integrations = vec![];
         let yank_integrations = if let Some(i) = user.yank_integrations {
             i.0
@@ -3919,7 +3911,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
     ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut all_notifications = vec![];
         let notifications = user.notifications.0;
         notifications.into_iter().for_each(|n| {
@@ -3960,7 +3952,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserSinkIntegrationInput,
     ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut integrations = user.sink_integrations.clone().0;
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserSinkIntegration {
@@ -3987,7 +3979,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut integrations = if let Some(i) = user.yank_integrations.clone() {
             i.0
         } else {
@@ -4019,7 +4011,7 @@ impl MiscellaneousService {
         integration_id: usize,
         integration_type: UserIntegrationLot,
     ) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         match integration_type {
             UserIntegrationLot::Yank => {
@@ -4058,7 +4050,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserNotificationPlatformInput,
     ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut notifications = user.notifications.clone().0;
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
@@ -4107,7 +4099,7 @@ impl MiscellaneousService {
         user_id: i32,
         notification_id: usize,
     ) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         let notifications = user.notifications.clone().0;
         let remaining_notifications = notifications
@@ -4211,7 +4203,7 @@ impl MiscellaneousService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<usize> {
-        if let Some(integrations) = self.user_by_id(user_id).await?.yank_integrations {
+        if let Some(integrations) = user_by_id(&self.db, user_id).await?.yank_integrations {
             let mut progress_updates = vec![];
             for integration in integrations.0.iter() {
                 let response = match &integration.settings {
@@ -4313,7 +4305,7 @@ impl MiscellaneousService {
     }
 
     async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
-        let main_user = self.user_by_id(user_id).await?;
+        let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
             return Err(Error::new("Only admins can perform this operation."));
         }
@@ -4368,7 +4360,7 @@ impl MiscellaneousService {
             .ok_or(anyhow!("Incorrect hash id provided"))?
             .to_owned()
             .try_into()?;
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         for db_integration in user.sink_integrations.0.into_iter() {
             let progress = match db_integration.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
@@ -4512,10 +4504,10 @@ impl MiscellaneousService {
                         )
                         .await
                         .ok();
-                        let user_media_details = self
-                            .user_media_details(seen.user_id, seen.metadata_id)
+                        let is_monitored = self
+                            .get_monitored_status(seen.user_id, seen.metadata_id)
                             .await?;
-                        if !user_media_details.is_monitored {
+                        if !is_monitored {
                             self.toggle_media_monitor(seen.user_id, seen.metadata_id)
                                 .await?;
                         }
@@ -4539,7 +4531,7 @@ impl MiscellaneousService {
         user_id: i32,
         msg: &str,
     ) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut success = true;
         for notification in user.notifications.0 {
             if notification.settings.send_message(msg).await.is_err() {
