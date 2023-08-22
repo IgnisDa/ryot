@@ -1,4 +1,11 @@
 
+# Version 2.8.2 (2023-08-22)
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.8.1 (2023-08-22)
 
 
