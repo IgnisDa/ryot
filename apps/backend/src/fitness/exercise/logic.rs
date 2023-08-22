@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
+use rs_utils::LengthVec;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -126,6 +127,7 @@ impl UserWorkoutInput {
         user_id: i32,
         db: &DatabaseConnection,
         id: String,
+        save_history: usize,
     ) -> Result<String> {
         let mut exercises = vec![];
         let mut workout_totals = vec![];
@@ -228,7 +230,10 @@ impl UserWorkoutInput {
                         data: set.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        record.sets.insert(0, to_insert_record);
+                        let mut data =
+                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
+                        data.push_front(to_insert_record);
+                        record.sets = data.into_vec();
                     } else {
                         personal_bests.push(UserToExerciseBestSetExtraInformation {
                             lot: *best,

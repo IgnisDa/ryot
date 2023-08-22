@@ -43,6 +43,10 @@ impl<T> LengthVec<T> {
         }
     }
 
+    pub fn from_vec_and_length(data: Vec<T>, max_length: usize) -> Self {
+        LengthVec { data, max_length }
+    }
+
     pub fn push(&mut self, item: T) {
         if self.data.len() >= self.max_length {
             self.data.remove(0); // Remove the oldest element
@@ -55,6 +59,16 @@ impl<T> LengthVec<T> {
             self.data.pop(); // Remove the last element
         }
         self.data.insert(0, item);
+    }
+
+    pub fn into_vec(self) -> Vec<T> {
+        self.data
+    }
+}
+
+impl<T> Into<Vec<T>> for LengthVec<T> {
+    fn into(self) -> Vec<T> {
+        self.into_vec()
     }
 }
 
