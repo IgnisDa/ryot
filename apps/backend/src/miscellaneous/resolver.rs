@@ -4512,10 +4512,10 @@ impl MiscellaneousService {
                         )
                         .await
                         .ok();
-                        let user_media_details = self
-                            .user_media_details(seen.user_id, seen.metadata_id)
+                        let is_monitored = self
+                            .get_monitored_status(seen.user_id, seen.metadata_id)
                             .await?;
-                        if !user_media_details.is_monitored {
+                        if !is_monitored {
                             self.toggle_media_monitor(seen.user_id, seen.metadata_id)
                                 .await?;
                         }
