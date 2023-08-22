@@ -33,7 +33,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, MemoryDatabase},
+    utils::{get_case_insensitive_like_query, user_by_id, MemoryDatabase},
 };
 
 use super::logic::UserWorkoutInput;
@@ -414,10 +414,17 @@ impl ExerciseService {
     }
 
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
+        let user = user_by_id(&self.db, user_id).await?;
         let sf = Sonyflake::new().unwrap();
         let id = sf.next_id().unwrap().to_string();
-        todo!("COrrect save history");
-        // let identifier = input.calculate_and_commit(user_id, &self.db, id).await?;
-        // Ok(identifier)
+        let identifier = input
+            .calculate_and_commit(
+                user_id,
+                &self.db,
+                id,
+                user.preferences.fitness.exercises.save_history,
+            )
+            .await?;
+        Ok(identifier)
     }
 }
