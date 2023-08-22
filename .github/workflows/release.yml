@@ -54,16 +54,16 @@ jobs:
         include:
           - os: ubuntu-20.04
             dist-args: --artifacts=global
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.1.0/cargo-dist-installer.sh | sh
           - os: macos-11
             dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.1.0/cargo-dist-installer.sh | sh
           - os: ubuntu-20.04
             dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.sh | sh
+            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.1.0/cargo-dist-installer.sh | sh
           - os: windows-2019
             dist-args: --artifacts=local --target=x86_64-pc-windows-msvc
-            install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.0.7/cargo-dist-installer.ps1 | iex
+            install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.1.0/cargo-dist-installer.ps1 | iex
 
     runs-on: ${{ matrix.os }}
     env:
