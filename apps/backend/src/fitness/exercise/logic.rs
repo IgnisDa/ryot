@@ -17,7 +17,8 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::fitness::{
-        SetLot, SetStatistic, TotalMeasurement, UserToExerciseExtraInformation,
+        ExerciseBestSetRecord, SetLot, SetStatistic, TotalMeasurement,
+        UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
 };
@@ -192,7 +193,7 @@ impl UserWorkoutInput {
                 });
             }
             workout_totals.push(total.clone());
-            let personal_bests = association.extra_information.personal_bests.clone();
+            let mut personal_bests = association.extra_information.personal_bests.clone();
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
                 ExerciseLot::DistanceAndDuration => {
@@ -217,6 +218,23 @@ impl UserWorkoutInput {
                     }
                 } else {
                     set.personal_bests.push(*best_type);
+                }
+            }
+            for (set_idx, set) in sets.iter().enumerate() {
+                for best in set.personal_bests.iter() {
+                    let to_insert_record = ExerciseBestSetRecord {
+                        workout_id: id.clone(),
+                        set_idx,
+                        data: set.clone(),
+                    };
+                    if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
+                        record.sets.insert(0, to_insert_record);
+                    } else {
+                        personal_bests.push(UserToExerciseBestSetExtraInformation {
+                            lot: *best,
+                            sets: vec![to_insert_record],
+                        });
+                    }
                 }
             }
             let mut association_extra_information = association.extra_information.clone();
