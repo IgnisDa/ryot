@@ -948,7 +948,7 @@ pub mod fitness {
             Some(distance / duration)
         }
 
-        pub fn get_personal_best(&self, pb_type: WorkoutSetPersonalBest) -> Option<Decimal> {
+        pub fn get_personal_best(&self, pb_type: &WorkoutSetPersonalBest) -> Option<Decimal> {
             match pb_type {
                 WorkoutSetPersonalBest::Weight => self.statistic.weight,
                 WorkoutSetPersonalBest::Time => self.statistic.duration,

@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
@@ -31,14 +29,13 @@ fn get_best_set(records: &[WorkoutSetRecord]) -> Option<&WorkoutSetRecord> {
     })
 }
 
-pub fn get_highest_personal_best(
-    records: &[WorkoutSetRecord],
-    pb_type: WorkoutSetPersonalBest,
-) -> Option<&WorkoutSetRecord> {
-    records.iter().max_by(|record1, record2| {
-        let pb1 = record1.get_personal_best(pb_type).unwrap_or(dec!(0.0));
-        let pb2 = record2.get_personal_best(pb_type).unwrap_or(dec!(0.0));
-        pb1.partial_cmp(&pb2).unwrap_or(Ordering::Equal)
+fn get_highest_element_by_personal_best<'a>(
+    records: &'a [WorkoutSetRecord],
+    pb_type: &'a WorkoutSetPersonalBest,
+) -> Option<(usize, &'a WorkoutSetRecord)> {
+    records.iter().enumerate().max_by_key(|(_, record)| {
+        let pb_value = record.get_personal_best(pb_type).unwrap_or(dec!(0.0));
+        pb_value
     })
 }
 
@@ -180,30 +177,32 @@ impl UserWorkoutInput {
             }
             workout_totals.push(total.clone());
             let personal_bests = association.extra_information.personal_bests.clone();
-            let mut m_d = sets.clone();
-            for set in sets.iter_mut() {
-                let mut personal_bests = vec![];
-                let types_of_prs = match db_ex.lot {
-                    ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
-                    ExerciseLot::DistanceAndDuration => {
-                        vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time]
-                    }
-                    ExerciseLot::RepsAndWeight => vec![
-                        WorkoutSetPersonalBest::Weight,
-                        WorkoutSetPersonalBest::OneRm,
-                        WorkoutSetPersonalBest::Volume,
-                    ],
-                };
-                for best_type in types_of_prs {
-                    let best_s = get_highest_personal_best(&m_d, best_type);
-                    if let Some(s) = best_s {
-                        if s == set {
-                            personal_bests.push(best_type);
-                        }
-                    }
+            let m_d = sets.clone();
+            let types_of_prs = match db_ex.lot {
+                ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
+                ExerciseLot::DistanceAndDuration => {
+                    vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time]
                 }
-                total.personal_bests_achieved = personal_bests.len();
-                set.personal_bests = personal_bests;
+                ExerciseLot::RepsAndWeight => vec![
+                    WorkoutSetPersonalBest::Weight,
+                    WorkoutSetPersonalBest::OneRm,
+                    WorkoutSetPersonalBest::Volume,
+                ],
+            };
+            for best_type in types_of_prs.iter() {
+                let (set_idx, _) = get_highest_element_by_personal_best(&m_d, best_type).unwrap();
+                let possible_record = personal_bests
+                    .iter()
+                    .find(|pb| pb.lot == *best_type)
+                    .and_then(|record| record.sets.first());
+                let set = sets.get_mut(set_idx).unwrap();
+                if let Some(r) = possible_record {
+                    if set.get_personal_best(best_type) > r.data.get_personal_best(best_type) {
+                        set.personal_bests.push(*best_type);
+                    }
+                } else {
+                    set.personal_bests.push(*best_type);
+                }
             }
             let mut association_extra_information = association.extra_information.clone();
             let mut association: user_to_exercise::ActiveModel = association.into();
