@@ -82,9 +82,9 @@ jobs:
       - name: Build the frontend
         run: moon run frontend:build
       - name: Run cargo-dist
+        # Ignore if any of the commands fail
+        shell: bash +e
         run: |
-          # Ignore if any of the commands fail
-          set +e
           # Actually do builds and make zips and whatnot
           cargo dist build --tag=${{ github.ref_name }} --output-format=json ${{ matrix.dist-args }} > dist-manifest.json
           echo "dist ran successfully"
