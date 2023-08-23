@@ -17,6 +17,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
 import {
 	CreatorDetailsDocument,
 	DeleteReviewDocument,
@@ -154,6 +155,12 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess,
+		onError: (e: any) => {
+			notifications.show({
+				message: e.response.errors[0].message,
+				color: "red",
+			});
+		},
 	});
 
 	const deleteReview = useMutation({

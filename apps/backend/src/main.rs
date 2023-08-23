@@ -211,10 +211,10 @@ async fn main() -> Result<()> {
 
     let app_routes = Router::new()
         .nest("/webhooks", webhook_routes)
+        .route("/export/:export_type", get(json_export))
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
-        .route("/export", get(json_export))
         .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))

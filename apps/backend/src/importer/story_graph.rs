@@ -9,11 +9,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
-        ImportOrExportItemIdentifier, ImportResult,
+        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem,
+        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
-    models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
+    models::media::{
+        ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+    },
     providers::openlibrary::OpenlibraryService,
 };
 
@@ -79,7 +81,7 @@ pub async fn import(
         if let Some(isbn) = record.isbn {
             if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
                 let mut seen_history = vec![
-                    ImportOrExportItemSeen {
+                    ImportOrExportMediaItemSeen {
                         started_on: None,
                         ended_on: None,
                         show_season_number: None,
@@ -105,7 +107,7 @@ pub async fn import(
                 if let Some(t) = record.tags {
                     collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
                 }
-                media.push(ImportOrExportItem {
+                media.push(ImportOrExportMediaItem {
                     source_id: record.title,
                     lot,
                     source,

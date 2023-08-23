@@ -22,6 +22,7 @@ use crate::{
     file_storage::FileStorageService,
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
+    models::media::ExportAllResponse,
     utils::{user_id_from_token, GqlCtx, COOKIE_NAME},
 };
 
@@ -132,14 +133,31 @@ pub async fn upload_handler(
 }
 
 pub async fn json_export(
+    Path(export_type): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
-    let resp = media_service.export(user_id).await.unwrap();
-    Ok(Json(json!(resp)))
+    let resp = match export_type.as_str() {
+        "all" => {
+            let media = media_service.export_media(user_id).await.unwrap();
+            let people = media_service.export_people(user_id).await.unwrap();
+            json!(ExportAllResponse { media, people })
+        }
+        "media" => {
+            json!(media_service.export_media(user_id).await.unwrap())
+        }
+        "people" => {
+            json!(media_service.export_people(user_id).await.unwrap())
+        }
+        _ => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"err": "This type of export is not supported"})),
+        ))?,
+    };
+    Ok(Json(resp))
 }
 
 pub async fn integration_webhook(

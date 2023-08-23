@@ -9,13 +9,13 @@ use surf::http::headers::CONTENT_TYPE;
 
 use crate::{
     importer::{
-        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
-        ImportOrExportItemIdentifier, ImportResult,
+        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier,
+        ImportOrExportMediaItem, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
     models::media::{
         CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
-        ImportOrExportItemSeen,
+        ImportOrExportMediaItemSeen,
     },
     utils::get_base_http_client,
 };
@@ -182,7 +182,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         };
         match process_item(item) {
             Ok(mut d) => {
-                d.seen_history.push(ImportOrExportItemSeen {
+                d.seen_history.push(ImportOrExportMediaItemSeen {
                     started_on: None,
                     podcast_episode_number: None,
                     ended_on: item.watched_at,
@@ -207,7 +207,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
 fn process_item(
     i: &ListItemResponse,
-) -> std::result::Result<ImportOrExportItem<ImportOrExportItemIdentifier>, ImportFailedItem> {
+) -> std::result::Result<ImportOrExportMediaItem<ImportOrExportItemIdentifier>, ImportFailedItem> {
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MetadataLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
@@ -221,7 +221,7 @@ fn process_item(
         });
     };
     match identifier {
-        Some(i) => Ok(ImportOrExportItem {
+        Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
             identifier: ImportOrExportItemIdentifier::NeedsDetails(i.to_string()),

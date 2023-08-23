@@ -11,14 +11,14 @@ use uuid::Uuid;
 
 use crate::{
     importer::{
-        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
+        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
             MediaDetails, MediaSpecifics, MetadataCreator, Visibility,
         },
         IdObject,
@@ -264,7 +264,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             ItemNumberOfPages::Something(s) => Some(s),
         });
 
-        let item = ImportOrExportItem {
+        let item = ImportOrExportMediaItem {
             source_id: d.id.to_string(),
             source,
             lot,
@@ -328,7 +328,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     } else {
                         (None, None)
                     };
-                    ImportOrExportItemSeen {
+                    ImportOrExportMediaItemSeen {
                         started_on: None,
                         ended_on: s.date,
                         show_season_number: season_number,
