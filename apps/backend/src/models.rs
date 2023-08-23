@@ -600,7 +600,7 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-    pub struct ImportOrExportItemSeen {
+    pub struct ImportOrExportMediaItemSeen {
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
         /// The timestamp when finished watching.
@@ -639,7 +639,7 @@ pub mod media {
 
     /// Details about a specific media item that needs to be imported.
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-    pub struct ImportOrExportItem<T> {
+    pub struct ImportOrExportMediaItem<T> {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
@@ -649,7 +649,7 @@ pub mod media {
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
         pub identifier: T,
         /// The seen history for the user.
-        pub seen_history: Vec<ImportOrExportItemSeen>,
+        pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections to add this media to.

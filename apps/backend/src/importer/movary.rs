@@ -7,12 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItem,
-        ImportOrExportItemIdentifier, ImportResult,
+        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier,
+        ImportOrExportMediaItem, ImportResult,
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
-    models::media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen},
+    models::media::{
+        ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+    },
     utils::convert_naive_to_utc,
 };
 
@@ -59,7 +61,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportItem {
+        media.push(ImportOrExportMediaItem {
             source_id: record.common.title,
             lot,
             source,
@@ -92,7 +94,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportItem {
+        media.push(ImportOrExportMediaItem {
             source_id: record.title,
             lot,
             source,
@@ -117,7 +119,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         let watched_at = Some(convert_naive_to_utc(record.watched_at));
-        let seen_item = ImportOrExportItemSeen {
+        let seen_item = ImportOrExportMediaItemSeen {
             started_on: None,
             ended_on: watched_at,
             show_season_number: None,
@@ -158,7 +160,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     podcast_episode_number: None,
                 })
             }
-            media.push(ImportOrExportItem {
+            media.push(ImportOrExportMediaItem {
                 source_id: record.common.title,
                 lot,
                 source,

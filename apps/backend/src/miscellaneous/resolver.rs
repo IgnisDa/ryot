@@ -61,8 +61,8 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
+            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
             MetadataImage, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
@@ -3550,7 +3550,7 @@ impl MiscellaneousService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    pub async fn export(&self, user_id: i32) -> Result<Vec<ImportOrExportItem<String>>> {
+    pub async fn export(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem<String>>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -3584,7 +3584,7 @@ impl MiscellaneousService {
                         None => (None, None),
                     };
                     let podcast_episode_number = s.podcast_information.map(|d| d.episode);
-                    ImportOrExportItemSeen {
+                    ImportOrExportMediaItemSeen {
                         started_on: s.started_on.map(convert_naive_to_utc),
                         ended_on: s.finished_on.map(convert_naive_to_utc),
                         show_season_number,
@@ -3620,7 +3620,7 @@ impl MiscellaneousService {
                 .into_iter()
                 .map(|c| c.name)
                 .collect();
-            let exp = ImportOrExportItem {
+            let exp = ImportOrExportMediaItem {
                 source_id: m.id.to_string(),
                 lot: m.lot,
                 source: m.source,

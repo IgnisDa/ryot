@@ -16,8 +16,8 @@ use crate::{
     migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
-        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItem,
-        ImportOrExportItemIdentifier, PostReviewInput, ProgressUpdateInput,
+        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+        ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
     utils::MemoryDatabase,
@@ -123,7 +123,7 @@ pub struct ImportDetails {
 #[derive(Debug)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
-    media: Vec<ImportOrExportItem<ImportOrExportItemIdentifier>>,
+    media: Vec<ImportOrExportMediaItem<ImportOrExportItemIdentifier>>,
     failed_items: Vec<ImportFailedItem>,
 }
 
