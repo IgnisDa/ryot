@@ -3552,126 +3552,6 @@ impl MiscellaneousService {
         .await?;
         Ok(CreateCustomMediaResult::Ok(media))
     }
-
-    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem<String>>> {
-        let related_metadata = UserToMetadata::find()
-            .filter(user_to_metadata::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await
-            .unwrap();
-        let distinct_meta_ids = related_metadata
-            .into_iter()
-            .map(|m| m.metadata_id)
-            .collect_vec();
-        let metas = Metadata::find()
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
-            .order_by(metadata::Column::Id, Order::Asc)
-            .all(&self.db)
-            .await?;
-
-        let mut resp = vec![];
-
-        for m in metas {
-            let mut seen_history = m
-                .find_related(Seen)
-                .filter(seen::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            modify_seen_elements(&mut seen_history);
-            let seen_history = seen_history
-                .into_iter()
-                .map(|s| {
-                    let (show_season_number, show_episode_number) = match s.show_information {
-                        Some(d) => (Some(d.season), Some(d.episode)),
-                        None => (None, None),
-                    };
-                    let podcast_episode_number = s.podcast_information.map(|d| d.episode);
-                    ImportOrExportMediaItemSeen {
-                        started_on: s.started_on.map(convert_naive_to_utc),
-                        ended_on: s.finished_on.map(convert_naive_to_utc),
-                        show_season_number,
-                        show_episode_number,
-                        podcast_episode_number,
-                    }
-                })
-                .collect();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for r in db_reviews {
-                let rev = self.review_by_id(r.id).await.unwrap();
-                reviews.push(ImportOrExportItemRating {
-                    review: Some(ImportOrExportItemReview {
-                        date: Some(rev.posted_on),
-                        spoiler: Some(rev.spoiler),
-                        text: rev.text,
-                    }),
-                    rating: rev.rating,
-                    show_season_number: rev.show_season,
-                    show_episode_number: rev.show_episode,
-                    podcast_episode_number: rev.podcast_episode,
-                });
-            }
-            let collections = self
-                .media_in_collections(user_id, m.id)
-                .await?
-                .into_iter()
-                .map(|c| c.name)
-                .collect();
-            let exp = ImportOrExportMediaItem {
-                source_id: m.id.to_string(),
-                lot: m.lot,
-                source: m.source,
-                identifier: m.identifier,
-                seen_history,
-                reviews,
-                collections,
-            };
-            resp.push(exp);
-        }
-
-        Ok(resp)
-    }
-
-    pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
-        let mut resp: Vec<ImportOrExportPersonItem> = vec![];
-        let all_reviews = Review::find()
-            .filter(review::Column::CreatorId.is_not_null())
-            .filter(review::Column::UserId.eq(user_id))
-            .find_also_related(Creator)
-            .all(&self.db)
-            .await?;
-        for (review, creator) in all_reviews {
-            let creator = creator.unwrap();
-            let rev = self.review_by_id(review.id).await.unwrap();
-            let review_item = ImportOrExportItemRating {
-                review: Some(ImportOrExportItemReview {
-                    date: Some(rev.posted_on),
-                    spoiler: Some(rev.spoiler),
-                    text: rev.text,
-                }),
-                rating: rev.rating,
-                show_season_number: rev.show_season,
-                show_episode_number: rev.show_episode,
-                podcast_episode_number: rev.podcast_episode,
-            };
-            if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
-                entry.reviews.push(review_item);
-            } else {
-                resp.push(ImportOrExportPersonItem {
-                    name: creator.name,
-                    reviews: vec![review_item],
-                });
-            }
-        }
-        Ok(resp)
-    }
-
     fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
         match self.db.get_database_backend() {
             DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
@@ -4845,6 +4725,105 @@ impl MiscellaneousService {
         }
         Ok(())
     }
+
+    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem<String>>> {
+        let related_metadata = UserToMetadata::find()
+            .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let distinct_meta_ids = related_metadata
+            .into_iter()
+            .map(|m| m.metadata_id)
+            .collect_vec();
+        let metas = Metadata::find()
+            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
+            .order_by(metadata::Column::Id, Order::Asc)
+            .all(&self.db)
+            .await?;
+
+        let mut resp = vec![];
+
+        for m in metas {
+            let mut seen_history = m
+                .find_related(Seen)
+                .filter(seen::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            modify_seen_elements(&mut seen_history);
+            let seen_history = seen_history
+                .into_iter()
+                .map(|s| {
+                    let (show_season_number, show_episode_number) = match s.show_information {
+                        Some(d) => (Some(d.season), Some(d.episode)),
+                        None => (None, None),
+                    };
+                    let podcast_episode_number = s.podcast_information.map(|d| d.episode);
+                    ImportOrExportMediaItemSeen {
+                        started_on: s.started_on.map(convert_naive_to_utc),
+                        ended_on: s.finished_on.map(convert_naive_to_utc),
+                        show_season_number,
+                        show_episode_number,
+                        podcast_episode_number,
+                    }
+                })
+                .collect();
+            let db_reviews = m
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item =
+                    get_review_export_item(self.review_by_id(review.id).await.unwrap());
+                reviews.push(review_item);
+            }
+            let collections = self
+                .media_in_collections(user_id, m.id)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
+            let exp = ImportOrExportMediaItem {
+                source_id: m.id.to_string(),
+                lot: m.lot,
+                source: m.source,
+                identifier: m.identifier,
+                seen_history,
+                reviews,
+                collections,
+            };
+            resp.push(exp);
+        }
+
+        Ok(resp)
+    }
+
+    pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
+        let mut resp: Vec<ImportOrExportPersonItem> = vec![];
+        let all_reviews = Review::find()
+            .filter(review::Column::CreatorId.is_not_null())
+            .filter(review::Column::UserId.eq(user_id))
+            .find_also_related(Creator)
+            .all(&self.db)
+            .await?;
+        for (review, creator) in all_reviews {
+            let creator = creator.unwrap();
+            let review_item = get_review_export_item(self.review_by_id(review.id).await.unwrap());
+            if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
+                entry.reviews.push(review_item);
+            } else {
+                resp.push(ImportOrExportPersonItem {
+                    name: creator.name,
+                    reviews: vec![review_item],
+                });
+            }
+        }
+        Ok(resp)
+    }
 }
 
 fn modify_seen_elements(all_seen: &mut [seen::Model]) {
@@ -4860,4 +4839,18 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
             };
         }
     });
+}
+
+fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    ImportOrExportItemRating {
+        review: Some(ImportOrExportItemReview {
+            date: Some(rev.posted_on),
+            spoiler: Some(rev.spoiler),
+            text: rev.text,
+        }),
+        rating: rev.rating,
+        show_season_number: rev.show_season,
+        show_episode_number: rev.show_episode,
+        podcast_episode_number: rev.podcast_episode,
+    }
 }
