@@ -2936,7 +2936,7 @@ impl MiscellaneousService {
             })
         };
         if input.rating.is_none() && input.text.is_none() {
-            return Err(Error::new("Can not post a rating without any content."));
+            return Err(Error::new("Atleast one of rating or review is required."));
         }
 
         let mut review_obj = review::ActiveModel {
