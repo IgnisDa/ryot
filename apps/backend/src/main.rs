@@ -45,8 +45,8 @@ use crate::{
     graphql::get_schema,
     migrator::Migrator,
     routes::{
-        config_handler, graphql_handler, graphql_playground, integration_webhook,
-        media_json_export, static_handler, upload_handler,
+        config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
+        static_handler, upload_handler,
     },
     utils::{create_app_services, MemoryAuthData, BASE_DIR, PROJECT_NAME, VERSION},
 };
@@ -208,11 +208,10 @@ async fn main() -> Result<()> {
         "/integrations/:integration/:user_hash_id",
         post(integration_webhook),
     );
-    let export_routes = Router::new().route("/media", get(media_json_export));
 
     let app_routes = Router::new()
         .nest("/webhooks", webhook_routes)
-        .nest("/export", export_routes)
+        .route("/export/:export_type", get(json_export))
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
