@@ -663,7 +663,15 @@ const Page: NextPageWithLayout = () => {
 									}
 								>
 									<Flex gap={2}>
-										<Text truncate>{col.name}</Text>
+										<Link
+											passHref
+											legacyBehavior
+											href={withQuery(APP_ROUTES.media.collections.details, {
+												collectionId: col.id,
+											})}
+										>
+											<Anchor truncate>{col.name}</Anchor>
+										</Link>
 										<ActionIcon
 											size="1rem"
 											onClick={() => {
