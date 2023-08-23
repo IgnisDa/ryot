@@ -3639,7 +3639,37 @@ impl MiscellaneousService {
     }
 
     pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
-        todo!()
+        let mut resp: Vec<ImportOrExportPersonItem> = vec![];
+        let all_reviews = Review::find()
+            .filter(review::Column::CreatorId.is_not_null())
+            .filter(review::Column::UserId.eq(user_id))
+            .find_also_related(Creator)
+            .all(&self.db)
+            .await?;
+        for (review, creator) in all_reviews {
+            let creator = creator.unwrap();
+            let rev = self.review_by_id(review.id).await.unwrap();
+            let review_item = ImportOrExportItemRating {
+                review: Some(ImportOrExportItemReview {
+                    date: Some(rev.posted_on),
+                    spoiler: Some(rev.spoiler),
+                    text: rev.text,
+                }),
+                rating: rev.rating,
+                show_season_number: rev.show_season,
+                show_episode_number: rev.show_episode,
+                podcast_episode_number: rev.podcast_episode,
+            };
+            if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
+                entry.reviews.push(review_item);
+            } else {
+                resp.push(ImportOrExportPersonItem {
+                    name: creator.name,
+                    reviews: vec![review_item],
+                });
+            }
+        }
+        Ok(resp)
     }
 
     fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
