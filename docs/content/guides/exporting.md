@@ -14,7 +14,7 @@ curl <ryot_url>/export/<type> --header 'Authorization: Bearer <token>'
 For example:
 
 ```bash
-curl 'https://ryot.fly.dev/export/media' --header 'Authorization: Bearer 0ab88f6b-768a-4d65-885b-502016b634e0'
+curl 'https://ryot.fly.dev/export/media' --header 'Authorization: Bearer rab88f6b10'
 ```
 
 ## All (`type=all`)
