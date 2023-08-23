@@ -218,6 +218,7 @@ async fn main() -> Result<()> {
         .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
+        .layer(Extension(app_services.exercise_service.clone()))
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())

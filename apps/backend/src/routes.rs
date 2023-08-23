@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::{
     config::AppConfig,
     file_storage::FileStorageService,
+    fitness::exercise::resolver::ExerciseService,
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
     models::media::ExportAllResponse,
@@ -135,6 +136,7 @@ pub async fn upload_handler(
 pub async fn json_export(
     Path(export_type): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
+    Extension(exercise_service): Extension<Arc<ExerciseService>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
@@ -151,6 +153,9 @@ pub async fn json_export(
         }
         "people" => {
             json!(media_service.export_people(user_id).await.unwrap())
+        }
+        "measurements" => {
+            json!(exercise_service.export_measurements(user_id).await.unwrap())
         }
         _ => Err((
             StatusCode::BAD_REQUEST,
