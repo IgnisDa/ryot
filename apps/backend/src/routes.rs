@@ -22,6 +22,7 @@ use crate::{
     file_storage::FileStorageService,
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
+    models::media::ExportAllResponse,
     utils::{user_id_from_token, GqlCtx, COOKIE_NAME},
 };
 
@@ -140,6 +141,11 @@ pub async fn json_export(
         .await
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = match export_type.as_str() {
+        "all" => {
+            let media = media_service.export_media(user_id).await.unwrap();
+            let people = media_service.export_people(user_id).await.unwrap();
+            json!(ExportAllResponse { media, people })
+        }
         "media" => {
             json!(media_service.export_media(user_id).await.unwrap())
         }
