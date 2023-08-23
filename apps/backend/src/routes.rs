@@ -146,7 +146,12 @@ pub async fn json_export(
         "all" => {
             let media = media_service.export_media(user_id).await.unwrap();
             let people = media_service.export_people(user_id).await.unwrap();
-            json!(ExportAllResponse { media, people })
+            let measurements = exercise_service.export_measurements(user_id).await.unwrap();
+            json!(ExportAllResponse {
+                media,
+                people,
+                measurements
+            })
         }
         "media" => {
             json!(media_service.export_media(user_id).await.unwrap())
