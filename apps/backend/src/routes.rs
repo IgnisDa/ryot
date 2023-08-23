@@ -131,7 +131,7 @@ pub async fn upload_handler(
     Ok(Json(json!(res)))
 }
 
-pub async fn json_export(
+pub async fn media_json_export(
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
