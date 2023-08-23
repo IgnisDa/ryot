@@ -24,6 +24,8 @@ This will return all media that the user has an
 
 The export has the following type: `ImportOrExportMediaItem<string>[]`
 
+## Type definition
+
 ```ts
 {% include 'export-schema.ts' %}
 ```
