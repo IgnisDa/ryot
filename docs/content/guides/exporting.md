@@ -22,7 +22,7 @@ curl 'https://ryot.fly.dev/export/media' --header 'Authorization: Bearer 0ab88f6
 This will return all media that the user has an
 [association](https://github.com/IgnisDa/ryot/blob/e17bab9109d4737d7a7348780cc33dc73f1a59ce/apps/backend/src/migrator/m20230417_create_user.rs#L11-L17) with.
 
-The export has the following type: `ImportOrExportItem<string>[]`
+The export has the following type: `ImportOrExportMediaItem<string>[]`
 
 ```ts
 {% include 'export-schema.ts' %}

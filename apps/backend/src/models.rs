@@ -637,7 +637,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
-    /// Details about a specific media item that needs to be imported.
+    /// Details about a specific media item that needs to be imported or exported.
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportMediaItem<T> {
         /// An string to help identify it in the original source.

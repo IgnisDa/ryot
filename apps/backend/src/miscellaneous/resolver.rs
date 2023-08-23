@@ -2935,6 +2935,9 @@ impl MiscellaneousService {
                 SeenOrReviewExtraInformation::Podcast(SeenPodcastExtraInformation { episode })
             })
         };
+        if input.rating.is_none() && input.text.is_none() {
+            return Err(Error::new("Can not post a rating without any content."));
+        }
 
         let mut review_obj = review::ActiveModel {
             id: review_id,
