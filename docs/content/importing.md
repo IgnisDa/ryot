@@ -94,11 +94,11 @@ translates "Read Status" in the following manner:
 ## Media JSON
 
 This can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#type-definition)
+required is described in the [exporting](guides/exporting.md#media-typemedia)
 documentation.
 
 You can see an example file by exporting from the demo instance as described
-in the [exporting](guides/exporting.md) documentation.
+in the [exporting](guides/exporting.md) documentation example.
 
 ## Notes
 
