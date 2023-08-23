@@ -599,31 +599,41 @@ pub mod media {
         AlreadyFilled(Box<MediaDetails>),
     }
 
-    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportMediaItemSeen {
+        /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
+        /// The timestamp when finished watching.
         pub ended_on: Option<DateTimeUtc>,
+        /// If for a show, the season which was seen.
         pub show_season_number: Option<i32>,
+        /// If for a show, the episode which was seen.
         pub show_episode_number: Option<i32>,
+        /// If for a podcast, the episode which was seen.
         pub podcast_episode_number: Option<i32>,
     }
 
-    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportItemReview {
+        /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
+        /// Whether to mark the review as a spoiler. Defaults to false.
         pub spoiler: Option<bool>,
+        /// Actual text for the review.
         pub text: Option<String>,
     }
 
-    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportItemRating {
+        /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
+        /// The score of the review.
         pub rating: Option<Decimal>,
+        /// If for a show, the season for which this review was for.
         pub show_season_number: Option<i32>,
+        /// If for a show, the episode for which this review was for.
         pub show_episode_number: Option<i32>,
+        /// If for a podcast, the episode for which this review was for.
         pub podcast_episode_number: Option<i32>,
     }
 
