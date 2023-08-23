@@ -13,7 +13,7 @@ use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
-    entities::exercise::Model as ExerciseModel,
+    entities::{exercise::Model as ExerciseModel, user_measurement},
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataImageLot, MetadataLot, MetadataSource, SeenState,
@@ -663,6 +663,8 @@ pub mod media {
         pub media: Vec<ImportOrExportMediaItem<String>>,
         /// Data about user's people.
         pub people: Vec<ImportOrExportPersonItem>,
+        /// Data about user's measurements.
+        pub measurements: Vec<user_measurement::Model>,
     }
 
     /// Details about a specific creator item that needs to be exported.
@@ -817,6 +819,7 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
+        Type,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {

@@ -371,6 +371,17 @@ impl ExerciseService {
         Ok(())
     }
 
+    pub async fn export_measurements(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
+        self.user_measurements_list(
+            user_id,
+            UserMeasurementsListInput {
+                start_time: None,
+                end_time: None,
+            },
+        )
+        .await
+    }
+
     async fn user_measurements_list(
         &self,
         user_id: i32,

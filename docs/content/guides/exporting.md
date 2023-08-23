@@ -36,6 +36,12 @@ This will return all people that the user has reviewed.
 
 The export has the following type: `ImportOrExportPersonItem[]`.
 
+## Measurements (`type=measurements`)
+
+This will return all measurements made by the user.
+
+The export has the following type: `ExportUserMeasurementItem[]`.
+
 ## Type definition
 
 ```ts
