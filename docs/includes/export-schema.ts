@@ -19,20 +19,20 @@ export type ImportOrExportMediaItem<T> = {
 	collections: string[];
 };
 
-/**
- * Details about a specific creator item that needs to be exported.
- */
-export type ImportOrExportPersonItem = {
-	name: string;
-	reviews: ImportOrExportItemRating[];
-};
-
 export type ImportOrExportMediaItemSeen = {
 	started_on: string | null;
 	ended_on: string | null;
 	show_season_number: number | null;
 	show_episode_number: number | null;
 	podcast_episode_number: number | null;
+};
+
+/**
+ * Details about a specific creator item that needs to be exported.
+ */
+export type ImportOrExportPersonItem = {
+	name: string;
+	reviews: ImportOrExportItemRating[];
 };
 
 export type MetadataSource =
@@ -63,3 +63,11 @@ export type MetadataLot =
 	| "Movie"
 	| "Show"
 	| "VideoGame";
+
+/**
+ * Complete export of the user.
+ */
+export type ExportAllResponse = {
+	media: ImportOrExportMediaItem<string>[];
+	people: ImportOrExportPersonItem[];
+};

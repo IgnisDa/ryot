@@ -656,6 +656,15 @@ pub mod media {
         pub collections: Vec<String>,
     }
 
+    /// Complete export of the user.
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ExportAllResponse {
+        /// Data about user's media.
+        pub media: Vec<ImportOrExportMediaItem<String>>,
+        /// Data about user's people.
+        pub people: Vec<ImportOrExportPersonItem>,
+    }
+
     /// Details about a specific creator item that needs to be exported.
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportPersonItem {
