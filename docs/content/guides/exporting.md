@@ -24,6 +24,12 @@ This will return all media that the user has an
 
 The export has the following type: `ImportOrExportMediaItem<string>[]`
 
+## People (`type=people`)
+
+This will return all people that the user has reviewed.
+
+The export has the following type: `ImportOrExportPersonItem[]`
+
 ## Type definition
 
 ```ts

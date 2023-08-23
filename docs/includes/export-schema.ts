@@ -19,6 +19,14 @@ export type ImportOrExportMediaItem<T> = {
 	collections: string[];
 };
 
+/**
+ * Details about a specific creator item that needs to be exported.
+ */
+export type ImportOrExportPersonItem = {
+	name: string;
+	reviews: ImportOrExportItemRating[];
+};
+
 export type ImportOrExportMediaItemSeen = {
 	started_on: string | null;
 	ended_on: string | null;

@@ -656,6 +656,15 @@ pub mod media {
         pub collections: Vec<String>,
     }
 
+    /// Details about a specific creator item that needs to be exported.
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportPersonItem {
+        /// The name of the creator.
+        pub name: String,
+        /// The review history for the user.
+        pub reviews: Vec<ImportOrExportItemRating>,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     #[serde(tag = "t", content = "d")]
     pub enum MediaSpecifics {

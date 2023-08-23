@@ -63,13 +63,13 @@ use crate::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility,
+            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
+            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
+            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MovieSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -3636,6 +3636,10 @@ impl MiscellaneousService {
         }
 
         Ok(resp)
+    }
+
+    pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
+        todo!()
     }
 
     fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {

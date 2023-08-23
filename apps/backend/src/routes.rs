@@ -143,6 +143,9 @@ pub async fn json_export(
         "media" => {
             json!(media_service.export_media(user_id).await.unwrap())
         }
+        "people" => {
+            json!(media_service.export_people(user_id).await.unwrap())
+        }
         _ => Err((
             StatusCode::BAD_REQUEST,
             Json(json!({"err": "This type of export is not supported"})),
