@@ -19,6 +19,33 @@ export type ImportOrExportMediaItem<T> = {
 	collections: string[];
 };
 
+export type UserMeasurementStats = {
+	weight?: string | null;
+	body_mass_index?: string | null;
+	total_body_water?: string | null;
+	muscle?: string | null;
+	lean_body_mass?: string | null;
+	body_fat?: string | null;
+	bone_mass?: string | null;
+	visceral_fat?: string | null;
+	waist_circumference?: string | null;
+	waist_to_height_ratio?: string | null;
+	hip_circumference?: string | null;
+	waist_to_hip_ratio?: string | null;
+	chest_circumference?: string | null;
+	thigh_circumference?: string | null;
+	biceps_circumference?: string | null;
+	neck_circumference?: string | null;
+	body_fat_caliper?: string | null;
+	chest_skinfold?: string | null;
+	abdominal_skinfold?: string | null;
+	thigh_skinfold?: string | null;
+	basal_metabolic_rate?: string | null;
+	total_daily_energy_expenditure?: string | null;
+	calories?: string | null;
+	custom?: { [key: string]: string } | null;
+};
+
 export type ImportOrExportMediaItemSeen = {
 	started_on: string | null;
 	ended_on: string | null;
@@ -33,6 +60,14 @@ export type ImportOrExportMediaItemSeen = {
 export type ImportOrExportPersonItem = {
 	name: string;
 	reviews: ImportOrExportItemRating[];
+};
+
+export type ExportUserMeasurementItem = {
+	timestamp: string;
+	user_id: number;
+	name: string | null;
+	comment: string | null;
+	stats: UserMeasurementStats;
 };
 
 export type MetadataSource =

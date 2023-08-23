@@ -817,6 +817,7 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
+        Type,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {
