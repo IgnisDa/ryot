@@ -86,9 +86,10 @@ use crate::{
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
         UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
+        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
+        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -3773,6 +3774,13 @@ impl MiscellaneousService {
                 }
                 "number_of_seasons_changed" => {
                     preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
+                }
+                _ => return Err(err()),
+            },
+            "general" => match right {
+                "review_scale" => {
+                    preferences.general.review_scale =
+                        UserReviewScale::from_str(&input.value).unwrap();
                 }
                 _ => return Err(err()),
             },

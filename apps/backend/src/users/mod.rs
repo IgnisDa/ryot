@@ -252,6 +252,33 @@ pub struct UserFitnessPreferences {
 }
 
 #[derive(
+    Debug,
+    Serialize,
+    Default,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+    Copy,
+    EnumString,
+)]
+pub enum UserReviewScale {
+    #[default]
+    OutOf5,
+    OutOf100,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+)]
+#[serde(default)]
+pub struct UserGeneralPreferences {
+    pub review_scale: UserReviewScale,
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 #[serde(default)]
@@ -259,6 +286,7 @@ pub struct UserPreferences {
     pub features_enabled: UserFeaturesEnabledPreferences,
     pub notifications: UserNotificationsPreferences,
     pub fitness: UserFitnessPreferences,
+    pub general: UserGeneralPreferences,
 }
 
 #[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
