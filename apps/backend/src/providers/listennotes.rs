@@ -15,8 +15,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion, MetadataCreator,
+            MetadataImage, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -55,6 +55,31 @@ impl MediaProvider for ListennotesService {
         let mut details = self
             .details_with_paginated_episodes(identifier, None, None)
             .await?;
+        #[derive(Serialize, Deserialize, Debug)]
+        struct Recommendation {
+            id: String,
+        }
+        #[derive(Serialize, Deserialize, Debug)]
+        struct RecommendationResp {
+            recommendations: Vec<Recommendation>,
+        }
+        let rec_data: RecommendationResp = self
+            .client
+            .get(format!("podcasts/{}/recommendations", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        details.suggestions = rec_data
+            .recommendations
+            .into_iter()
+            .map(|r| MediaSuggestion {
+                identifier: r.id,
+                lot: MetadataLot::Podcast,
+                source: MetadataSource::Listennotes,
+            })
+            .collect();
         match details.specifics {
             MediaSpecifics::Podcast(ref mut specifics) => loop {
                 if specifics.total_episodes > i32::try_from(specifics.episodes.len()).unwrap() {
@@ -173,33 +198,33 @@ impl ListennotesService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let d: Podcast = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let podcast_data: Podcast = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         Ok(MediaDetails {
-            identifier: d.id,
-            title: d.title,
+            identifier: podcast_data.id,
+            title: podcast_data.title,
             production_status: "Released".to_owned(),
-            description: d.description,
+            description: podcast_data.description,
             lot: MetadataLot::Podcast,
             source: MetadataSource::Listennotes,
-            creators: Vec::from_iter(d.publisher.map(|p| MetadataCreator {
+            creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataCreator {
                 name: p,
                 role: "Publishing".to_owned(),
                 image: None,
             })),
-            genres: d
+            genres: podcast_data
                 .genre_ids
                 .into_iter()
                 .filter_map(|g| GENRES.get().unwrap().get(&g).cloned())
                 .unique()
                 .collect(),
-            images: Vec::from_iter(d.image.map(|a| MetadataImage {
+            images: Vec::from_iter(podcast_data.image.map(|a| MetadataImage {
                 url: StoredUrl::Url(a),
                 lot: MetadataImageLot::Poster,
             })),
-            publish_year: d.publish_date.map(|r| r.year()),
-            publish_date: d.publish_date.map(|d| d.date_naive()),
+            publish_year: podcast_data.publish_date.map(|r| r.year()),
+            publish_date: podcast_data.publish_date.map(|d| d.date_naive()),
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
-                episodes: d
+                episodes: podcast_data
                     .episodes
                     .into_iter()
                     .enumerate()
@@ -209,14 +234,14 @@ impl ListennotesService {
                         ..episode
                     })
                     .collect(),
-                total_episodes: d.total_episodes,
+                total_episodes: podcast_data.total_episodes,
             }),
+            suggestions: vec![],
         })
     }
 }
 
 mod utils {
-
     use crate::utils::get_base_http_client;
 
     use super::*;
