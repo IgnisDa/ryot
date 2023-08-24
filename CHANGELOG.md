@@ -1,4 +1,15 @@
 
+# Version 2.8.8 (2023-08-24)
+
+## Documentation
+
+* make auth token clearer
+
+## Features
+
+* ***:** make docs clearer
+
+
 # Version 2.8.7 (2023-08-23)
 
 
