@@ -68,7 +68,7 @@ impl IntegrationService {
                 pub session: JellyfinWebhookSessionPayload,
             }
         }
-        // std::fs::write("tmp/output.json", payload)?;
+        
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
         let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
             Some(id.clone())
@@ -117,11 +117,7 @@ impl IntegrationService {
                 #[serde(rename = "type")]
                 pub item_type: String,
                 #[serde(rename = "Guid")]
-                pub guids: Vec<PlexWebhookMetadataGuid>,
-                // #[serde(rename = "ParentIndexNumber")]
-                // pub season_number: Option<i32>,
-                // #[serde(rename = "IndexNumber")]
-                // pub episode_number: Option<i32>,          
+                pub guids: Vec<PlexWebhookMetadataGuid>,                     
             }
             
             #[derive(Serialize, Deserialize, Debug, Clone)]            
@@ -133,8 +129,7 @@ impl IntegrationService {
                 pub metadata: PlexWebhookMetadataPayload
             }
         }
-            
-        // dbg!(&payload);
+        
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(payload) {
             Result::Ok(val) => val,
             Result::Err(err) => {
@@ -142,9 +137,9 @@ impl IntegrationService {
                 bail!("error");
             }
         };
-        dbg!(&payload);
+
         let tmdb_guid = payload.metadata.guids.into_iter().find(|g| g.id.starts_with("tmdb://"));        
-        dbg!(&tmdb_guid);
+
         if let Some(tmdb_guid) = tmdb_guid {
             let identifier = &tmdb_guid.id[7..];
             let lot = match payload.metadata.item_type.as_str() {
@@ -161,8 +156,8 @@ impl IntegrationService {
                     .to_i32()
                     .unwrap(),
                 podcast_episode_number: None,
-                show_season_number: None, //payload.metadata.season_number,
-                show_episode_number: None //payload.metadata.episode_number,
+                show_season_number: None,
+                show_episode_number: None
             })
         } else {
             bail!("No TMDb ID associated with this media")
