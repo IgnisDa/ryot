@@ -20,6 +20,7 @@ import {
 	ScrollArea,
 	Text,
 	Tooltip,
+	createStyles,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -210,6 +211,13 @@ export const BaseDisplayItem = (props: {
 
 type Item = MediaSearchQuery["mediaSearch"]["items"][number]["item"];
 
+const useStyles = createStyles({
+	starIcon: {
+		color: "#9ca3af",
+		"&:hover": { color: "#EBE600FF" },
+	},
+});
+
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
 	lot: MetadataLot;
@@ -220,6 +228,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	averageRating?: number;
 }) => {
 	const userPreferences = useUserPreferences();
+	const { classes } = useStyles();
 
 	return userPreferences.data ? (
 		<BaseDisplayItem
@@ -262,7 +271,28 @@ export const MediaItemWithoutUpdateModal = (props: {
 							</Text>
 						</Flex>
 					</Box>
-				) : undefined
+				) : (
+					<Link
+						href={withQuery(APP_ROUTES.media.postReview, {
+							metadataId: props.item.identifier,
+						})}
+					>
+						<Box
+							p={3}
+							pos={"absolute"}
+							top={5}
+							right={5}
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.75)",
+								borderRadius: 3,
+							}}
+						>
+							<Flex align={"center"} gap={4}>
+								<IconStarFilled size={"1rem"} className={classes.starIcon} />
+							</Flex>
+						</Box>
+					</Link>
+				)
 			}
 			bottomLeft={props.item.publishYear}
 			bottomRight={changeCase(props.lot || "")}
