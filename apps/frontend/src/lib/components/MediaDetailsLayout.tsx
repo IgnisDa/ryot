@@ -17,7 +17,7 @@ export default function ({
 	posterImages,
 	externalLink,
 }: {
-	children: JSX.Element | (JSX.Element | null)[];
+	children: JSX.Element | (JSX.Element | undefined)[];
 	posterImages: (string | null | undefined)[];
 	backdropImages: string[];
 	externalLink?: { source: string; href?: string | null };
@@ -50,7 +50,7 @@ export default function ({
 										radius="lg"
 										imageProps={{ loading: "lazy" }}
 									/>
-								) : null}
+								) : undefined}
 							</Carousel.Slide>
 						))}
 					</Carousel>
@@ -80,7 +80,7 @@ export default function ({
 								<Anchor href={externalLink.href} target="_blank">
 									<IconExternalLink size="1rem" />
 								</Anchor>
-							) : null}
+							) : undefined}
 						</Flex>
 					</Badge>
 				) : undefined}

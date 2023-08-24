@@ -189,7 +189,7 @@ const Page: NextPageWithLayout = () => {
 									</Flex>
 								</Paper>
 						  ))
-						: null}
+						: undefined}
 				</Stack>
 			</Container>
 		</>

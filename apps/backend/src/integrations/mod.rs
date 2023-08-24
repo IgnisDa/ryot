@@ -24,7 +24,7 @@ pub struct IntegrationMedia {
 pub struct IntegrationService;
 
 impl IntegrationService {
-    pub async fn new() -> Self {
+    pub fn new() -> Self {
         Self
     }
 
@@ -68,7 +68,7 @@ impl IntegrationService {
                 pub session: JellyfinWebhookSessionPayload,
             }
         }
-        
+
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
         let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
             Some(id.clone())
@@ -105,11 +105,11 @@ impl IntegrationService {
         mod models {
             use super::*;
 
-            #[derive(Serialize, Deserialize, Debug, Clone)]            
-            pub struct PlexWebhookMetadataGuid {                
-                pub id: String
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            pub struct PlexWebhookMetadataGuid {
+                pub id: String,
             }
-            #[derive(Serialize, Deserialize, Debug, Clone)]            
+            #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookMetadataPayload {
                 #[serde(rename = "viewOffset")]
                 pub view_offset: Decimal,
@@ -117,19 +117,19 @@ impl IntegrationService {
                 #[serde(rename = "type")]
                 pub item_type: String,
                 #[serde(rename = "Guid")]
-                pub guids: Vec<PlexWebhookMetadataGuid>,                     
+                pub guids: Vec<PlexWebhookMetadataGuid>,
             }
-            
-            #[derive(Serialize, Deserialize, Debug, Clone)]            
+
+            #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookPayload {
                 pub event: String,
                 pub user: bool,
                 pub owner: bool,
                 #[serde(rename = "Metadata")]
-                pub metadata: PlexWebhookMetadataPayload
+                pub metadata: PlexWebhookMetadataPayload,
             }
         }
-        
+
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(payload) {
             Result::Ok(val) => val,
             Result::Err(err) => {
@@ -138,13 +138,17 @@ impl IntegrationService {
             }
         };
 
-        let tmdb_guid = payload.metadata.guids.into_iter().find(|g| g.id.starts_with("tmdb://"));        
+        let tmdb_guid = payload
+            .metadata
+            .guids
+            .into_iter()
+            .find(|g| g.id.starts_with("tmdb://"));
 
         if let Some(tmdb_guid) = tmdb_guid {
             let identifier = &tmdb_guid.id[7..];
             let lot = match payload.metadata.item_type.as_str() {
                 "movie" => MetadataLot::Movie,
-                "Episode" => todo!(),                
+                "Episode" => todo!(),
                 _ => bail!("Only movies and shows supported"),
             };
             tracing::info!("ok");
@@ -157,7 +161,7 @@ impl IntegrationService {
                     .unwrap(),
                 podcast_episode_number: None,
                 show_season_number: None,
-                show_episode_number: None
+                show_episode_number: None,
             })
         } else {
             bail!("No TMDb ID associated with this media")

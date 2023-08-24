@@ -103,3 +103,20 @@ a name of your choosing. Deploy it using the below command.
     ```bash
     fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
     ```
+
+## Cosmos
+
+[![Static Badge](https://img.shields.io/badge/Cosmos-Install%20Server-violet)](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot)
+
+You can install `ryot` from the Cosmos marketplace using this link: [Install
+Ryot](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot)
+or by searching for `Ryot` in the marketplace.
+
+Review the installation summary and click install to proceed. The database and
+credentials will be automatically created for you, but make sure you are happy
+with the URL chosen.
+
+The instance will be available under your newly created URL via HTTPS if it
+is enabled. You can then proceed with creating your first user via the web
+interface's registration page.
+

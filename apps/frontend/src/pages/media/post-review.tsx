@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../_app";
 import { APP_ROUTES } from "@/lib/constants";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -11,12 +12,14 @@ import {
 	Flex,
 	Input,
 	NumberInput,
+	Rating,
 	SegmentedControl,
 	Stack,
 	Textarea,
 	Title,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
 import {
 	CreatorDetailsDocument,
 	DeleteReviewDocument,
@@ -26,6 +29,7 @@ import {
 	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewByIdDocument,
+	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconPercentage } from "@tabler/icons-react";
@@ -34,6 +38,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
@@ -73,6 +78,8 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const userPreferences = useUserPreferences();
+
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId, creatorId],
 		queryFn: async () => {
@@ -103,7 +110,8 @@ const Page: NextPageWithLayout = () => {
 
 	const onSuccess = () => {
 		let url;
-		if (metadataId)
+		if (router.query.next) url = router.query.next.toString();
+		else if (metadataId)
 			url = withQuery(APP_ROUTES.media.individualMediaItem.details, {
 				id: metadataId,
 			});
@@ -154,6 +162,12 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess,
+		onError: (e: any) => {
+			notifications.show({
+				message: e.response.errors[0].message,
+				color: "red",
+			});
+		},
 	});
 
 	const deleteReview = useMutation({
@@ -169,7 +183,7 @@ const Page: NextPageWithLayout = () => {
 
 	const title = mediaDetails.data?.title;
 
-	return mediaDetails.data && title ? (
+	return userPreferences.data && mediaDetails.data && title ? (
 		<>
 			<Head>
 				<title>Post Review | Ryot</title>
@@ -191,17 +205,27 @@ const Page: NextPageWithLayout = () => {
 					<Stack>
 						<Title order={3}>Reviewing "{title}"</Title>
 						<Flex align={"center"} gap="xl">
-							<NumberInput
-								label="Rating"
-								{...form.getInputProps("rating")}
-								min={0}
-								max={100}
-								step={1}
-								w={"40%"}
-								type="number"
-								hideControls
-								rightSection={<IconPercentage size="1rem" />}
-							/>
+							{match(userPreferences.data.general.reviewScale)
+								.with(UserReviewScale.OutOfFive, () => (
+									<Flex gap="sm" mt={"lg"}>
+										<Input.Label>Rating:</Input.Label>
+										<Rating {...form.getInputProps("rating")} fractions={2} />
+									</Flex>
+								))
+								.with(UserReviewScale.OutOfHundred, () => (
+									<NumberInput
+										label="Rating"
+										{...form.getInputProps("rating")}
+										min={0}
+										max={100}
+										step={1}
+										w={"40%"}
+										type="number"
+										hideControls
+										rightSection={<IconPercentage size="1rem" />}
+									/>
+								))
+								.exhaustive()}
 							<Checkbox
 								label="This review is a spoiler"
 								mt="lg"
@@ -221,7 +245,7 @@ const Page: NextPageWithLayout = () => {
 									hideControls
 								/>
 							</Flex>
-						) : null}
+						) : undefined}
 						{mediaDetails.data.isPodcast ? (
 							<Flex gap="md">
 								<NumberInput
@@ -230,7 +254,7 @@ const Page: NextPageWithLayout = () => {
 									hideControls
 								/>
 							</Flex>
-						) : null}
+						) : undefined}
 						<Textarea
 							label="Review"
 							{...form.getInputProps("text")}
@@ -276,7 +300,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								Delete
 							</Button>
-						) : null}
+						) : undefined}
 					</Stack>
 				</Box>
 			</Container>

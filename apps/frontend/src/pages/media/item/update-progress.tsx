@@ -175,9 +175,9 @@ const Page: NextPageWithLayout = () => {
 										? `This will mark all episodes of season ${selectedShowSeasonNumber} as seen`
 										: completeShow
 										? "This will mark all episodes for this show as seen"
-										: null}
+										: undefined}
 								</Alert>
-							) : null}
+							) : undefined}
 							{!completeShow ? (
 								<>
 									<Title order={6}>
@@ -193,13 +193,13 @@ const Page: NextPageWithLayout = () => {
 										defaultValue={selectedShowSeasonNumber}
 									/>
 								</>
-							) : null}
+							) : undefined}
 							{onlySeason ? (
 								<Checkbox
 									label="Mark all seasons before this as seen"
 									onChange={(e) => setAllSeasonsBefore(e.target.checked)}
 								/>
-							) : null}
+							) : undefined}
 							{!onlySeason && selectedShowSeasonNumber ? (
 								<Select
 									label="Episode"
@@ -217,9 +217,9 @@ const Page: NextPageWithLayout = () => {
 									onChange={setSelectedShowEpisodeNumber}
 									defaultValue={selectedShowEpisodeNumber}
 								/>
-							) : null}
+							) : undefined}
 						</>
-					) : null}
+					) : undefined}
 					{mediaDetails.data.podcastSpecifics ? (
 						completePodcast ? (
 							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
@@ -241,7 +241,7 @@ const Page: NextPageWithLayout = () => {
 								/>
 							</>
 						)
-					) : null}
+					) : undefined}
 					<Title order={6}>
 						When did you {getVerb(Verb.Read, mediaDetails.data.lot)} it?
 					</Title>

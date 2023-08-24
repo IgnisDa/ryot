@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
+use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
@@ -11,7 +13,7 @@ use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
-    entities::exercise::Model as ExerciseModel,
+    entities::{exercise::Model as ExerciseModel, user_measurement},
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataImageLot, MetadataLot, MetadataSource, SeenState,
@@ -598,7 +600,7 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-    pub struct ImportOrExportItemSeen {
+    pub struct ImportOrExportMediaItemSeen {
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
         /// The timestamp when finished watching.
@@ -635,9 +637,9 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
-    /// Details about a specific media item that needs to be imported.
+    /// Details about a specific media item that needs to be imported or exported.
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-    pub struct ImportOrExportItem<T> {
+    pub struct ImportOrExportMediaItem<T> {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
@@ -647,11 +649,31 @@ pub mod media {
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
         pub identifier: T,
         /// The seen history for the user.
-        pub seen_history: Vec<ImportOrExportItemSeen>,
+        pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections to add this media to.
         pub collections: Vec<String>,
+    }
+
+    /// Complete export of the user.
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ExportAllResponse {
+        /// Data about user's media.
+        pub media: Vec<ImportOrExportMediaItem<String>>,
+        /// Data about user's people.
+        pub people: Vec<ImportOrExportPersonItem>,
+        /// Data about user's measurements.
+        pub measurements: Vec<user_measurement::Model>,
+    }
+
+    /// Details about a specific creator item that needs to be exported.
+    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    pub struct ImportOrExportPersonItem {
+        /// The name of the creator.
+        pub name: String,
+        /// The review history for the user.
+        pub reviews: Vec<ImportOrExportItemRating>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
@@ -797,6 +819,7 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
+        Type,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {
@@ -828,17 +851,174 @@ pub mod fitness {
     }
 
     #[derive(
-        Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Debug,
+        FromJsonQueryResult,
+        Clone,
+        Serialize,
+        Deserialize,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
+        Sum,
+        Add,
+        AddAssign,
     )]
-    pub struct UserToExerciseHistoryExtraInformation {
-        pub workout_id: String,
-        pub idx: i32,
+    pub struct TotalMeasurement {
+        /// The number of personal bests achieved.
+        pub personal_bests_achieved: usize,
+        pub weight: Decimal,
+        pub reps: Decimal,
+        pub distance: Decimal,
+        pub duration: Decimal,
     }
 
     #[derive(
-        Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
+    )]
+    pub struct UserToExerciseHistoryExtraInformation {
+        pub workout_id: String,
+        pub idx: usize,
+    }
+
+    #[skip_serializing_none]
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        InputObject,
+    )]
+    #[graphql(input_name = "SetStatisticInput")]
+    pub struct SetStatistic {
+        pub duration: Option<Decimal>,
+        pub distance: Option<Decimal>,
+        pub reps: Option<Decimal>,
+        pub weight: Option<Decimal>,
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
+    )]
+    pub enum SetLot {
+        Normal,
+        WarmUp,
+        Drop,
+        Failure,
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Enum,
+        Copy,
+        Default,
+    )]
+    pub enum WorkoutSetPersonalBest {
+        #[default]
+        Weight,
+        OneRm,
+        Volume,
+        Time,
+        Pace,
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    )]
+    pub struct WorkoutSetRecord {
+        pub statistic: SetStatistic,
+        pub lot: SetLot,
+        pub personal_bests: Vec<WorkoutSetPersonalBest>,
+    }
+
+    impl WorkoutSetRecord {
+        // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
+        pub fn calculate_one_rm(&self) -> Option<Decimal> {
+            let weight = self.statistic.weight?;
+            let reps = self.statistic.reps?;
+            Some(weight * dec!(36.0) / (dec!(37.0) - reps))
+        }
+
+        pub fn calculate_volume(&self) -> Option<Decimal> {
+            let weight = self.statistic.weight?;
+            let reps = self.statistic.reps?;
+            Some(weight * reps)
+        }
+
+        pub fn calculate_pace(&self) -> Option<Decimal> {
+            let distance = self.statistic.distance?;
+            let duration = self.statistic.duration?;
+            Some(distance / duration)
+        }
+
+        pub fn get_personal_best(&self, pb_type: &WorkoutSetPersonalBest) -> Option<Decimal> {
+            match pb_type {
+                WorkoutSetPersonalBest::Weight => self.statistic.weight,
+                WorkoutSetPersonalBest::Time => self.statistic.duration,
+                WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
+                WorkoutSetPersonalBest::Volume => self.calculate_volume(),
+                WorkoutSetPersonalBest::Pace => self.calculate_pace(),
+            }
+        }
+    }
+
+    #[derive(
+        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    )]
+    pub struct ExerciseBestSetRecord {
+        pub workout_id: String,
+        pub set_idx: usize,
+        pub data: WorkoutSetRecord,
+    }
+
+    #[derive(
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
+    )]
+    pub struct UserToExerciseBestSetExtraInformation {
+        pub lot: WorkoutSetPersonalBest,
+        pub sets: Vec<ExerciseBestSetRecord>,
+    }
+
+    #[derive(
+        Debug,
+        Clone,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Default,
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
+        pub lifetime_stats: TotalMeasurement,
+        pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
     }
 }

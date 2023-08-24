@@ -9,7 +9,7 @@ use crate::migrator::Metadata;
 pub struct Migration;
 
 /// This exists if a media item is related to a user. A media is related to a
-/// user if:
+/// user if atleast one of the following hold:
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it

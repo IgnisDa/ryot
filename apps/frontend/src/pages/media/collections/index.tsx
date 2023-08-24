@@ -30,7 +30,8 @@ const Page: NextPageWithLayout = () => {
 	const coreDetails = useCoreDetails();
 
 	const [activePage, setPage] = useLocalStorage({
-		key: "savedPage",
+		defaultValue: "1",
+		key: "savedCollectionPage",
 		getInitialValueInEffect: false,
 	});
 
@@ -96,7 +97,7 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					) : null}
+					) : undefined}
 				</Stack>
 			</Container>
 		</>

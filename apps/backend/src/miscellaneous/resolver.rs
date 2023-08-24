@@ -23,6 +23,7 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
@@ -61,15 +62,15 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItem,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemSeen,
-            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MovieSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility,
+            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
+            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
+            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MovieSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -86,14 +87,15 @@ use crate::{
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
         UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
+        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
+        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_stored_image, get_user_and_metadata_association, user_id_from_token, MemoryAuthData,
-        MemoryDatabase, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        get_stored_image, get_user_and_metadata_association, user_by_id, user_id_from_token,
+        MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -470,10 +472,9 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
-    /// Whether an upgrade is required
     upgrade: Option<UpgradeType>,
-    /// The number of elements on a page
     page_limit: i32,
+    deploy_update_all_metadata_job_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -570,7 +571,8 @@ impl MiscellaneousQuery {
     /// Get a review by its ID.
     async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.review_by_id(review_id).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.review_by_id(review_id, user_id).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -1108,7 +1110,6 @@ pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub auth_db: MemoryDatabase,
     file_storage_service: Arc<FileStorageService>,
-    integration_service: IntegrationService,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<AppConfig>,
@@ -1129,7 +1130,6 @@ impl MiscellaneousService {
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
-        let integration_service = IntegrationService::new().await;
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
 
@@ -1145,7 +1145,6 @@ impl MiscellaneousService {
             config,
             file_storage_service,
             seen_progress_cache,
-            integration_service,
             perform_application_job: perform_application_job.clone(),
         }
     }
@@ -1201,7 +1200,15 @@ impl MiscellaneousService {
             reviews_disabled: self.config.users.reviews_disabled,
             upgrade,
             page_limit: self.config.frontend.page_size,
+            deploy_update_all_metadata_job_allowed: self
+                .config
+                .server
+                .deploy_update_all_metadata_job_allowed,
         })
+    }
+
+    fn get_integration_service(&self) -> IntegrationService {
+        IntegrationService::new()
     }
 
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
@@ -1791,6 +1798,8 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut items = vec![];
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
+
         // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
         struct RoundFunction;
         impl Iden for RoundFunction {
@@ -1798,17 +1807,22 @@ impl MiscellaneousService {
                 write!(s, "ROUND").unwrap();
             }
         }
-        for m in metas {
+
+        for met in metas {
             let avg_select = Query::select()
-                .expr(Func::cust(RoundFunction).arg(Func::avg(Expr::col((
-                    TempReview::Table,
-                    TempReview::Rating,
-                )))))
+                .expr(Func::cust(RoundFunction).arg(Func::avg(
+                    Expr::col((TempReview::Table, TempReview::Rating)).div(
+                        match prefs.general.review_scale {
+                            UserReviewScale::OutOfFive => 20,
+                            UserReviewScale::OutOfHundred => 1,
+                        },
+                    ),
+                )))
                 .from(TempReview::Table)
                 .cond_where(
                     Cond::all()
                         .add(Expr::col((TempReview::Table, TempReview::UserId)).eq(user_id))
-                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(m.id)),
+                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(met.id)),
                 )
                 .to_owned();
             let stmt = self.get_db_stmt(avg_select);
@@ -1818,7 +1832,7 @@ impl MiscellaneousService {
                 .await?
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
-            let images = serde_json::from_value(m.images).unwrap();
+            let images = serde_json::from_value(met.images).unwrap();
             let (poster_images, _) = self
                 .metadata_images(&metadata::Model {
                     images,
@@ -1827,10 +1841,10 @@ impl MiscellaneousService {
                 .await?;
             let m_small = MediaListItem {
                 data: MediaSearchItem {
-                    identifier: m.id.to_string(),
-                    title: m.title,
+                    identifier: met.id.to_string(),
+                    title: met.title,
                     image: poster_images.get(0).cloned(),
-                    publish_year: m.publish_year,
+                    publish_year: met.publish_year,
                 },
                 average_rating: avg,
             };
@@ -2448,7 +2462,7 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
-        let mut prefs = self.user_by_id(user_id).await?.preferences;
+        let mut prefs = user_by_id(&self.db, user_id).await?.preferences;
         prefs.features_enabled.media.anime =
             self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
         prefs.features_enabled.media.audio_book =
@@ -2703,11 +2717,17 @@ impl MiscellaneousService {
         }
     }
 
-    async fn review_by_id(&self, review_id: i32) -> Result<ReviewItem> {
+    async fn review_by_id(&self, review_id: i32, user_id: i32) -> Result<ReviewItem> {
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
+                if r.user_id != user_id && r.visibility == Visibility::Private {
+                    return Err(Error::new(
+                        "Can not view a private review that does not belong to the user.",
+                    ));
+                }
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenOrReviewExtraInformation::Show(d) => {
@@ -2720,7 +2740,14 @@ impl MiscellaneousService {
                 Ok(ReviewItem {
                     id: r.id,
                     posted_on: r.posted_on,
-                    rating: r.rating,
+                    rating: r.rating.map(|s| {
+                        s.checked_div(match prefs.general.review_scale {
+                            UserReviewScale::OutOfFive => dec!(20),
+                            UserReviewScale::OutOfHundred => dec!(1),
+                        })
+                        .unwrap()
+                        .round_dp(1)
+                    }),
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
@@ -2756,7 +2783,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r in all_reviews {
-            reviews.push(self.review_by_id(r.id).await?);
+            reviews.push(self.review_by_id(r.id, user_id).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -2934,10 +2961,17 @@ impl MiscellaneousService {
                 SeenOrReviewExtraInformation::Podcast(SeenPodcastExtraInformation { episode })
             })
         };
+        if input.rating.is_none() && input.text.is_none() {
+            return Err(Error::new("Atleast one of rating or review is required."));
+        }
 
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
         let mut review_obj = review::ActiveModel {
             id: review_id,
-            rating: ActiveValue::Set(input.rating),
+            rating: ActiveValue::Set(input.rating.map(|r| match prefs.general.review_scale {
+                UserReviewScale::OutOfFive => r * dec!(20),
+                UserReviewScale::OutOfHundred => r,
+            })),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
@@ -3127,7 +3161,7 @@ impl MiscellaneousService {
                 .await?
             }
             Err(e) => {
-                tracing::error!("Error while updating: {:?}", e);
+                tracing::error!("Error while updating metadata = {:?}: {:?}", metadata_id, e);
                 vec![]
             }
         };
@@ -3136,6 +3170,9 @@ impl MiscellaneousService {
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
+        if !self.config.server.deploy_update_all_metadata_job_allowed {
+            return Ok(false);
+        }
         let metadatas = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
@@ -3153,7 +3190,7 @@ impl MiscellaneousService {
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
         if let Ok(user_id) = found_token {
-            let user = self.user_by_id(user_id).await?;
+            let user = user_by_id(&self.db, user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
@@ -3162,16 +3199,8 @@ impl MiscellaneousService {
         }
     }
 
-    async fn user_by_id(&self, user_id: i32) -> Result<user::Model> {
-        User::find_by_id(user_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .ok_or_else(|| Error::new("No user found"))
-    }
-
     async fn latest_user_summary(&self, user_id: i32) -> Result<UserSummary> {
-        let ls = self.user_by_id(user_id).await?;
+        let ls = user_by_id(&self.db, user_id).await?;
         Ok(ls.summary.unwrap_or_default())
     }
 
@@ -3556,92 +3585,6 @@ impl MiscellaneousService {
         .await?;
         Ok(CreateCustomMediaResult::Ok(media))
     }
-
-    pub async fn export(&self, user_id: i32) -> Result<Vec<ImportOrExportItem<String>>> {
-        let related_metadata = UserToMetadata::find()
-            .filter(user_to_metadata::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await
-            .unwrap();
-        let distinct_meta_ids = related_metadata
-            .into_iter()
-            .map(|m| m.metadata_id)
-            .collect_vec();
-        let metas = Metadata::find()
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
-            .order_by(metadata::Column::Id, Order::Asc)
-            .all(&self.db)
-            .await?;
-
-        let mut resp = vec![];
-
-        for m in metas {
-            let mut seen_history = m
-                .find_related(Seen)
-                .filter(seen::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            modify_seen_elements(&mut seen_history);
-            let seen_history = seen_history
-                .into_iter()
-                .map(|s| {
-                    let (show_season_number, show_episode_number) = match s.show_information {
-                        Some(d) => (Some(d.season), Some(d.episode)),
-                        None => (None, None),
-                    };
-                    let podcast_episode_number = s.podcast_information.map(|d| d.episode);
-                    ImportOrExportItemSeen {
-                        started_on: s.started_on.map(convert_naive_to_utc),
-                        ended_on: s.finished_on.map(convert_naive_to_utc),
-                        show_season_number,
-                        show_episode_number,
-                        podcast_episode_number,
-                    }
-                })
-                .collect();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for r in db_reviews {
-                let rev = self.review_by_id(r.id).await.unwrap();
-                reviews.push(ImportOrExportItemRating {
-                    review: Some(ImportOrExportItemReview {
-                        date: Some(rev.posted_on),
-                        spoiler: Some(rev.spoiler),
-                        text: rev.text,
-                    }),
-                    rating: rev.rating,
-                    show_season_number: rev.show_season,
-                    show_episode_number: rev.show_episode,
-                    podcast_episode_number: rev.podcast_episode,
-                });
-            }
-            let collections = self
-                .media_in_collections(user_id, m.id)
-                .await?
-                .into_iter()
-                .map(|c| c.name)
-                .collect();
-            let exp = ImportOrExportItem {
-                source_id: m.id.to_string(),
-                lot: m.lot,
-                source: m.source,
-                identifier: m.identifier,
-                seen_history,
-                reviews,
-                collections,
-            };
-            resp.push(exp);
-        }
-
-        Ok(resp)
-    }
-
     fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
         match self.db.get_database_backend() {
             DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
@@ -3664,7 +3607,7 @@ impl MiscellaneousService {
             return Ok(false);
         }
         let err = || Error::new("Incorrect property value encountered");
-        let user_model = self.user_by_id(user_id).await?;
+        let user_model = user_by_id(&self.db, user_id).await?;
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
         let value_bool = input.value.parse::<bool>();
@@ -3860,6 +3803,13 @@ impl MiscellaneousService {
                 }
                 _ => return Err(err()),
             },
+            "general" => match right {
+                "review_scale" => {
+                    preferences.general.review_scale =
+                        UserReviewScale::from_str(&input.value).unwrap();
+                }
+                _ => return Err(err()),
+            },
             _ => return Err(err()),
         };
         let mut user_model: user::ActiveModel = user_model.into();
@@ -3877,7 +3827,7 @@ impl MiscellaneousService {
     }
 
     async fn user_integrations(&self, user_id: i32) -> Result<Vec<GraphqlUserIntegration>> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut all_integrations = vec![];
         let yank_integrations = if let Some(i) = user.yank_integrations {
             i.0
@@ -3902,7 +3852,7 @@ impl MiscellaneousService {
             let description = match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     format!("Jellyfin slug: {}", slug)
-                },
+                }
                 UserSinkIntegrationSetting::Plex { slug } => {
                     format!("Plex slug: {}", slug)
                 }
@@ -3921,7 +3871,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
     ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut all_notifications = vec![];
         let notifications = user.notifications.0;
         notifications.into_iter().for_each(|n| {
@@ -3962,7 +3912,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserSinkIntegrationInput,
     ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut integrations = user.sink_integrations.clone().0;
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserSinkIntegration {
@@ -3974,7 +3924,7 @@ impl MiscellaneousService {
                         .encode(&[user_id.try_into().unwrap()]);
                     let slug = format!("{}--{}", slug, nanoid!(5));
                     UserSinkIntegrationSetting::Jellyfin { slug }
-                },
+                }
                 UserSinkIntegrationSettingKind::Plex => {
                     let slug = get_id_hasher(&self.config.integration.hasher_salt)
                         .encode(&[user_id.try_into().unwrap()]);
@@ -3995,7 +3945,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut integrations = if let Some(i) = user.yank_integrations.clone() {
             i.0
         } else {
@@ -4027,7 +3977,7 @@ impl MiscellaneousService {
         integration_id: usize,
         integration_type: UserIntegrationLot,
     ) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         match integration_type {
             UserIntegrationLot::Yank => {
@@ -4066,7 +4016,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserNotificationPlatformInput,
     ) -> Result<usize> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut notifications = user.notifications.clone().0;
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
@@ -4115,7 +4065,7 @@ impl MiscellaneousService {
         user_id: i32,
         notification_id: usize,
     ) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         let notifications = user.notifications.clone().0;
         let remaining_notifications = notifications
@@ -4219,12 +4169,12 @@ impl MiscellaneousService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<usize> {
-        if let Some(integrations) = self.user_by_id(user_id).await?.yank_integrations {
+        if let Some(integrations) = user_by_id(&self.db, user_id).await?.yank_integrations {
             let mut progress_updates = vec![];
             for integration in integrations.0.iter() {
                 let response = match &integration.settings {
                     UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
-                        self.integration_service
+                        self.get_integration_service()
                             .audiobookshelf_progress(base_url, token)
                             .await
                     }
@@ -4320,7 +4270,7 @@ impl MiscellaneousService {
     }
 
     async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
-        let main_user = self.user_by_id(user_id).await?;
+        let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
             return Err(Error::new("Only admins can perform this operation."));
         }
@@ -4376,26 +4326,24 @@ impl MiscellaneousService {
             .ok_or(anyhow!("Incorrect hash id provided"))?
             .to_owned()
             .try_into()?;
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         for db_integration in user.sink_integrations.0.into_iter() {
             let progress = match db_integration.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     if slug == user_hash_id
                         && integration == UserSinkIntegrationSettingKind::Jellyfin
                     {
-                        self.integration_service
+                        self.get_integration_service()
                             .jellyfin_progress(&payload)
                             .await
                             .ok()
                     } else {
                         None
                     }
-                },
+                }
                 UserSinkIntegrationSetting::Plex { slug } => {
-                    if slug == user_hash_id
-                        && integration == UserSinkIntegrationSettingKind::Plex
-                    {
-                        self.integration_service
+                    if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Plex {
+                        self.get_integration_service()
                             .plex_progress(&payload)
                             .await
                             .ok()
@@ -4531,6 +4479,13 @@ impl MiscellaneousService {
                         )
                         .await
                         .ok();
+                        let is_monitored = self
+                            .get_monitored_status(seen.user_id, seen.metadata_id)
+                            .await?;
+                        if !is_monitored {
+                            self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                                .await?;
+                        }
                     }
                 } else {
                     self.remove_media_item_from_collection(
@@ -4551,7 +4506,7 @@ impl MiscellaneousService {
         user_id: i32,
         msg: &str,
     ) -> Result<bool> {
-        let user = self.user_by_id(user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut success = true;
         for notification in user.notifications.0 {
             if notification.settings.send_message(msg).await.is_err() {
@@ -4828,6 +4783,106 @@ impl MiscellaneousService {
         }
         Ok(())
     }
+
+    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem<String>>> {
+        let related_metadata = UserToMetadata::find()
+            .filter(user_to_metadata::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap();
+        let distinct_meta_ids = related_metadata
+            .into_iter()
+            .map(|m| m.metadata_id)
+            .collect_vec();
+        let metas = Metadata::find()
+            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
+            .order_by(metadata::Column::Id, Order::Asc)
+            .all(&self.db)
+            .await?;
+
+        let mut resp = vec![];
+
+        for m in metas {
+            let mut seen_history = m
+                .find_related(Seen)
+                .filter(seen::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            modify_seen_elements(&mut seen_history);
+            let seen_history = seen_history
+                .into_iter()
+                .map(|s| {
+                    let (show_season_number, show_episode_number) = match s.show_information {
+                        Some(d) => (Some(d.season), Some(d.episode)),
+                        None => (None, None),
+                    };
+                    let podcast_episode_number = s.podcast_information.map(|d| d.episode);
+                    ImportOrExportMediaItemSeen {
+                        started_on: s.started_on.map(convert_naive_to_utc),
+                        ended_on: s.finished_on.map(convert_naive_to_utc),
+                        show_season_number,
+                        show_episode_number,
+                        podcast_episode_number,
+                    }
+                })
+                .collect();
+            let db_reviews = m
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item =
+                    get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
+                reviews.push(review_item);
+            }
+            let collections = self
+                .media_in_collections(user_id, m.id)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
+            let exp = ImportOrExportMediaItem {
+                source_id: m.id.to_string(),
+                lot: m.lot,
+                source: m.source,
+                identifier: m.identifier,
+                seen_history,
+                reviews,
+                collections,
+            };
+            resp.push(exp);
+        }
+
+        Ok(resp)
+    }
+
+    pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
+        let mut resp: Vec<ImportOrExportPersonItem> = vec![];
+        let all_reviews = Review::find()
+            .filter(review::Column::CreatorId.is_not_null())
+            .filter(review::Column::UserId.eq(user_id))
+            .find_also_related(Creator)
+            .all(&self.db)
+            .await?;
+        for (review, creator) in all_reviews {
+            let creator = creator.unwrap();
+            let review_item =
+                get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
+            if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
+                entry.reviews.push(review_item);
+            } else {
+                resp.push(ImportOrExportPersonItem {
+                    name: creator.name,
+                    reviews: vec![review_item],
+                });
+            }
+        }
+        Ok(resp)
+    }
 }
 
 fn modify_seen_elements(all_seen: &mut [seen::Model]) {
@@ -4843,4 +4898,18 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
             };
         }
     });
+}
+
+fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    ImportOrExportItemRating {
+        review: Some(ImportOrExportItemReview {
+            date: Some(rev.posted_on),
+            spoiler: Some(rev.spoiler),
+            text: rev.text,
+        }),
+        rating: rev.rating,
+        show_season_number: rev.show_season,
+        show_episode_number: rev.show_episode,
+        podcast_episode_number: rev.podcast_episode,
+    }
 }

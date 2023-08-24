@@ -185,6 +185,11 @@ export interface ServerConfig {
 	 */
 	default_credentials: boolean;
 	/**
+	 * Whether users will be allowed to deploy a update all metadata job.
+	 * @default true
+	 */
+	deploy_update_all_metadata_job_allowed: boolean;
+	/**
 	 * This will make auth cookies insecure and should be set to `true` if you
 	 * are running the server on `localhost`.
 	 * [More information](https://github.com/IgnisDa/ryot/issues/23)

@@ -32,6 +32,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
+		defaultValue: "1",
 		key: "savedCreatorPage",
 		getInitialValueInEffect: false,
 	});
@@ -44,13 +45,10 @@ const Page: NextPageWithLayout = () => {
 			const { creatorsList } = await gqlClient.request(CreatorsListDocument, {
 				input: {
 					page: Number(activePage || 1),
-					query: debouncedQuery.length > 0 ? debouncedQuery : null,
+					query: debouncedQuery.length > 0 ? debouncedQuery : undefined,
 				},
 			});
 			return creatorsList;
-		},
-		onSuccess: () => {
-			if (!activePage) setPage("1");
 		},
 		staleTime: Infinity,
 	});
@@ -64,7 +62,7 @@ const Page: NextPageWithLayout = () => {
 			<ActionIcon onClick={() => setQuery("")}>
 				<IconX size="1rem" />
 			</ActionIcon>
-		) : null;
+		) : undefined;
 
 	return coreDetails.data ? (
 		<>
@@ -127,7 +125,7 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					) : null}
+					) : undefined}
 				</Stack>
 			</Container>
 		</>

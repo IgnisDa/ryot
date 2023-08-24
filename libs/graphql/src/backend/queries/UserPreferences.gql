@@ -1,5 +1,8 @@
 query UserPreferences {
   userPreferences {
+    general {
+      reviewScale
+    }
     fitness {
       measurements {
         custom {

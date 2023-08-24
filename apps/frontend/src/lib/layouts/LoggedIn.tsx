@@ -89,7 +89,7 @@ const Footer = () => {
 				<Text align="center" color={color}>
 					{text}
 				</Text>
-			) : null}
+			) : undefined}
 			<Flex gap={80} justify={"center"}>
 				<Anchor
 					href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
@@ -111,7 +111,7 @@ const Footer = () => {
 				</Anchor>
 			</Flex>
 		</Stack>
-	) : null;
+	) : undefined;
 };
 
 const useStyles = createStyles((theme) => ({
@@ -286,10 +286,10 @@ export function LinksGroup({
 									: "none",
 							}}
 						/>
-					) : null}
+					) : undefined}
 				</Group>
 			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
+			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : undefined}
 		</>
 	);
 }
@@ -442,7 +442,7 @@ export default function ({ children }: { children: ReactElement }) {
 									)
 								}
 							/>
-						) : null}
+						) : undefined}
 						{userPreferences.data.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
@@ -466,7 +466,7 @@ export default function ({ children }: { children: ReactElement }) {
 									},
 								]}
 							/>
-						) : null}
+						) : undefined}
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
@@ -569,5 +569,5 @@ export default function ({ children }: { children: ReactElement }) {
 				</MediaQuery>
 			</Flex>
 		</AppShell>
-	) : null;
+	) : undefined;
 }

@@ -7,14 +7,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployGoodreadsImportInput, ImportOrExportItem, ImportOrExportItemIdentifier, ImportResult,
+        DeployGoodreadsImportInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
+        ImportResult,
     },
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
     models::{
         media::{
             BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportItemSeen, MediaDetails, MediaSpecifics, MetadataCreator, MetadataImage,
+            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataCreator,
+            MetadataImage,
         },
         StoredUrl,
     },
@@ -93,7 +95,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
 
                 let mut seen_history = vec![];
                 if !d.user_read_at.is_empty() {
-                    seen_history.push(ImportOrExportItemSeen {
+                    seen_history.push(ImportOrExportMediaItemSeen {
                         started_on: None,
                         ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
                             .ok()
@@ -109,7 +111,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                     default_collections.push(DefaultCollection::Watchlist.to_string());
                 }
 
-                ImportOrExportItem {
+                ImportOrExportMediaItem {
                     source_id: d.book_id.to_string(),
                     source: MetadataSource::Custom,
                     lot: MetadataLot::Book,

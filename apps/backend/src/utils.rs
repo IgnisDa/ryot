@@ -25,7 +25,10 @@ use surf::{
 use crate::{
     background::ApplicationJob,
     config::AppConfig,
-    entities::{prelude::UserToMetadata, user_to_metadata},
+    entities::{
+        prelude::{User, UserToMetadata},
+        user, user_to_metadata,
+    },
     file_storage::FileStorageService,
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
@@ -218,6 +221,14 @@ pub async fn get_stored_image(
         StoredUrl::Url(u) => u,
         StoredUrl::S3(u) => files_storage_service.get_presigned_url(u).await,
     }
+}
+
+pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
+    User::find_by_id(user_id)
+        .one(db)
+        .await
+        .unwrap()
+        .ok_or_else(|| Error::new("No user found"))
 }
 
 #[derive(Debug)]

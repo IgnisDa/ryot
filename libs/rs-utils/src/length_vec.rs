@@ -1,7 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 /// A fixed-length vector-like data structure that automatically removes the oldest element
 /// when a new element is added, ensuring that the length of the vector does not exceed
 /// the specified maximum capacity.
@@ -45,6 +43,16 @@ impl<T> LengthVec<T> {
         }
     }
 
+    pub fn from_vec_and_length(vec: Vec<T>, max_length: usize) -> Self {
+        let mut data = vec;
+        let len = data.len();
+        if len > max_length {
+            data.drain(0..(len - max_length));
+        }
+
+        LengthVec { data, max_length }
+    }
+
     pub fn push(&mut self, item: T) {
         if self.data.len() >= self.max_length {
             self.data.remove(0); // Remove the oldest element
@@ -57,6 +65,16 @@ impl<T> LengthVec<T> {
             self.data.pop(); // Remove the last element
         }
         self.data.insert(0, item);
+    }
+
+    pub fn into_vec(self) -> Vec<T> {
+        self.data
+    }
+}
+
+impl<T> Into<Vec<T>> for LengthVec<T> {
+    fn into(self) -> Vec<T> {
+        self.into_vec()
     }
 }
 
@@ -71,32 +89,6 @@ impl<T> Deref for LengthVec<T> {
 impl<T> DerefMut for LengthVec<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
-    }
-}
-
-impl<T> Serialize for LengthVec<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.data.serialize(serializer)
-    }
-}
-
-impl<'de, T> Deserialize<'de> for LengthVec<T>
-where
-    T: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let data = Vec::deserialize(deserializer)?;
-        let max_length = data.capacity();
-        Ok(LengthVec { data, max_length })
     }
 }
 
@@ -119,6 +111,15 @@ mod tests {
         length_vec.push(6);
         assert_eq!(length_vec.len(), 5);
         assert_eq!(*length_vec, vec![2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn test_from_vec_and_length() {
+        let vec = vec![1, 2, 3, 4, 5, 6, 7];
+        let length_vec = LengthVec::from_vec_and_length(vec.clone(), 5);
+
+        assert_eq!(length_vec.len(), 5);
+        assert_eq!(*length_vec, vec![3, 4, 5, 6, 7]);
     }
 
     #[test]

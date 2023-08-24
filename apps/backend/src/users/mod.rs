@@ -86,7 +86,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
     EnumString,
     Default,
 )]
-#[strum(ascii_case_insensitive)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserWeightUnit {
     #[default]
     Kilogram,
@@ -106,7 +106,7 @@ pub enum UserWeightUnit {
     EnumString,
     Default,
 )]
-#[strum(ascii_case_insensitive)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserDistanceUnit {
     #[default]
     Kilometer,
@@ -252,6 +252,34 @@ pub struct UserFitnessPreferences {
 }
 
 #[derive(
+    Debug,
+    Serialize,
+    Default,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+    Copy,
+    EnumString,
+)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum UserReviewScale {
+    OutOfFive,
+    #[default]
+    OutOfHundred,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+)]
+#[serde(default)]
+pub struct UserGeneralPreferences {
+    pub review_scale: UserReviewScale,
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 #[serde(default)]
@@ -259,6 +287,7 @@ pub struct UserPreferences {
     pub features_enabled: UserFeaturesEnabledPreferences,
     pub notifications: UserNotificationsPreferences,
     pub fitness: UserFitnessPreferences,
+    pub general: UserGeneralPreferences,
 }
 
 #[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

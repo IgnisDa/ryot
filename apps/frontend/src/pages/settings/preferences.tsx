@@ -20,6 +20,7 @@ import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 	UserDistanceUnit,
+	UserReviewScale,
 	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
@@ -61,7 +62,7 @@ const Page: NextPageWithLayout = () => {
 						>
 							Changing preferences is disabled on this instance.
 						</Alert>
-					) : null}
+					) : undefined}
 					<Title order={2}>Enabled features</Title>
 					{["media", "fitness"].map((facet) => (
 						<Fragment key={facet}>
@@ -124,6 +125,29 @@ const Page: NextPageWithLayout = () => {
 								/>
 							),
 						)}
+					</SimpleGrid>
+					<Divider />
+					<Title order={2}>General</Title>
+					<SimpleGrid cols={2}>
+						<Select
+							size="xs"
+							label="Scale used for rating in reviews"
+							data={Object.values(UserReviewScale).map((c) => ({
+								label: startCase(snakeCase(c)),
+								value: c,
+							}))}
+							defaultValue={userPreferences.data.general.reviewScale}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(val) => {
+								if (val)
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: "general.review_scale",
+											value: val,
+										},
+									});
+							}}
+						/>
 					</SimpleGrid>
 					<Divider />
 					<Title order={2}>Measurements</Title>

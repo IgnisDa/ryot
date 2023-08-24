@@ -118,6 +118,7 @@ async fn main() -> Result<()> {
 
     let opt = ConnectOptions::new(config.database.url.clone())
         .min_connections(5)
+        .max_connections(10)
         .connect_timeout(Duration::from_secs(10))
         .acquire_timeout(Duration::from_secs(10))
         .to_owned();
@@ -210,13 +211,14 @@ async fn main() -> Result<()> {
 
     let app_routes = Router::new()
         .nest("/webhooks", webhook_routes)
+        .route("/export/:export_type", get(json_export))
         .route("/config", get(config_handler))
         .route("/upload", post(upload_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
-        .route("/export", get(json_export))
         .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
+        .layer(Extension(app_services.exercise_service.clone()))
         .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())

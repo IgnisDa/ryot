@@ -6,20 +6,68 @@ export type ImportOrExportItemReview = {
 	text: string | null;
 };
 
-export type ImportOrExportItemRating = {
-	review: ImportOrExportItemReview | null;
-	rating: string | null;
-	show_season_number: number | null;
-	show_episode_number: number | null;
-	podcast_episode_number: number | null;
+/**
+ * Details about a specific media item that needs to be imported or exported.
+ */
+export type ImportOrExportMediaItem<T> = {
+	source_id: string;
+	lot: MetadataLot;
+	source: MetadataSource;
+	identifier: T;
+	seen_history: ImportOrExportMediaItemSeen[];
+	reviews: ImportOrExportItemRating[];
+	collections: string[];
 };
 
-export type ImportOrExportItemSeen = {
+export type UserMeasurementStats = {
+	weight?: string | null;
+	body_mass_index?: string | null;
+	total_body_water?: string | null;
+	muscle?: string | null;
+	lean_body_mass?: string | null;
+	body_fat?: string | null;
+	bone_mass?: string | null;
+	visceral_fat?: string | null;
+	waist_circumference?: string | null;
+	waist_to_height_ratio?: string | null;
+	hip_circumference?: string | null;
+	waist_to_hip_ratio?: string | null;
+	chest_circumference?: string | null;
+	thigh_circumference?: string | null;
+	biceps_circumference?: string | null;
+	neck_circumference?: string | null;
+	body_fat_caliper?: string | null;
+	chest_skinfold?: string | null;
+	abdominal_skinfold?: string | null;
+	thigh_skinfold?: string | null;
+	basal_metabolic_rate?: string | null;
+	total_daily_energy_expenditure?: string | null;
+	calories?: string | null;
+	custom?: { [key: string]: string } | null;
+};
+
+/**
+ * Details about a specific creator item that needs to be exported.
+ */
+export type ImportOrExportPersonItem = {
+	name: string;
+	reviews: ImportOrExportItemRating[];
+};
+
+export type ImportOrExportMediaItemSeen = {
 	started_on: string | null;
 	ended_on: string | null;
 	show_season_number: number | null;
 	show_episode_number: number | null;
 	podcast_episode_number: number | null;
+};
+
+export type ExportUserMeasurementItem = {
+	timestamp: string;
+	user_id: number;
+	name: string | null;
+	comment: string | null;
+	stats: UserMeasurementStats;
 };
 
 export type MetadataSource =
@@ -33,17 +81,12 @@ export type MetadataSource =
 	| "Openlibrary"
 	| "Tmdb";
 
-/**
- * Details about a specific media item that needs to be imported.
- */
-export type ImportOrExportItem<T> = {
-	source_id: string;
-	lot: MetadataLot;
-	source: MetadataSource;
-	identifier: T;
-	seen_history: ImportOrExportItemSeen[];
-	reviews: ImportOrExportItemRating[];
-	collections: string[];
+export type ImportOrExportItemRating = {
+	review: ImportOrExportItemReview | null;
+	rating: string | null;
+	show_season_number: number | null;
+	show_episode_number: number | null;
+	podcast_episode_number: number | null;
 };
 
 export type MetadataLot =
@@ -55,3 +98,12 @@ export type MetadataLot =
 	| "Movie"
 	| "Show"
 	| "VideoGame";
+
+/**
+ * Complete export of the user.
+ */
+export type ExportAllResponse = {
+	media: ImportOrExportMediaItem<string>[];
+	people: ImportOrExportPersonItem[];
+	measurements: ExportUserMeasurementItem[];
+};

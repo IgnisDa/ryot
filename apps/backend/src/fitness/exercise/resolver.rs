@@ -9,6 +9,7 @@ use sea_orm::{
 };
 use sea_query::{Alias, Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
+use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -32,7 +33,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, MemoryDatabase},
+    utils::{get_case_insensitive_like_query, user_by_id, MemoryDatabase},
 };
 
 use super::logic::UserWorkoutInput;
@@ -370,6 +371,17 @@ impl ExerciseService {
         Ok(())
     }
 
+    pub async fn export_measurements(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
+        self.user_measurements_list(
+            user_id,
+            UserMeasurementsListInput {
+                start_time: None,
+                end_time: None,
+            },
+        )
+        .await
+    }
+
     async fn user_measurements_list(
         &self,
         user_id: i32,
@@ -413,7 +425,17 @@ impl ExerciseService {
     }
 
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
-        dbg!(input);
-        todo!()
+        let user = user_by_id(&self.db, user_id).await?;
+        let sf = Sonyflake::new().unwrap();
+        let id = sf.next_id().unwrap().to_string();
+        let identifier = input
+            .calculate_and_commit(
+                user_id,
+                &self.db,
+                id,
+                user.preferences.fitness.exercises.save_history,
+            )
+            .await?;
+        Ok(identifier)
     }
 }

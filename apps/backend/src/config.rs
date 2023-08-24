@@ -405,6 +405,9 @@ pub struct ServerConfig {
     /// it has been already marked as seen in the last `n` hours.
     #[setting(default = 2)]
     pub progress_update_threshold: i64,
+    /// Whether users will be allowed to deploy a update all metadata job.
+    #[setting(default = true)]
+    pub deploy_update_all_metadata_job_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
