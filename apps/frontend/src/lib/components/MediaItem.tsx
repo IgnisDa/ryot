@@ -114,7 +114,7 @@ export const ReviewItemDisplay = ({
 							{review.rating}
 							{userPreferences.data.general.reviewScale ===
 							UserReviewScale.OutOfFive
-								? ""
+								? undefined
 								: "%"}
 						</Text>
 					</Flex>
@@ -269,7 +269,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 								{props.averageRating}{" "}
 								{userPreferences.data.general.reviewScale ===
 								UserReviewScale.OutOfFive
-									? ""
+									? undefined
 									: "%"}
 							</Text>
 						</Flex>
