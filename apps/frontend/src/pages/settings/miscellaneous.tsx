@@ -1,5 +1,5 @@
 import type { NextPageWithLayout } from "../_app";
-import { useUser } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -28,6 +28,7 @@ import { type ReactElement } from "react";
 
 const Page: NextPageWithLayout = () => {
 	const userDetails = useUser();
+	const coreDetails = useCoreDetails();
 	const regenerateUserSummary = useMutation({
 		mutationFn: async (_variables: RegenerateUserSummaryMutationVariables) => {
 			const { regenerateUserSummary } = await gqlClient.request(
@@ -76,7 +77,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return userDetails ? (
+	return coreDetails.data && userDetails ? (
 		<>
 			<Head>
 				<title>Miscellaneous Settings | Ryot</title>
@@ -93,9 +94,15 @@ const Page: NextPageWithLayout = () => {
 									stored. The more media you have, the longer this will take.
 								</Text>
 							</Box>
+							{!coreDetails.data.deployUpdateAllMetadataJobAllowed ? (
+								<Text size="xs" color="dimmed">
+									Deploying this job is disabled on this instance.
+								</Text>
+							) : null}
 							<Button
 								onClick={() => deployUpdateAllMetadataJobs.mutate({})}
 								loading={deployUpdateAllMetadataJobs.isLoading}
+								disabled={!coreDetails.data.deployUpdateAllMetadataJobAllowed}
 							>
 								Deploy job
 							</Button>
