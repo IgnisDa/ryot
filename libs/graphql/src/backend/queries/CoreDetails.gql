@@ -12,5 +12,6 @@ query CoreDetails {
     reviewsDisabled
     upgrade
     pageLimit
-  }
+    deployUpdateAllMetadataJobAllowed
+   }
 }

@@ -147,7 +147,7 @@ const Page: NextPageWithLayout = () => {
 											{c?.numItems} items, {changeCase(c?.visibility || "")}
 										</Text>
 									</Flex>
-									{c?.description ? <Text>{c?.description}</Text> : null}
+									{c?.description ? <Text>{c?.description}</Text> : undefined}
 								</Box>
 								<Flex gap="sm" style={{ flex: 0 }}>
 									<ActionIcon

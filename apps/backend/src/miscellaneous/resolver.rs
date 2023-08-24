@@ -23,6 +23,7 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
@@ -86,9 +87,10 @@ use crate::{
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
         UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserWeightUnit, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
+        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
+        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -470,10 +472,9 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
-    /// Whether an upgrade is required
     upgrade: Option<UpgradeType>,
-    /// The number of elements on a page
     page_limit: i32,
+    deploy_update_all_metadata_job_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -570,7 +571,8 @@ impl MiscellaneousQuery {
     /// Get a review by its ID.
     async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.review_by_id(review_id).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.review_by_id(review_id, user_id).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -1198,6 +1200,10 @@ impl MiscellaneousService {
             reviews_disabled: self.config.users.reviews_disabled,
             upgrade,
             page_limit: self.config.frontend.page_size,
+            deploy_update_all_metadata_job_allowed: self
+                .config
+                .server
+                .deploy_update_all_metadata_job_allowed,
         })
     }
 
@@ -1792,6 +1798,8 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut items = vec![];
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
+
         // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
         struct RoundFunction;
         impl Iden for RoundFunction {
@@ -1799,17 +1807,22 @@ impl MiscellaneousService {
                 write!(s, "ROUND").unwrap();
             }
         }
-        for m in metas {
+
+        for met in metas {
             let avg_select = Query::select()
-                .expr(Func::cust(RoundFunction).arg(Func::avg(Expr::col((
-                    TempReview::Table,
-                    TempReview::Rating,
-                )))))
+                .expr(Func::cust(RoundFunction).arg(Func::avg(
+                    Expr::col((TempReview::Table, TempReview::Rating)).div(
+                        match prefs.general.review_scale {
+                            UserReviewScale::OutOfFive => 20,
+                            UserReviewScale::OutOfHundred => 1,
+                        },
+                    ),
+                )))
                 .from(TempReview::Table)
                 .cond_where(
                     Cond::all()
                         .add(Expr::col((TempReview::Table, TempReview::UserId)).eq(user_id))
-                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(m.id)),
+                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(met.id)),
                 )
                 .to_owned();
             let stmt = self.get_db_stmt(avg_select);
@@ -1819,7 +1832,7 @@ impl MiscellaneousService {
                 .await?
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
-            let images = serde_json::from_value(m.images).unwrap();
+            let images = serde_json::from_value(met.images).unwrap();
             let (poster_images, _) = self
                 .metadata_images(&metadata::Model {
                     images,
@@ -1828,10 +1841,10 @@ impl MiscellaneousService {
                 .await?;
             let m_small = MediaListItem {
                 data: MediaSearchItem {
-                    identifier: m.id.to_string(),
-                    title: m.title,
+                    identifier: met.id.to_string(),
+                    title: met.title,
                     image: poster_images.get(0).cloned(),
-                    publish_year: m.publish_year,
+                    publish_year: met.publish_year,
                 },
                 average_rating: avg,
             };
@@ -2704,11 +2717,17 @@ impl MiscellaneousService {
         }
     }
 
-    async fn review_by_id(&self, review_id: i32) -> Result<ReviewItem> {
+    async fn review_by_id(&self, review_id: i32, user_id: i32) -> Result<ReviewItem> {
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
+                if r.user_id != user_id && r.visibility == Visibility::Private {
+                    return Err(Error::new(
+                        "Can not view a private review that does not belong to the user.",
+                    ));
+                }
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenOrReviewExtraInformation::Show(d) => {
@@ -2721,7 +2740,14 @@ impl MiscellaneousService {
                 Ok(ReviewItem {
                     id: r.id,
                     posted_on: r.posted_on,
-                    rating: r.rating,
+                    rating: r.rating.map(|s| {
+                        s.checked_div(match prefs.general.review_scale {
+                            UserReviewScale::OutOfFive => dec!(20),
+                            UserReviewScale::OutOfHundred => dec!(1),
+                        })
+                        .unwrap()
+                        .round_dp(1)
+                    }),
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
@@ -2757,7 +2783,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r in all_reviews {
-            reviews.push(self.review_by_id(r.id).await?);
+            reviews.push(self.review_by_id(r.id, user_id).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -2939,9 +2965,13 @@ impl MiscellaneousService {
             return Err(Error::new("Atleast one of rating or review is required."));
         }
 
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
         let mut review_obj = review::ActiveModel {
             id: review_id,
-            rating: ActiveValue::Set(input.rating),
+            rating: ActiveValue::Set(input.rating.map(|r| match prefs.general.review_scale {
+                UserReviewScale::OutOfFive => r * dec!(20),
+                UserReviewScale::OutOfHundred => r,
+            })),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
@@ -3140,6 +3170,9 @@ impl MiscellaneousService {
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
+        if !self.config.server.deploy_update_all_metadata_job_allowed {
+            return Ok(false);
+        }
         let metadatas = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
@@ -3767,6 +3800,13 @@ impl MiscellaneousService {
                 }
                 "number_of_seasons_changed" => {
                     preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
+                }
+                _ => return Err(err()),
+            },
+            "general" => match right {
+                "review_scale" => {
+                    preferences.general.review_scale =
+                        UserReviewScale::from_str(&input.value).unwrap();
                 }
                 _ => return Err(err()),
             },
@@ -4778,7 +4818,7 @@ impl MiscellaneousService {
             let mut reviews = vec![];
             for review in db_reviews {
                 let review_item =
-                    get_review_export_item(self.review_by_id(review.id).await.unwrap());
+                    get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
                 reviews.push(review_item);
             }
             let collections = self
@@ -4812,7 +4852,8 @@ impl MiscellaneousService {
             .await?;
         for (review, creator) in all_reviews {
             let creator = creator.unwrap();
-            let review_item = get_review_export_item(self.review_by_id(review.id).await.unwrap());
+            let review_item =
+                get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
             if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {

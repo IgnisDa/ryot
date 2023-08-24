@@ -1,5 +1,10 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useCommitMedia, useCoreDetails, useUser } from "@/lib/hooks/graphql";
+import {
+	useCommitMedia,
+	useCoreDetails,
+	useUser,
+	useUserPreferences,
+} from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getLot, getVerb } from "@/lib/utilities";
 import {
@@ -15,6 +20,7 @@ import {
 	ScrollArea,
 	Text,
 	Tooltip,
+	createStyles,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -25,6 +31,7 @@ import {
 	MetadataLot,
 	MetadataSource,
 	type ReviewItem,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import { IconEdit, IconStarFilled } from "@tabler/icons-react";
@@ -41,7 +48,7 @@ export const MediaScrollArea = (props: { children: JSX.Element }) => {
 		<ScrollArea.Autosize mah={coreDetails.data.itemDetailsHeight}>
 			{props.children}
 		</ScrollArea.Autosize>
-	) : null;
+	) : undefined;
 };
 
 export const ReviewItemDisplay = ({
@@ -55,8 +62,9 @@ export const ReviewItemDisplay = ({
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const user = useUser();
+	const userPreferences = useUserPreferences();
 
-	return (
+	return userPreferences.data ? (
 		<Box key={review.id} data-review-id={review.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
@@ -82,7 +90,7 @@ export const ReviewItemDisplay = ({
 							</ActionIcon>
 						</Anchor>
 					</Link>
-				) : null}
+				) : undefined}
 			</Flex>
 			<Box ml={"sm"} mt={"xs"}>
 				{typeof review.showSeason === "number" ? (
@@ -90,10 +98,10 @@ export const ReviewItemDisplay = ({
 						S{review.showSeason}-E
 						{review.showEpisode}
 					</Text>
-				) : null}
+				) : undefined}
 				{typeof review.podcastEpisode === "number" ? (
 					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
-				) : null}
+				) : undefined}
 				{review.rating > 0 ? (
 					<Flex align={"center"} gap={4}>
 						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
@@ -103,10 +111,14 @@ export const ReviewItemDisplay = ({
 							})}
 							fw="bold"
 						>
-							{review.rating} %
+							{review.rating}
+							{userPreferences.data.general.reviewScale ===
+							UserReviewScale.OutOfFive
+								? undefined
+								: "%"}
 						</Text>
 					</Flex>
-				) : null}
+				) : undefined}
 				{review.text ? (
 					!review.spoiler ? (
 						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
@@ -116,16 +128,16 @@ export const ReviewItemDisplay = ({
 								<Button onClick={toggle} variant={"subtle"} compact>
 									Show spoiler
 								</Button>
-							) : null}
+							) : undefined}
 							<Collapse in={opened}>
 								<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 							</Collapse>
 						</>
 					)
-				) : null}
+				) : undefined}
 			</Box>
 		</Box>
-	);
+	) : undefined;
 };
 
 export const BaseDisplayItem = (props: {
@@ -199,6 +211,13 @@ export const BaseDisplayItem = (props: {
 
 type Item = MediaSearchQuery["mediaSearch"]["items"][number]["item"];
 
+const useStyles = createStyles({
+	starIcon: {
+		color: "#9ca3af",
+		"&:hover": { color: "#EBE600FF" },
+	},
+});
+
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
 	lot: MetadataLot;
@@ -207,8 +226,14 @@ export const MediaItemWithoutUpdateModal = (props: {
 	href: string;
 	existsInDatabase?: boolean;
 	averageRating?: number;
+	noRatingLink?: boolean;
 }) => {
-	return (
+	const userPreferences = useUserPreferences();
+	const { classes } = useStyles();
+	const router = useRouter();
+	const nextPath = withQuery(router.pathname, router.query);
+
+	return userPreferences.data ? (
 		<BaseDisplayItem
 			href={props.href}
 			imageLink={props.item.image}
@@ -240,12 +265,38 @@ export const MediaItemWithoutUpdateModal = (props: {
 					>
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"0.8rem"} style={{ color: "#EBE600FF" }} />
-							<Text color="white" size="xs" fw="bold">
-								{props.averageRating} %
+							<Text color="white" size="xs" fw="bold" pr={4}>
+								{props.averageRating}{" "}
+								{userPreferences.data.general.reviewScale ===
+								UserReviewScale.OutOfFive
+									? undefined
+									: "%"}
 							</Text>
 						</Flex>
 					</Box>
-				) : undefined
+				) : props.noRatingLink ? undefined : (
+					<Link
+						href={withQuery(APP_ROUTES.media.postReview, {
+							metadataId: props.item.identifier,
+							next: nextPath,
+						})}
+					>
+						<Box
+							p={3}
+							pos={"absolute"}
+							top={5}
+							right={5}
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.75)",
+								borderRadius: 3,
+							}}
+						>
+							<Flex align={"center"} gap={4}>
+								<IconStarFilled size={"1rem"} className={classes.starIcon} />
+							</Flex>
+						</Box>
+					</Link>
+				)
 			}
 			bottomLeft={props.item.publishYear}
 			bottomRight={changeCase(props.lot || "")}
@@ -255,7 +306,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			name={props.item.title}
 			children={props.children}
 		/>
-	);
+	) : undefined;
 };
 
 export default function (props: {

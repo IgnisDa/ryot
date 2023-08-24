@@ -163,7 +163,7 @@ const Page: NextPageWithLayout = () => {
 												movaryImportForm.values.history,
 											),
 											watchlist: await fileToText(
-												movaryImportForm.values.watchlist
+												movaryImportForm.values.watchlist,
 											),
 										},
 									}))
@@ -306,7 +306,7 @@ const Page: NextPageWithLayout = () => {
 									))
 									.exhaustive()}
 							</ImportSourceElement>
-						) : null}
+						) : undefined}
 					</Stack>
 				</Box>
 			</Container>

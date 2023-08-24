@@ -97,7 +97,7 @@ const Page: NextPageWithLayout = () => {
 								siblings={0}
 							/>
 						</Center>
-					) : null}
+					) : undefined}
 				</Stack>
 			</Container>
 		</>

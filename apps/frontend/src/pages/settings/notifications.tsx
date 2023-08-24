@@ -192,7 +192,7 @@ const Page: NextPageWithLayout = () => {
 									>
 										Trigger test notifications
 									</Button>
-								) : null}
+								) : undefined}
 								<Button
 									size="xs"
 									variant="light"
@@ -359,7 +359,7 @@ const Page: NextPageWithLayout = () => {
 													</>
 												))
 												.exhaustive()
-										: null}
+										: undefined}
 									<Button
 										type="submit"
 										loading={createUserNotificationPlatform.isLoading}

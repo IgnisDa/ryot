@@ -138,7 +138,7 @@ const Page: NextPageWithLayout = () => {
 			<ActionIcon onClick={() => setQuery("")}>
 				<IconX size="1rem" />
 			</ActionIcon>
-		) : null;
+		) : undefined;
 
 	return coreDetails.data && exerciseInformation.data ? (
 		<>
@@ -248,7 +248,7 @@ const Page: NextPageWithLayout = () => {
 												</Text>{" "}
 												selected
 											</>
-										) : null}
+										) : undefined}
 									</Box>
 									<SimpleGrid
 										breakpoints={[
@@ -278,7 +278,7 @@ const Page: NextPageWithLayout = () => {
 																);
 														}}
 													/>
-												) : null}
+												) : undefined}
 												<Avatar
 													imageProps={{ loading: "lazy" }}
 													src={exercise.attributes.images.at(0)}
@@ -293,7 +293,7 @@ const Page: NextPageWithLayout = () => {
 																snakeCase(exercise.attributes.muscles.at(0)),
 															)}
 														</Text>
-													) : null}
+													) : undefined}
 												</Flex>
 											</Flex>
 										))}
@@ -316,7 +316,7 @@ const Page: NextPageWithLayout = () => {
 										siblings={0}
 									/>
 								</Center>
-							) : null}
+							) : undefined}
 						</>
 					)}
 				</Stack>
@@ -349,7 +349,7 @@ const Page: NextPageWithLayout = () => {
 						</ActionIcon>
 						{/* TODO: Add btn to add superset exercises */}
 					</Affix>
-				) : null}
+				) : undefined}
 			</Container>
 		</>
 	) : (
