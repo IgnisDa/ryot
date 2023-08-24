@@ -23,6 +23,7 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
@@ -1797,6 +1798,8 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut items = vec![];
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
+
         // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
         struct RoundFunction;
         impl Iden for RoundFunction {
@@ -1804,17 +1807,22 @@ impl MiscellaneousService {
                 write!(s, "ROUND").unwrap();
             }
         }
-        for m in metas {
+
+        for met in metas {
             let avg_select = Query::select()
-                .expr(Func::cust(RoundFunction).arg(Func::avg(Expr::col((
-                    TempReview::Table,
-                    TempReview::Rating,
-                )))))
+                .expr(Func::cust(RoundFunction).arg(Func::avg(
+                    Expr::col((TempReview::Table, TempReview::Rating)).div(
+                        match prefs.general.review_scale {
+                            UserReviewScale::OutOfFive => 20,
+                            UserReviewScale::OutOfHundred => 1,
+                        },
+                    ),
+                )))
                 .from(TempReview::Table)
                 .cond_where(
                     Cond::all()
                         .add(Expr::col((TempReview::Table, TempReview::UserId)).eq(user_id))
-                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(m.id)),
+                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(met.id)),
                 )
                 .to_owned();
             let stmt = self.get_db_stmt(avg_select);
@@ -1824,7 +1832,7 @@ impl MiscellaneousService {
                 .await?
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
-            let images = serde_json::from_value(m.images).unwrap();
+            let images = serde_json::from_value(met.images).unwrap();
             let (poster_images, _) = self
                 .metadata_images(&metadata::Model {
                     images,
@@ -1833,10 +1841,10 @@ impl MiscellaneousService {
                 .await?;
             let m_small = MediaListItem {
                 data: MediaSearchItem {
-                    identifier: m.id.to_string(),
-                    title: m.title,
+                    identifier: met.id.to_string(),
+                    title: met.title,
                     image: poster_images.get(0).cloned(),
-                    publish_year: m.publish_year,
+                    publish_year: met.publish_year,
                 },
                 average_rating: avg,
             };
@@ -2717,7 +2725,7 @@ impl MiscellaneousService {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
                 if r.user_id != user_id && r.visibility == Visibility::Private {
                     return Err(Error::new(
-                        "Can not view a private review that does not belong to user.",
+                        "Can not view a private review that does not belong to the user.",
                     ));
                 }
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
@@ -2732,7 +2740,14 @@ impl MiscellaneousService {
                 Ok(ReviewItem {
                     id: r.id,
                     posted_on: r.posted_on,
-                    rating: r.rating,
+                    rating: r.rating.map(|s| {
+                        s.checked_div(match prefs.general.review_scale {
+                            UserReviewScale::OutOfFive => dec!(20),
+                            UserReviewScale::OutOfHundred => dec!(1),
+                        })
+                        .unwrap()
+                        .round()
+                    }),
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
