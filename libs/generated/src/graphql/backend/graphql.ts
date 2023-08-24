@@ -1519,8 +1519,8 @@ export type UserPreferences = {
 };
 
 export enum UserReviewScale {
-  OutOf_5 = 'OUT_OF_5',
-  OutOf_100 = 'OUT_OF_100'
+  OutOfFive = 'OUT_OF_FIVE',
+  OutOfHundred = 'OUT_OF_HUNDRED'
 }
 
 export enum UserSinkIntegrationSettingKind {

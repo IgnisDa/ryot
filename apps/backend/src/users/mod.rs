@@ -86,7 +86,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
     EnumString,
     Default,
 )]
-#[strum(ascii_case_insensitive)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserWeightUnit {
     #[default]
     Kilogram,
@@ -106,7 +106,7 @@ pub enum UserWeightUnit {
     EnumString,
     Default,
 )]
-#[strum(ascii_case_insensitive)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserDistanceUnit {
     #[default]
     Kilometer,
@@ -264,10 +264,11 @@ pub struct UserFitnessPreferences {
     Copy,
     EnumString,
 )]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
     #[default]
-    OutOf5,
-    OutOf100,
+    OutOfFive,
+    OutOfHundred,
 }
 
 #[derive(
