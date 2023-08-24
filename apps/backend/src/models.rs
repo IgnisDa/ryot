@@ -574,7 +574,7 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
     pub struct MediaSuggestion {
         pub identifier: String,
         pub source: MetadataSource,
