@@ -1,5 +1,6 @@
 import type { NextPageWithLayout } from "../_app";
 import { APP_ROUTES } from "@/lib/constants";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -11,6 +12,7 @@ import {
 	Flex,
 	Input,
 	NumberInput,
+	Rating,
 	SegmentedControl,
 	Stack,
 	Textarea,
@@ -27,6 +29,7 @@ import {
 	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewByIdDocument,
+	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconPercentage } from "@tabler/icons-react";
@@ -35,6 +38,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
@@ -73,6 +77,8 @@ const Page: NextPageWithLayout = () => {
 			podcastEpisodeNumber,
 		},
 	});
+
+	const userPreferences = useUserPreferences();
 
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId, creatorId],
@@ -176,7 +182,7 @@ const Page: NextPageWithLayout = () => {
 
 	const title = mediaDetails.data?.title;
 
-	return mediaDetails.data && title ? (
+	return userPreferences.data && mediaDetails.data && title ? (
 		<>
 			<Head>
 				<title>Post Review | Ryot</title>
@@ -198,17 +204,28 @@ const Page: NextPageWithLayout = () => {
 					<Stack>
 						<Title order={3}>Reviewing "{title}"</Title>
 						<Flex align={"center"} gap="xl">
-							<NumberInput
-								label="Rating"
-								{...form.getInputProps("rating")}
-								min={0}
-								max={100}
-								step={1}
-								w={"40%"}
-								type="number"
-								hideControls
-								rightSection={<IconPercentage size="1rem" />}
-							/>
+							{match(userPreferences.data.general.reviewScale)
+								.with(UserReviewScale.OutOfFive, () => (
+									<Rating
+										{...form.getInputProps("rating")}
+										fractions={2}
+										pt="lg"
+									/>
+								))
+								.with(UserReviewScale.OutOfHundred, () => (
+									<NumberInput
+										label="Rating"
+										{...form.getInputProps("rating")}
+										min={0}
+										max={100}
+										step={1}
+										w={"40%"}
+										type="number"
+										hideControls
+										rightSection={<IconPercentage size="1rem" />}
+									/>
+								))
+								.exhaustive()}
 							<Checkbox
 								label="This review is a spoiler"
 								mt="lg"
