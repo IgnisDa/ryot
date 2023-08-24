@@ -1,7 +1,8 @@
 import type { NextPageWithLayout } from "../_app";
 import Grid from "@/lib/components/Grid";
-import MediaItem, {
+import {
 	MediaItemWithoutUpdateModal,
+	MediaSearchItem,
 } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
@@ -453,7 +454,7 @@ const Page: NextPageWithLayout = () => {
 									</Box>
 									<Grid>
 										{searchQuery.data.items.map((b, idx) => (
-											<MediaItem
+											<MediaSearchItem
 												idx={idx}
 												key={b.item.identifier}
 												item={b.item}

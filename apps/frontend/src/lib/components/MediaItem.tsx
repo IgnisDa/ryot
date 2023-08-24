@@ -309,7 +309,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	) : undefined;
 };
 
-export default function (props: {
+export const MediaSearchItem = (props: {
 	item: Item;
 	idx: number;
 	query: string;
@@ -317,7 +317,7 @@ export default function (props: {
 	source: MetadataSource;
 	searchQueryRefetch: () => void;
 	maybeItemId?: number;
-}) {
+}) => {
 	const router = useRouter();
 	const lot = getLot(router.query.lot);
 
@@ -366,6 +366,7 @@ export default function (props: {
 					  })
 			}
 			existsInDatabase={!!props.maybeItemId}
+			noRatingLink
 		>
 			<>
 				{props.lot !== MetadataLot.Show ? (
@@ -423,4 +424,4 @@ export default function (props: {
 			</>
 		</MediaItemWithoutUpdateModal>
 	);
-}
+};
