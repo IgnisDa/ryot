@@ -11,10 +11,10 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion, MetadataCreator,
+            MetadataImage, VideoGameSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
 };
@@ -34,6 +34,7 @@ fields
     involved_companies.company.logo.*,
     involved_companies.*,
     artworks.*,
+    similar_games.id,
     platforms.name,
     genres.*;
 where version_parent = null;
@@ -73,6 +74,7 @@ struct IgdbSearchResponse {
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
+    similar_games: Option<Vec<IdObject>>,
 }
 
 #[derive(Debug, Clone)]
@@ -256,6 +258,16 @@ impl IgdbService {
                     .map(|p| p.name)
                     .collect(),
             }),
+            suggestions: item
+                .similar_games
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| MediaSuggestion {
+                    identifier: g.id.to_string(),
+                    lot: MetadataLot::VideoGame,
+                    source: MetadataSource::Igdb,
+                })
+                .collect(),
         }
     }
 
