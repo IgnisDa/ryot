@@ -1524,7 +1524,8 @@ export enum UserReviewScale {
 }
 
 export enum UserSinkIntegrationSettingKind {
-  Jellyfin = 'JELLYFIN'
+  Jellyfin = 'JELLYFIN',
+  Plex = 'PLEX'
 }
 
 export type UserSummary = {
