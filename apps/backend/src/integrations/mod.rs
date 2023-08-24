@@ -131,10 +131,7 @@ impl IntegrationService {
 
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(payload) {
             Result::Ok(val) => val,
-            Result::Err(err) => {
-                tracing::info!("{}", err);
-                bail!("error");
-            }
+            Result::Err(err) => bail!(err),
         };
 
         let tmdb_guid = payload
