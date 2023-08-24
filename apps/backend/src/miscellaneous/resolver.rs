@@ -570,7 +570,8 @@ impl MiscellaneousQuery {
     /// Get a review by its ID.
     async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.review_by_id(review_id).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.review_by_id(review_id, user_id).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -2708,11 +2709,17 @@ impl MiscellaneousService {
         }
     }
 
-    async fn review_by_id(&self, review_id: i32) -> Result<ReviewItem> {
+    async fn review_by_id(&self, review_id: i32, user_id: i32) -> Result<ReviewItem> {
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
+                if r.user_id != user_id && r.visibility == Visibility::Private {
+                    return Err(Error::new(
+                        "Can not view a private review that does not belong to user.",
+                    ));
+                }
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenOrReviewExtraInformation::Show(d) => {
@@ -2761,7 +2768,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r in all_reviews {
-            reviews.push(self.review_by_id(r.id).await?);
+            reviews.push(self.review_by_id(r.id, user_id).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -4792,7 +4799,7 @@ impl MiscellaneousService {
             let mut reviews = vec![];
             for review in db_reviews {
                 let review_item =
-                    get_review_export_item(self.review_by_id(review.id).await.unwrap());
+                    get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
                 reviews.push(review_item);
             }
             let collections = self
@@ -4826,7 +4833,8 @@ impl MiscellaneousService {
             .await?;
         for (review, creator) in all_reviews {
             let creator = creator.unwrap();
-            let review_item = get_review_export_item(self.review_by_id(review.id).await.unwrap());
+            let review_item =
+                get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
             if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
