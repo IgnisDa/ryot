@@ -141,7 +141,8 @@ mod utils {
         migrator::{MetadataImageLot, MetadataSource},
         models::{
             media::{
-                AnimeSpecifics, MangaSpecifics, MediaSpecifics, MetadataCreator, MetadataImage,
+                AnimeSpecifics, MangaSpecifics, MediaSpecifics, MediaSuggestion, MetadataCreator,
+                MetadataImage,
             },
             StoredUrl,
         },
@@ -231,6 +232,26 @@ mod utils {
         let year = details
             .start_date
             .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
+
+        let suggestions = details
+            .recommendations
+            .unwrap()
+            .nodes
+            .unwrap()
+            .into_iter()
+            .map(|r| {
+                let data = r.unwrap().media_recommendation.unwrap();
+                MediaSuggestion {
+                    identifier: data.id.to_string(),
+                    source: MetadataSource::Anilist,
+                    lot: match data.type_.unwrap() {
+                        details_query::MediaType::ANIME => MetadataLot::Anime,
+                        details_query::MediaType::MANGA => MetadataLot::Manga,
+                        details_query::MediaType::Other(_) => unreachable!(),
+                    },
+                }
+            })
+            .collect();
         Ok(MediaDetails {
             identifier: details.id.to_string(),
             title: details.title.unwrap().user_preferred.unwrap(),
@@ -244,6 +265,7 @@ mod utils {
             publish_year: year,
             publish_date: None,
             specifics,
+            suggestions,
         })
     }
 
