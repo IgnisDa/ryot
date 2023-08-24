@@ -143,8 +143,8 @@ impl IntegrationService {
         if let Some(tmdb_guid) = tmdb_guid {
             let identifier = &tmdb_guid.id[7..];
             let lot = match payload.metadata.item_type.as_str() {
-                "Episode" => MetadataLot::Show,
                 "movie" => MetadataLot::Movie,
+                "Episode" => todo!(),                
                 _ => bail!("Only movies and shows supported"),
             };
             tracing::info!("ok");
