@@ -2746,7 +2746,7 @@ impl MiscellaneousService {
                             UserReviewScale::OutOfHundred => dec!(1),
                         })
                         .unwrap()
-                        .round()
+                        .round_dp(1)
                     }),
                     spoiler: r.spoiler,
                     text: r.text,
@@ -2965,9 +2965,13 @@ impl MiscellaneousService {
             return Err(Error::new("Atleast one of rating or review is required."));
         }
 
+        let prefs = user_by_id(&self.db, user_id).await?.preferences;
         let mut review_obj = review::ActiveModel {
             id: review_id,
-            rating: ActiveValue::Set(input.rating),
+            rating: ActiveValue::Set(input.rating.map(|r| match prefs.general.review_scale {
+                UserReviewScale::OutOfFive => r * dec!(20),
+                UserReviewScale::OutOfHundred => r,
+            })),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
