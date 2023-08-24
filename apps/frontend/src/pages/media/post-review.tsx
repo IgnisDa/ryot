@@ -110,7 +110,8 @@ const Page: NextPageWithLayout = () => {
 
 	const onSuccess = () => {
 		let url;
-		if (metadataId)
+		if (router.query.next) url = router.query.next.toString();
+		else if (metadataId)
 			url = withQuery(APP_ROUTES.media.individualMediaItem.details, {
 				id: metadataId,
 			});

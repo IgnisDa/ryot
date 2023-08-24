@@ -156,7 +156,6 @@ const Page: NextPageWithLayout = () => {
 			return mediaList;
 		},
 		enabled: lot !== undefined && activeTab === "mine",
-		staleTime: Infinity,
 	});
 	const collections = useQuery({
 		queryKey: ["collections"],

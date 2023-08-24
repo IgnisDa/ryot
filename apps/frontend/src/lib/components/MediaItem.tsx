@@ -226,9 +226,12 @@ export const MediaItemWithoutUpdateModal = (props: {
 	href: string;
 	existsInDatabase?: boolean;
 	averageRating?: number;
+	noRatingLink?: boolean;
 }) => {
 	const userPreferences = useUserPreferences();
 	const { classes } = useStyles();
+	const router = useRouter();
+	const nextPath = withQuery(router.pathname, router.query);
 
 	return userPreferences.data ? (
 		<BaseDisplayItem
@@ -271,10 +274,11 @@ export const MediaItemWithoutUpdateModal = (props: {
 							</Text>
 						</Flex>
 					</Box>
-				) : (
+				) : props.noRatingLink ? undefined : (
 					<Link
 						href={withQuery(APP_ROUTES.media.postReview, {
 							metadataId: props.item.identifier,
+							next: nextPath,
 						})}
 					>
 						<Box

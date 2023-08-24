@@ -204,6 +204,7 @@ const Page: NextPageWithLayout = () => {
 											APP_ROUTES.media.individualMediaItem.details,
 											{ id: lm.details.identifier },
 										)}
+										noRatingLink
 									/>
 								))}
 							</Grid>
