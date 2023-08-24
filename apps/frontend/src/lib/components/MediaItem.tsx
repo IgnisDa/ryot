@@ -1,5 +1,10 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useCommitMedia, useCoreDetails, useUser } from "@/lib/hooks/graphql";
+import {
+	useCommitMedia,
+	useCoreDetails,
+	useUser,
+	useUserPreferences,
+} from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
 import { Verb, getLot, getVerb } from "@/lib/utilities";
 import {
@@ -25,6 +30,7 @@ import {
 	MetadataLot,
 	MetadataSource,
 	type ReviewItem,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import { IconEdit, IconStarFilled } from "@tabler/icons-react";
@@ -55,8 +61,9 @@ export const ReviewItemDisplay = ({
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const user = useUser();
+	const userPreferences = useUserPreferences();
 
-	return (
+	return userPreferences.data ? (
 		<Box key={review.id} data-review-id={review.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
@@ -103,7 +110,11 @@ export const ReviewItemDisplay = ({
 							})}
 							fw="bold"
 						>
-							{review.rating} %
+							{review.rating}
+							{userPreferences.data.general.reviewScale ===
+							UserReviewScale.OutOfFive
+								? ""
+								: "%"}
 						</Text>
 					</Flex>
 				) : null}
@@ -125,7 +136,7 @@ export const ReviewItemDisplay = ({
 				) : null}
 			</Box>
 		</Box>
-	);
+	) : null;
 };
 
 export const BaseDisplayItem = (props: {
@@ -208,7 +219,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 	existsInDatabase?: boolean;
 	averageRating?: number;
 }) => {
-	return (
+	const userPreferences = useUserPreferences();
+
+	return userPreferences.data ? (
 		<BaseDisplayItem
 			href={props.href}
 			imageLink={props.item.image}
@@ -240,8 +253,12 @@ export const MediaItemWithoutUpdateModal = (props: {
 					>
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"0.8rem"} style={{ color: "#EBE600FF" }} />
-							<Text color="white" size="xs" fw="bold">
-								{props.averageRating} %
+							<Text color="white" size="xs" fw="bold" pr={4}>
+								{props.averageRating}{" "}
+								{userPreferences.data.general.reviewScale ===
+								UserReviewScale.OutOfFive
+									? ""
+									: "%"}
 							</Text>
 						</Flex>
 					</Box>
@@ -255,7 +272,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			name={props.item.title}
 			children={props.children}
 		/>
-	);
+	) : null;
 };
 
 export default function (props: {
