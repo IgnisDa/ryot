@@ -61,6 +61,14 @@ volumes:
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
 pre-release or release, whichever is newer.
 
+## Using Cosmos
+
+You can install `ryot` from the Cosmos marketplace using this link: [Install Ryot](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot) or by searching for `Ryot` in the marketplace.
+
+Review the installation summary and click install to proceed. The database and credentials will be automatically created for you, but make sure you are happy with the URL chosen.
+
+The instance will be available under your newly created URL via HTTPS if it is enabled. You can then proceed with creating your first user via the web interface's registration page.
+
 ## Quick-run a release
 
 Each release has an installation script that can be used to install the `ryot`
