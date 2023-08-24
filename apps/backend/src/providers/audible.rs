@@ -4,6 +4,8 @@ use async_trait::async_trait;
 use http_types::mime;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use strum::{Display, EnumIter, IntoEnumIterator};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
@@ -11,8 +13,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion,
+            MetadataCreator, MetadataImage,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -21,6 +23,15 @@ use crate::{
 };
 
 pub static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
+
+#[derive(EnumIter, Display)]
+enum AudibleSimilarityType {
+    InTheSameSeries,
+    ByTheSameNarrator,
+    RawSimilarities,
+    ByTheSameAuthor,
+    NextInSameSeries,
+}
 
 #[derive(Serialize, Deserialize)]
 struct PrimaryQuery {
@@ -79,6 +90,21 @@ pub struct AudibleItem {
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+pub struct AudibleSimItem {
+    asin: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct AudibleItemResponse {
+    product: AudibleItem,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct AudibleItemSimResponse {
+    similar_products: Vec<AudibleSimItem>,
+}
+
 #[derive(Debug, Clone)]
 pub struct AudibleService {
     client: Client,
@@ -123,10 +149,6 @@ impl AudibleService {
 #[async_trait]
 impl MediaProvider for AudibleService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        #[derive(Serialize, Deserialize, Debug)]
-        struct AudibleItemResponse {
-            product: AudibleItem,
-        }
         let mut rsp = self
             .client
             .get(identifier)
@@ -135,8 +157,29 @@ impl MediaProvider for AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let d = self.audible_response_to_search_response(data.product);
-        Ok(d)
+        let mut item = self.audible_response_to_search_response(data.product);
+        let mut suggestions = vec![];
+        for sim_type in AudibleSimilarityType::iter() {
+            let data: AudibleItemSimResponse = self
+                .client
+                .get(format!("{}/sims", identifier))
+                .query(&json!({ "similarity_type": sim_type.to_string() }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            for sim in data.similar_products.into_iter() {
+                suggestions.push(MediaSuggestion {
+                    identifier: sim.asin,
+                    source: MetadataSource::Audible,
+                    lot: MetadataLot::AudioBook,
+                });
+            }
+        }
+        item.suggestions = suggestions.into_iter().unique().collect();
+        Ok(item)
     }
 
     async fn search(
@@ -250,6 +293,7 @@ impl AudibleService {
                 runtime: item.runtime_length_min,
             }),
             images,
+            suggestions: vec![],
         }
     }
 }
