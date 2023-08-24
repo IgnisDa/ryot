@@ -63,6 +63,8 @@ pre-release or release, whichever is newer.
 
 ## Using Cosmos
 
+[![Static Badge](https://img.shields.io/badge/Cosmos-Install%20Server-violet)](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot)
+
 You can install `ryot` from the Cosmos marketplace using this link: [Install Ryot](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot) or by searching for `Ryot` in the marketplace.
 
 Review the installation summary and click install to proceed. The database and credentials will be automatically created for you, but make sure you are happy with the URL chosen.
