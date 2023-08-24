@@ -470,10 +470,9 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
-    /// Whether an upgrade is required
     upgrade: Option<UpgradeType>,
-    /// The number of elements on a page
     page_limit: i32,
+    deploy_update_all_metadata_job_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1198,6 +1197,10 @@ impl MiscellaneousService {
             reviews_disabled: self.config.users.reviews_disabled,
             upgrade,
             page_limit: self.config.frontend.page_size,
+            deploy_update_all_metadata_job_allowed: self
+                .config
+                .server
+                .deploy_update_all_metadata_job_allowed,
         })
     }
 
@@ -3140,6 +3143,9 @@ impl MiscellaneousService {
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
+        if !self.config.server.deploy_update_all_metadata_job_allowed {
+            return Ok(false);
+        }
         let metadatas = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
