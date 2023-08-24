@@ -207,11 +207,10 @@ const Page: NextPageWithLayout = () => {
 						<Flex align={"center"} gap="xl">
 							{match(userPreferences.data.general.reviewScale)
 								.with(UserReviewScale.OutOfFive, () => (
-									<Rating
-										{...form.getInputProps("rating")}
-										fractions={2}
-										pt="lg"
-									/>
+									<Flex gap="sm" mt={"lg"}>
+										<Input.Label>Rating:</Input.Label>
+										<Rating {...form.getInputProps("rating")} fractions={2} />
+									</Flex>
 								))
 								.with(UserReviewScale.OutOfHundred, () => (
 									<NumberInput

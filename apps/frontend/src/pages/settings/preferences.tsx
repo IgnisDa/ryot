@@ -133,7 +133,7 @@ const Page: NextPageWithLayout = () => {
 							size="xs"
 							label="Scale used for rating in reviews"
 							data={Object.values(UserReviewScale).map((c) => ({
-								label: startCase(c),
+								label: startCase(snakeCase(c)),
 								value: c,
 							}))}
 							defaultValue={userPreferences.data.general.reviewScale}
