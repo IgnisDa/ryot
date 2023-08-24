@@ -148,7 +148,7 @@ impl IntegrationService {
             let identifier = &tmdb_guid.id[7..];
             let lot = match payload.metadata.item_type.as_str() {
                 "movie" => MetadataLot::Movie,
-                "Episode" => todo!(),
+                "Episode" => todo!("Shows are not supported for Plex yet"),
                 _ => bail!("Only movies and shows supported"),
             };
             tracing::info!("ok");
