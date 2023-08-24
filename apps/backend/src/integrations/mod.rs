@@ -119,7 +119,6 @@ impl IntegrationService {
                 #[serde(rename = "Guid")]
                 pub guids: Vec<PlexWebhookMetadataGuid>,
             }
-
             #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookPayload {
                 pub event: String,
