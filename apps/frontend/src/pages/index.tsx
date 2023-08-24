@@ -129,8 +129,8 @@ const DisplayStatForMediaType = (props: {
 					}
 				/>
 			</Link>
-		) : null
-	) : null;
+		) : undefined
+	) : undefined;
 };
 
 const Page: NextPageWithLayout = () => {
@@ -190,7 +190,7 @@ const Page: NextPageWithLayout = () => {
 								to continue.
 							</Text>
 						</Alert>
-					) : null}
+					) : undefined}
 					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>
@@ -210,7 +210,7 @@ const Page: NextPageWithLayout = () => {
 							</Grid>
 							<Divider />
 						</>
-					) : null}
+					) : undefined}
 					<Title>Summary</Title>
 					<Text size="xs" mt={-15}>
 						Calculated {formatTimeAgo(latestUserSummary.data.calculatedOn)}
@@ -372,7 +372,7 @@ const Page: NextPageWithLayout = () => {
 									},
 								]}
 							/>
-						) : null}
+						) : undefined}
 						{userPreferences.data.featuresEnabled.fitness.enabled ? (
 							<ActualDisplayStat
 								icon={<IconScaleOutline stroke={1.3} />}
@@ -386,7 +386,7 @@ const Page: NextPageWithLayout = () => {
 									},
 								]}
 							/>
-						) : null}
+						) : undefined}
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>

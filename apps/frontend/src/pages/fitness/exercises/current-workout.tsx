@@ -142,7 +142,7 @@ const StatInput = (props: {
 				required
 			/>
 		</Flex>
-	) : null;
+	) : undefined;
 };
 
 const ExerciseDisplay = (props: {
@@ -248,7 +248,7 @@ const ExerciseDisplay = (props: {
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								DURATION (MIN)
 							</Text>
-						) : null}
+						) : undefined}
 						{distanceCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								DISTANCE (
@@ -258,7 +258,7 @@ const ExerciseDisplay = (props: {
 									.exhaustive()}
 								)
 							</Text>
-						) : null}
+						) : undefined}
 						{weightCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								WEIGHT (
@@ -268,12 +268,12 @@ const ExerciseDisplay = (props: {
 									.exhaustive()}
 								)
 							</Text>
-						) : null}
+						) : undefined}
 						{repsCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								REPS
 							</Text>
-						) : null}
+						) : undefined}
 						<Box w="10%" />
 					</Flex>
 					{props.exercise.sets.map((s, idx) => (
@@ -349,7 +349,7 @@ const ExerciseDisplay = (props: {
 									stat="duration"
 									inputStep={0.1}
 								/>
-							) : null}
+							) : undefined}
 							{distanceCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
@@ -357,21 +357,21 @@ const ExerciseDisplay = (props: {
 									stat="distance"
 									inputStep={0.01}
 								/>
-							) : null}
+							) : undefined}
 							{weightCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
 									setIdx={idx}
 									stat="weight"
 								/>
-							) : null}
+							) : undefined}
 							{repsCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
 									setIdx={idx}
 									stat="reps"
 								/>
-							) : null}
+							) : undefined}
 							<Group w="10%" position="center">
 								<Transition
 									mounted
@@ -563,7 +563,7 @@ const Page: NextPageWithLayout = () => {
 								>
 									Finish workout
 								</Button>
-							) : null}
+							) : undefined}
 						</Group>
 					</Stack>
 				) : (

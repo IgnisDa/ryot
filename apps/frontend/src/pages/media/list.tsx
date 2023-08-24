@@ -215,7 +215,7 @@ const Page: NextPageWithLayout = () => {
 			<ActionIcon onClick={() => setQuery("")}>
 				<IconX size="1rem" />
 			</ActionIcon>
-		) : null;
+		) : undefined;
 
 	const isFilterChanged =
 		mineGeneralFilter !== defaultFilters.mineGeneralFilter ||
@@ -371,7 +371,7 @@ const Page: NextPageWithLayout = () => {
 														}}
 														clearable
 													/>
-												) : null}
+												) : undefined}
 											</Stack>
 										</Modal>
 									</Flex>
@@ -416,7 +416,7 @@ const Page: NextPageWithLayout = () => {
 										siblings={0}
 									/>
 								</Center>
-							) : null}
+							) : undefined}
 						</Stack>
 					</Tabs.Panel>
 
@@ -441,7 +441,7 @@ const Page: NextPageWithLayout = () => {
 											if (v) setSearchSource(v);
 										}}
 									/>
-								) : null}
+								) : undefined}
 							</Flex>
 							{searchQuery.data && searchQuery.data.details.total > 0 ? (
 								<>
@@ -483,7 +483,7 @@ const Page: NextPageWithLayout = () => {
 										siblings={0}
 									/>
 								</Center>
-							) : null}
+							) : undefined}
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>

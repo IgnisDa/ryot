@@ -62,7 +62,7 @@ const Page: NextPageWithLayout = () => {
 						>
 							Changing preferences is disabled on this instance.
 						</Alert>
-					) : null}
+					) : undefined}
 					<Title order={2}>Enabled features</Title>
 					{["media", "fitness"].map((facet) => (
 						<Fragment key={facet}>

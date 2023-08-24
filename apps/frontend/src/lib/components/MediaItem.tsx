@@ -48,7 +48,7 @@ export const MediaScrollArea = (props: { children: JSX.Element }) => {
 		<ScrollArea.Autosize mah={coreDetails.data.itemDetailsHeight}>
 			{props.children}
 		</ScrollArea.Autosize>
-	) : null;
+	) : undefined;
 };
 
 export const ReviewItemDisplay = ({
@@ -90,7 +90,7 @@ export const ReviewItemDisplay = ({
 							</ActionIcon>
 						</Anchor>
 					</Link>
-				) : null}
+				) : undefined}
 			</Flex>
 			<Box ml={"sm"} mt={"xs"}>
 				{typeof review.showSeason === "number" ? (
@@ -98,10 +98,10 @@ export const ReviewItemDisplay = ({
 						S{review.showSeason}-E
 						{review.showEpisode}
 					</Text>
-				) : null}
+				) : undefined}
 				{typeof review.podcastEpisode === "number" ? (
 					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
-				) : null}
+				) : undefined}
 				{review.rating > 0 ? (
 					<Flex align={"center"} gap={4}>
 						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
@@ -118,7 +118,7 @@ export const ReviewItemDisplay = ({
 								: "%"}
 						</Text>
 					</Flex>
-				) : null}
+				) : undefined}
 				{review.text ? (
 					!review.spoiler ? (
 						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
@@ -128,16 +128,16 @@ export const ReviewItemDisplay = ({
 								<Button onClick={toggle} variant={"subtle"} compact>
 									Show spoiler
 								</Button>
-							) : null}
+							) : undefined}
 							<Collapse in={opened}>
 								<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 							</Collapse>
 						</>
 					)
-				) : null}
+				) : undefined}
 			</Box>
 		</Box>
-	) : null;
+	) : undefined;
 };
 
 export const BaseDisplayItem = (props: {
@@ -306,7 +306,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			name={props.item.title}
 			children={props.children}
 		/>
-	) : null;
+	) : undefined;
 };
 
 export default function (props: {

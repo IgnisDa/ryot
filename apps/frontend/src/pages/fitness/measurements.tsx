@@ -116,10 +116,10 @@ const DisplayMeasurement = (props: {
 				<Collapse in={opened}>
 					{props.measurement.name ? (
 						<Text align="center">Name: {props.measurement.name}</Text>
-					) : null}
+					) : undefined}
 					{props.measurement.comment ? (
 						<Text align="center">Comment: {props.measurement.comment}</Text>
-					) : null}
+					) : undefined}
 					{values.map((v, idx) => (
 						<Text key={idx} align="center">
 							{startCase(snakeCase(v.name))}: {v.value}

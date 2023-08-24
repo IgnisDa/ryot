@@ -98,7 +98,7 @@ const Page: NextPageWithLayout = () => {
 								<Text size="xs" color="dimmed">
 									Deploying this job is disabled on this instance.
 								</Text>
-							) : null}
+							) : undefined}
 							<Button
 								onClick={() => deployUpdateAllMetadataJobs.mutate({})}
 								loading={deployUpdateAllMetadataJobs.isLoading}
@@ -108,7 +108,7 @@ const Page: NextPageWithLayout = () => {
 							</Button>
 							<Divider />
 						</>
-					) : null}
+					) : undefined}
 					<>
 						<Box>
 							<Title order={4}>Synchronize integrations progress</Title>

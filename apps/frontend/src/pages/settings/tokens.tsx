@@ -121,7 +121,7 @@ const Page: NextPageWithLayout = () => {
 								</Flex>
 							</Alert>
 						</Box>
-					) : null}
+					) : undefined}
 					{userAuthTokens.data.map((a, idx) => (
 						<Paper p="xs" withBorder key={idx}>
 							<Flex align={"center"} justify={"space-between"}>

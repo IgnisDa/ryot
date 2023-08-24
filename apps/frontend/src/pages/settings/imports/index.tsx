@@ -306,7 +306,7 @@ const Page: NextPageWithLayout = () => {
 									))
 									.exhaustive()}
 							</ImportSourceElement>
-						) : null}
+						) : undefined}
 					</Stack>
 				</Box>
 			</Container>

@@ -246,7 +246,7 @@ const Page: NextPageWithLayout = () => {
 									hideControls
 								/>
 							</Flex>
-						) : null}
+						) : undefined}
 						{mediaDetails.data.isPodcast ? (
 							<Flex gap="md">
 								<NumberInput
@@ -255,7 +255,7 @@ const Page: NextPageWithLayout = () => {
 									hideControls
 								/>
 							</Flex>
-						) : null}
+						) : undefined}
 						<Textarea
 							label="Review"
 							{...form.getInputProps("text")}
@@ -301,7 +301,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								Delete
 							</Button>
-						) : null}
+						) : undefined}
 					</Stack>
 				</Box>
 			</Container>
