@@ -70,6 +70,7 @@ const Page: NextPageWithLayout = () => {
 						<Grid>
 							{collectionContents.data.results.items.map((lm) => (
 								<MediaItemWithoutUpdateModal
+									noRatingLink
 									key={lm.details.identifier}
 									item={lm.details}
 									lot={lm.lot}
