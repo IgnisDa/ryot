@@ -348,6 +348,7 @@ struct MediaBaseData {
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
+    suggestions: Vec<suggestion::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -374,6 +375,7 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
+    suggestions: Vec<suggestion::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1306,44 +1308,12 @@ impl MiscellaneousService {
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
 
-        let metadata_alias = Alias::new("m");
-
+        // TODO: This should also return the optional `metadata_id`
         let suggestions = Suggestion::find()
-            .column_as(
-                Expr::col((metadata_alias.clone(), metadata::Column::Id)),
-                "metadata_id",
-            )
             .left_join(MetadataToSuggestion)
-            .join_as(
-                JoinType::LeftJoin,
-                metadata_to_suggestion::Relation::Metadata
-                    .def()
-                    .on_condition(|left, right| {
-                        dbg!(&left, &right);
-                        Condition::all()
-                            .add(
-                                Expr::col((right.clone(), metadata::Column::Identifier))
-                                    .eq(Expr::col((right.clone(), suggestion::Column::Identifier))),
-                            )
-                            .add(
-                                Expr::col((right.clone(), metadata::Column::Lot))
-                                    .eq(Expr::col((right.clone(), suggestion::Column::Lot))),
-                            )
-                            .add(
-                                Expr::col((right.clone(), metadata::Column::Source))
-                                    .eq(Expr::col((right.clone(), suggestion::Column::Source))),
-                            )
-                    }),
-                metadata_alias.clone(),
-            )
-            .filter(
-                Condition::any()
-                    .add(metadata_to_suggestion::Column::MetadataId.eq(meta.id))
-                    .add(metadata_to_suggestion::Column::MetadataId.is_null()),
-            )
+            .filter(metadata_to_suggestion::Column::MetadataId.eq(meta.id))
             .all(&self.db)
             .await?;
-        dbg!(suggestions);
 
         Ok(MediaBaseData {
             model: meta,
@@ -1351,6 +1321,7 @@ impl MiscellaneousService {
             poster_images,
             backdrop_images,
             genres,
+            suggestions,
         })
     }
 
@@ -1361,6 +1332,7 @@ impl MiscellaneousService {
             poster_images,
             backdrop_images,
             genres,
+            suggestions,
         } = self.generic_metadata(metadata_id).await?;
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
@@ -1425,6 +1397,7 @@ impl MiscellaneousService {
             manga_specifics: None,
             anime_specifics: None,
             source_url,
+            suggestions,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
