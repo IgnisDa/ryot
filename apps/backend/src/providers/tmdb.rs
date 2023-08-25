@@ -14,8 +14,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion, MetadataCreator,
+            MetadataImage, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -54,12 +54,15 @@ pub struct TmdbEntry {
     poster_path: Option<String>,
     backdrop_path: Option<String>,
     overview: Option<String>,
-    title: String,
-    release_date: String,
+    title: Option<String>,
+    name: Option<String>,
+    release_date: Option<String>,
+    first_air_date: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TmdbListResponse<T> {
+struct TmdbListResponse<T = TmdbEntry> {
+    page: i32,
     total_results: i32,
     results: Vec<T>,
     total_pages: i32,
@@ -220,10 +223,11 @@ impl MediaProvider for TmdbMovieService {
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
         }
+        let mut suggestions = vec![];
         save_all_images(&self.client, "movie", identifier, &mut image_ids).await?;
+        save_all_suggestions(&self.client, "movie", identifier, &mut suggestions).await?;
 
         Ok(MediaDetails {
-            suggestions: vec![],
             identifier: data.id.to_string(),
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
@@ -245,6 +249,7 @@ impl MediaProvider for TmdbMovieService {
             specifics: MediaSpecifics::Movie(MovieSpecifics {
                 runtime: Some(data.runtime),
             }),
+            suggestions,
         })
     }
 
@@ -265,15 +270,15 @@ impl MediaProvider for TmdbMovieService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse<TmdbEntry> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
             .results
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                title: d.title,
-                publish_year: convert_date_to_year(&d.release_date),
+                title: d.title.unwrap(),
+                publish_year: convert_date_to_year(&d.release_date.unwrap()),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
             .collect_vec();
@@ -344,7 +349,9 @@ impl MediaProvider for TmdbShowService {
         if let Some(u) = show_data.backdrop_path {
             image_ids.push(u);
         }
+        let mut suggestions = vec![];
         save_all_images(&self.client, "tv", identifier, &mut image_ids).await?;
+        save_all_suggestions(&self.client, "tv", identifier, &mut suggestions).await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
@@ -455,7 +462,6 @@ impl MediaProvider for TmdbShowService {
             .cloned()
             .collect_vec();
         Ok(MediaDetails {
-            suggestions: vec![],
             identifier: show_data.id.to_string(),
             title: show_data.name,
             lot: MetadataLot::Show,
@@ -522,6 +528,7 @@ impl MediaProvider for TmdbShowService {
                     })
                     .collect(),
             }),
+            suggestions,
         })
     }
 
@@ -531,15 +538,6 @@ impl MediaProvider for TmdbShowService {
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
-        #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-        pub struct TmdbShow {
-            id: i32,
-            poster_path: Option<String>,
-            backdrop_path: Option<String>,
-            overview: Option<String>,
-            name: String,
-            first_air_date: String,
-        }
         let mut rsp = self
             .client
             .get("search/tv")
@@ -551,15 +549,14 @@ impl MediaProvider for TmdbShowService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse<TmdbShow> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .results
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                title: d.name,
-                publish_year: convert_date_to_year(&d.first_air_date),
+                title: d.name.unwrap(),
+                publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
             .collect_vec();
@@ -616,6 +613,43 @@ async fn save_all_images(
     if let Some(imgs) = new_images.backdrops {
         for image in imgs {
             images.push(image.file_path);
+        }
+    }
+    Ok(())
+}
+
+async fn save_all_suggestions(
+    client: &Client,
+    typ: &str,
+    identifier: &str,
+    recommendations: &mut Vec<MediaSuggestion>,
+) -> Result<()> {
+    let lot = match typ {
+        "movie" => MetadataLot::Movie,
+        "tv" => MetadataLot::Show,
+        _ => unreachable!(),
+    };
+    let mut page = 1;
+    loop {
+        let new_recs: TmdbListResponse = client
+            .get(format!("{}/{}/recommendations", typ, identifier))
+            .query(&json!({ "page": page }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        for entry in new_recs.results.into_iter() {
+            recommendations.push(MediaSuggestion {
+                identifier: entry.id.to_string(),
+                source: MetadataSource::Tmdb,
+                lot,
+            });
+        }
+        page += 1;
+        if new_recs.page == new_recs.total_pages {
+            break;
         }
     }
     Ok(())
