@@ -8,11 +8,7 @@ use itertools::Itertools;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{
-    http::headers::ACCEPT,
-    middleware::{Middleware, Next},
-    Client, Request, Response, Result as SurfResult,
-};
+use surf::{http::headers::ACCEPT, Client};
 use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
@@ -32,41 +28,6 @@ use crate::{
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
-
-// DEV: Openlibrary does not send `Location` header and instead returns a
-// custom response.
-#[derive(Debug)]
-struct OpenlibraryRedirectMiddleware;
-
-#[async_trait]
-impl Middleware for OpenlibraryRedirectMiddleware {
-    async fn handle(&self, req: Request, client: Client, next: Next<'_>) -> SurfResult<Response> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryRedirect {
-            #[serde(rename = "type")]
-            typ: OpenlibraryKey,
-            location: String,
-            key: String,
-        }
-        let mut res = next.run(req.clone(), client.clone()).await?;
-        let data = res.body_json::<OpenlibraryRedirect>().await;
-        let res = match data {
-            Ok(d) => {
-                let to_replace_key = get_key(&d.key);
-                let redirected_key = get_key(&d.location);
-                client
-                    .get(
-                        req.url()
-                            .to_string()
-                            .replace(&to_replace_key, &redirected_key),
-                    )
-                    .await?
-            }
-            Err(_) => next.run(req, client).await?,
-        };
-        Ok(res)
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct BookSearchResults {
@@ -112,8 +73,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)])
-            .with(OpenlibraryRedirectMiddleware);
+        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),

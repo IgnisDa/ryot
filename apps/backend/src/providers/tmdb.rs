@@ -668,7 +668,7 @@ impl TmdbService {
                     lot,
                 });
             }
-            if new_recs.page == new_recs.total_pages {
+            if new_recs.page >= new_recs.total_pages {
                 break;
             }
         }
