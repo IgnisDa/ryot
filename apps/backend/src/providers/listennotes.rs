@@ -78,7 +78,7 @@ impl MediaProvider for ListennotesService {
             .recommendations
             .into_iter()
             .map(|r| MetadataSuggestion {
-                name: r.title,
+                title: r.title,
                 image: r.thumbnail,
                 identifier: r.id,
                 lot: MetadataLot::Podcast,

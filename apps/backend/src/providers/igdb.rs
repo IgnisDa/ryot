@@ -269,7 +269,7 @@ impl IgdbService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| MetadataSuggestion {
-                    name: g.name,
+                    title: g.name,
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
                     lot: MetadataLot::VideoGame,

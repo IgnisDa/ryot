@@ -228,7 +228,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .map(|r| {
             let data = r.unwrap().media_recommendation.unwrap();
             MetadataSuggestion {
-                name: data.title.unwrap().user_preferred.unwrap(),
+                title: data.title.unwrap().user_preferred.unwrap(),
                 identifier: data.id.to_string(),
                 source: MetadataSource::Anilist,
                 lot: match data.type_.unwrap() {

@@ -173,7 +173,7 @@ impl MediaProvider for AudibleService {
                 .map_err(|e| anyhow!(e))?;
             for sim in data.similar_products.into_iter() {
                 suggestions.push(MetadataSuggestion {
-                    name: sim.title,
+                    title: sim.title,
                     image: sim.product_images.image500,
                     identifier: sim.asin,
                     source: MetadataSource::Audible,

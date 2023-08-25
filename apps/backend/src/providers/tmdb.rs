@@ -661,7 +661,7 @@ impl TmdbService {
                     continue;
                 };
                 suggestions.push(MetadataSuggestion {
-                    name,
+                    title: name,
                     image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
                     identifier: entry.id.to_string(),
                     source: MetadataSource::Tmdb,

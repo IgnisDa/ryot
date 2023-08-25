@@ -319,7 +319,7 @@ impl MediaProvider for OpenlibraryService {
                 .and_then(|img| img.value().attr("src"))
                 .map(|src| src.to_string());
             suggestions.push(MetadataSuggestion {
-                name,
+                title: name,
                 image,
                 identifier,
                 lot: MetadataLot::Book,
