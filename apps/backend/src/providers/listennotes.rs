@@ -58,6 +58,8 @@ impl MediaProvider for ListennotesService {
         #[derive(Serialize, Deserialize, Debug)]
         struct Recommendation {
             id: String,
+            title: String,
+            thumbnail: Option<String>,
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct RecommendationResp {
@@ -75,6 +77,8 @@ impl MediaProvider for ListennotesService {
             .recommendations
             .into_iter()
             .map(|r| MetadataSuggestion {
+                name: r.title,
+                image: r.thumbnail,
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
                 source: MetadataSource::Listennotes,
