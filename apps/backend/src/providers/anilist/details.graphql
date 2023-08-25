@@ -21,5 +21,17 @@ query DetailsQuery($id: Int!) {
         role
       }
     }
+    recommendations {
+      nodes {
+        mediaRecommendation {
+          id
+          type
+          title { userPreferred }
+          coverImage {
+            extraLarge
+          }
+        }
+      }
+    }
   }
 }

@@ -138,6 +138,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             specifics: MediaSpecifics::Book(BookSpecifics {
                                 pages: d.book.num_pages.parse().ok(),
                             }),
+                            suggestions: vec![],
                         },
                     )),
                     seen_history,

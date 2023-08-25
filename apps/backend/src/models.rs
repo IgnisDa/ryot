@@ -574,6 +574,15 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+    pub struct MetadataSuggestion {
+        pub title: String,
+        pub image: Option<String>,
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub lot: MetadataLot,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -588,6 +597,7 @@ pub mod media {
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
+        pub suggestions: Vec<MetadataSuggestion>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

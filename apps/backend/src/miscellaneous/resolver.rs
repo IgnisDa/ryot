@@ -44,12 +44,13 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
-        metadata_to_genre,
+        metadata_to_genre, metadata_to_suggestion,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
-            MetadataToGenre, Review, Seen, User, UserMeasurement, UserToMetadata,
+            MetadataToGenre, MetadataToSuggestion, Review, Seen, Suggestion, User, UserMeasurement,
+            UserToMetadata,
         },
-        review, seen, user, user_measurement, user_to_metadata,
+        review, seen, suggestion, user, user_measurement, user_to_metadata,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
@@ -66,11 +67,11 @@ use crate::{
             ImportOrExportItemReview, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
             MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
-            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MovieSpecifics,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MetadataSuggestion,
+            MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -347,6 +348,7 @@ struct MediaBaseData {
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
+    suggestions: Vec<suggestion::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -373,6 +375,7 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
+    suggestions: Vec<suggestion::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1304,12 +1307,21 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
+
+        // TODO: This should also return the optional `metadata_id`
+        let suggestions = Suggestion::find()
+            .left_join(MetadataToSuggestion)
+            .filter(metadata_to_suggestion::Column::MetadataId.eq(meta.id))
+            .all(&self.db)
+            .await?;
+
         Ok(MediaBaseData {
             model: meta,
             creators,
             poster_images,
             backdrop_images,
             genres,
+            suggestions,
         })
     }
 
@@ -1320,6 +1332,7 @@ impl MiscellaneousService {
             poster_images,
             backdrop_images,
             genres,
+            suggestions,
         } = self.generic_metadata(metadata_id).await?;
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
@@ -1384,6 +1397,7 @@ impl MiscellaneousService {
             manga_specifics: None,
             anime_specifics: None,
             source_url,
+            suggestions,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
@@ -2167,6 +2181,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
+        suggestions: Vec<MetadataSuggestion>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2252,23 +2267,8 @@ impl MiscellaneousService {
         meta.specifics = ActiveValue::Set(specifics);
         let metadata = meta.update(&self.db).await.unwrap();
 
-        MetadataToCreator::delete_many()
-            .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
-            .exec(&self.db)
+        self.change_metadata_associations(metadata.id, creators, genres, suggestions)
             .await?;
-        self.associate_creator_with_metadata(metadata.id, creators)
-            .await
-            .ok();
-        MetadataToGenre::delete_many()
-            .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
-            .exec(&self.db)
-            .await?;
-        for genre in genres {
-            self.associate_genre_with_metadata(genre, metadata_id)
-                .await
-                .ok();
-        }
-
         Ok(notifications)
     }
 
@@ -2310,6 +2310,39 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    async fn associate_suggestion_with_metadata(
+        &self,
+        data: MetadataSuggestion,
+        metadata_id: i32,
+    ) -> Result<()> {
+        let db_suggestion = if let Some(c) = Suggestion::find()
+            .filter(suggestion::Column::Identifier.eq(&data.identifier))
+            .filter(suggestion::Column::Lot.eq(data.lot))
+            .filter(suggestion::Column::Source.eq(data.source))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            c
+        } else {
+            let c = suggestion::ActiveModel {
+                title: ActiveValue::Set(data.title),
+                identifier: ActiveValue::Set(data.identifier),
+                lot: ActiveValue::Set(data.lot),
+                source: ActiveValue::Set(data.source),
+                image: ActiveValue::Set(data.image),
+                ..Default::default()
+            };
+            c.insert(&self.db).await.unwrap()
+        };
+        let intermediate = metadata_to_suggestion::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            suggestion_id: ActiveValue::Set(db_suggestion.id),
+        };
+        intermediate.insert(&self.db).await.ok();
+        Ok(())
+    }
+
     async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
         let db_genre = if let Some(c) = Genre::find()
             .filter(genre::Column::Name.eq(&name))
@@ -2348,23 +2381,50 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await?;
+
+        self.change_metadata_associations(
+            metadata.id,
+            details.creators,
+            details.genres,
+            details.suggestions,
+        )
+        .await?;
+        Ok(IdObject { id: metadata.id })
+    }
+
+    async fn change_metadata_associations(
+        &self,
+        metadata_id: i32,
+        creators: Vec<MetadataCreator>,
+        genres: Vec<String>,
+        suggestions: Vec<MetadataSuggestion>,
+    ) -> Result<()> {
         MetadataToCreator::delete_many()
-            .filter(metadata_to_creator::Column::MetadataId.eq(metadata.id))
+            .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        self.associate_creator_with_metadata(metadata.id, details.creators)
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
+            .exec(&self.db)
+            .await?;
+        MetadataToSuggestion::delete_many()
+            .filter(metadata_to_suggestion::Column::MetadataId.eq(metadata_id))
+            .exec(&self.db)
+            .await?;
+        self.associate_creator_with_metadata(metadata_id, creators)
             .await
             .ok();
-        MetadataToGenre::delete_many()
-            .filter(metadata_to_genre::Column::MetadataId.eq(metadata.id))
-            .exec(&self.db)
-            .await?;
-        for genre in details.genres {
-            self.associate_genre_with_metadata(genre, metadata.id)
+        for genre in genres {
+            self.associate_genre_with_metadata(genre, metadata_id)
                 .await
                 .ok();
         }
-        Ok(IdObject { id: metadata.id })
+        for suggestion in suggestions {
+            self.associate_suggestion_with_metadata(suggestion, metadata_id)
+                .await
+                .ok();
+        }
+        Ok(())
     }
 
     pub async fn cleanup_data_without_associated_user_activities(&self) -> Result<()> {
@@ -2378,6 +2438,18 @@ impl MiscellaneousService {
                 .unwrap();
             if num_associations == 0 {
                 metadata.delete(&self.db).await.ok();
+            }
+        }
+        tracing::trace!("Cleaning up suggestions without associated metadata");
+        let mut all_suggestions = Suggestion::find().stream(&self.db).await?;
+        while let Some(suggestion) = all_suggestions.try_next().await? {
+            let num_associations = MetadataToSuggestion::find()
+                .filter(metadata_to_suggestion::Column::SuggestionId.eq(suggestion.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                suggestion.delete(&self.db).await.ok();
             }
         }
         tracing::trace!("Cleaning up genres without associated metadata");
@@ -3157,6 +3229,7 @@ impl MiscellaneousService {
                     details.genres,
                     details.production_status,
                     details.publish_year,
+                    details.suggestions,
                 )
                 .await?
             }
@@ -3238,12 +3311,12 @@ impl MiscellaneousService {
         let mut unique_creators = HashSet::new();
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
-            meta.find_related(Creator)
+            meta.find_related(MetadataToCreator)
                 .all(&self.db)
                 .await?
                 .into_iter()
                 .for_each(|c| {
-                    unique_creators.insert(c.id);
+                    unique_creators.insert(c.creator_id);
                 });
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
@@ -3573,6 +3646,7 @@ impl MiscellaneousService {
             publish_date: None,
             specifics,
             production_status: "Released".to_owned(),
+            suggestions: vec![],
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

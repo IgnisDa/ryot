@@ -46,6 +46,7 @@ pub enum MetadataImageLot {
     Enum,
     Default,
     Type,
+    Hash,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataSource {
@@ -85,6 +86,7 @@ pub enum MetadataSource {
     Default,
     Type,
     Display,
+    Hash,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataLot {
