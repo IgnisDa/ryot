@@ -2440,6 +2440,18 @@ impl MiscellaneousService {
                 metadata.delete(&self.db).await.ok();
             }
         }
+        tracing::trace!("Cleaning up suggestions without associated metadata");
+        let mut all_suggestions = Suggestion::find().stream(&self.db).await?;
+        while let Some(suggestion) = all_suggestions.try_next().await? {
+            let num_associations = MetadataToSuggestion::find()
+                .filter(metadata_to_suggestion::Column::SuggestionId.eq(suggestion.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations == 0 {
+                suggestion.delete(&self.db).await.ok();
+            }
+        }
         tracing::trace!("Cleaning up genres without associated metadata");
         let mut all_genre = Genre::find().stream(&self.db).await?;
         while let Some(genre) = all_genre.try_next().await? {
