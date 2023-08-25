@@ -2254,20 +2254,8 @@ impl MiscellaneousService {
         meta.specifics = ActiveValue::Set(specifics);
         let metadata = meta.update(&self.db).await.unwrap();
 
-        self.remove_metadata_associations(metadata.id).await?;
-        self.associate_creator_with_metadata(metadata.id, creators)
-            .await
-            .ok();
-        for genre in genres {
-            self.associate_genre_with_metadata(genre, metadata_id)
-                .await
-                .ok();
-        }
-        for suggestion in suggestions {
-            self.associate_suggestion_with_metadata(suggestion, metadata_id)
-                .await
-                .ok();
-        }
+        self.change_metadata_associations(metadata.id, creators, genres, suggestions)
+            .await?;
         Ok(notifications)
     }
 
@@ -2381,24 +2369,23 @@ impl MiscellaneousService {
         };
         let metadata = metadata.insert(&self.db).await?;
 
-        self.remove_metadata_associations(metadata.id).await?;
-        self.associate_creator_with_metadata(metadata.id, details.creators)
-            .await
-            .ok();
-        for genre in details.genres {
-            self.associate_genre_with_metadata(genre, metadata.id)
-                .await
-                .ok();
-        }
-        for suggestion in details.suggestions {
-            self.associate_suggestion_with_metadata(suggestion, metadata.id)
-                .await
-                .ok();
-        }
+        self.change_metadata_associations(
+            metadata.id,
+            details.creators,
+            details.genres,
+            details.suggestions,
+        )
+        .await?;
         Ok(IdObject { id: metadata.id })
     }
 
-    async fn remove_metadata_associations(&self, metadata_id: i32) -> Result<()> {
+    async fn change_metadata_associations(
+        &self,
+        metadata_id: i32,
+        creators: Vec<MetadataCreator>,
+        genres: Vec<String>,
+        suggestions: Vec<MetadataSuggestion>,
+    ) -> Result<()> {
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
@@ -2411,6 +2398,19 @@ impl MiscellaneousService {
             .filter(metadata_to_suggestion::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
+        self.associate_creator_with_metadata(metadata_id, creators)
+            .await
+            .ok();
+        for genre in genres {
+            self.associate_genre_with_metadata(genre, metadata_id)
+                .await
+                .ok();
+        }
+        for suggestion in suggestions {
+            self.associate_suggestion_with_metadata(suggestion, metadata_id)
+                .await
+                .ok();
+        }
         Ok(())
     }
 
