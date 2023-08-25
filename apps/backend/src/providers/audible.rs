@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -284,7 +285,12 @@ impl AudibleService {
                 .category_ladders
                 .unwrap_or_default()
                 .into_iter()
-                .flat_map(|c| c.ladder.into_iter().map(|l| l.name))
+                .flat_map(|c| {
+                    c.ladder
+                        .into_iter()
+                        .map(|l| l.name)
+                        .flat_map(|c| c.split(" & ").map(|g| g.to_case(Case::Title)).collect_vec())
+                })
                 .unique()
                 .collect(),
             publish_year: convert_date_to_year(&release_date),
