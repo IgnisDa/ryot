@@ -5,7 +5,7 @@ use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
-use regex::Regex;
+use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{
@@ -267,23 +267,64 @@ impl MediaProvider for OpenlibraryService {
             .flat_map(|s| s.split(", ").map(|d| d.to_case(Case::Title)).collect_vec())
             .collect_vec();
 
+        #[derive(Debug, Serialize, Deserialize)]
+        struct OpenlibraryPartialResponse {
+            #[serde(rename = "0")]
+            data: String,
+        }
+
         // DEV: Reverse engineered the API
-        let related_html = self
+        let html = self
             .client
             .get("partials.json")
             .query(&json!({ "workid": identifier, "_component": "RelatedWorkCarousel" }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_string()
+            .body_json::<OpenlibraryPartialResponse>()
             .await
-            .map_err(|e| anyhow!(e))?;
+            .map_err(|e| anyhow!(e))?
+            .data;
 
-        let mut ids = vec![];
-        let regex = Regex::new(r#"/works/([^"/]+)"#).unwrap();
-        for capture in regex.captures_iter(&related_html) {
-            let id = &capture[1];
-            ids.push(id.to_string().replace(r"\", ""));
+        let mut suggestions = vec![];
+
+        let fragment = Html::parse_document(&html);
+
+        let carousel_item_selector = Selector::parse(".book.carousel__item").unwrap();
+        let image_selector = Selector::parse("img.bookcover").unwrap();
+        let identifier_selector = Selector::parse("a[href]").unwrap();
+
+        for item in fragment.select(&carousel_item_selector) {
+            let identifier = get_key(
+                &item
+                    .select(&identifier_selector)
+                    .next()
+                    .and_then(|a| a.value().attr("href"))
+                    .map(|href| href.to_string())
+                    .unwrap(),
+            );
+            let name = item
+                .select(&image_selector)
+                .next()
+                .and_then(|img| img.value().attr("alt"))
+                .map(|alt| alt.to_string())
+                .unwrap()
+                .split(" by ")
+                .next()
+                .map(|name| name.trim().to_string())
+                .unwrap();
+            let image = item
+                .select(&image_selector)
+                .next()
+                .and_then(|img| img.value().attr("src"))
+                .map(|src| src.to_string());
+            suggestions.push(MetadataSuggestion {
+                name,
+                image,
+                identifier,
+                lot: MetadataLot::Book,
+                source: MetadataSource::Openlibrary,
+            });
         }
 
         Ok(MediaDetails {
@@ -301,14 +342,7 @@ impl MediaProvider for OpenlibraryService {
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
             }),
-            suggestions: ids
-                .into_iter()
-                .map(|sug| MetadataSuggestion {
-                    identifier: sug,
-                    lot: MetadataLot::Book,
-                    source: MetadataSource::Openlibrary,
-                })
-                .collect(),
+            suggestions,
         })
     }
 
