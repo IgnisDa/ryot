@@ -70,6 +70,8 @@ struct SearchQuery {
 pub struct AudiblePoster {
     #[serde(rename = "2400")]
     image: Option<String>,
+    #[serde(rename = "500")]
+    image500: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
@@ -91,11 +93,6 @@ pub struct AudibleItem {
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
-pub struct AudibleSimItem {
-    asin: String,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 struct AudibleItemResponse {
     product: AudibleItem,
@@ -103,7 +100,7 @@ struct AudibleItemResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct AudibleItemSimResponse {
-    similar_products: Vec<AudibleSimItem>,
+    similar_products: Vec<AudibleItem>,
 }
 
 #[derive(Debug, Clone)]
@@ -164,7 +161,10 @@ impl MediaProvider for AudibleService {
             let data: AudibleItemSimResponse = self
                 .client
                 .get(format!("{}/sims", identifier))
-                .query(&json!({ "similarity_type": sim_type.to_string() }))
+                .query(&json!({
+                    "similarity_type": sim_type.to_string(),
+                    "response_groups": "media"
+                }))
                 .unwrap()
                 .await
                 .map_err(|e| anyhow!(e))?
@@ -173,6 +173,8 @@ impl MediaProvider for AudibleService {
                 .map_err(|e| anyhow!(e))?;
             for sim in data.similar_products.into_iter() {
                 suggestions.push(MetadataSuggestion {
+                    name: sim.title,
+                    image: sim.product_images.image500,
                     identifier: sim.asin,
                     source: MetadataSource::Audible,
                     lot: MetadataLot::AudioBook,
