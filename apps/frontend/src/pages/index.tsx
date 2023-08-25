@@ -384,6 +384,11 @@ const Page: NextPageWithLayout = () => {
 										value: latestUserSummary.data.fitness.measurementsRecorded,
 										type: "number",
 									},
+									{
+										label: "Workouts",
+										value: latestUserSummary.data.fitness.workoutsRecorded,
+										type: "number",
+									},
 								]}
 							/>
 						) : undefined}
