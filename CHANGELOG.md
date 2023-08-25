@@ -1,4 +1,15 @@
 
+# Version 2.9.2 (2023-08-25)
+
+## Bug Fixes
+
+* ***:** account for collections in merge metadata
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.9.1 (2023-08-25)
 
 ## Bug Fixes
