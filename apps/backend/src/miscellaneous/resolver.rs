@@ -1305,6 +1305,46 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
+
+        let metadata_alias = Alias::new("m");
+
+        let suggestions = Suggestion::find()
+            .column_as(
+                Expr::col((metadata_alias.clone(), metadata::Column::Id)),
+                "metadata_id",
+            )
+            .left_join(MetadataToSuggestion)
+            .join_as(
+                JoinType::LeftJoin,
+                metadata_to_suggestion::Relation::Metadata
+                    .def()
+                    .on_condition(|left, right| {
+                        dbg!(&left, &right);
+                        Condition::all()
+                            .add(
+                                Expr::col((right.clone(), metadata::Column::Identifier))
+                                    .eq(Expr::col((right.clone(), suggestion::Column::Identifier))),
+                            )
+                            .add(
+                                Expr::col((right.clone(), metadata::Column::Lot))
+                                    .eq(Expr::col((right.clone(), suggestion::Column::Lot))),
+                            )
+                            .add(
+                                Expr::col((right.clone(), metadata::Column::Source))
+                                    .eq(Expr::col((right.clone(), suggestion::Column::Source))),
+                            )
+                    }),
+                metadata_alias.clone(),
+            )
+            .filter(
+                Condition::any()
+                    .add(metadata_to_suggestion::Column::MetadataId.eq(meta.id))
+                    .add(metadata_to_suggestion::Column::MetadataId.is_null()),
+            )
+            .all(&self.db)
+            .await?;
+        dbg!(suggestions);
+
         Ok(MediaBaseData {
             model: meta,
             creators,

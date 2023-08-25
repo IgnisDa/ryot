@@ -15,6 +15,7 @@ pub struct Model {
     pub image: Option<String>,
     pub lot: MetadataLot,
     pub source: MetadataSource,
+    pub metadata_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
