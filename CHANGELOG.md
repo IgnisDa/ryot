@@ -1,4 +1,15 @@
 
+# Version 2.9.1 (2023-08-25)
+
+## Bug Fixes
+
+* **backend:** provider bugs
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.9.0 (2023-08-25)
 
 
