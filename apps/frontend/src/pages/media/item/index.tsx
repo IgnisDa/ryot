@@ -69,6 +69,7 @@ import {
 	IconAlertCircle,
 	IconBook,
 	IconBrandPagekit,
+	IconBulb,
 	IconClock,
 	IconDeviceTv,
 	IconInfoCircle,
@@ -815,6 +816,9 @@ const Page: NextPageWithLayout = () => {
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
+							<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
+								Suggestions
+							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
@@ -1406,6 +1410,60 @@ const Page: NextPageWithLayout = () => {
 								)}
 							</Tabs.Panel>
 						) : undefined}
+						<Tabs.Panel value="suggestions">
+							<MediaScrollArea>
+								{mediaDetails.data.suggestions.length > 0 ? (
+									<SimpleGrid
+										cols={3}
+										breakpoints={[
+											{ minWidth: "md", cols: 4 },
+											{ minWidth: "lg", cols: 5 },
+										]}
+									>
+										{mediaDetails.data.suggestions.map((sug) => (
+											<Link
+												key={sug.identifier}
+												passHref
+												legacyBehavior
+												href={withQuery(
+													APP_ROUTES.media.individualMediaItem.commit,
+													{
+														identifier: sug.identifier,
+														lot: sug.lot,
+														source: sug.source,
+													},
+												)}
+											>
+												<Anchor data-media-id={sug.identifier}>
+													<Avatar
+														imageProps={{ loading: "lazy" }}
+														src={sug.image}
+														h={100}
+														w={85}
+														mx="auto"
+														alt={`${sug.title} picture`}
+														styles={{
+															image: { objectPosition: "top" },
+														}}
+													/>
+													<Text
+														color="dimmed"
+														size="xs"
+														align="center"
+														lineClamp={1}
+														mt={4}
+													>
+														{sug.title}
+													</Text>
+												</Anchor>
+											</Link>
+										))}
+									</SimpleGrid>
+								) : (
+									<Text fs="italic">No suggestions available</Text>
+								)}
+							</MediaScrollArea>
+						</Tabs.Panel>
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>
