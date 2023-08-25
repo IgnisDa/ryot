@@ -15,8 +15,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion, MetadataCreator,
-            MetadataImage, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataSuggestion, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -74,7 +74,7 @@ impl MediaProvider for ListennotesService {
         details.suggestions = rec_data
             .recommendations
             .into_iter()
-            .map(|r| MediaSuggestion {
+            .map(|r| MetadataSuggestion {
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
                 source: MetadataSource::Listennotes,

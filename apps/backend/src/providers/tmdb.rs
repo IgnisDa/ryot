@@ -14,8 +14,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion, MetadataCreator,
-            MetadataImage, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataSuggestion, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -622,7 +622,7 @@ async fn save_all_suggestions(
     client: &Client,
     typ: &str,
     identifier: &str,
-    recommendations: &mut Vec<MediaSuggestion>,
+    recommendations: &mut Vec<MetadataSuggestion>,
 ) -> Result<()> {
     let lot = match typ {
         "movie" => MetadataLot::Movie,
@@ -641,7 +641,7 @@ async fn save_all_suggestions(
             .await
             .map_err(|e| anyhow!(e))?;
         for entry in new_recs.results.into_iter() {
-            recommendations.push(MediaSuggestion {
+            recommendations.push(MetadataSuggestion {
                 identifier: entry.id.to_string(),
                 source: MetadataSource::Tmdb,
                 lot,

@@ -21,8 +21,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion,
-            MetadataCreator, MetadataImage,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataSuggestion,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -303,7 +303,7 @@ impl MediaProvider for OpenlibraryService {
             }),
             suggestions: ids
                 .into_iter()
-                .map(|sug| MediaSuggestion {
+                .map(|sug| MetadataSuggestion {
                     identifier: sug,
                     lot: MetadataLot::Book,
                     source: MetadataSource::Openlibrary,

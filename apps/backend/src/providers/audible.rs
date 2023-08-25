@@ -14,8 +14,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion,
-            MetadataCreator, MetadataImage,
+            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataSuggestion,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -172,7 +172,7 @@ impl MediaProvider for AudibleService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for sim in data.similar_products.into_iter() {
-                suggestions.push(MediaSuggestion {
+                suggestions.push(MetadataSuggestion {
                     identifier: sim.asin,
                     source: MetadataSource::Audible,
                     lot: MetadataLot::AudioBook,

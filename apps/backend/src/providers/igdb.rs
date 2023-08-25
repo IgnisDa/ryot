@@ -11,8 +11,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion, MetadataCreator,
-            MetadataImage, VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataSuggestion, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -262,7 +262,7 @@ impl IgdbService {
                 .similar_games
                 .unwrap_or_default()
                 .into_iter()
-                .map(|g| MediaSuggestion {
+                .map(|g| MetadataSuggestion {
                     identifier: g.id.to_string(),
                     lot: MetadataLot::VideoGame,
                     source: MetadataSource::Igdb,

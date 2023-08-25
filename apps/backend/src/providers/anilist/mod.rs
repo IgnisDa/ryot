@@ -141,8 +141,8 @@ mod utils {
         migrator::{MetadataImageLot, MetadataSource},
         models::{
             media::{
-                AnimeSpecifics, MangaSpecifics, MediaSpecifics, MediaSuggestion, MetadataCreator,
-                MetadataImage,
+                AnimeSpecifics, MangaSpecifics, MediaSpecifics, MetadataCreator, MetadataImage,
+                MetadataSuggestion,
             },
             StoredUrl,
         },
@@ -241,7 +241,7 @@ mod utils {
             .into_iter()
             .map(|r| {
                 let data = r.unwrap().media_recommendation.unwrap();
-                MediaSuggestion {
+                MetadataSuggestion {
                     identifier: data.id.to_string(),
                     source: MetadataSource::Anilist,
                     lot: match data.type_.unwrap() {
