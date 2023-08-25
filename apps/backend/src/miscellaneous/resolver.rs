@@ -48,9 +48,9 @@ use crate::{
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
             MetadataToGenre, MetadataToSuggestion, Review, Seen, Suggestion, User, UserMeasurement,
-            UserToMetadata,
+            UserToMetadata, Workout,
         },
-        review, seen, suggestion, user, user_measurement, user_to_metadata,
+        review, seen, suggestion, user, user_measurement, user_to_metadata, workout,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
@@ -3330,8 +3330,14 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        let num_workouts = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .count(&self.db)
+            .await?;
+
         ls.media.reviews_posted = num_reviews;
         ls.fitness.measurements_recorded = num_measurements;
+        ls.fitness.workouts_recorded = num_workouts;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
