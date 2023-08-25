@@ -26,6 +26,10 @@ query DetailsQuery($id: Int!) {
         mediaRecommendation {
           id
           type
+          title { userPreferred }
+          coverImage {
+            extraLarge
+          }
         }
       }
     }

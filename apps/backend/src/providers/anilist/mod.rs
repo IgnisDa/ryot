@@ -242,6 +242,7 @@ mod utils {
             .map(|r| {
                 let data = r.unwrap().media_recommendation.unwrap();
                 MetadataSuggestion {
+                    name: data.title.unwrap().user_preferred.unwrap(),
                     identifier: data.id.to_string(),
                     source: MetadataSource::Anilist,
                     lot: match data.type_.unwrap() {
@@ -249,6 +250,7 @@ mod utils {
                         details_query::MediaType::MANGA => MetadataLot::Manga,
                         details_query::MediaType::Other(_) => unreachable!(),
                     },
+                    image: data.cover_image.unwrap().extra_large,
                 }
             })
             .collect();
