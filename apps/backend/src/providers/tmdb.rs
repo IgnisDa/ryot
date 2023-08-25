@@ -225,7 +225,14 @@ impl MediaProvider for TmdbMovieService {
         }
         let mut suggestions = vec![];
         save_all_images(&self.client, "movie", identifier, &mut image_ids).await?;
-        save_all_suggestions(&self.client, "movie", identifier, &mut suggestions).await?;
+        save_all_suggestions(
+            &self.client,
+            &self.base,
+            "movie",
+            identifier,
+            &mut suggestions,
+        )
+        .await?;
 
         Ok(MediaDetails {
             identifier: data.id.to_string(),
@@ -351,7 +358,7 @@ impl MediaProvider for TmdbShowService {
         }
         let mut suggestions = vec![];
         save_all_images(&self.client, "tv", identifier, &mut image_ids).await?;
-        save_all_suggestions(&self.client, "tv", identifier, &mut suggestions).await?;
+        save_all_suggestions(&self.client, &self.base, "tv", identifier, &mut suggestions).await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
@@ -620,6 +627,7 @@ async fn save_all_images(
 
 async fn save_all_suggestions(
     client: &Client,
+    base: &TmdbService,
     typ: &str,
     identifier: &str,
     recommendations: &mut Vec<MetadataSuggestion>,
@@ -640,14 +648,23 @@ async fn save_all_suggestions(
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
+        page += 1;
         for entry in new_recs.results.into_iter() {
+            let name = if let Some(n) = entry.name {
+                n
+            } else if let Some(n) = entry.title {
+                n
+            } else {
+                continue;
+            };
             recommendations.push(MetadataSuggestion {
+                name,
+                image: entry.poster_path.map(|p| base.get_cover_image_url(p)),
                 identifier: entry.id.to_string(),
                 source: MetadataSource::Tmdb,
                 lot,
             });
         }
-        page += 1;
         if new_recs.page == new_recs.total_pages {
             break;
         }
