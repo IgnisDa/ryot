@@ -3238,12 +3238,12 @@ impl MiscellaneousService {
         let mut unique_creators = HashSet::new();
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
-            meta.find_related(Creator)
+            meta.find_related(MetadataToCreator)
                 .all(&self.db)
                 .await?
                 .into_iter()
                 .for_each(|c| {
-                    unique_creators.insert(c.id);
+                    unique_creators.insert(c.creator_id);
                 });
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
