@@ -5,6 +5,7 @@ use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{
@@ -20,8 +21,8 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MediaSuggestion,
+            MetadataCreator, MetadataImage,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -266,6 +267,25 @@ impl MediaProvider for OpenlibraryService {
             .flat_map(|s| s.split(", ").map(|d| d.to_case(Case::Title)).collect_vec())
             .collect_vec();
 
+        // DEV: Reverse engineered the API
+        let related_html = self
+            .client
+            .get("partials.json")
+            .query(&json!({ "workid": identifier, "_component": "RelatedWorkCarousel" }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_string()
+            .await
+            .map_err(|e| anyhow!(e))?;
+
+        let mut ids = vec![];
+        let regex = Regex::new(r#"/works/([^"/]+)"#).unwrap();
+        for capture in regex.captures_iter(&related_html) {
+            let id = &capture[1];
+            ids.push(id.to_string().replace(r"\", ""));
+        }
+
         Ok(MediaDetails {
             identifier: get_key(&data.key),
             title: data.title,
@@ -281,6 +301,14 @@ impl MediaProvider for OpenlibraryService {
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
             }),
+            suggestions: ids
+                .into_iter()
+                .map(|sug| MediaSuggestion {
+                    identifier: sug,
+                    lot: MetadataLot::Book,
+                    source: MetadataSource::Openlibrary,
+                })
+                .collect(),
         })
     }
 
