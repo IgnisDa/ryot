@@ -21,6 +21,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -44,7 +45,7 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
-        let client = utils::get_client_config(URL, &config.listennotes.api_token).await;
+        let client = get_client_config(URL, &config.listennotes.api_token).await;
         Self { client, page_limit }
     }
 }
@@ -245,31 +246,25 @@ impl ListennotesService {
     }
 }
 
-mod utils {
-    use crate::utils::get_base_http_client;
-
-    use super::*;
-
-    pub async fn get_client_config(url: &str, api_token: &str) -> Client {
-        let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
-        if GENRES.get().is_none() {
-            #[derive(Debug, Serialize, Deserialize, Default)]
-            struct Genre {
-                id: i32,
-                name: String,
-            }
-            #[derive(Debug, Serialize, Deserialize, Default)]
-            struct GenreResponse {
-                genres: Vec<Genre>,
-            }
-            let mut rsp = client.get("genres").await.unwrap();
-            let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
-            let mut genres = HashMap::new();
-            for genre in data.genres {
-                genres.insert(genre.id, genre.name);
-            }
-            GENRES.set(genres).ok();
-        };
-        client
-    }
+async fn get_client_config(url: &str, api_token: &str) -> Client {
+    let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
+    if GENRES.get().is_none() {
+        #[derive(Debug, Serialize, Deserialize, Default)]
+        struct Genre {
+            id: i32,
+            name: String,
+        }
+        #[derive(Debug, Serialize, Deserialize, Default)]
+        struct GenreResponse {
+            genres: Vec<Genre>,
+        }
+        let mut rsp = client.get("genres").await.unwrap();
+        let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
+        let mut genres = HashMap::new();
+        for genre in data.genres {
+            genres.insert(genre.id, genre.name);
+        }
+        GENRES.set(genres).ok();
+    };
+    client
 }
