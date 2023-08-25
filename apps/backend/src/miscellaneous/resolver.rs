@@ -2529,6 +2529,14 @@ impl MiscellaneousService {
             new_review.insert(&self.db).await?;
             old_review.delete(&self.db).await?;
         }
+        MetadataToCollection::update_many()
+            .filter(metadata_to_collection::Column::MetadataId.eq(merge_from))
+            .set(metadata_to_collection::ActiveModel {
+                metadata_id: ActiveValue::Set(merge_into),
+                ..Default::default()
+            })
+            .exec(&self.db)
+            .await?;
         Metadata::delete_by_id(merge_from).exec(&self.db).await?;
         Ok(true)
     }
@@ -3249,7 +3257,7 @@ impl MiscellaneousService {
         let metadatas = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
-            .order_by_asc(metadata::Column::Id)
+            .order_by_asc(metadata::Column::LastUpdatedOn)
             .into_tuple::<i32>()
             .all(&self.db)
             .await

@@ -671,7 +671,10 @@ const Page: NextPageWithLayout = () => {
 												collectionId: col.id,
 											})}
 										>
-											<Anchor truncate style={{ all: "unset" }}>
+											<Anchor
+												truncate
+												style={{ all: "unset", cursor: "pointer" }}
+											>
 												{col.name}
 											</Anchor>
 										</Link>

@@ -639,9 +639,8 @@ impl TmdbService {
             "tv" => MetadataLot::Show,
             _ => unreachable!(),
         };
-        let mut page = 1;
         let mut suggestions = vec![];
-        loop {
+        for page in 1.. {
             let new_recs: TmdbListResponse = client
                 .get(format!("{}/{}/recommendations", typ, identifier))
                 .query(&json!({ "page": page }))
@@ -651,7 +650,6 @@ impl TmdbService {
                 .body_json()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            page += 1;
             for entry in new_recs.results.into_iter() {
                 let name = if let Some(n) = entry.name {
                     n
