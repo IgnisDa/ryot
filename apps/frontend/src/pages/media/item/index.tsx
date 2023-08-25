@@ -1430,14 +1430,21 @@ const Page: NextPageWithLayout = () => {
 												key={sug.identifier}
 												passHref
 												legacyBehavior
-												href={withQuery(
-													APP_ROUTES.media.individualMediaItem.commit,
-													{
-														identifier: sug.identifier,
-														lot: sug.lot,
-														source: sug.source,
-													},
-												)}
+												href={
+													sug.metadataId
+														? withQuery(
+																APP_ROUTES.media.individualMediaItem.details,
+																{ id: sug.metadataId },
+														  )
+														: withQuery(
+																APP_ROUTES.media.individualMediaItem.commit,
+																{
+																	identifier: sug.identifier,
+																	lot: sug.lot,
+																	source: sug.source,
+																},
+														  )
+												}
 											>
 												<Anchor data-media-id={sug.identifier}>
 													<Avatar

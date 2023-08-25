@@ -48,9 +48,9 @@ use crate::{
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
             MetadataToGenre, MetadataToSuggestion, Review, Seen, Suggestion, User, UserMeasurement,
-            UserToMetadata,
+            UserToMetadata, Workout,
         },
-        review, seen, suggestion, user, user_measurement, user_to_metadata,
+        review, seen, suggestion, user, user_measurement, user_to_metadata, workout,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
@@ -101,6 +101,16 @@ use crate::{
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
+
+#[derive(FromQueryResult, SimpleObject, Debug, Serialize, Deserialize, Clone)]
+struct MediaSuggestion {
+    identifier: String,
+    lot: MetadataLot,
+    source: MetadataSource,
+    title: String,
+    image: Option<String>,
+    metadata_id: Option<i32>,
+}
 
 #[derive(Debug)]
 pub enum MediaStateChanged {
@@ -348,7 +358,7 @@ struct MediaBaseData {
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
-    suggestions: Vec<suggestion::Model>,
+    suggestions: Vec<MediaSuggestion>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -375,7 +385,7 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
-    suggestions: Vec<suggestion::Model>,
+    suggestions: Vec<MediaSuggestion>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1308,10 +1318,29 @@ impl MiscellaneousService {
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
 
-        // TODO: This should also return the optional `metadata_id`
         let suggestions = Suggestion::find()
+            .column_as(metadata::Column::Id, "metadata_id")
             .left_join(MetadataToSuggestion)
+            .join(
+                JoinType::LeftJoin,
+                Suggestion::belongs_to(Metadata)
+                    .from(suggestion::Column::Identifier)
+                    .to(metadata::Column::Identifier)
+                    .on_condition(|left, right| {
+                        Condition::all()
+                            .add(
+                                Expr::col((right.clone(), metadata::Column::Lot))
+                                    .equals((left.clone(), suggestion::Column::Lot)),
+                            )
+                            .add(
+                                Expr::col((right, metadata::Column::Source))
+                                    .equals((left, suggestion::Column::Source)),
+                            )
+                    })
+                    .into(),
+            )
             .filter(metadata_to_suggestion::Column::MetadataId.eq(meta.id))
+            .into_model::<MediaSuggestion>()
             .all(&self.db)
             .await?;
 
@@ -3301,8 +3330,14 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        let num_workouts = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .count(&self.db)
+            .await?;
+
         ls.media.reviews_posted = num_reviews;
         ls.fitness.measurements_recorded = num_measurements;
+        ls.fitness.workouts_recorded = num_workouts;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))

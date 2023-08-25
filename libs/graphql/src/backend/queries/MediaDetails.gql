@@ -25,6 +25,7 @@ query MediaDetails($metadataId: Int!) {
       identifier
       title
       image
+      metadataId
     }
     animeSpecifics {
       episodes

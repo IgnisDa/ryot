@@ -503,6 +503,7 @@ pub mod media {
     #[serde(default)]
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
+        pub workouts_recorded: u64,
     }
 
     #[derive(
@@ -516,6 +517,7 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    // FIXME: Remove this serde attribute
     #[serde(default)]
     pub struct UserSummary {
         pub fitness: UserFitnessSummary,
