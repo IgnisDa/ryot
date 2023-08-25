@@ -6,7 +6,7 @@ use super::Metadata;
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum MetadataSuggestion {
+pub enum Suggestion {
     Table,
     Id,
     Identifier,
@@ -29,35 +29,19 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(MetadataSuggestion::Table)
+                    .table(Suggestion::Table)
                     .col(
-                        ColumnDef::new(MetadataSuggestion::Id)
+                        ColumnDef::new(Suggestion::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataSuggestion::Identifier)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataSuggestion::Title)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(MetadataSuggestion::Image).text().null())
-                    .col(
-                        ColumnDef::new(MetadataSuggestion::Lot)
-                            .string_len(2)
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataSuggestion::Source)
-                            .string_len(2)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Suggestion::Identifier).string().not_null())
+                    .col(ColumnDef::new(Suggestion::Title).string().not_null())
+                    .col(ColumnDef::new(Suggestion::Image).text().null())
+                    .col(ColumnDef::new(Suggestion::Lot).string_len(2).not_null())
+                    .col(ColumnDef::new(Suggestion::Source).string_len(2).not_null())
                     .to_owned(),
             )
             .await?;
@@ -66,10 +50,10 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .unique()
                     .name("metadata_suggestion-identifier-source-lot__unique-index")
-                    .table(MetadataSuggestion::Table)
-                    .col(MetadataSuggestion::Identifier)
-                    .col(MetadataSuggestion::Source)
-                    .col(MetadataSuggestion::Lot)
+                    .table(Suggestion::Table)
+                    .col(Suggestion::Identifier)
+                    .col(Suggestion::Source)
+                    .col(Suggestion::Lot)
                     .to_owned(),
             )
             .await?;
@@ -111,7 +95,7 @@ impl MigrationTrait for Migration {
                                 MetadataToSuggestion::Table,
                                 MetadataToSuggestion::SuggestionId,
                             )
-                            .to(MetadataSuggestion::Table, MetadataSuggestion::Id)
+                            .to(Suggestion::Table, Suggestion::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
