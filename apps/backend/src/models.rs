@@ -576,6 +576,8 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
     pub struct MetadataSuggestion {
+        pub name: String,
+        pub image: Option<String>,
         pub identifier: String,
         pub source: MetadataSource,
         pub lot: MetadataLot,
