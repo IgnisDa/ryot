@@ -8,7 +8,8 @@ use strum::Display;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
+pub static METADATA_IDENTIFIER_INDEX: &str = "metadata_identifier__index";
+pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
 #[derive(
     Debug,
@@ -183,15 +184,6 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("metadata_identifier__index")
-                    .table(Metadata::Table)
-                    .col(Metadata::Identifier)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
                     .name("metadata__title__index")
                     .table(Metadata::Table)
                     .col(Metadata::Title)
@@ -202,7 +194,7 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name(UNIQUE_INDEX)
+                    .name(METADATA_UNIQUE_INDEX)
                     .table(Metadata::Table)
                     .col(Metadata::Identifier)
                     .col(Metadata::Source)
