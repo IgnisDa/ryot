@@ -223,16 +223,13 @@ impl MediaProvider for TmdbMovieService {
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
         }
-        let mut suggestions = vec![];
-        save_all_images(&self.client, "movie", identifier, &mut image_ids).await?;
-        save_all_suggestions(
-            &self.client,
-            &self.base,
-            "movie",
-            identifier,
-            &mut suggestions,
-        )
-        .await?;
+        self.base
+            .save_all_images(&self.client, "movie", identifier, &mut image_ids)
+            .await?;
+        let suggestions = self
+            .base
+            .save_all_suggestions(&self.client, "movie", identifier)
+            .await?;
 
         Ok(MediaDetails {
             identifier: data.id.to_string(),
@@ -356,9 +353,13 @@ impl MediaProvider for TmdbShowService {
         if let Some(u) = show_data.backdrop_path {
             image_ids.push(u);
         }
-        let mut suggestions = vec![];
-        save_all_images(&self.client, "tv", identifier, &mut image_ids).await?;
-        save_all_suggestions(&self.client, &self.base, "tv", identifier, &mut suggestions).await?;
+        self.base
+            .save_all_images(&self.client, "tv", identifier, &mut image_ids)
+            .await?;
+        let suggestions = self
+            .base
+            .save_all_suggestions(&self.client, "tv", identifier)
+            .await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
@@ -601,73 +602,76 @@ async fn get_client_config(url: &str, access_token: &str) -> Client {
     client
 }
 
-async fn save_all_images(
-    client: &Client,
-    typ: &str,
-    identifier: &str,
-    images: &mut Vec<String>,
-) -> Result<()> {
-    let mut rsp = client
-        .get(format!("{}/{}/images", typ, identifier))
-        .await
-        .map_err(|e| anyhow!(e))?;
-    let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-    if let Some(imgs) = new_images.posters {
-        for image in imgs {
-            images.push(image.file_path);
-        }
-    }
-    if let Some(imgs) = new_images.backdrops {
-        for image in imgs {
-            images.push(image.file_path);
-        }
-    }
-    Ok(())
-}
-
-async fn save_all_suggestions(
-    client: &Client,
-    base: &TmdbService,
-    typ: &str,
-    identifier: &str,
-    recommendations: &mut Vec<MetadataSuggestion>,
-) -> Result<()> {
-    let lot = match typ {
-        "movie" => MetadataLot::Movie,
-        "tv" => MetadataLot::Show,
-        _ => unreachable!(),
-    };
-    let mut page = 1;
-    loop {
-        let new_recs: TmdbListResponse = client
-            .get(format!("{}/{}/recommendations", typ, identifier))
-            .query(&json!({ "page": page }))
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
+impl TmdbService {
+    async fn save_all_images(
+        &self,
+        client: &Client,
+        typ: &str,
+        identifier: &str,
+        images: &mut Vec<String>,
+    ) -> Result<()> {
+        let mut rsp = client
+            .get(format!("{}/{}/images", typ, identifier))
             .await
             .map_err(|e| anyhow!(e))?;
-        page += 1;
-        for entry in new_recs.results.into_iter() {
-            let name = if let Some(n) = entry.name {
-                n
-            } else if let Some(n) = entry.title {
-                n
-            } else {
-                continue;
-            };
-            recommendations.push(MetadataSuggestion {
-                name,
-                image: entry.poster_path.map(|p| base.get_cover_image_url(p)),
-                identifier: entry.id.to_string(),
-                source: MetadataSource::Tmdb,
-                lot,
-            });
+        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        if let Some(imgs) = new_images.posters {
+            for image in imgs {
+                images.push(image.file_path);
+            }
         }
-        if new_recs.page == new_recs.total_pages {
-            break;
+        if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
         }
+        Ok(())
     }
-    Ok(())
+
+    async fn save_all_suggestions(
+        &self,
+        client: &Client,
+        typ: &str,
+        identifier: &str,
+    ) -> Result<Vec<MetadataSuggestion>> {
+        let lot = match typ {
+            "movie" => MetadataLot::Movie,
+            "tv" => MetadataLot::Show,
+            _ => unreachable!(),
+        };
+        let mut page = 1;
+        let mut suggestions = vec![];
+        loop {
+            let new_recs: TmdbListResponse = client
+                .get(format!("{}/{}/recommendations", typ, identifier))
+                .query(&json!({ "page": page }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            page += 1;
+            for entry in new_recs.results.into_iter() {
+                let name = if let Some(n) = entry.name {
+                    n
+                } else if let Some(n) = entry.title {
+                    n
+                } else {
+                    continue;
+                };
+                suggestions.push(MetadataSuggestion {
+                    name,
+                    image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
+                    identifier: entry.id.to_string(),
+                    source: MetadataSource::Tmdb,
+                    lot,
+                });
+            }
+            if new_recs.page == new_recs.total_pages {
+                break;
+            }
+        }
+        Ok(suggestions)
+    }
 }
