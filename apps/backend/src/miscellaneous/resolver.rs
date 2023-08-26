@@ -1850,17 +1850,9 @@ impl MiscellaneousService {
         let mut items = vec![];
         let prefs = user_by_id(&self.db, user_id).await?.preferences;
 
-        // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
-        struct RoundFunction;
-        impl Iden for RoundFunction {
-            fn unquoted(&self, s: &mut dyn sea_query::Write) {
-                write!(s, "ROUND").unwrap();
-            }
-        }
-
         for met in metas {
             let avg_select = Query::select()
-                .expr(Func::cust(RoundFunction).arg(Func::avg(
+                .expr(Func::round(Func::avg(
                     Expr::col((TempReview::Table, TempReview::Rating)).div(
                         match prefs.general.review_scale {
                             UserReviewScale::OutOfFive => 20,
