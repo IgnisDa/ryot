@@ -1,0 +1,36 @@
+query UserExerciseDetails($exerciseId: Int!) {
+  userExerciseDetails(exerciseId: $exerciseId) {
+    exerciseId
+    numTimesPerformed
+    lastUpdatedOn
+    extraInformation {
+      history {
+        workoutId
+        idx
+      }
+      lifetimeStats {
+        weight
+        reps
+        distance
+        duration
+      }
+      personalBests {
+        lot
+        sets {
+          workoutId
+          setIdx
+          data {
+            statistic {
+              duration
+              distance
+              reps
+              weight
+            }
+            lot
+            personalBests
+          }
+        }
+      }
+    }
+  }
+}
