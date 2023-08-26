@@ -70,7 +70,8 @@ struct ItemAuthor {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemRecord {
-    series_id: i128,
+    series_id: Option<i128>,
+    related_series_id: Option<i128>,
     title: Option<String>,
     description: Option<String>,
     image: Option<ItemImage>,
@@ -79,6 +80,7 @@ struct ItemRecord {
     authors: Option<Vec<ItemAuthor>>,
     genres: Option<Vec<ItemGenre>>,
     recommendations: Option<Vec<ItemRecord>>,
+    related_series: Option<Vec<ItemRecord>>,
     latest_chapter: Option<i32>,
     year: Option<String>,
 }
@@ -123,10 +125,22 @@ impl MediaProvider for MangaUpdatesService {
             });
         }
         let mut suggestions = vec![];
-        for series in data.recommendations.unwrap_or_default() {
+        for series_id in data
+            .recommendations
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| r.series_id.unwrap())
+            .into_iter()
+            .chain(
+                data.related_series
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|r| r.related_series_id.unwrap()),
+            )
+        {
             let data: ItemRecord = self
                 .client
-                .get(format!("series/{}", series.series_id))
+                .get(format!("series/{}", series_id))
                 .await
                 .map_err(|e| anyhow!(e))?
                 .body_json()
@@ -135,13 +149,13 @@ impl MediaProvider for MangaUpdatesService {
             suggestions.push(MetadataSuggestion {
                 title: data.title.unwrap(),
                 image: data.image.unwrap().url.original,
-                identifier: data.series_id.to_string(),
+                identifier: data.series_id.unwrap().to_string(),
                 source: MetadataSource::MangaUpdates,
                 lot: MetadataLot::Manga,
             });
         }
         let data = MediaDetails {
-            identifier: data.series_id.to_string(),
+            identifier: data.series_id.unwrap().to_string(),
             title: data.title.unwrap(),
             description: data.description,
             source: MetadataSource::MangaUpdates,
@@ -197,7 +211,7 @@ impl MediaProvider for MangaUpdatesService {
             .results
             .into_iter()
             .map(|s| MediaSearchItem {
-                identifier: s.record.series_id.to_string(),
+                identifier: s.record.series_id.unwrap().to_string(),
                 title: s.hit_title,
                 image: s.record.image.unwrap().url.original,
                 publish_year: s.record.year.and_then(|y| y.parse().ok()),
