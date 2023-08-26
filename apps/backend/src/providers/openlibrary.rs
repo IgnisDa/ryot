@@ -5,13 +5,10 @@ use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
+use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{
-    http::headers::ACCEPT,
-    middleware::{Middleware, Next},
-    Client, Request, Response, Result as SurfResult,
-};
+use surf::{http::headers::ACCEPT, Client};
 use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
@@ -21,7 +18,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MetadataImage, MetadataSuggestion,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -31,41 +28,6 @@ use crate::{
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
-
-// DEV: Openlibrary does not send `Location` header and instead returns a
-// custom response.
-#[derive(Debug)]
-struct OpenlibraryRedirectMiddleware;
-
-#[async_trait]
-impl Middleware for OpenlibraryRedirectMiddleware {
-    async fn handle(&self, req: Request, client: Client, next: Next<'_>) -> SurfResult<Response> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryRedirect {
-            #[serde(rename = "type")]
-            typ: OpenlibraryKey,
-            location: String,
-            key: String,
-        }
-        let mut res = next.run(req.clone(), client.clone()).await?;
-        let data = res.body_json::<OpenlibraryRedirect>().await;
-        let res = match data {
-            Ok(d) => {
-                let to_replace_key = get_key(&d.key);
-                let redirected_key = get_key(&d.location);
-                client
-                    .get(
-                        req.url()
-                            .to_string()
-                            .replace(&to_replace_key, &redirected_key),
-                    )
-                    .await?
-            }
-            Err(_) => next.run(req, client).await?,
-        };
-        Ok(res)
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct BookSearchResults {
@@ -111,8 +73,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &OpenlibraryConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)])
-            .with(OpenlibraryRedirectMiddleware);
+        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
@@ -266,6 +227,66 @@ impl MediaProvider for OpenlibraryService {
             .flat_map(|s| s.split(", ").map(|d| d.to_case(Case::Title)).collect_vec())
             .collect_vec();
 
+        #[derive(Debug, Serialize, Deserialize)]
+        struct OpenlibraryPartialResponse {
+            #[serde(rename = "0")]
+            data: String,
+        }
+
+        // DEV: Reverse engineered the API
+        let html = self
+            .client
+            .get("partials.json")
+            .query(&json!({ "workid": identifier, "_component": "RelatedWorkCarousel" }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<OpenlibraryPartialResponse>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .data;
+
+        let mut suggestions = vec![];
+
+        let fragment = Html::parse_document(&html);
+
+        let carousel_item_selector = Selector::parse(".book.carousel__item").unwrap();
+        let image_selector = Selector::parse("img.bookcover").unwrap();
+        let identifier_selector = Selector::parse("a[href]").unwrap();
+
+        for item in fragment.select(&carousel_item_selector) {
+            let identifier = get_key(
+                &item
+                    .select(&identifier_selector)
+                    .next()
+                    .and_then(|a| a.value().attr("href"))
+                    .map(|href| href.to_string())
+                    .unwrap(),
+            );
+            let name = item
+                .select(&image_selector)
+                .next()
+                .and_then(|img| img.value().attr("alt"))
+                .map(|alt| alt.to_string())
+                .unwrap()
+                .split(" by ")
+                .next()
+                .map(|name| name.trim().to_string())
+                .unwrap();
+            let image = item
+                .select(&image_selector)
+                .next()
+                .and_then(|img| img.value().attr("src"))
+                .map(|src| src.to_string());
+            suggestions.push(MetadataSuggestion {
+                title: name,
+                image,
+                identifier,
+                lot: MetadataLot::Book,
+                source: MetadataSource::Openlibrary,
+            });
+        }
+
         Ok(MediaDetails {
             identifier: get_key(&data.key),
             title: data.title,
@@ -281,6 +302,7 @@ impl MediaProvider for OpenlibraryService {
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
             }),
+            suggestions,
         })
     }
 

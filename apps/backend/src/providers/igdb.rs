@@ -1,10 +1,14 @@
+use std::sync::OnceLock;
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
+use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
@@ -12,11 +16,12 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            VideoGameSpecifics,
+            MetadataSuggestion, VideoGameSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::{get_base_http_client, get_now_timestamp},
 };
 
 pub static URL: &str = "https://api.igdb.com/v4/";
@@ -34,6 +39,9 @@ fields
     involved_companies.company.logo.*,
     involved_companies.*,
     artworks.*,
+    similar_games.id,
+    similar_games.name,
+    similar_games.cover.*,
     platforms.name,
     genres.*;
 where version_parent = null;
@@ -57,7 +65,6 @@ struct IgdbInvolvedCompany {
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbImage {
     image_id: String,
-    url: String,
 }
 
 #[serde_as]
@@ -73,6 +80,7 @@ struct IgdbSearchResponse {
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
+    similar_games: Option<Vec<IgdbSearchResponse>>,
 }
 
 #[derive(Debug, Clone)]
@@ -107,7 +115,7 @@ impl IgdbService {
 #[async_trait]
 impl MediaProvider for IgdbService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let client = utils::get_client(&self.config).await;
+        let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
 {field}
@@ -124,8 +132,8 @@ where id = {id};
 
         let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
-        let d = self.igdb_response_to_search_response(detail);
-        Ok(d)
+        let game_details = self.igdb_response_to_search_response(detail);
+        Ok(game_details)
     }
 
     async fn search(
@@ -134,7 +142,7 @@ where id = {id};
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
-        let client = utils::get_client(&self.config).await;
+        let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
 {field}
@@ -256,6 +264,18 @@ impl IgdbService {
                     .map(|p| p.name)
                     .collect(),
             }),
+            suggestions: item
+                .similar_games
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| MetadataSuggestion {
+                    title: g.name,
+                    image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                    identifier: g.id.to_string(),
+                    lot: MetadataLot::VideoGame,
+                    source: MetadataSource::Igdb,
+                })
+                .collect(),
         }
     }
 
@@ -264,76 +284,63 @@ impl IgdbService {
     }
 }
 
-mod utils {
-    use std::sync::OnceLock;
+#[derive(Deserialize, Debug, Serialize)]
+struct Credentials {
+    access_token: String,
+    expires_at: u128,
+}
 
-    use serde_json::json;
-    use surf::{http::headers::AUTHORIZATION, Client};
-
-    use super::*;
-    use crate::{
-        config::VideoGameConfig,
-        utils::{get_base_http_client, get_now_timestamp},
-    };
-
-    #[derive(Deserialize, Debug, Serialize)]
-    struct Credentials {
+async fn get_access_token(config: &VideoGameConfig) -> Credentials {
+    let mut access_res = surf::post(AUTH_URL)
+        .query(&json!({
+            "client_id": config.twitch.client_id.to_owned(),
+            "client_secret": config.twitch.client_secret.to_owned(),
+            "grant_type": "client_credentials".to_owned(),
+        }))
+        .unwrap()
+        .await
+        .unwrap();
+    #[derive(Deserialize, Serialize, Default, Debug)]
+    struct AccessResponse {
         access_token: String,
-        expires_at: u128,
+        token_type: String,
+        expires_in: u128,
     }
-
-    async fn get_access_token(config: &VideoGameConfig) -> Credentials {
-        let mut access_res = surf::post(AUTH_URL)
-            .query(&json!({
-                "client_id": config.twitch.client_id.to_owned(),
-                "client_secret": config.twitch.client_secret.to_owned(),
-                "grant_type": "client_credentials".to_owned(),
-            }))
-            .unwrap()
-            .await
-            .unwrap();
-        #[derive(Deserialize, Serialize, Default, Debug)]
-        struct AccessResponse {
-            access_token: String,
-            token_type: String,
-            expires_in: u128,
-        }
-        let access = access_res
-            .body_json::<AccessResponse>()
-            .await
-            .unwrap_or_default();
-        let expires_at = get_now_timestamp() + (access.expires_in * 1000);
-        let access_token = format!("{} {}", access.token_type, access.access_token);
-        Credentials {
-            access_token,
-            expires_at,
-        }
+    let access = access_res
+        .body_json::<AccessResponse>()
+        .await
+        .unwrap_or_default();
+    let expires_at = get_now_timestamp() + (access.expires_in * 1000);
+    let access_token = format!("{} {}", access.token_type, access.access_token);
+    Credentials {
+        access_token,
+        expires_at,
     }
+}
 
-    pub async fn get_client(config: &VideoGameConfig) -> Client {
-        static TOKEN: OnceLock<Credentials> = OnceLock::new();
-        async fn set_and_return_token(config: &VideoGameConfig) -> String {
-            let creds = get_access_token(config).await;
-            let tok = creds.access_token.clone();
-            TOKEN.set(creds).ok();
-            tok
-        }
-        let access_token = if let Some(credential_details) = TOKEN.get() {
-            if credential_details.expires_at < get_now_timestamp() {
-                tracing::debug!("Access token has expired, refreshing...");
-                set_and_return_token(config).await
-            } else {
-                credential_details.access_token.clone()
-            }
-        } else {
+async fn get_client(config: &VideoGameConfig) -> Client {
+    static TOKEN: OnceLock<Credentials> = OnceLock::new();
+    async fn set_and_return_token(config: &VideoGameConfig) -> String {
+        let creds = get_access_token(config).await;
+        let tok = creds.access_token.clone();
+        TOKEN.set(creds).ok();
+        tok
+    }
+    let access_token = if let Some(credential_details) = TOKEN.get() {
+        if credential_details.expires_at < get_now_timestamp() {
+            tracing::debug!("Access token has expired, refreshing...");
             set_and_return_token(config).await
-        };
-        get_base_http_client(
-            URL,
-            vec![
-                ("Client-ID".into(), config.twitch.client_id.to_owned()),
-                (AUTHORIZATION, access_token),
-            ],
-        )
-    }
+        } else {
+            credential_details.access_token.clone()
+        }
+    } else {
+        set_and_return_token(config).await
+    };
+    get_base_http_client(
+        URL,
+        vec![
+            ("Client-ID".into(), config.twitch.client_id.to_owned()),
+            (AUTHORIZATION, access_token),
+        ],
+    )
 }

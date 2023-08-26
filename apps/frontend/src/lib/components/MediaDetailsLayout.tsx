@@ -1,5 +1,6 @@
 import { Carousel } from "@mantine/carousel";
 import { Anchor, Badge, Box, Flex, Image, Stack, Text } from "@mantine/core";
+import { snakeCase, startCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -74,11 +75,11 @@ export default function ({
 						color="dark"
 						variant="filled"
 					>
-						<Flex gap={4}>
-							<Text>{externalLink.source}</Text>
+						<Flex gap={4} align={"center"}>
+							<Text size={10}>{startCase(snakeCase(externalLink.source))}</Text>
 							{externalLink.href ? (
-								<Anchor href={externalLink.href} target="_blank">
-									<IconExternalLink size="1rem" />
+								<Anchor href={externalLink.href} target="_blank" mt={2}>
+									<IconExternalLink size="0.8rem" />
 								</Anchor>
 							) : undefined}
 						</Flex>

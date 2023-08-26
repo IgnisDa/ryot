@@ -72,9 +72,9 @@ impl<T> LengthVec<T> {
     }
 }
 
-impl<T> Into<Vec<T>> for LengthVec<T> {
-    fn into(self) -> Vec<T> {
-        self.into_vec()
+impl<T> From<LengthVec<T>> for Vec<T> {
+    fn from(val: LengthVec<T>) -> Self {
+        val.into_vec()
     }
 }
 
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn test_from_vec_and_length() {
         let vec = vec![1, 2, 3, 4, 5, 6, 7];
-        let length_vec = LengthVec::from_vec_and_length(vec.clone(), 5);
+        let length_vec = LengthVec::from_vec_and_length(vec, 5);
 
         assert_eq!(length_vec.len(), 5);
         assert_eq!(*length_vec, vec![3, 4, 5, 6, 7]);

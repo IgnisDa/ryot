@@ -1,17 +1,22 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
-use surf::Client;
+use http_types::mime;
+use itertools::Itertools;
+use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
-    migrator::MetadataLot,
-    models::SearchResults,
+    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
-        media::{MediaDetails, MediaSearchItem},
-        SearchDetails,
+        media::{
+            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataCreator, MetadataImage, MetadataSuggestion,
+        },
+        SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://graphql.anilist.co";
@@ -55,7 +60,7 @@ pub struct AnilistAnimeService {
 
 impl AnilistAnimeService {
     pub async fn new(_config: &AnimeAnilistConfig, page_limit: i32) -> Self {
-        let client = utils::get_client_config(URL).await;
+        let client = get_client_config(URL).await;
         Self {
             base: AnilistService { client, page_limit },
         }
@@ -65,7 +70,7 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = utils::details(&self.base.client, identifier).await?;
+        let details = details(&self.base.client, identifier).await?;
         Ok(details)
     }
 
@@ -74,7 +79,7 @@ impl MediaProvider for AnilistAnimeService {
         query: &str,
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
-        let (items, total, next_page) = utils::search(
+        let (items, total, next_page) = search(
             &self.base.client,
             search_query::MediaType::ANIME,
             query,
@@ -96,7 +101,7 @@ pub struct AnilistMangaService {
 
 impl AnilistMangaService {
     pub async fn new(_config: &MangaAnilistConfig, page_limit: i32) -> Self {
-        let client = utils::get_client_config(URL).await;
+        let client = get_client_config(URL).await;
         Self {
             base: AnilistService { client, page_limit },
         }
@@ -106,7 +111,7 @@ impl AnilistMangaService {
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = utils::details(&self.base.client, identifier).await?;
+        let details = details(&self.base.client, identifier).await?;
         Ok(details)
     }
 
@@ -115,7 +120,7 @@ impl MediaProvider for AnilistMangaService {
         query: &str,
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
-        let (items, total, next_page) = utils::search(
+        let (items, total, next_page) = search(
             &self.base.client,
             search_query::MediaType::MANGA,
             query,
@@ -130,172 +135,177 @@ impl MediaProvider for AnilistMangaService {
     }
 }
 
-mod utils {
-    use super::*;
+async fn get_client_config(url: &str) -> Client {
+    get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
+}
 
-    use http_types::mime;
-    use itertools::Itertools;
-    use surf::http::headers::ACCEPT;
-
-    use crate::{
-        migrator::{MetadataImageLot, MetadataSource},
-        models::{
-            media::{
-                AnimeSpecifics, MangaSpecifics, MediaSpecifics, MetadataCreator, MetadataImage,
-            },
-            StoredUrl,
-        },
-        utils::get_base_http_client,
+async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
+    let variables = details_query::Variables {
+        id: id.parse::<i64>().unwrap(),
+    };
+    let body = DetailsQuery::build_query(variables);
+    let details = client
+        .post("")
+        .body_json(&body)
+        .unwrap()
+        .send()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .body_json::<Response<details_query::ResponseData>>()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .data
+        .unwrap()
+        .media
+        .unwrap();
+    let mut images = Vec::from_iter(details.cover_image.map(|i| i.extra_large.unwrap()));
+    if let Some(i) = details.banner_image {
+        images.push(i);
+    }
+    let images = images
+        .into_iter()
+        .map(|i| MetadataImage {
+            url: StoredUrl::Url(i),
+            lot: MetadataImageLot::Poster,
+        })
+        .unique()
+        .collect();
+    let mut genres = details
+        .genres
+        .into_iter()
+        .flatten()
+        .map(|t| t.unwrap())
+        .collect_vec();
+    genres.extend(
+        details
+            .tags
+            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .map(|t| t.name),
+    );
+    let creators = Vec::from_iter(details.staff)
+        .into_iter()
+        .flat_map(|s| s.edges.unwrap())
+        .flatten()
+        .map(|s| {
+            let node = s.node.unwrap();
+            MetadataCreator {
+                name: node.name.unwrap().full.unwrap(),
+                role: s.role.unwrap(),
+                image: node.image.unwrap().large,
+            }
+        })
+        .unique()
+        .collect_vec();
+    let (specifics, lot) = match details.type_.unwrap() {
+        details_query::MediaType::ANIME => (
+            MediaSpecifics::Anime(AnimeSpecifics {
+                episodes: details.episodes.map(|c| c.try_into().unwrap()),
+            }),
+            MetadataLot::Anime,
+        ),
+        details_query::MediaType::MANGA => (
+            MediaSpecifics::Manga(MangaSpecifics {
+                chapters: details.chapters.map(|c| c.try_into().unwrap()),
+                volumes: details.volumes.map(|v| v.try_into().unwrap()),
+                url: None,
+            }),
+            MetadataLot::Manga,
+        ),
+        details_query::MediaType::Other(_) => unreachable!(),
     };
 
-    pub async fn get_client_config(url: &str) -> Client {
-        get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
-    }
+    let year = details
+        .start_date
+        .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
 
-    pub async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
-        let variables = details_query::Variables {
-            id: id.parse::<i64>().unwrap(),
-        };
-        let body = DetailsQuery::build_query(variables);
-        let details = client
-            .post("")
-            .body_json(&body)
-            .unwrap()
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Response<details_query::ResponseData>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data
-            .unwrap()
-            .media
-            .unwrap();
-        let mut images = Vec::from_iter(details.cover_image.map(|i| i.extra_large.unwrap()));
-        if let Some(i) = details.banner_image {
-            images.push(i);
-        }
-        let images = images
-            .into_iter()
-            .map(|i| MetadataImage {
-                url: StoredUrl::Url(i),
-                lot: MetadataImageLot::Poster,
-            })
-            .unique()
-            .collect();
-        let mut genres = details
-            .genres
-            .into_iter()
-            .flatten()
-            .map(|t| t.unwrap())
-            .collect_vec();
-        genres.extend(
-            details
-                .tags
-                .unwrap_or_default()
-                .into_iter()
-                .flatten()
-                .map(|t| t.name),
-        );
-        let creators = Vec::from_iter(details.staff)
-            .into_iter()
-            .flat_map(|s| s.edges.unwrap())
-            .flatten()
-            .map(|s| {
-                let node = s.node.unwrap();
-                MetadataCreator {
-                    name: node.name.unwrap().full.unwrap(),
-                    role: s.role.unwrap(),
-                    image: node.image.unwrap().large,
-                }
-            })
-            .unique()
-            .collect_vec();
-        let (specifics, lot) = match details.type_.unwrap() {
-            details_query::MediaType::ANIME => (
-                MediaSpecifics::Anime(AnimeSpecifics {
-                    episodes: details.episodes.map(|c| c.try_into().unwrap()),
-                }),
-                MetadataLot::Anime,
-            ),
-            details_query::MediaType::MANGA => (
-                MediaSpecifics::Manga(MangaSpecifics {
-                    chapters: details.chapters.map(|c| c.try_into().unwrap()),
-                    volumes: details.volumes.map(|v| v.try_into().unwrap()),
-                }),
-                MetadataLot::Manga,
-            ),
-            details_query::MediaType::Other(_) => unreachable!(),
-        };
-
-        let year = details
-            .start_date
-            .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
-        Ok(MediaDetails {
-            identifier: details.id.to_string(),
-            title: details.title.unwrap().user_preferred.unwrap(),
-            production_status: "Released".to_owned(),
-            source: MetadataSource::Anilist,
-            description: details.description,
-            lot,
-            creators,
-            images,
-            genres: genres.into_iter().unique().collect(),
-            publish_year: year,
-            publish_date: None,
-            specifics,
+    let suggestions = details
+        .recommendations
+        .unwrap()
+        .nodes
+        .unwrap()
+        .into_iter()
+        .map(|r| {
+            let data = r.unwrap().media_recommendation.unwrap();
+            MetadataSuggestion {
+                title: data.title.unwrap().user_preferred.unwrap(),
+                identifier: data.id.to_string(),
+                source: MetadataSource::Anilist,
+                lot: match data.type_.unwrap() {
+                    details_query::MediaType::ANIME => MetadataLot::Anime,
+                    details_query::MediaType::MANGA => MetadataLot::Manga,
+                    details_query::MediaType::Other(_) => unreachable!(),
+                },
+                image: data.cover_image.unwrap().extra_large,
+            }
         })
-    }
+        .collect();
+    Ok(MediaDetails {
+        identifier: details.id.to_string(),
+        title: details.title.unwrap().user_preferred.unwrap(),
+        production_status: "Released".to_owned(),
+        source: MetadataSource::Anilist,
+        description: details.description,
+        lot,
+        creators,
+        images,
+        genres: genres.into_iter().unique().collect(),
+        publish_year: year,
+        publish_date: None,
+        specifics,
+        suggestions,
+    })
+}
 
-    pub async fn search(
-        client: &Client,
-        media_type: search_query::MediaType,
-        query: &str,
-        page: Option<i32>,
-        page_limit: i32,
-    ) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
-        let page = page.unwrap_or(1);
-        let variables = search_query::Variables {
-            page: page.into(),
-            search: query.to_owned(),
-            type_: media_type,
-            per_page: page_limit.into(),
-        };
-        let body = SearchQuery::build_query(variables);
-        let search = client
-            .post("")
-            .body_json(&body)
-            .unwrap()
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Response<search_query::ResponseData>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data
-            .unwrap()
-            .page
-            .unwrap();
-        let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-        let next_page = if total - (page * page_limit) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
-        let media = search
-            .media
-            .unwrap()
-            .into_iter()
-            .flatten()
-            .map(|b| MediaSearchItem {
-                identifier: b.id.to_string(),
-                title: b.title.unwrap().user_preferred.unwrap(),
-                image: b.banner_image,
-                publish_year: b
-                    .start_date
-                    .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
-            })
-            .collect();
-        Ok((media, total, next_page))
-    }
+async fn search(
+    client: &Client,
+    media_type: search_query::MediaType,
+    query: &str,
+    page: Option<i32>,
+    page_limit: i32,
+) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
+    let page = page.unwrap_or(1);
+    let variables = search_query::Variables {
+        page: page.into(),
+        search: query.to_owned(),
+        type_: media_type,
+        per_page: page_limit.into(),
+    };
+    let body = SearchQuery::build_query(variables);
+    let search = client
+        .post("")
+        .body_json(&body)
+        .unwrap()
+        .send()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .body_json::<Response<search_query::ResponseData>>()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .data
+        .unwrap()
+        .page
+        .unwrap();
+    let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+    let next_page = if total - (page * page_limit) > 0 {
+        Some(page + 1)
+    } else {
+        None
+    };
+    let media = search
+        .media
+        .unwrap()
+        .into_iter()
+        .flatten()
+        .map(|b| MediaSearchItem {
+            identifier: b.id.to_string(),
+            title: b.title.unwrap().user_preferred.unwrap(),
+            image: b.banner_image,
+            publish_year: b
+                .start_date
+                .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+        })
+        .collect();
+    Ok((media, total, next_page))
 }
