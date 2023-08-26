@@ -350,6 +350,21 @@ export default function ({ children }: { children: ReactElement }) {
 			: withQuery(APP_ROUTES.media.list, { lot: link.label.toLowerCase() }),
 	}));
 
+	const fitnessLinks = [
+		...(Object.entries(userPreferences?.data?.featuresEnabled.fitness || {})
+			.filter(([v, _]) => v !== "enabled")
+			.map(([name, enabled]) => ({ name, enabled }))
+			?.filter((f) => f.enabled)
+			.map((f) => ({
+				label: changeCase(f.name.toString()),
+				href: `${(APP_ROUTES.fitness as any)[f.name]}`,
+			})) || []),
+		{ label: "Exercises", href: APP_ROUTES.fitness.exercises.list },
+	].map((link, _index) => ({
+		label: link.label,
+		link: link.href,
+	}));
+
 	const logoutUser = useMutation({
 		mutationFn: async () => {
 			try {
@@ -455,16 +470,7 @@ export default function ({ children }: { children: ReactElement }) {
 										}),
 									)
 								}
-								links={[
-									{
-										label: "Exercises",
-										link: APP_ROUTES.fitness.exercises.list,
-									},
-									{
-										label: "Measurements",
-										link: APP_ROUTES.fitness.measurements,
-									},
-								]}
+								links={fitnessLinks}
 							/>
 						) : undefined}
 						<LinksGroup
