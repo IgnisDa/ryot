@@ -911,8 +911,8 @@ impl MiscellaneousMutation {
     }
 
     /// Merge a media item into another. This will move all `seen`, `collection`
-    /// and `review`associations with the new user and then delete the old media
-    // item completely.
+    /// and `review` associations with the new user and then delete the old media
+    /// item completely.
     async fn merge_metadata(
         &self,
         gql_ctx: &Context<'_>,

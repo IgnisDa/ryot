@@ -692,7 +692,8 @@ export type MutationRoot = {
   logoutUser: Scalars['Boolean']['output'];
   /**
    * Merge a media item into another. This will move all `seen`, `collection`
-   * and `review`associations with the new user and then delete the old media
+   * and `review` associations with the new user and then delete the old media
+   * item completely.
    */
   mergeMetadata: Scalars['Boolean']['output'];
   /** Create or update a review. */
