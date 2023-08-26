@@ -266,6 +266,12 @@ export type ExerciseAttributes = {
   muscles: Array<ExerciseMuscle>;
 };
 
+export type ExerciseBestSetRecord = {
+  data: WorkoutSetRecord;
+  setIdx: Scalars['Int']['output'];
+  workoutId: Scalars['String']['output'];
+};
+
 export enum ExerciseEquipment {
   Bands = 'BANDS',
   Barbell = 'BARBELL',
@@ -624,6 +630,13 @@ export enum MetadataSource {
   Tmdb = 'TMDB'
 }
 
+export type Model = {
+  exerciseId: Scalars['Int']['output'];
+  extraInformation: UserToExerciseExtraInformation;
+  lastUpdatedOn: Scalars['DateTime']['output'];
+  numTimesPerformed: Scalars['Int']['output'];
+};
+
 export type MovieSpecifics = {
   runtime?: Maybe<Scalars['Int']['output']>;
 };
@@ -975,10 +988,10 @@ export type QueryRoot = {
   creatorDetails: CreatorDetails;
   /** Get paginated list of creators. */
   creatorsList: MediaCreatorSearchResults;
-  /** Get information about an exercise. */
-  exercise: Exercise;
+  /** Get details about an exercise. */
+  exerciseDetails: Exercise;
   /** Get all the information related to exercises. */
-  exerciseInformation: ExerciseInformation;
+  exerciseParameters: ExerciseInformation;
   /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseSearchResults;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
@@ -1007,6 +1020,8 @@ export type QueryRoot = {
   userCreatorDetails: UserCreatorDetails;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
+  /** Get information about an exercise for a user. */
+  userExerciseDetails?: Maybe<Model>;
   /** Get all the integrations for the currently logged in user. */
   userIntegrations: Array<GraphqlUserIntegration>;
   /** Get all the measurements for a user. */
@@ -1042,7 +1057,7 @@ export type QueryRootCreatorsListArgs = {
 };
 
 
-export type QueryRootExerciseArgs = {
+export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['Int']['input'];
 };
 
@@ -1093,6 +1108,11 @@ export type QueryRootReviewByIdArgs = {
 
 export type QueryRootUserCreatorDetailsArgs = {
   creatorId: Scalars['Int']['input'];
+};
+
+
+export type QueryRootUserExerciseDetailsArgs = {
+  exerciseId: Scalars['Int']['input'];
 };
 
 
@@ -1180,6 +1200,13 @@ export enum SetLot {
   WarmUp = 'WARM_UP'
 }
 
+export type SetStatistic = {
+  distance?: Maybe<Scalars['Decimal']['output']>;
+  duration?: Maybe<Scalars['Decimal']['output']>;
+  reps?: Maybe<Scalars['Decimal']['output']>;
+  weight?: Maybe<Scalars['Decimal']['output']>;
+};
+
 export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Decimal']['input']>;
   duration?: InputMaybe<Scalars['Decimal']['input']>;
@@ -1242,6 +1269,15 @@ export type ShowsSummary = {
   watched: Scalars['Int']['output'];
   watchedEpisodes: Scalars['Int']['output'];
   watchedSeasons: Scalars['Int']['output'];
+};
+
+export type TotalMeasurement = {
+  distance: Scalars['Decimal']['output'];
+  duration: Scalars['Decimal']['output'];
+  /** The number of personal bests achieved. */
+  personalBestsAchieved: Scalars['Int']['output'];
+  reps: Scalars['Decimal']['output'];
+  weight: Scalars['Decimal']['output'];
 };
 
 export type UpdateUserInput = {
@@ -1549,6 +1585,22 @@ export type UserSummary = {
   media: UserMediaSummary;
 };
 
+export type UserToExerciseBestSetExtraInformation = {
+  lot: WorkoutSetPersonalBest;
+  sets: Array<ExerciseBestSetRecord>;
+};
+
+export type UserToExerciseExtraInformation = {
+  history: Array<UserToExerciseHistoryExtraInformation>;
+  lifetimeStats: TotalMeasurement;
+  personalBests: Array<UserToExerciseBestSetExtraInformation>;
+};
+
+export type UserToExerciseHistoryExtraInformation = {
+  idx: Scalars['Int']['output'];
+  workoutId: Scalars['String']['output'];
+};
+
 export enum UserWeightUnit {
   Kilogram = 'KILOGRAM',
   Pound = 'POUND'
@@ -1588,6 +1640,20 @@ export enum Visibility {
   Private = 'PRIVATE',
   Public = 'PUBLIC'
 }
+
+export enum WorkoutSetPersonalBest {
+  OneRm = 'ONE_RM',
+  Pace = 'PACE',
+  Time = 'TIME',
+  Volume = 'VOLUME',
+  Weight = 'WEIGHT'
+}
+
+export type WorkoutSetRecord = {
+  lot: SetLot;
+  personalBests: Array<WorkoutSetPersonalBest>;
+  statistic: SetStatistic;
+};
 
 export type AddMediaToCollectionMutationVariables = Exact<{
   input: AddMediaToCollection;
@@ -1879,17 +1945,17 @@ export type CreatorsListQueryVariables = Exact<{
 
 export type CreatorsListQuery = { creatorsList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: number, name: string, image?: string | null, mediaCount: number }> } };
 
-export type ExerciseQueryVariables = Exact<{
+export type ExerciseDetailsQueryVariables = Exact<{
   exerciseId: Scalars['Int']['input'];
 }>;
 
 
-export type ExerciseQuery = { exercise: { name: string, lot: ExerciseLot } };
+export type ExerciseDetailsQuery = { exerciseDetails: { name: string, lot: ExerciseLot } };
 
-export type ExerciseInformationQueryVariables = Exact<{ [key: string]: never; }>;
+export type ExerciseParametersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ExerciseInformationQuery = { exerciseInformation: { downloadRequired: boolean, filters: { type: Array<ExerciseLot>, level: Array<ExerciseLevel>, force: Array<ExerciseForce>, mechanic: Array<ExerciseMechanic>, equipment: Array<ExerciseEquipment>, muscle: Array<ExerciseMuscle> } } };
+export type ExerciseParametersQuery = { exerciseParameters: { downloadRequired: boolean, filters: { type: Array<ExerciseLot>, level: Array<ExerciseLevel>, force: Array<ExerciseForce>, mechanic: Array<ExerciseMechanic>, equipment: Array<ExerciseEquipment>, muscle: Array<ExerciseMuscle> } } };
 
 export type ExercisesListQueryVariables = Exact<{
   input: ExercisesListInput;
@@ -2054,8 +2120,8 @@ export const CoreDetailsDocument = {"kind":"Document","definitions":[{"kind":"Op
 export const CoreEnabledFeaturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fileStorage"}},{"kind":"Field","name":{"kind":"Name","value":"signupAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreEnabledFeaturesQuery, CoreEnabledFeaturesQueryVariables>;
 export const CreatorDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CreatorDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"creatorId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"creatorDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"creatorId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"creatorId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}}]}},{"kind":"Field","name":{"kind":"Name","value":"contents"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}}]}}]}}]} as unknown as DocumentNode<CreatorDetailsQuery, CreatorDetailsQueryVariables>;
 export const CreatorsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CreatorsList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"creatorsList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"mediaCount"}}]}}]}}]}}]} as unknown as DocumentNode<CreatorsListQuery, CreatorsListQueryVariables>;
-export const ExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Exercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"exerciseId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"exerciseId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"exerciseId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}}]}}]}}]} as unknown as DocumentNode<ExerciseQuery, ExerciseQueryVariables>;
-export const ExerciseInformationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExerciseInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exerciseInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"force"}},{"kind":"Field","name":{"kind":"Name","value":"mechanic"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}},{"kind":"Field","name":{"kind":"Name","value":"muscle"}}]}},{"kind":"Field","name":{"kind":"Name","value":"downloadRequired"}}]}}]}}]} as unknown as DocumentNode<ExerciseInformationQuery, ExerciseInformationQueryVariables>;
+export const ExerciseDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExerciseDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"exerciseId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exerciseDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"exerciseId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"exerciseId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}}]}}]}}]} as unknown as DocumentNode<ExerciseDetailsQuery, ExerciseDetailsQueryVariables>;
+export const ExerciseParametersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExerciseParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exerciseParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"force"}},{"kind":"Field","name":{"kind":"Name","value":"mechanic"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}},{"kind":"Field","name":{"kind":"Name","value":"muscle"}}]}},{"kind":"Field","name":{"kind":"Name","value":"downloadRequired"}}]}}]}}]} as unknown as DocumentNode<ExerciseParametersQuery, ExerciseParametersQueryVariables>;
 export const ExercisesListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ExercisesList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ExercisesListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"exercisesList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"attributes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"muscles"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ExercisesListQuery, ExercisesListQueryVariables>;
 export const GetPresignedUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPresignedUrl"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getPresignedUrl"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<GetPresignedUrlQuery, GetPresignedUrlQueryVariables>;
 export const ImportReportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"success"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"import"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ImportReportsQuery, ImportReportsQueryVariables>;

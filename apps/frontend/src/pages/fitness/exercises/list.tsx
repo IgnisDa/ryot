@@ -34,9 +34,9 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	ExerciseInformationDocument,
 	type ExerciseListFilter,
 	ExerciseLot,
+	ExerciseParametersDocument,
 	ExercisesListDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -99,11 +99,11 @@ const Page: NextPageWithLayout = () => {
 	const exerciseInformation = useQuery({
 		queryKey: ["exerciseInformation"],
 		queryFn: async () => {
-			const { exerciseInformation } = await gqlClient.request(
-				ExerciseInformationDocument,
+			const { exerciseParameters } = await gqlClient.request(
+				ExerciseParametersDocument,
 				{},
 			);
-			return exerciseInformation;
+			return exerciseParameters;
 		},
 		staleTime: Infinity,
 	});

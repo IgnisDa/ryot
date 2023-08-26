@@ -17,8 +17,8 @@ use crate::{
     config::AppConfig,
     entities::{
         exercise,
-        prelude::{Exercise, UserMeasurement},
-        user_measurement,
+        prelude::{Exercise, UserMeasurement, UserToExercise},
+        user_measurement, user_to_exercise,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -91,9 +91,9 @@ pub struct ExerciseQuery;
 #[Object]
 impl ExerciseQuery {
     /// Get all the information related to exercises.
-    async fn exercise_information(&self, gql_ctx: &Context<'_>) -> Result<ExerciseInformation> {
+    async fn exercise_parameters(&self, gql_ctx: &Context<'_>) -> Result<ExerciseInformation> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercise_information().await
+        service.exercise_parameters().await
     }
 
     /// Get a paginated list of exercises in the database.
@@ -106,10 +106,25 @@ impl ExerciseQuery {
         service.exercises_list(input).await
     }
 
-    /// Get information about an exercise.
-    async fn exercise(&self, gql_ctx: &Context<'_>, exercise_id: i32) -> Result<exercise::Model> {
+    /// Get details about an exercise.
+    async fn exercise_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        exercise_id: i32,
+    ) -> Result<exercise::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercise(exercise_id).await
+        service.exercise_details(exercise_id).await
+    }
+
+    /// Get information about an exercise for a user.
+    async fn user_exercise_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        exercise_id: i32,
+    ) -> Result<Option<user_to_exercise::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_exercise_details(exercise_id, user_id).await
     }
 
     /// Get all the measurements for a user.
@@ -202,7 +217,7 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
-    async fn exercise_information(&self) -> Result<ExerciseInformation> {
+    async fn exercise_parameters(&self) -> Result<ExerciseInformation> {
         let download_required = Exercise::find().count(&self.db).await? == 0;
         Ok(ExerciseInformation {
             filters: ExerciseFilters {
@@ -242,12 +257,23 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercise(&self, exercise_id: i32) -> Result<exercise::Model> {
+    async fn exercise_details(&self, exercise_id: i32) -> Result<exercise::Model> {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
             Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
         }
+    }
+
+    async fn user_exercise_details(
+        &self,
+        exercise_id: i32,
+        user_id: i32,
+    ) -> Result<Option<user_to_exercise::Model>> {
+        UserToExercise::find_by_id((user_id, exercise_id))
+            .one(&self.db)
+            .await
+            .map_err(|_e| Error::new("Unable to execute query"))
     }
 
     async fn exercises_list(

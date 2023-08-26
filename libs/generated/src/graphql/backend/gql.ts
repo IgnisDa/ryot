@@ -56,8 +56,8 @@ const documents = {
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query CreatorDetails($creatorId: Int!) {\n  creatorDetails(creatorId: $creatorId) {\n    details {\n      id\n      name\n      image\n    }\n    contents {\n      name\n      items {\n        lot\n        details {\n          identifier\n          title\n          image\n          publishYear\n        }\n      }\n    }\n  }\n}": types.CreatorDetailsDocument,
     "query CreatorsList($input: SearchInput!) {\n  creatorsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.CreatorsListDocument,
-    "query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}": types.ExerciseDocument,
-    "query ExerciseInformation {\n  exerciseInformation {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}": types.ExerciseInformationDocument,
+    "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}": types.ExerciseDetailsDocument,
+    "query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}": types.ExerciseParametersDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      lot\n      attributes {\n        images\n        muscles\n      }\n    }\n  }\n}": types.ExercisesListDocument,
     "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}": types.GetPresignedUrlDocument,
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
@@ -268,11 +268,11 @@ export function graphql(source: "query CreatorsList($input: SearchInput!) {\n  c
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}"): (typeof documents)["query Exercise($exerciseId: Int!) {\n  exercise(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}"];
+export function graphql(source: "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}"): (typeof documents)["query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query ExerciseInformation {\n  exerciseInformation {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}"): (typeof documents)["query ExerciseInformation {\n  exerciseInformation {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}"];
+export function graphql(source: "query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}"): (typeof documents)["query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

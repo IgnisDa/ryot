@@ -1,0 +1,6 @@
+query ExerciseDetails($exerciseId: Int!) {
+  exerciseDetails(exerciseId: $exerciseId) {
+    name
+    lot
+  }
+}
