@@ -1,5 +1,8 @@
 [workspace]
-members = ["apps/backend", "libs/rs-utils"]
+members = [
+    "apps/backend",
+    "libs/rs-utils",
+]
 resolver = "2"
 
 # Config for 'cargo dist'
@@ -11,12 +14,7 @@ ci = ["github"]
 # The installers to generate for each app
 installers = ["shell", "powershell"]
 # Target platforms to build apps for (Rust target-triple syntax)
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "x86_64-pc-windows-msvc",
-    "aarch64-apple-darwin",
-]
+targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
@@ -24,8 +22,3 @@ inherits = "release"
 opt-level = 's'
 strip = true
 lto = "thin"
-
-[patch.crates-io]
-sea-orm = { path = "./tmp/sea-orm" }
-sea-orm-migration = { path = "./tmp/sea-orm/sea-orm-migration" }
-sea-schema = { path = "./tmp/sea-schema" }
