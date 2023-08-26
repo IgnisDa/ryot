@@ -82,6 +82,7 @@ use crate::{
         igdb::IgdbService,
         itunes::ITunesService,
         listennotes::ListennotesService,
+        manga_updates::MangaUpdatesService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
@@ -909,8 +910,9 @@ impl MiscellaneousMutation {
         service.deploy_update_metadata_job(metadata_id).await
     }
 
-    /// Merge a media item into another. This will move all `seen` and `review`
-    /// items with the new user and then delete the old media item completely.
+    /// Merge a media item into another. This will move all `seen`, `collection`
+    /// and `review` associations with the new user and then delete the old media
+    /// item completely.
     async fn merge_metadata(
         &self,
         gql_ctx: &Context<'_>,
@@ -1367,6 +1369,8 @@ impl MiscellaneousService {
         let identifier = &model.identifier;
         let source_url = match model.source {
             MetadataSource::Custom => None,
+            // DEV: This is updated by the specifics
+            MetadataSource::MangaUpdates => None,
             MetadataSource::Itunes => Some(format!(
                 "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
             )),
@@ -1451,6 +1455,9 @@ impl MiscellaneousService {
                 resp.anime_specifics = Some(a);
             }
             MediaSpecifics::Manga(a) => {
+                if a.url.is_some() {
+                    resp.source_url = a.url.clone();
+                }
                 resp.manga_specifics = Some(a);
             }
             MediaSpecifics::Unknown => {}
@@ -2791,6 +2798,13 @@ impl MiscellaneousService {
             },
             MetadataSource::Igdb => Box::new(
                 IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
+            ),
+            MetadataSource::MangaUpdates => Box::new(
+                MangaUpdatesService::new(
+                    &self.config.manga.manga_updates,
+                    self.config.frontend.page_size,
+                )
+                .await,
             ),
             MetadataSource::Custom => return err(),
         };
@@ -4221,7 +4235,8 @@ impl MiscellaneousService {
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
-            MetadataLot::Anime | MetadataLot::Manga => vec![MetadataSource::Anilist],
+            MetadataLot::Anime => vec![MetadataSource::Anilist],
+            MetadataLot::Manga => vec![MetadataSource::Anilist, MetadataSource::MangaUpdates],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
         }
     }
@@ -4257,6 +4272,10 @@ impl MiscellaneousService {
                     MetadataSource::Igdb => (
                         IgdbService::supported_languages(),
                         IgdbService::default_language(),
+                    ),
+                    MetadataSource::MangaUpdates => (
+                        MangaUpdatesService::supported_languages(),
+                        MangaUpdatesService::default_language(),
                     ),
                     MetadataSource::Anilist => (
                         AnilistService::supported_languages(),

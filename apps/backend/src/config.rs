@@ -156,10 +156,17 @@ impl IsFeatureEnabled for MovieConfig {}
 pub struct MangaAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MANGA_MANGA_UPDATES_")]
+pub struct MangaMangaUpdatesConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 pub struct MangaConfig {
     /// Settings related to Anilist (manga).
     #[setting(nested)]
     pub anilist: MangaAnilistConfig,
+    /// Settings related to MangaUpdates.
+    #[setting(nested)]
+    pub manga_updates: MangaMangaUpdatesConfig,
 }
 
 impl IsFeatureEnabled for MangaConfig {}

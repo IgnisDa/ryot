@@ -67,6 +67,8 @@ pub enum MetadataSource {
     Itunes,
     #[sea_orm(string_value = "LI")]
     Listennotes,
+    #[sea_orm(string_value = "MU")]
+    MangaUpdates,
     #[sea_orm(string_value = "OL")]
     Openlibrary,
     #[sea_orm(string_value = "TM")]

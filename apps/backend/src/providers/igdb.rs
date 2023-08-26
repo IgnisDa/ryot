@@ -80,7 +80,7 @@ struct IgdbSearchResponse {
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
-    similar_games: Option<Vec<Box<IgdbSearchResponse>>>,
+    similar_games: Option<Vec<IgdbSearchResponse>>,
 }
 
 #[derive(Debug, Clone)]

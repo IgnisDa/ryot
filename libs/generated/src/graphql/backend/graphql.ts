@@ -479,11 +479,13 @@ export type LoginResult = LoginError | LoginResponse;
 
 export type MangaSpecifics = {
   chapters?: Maybe<Scalars['Int']['output']>;
+  url?: Maybe<Scalars['String']['output']>;
   volumes?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MangaSpecificsInput = {
   chapters?: InputMaybe<Scalars['Int']['input']>;
+  url?: InputMaybe<Scalars['String']['input']>;
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -617,6 +619,7 @@ export enum MetadataSource {
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
+  MangaUpdates = 'MANGA_UPDATES',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB'
 }
@@ -688,8 +691,9 @@ export type MutationRoot = {
   /** Logout a user from the server and delete their login token. */
   logoutUser: Scalars['Boolean']['output'];
   /**
-   * Merge a media item into another. This will move all `seen` and `review`
-   * items with the new user and then delete the old media item completely.
+   * Merge a media item into another. This will move all `seen`, `collection`
+   * and `review` associations with the new user and then delete the old media
+   * item completely.
    */
   mergeMetadata: Scalars['Boolean']['output'];
   /** Create or update a review. */
