@@ -116,9 +116,15 @@ export interface MangaAnilistConfig {
 
 }
 
+export interface MangaMangaUpdatesConfig {
+
+}
+
 export interface MangaConfig {
 	/** Settings related to Anilist (manga). */
 	anilist: MangaAnilistConfig;
+	/** Settings related to MangaUpdates. */
+	mangaUpdates: MangaMangaUpdatesConfig;
 }
 
 export interface MediaConfig {

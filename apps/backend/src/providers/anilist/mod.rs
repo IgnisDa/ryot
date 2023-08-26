@@ -209,6 +209,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             MediaSpecifics::Manga(MangaSpecifics {
                 chapters: details.chapters.map(|c| c.try_into().unwrap()),
                 volumes: details.volumes.map(|v| v.try_into().unwrap()),
+                url: None,
             }),
             MetadataLot::Manga,
         ),

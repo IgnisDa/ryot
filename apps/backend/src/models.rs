@@ -313,6 +313,7 @@ pub mod media {
     pub struct MangaSpecifics {
         pub chapters: Option<i32>,
         pub volumes: Option<i32>,
+        pub url: Option<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
