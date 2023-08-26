@@ -3880,6 +3880,9 @@ impl MiscellaneousService {
                         "enabled" => {
                             preferences.features_enabled.fitness.enabled = value_bool.unwrap()
                         }
+                        "measurements" => {
+                            preferences.features_enabled.fitness.measurements = value_bool.unwrap()
+                        }
                         _ => return Err(err()),
                     },
                     "media" => {

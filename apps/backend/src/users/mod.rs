@@ -65,11 +65,15 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 #[serde(default)]
 pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
+    pub measurements: bool,
 }
 
 impl Default for UserFitnessFeaturesEnabledPreferences {
     fn default() -> Self {
-        Self { enabled: true }
+        Self {
+            enabled: true,
+            measurements: true,
+        }
     }
 }
 

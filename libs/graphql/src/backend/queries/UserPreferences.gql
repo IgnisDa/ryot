@@ -50,6 +50,7 @@ query UserPreferences {
     featuresEnabled {
       fitness {
         enabled
+        measurements
       }
       media {
         enabled
