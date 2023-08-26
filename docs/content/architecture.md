@@ -65,6 +65,9 @@ $ ssh -R ryot:80:0.0.0.0:8000 serveo.net
 This will expose your local server on `https://ryot.serveo.net`. You can use this URL
 in Jellyfin etc. to test events sent to your local Ryot instance.
 
+Another helpful tool is [Webhook.site](https://webhook.site/). It can be used to inspect
+the requests sent to your server.
+
 ### Version Control
 
 Unless it is a very small change, I prefer creating a separate branch and merging it via an
