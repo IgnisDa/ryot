@@ -691,8 +691,8 @@ export type MutationRoot = {
   /** Logout a user from the server and delete their login token. */
   logoutUser: Scalars['Boolean']['output'];
   /**
-   * Merge a media item into another. This will move all `seen` and `review`
-   * items with the new user and then delete the old media item completely.
+   * Merge a media item into another. This will move all `seen`, `collection`
+   * and `review`associations with the new user and then delete the old media
    */
   mergeMetadata: Scalars['Boolean']['output'];
   /** Create or update a review. */

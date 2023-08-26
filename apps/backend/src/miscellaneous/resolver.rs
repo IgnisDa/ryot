@@ -910,8 +910,9 @@ impl MiscellaneousMutation {
         service.deploy_update_metadata_job(metadata_id).await
     }
 
-    /// Merge a media item into another. This will move all `seen` and `review`
-    /// items with the new user and then delete the old media item completely.
+    /// Merge a media item into another. This will move all `seen`, `collection`
+    /// and `review`associations with the new user and then delete the old media
+    // item completely.
     async fn merge_metadata(
         &self,
         gql_ctx: &Context<'_>,
@@ -1454,7 +1455,9 @@ impl MiscellaneousService {
                 resp.anime_specifics = Some(a);
             }
             MediaSpecifics::Manga(a) => {
-                resp.source_url = a.url.clone();
+                if a.url.is_some() {
+                    resp.source_url = a.url.clone();
+                }
                 resp.manga_specifics = Some(a);
             }
             MediaSpecifics::Unknown => {}
