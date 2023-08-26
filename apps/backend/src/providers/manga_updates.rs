@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use convert_case::{Case, Casing};
 use http_types::mime;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
@@ -11,16 +9,16 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataSuggestion,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client},
+    utils::get_base_http_client,
 };
 
-pub static URL: &str = "https://api.mangaupdates.com/v1/series/";
+pub static URL: &str = "https://api.mangaupdates.com/v1/";
 
 #[derive(Debug, Clone)]
 pub struct MangaUpdatesService {
@@ -56,10 +54,33 @@ struct ItemImage {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ItemGenre {
+    genre: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ItemAuthor {
+    author_id: Option<i128>,
+    id: Option<i128>,
+    name: String,
+    image: Option<ItemImage>,
+    #[serde(rename = "type")]
+    lot: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ItemRecord {
     series_id: i128,
+    title: Option<String>,
+    description: Option<String>,
+    image: Option<ItemImage>,
+    status: Option<String>,
+    url: Option<String>,
+    authors: Option<Vec<ItemAuthor>>,
+    genres: Option<Vec<ItemGenre>>,
+    recommendations: Option<Vec<ItemRecord>>,
+    latest_chapter: Option<i32>,
     year: Option<String>,
-    image: ItemImage,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -77,11 +98,79 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        todo!()
-        // let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
-        // let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        // let d = self.google_books_response_to_search_response(data.volume_info, data.id);
-        // Ok(d)
+        let data: ItemRecord = self
+            .client
+            .get(format!("series/{}", identifier))
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut creators = vec![];
+        for author in data.authors.unwrap_or_default() {
+            let data: ItemAuthor = self
+                .client
+                .get(format!("authors/{}", author.author_id.unwrap()))
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            creators.push(MetadataCreator {
+                name: data.name,
+                role: author.lot.unwrap(),
+                image: data.image.unwrap().url.original,
+            });
+        }
+        let mut suggestions = vec![];
+        for series in data.recommendations.unwrap_or_default() {
+            let data: ItemRecord = self
+                .client
+                .get(format!("series/{}", series.series_id))
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            suggestions.push(MetadataSuggestion {
+                title: data.title.unwrap(),
+                image: data.image.unwrap().url.original,
+                identifier: data.series_id.to_string(),
+                source: MetadataSource::MangaUpdates,
+                lot: MetadataLot::Manga,
+            });
+        }
+        let data = MediaDetails {
+            identifier: data.series_id.to_string(),
+            title: data.title.unwrap(),
+            description: data.description,
+            source: MetadataSource::MangaUpdates,
+            lot: MetadataLot::Manga,
+            production_status: data.status.unwrap_or_else(|| "Released".to_string()),
+            genres: data
+                .genres
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| g.genre)
+                .collect(),
+            images: Vec::from_iter(data.image.unwrap().url.original)
+                .into_iter()
+                .map(|i| MetadataImage {
+                    url: StoredUrl::Url(i),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect(),
+            publish_date: None,
+            publish_year: data.year.and_then(|y| y.parse().ok()),
+            specifics: MediaSpecifics::Manga(MangaSpecifics {
+                chapters: data.latest_chapter,
+                volumes: None,
+                url: data.url,
+            }),
+            creators,
+            suggestions,
+        };
+        Ok(data)
     }
 
     async fn search(
@@ -90,9 +179,9 @@ impl MediaProvider for MangaUpdatesService {
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let search: SearchResponse = self
             .client
-            .post("search")
+            .post("series/search")
             .body_json(&serde_json::json!({
                 "search": query,
                 "perpage": self.page_limit,
@@ -100,16 +189,18 @@ impl MediaProvider for MangaUpdatesService {
             }))
             .unwrap()
             .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
             .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let items = search
             .results
             .into_iter()
             .map(|s| MediaSearchItem {
                 identifier: s.record.series_id.to_string(),
                 title: s.hit_title,
-                image: s.record.image.url.original,
-                publish_year: s.record.year.and_then(|y| convert_date_to_year(&y)),
+                image: s.record.image.unwrap().url.original,
+                publish_year: s.record.year.and_then(|y| y.parse().ok()),
             })
             .collect();
         let next_page = if search.total_hits - ((page) * self.page_limit) > 0 {
