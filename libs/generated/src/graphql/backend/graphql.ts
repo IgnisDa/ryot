@@ -479,11 +479,13 @@ export type LoginResult = LoginError | LoginResponse;
 
 export type MangaSpecifics = {
   chapters?: Maybe<Scalars['Int']['output']>;
+  url?: Maybe<Scalars['String']['output']>;
   volumes?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MangaSpecificsInput = {
   chapters?: InputMaybe<Scalars['Int']['input']>;
+  url?: InputMaybe<Scalars['String']['input']>;
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -617,6 +619,7 @@ export enum MetadataSource {
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
+  MangaUpdates = 'MANGA_UPDATES',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB'
 }
