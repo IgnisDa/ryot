@@ -59,6 +59,11 @@ struct ItemGenre {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ItemCategory {
+    category: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ItemAuthor {
     author_id: Option<i128>,
     id: Option<i128>,
@@ -79,6 +84,7 @@ struct ItemRecord {
     url: Option<String>,
     authors: Option<Vec<ItemAuthor>>,
     genres: Option<Vec<ItemGenre>>,
+    categories: Option<Vec<ItemCategory>>,
     recommendations: Option<Vec<ItemRecord>>,
     related_series: Option<Vec<ItemRecord>>,
     latest_chapter: Option<i32>,
@@ -166,6 +172,12 @@ impl MediaProvider for MangaUpdatesService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.genre)
+                .chain(
+                    data.categories
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|r| r.category),
+                )
                 .collect(),
             images: Vec::from_iter(data.image.unwrap().url.original)
                 .into_iter()
