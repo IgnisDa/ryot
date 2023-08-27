@@ -420,7 +420,7 @@ impl ExerciseService {
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
-                muscles: ActiveValue::Set(muscles),
+                muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(ExerciseAttributes {
                     muscles: vec![],
                     instructions: ex.attributes.instructions,

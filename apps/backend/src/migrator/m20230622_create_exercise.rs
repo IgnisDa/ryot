@@ -1,11 +1,51 @@
 use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonArrayQueryResult};
+use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Enum,
+    Copy,
+    Deserialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Display,
+    EnumIter,
+    PartialOrd,
+    Ord,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ExerciseMuscle {
+    Abdominals,
+    Abductors,
+    Adductors,
+    Biceps,
+    Calves,
+    Chest,
+    Forearms,
+    Glutes,
+    Hamstrings,
+    Lats,
+    #[strum(serialize = "lower_back")]
+    #[serde(alias = "lower back")]
+    LowerBack,
+    #[strum(serialize = "middle_back")]
+    #[serde(alias = "middle back")]
+    MiddleBack,
+    Neck,
+    Quadriceps,
+    Shoulders,
+    Traps,
+    Triceps,
+}
 
 #[derive(
     Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
@@ -45,46 +85,6 @@ pub enum ExerciseMechanic {
     Compound,
     #[sea_orm(string_value = "I")]
     Isolation,
-}
-
-#[derive(
-    Debug,
-    Clone,
-    Serialize,
-    Enum,
-    Copy,
-    Deserialize,
-    FromJsonArrayQueryResult,
-    Eq,
-    PartialEq,
-    Display,
-    EnumIter,
-    PartialOrd,
-    Ord,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum ExerciseMuscle {
-    Abdominals,
-    Abductors,
-    Adductors,
-    Biceps,
-    Calves,
-    Chest,
-    Forearms,
-    Glutes,
-    Hamstrings,
-    Lats,
-    #[strum(serialize = "lower_back")]
-    #[serde(alias = "lower back")]
-    LowerBack,
-    #[strum(serialize = "middle_back")]
-    #[serde(alias = "middle back")]
-    MiddleBack,
-    Neck,
-    Quadriceps,
-    Shoulders,
-    Traps,
-    Triceps,
 }
 
 #[derive(
