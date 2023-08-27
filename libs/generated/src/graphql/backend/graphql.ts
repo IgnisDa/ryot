@@ -1620,11 +1620,13 @@ export enum UserWeightUnit {
 
 export type UserWorkoutInput = {
   comment?: InputMaybe<Scalars['String']['input']>;
+  distanceUnit: UserDistanceUnit;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;
   name?: InputMaybe<Scalars['String']['input']>;
   startTime: Scalars['DateTime']['input'];
   supersets: Array<Array<Scalars['Int']['input']>>;
+  weightUnit: UserWeightUnit;
 };
 
 export type UserWorkoutSetRecord = {

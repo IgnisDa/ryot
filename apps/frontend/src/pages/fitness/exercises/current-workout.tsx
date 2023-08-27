@@ -103,7 +103,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 const StatInput = (props: {
 	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof ExerciseSet["stats"];
+	stat: keyof ExerciseSet["statistics"];
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -113,15 +113,14 @@ const StatInput = (props: {
 			<NumberInput
 				type="number"
 				value={
-					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx].stats[
-						props.stat
-					]
+					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
+						.statistics[props.stat]
 				}
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
 							const value = typeof v === "number" ? v : undefined;
-							draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
+							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistics[
 								props.stat
 							] = value;
 							if (value === undefined)
@@ -389,18 +388,18 @@ const ExerciseDisplay = (props: {
 													.with(
 														ExerciseLot.DistanceAndDuration,
 														() =>
-															typeof s.stats.distance === "number" &&
-															typeof s.stats.duration === "number",
+															typeof s.statistics.distance === "number" &&
+															typeof s.statistics.duration === "number",
 													)
 													.with(
 														ExerciseLot.Duration,
-														() => typeof s.stats.duration === "number",
+														() => typeof s.statistics.duration === "number",
 													)
 													.with(
 														ExerciseLot.RepsAndWeight,
 														() =>
-															typeof s.stats.reps === "number" &&
-															typeof s.stats.weight === "number",
+															typeof s.statistics.reps === "number" &&
+															typeof s.statistics.weight === "number",
 													)
 													.exhaustive()
 											}
@@ -432,7 +431,7 @@ const ExerciseDisplay = (props: {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].sets.push({
-									stats: {},
+									statistics: {},
 									lot: SetLot.Normal,
 									confirmed: false,
 								});

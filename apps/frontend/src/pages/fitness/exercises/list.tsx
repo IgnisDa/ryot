@@ -346,7 +346,11 @@ const Page: NextPageWithLayout = () => {
 												lot: exercise.lot,
 												name: exercise.name,
 												sets: [
-													{ confirmed: false, stats: {}, lot: SetLot.Normal },
+													{
+														confirmed: false,
+														statistics: {},
+														lot: SetLot.Normal,
+													},
 												],
 												notes: [],
 											});
