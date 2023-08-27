@@ -302,12 +302,6 @@ export enum ExerciseForce {
   Static = 'STATIC'
 }
 
-export type ExerciseInformation = {
-  downloadRequired: Scalars['Boolean']['output'];
-  /** All filters applicable to an exercises query. */
-  filters: ExerciseFilters;
-};
-
 export enum ExerciseLevel {
   Beginner = 'BEGINNER',
   Expert = 'EXPERT',
@@ -353,6 +347,12 @@ export enum ExerciseMuscle {
   Traps = 'TRAPS',
   Triceps = 'TRICEPS'
 }
+
+export type ExerciseParameters = {
+  downloadRequired: Scalars['Boolean']['output'];
+  /** All filters applicable to an exercises query. */
+  filters: ExerciseFilters;
+};
 
 export type ExerciseSearchResults = {
   details: SearchDetails;
@@ -990,8 +990,8 @@ export type QueryRoot = {
   creatorsList: MediaCreatorSearchResults;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
-  /** Get all the information related to exercises. */
-  exerciseParameters: ExerciseInformation;
+  /** Get all the parameters related to exercises. */
+  exerciseParameters: ExerciseParameters;
   /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseSearchResults;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */

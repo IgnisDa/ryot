@@ -62,7 +62,7 @@ struct ExercisesListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct ExerciseInformation {
+struct ExerciseParameters {
     /// All filters applicable to an exercises query.
     filters: ExerciseFilters,
     download_required: bool,
@@ -90,8 +90,8 @@ pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
-    /// Get all the information related to exercises.
-    async fn exercise_parameters(&self, gql_ctx: &Context<'_>) -> Result<ExerciseInformation> {
+    /// Get all the parameters related to exercises.
+    async fn exercise_parameters(&self, gql_ctx: &Context<'_>) -> Result<ExerciseParameters> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.exercise_parameters().await
     }
@@ -217,9 +217,9 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
-    async fn exercise_parameters(&self) -> Result<ExerciseInformation> {
+    async fn exercise_parameters(&self) -> Result<ExerciseParameters> {
         let download_required = Exercise::find().count(&self.db).await? == 0;
-        Ok(ExerciseInformation {
+        Ok(ExerciseParameters {
             filters: ExerciseFilters {
                 lot: ExerciseLot::iter().collect_vec(),
                 level: ExerciseLevel::iter().collect_vec(),
