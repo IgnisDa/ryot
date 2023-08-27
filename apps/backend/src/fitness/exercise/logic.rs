@@ -22,7 +22,7 @@ use crate::{
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
-    users::UserExercisePreferences,
+    users::{UserDistanceUnit, UserExercisePreferences, UserWeightUnit},
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -103,6 +103,30 @@ pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
 }
 
+impl UserWorkoutSetRecord {
+    /// Convert all units to the metric system.
+    pub fn translate_units(
+        &mut self,
+        weight_unit: UserWeightUnit,
+        distance_unit: UserDistanceUnit,
+    ) {
+        if let Some(w) = self.statistic.weight.as_mut() {
+            let multiplier = match weight_unit {
+                UserWeightUnit::Kilogram => dec!(1),
+                UserWeightUnit::Pound => dec!(0.453),
+            };
+            *w = w.checked_mul(multiplier).unwrap();
+        }
+        if let Some(d) = self.statistic.distance.as_mut() {
+            let multiplier = match distance_unit {
+                UserDistanceUnit::Kilometer => dec!(1),
+                UserDistanceUnit::Mile => dec!(1.61),
+            };
+            *d = d.checked_mul(multiplier).unwrap();
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserExerciseInput {
     pub exercise_id: i32,
@@ -177,6 +201,8 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets {
+                let mut set = set.clone();
+                set.translate_units(preferences.weight_unit, preferences.distance_unit);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
