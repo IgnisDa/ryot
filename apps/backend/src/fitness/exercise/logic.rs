@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
 use rs_utils::LengthVec;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -22,7 +23,7 @@ use crate::{
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
-    users::{UserDistanceUnit, UserExercisePreferences, UserWeightUnit},
+    users::UserExercisePreferences,
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -32,7 +33,11 @@ fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
         .max_by_key(|(_, record)| {
             record.statistic.duration.unwrap_or(dec!(0))
                 + record.statistic.distance.unwrap_or(dec!(0))
-                + record.statistic.reps.unwrap_or(dec!(0))
+                + record
+                    .statistic
+                    .reps
+                    .map(|r| Decimal::from_u64(r.into()).unwrap())
+                    .unwrap_or(dec!(0))
                 + record.statistic.weight.unwrap_or(dec!(0))
         })
         .map(|(index, _)| index)
@@ -78,8 +83,6 @@ pub struct WorkoutInformation {
     /// the `exercise.idx`.
     pub supersets: Vec<Vec<u16>>,
     pub exercises: Vec<ProcessedExercise>,
-    pub weight_unit: UserWeightUnit,
-    pub distance_unit: UserDistanceUnit,
 }
 
 #[derive(
@@ -121,8 +124,6 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
-    pub weight_unit: UserWeightUnit,
-    pub distance_unit: UserDistanceUnit,
 }
 
 impl UserWorkoutInput {
@@ -287,8 +288,6 @@ impl UserWorkoutInput {
             information: WorkoutInformation {
                 supersets: self.supersets,
                 exercises,
-                weight_unit: self.weight_unit,
-                distance_unit: self.distance_unit,
             },
         };
         let insert: workout::ActiveModel = model.into();

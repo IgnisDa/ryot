@@ -877,13 +877,18 @@ pub mod fitness {
         Add,
         AddAssign,
     )]
-    pub struct TotalMeasurement {
+    pub struct TotalMeasurement<Dur = Decimal, Dis = Decimal, Wei = Decimal>
+    where
+        Dur: OutputType + Send,
+        Dis: OutputType + Send,
+        Wei: OutputType + Send,
+    {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
-        pub weight: Decimal,
-        pub reps: Decimal,
-        pub distance: Decimal,
-        pub duration: Decimal,
+        pub duration: Option<Dur>,
+        pub distance: Option<Dis>,
+        pub reps: Option<u16>,
+        pub weight: Option<Wei>,
     }
 
     #[derive(
@@ -915,11 +920,16 @@ pub mod fitness {
         InputObject,
     )]
     #[graphql(input_name = "SetStatisticInput")]
-    pub struct SetStatistic {
-        pub duration: Option<Decimal>,
-        pub distance: Option<Decimal>,
-        pub reps: Option<Decimal>,
-        pub weight: Option<Decimal>,
+    pub struct SetStatistic<Dur = Decimal, Dis = Decimal, Wei = Decimal>
+    where
+        Dur: OutputType + Send,
+        Dis: OutputType + Send,
+        Wei: OutputType + Send,
+    {
+        pub duration: Option<Dur>,
+        pub distance: Option<Dis>,
+        pub reps: Option<u16>,
+        pub weight: Option<Wei>,
     }
 
     #[derive(
