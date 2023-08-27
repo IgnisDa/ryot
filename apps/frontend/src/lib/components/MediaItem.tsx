@@ -20,6 +20,7 @@ import {
 	ScrollArea,
 	Text,
 	Tooltip,
+	TypographyStylesProvider,
 	createStyles,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -121,7 +122,9 @@ export const ReviewItemDisplay = ({
 				) : undefined}
 				{review.text ? (
 					!review.spoiler ? (
-						<Text dangerouslySetInnerHTML={{ __html: review.text }} />
+						<TypographyStylesProvider>
+							<div dangerouslySetInnerHTML={{ __html: review.text }} />
+						</TypographyStylesProvider>
 					) : (
 						<>
 							{!opened ? (

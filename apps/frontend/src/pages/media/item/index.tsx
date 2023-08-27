@@ -33,6 +33,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	TypographyStylesProvider,
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
@@ -829,11 +830,13 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<>
 									{mediaDetails.data.description ? (
-										<Text
-											dangerouslySetInnerHTML={{
-												__html: mediaDetails.data.description,
-											}}
-										/>
+										<TypographyStylesProvider>
+											<div
+												dangerouslySetInnerHTML={{
+													__html: mediaDetails.data.description,
+												}}
+											/>
+										</TypographyStylesProvider>
 									) : (
 										<Text fs="italic">No overview available</Text>
 									)}
