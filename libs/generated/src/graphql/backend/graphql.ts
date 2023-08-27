@@ -1619,7 +1619,6 @@ export type UserWorkoutInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   startTime: Scalars['DateTime']['input'];
   supersets: Array<Array<Scalars['Int']['input']>>;
-  unitType: UserUnitSystem;
 };
 
 export type UserWorkoutSetRecord = {

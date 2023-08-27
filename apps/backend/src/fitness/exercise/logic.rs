@@ -142,7 +142,6 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
-    pub unit_type: UserUnitSystem,
 }
 
 impl UserWorkoutInput {
@@ -201,7 +200,7 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets {
-                let set = set.clone().translate_units(self.unit_type);
+                let set = set.clone().translate_units(preferences.unit_system);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {

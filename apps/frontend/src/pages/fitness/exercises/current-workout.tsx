@@ -1,7 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
-import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -444,7 +443,6 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [playCompleteSound] = useSound("/completed.mp3", { interrupt: true });
-	const userPreferences = useUserPreferences();
 
 	const finishWorkout = async () => {
 		await router.replace(APP_ROUTES.dashboard);
@@ -461,7 +459,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return userPreferences.data ? (
+	return (
 		<>
 			<Head>
 				<title>Current Workout | Ryot</title>
@@ -546,10 +544,8 @@ const Page: NextPageWithLayout = () => {
 											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
 										if (yes) {
-											const input = currentWorkoutToCreateWorkoutInput(
-												currentWorkout,
-												userPreferences.data,
-											);
+											const input =
+												currentWorkoutToCreateWorkoutInput(currentWorkout);
 											createUserWorkout.mutate(input);
 											playCompleteSound();
 											await finishWorkout();
@@ -569,8 +565,6 @@ const Page: NextPageWithLayout = () => {
 				)}
 			</Container>
 		</>
-	) : (
-		<LoadingPage />
 	);
 };
 

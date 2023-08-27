@@ -2,7 +2,6 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	type ExerciseLot,
 	type SetLot,
-	type UserPreferences,
 	type UserWorkoutSetRecord,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
@@ -64,7 +63,6 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 
 export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
-	prefs: UserPreferences,
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
@@ -74,7 +72,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 			comment: currentWorkout.comment,
 			supersets: [],
 			exercises: [],
-			unitType: prefs.fitness.exercises.unitSystem,
 		},
 	};
 	for (const exercise of currentWorkout.exercises) {
