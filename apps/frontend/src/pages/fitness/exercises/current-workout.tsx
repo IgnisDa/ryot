@@ -103,7 +103,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 const StatInput = (props: {
 	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof ExerciseSet["statistics"];
+	stat: keyof ExerciseSet["statistic"];
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -114,13 +114,13 @@ const StatInput = (props: {
 				type="number"
 				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
-						.statistics[props.stat]
+						.statistic[props.stat]
 				}
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
 							const value = typeof v === "number" ? v : undefined;
-							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistics[
+							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
 							] = value;
 							if (value === undefined)
@@ -388,18 +388,18 @@ const ExerciseDisplay = (props: {
 													.with(
 														ExerciseLot.DistanceAndDuration,
 														() =>
-															typeof s.statistics.distance === "number" &&
-															typeof s.statistics.duration === "number",
+															typeof s.statistic.distance === "number" &&
+															typeof s.statistic.duration === "number",
 													)
 													.with(
 														ExerciseLot.Duration,
-														() => typeof s.statistics.duration === "number",
+														() => typeof s.statistic.duration === "number",
 													)
 													.with(
 														ExerciseLot.RepsAndWeight,
 														() =>
-															typeof s.statistics.reps === "number" &&
-															typeof s.statistics.weight === "number",
+															typeof s.statistic.reps === "number" &&
+															typeof s.statistic.weight === "number",
 													)
 													.exhaustive()
 											}
@@ -431,7 +431,7 @@ const ExerciseDisplay = (props: {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].sets.push({
-									statistics: {},
+									statistic: {},
 									lot: SetLot.Normal,
 									confirmed: false,
 								});

@@ -16,7 +16,7 @@ export type ExerciseSetStats = Immutable<{
 }>;
 
 export type ExerciseSet = Immutable<{
-	statistics: ExerciseSetStats;
+	statistic: ExerciseSetStats;
 	lot: SetLot;
 	confirmed: boolean;
 }>;
@@ -82,7 +82,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (set.confirmed) {
-				sets.push({ lot: set.lot, statistic: set.statistics });
+				sets.push({ lot: set.lot, statistic: set.statistic });
 			}
 		if (sets.length === 0) continue;
 		const notes = Array<string>();

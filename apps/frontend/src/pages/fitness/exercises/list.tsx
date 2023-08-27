@@ -348,7 +348,7 @@ const Page: NextPageWithLayout = () => {
 												sets: [
 													{
 														confirmed: false,
-														statistics: {},
+														statistic: {},
 														lot: SetLot.Normal,
 													},
 												],
