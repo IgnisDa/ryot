@@ -1,8 +1,10 @@
 import type { NextPageWithLayout } from "../../_app";
+import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	Box,
 	Container,
 	Flex,
 	Image,
@@ -21,13 +23,28 @@ import {
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
-	IconMessageCircle2,
+	IconTrophy,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+
+const DisplayLifetimeStatistic = (props: {
+	val: any;
+	unit?: string;
+	stat: string;
+}) => {
+	return parseFloat(props.val) !== 0 ? (
+		<Flex mt={6} align={"center"} justify={"space-between"}>
+			<Text size="sm">Total {props.stat}</Text>
+			<Text size="sm">
+				{props.val} {props.unit}
+			</Text>
+		</Flex>
+	) : undefined;
+};
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -38,6 +55,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 		defaultValue: "overview",
 	});
+	const userPreferences = useUserPreferences();
 
 	const userExerciseDetails = useQuery({
 		queryKey: ["userExerciseDetails", exerciseId],
@@ -64,7 +82,7 @@ const Page: NextPageWithLayout = () => {
 		enabled: !!exerciseId,
 	});
 
-	return exerciseDetails.data ? (
+	return exerciseDetails.data && userPreferences.data ? (
 		<>
 			<Head>
 				<title>{exerciseDetails.data.name} | Ryot</title>
@@ -89,11 +107,8 @@ const Page: NextPageWithLayout = () => {
 							>
 								History
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="reviews"
-								icon={<IconMessageCircle2 size="1rem" />}
-							>
-								Reviews
+							<Tabs.Tab value="records" icon={<IconTrophy size="1rem" />}>
+								Records
 							</Tabs.Tab>
 						</Tabs.List>
 
@@ -137,25 +152,50 @@ const Page: NextPageWithLayout = () => {
 								<Text italic>No history found</Text>
 							)}
 						</Tabs.Panel>
-						{/*
-						<Tabs.Panel value="reviews">
-							{userExerciseDetails.data.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{userExerciseDetails.data.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												creatorId={exerciseId}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
+						<Tabs.Panel value="records">
+							{userExerciseDetails.data ? (
+								<Stack>
+									<Box>
+										<Text size="xs" color="dimmed">
+											LIFETIME STATS
+										</Text>
+										<DisplayLifetimeStatistic
+											stat="weight"
+											unit="KG"
+											val={
+												userExerciseDetails.data.details.extraInformation
+													.lifetimeStats.weight
+											}
+										/>
+										<DisplayLifetimeStatistic
+											stat="distance"
+											unit="KM"
+											val={
+												userExerciseDetails.data.details.extraInformation
+													.lifetimeStats.distance
+											}
+										/>
+										<DisplayLifetimeStatistic
+											stat="duration"
+											unit="MIN"
+											val={
+												userExerciseDetails.data.details.extraInformation
+													.lifetimeStats.duration
+											}
+										/>
+										<DisplayLifetimeStatistic
+											stat="reps"
+											val={
+												userExerciseDetails.data.details.extraInformation
+													.lifetimeStats.reps
+											}
+										/>
+									</Box>
+								</Stack>
 							) : (
-								<Text fs="italic">No reviews posted</Text>
+								<Text italic>No records found</Text>
 							)}
 						</Tabs.Panel>
-						*/}
 					</Tabs>
 				</Stack>
 			</Container>
