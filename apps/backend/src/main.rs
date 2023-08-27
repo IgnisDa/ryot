@@ -285,7 +285,7 @@ async fn main() -> Result<()> {
                     .build_fn(yank_integrations_data)
             })
             // application jobs
-            .register_with_count(1, move |c| {
+            .register_with_count(3, move |c| {
                 WorkerBuilder::new(format!("perform_application_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisRateLimitLayer::new(
