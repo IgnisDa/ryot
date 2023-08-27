@@ -23,7 +23,7 @@ use crate::{
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
-    users::{UserDistanceUnit, UserExercisePreferences, UserWeightUnit},
+    users::UserExercisePreferences,
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -83,8 +83,6 @@ pub struct WorkoutInformation {
     /// the `exercise.idx`.
     pub supersets: Vec<Vec<u16>>,
     pub exercises: Vec<ProcessedExercise>,
-    pub weight_unit: UserWeightUnit,
-    pub distance_unit: UserDistanceUnit,
 }
 
 #[derive(
@@ -126,8 +124,6 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
-    pub weight_unit: UserWeightUnit,
-    pub distance_unit: UserDistanceUnit,
 }
 
 impl UserWorkoutInput {
@@ -292,8 +288,6 @@ impl UserWorkoutInput {
             information: WorkoutInformation {
                 supersets: self.supersets,
                 exercises,
-                weight_unit: self.weight_unit,
-                distance_unit: self.distance_unit,
             },
         };
         let insert: workout::ActiveModel = model.into();

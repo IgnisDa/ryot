@@ -19,9 +19,7 @@ import {
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
-	UserDistanceUnit,
 	UserReviewScale,
-	UserWeightUnit,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
@@ -201,38 +199,6 @@ const Page: NextPageWithLayout = () => {
 					<Divider />
 					<Title order={2}>Exercises</Title>
 					<SimpleGrid cols={1}>
-						<Select
-							size="xs"
-							label="Unit to use for weight measurements"
-							data={Object.values(UserWeightUnit).map((c) => startCase(c))}
-							defaultValue={userPreferences.data.fitness.exercises.weightUnit}
-							disabled={!coreDetails.data.preferencesChangeAllowed}
-							onChange={(val) => {
-								if (val)
-									updateUserEnabledFeatures.mutate({
-										input: {
-											property: "fitness.exercises.weight_unit",
-											value: val,
-										},
-									});
-							}}
-						/>
-						<Select
-							size="xs"
-							label="Unit to use for distance measurements"
-							data={Object.values(UserDistanceUnit).map((c) => startCase(c))}
-							defaultValue={userPreferences.data.fitness.exercises.distanceUnit}
-							disabled={!coreDetails.data.preferencesChangeAllowed}
-							onChange={(val) => {
-								if (val)
-									updateUserEnabledFeatures.mutate({
-										input: {
-											property: "fitness.exercises.distance_unit",
-											value: val,
-										},
-									});
-							}}
-						/>
 						<Select
 							size="xs"
 							label="Unit system to use for measurements"

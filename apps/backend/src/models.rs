@@ -992,6 +992,8 @@ pub mod fitness {
                 WorkoutSetPersonalBest::Pace => self.calculate_pace(),
             }
         }
+
+        // pub fn translate_units
     }
 
     #[derive(

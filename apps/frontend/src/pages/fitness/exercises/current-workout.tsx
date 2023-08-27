@@ -35,8 +35,7 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	ExerciseLot,
 	SetLot,
-	UserDistanceUnit,
-	UserWeightUnit,
+	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -252,9 +251,9 @@ const ExerciseDisplay = (props: {
 						{distanceCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								DISTANCE (
-								{match(userPreferences.data.fitness.exercises.distanceUnit)
-									.with(UserDistanceUnit.Kilometer, () => "KM")
-									.with(UserDistanceUnit.Mile, () => "MI")
+								{match(userPreferences.data.fitness.exercises.unitSystem)
+									.with(UserUnitSystem.Metric, () => "KM")
+									.with(UserUnitSystem.Imperial, () => "MI")
 									.exhaustive()}
 								)
 							</Text>
@@ -262,9 +261,9 @@ const ExerciseDisplay = (props: {
 						{weightCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								WEIGHT (
-								{match(userPreferences.data.fitness.exercises.weightUnit)
-									.with(UserWeightUnit.Kilogram, () => "KG")
-									.with(UserWeightUnit.Pound, () => "LB")
+								{match(userPreferences.data.fitness.exercises.unitSystem)
+									.with(UserUnitSystem.Metric, () => "KG")
+									.with(UserUnitSystem.Imperial, () => "LB")
 									.exhaustive()}
 								)
 							</Text>
@@ -554,10 +553,8 @@ const Page: NextPageWithLayout = () => {
 											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
 										if (yes) {
-											const input = currentWorkoutToCreateWorkoutInput(
-												currentWorkout,
-												userPreferences.data,
-											);
+											const input =
+												currentWorkoutToCreateWorkoutInput(currentWorkout);
 											createUserWorkout.mutate(input);
 											playCompleteSound();
 											await finishWorkout();

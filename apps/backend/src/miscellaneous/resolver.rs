@@ -88,11 +88,10 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
-        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
-        UserUnitSystem, UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
+        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserUnitSystem, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -3859,14 +3858,6 @@ impl MiscellaneousService {
                     "exercises" => match right {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
-                        }
-                        "distance_unit" => {
-                            preferences.fitness.exercises.distance_unit =
-                                UserDistanceUnit::from_str(&input.value).unwrap();
-                        }
-                        "weight_unit" => {
-                            preferences.fitness.exercises.weight_unit =
-                                UserWeightUnit::from_str(&input.value).unwrap();
                         }
                         "unit_system" => {
                             preferences.fitness.exercises.unit_system =

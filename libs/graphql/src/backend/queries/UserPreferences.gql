@@ -37,8 +37,6 @@ query UserPreferences {
       }
       exercises {
         saveHistory
-        weightUnit
-        distanceUnit
         unitSystem
       }
     }
