@@ -2,10 +2,14 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	type ExerciseLot,
 	type SetLot,
+	type SetStatistic,
+	type UserPreferences,
+	UserUnitSystem,
 	type UserWorkoutSetRecord,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
+import type { Writeable } from "zod";
 
 export type ExerciseSetStats = Immutable<{
 	duration?: number;
@@ -61,8 +65,23 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 	};
 };
 
+const convertWorkoutStatsToMetric = (
+	stats: Writeable<SetStatistic>,
+	prefs: UserPreferences,
+) => {
+	if (prefs.fitness.exercises.unitSystem === UserUnitSystem.Imperial) {
+		stats = Object.assign({}, stats); // DEV: The object is readonly
+		if (typeof stats.distance !== "undefined")
+			stats.distance = stats.distance * 1.60934;
+		if (typeof stats.weight !== "undefined")
+			stats.weight = stats.weight * 0.45359;
+	}
+	return stats;
+};
+
 export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
+	prefs: UserPreferences,
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
@@ -78,7 +97,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (set.confirmed) {
-				sets.push({ lot: set.lot, statistic: set.statistic });
+				sets.push({
+					lot: set.lot,
+					statistic: convertWorkoutStatsToMetric(set.statistic, prefs),
+				});
 			}
 		if (sets.length === 0) continue;
 		const notes = Array<string>();

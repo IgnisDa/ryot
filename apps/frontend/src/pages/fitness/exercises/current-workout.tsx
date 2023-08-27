@@ -553,8 +553,10 @@ const Page: NextPageWithLayout = () => {
 											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 										);
 										if (yes) {
-											const input =
-												currentWorkoutToCreateWorkoutInput(currentWorkout);
+											const input = currentWorkoutToCreateWorkoutInput(
+												currentWorkout,
+												userPreferences.data,
+											);
 											createUserWorkout.mutate(input);
 											playCompleteSound();
 											await finishWorkout();

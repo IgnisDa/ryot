@@ -1,8 +1,8 @@
+import type { NextPageWithLayout } from "../../_app";
 import {
 	MediaScrollArea,
 	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
-import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
