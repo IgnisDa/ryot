@@ -186,7 +186,8 @@ impl ExerciseMutation {
         service.delete_user_measurement(user_id, timestamp).await
     }
 
-    /// Take a user workout, process it and commit it to database.
+    /// Take a user workout, process it and commit it to database. All units must
+    /// be in metric format.
     async fn create_user_workout(
         &self,
         gql_ctx: &Context<'_>,
