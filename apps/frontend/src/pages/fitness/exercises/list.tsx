@@ -54,8 +54,10 @@ import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
+import { withQuery } from "ufo";
 
 const defaultFilterValue = {
 	muscle: undefined,
@@ -285,16 +287,24 @@ const Page: NextPageWithLayout = () => {
 													radius={"xl"}
 													size="lg"
 												/>
-												<Flex direction={"column"} justify={"space-around"}>
-													<Text>{exercise.name}</Text>
-													{exercise.attributes.muscles.at(0) ? (
-														<Text size="xs">
-															{startCase(
-																snakeCase(exercise.attributes.muscles.at(0)),
-															)}
-														</Text>
-													) : undefined}
-												</Flex>
+												<Link
+													href={withQuery(
+														APP_ROUTES.fitness.exercises.details,
+														{ id: exercise.id },
+													)}
+													style={{ all: "unset", cursor: "pointer" }}
+												>
+													<Flex direction={"column"} justify={"space-around"}>
+														<Text>{exercise.name}</Text>
+														{exercise.attributes.muscles.at(0) ? (
+															<Text size="xs">
+																{startCase(
+																	snakeCase(exercise.attributes.muscles.at(0)),
+																)}
+															</Text>
+														) : undefined}
+													</Flex>
+												</Link>
 											</Flex>
 										))}
 									</SimpleGrid>
