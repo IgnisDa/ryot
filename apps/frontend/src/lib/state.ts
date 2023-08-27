@@ -1,8 +1,11 @@
-import type {
-	CreateUserWorkoutMutationVariables,
-	ExerciseLot,
-	SetLot,
-	UserWorkoutSetRecord,
+import {
+	type CreateUserWorkoutMutationVariables,
+	type ExerciseLot,
+	type SetLot,
+	UserDistanceUnit,
+	type UserPreferences,
+	UserWeightUnit,
+	type UserWorkoutSetRecord,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
@@ -63,6 +66,7 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 
 export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
+	preferences: UserPreferences,
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
@@ -77,11 +81,26 @@ export const currentWorkoutToCreateWorkoutInput = (
 	for (const exercise of currentWorkout.exercises) {
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
-			if (set.confirmed)
-				sets.push({
-					lot: set.lot,
-					statistic: set.stats,
-				});
+			if (set.confirmed) {
+				const statistic: UserWorkoutSetRecord["statistic"] = Object.assign(
+					{},
+					set.stats,
+				);
+				if (
+					preferences.fitness.exercises.distanceUnit ===
+						UserDistanceUnit.Mile &&
+					typeof statistic.distance !== "undefined" &&
+					typeof set.stats.distance !== "undefined"
+				)
+					statistic.distance = set.stats.distance * 1.609;
+				if (
+					preferences.fitness.exercises.weightUnit === UserWeightUnit.Pound &&
+					typeof statistic.weight !== "undefined" &&
+					typeof set.stats.weight !== "undefined"
+				)
+					statistic.weight = set.stats.weight * 0.453;
+				sets.push({ lot: set.lot, statistic });
+			}
 		if (sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
