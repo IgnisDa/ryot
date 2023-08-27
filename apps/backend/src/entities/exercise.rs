@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     file_storage::FileStorageService,
-    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+        ExerciseMuscle,
+    },
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
     utils::get_stored_image,
 };
@@ -29,8 +32,9 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
-    #[graphql(skip)]
-    pub muscles: ExerciseMuscles,
+    // #[graphql(skip)]
+    // pub muscles: ExerciseMuscles,
+    pub muscles: Vec<ExerciseMuscle>,
 }
 
 impl Model {
@@ -41,8 +45,8 @@ impl Model {
             images.push(get_stored_image(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
-        // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
-        converted_exercise.attributes.muscles = self.muscles.0;
+        // // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
+        // converted_exercise.attributes.muscles = self.muscles.0;
         converted_exercise
     }
 }

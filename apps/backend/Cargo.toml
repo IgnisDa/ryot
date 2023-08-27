@@ -54,7 +54,7 @@ schematic = { version = "0.11.4", features = [
     "valid_url"
 ] }
 scraper = "0.17.1"
-sea-orm = { version = "0.12.2", features = [
+sea-orm = { git = "https://github.com/anshap1719/sea-orm.git", features = [
     "debug-print",
     "macros",
     "runtime-tokio-rustls",
@@ -65,7 +65,7 @@ sea-orm = { version = "0.12.2", features = [
     "with-uuid",
     "with-rust_decimal",
 ] }
-sea-orm-migration = "0.12.2"
+sea-orm-migration = { git = "https://github.com/anshap1719/sea-orm.git" }
 sea-query = "0.30.1"
 semver = "1.0.18"
 serde = { version = "1.0.188", features = ["derive"] }
