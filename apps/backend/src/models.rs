@@ -19,7 +19,6 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataImageLot, MetadataLot, MetadataSource, SeenState,
     },
-    users::UserUnitSystem,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -922,24 +921,6 @@ pub mod fitness {
         pub distance: Option<Decimal>,
         pub reps: Option<usize>,
         pub weight: Option<Decimal>,
-    }
-
-    impl SetStatistic {
-        pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
-            let mut du = self;
-            match unit_type {
-                UserUnitSystem::Metric => du,
-                UserUnitSystem::Imperial => {
-                    if let Some(w) = du.weight.as_mut() {
-                        *w = *w * dec!(0.45359);
-                    }
-                    if let Some(d) = du.distance.as_mut() {
-                        *d = *d * dec!(1.60934);
-                    }
-                    du
-                }
-            }
-        }
     }
 
     #[derive(

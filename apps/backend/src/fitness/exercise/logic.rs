@@ -109,8 +109,20 @@ pub struct UserWorkoutSetRecord {
 }
 
 impl UserWorkoutSetRecord {
-    pub fn translate_units(&mut self, unit_type: UserUnitSystem) {
-        self.statistic = self.statistic.translate_units(unit_type)
+    pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
+        let mut du = self;
+        match unit_type {
+            UserUnitSystem::Metric => du,
+            UserUnitSystem::Imperial => {
+                if let Some(w) = du.statistic.weight.as_mut() {
+                    *w = *w * dec!(0.45359);
+                }
+                if let Some(d) = du.statistic.distance.as_mut() {
+                    *d = *d * dec!(1.60934);
+                }
+                du
+            }
+        }
     }
 }
 
@@ -189,8 +201,7 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets {
-                let mut set = set;
-                set.translate_units(self.unit_type);
+                let set = set.clone().translate_units(self.unit_type);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
