@@ -17,8 +17,8 @@ use crate::{
     config::AppConfig,
     entities::{
         exercise,
-        prelude::{Exercise, UserMeasurement, UserToExercise},
-        user_measurement, user_to_exercise,
+        prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
+        user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -28,7 +28,7 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
-            GithubExerciseAttributes,
+            GithubExerciseAttributes, WorkoutSetRecord,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -85,6 +85,20 @@ struct UserMeasurementsListInput {
     end_time: Option<DateTimeUtc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserExerciseHistoryInformation {
+    workout_id: String,
+    workout_name: Option<String>,
+    workout_time: DateTimeUtc,
+    sets: Vec<WorkoutSetRecord>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserExerciseInformation {
+    details: user_to_exercise::Model,
+    history: Vec<UserExerciseHistoryInformation>,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
@@ -121,7 +135,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         exercise_id: i32,
-    ) -> Result<Option<user_to_exercise::Model>> {
+    ) -> Result<Option<UserExerciseInformation>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_exercise_details(exercise_id, user_id).await
@@ -269,11 +283,44 @@ impl ExerciseService {
         &self,
         exercise_id: i32,
         user_id: i32,
-    ) -> Result<Option<user_to_exercise::Model>> {
-        UserToExercise::find_by_id((user_id, exercise_id))
+    ) -> Result<Option<UserExerciseInformation>> {
+        if let Some(details) = UserToExercise::find_by_id((user_id, exercise_id))
             .one(&self.db)
-            .await
-            .map_err(|_e| Error::new("Unable to execute query"))
+            .await?
+        {
+            let workouts = Workout::find()
+                .filter(
+                    workout::Column::Id.is_in(
+                        details
+                            .extra_information
+                            .history
+                            .iter()
+                            .map(|h| h.workout_id.clone()),
+                    ),
+                )
+                .all(&self.db)
+                .await?;
+            let history = workouts
+                .into_iter()
+                .map(|w| {
+                    let element = details
+                        .extra_information
+                        .history
+                        .iter()
+                        .find(|h| h.workout_id == w.id)
+                        .unwrap();
+                    UserExerciseHistoryInformation {
+                        workout_id: w.id,
+                        workout_name: w.name,
+                        workout_time: w.start_time,
+                        sets: w.information.exercises[element.idx].sets.clone(),
+                    }
+                })
+                .collect();
+            Ok(Some(UserExerciseInformation { details, history }))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn exercises_list(
