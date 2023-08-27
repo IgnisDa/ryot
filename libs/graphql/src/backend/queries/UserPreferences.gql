@@ -39,6 +39,7 @@ query UserPreferences {
         saveHistory
         weightUnit
         distanceUnit
+        unitSystem
       }
     }
     notifications {

@@ -118,6 +118,26 @@ pub enum UserDistanceUnit {
 }
 
 #[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+    Copy,
+    EnumString,
+    Default,
+)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum UserUnitSystem {
+    #[default]
+    Metric,
+    Imperial,
+}
+
+#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 #[serde(default)]
@@ -125,6 +145,7 @@ pub struct UserExercisePreferences {
     pub save_history: usize,
     pub distance_unit: UserDistanceUnit,
     pub weight_unit: UserWeightUnit,
+    pub unit_system: UserUnitSystem,
 }
 
 impl Default for UserExercisePreferences {
@@ -133,6 +154,7 @@ impl Default for UserExercisePreferences {
             save_history: 15,
             distance_unit: UserDistanceUnit::Kilometer,
             weight_unit: UserWeightUnit::Kilogram,
+            unit_system: UserUnitSystem::Metric,
         }
     }
 }

@@ -91,7 +91,7 @@ use crate::{
         UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
         UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
         UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
-        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
+        UserUnitSystem, UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
         UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
@@ -3867,6 +3867,10 @@ impl MiscellaneousService {
                         "weight_unit" => {
                             preferences.fitness.exercises.weight_unit =
                                 UserWeightUnit::from_str(&input.value).unwrap();
+                        }
+                        "unit_system" => {
+                            preferences.fitness.exercises.unit_system =
+                                UserUnitSystem::from_str(&input.value).unwrap();
                         }
                         _ => return Err(err()),
                     },

@@ -22,6 +22,7 @@ import {
 	UserDistanceUnit,
 	UserReviewScale,
 	UserWeightUnit,
+	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
@@ -227,6 +228,22 @@ const Page: NextPageWithLayout = () => {
 									updateUserEnabledFeatures.mutate({
 										input: {
 											property: "fitness.exercises.distance_unit",
+											value: val,
+										},
+									});
+							}}
+						/>
+						<Select
+							size="xs"
+							label="Unit system to use for measurements"
+							data={Object.values(UserUnitSystem).map((c) => startCase(c))}
+							defaultValue={userPreferences.data.fitness.exercises.unitSystem}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(val) => {
+								if (val)
+									updateUserEnabledFeatures.mutate({
+										input: {
+											property: "fitness.exercises.unit_system",
 											value: val,
 										},
 									});
