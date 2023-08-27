@@ -1,6 +1,9 @@
 import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { MediaScrollArea, ReviewItemDisplay } from "@/lib/components/MediaItem";
+import {
+	MediaScrollArea,
+	ReviewItemDisplay,
+} from "@/lib/components/MediaItemComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
