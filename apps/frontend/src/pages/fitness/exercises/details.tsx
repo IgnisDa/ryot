@@ -14,6 +14,7 @@ import {
 	Flex,
 	Image,
 	List,
+	Paper,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -29,11 +30,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconDeviceTv,
+	IconHistoryToggle,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -50,7 +53,7 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: "overview",
 	});
 
-	const _userExerciseDetails = useQuery({
+	const userExerciseDetails = useQuery({
 		queryKey: ["userExerciseDetails", exerciseId],
 		queryFn: async () => {
 			const { userExerciseDetails } = await gqlClient.request(
@@ -94,8 +97,11 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="history" icon={<IconUser size="1rem" />}>
-								Actions
+							<Tabs.Tab
+								value="history"
+								icon={<IconHistoryToggle size="1rem" />}
+							>
+								History
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="reviews"
@@ -127,30 +133,25 @@ const Page: NextPageWithLayout = () => {
 								</List>
 							</Stack>
 						</Tabs.Panel>
-						{/*
-						<Tabs.Panel value="actions">
-							<MediaScrollArea>
-								<SimpleGrid
-									cols={1}
-									spacing="lg"
-									breakpoints={[{ minWidth: "md", cols: 2 }]}
-								>
-									<Link
-										href={withQuery(APP_ROUTES.media.postReview, {
-											creatorId: exerciseId,
-										})}
-										passHref
-										legacyBehavior
-									>
-										<Anchor>
-											<Button variant="outline" w="100%">
-												Post a review
-											</Button>
-										</Anchor>
-									</Link>
-								</SimpleGrid>
-							</MediaScrollArea>
+						<Tabs.Panel value="history">
+							{userExerciseDetails.data ? (
+								<Stack>
+									{userExerciseDetails.data.history.map((h) => (
+										<Paper key={h.workoutId} withBorder p="xs">
+											<Text fw="bold">{h.workoutName}</Text>
+											<Text color="dimmed" fz="sm">
+												{DateTime.fromJSDate(h.workoutTime).toLocaleString(
+													DateTime.DATETIME_MED_WITH_WEEKDAY,
+												)}
+											</Text>
+										</Paper>
+									))}
+								</Stack>
+							) : (
+								<Text italic>No history found</Text>
+							)}
 						</Tabs.Panel>
+						{/*
 						<Tabs.Panel value="reviews">
 							{userExerciseDetails.data.reviews.length > 0 ? (
 								<MediaScrollArea>
