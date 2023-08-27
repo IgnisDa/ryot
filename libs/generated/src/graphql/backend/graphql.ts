@@ -1203,14 +1203,14 @@ export enum SetLot {
 export type SetStatistic = {
   distance?: Maybe<Scalars['Decimal']['output']>;
   duration?: Maybe<Scalars['Decimal']['output']>;
-  reps?: Maybe<Scalars['Decimal']['output']>;
+  reps?: Maybe<Scalars['Int']['output']>;
   weight?: Maybe<Scalars['Decimal']['output']>;
 };
 
 export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Decimal']['input']>;
   duration?: InputMaybe<Scalars['Decimal']['input']>;
-  reps?: InputMaybe<Scalars['Decimal']['input']>;
+  reps?: InputMaybe<Scalars['Int']['input']>;
   weight?: InputMaybe<Scalars['Decimal']['input']>;
 };
 
@@ -1276,7 +1276,7 @@ export type TotalMeasurement = {
   duration: Scalars['Decimal']['output'];
   /** The number of personal bests achieved. */
   personalBestsAchieved: Scalars['Int']['output'];
-  reps: Scalars['Decimal']['output'];
+  reps: Scalars['Int']['output'];
   weight: Scalars['Decimal']['output'];
 };
 
@@ -2059,7 +2059,7 @@ export type UserExerciseDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserExerciseDetailsQuery = { userExerciseDetails?: { history: Array<{ workoutId: string, workoutName?: string | null, workoutTime: Date, sets: Array<{ statistic: { duration?: any | null, distance?: any | null, reps?: any | null, weight?: any | null } }> }>, details: { exerciseId: number, numTimesPerformed: number, lastUpdatedOn: Date, extraInformation: { lifetimeStats: { weight: any, reps: any, distance: any, duration: any }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, setIdx: number, data: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: any | null, distance?: any | null, reps?: any | null, weight?: any | null } } }> }> } } } | null };
+export type UserExerciseDetailsQuery = { userExerciseDetails?: { history: Array<{ workoutId: string, workoutName?: string | null, workoutTime: Date, sets: Array<{ statistic: { duration?: any | null, distance?: any | null, reps?: number | null, weight?: any | null } }> }>, details: { exerciseId: number, numTimesPerformed: number, lastUpdatedOn: Date, extraInformation: { lifetimeStats: { weight: any, reps: number, distance: any, duration: any }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, setIdx: number, data: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: any | null, distance?: any | null, reps?: number | null, weight?: any | null } } }> }> } } } | null };
 
 export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 

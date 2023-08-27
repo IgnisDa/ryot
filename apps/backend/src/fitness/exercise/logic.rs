@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
 use rs_utils::LengthVec;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -32,7 +33,11 @@ fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
         .max_by_key(|(_, record)| {
             record.statistic.duration.unwrap_or(dec!(0))
                 + record.statistic.distance.unwrap_or(dec!(0))
-                + record.statistic.reps.unwrap_or(dec!(0))
+                + record
+                    .statistic
+                    .reps
+                    .map(|r| Decimal::from_usize(r).unwrap())
+                    .unwrap_or(dec!(0))
                 + record.statistic.weight.unwrap_or(dec!(0))
         })
         .map(|(index, _)| index)
@@ -184,7 +189,7 @@ impl UserWorkoutInput {
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
-                        total.weight += w * r;
+                        total.weight += w * Decimal::from_usize(r).unwrap();
                     }
                 }
                 if let Some(d) = set.statistic.duration {
