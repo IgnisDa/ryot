@@ -3,6 +3,7 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { getSetColor } from "@/lib/utilities";
 import {
 	Box,
 	Container,
@@ -18,6 +19,8 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import {
 	ExerciseDetailsDocument,
+	ExerciseLot,
+	SetLot,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -30,6 +33,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+import { match } from "ts-pattern";
 
 const DisplayLifetimeStatistic = (props: {
 	val: any;
@@ -140,11 +144,44 @@ const Page: NextPageWithLayout = () => {
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
 											<Text fw="bold">{h.workoutName}</Text>
-											<Text color="dimmed" fz="sm">
+											<Text color="dimmed" fz="sm" mb="xs">
 												{DateTime.fromJSDate(h.workoutTime).toLocaleString(
 													DateTime.DATETIME_MED_WITH_WEEKDAY,
 												)}
 											</Text>
+											{h.sets.map((s, idx) => (
+												<Flex key={idx} align={"center"}>
+													<Text
+														fz="sm"
+														color={getSetColor(s.lot)}
+														mr="md"
+														fw="bold"
+													>
+														{match(s.lot)
+															.with(SetLot.Normal, () => idx + 1)
+															.otherwise(() => s.lot.at(0))}
+													</Text>
+													<Text fz="sm">
+														{match(exerciseDetails.data.lot)
+															.with(
+																ExerciseLot.DistanceAndDuration,
+																() =>
+																	`${s.statistic.duration} km x ${s.statistic.duration} min`,
+															)
+															.with(
+																ExerciseLot.Duration,
+																() => `${s.statistic.duration} min`,
+															)
+															.with(
+																ExerciseLot.RepsAndWeight,
+																() =>
+																	`${s.statistic.weight} kg x ${s.statistic.reps}`,
+															)
+
+															.exhaustive()}
+													</Text>
+												</Flex>
+											))}
 										</Paper>
 									))}
 								</Stack>

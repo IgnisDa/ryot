@@ -10,6 +10,7 @@ import {
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 } from "@/lib/state";
+import { getSetColor } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -57,14 +58,6 @@ import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
-
-const getSetColor = (l: SetLot) =>
-	match(l)
-		.with(SetLot.WarmUp, () => "yellow")
-		.with(SetLot.Drop, () => "grape.6")
-		.with(SetLot.Failure, () => "red")
-		.with(SetLot.Normal, () => "indigo.6")
-		.exhaustive();
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
