@@ -5,6 +5,7 @@ query UserExerciseDetails($exerciseId: Int!) {
       workoutName
       workoutTime
       sets {
+        lot
         statistic {
           duration
           distance
