@@ -1,19 +1,13 @@
 import type { NextPageWithLayout } from "../../_app";
-import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
-	Anchor,
-	Avatar,
-	Box,
-	Button,
 	Container,
 	Flex,
 	Image,
 	List,
 	Paper,
-	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -21,25 +15,19 @@ import {
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import {
-	CreatorDetailsDocument,
 	ExerciseDetailsDocument,
-	UserCreatorDetailsDocument,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	IconDeviceTv,
 	IconHistoryToggle,
 	IconInfoCircle,
 	IconMessageCircle2,
-	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
-import { withQuery } from "ufo";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
