@@ -80,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>{exerciseDetails.data.name} | Ryot</title>
 			</Head>
-			<Container size="xs">
+			<Container size="xs" px="lg">
 				<Stack>
 					<Title id="exercise-title">{exerciseDetails.data.name}</Title>
 					<Tabs
@@ -94,7 +94,7 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
+							<Tabs.Tab value="history" icon={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
 							<Tabs.Tab
@@ -107,7 +107,7 @@ const Page: NextPageWithLayout = () => {
 
 						<Tabs.Panel value="overview">
 							<Stack>
-								<Flex gap="sm">
+								<Flex gap={6}>
 									{exerciseDetails.data.attributes.images.map((i) => (
 										<Image
 											key={i}
