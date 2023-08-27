@@ -168,7 +168,7 @@ impl UserWorkoutInput {
                 Some(e) => {
                     let performed = e.num_times_performed;
                     let mut extra_info = e.extra_information.clone();
-                    extra_info.history.push(history_item);
+                    extra_info.history.insert(0, history_item);
                     let mut up: user_to_exercise::ActiveModel = e.into();
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
