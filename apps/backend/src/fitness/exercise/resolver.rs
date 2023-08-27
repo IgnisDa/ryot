@@ -502,12 +502,7 @@ impl ExerciseService {
         let sf = Sonyflake::new().unwrap();
         let id = sf.next_id().unwrap().to_string();
         let identifier = input
-            .calculate_and_commit(
-                user_id,
-                &self.db,
-                id,
-                user.preferences.fitness.exercises.save_history,
-            )
+            .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
             .await?;
         Ok(identifier)
     }

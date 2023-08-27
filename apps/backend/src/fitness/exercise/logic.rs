@@ -22,6 +22,7 @@ use crate::{
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
+    users::UserExercisePreferences,
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -127,7 +128,7 @@ impl UserWorkoutInput {
         user_id: i32,
         db: &DatabaseConnection,
         id: String,
-        save_history: usize,
+        preferences: UserExercisePreferences,
     ) -> Result<String> {
         let mut exercises = vec![];
         let mut workout_totals = vec![];
@@ -230,8 +231,10 @@ impl UserWorkoutInput {
                         data: set.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        let mut data =
-                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
+                        let mut data = LengthVec::from_vec_and_length(
+                            record.sets.clone(),
+                            preferences.save_history,
+                        );
                         data.push_front(to_insert_record);
                         record.sets = data.into_vec();
                     } else {
