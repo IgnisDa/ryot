@@ -839,7 +839,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .remove_media_item_from_collection(user_id, &metadata_id, &collection_name)
+            .remove_media_from_collection(user_id, &metadata_id, &collection_name)
             .await
     }
 
@@ -3183,7 +3183,7 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    pub async fn remove_media_item_from_collection(
+    pub async fn remove_media_from_collection(
         &self,
         user_id: i32,
         metadata_id: &i32,
@@ -3238,7 +3238,7 @@ impl MiscellaneousService {
             }
             si.delete(&self.db).await.ok();
             if progress < 100 {
-                self.remove_media_item_from_collection(
+                self.remove_media_from_collection(
                     user_id,
                     &metadata_id,
                     &DefaultCollection::InProgress.to_string(),
@@ -4500,7 +4500,7 @@ impl MiscellaneousService {
     }
 
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        self.remove_media_item_from_collection(
+        self.remove_media_from_collection(
             seen.user_id,
             &seen.metadata_id,
             &DefaultCollection::Watchlist.to_string(),
@@ -4520,7 +4520,7 @@ impl MiscellaneousService {
                 .ok();
             }
             SeenState::Dropped | SeenState::OnAHold => {
-                self.remove_media_item_from_collection(
+                self.remove_media_from_collection(
                     seen.user_id,
                     &seen.metadata_id,
                     &DefaultCollection::InProgress.to_string(),
@@ -4575,7 +4575,7 @@ impl MiscellaneousService {
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
-                        self.remove_media_item_from_collection(
+                        self.remove_media_from_collection(
                             seen.user_id,
                             &seen.metadata_id,
                             &DefaultCollection::InProgress.to_string(),
@@ -4601,7 +4601,7 @@ impl MiscellaneousService {
                         }
                     }
                 } else {
-                    self.remove_media_item_from_collection(
+                    self.remove_media_from_collection(
                         seen.user_id,
                         &seen.metadata_id,
                         &DefaultCollection::InProgress.to_string(),
