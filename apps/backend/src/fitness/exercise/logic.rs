@@ -110,7 +110,7 @@ pub struct UserWorkoutSetRecord {
 
 impl UserWorkoutSetRecord {
     pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
-        let mut du = self.clone();
+        let mut du = self;
         match unit_type {
             UserUnitSystem::Metric => du,
             UserUnitSystem::Imperial => {
@@ -120,7 +120,7 @@ impl UserWorkoutSetRecord {
                 if let Some(d) = du.statistic.distance.as_mut() {
                     *d = *d * dec!(1.60934);
                 }
-                self
+                du
             }
         }
     }
