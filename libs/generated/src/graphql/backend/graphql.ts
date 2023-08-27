@@ -669,10 +669,7 @@ export type MutationRoot = {
   createUserNotificationPlatform: Scalars['Int']['output'];
   /** Create a sink based integrations for the currently logged in user. */
   createUserSinkIntegration: Scalars['Int']['output'];
-  /**
-   * Take a user workout, process it and commit it to database. All units must
-   * be in metric format.
-   */
+  /** Take a user workout, process it and commit it to database. */
   createUserWorkout: Scalars['String']['output'];
   /** Create a yank based integrations for the currently logged in user. */
   createUserYankIntegration: Scalars['Int']['output'];
@@ -1622,6 +1619,7 @@ export type UserWorkoutInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   startTime: Scalars['DateTime']['input'];
   supersets: Array<Array<Scalars['Int']['input']>>;
+  unitType: UserUnitSystem;
 };
 
 export type UserWorkoutSetRecord = {

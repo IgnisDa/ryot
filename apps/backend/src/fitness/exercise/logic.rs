@@ -23,7 +23,7 @@ use crate::{
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
-    users::UserExercisePreferences,
+    users::{UserExercisePreferences, UserUnitSystem},
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -108,6 +108,24 @@ pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
 }
 
+impl UserWorkoutSetRecord {
+    pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
+        let mut du = self.clone();
+        match unit_type {
+            UserUnitSystem::Metric => du,
+            UserUnitSystem::Imperial => {
+                if let Some(w) = du.statistic.weight.as_mut() {
+                    *w = *w * dec!(0.45359);
+                }
+                if let Some(d) = du.statistic.distance.as_mut() {
+                    *d = *d * dec!(1.60934);
+                }
+                self
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserExerciseInput {
     pub exercise_id: i32,
@@ -124,6 +142,7 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
+    pub unit_type: UserUnitSystem,
 }
 
 impl UserWorkoutInput {
@@ -182,6 +201,7 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets {
+                let set = set.clone().translate_units(self.unit_type);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
