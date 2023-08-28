@@ -69,6 +69,8 @@ pub enum MetadataSource {
     Listennotes,
     #[sea_orm(string_value = "MU")]
     MangaUpdates,
+    #[sea_orm(string_value = "MY")]
+    Mal,
     #[sea_orm(string_value = "OL")]
     Openlibrary,
     #[sea_orm(string_value = "TM")]
