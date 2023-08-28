@@ -17,6 +17,7 @@ fn decode_data(path: &str) -> Result<String> {
 }
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
+    dbg!(&input);
     let anime_data = decode_data("tmp/animelist_1693016277_-_14391783.xml.gz")?;
     dbg!(&anime_data);
     Ok(ImportResult {

@@ -24,11 +24,11 @@ use crate::{
 };
 
 mod goodreads;
+mod mal;
 mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
-mod mal;
 mod trakt;
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -63,9 +63,9 @@ pub struct DeployMovaryImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMalImportInput {
-    // The anime export file.
+    // The anime export file path (uploaded via temporary upload).
     anime: String,
-    // The manga export file.
+    // The manga export file path (uploaded via temporary upload).
     manga: String,
 }
 
@@ -248,7 +248,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
-            ImportSource::Mal=> mal::import(input.mal.unwrap()).await?,
+            ImportSource::Mal => mal::import(input.mal.unwrap()).await?,
             ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
