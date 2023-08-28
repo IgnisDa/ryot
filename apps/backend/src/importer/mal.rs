@@ -47,16 +47,16 @@ fn convert_to_format(
     let seen_item = ImportOrExportMediaItemSeen {
         started_on: get_date(item.my_start_date),
         ended_on: get_date(item.my_finish_date),
-        show_season_number: None,
-        show_episode_number: None,
-        podcast_episode_number: None,
+        ..Default::default()
     };
     let review_item = ImportOrExportItemRating {
         review: None,
-        rating: Some(Decimal::from_u32(item.my_score).unwrap() * dec!(10)),
-        show_season_number: None,
-        show_episode_number: None,
-        podcast_episode_number: None,
+        rating: if item.my_score == 0 {
+            None
+        } else {
+            Some(Decimal::from_u32(item.my_score).unwrap() * dec!(10))
+        },
+        ..Default::default()
     };
     ImportOrExportMediaItem {
         source_id: item.title,

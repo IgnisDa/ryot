@@ -613,7 +613,7 @@ pub mod media {
         AlreadyFilled(Box<MediaDetails>),
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportMediaItemSeen {
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
@@ -627,7 +627,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
@@ -637,7 +637,7 @@ pub mod media {
         pub text: Option<String>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
