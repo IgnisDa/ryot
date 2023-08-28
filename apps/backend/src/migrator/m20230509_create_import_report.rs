@@ -24,6 +24,8 @@ pub struct Migration;
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum ImportSource {
+    #[sea_orm(string_value = "MA")]
+    Mal,
     #[sea_orm(string_value = "MJ")]
     MediaJson,
     #[sea_orm(string_value = "MT")]

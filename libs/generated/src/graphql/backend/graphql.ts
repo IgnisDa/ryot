@@ -215,12 +215,18 @@ export type DeployGoodreadsImportInput = {
 export type DeployImportJobInput = {
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   lot: ImportLot;
+  mal?: InputMaybe<DeployMalImportInput>;
   mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
   storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
+};
+
+export type DeployMalImportInput = {
+  anime: Scalars['String']['input'];
+  manga: Scalars['String']['input'];
 };
 
 export type DeployMediaJsonImportInput = {
@@ -460,6 +466,7 @@ export type ImportResultResponse = {
 
 export enum ImportSource {
   Goodreads = 'GOODREADS',
+  Mal = 'MAL',
   MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',

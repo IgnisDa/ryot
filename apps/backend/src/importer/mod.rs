@@ -28,6 +28,7 @@ mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
+mod mal;
 mod trakt;
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -61,6 +62,14 @@ pub struct DeployMovaryImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMalImportInput {
+    // The anime export file.
+    anime: String,
+    // The manga export file.
+    manga: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployStoryGraphImportInput {
     // The CSV contents of the export file.
     export: String,
@@ -86,6 +95,7 @@ pub struct DeployImportJobInput {
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
+    pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub media_json: Option<DeployMediaJsonImportInput>,
 }
@@ -238,6 +248,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
+            ImportSource::Mal=> mal::import(input.mal.unwrap()).await?,
             ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
