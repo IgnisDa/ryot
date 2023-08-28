@@ -74,6 +74,12 @@ const mediaJsonImportFormSchema = z.object({
 });
 type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
+const malImportFormSchema = z.object({
+	anime: z.any(),
+	manga: z.any(),
+});
+type MalImportFormSchema = z.infer<typeof malImportFormSchema>;
+
 export const ImportSourceElement = (props: {
 	children: JSX.Element | JSX.Element[];
 }) => {
@@ -114,6 +120,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
 		validate: zodResolver(mediaJsonImportFormSchema),
+	});
+	const malImportForm = useForm<MalImportFormSchema>({
+		validate: zodResolver(malImportFormSchema),
 	});
 
 	const deployImportJob = useMutation({
@@ -179,6 +188,12 @@ const Page: NextPageWithLayout = () => {
 											export: await fileToText(
 												mediaJsonImportForm.values.export,
 											),
+										},
+									}))
+									.with(ImportSource.Mal, async () => ({
+										mal: {
+											anime: await fileToText(malImportForm.values.anime),
+											manga: await fileToText(malImportForm.values.manga),
 										},
 									}))
 									.exhaustive();
@@ -301,6 +316,20 @@ const Page: NextPageWithLayout = () => {
 												accept=".json"
 												required
 												{...mediaJsonImportForm.getInputProps("export")}
+											/>
+										</>
+									))
+									.with(ImportSource.Mal, () => (
+										<>
+											<FileInput
+												label="Anime export file"
+												required
+												{...malImportForm.getInputProps("anime")}
+											/>
+											<FileInput
+												label="Manga export file"
+												required
+												{...malImportForm.getInputProps("manga")}
 											/>
 										</>
 									))
