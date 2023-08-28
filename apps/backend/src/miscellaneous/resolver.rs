@@ -82,6 +82,7 @@ use crate::{
         igdb::IgdbService,
         itunes::ITunesService,
         listennotes::ListennotesService,
+        mal::{MalAnimeService, MalMangaService, MalService},
         manga_updates::MangaUpdatesService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
@@ -1403,6 +1404,14 @@ impl MiscellaneousService {
                     _ => unreachable!(),
                 };
                 Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
+            }
+            MetadataSource::Mal => {
+                let bw = match model.lot {
+                    MetadataLot::Anime => "anime",
+                    MetadataLot::Manga => "manga",
+                    _ => unreachable!(),
+                };
+                Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
             }
         };
 
@@ -2784,6 +2793,17 @@ impl MiscellaneousService {
                         self.config.frontend.page_size,
                     )
                     .await,
+                ),
+                _ => return err(),
+            },
+            MetadataSource::Mal => match lot {
+                MetadataLot::Anime => Box::new(
+                    MalAnimeService::new(&self.config.anime.mal, self.config.frontend.page_size)
+                        .await,
+                ),
+                MetadataLot::Manga => Box::new(
+                    MalMangaService::new(&self.config.manga.mal, self.config.frontend.page_size)
+                        .await,
                 ),
                 _ => return err(),
             },
@@ -4225,8 +4245,12 @@ impl MiscellaneousService {
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
-            MetadataLot::Anime => vec![MetadataSource::Anilist],
-            MetadataLot::Manga => vec![MetadataSource::Anilist, MetadataSource::MangaUpdates],
+            MetadataLot::Anime => vec![MetadataSource::Anilist, MetadataSource::Mal],
+            MetadataLot::Manga => vec![
+                MetadataSource::Anilist,
+                MetadataSource::MangaUpdates,
+                MetadataSource::Mal,
+            ],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
         }
     }
@@ -4270,6 +4294,10 @@ impl MiscellaneousService {
                     MetadataSource::Anilist => (
                         AnilistService::supported_languages(),
                         AnilistService::default_language(),
+                    ),
+                    MetadataSource::Mal => (
+                        MalService::supported_languages(),
+                        MalService::default_language(),
                     ),
                     MetadataSource::Custom => (
                         CustomService::supported_languages(),

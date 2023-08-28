@@ -6,9 +6,16 @@ export interface AnimeAnilistConfig {
 
 }
 
+export interface AnimeMalConfig {
+	/** The client ID to be used for the MAL API. */
+	client_id: string;
+}
+
 export interface AnimeConfig {
 	/** Settings related to Anilist (anime). */
 	anilist: AnimeAnilistConfig;
+	/** Settings related to MAL (anime). */
+	mal: AnimeMalConfig;
 }
 
 export interface AudibleConfig {
@@ -34,7 +41,7 @@ export interface OpenlibraryConfig {
 
 export interface BookConfig {
 	/** Settings related to Google Books. */
-	googleBooks: GoogleBooksConfig;
+	google_books: GoogleBooksConfig;
 	/** Settings related to Openlibrary. */
 	openlibrary: OpenlibraryConfig;
 }
@@ -116,6 +123,11 @@ export interface MangaAnilistConfig {
 
 }
 
+export interface MangaMalConfig {
+	/** The client ID to be used for the MAL API. */
+	client_id: string;
+}
+
 export interface MangaMangaUpdatesConfig {
 
 }
@@ -123,8 +135,10 @@ export interface MangaMangaUpdatesConfig {
 export interface MangaConfig {
 	/** Settings related to Anilist (manga). */
 	anilist: MangaAnilistConfig;
+	/** Settings related to MAL (manga). */
+	mal: MangaMalConfig;
 	/** Settings related to MangaUpdates. */
-	mangaUpdates: MangaMangaUpdatesConfig;
+	manga_updates: MangaMangaUpdatesConfig;
 }
 
 export interface MediaConfig {

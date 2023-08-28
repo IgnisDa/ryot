@@ -625,6 +625,7 @@ export enum MetadataSource {
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
+  Mal = 'MAL',
   MangaUpdates = 'MANGA_UPDATES',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB'

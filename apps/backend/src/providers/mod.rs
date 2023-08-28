@@ -4,6 +4,7 @@ pub mod google_books;
 pub mod igdb;
 pub mod itunes;
 pub mod listennotes;
+pub mod mal;
 pub mod manga_updates;
 pub mod openlibrary;
 pub mod tmdb;
