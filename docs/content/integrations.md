@@ -70,3 +70,19 @@ The file will have a name of `script.ryot.zip`.
 the zipped addon to your Kodi instance. Once installed, it will be visible under
 the "Services" sub category named "Ryot".
 3. Click on "Configure" to change the addon settings and fill the correct details.
+
+### Plex
+
+Automatically add new [Plex](https://www.plex.tv/) movie and show plays to
+Ryot. It will work for all the media that have been a valid TMDb ID attached
+to their metadata.
+
+1. Generate a slug in the integration settings page. Copy the newly generated
+slug.
+2. In your Plex Webhooks settings, add a new webhook using the
+following settings:
+    - Webhook Url => `<instance_url>/webhooks/integrations/plex/<slug>`
+
+!!! tip
+
+    Keep your webhook url private to prevent abuse.
