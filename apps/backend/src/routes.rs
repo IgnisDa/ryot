@@ -115,7 +115,7 @@ pub async fn upload_file(
             .file_name()
             .map(String::from)
             .unwrap_or_else(|| "file.png".to_string());
-        let data = file.text().await.unwrap();
+        let data = file.bytes().await.unwrap();
         let path = env::temp_dir().join(name);
         write(&path, data).unwrap();
         res.push(path);
