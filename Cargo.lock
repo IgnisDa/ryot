@@ -4643,6 +4643,7 @@ dependencies = [
  "mime_guess",
  "nanoid",
  "quick-xml",
+ "rand 0.8.5",
  "retainer",
  "rs-utils",
  "rstest",
