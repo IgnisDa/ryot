@@ -122,9 +122,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let seen_item = ImportOrExportMediaItemSeen {
             started_on: None,
             ended_on: watched_at,
-            show_season_number: None,
-            show_episode_number: None,
-            podcast_episode_number: None,
+            ..Default::default()
         };
         let review = record.comment.map(|c| ImportOrExportItemReview {
             spoiler: Some(false),
@@ -141,10 +139,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 } else {
                     media.reviews.push(ImportOrExportItemRating {
                         review,
-                        rating: None,
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
+                        ..Default::default()
                     })
                 }
             }

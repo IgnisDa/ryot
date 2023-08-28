@@ -4975,6 +4975,7 @@ impl MiscellaneousService {
                     };
                     let podcast_episode_number = s.podcast_information.map(|d| d.episode);
                     ImportOrExportMediaItemSeen {
+                        progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
                         ended_on: s.finished_on.map(convert_naive_to_utc),
                         show_season_number,

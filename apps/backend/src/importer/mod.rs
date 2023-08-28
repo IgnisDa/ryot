@@ -302,12 +302,17 @@ impl ImporterService {
                 }
             };
             for seen in item.seen_history.iter() {
+                let progress = if seen.progress.is_some() {
+                    seen.progress
+                } else {
+                    Some(100)
+                };
                 match self
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
                             metadata_id: metadata.id,
-                            progress: Some(100),
+                            progress,
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,

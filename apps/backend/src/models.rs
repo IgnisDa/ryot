@@ -615,6 +615,8 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportMediaItemSeen {
+        /// The progress of media done.
+        pub progress: Option<i32>,
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
         /// The timestamp when finished watching.
