@@ -1,5 +1,7 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use surf::Client;
 
 use crate::{
@@ -9,7 +11,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::{convert_date_to_year, get_base_http_client},
 };
 
 static URL: &str = "https://api.myanimelist.net/v2/";
@@ -119,11 +121,56 @@ async fn get_client_config(url: &str, client_id: &str) -> Client {
 async fn search(
     client: &Client,
     media_type: &str,
-    query: &str,
+    q: &str,
     page: Option<i32>,
-    page_limit: i32,
+    limit: i32,
 ) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
-    todo!()
+    let page = page.unwrap_or(1);
+    let offset = (page - 1) * limit;
+    #[derive(Serialize, Deserialize, Debug)]
+    struct SearchPaging {
+        next: Option<String>,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    struct SearchImage {
+        large: String,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    struct SearchNode {
+        id: i128,
+        title: String,
+        start_date: Option<String>,
+        main_picture: SearchImage,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    struct SearchData {
+        node: SearchNode,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    struct SearchResponse {
+        data: Vec<SearchData>,
+        paging: SearchPaging,
+    }
+    let search: SearchResponse = client
+        .get(media_type)
+        .query(&json!({ "q": q, "limit": limit, "offset": offset, "fields": "start_date" }))
+        .unwrap()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .body_json()
+        .await
+        .map_err(|e| anyhow!(e))?;
+    let items = search
+        .data
+        .into_iter()
+        .map(|d| MediaSearchItem {
+            identifier: d.node.id.to_string(),
+            title: d.node.title,
+            publish_year: d.node.start_date.and_then(|d| convert_date_to_year(&d)),
+            image: Some(d.node.main_picture.large),
+        })
+        .collect();
+    Ok((items, 100, search.paging.next.map(|_| page + 1)))
 }
 
 async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
