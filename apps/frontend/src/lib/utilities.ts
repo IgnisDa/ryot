@@ -1,6 +1,7 @@
 import {
 	MetadataLot,
 	MetadataSource,
+	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
@@ -13,6 +14,14 @@ import {
 	IconMicrophone,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+
+export const getSetColor = (l: SetLot) =>
+	match(l)
+		.with(SetLot.WarmUp, () => "yellow")
+		.with(SetLot.Drop, () => "grape.6")
+		.with(SetLot.Failure, () => "red")
+		.with(SetLot.Normal, () => "indigo.6")
+		.exhaustive();
 
 /**
  * Get the correct name of the lot from a string

@@ -1,0 +1,15 @@
+query ExerciseDetails($exerciseId: Int!) {
+  exerciseDetails(exerciseId: $exerciseId) {
+    name
+    lot
+    level
+    force
+    mechanic
+    equipment
+    attributes {
+      instructions
+      images
+      muscles
+    }
+  }
+}

@@ -17,8 +17,8 @@ use crate::{
     config::AppConfig,
     entities::{
         exercise,
-        prelude::{Exercise, UserMeasurement},
-        user_measurement,
+        prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
+        user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -28,7 +28,7 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
-            GithubExerciseAttributes,
+            GithubExerciseAttributes, WorkoutSetRecord,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -62,7 +62,7 @@ struct ExercisesListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct ExerciseInformation {
+struct ExerciseParameters {
     /// All filters applicable to an exercises query.
     filters: ExerciseFilters,
     download_required: bool,
@@ -85,15 +85,29 @@ struct UserMeasurementsListInput {
     end_time: Option<DateTimeUtc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserExerciseHistoryInformation {
+    workout_id: String,
+    workout_name: Option<String>,
+    workout_time: DateTimeUtc,
+    sets: Vec<WorkoutSetRecord>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserExerciseInformation {
+    details: user_to_exercise::Model,
+    history: Vec<UserExerciseHistoryInformation>,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
 #[Object]
 impl ExerciseQuery {
-    /// Get all the information related to exercises.
-    async fn exercise_information(&self, gql_ctx: &Context<'_>) -> Result<ExerciseInformation> {
+    /// Get all the parameters related to exercises.
+    async fn exercise_parameters(&self, gql_ctx: &Context<'_>) -> Result<ExerciseParameters> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercise_information().await
+        service.exercise_parameters().await
     }
 
     /// Get a paginated list of exercises in the database.
@@ -106,10 +120,25 @@ impl ExerciseQuery {
         service.exercises_list(input).await
     }
 
-    /// Get information about an exercise.
-    async fn exercise(&self, gql_ctx: &Context<'_>, exercise_id: i32) -> Result<exercise::Model> {
+    /// Get details about an exercise.
+    async fn exercise_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        exercise_id: i32,
+    ) -> Result<exercise::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercise(exercise_id).await
+        service.exercise_details(exercise_id).await
+    }
+
+    /// Get information about an exercise for a user.
+    async fn user_exercise_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        exercise_id: i32,
+    ) -> Result<Option<UserExerciseInformation>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_exercise_details(exercise_id, user_id).await
     }
 
     /// Get all the measurements for a user.
@@ -202,9 +231,9 @@ impl ExerciseService {
 }
 
 impl ExerciseService {
-    async fn exercise_information(&self) -> Result<ExerciseInformation> {
+    async fn exercise_parameters(&self) -> Result<ExerciseParameters> {
         let download_required = Exercise::find().count(&self.db).await? == 0;
-        Ok(ExerciseInformation {
+        Ok(ExerciseParameters {
             filters: ExerciseFilters {
                 lot: ExerciseLot::iter().collect_vec(),
                 level: ExerciseLevel::iter().collect_vec(),
@@ -242,11 +271,55 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercise(&self, exercise_id: i32) -> Result<exercise::Model> {
+    async fn exercise_details(&self, exercise_id: i32) -> Result<exercise::Model> {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
             Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
+        }
+    }
+
+    async fn user_exercise_details(
+        &self,
+        exercise_id: i32,
+        user_id: i32,
+    ) -> Result<Option<UserExerciseInformation>> {
+        if let Some(details) = UserToExercise::find_by_id((user_id, exercise_id))
+            .one(&self.db)
+            .await?
+        {
+            let workouts = Workout::find()
+                .filter(
+                    workout::Column::Id.is_in(
+                        details
+                            .extra_information
+                            .history
+                            .iter()
+                            .map(|h| h.workout_id.clone()),
+                    ),
+                )
+                .all(&self.db)
+                .await?;
+            let history = workouts
+                .into_iter()
+                .map(|w| {
+                    let element = details
+                        .extra_information
+                        .history
+                        .iter()
+                        .find(|h| h.workout_id == w.id)
+                        .unwrap();
+                    UserExerciseHistoryInformation {
+                        workout_id: w.id,
+                        workout_name: w.name,
+                        workout_time: w.start_time,
+                        sets: w.information.exercises[element.idx].sets.clone(),
+                    }
+                })
+                .collect();
+            Ok(Some(UserExerciseInformation { details, history }))
+        } else {
+            Ok(None)
         }
     }
 
@@ -326,12 +399,26 @@ impl ExerciseService {
     }
 
     pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
-        if Exercise::find()
+        let attributes = ExerciseAttributes {
+            muscles: vec![],
+            instructions: ex.attributes.instructions,
+            internal_images: ex
+                .attributes
+                .images
+                .into_iter()
+                .map(StoredUrl::Url)
+                .collect(),
+            images: vec![],
+        };
+        if let Some(e) = Exercise::find()
             .filter(exercise::Column::Identifier.eq(&ex.identifier))
             .one(&self.db)
             .await?
-            .is_none()
         {
+            let mut db_ex: exercise::ActiveModel = e.into();
+            db_ex.attributes = ActiveValue::Set(attributes);
+            db_ex.update(&self.db).await?;
+        } else {
             let lot = match ex.attributes.category {
                 ExerciseCategory::Stretching => ExerciseLot::Duration,
                 ExerciseCategory::Plyometrics => ExerciseLot::Duration,
@@ -348,17 +435,7 @@ impl ExerciseService {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
                 muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
-                attributes: ActiveValue::Set(ExerciseAttributes {
-                    muscles: vec![],
-                    instructions: ex.attributes.instructions,
-                    internal_images: ex
-                        .attributes
-                        .images
-                        .into_iter()
-                        .map(StoredUrl::Url)
-                        .collect(),
-                    images: vec![],
-                }),
+                attributes: ActiveValue::Set(attributes),
                 lot: ActiveValue::Set(lot),
                 level: ActiveValue::Set(ex.attributes.level),
                 force: ActiveValue::Set(ex.attributes.force),
@@ -429,12 +506,7 @@ impl ExerciseService {
         let sf = Sonyflake::new().unwrap();
         let id = sf.next_id().unwrap().to_string();
         let identifier = input
-            .calculate_and_commit(
-                user_id,
-                &self.db,
-                id,
-                user.preferences.fitness.exercises.save_history,
-            )
+            .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
             .await?;
         Ok(identifier)
     }

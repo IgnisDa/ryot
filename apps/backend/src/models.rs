@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use derive_more::{Add, AddAssign, Sum};
+use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -712,6 +713,7 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
+    // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
@@ -776,6 +778,7 @@ pub mod fitness {
         Plyometrics,
     }
 
+    // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
 
@@ -881,7 +884,7 @@ pub mod fitness {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
         pub weight: Decimal,
-        pub reps: Decimal,
+        pub reps: usize,
         pub distance: Decimal,
         pub duration: Decimal,
     }
@@ -918,7 +921,7 @@ pub mod fitness {
     pub struct SetStatistic {
         pub duration: Option<Decimal>,
         pub distance: Option<Decimal>,
-        pub reps: Option<Decimal>,
+        pub reps: Option<usize>,
         pub weight: Option<Decimal>,
     }
 
@@ -967,13 +970,13 @@ pub mod fitness {
         pub fn calculate_one_rm(&self) -> Option<Decimal> {
             let weight = self.statistic.weight?;
             let reps = self.statistic.reps?;
-            Some(weight * dec!(36.0) / (dec!(37.0) - reps))
+            Some(weight * dec!(36.0) / (dec!(37.0) - Decimal::from_usize(reps).unwrap()))
         }
 
         pub fn calculate_volume(&self) -> Option<Decimal> {
             let weight = self.statistic.weight?;
             let reps = self.statistic.reps?;
-            Some(weight * reps)
+            Some(weight * Decimal::from_usize(reps).unwrap())
         }
 
         pub fn calculate_pace(&self) -> Option<Decimal> {

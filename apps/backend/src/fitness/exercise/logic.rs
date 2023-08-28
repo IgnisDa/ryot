@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use async_graphql::{InputObject, SimpleObject};
 use chrono::Utc;
 use rs_utils::LengthVec;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -22,6 +23,7 @@ use crate::{
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
     },
+    users::{UserExercisePreferences, UserUnitSystem},
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -31,7 +33,11 @@ fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
         .max_by_key(|(_, record)| {
             record.statistic.duration.unwrap_or(dec!(0))
                 + record.statistic.distance.unwrap_or(dec!(0))
-                + record.statistic.reps.unwrap_or(dec!(0))
+                + record
+                    .statistic
+                    .reps
+                    .map(|r| Decimal::from_usize(r).unwrap())
+                    .unwrap_or(dec!(0))
                 + record.statistic.weight.unwrap_or(dec!(0))
         })
         .map(|(index, _)| index)
@@ -102,6 +108,24 @@ pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
 }
 
+impl UserWorkoutSetRecord {
+    pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
+        let mut du = self;
+        match unit_type {
+            UserUnitSystem::Metric => du,
+            UserUnitSystem::Imperial => {
+                if let Some(w) = du.statistic.weight.as_mut() {
+                    *w = *w * dec!(0.45359);
+                }
+                if let Some(d) = du.statistic.distance.as_mut() {
+                    *d = *d * dec!(1.60934);
+                }
+                du
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserExerciseInput {
     pub exercise_id: i32,
@@ -127,7 +151,7 @@ impl UserWorkoutInput {
         user_id: i32,
         db: &DatabaseConnection,
         id: String,
-        save_history: usize,
+        preferences: UserExercisePreferences,
     ) -> Result<String> {
         let mut exercises = vec![];
         let mut workout_totals = vec![];
@@ -167,7 +191,7 @@ impl UserWorkoutInput {
                 Some(e) => {
                     let performed = e.num_times_performed;
                     let mut extra_info = e.extra_information.clone();
-                    extra_info.history.push(history_item);
+                    extra_info.history.insert(0, history_item);
                     let mut up: user_to_exercise::ActiveModel = e.into();
                     up.num_times_performed = ActiveValue::Set(performed + 1);
                     up.extra_information = ActiveValue::Set(extra_info);
@@ -176,10 +200,11 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets {
+                let set = set.clone().translate_units(preferences.unit_system);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
-                        total.weight += w * r;
+                        total.weight += w * Decimal::from_usize(r).unwrap();
                     }
                 }
                 if let Some(d) = set.statistic.duration {
@@ -230,8 +255,10 @@ impl UserWorkoutInput {
                         data: set.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        let mut data =
-                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
+                        let mut data = LengthVec::from_vec_and_length(
+                            record.sets.clone(),
+                            preferences.save_history,
+                        );
                         data.push_front(to_insert_record);
                         record.sets = data.into_vec();
                     } else {

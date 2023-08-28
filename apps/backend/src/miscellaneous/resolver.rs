@@ -88,11 +88,10 @@ use crate::{
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
-        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
-        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
+        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserUnitSystem, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -839,7 +838,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .remove_media_item_from_collection(user_id, &metadata_id, &collection_name)
+            .remove_media_from_collection(user_id, &metadata_id, &collection_name)
             .await
     }
 
@@ -1850,17 +1849,9 @@ impl MiscellaneousService {
         let mut items = vec![];
         let prefs = user_by_id(&self.db, user_id).await?.preferences;
 
-        // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
-        struct RoundFunction;
-        impl Iden for RoundFunction {
-            fn unquoted(&self, s: &mut dyn sea_query::Write) {
-                write!(s, "ROUND").unwrap();
-            }
-        }
-
         for met in metas {
             let avg_select = Query::select()
-                .expr(Func::cust(RoundFunction).arg(Func::avg(
+                .expr(Func::round(Func::avg(
                     Expr::col((TempReview::Table, TempReview::Rating)).div(
                         match prefs.general.review_scale {
                             UserReviewScale::OutOfFive => 20,
@@ -3191,7 +3182,7 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    pub async fn remove_media_item_from_collection(
+    pub async fn remove_media_from_collection(
         &self,
         user_id: i32,
         metadata_id: &i32,
@@ -3246,7 +3237,7 @@ impl MiscellaneousService {
             }
             si.delete(&self.db).await.ok();
             if progress < 100 {
-                self.remove_media_item_from_collection(
+                self.remove_media_from_collection(
                     user_id,
                     &metadata_id,
                     &DefaultCollection::InProgress.to_string(),
@@ -3868,13 +3859,9 @@ impl MiscellaneousService {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
                         }
-                        "distance_unit" => {
-                            preferences.fitness.exercises.distance_unit =
-                                UserDistanceUnit::from_str(&input.value).unwrap();
-                        }
-                        "weight_unit" => {
-                            preferences.fitness.exercises.weight_unit =
-                                UserWeightUnit::from_str(&input.value).unwrap();
+                        "unit_system" => {
+                            preferences.fitness.exercises.unit_system =
+                                UserUnitSystem::from_str(&input.value).unwrap();
                         }
                         _ => return Err(err()),
                     },
@@ -3887,6 +3874,9 @@ impl MiscellaneousService {
                     "fitness" => match right {
                         "enabled" => {
                             preferences.features_enabled.fitness.enabled = value_bool.unwrap()
+                        }
+                        "measurements" => {
+                            preferences.features_enabled.fitness.measurements = value_bool.unwrap()
                         }
                         _ => return Err(err()),
                     },
@@ -4505,7 +4495,7 @@ impl MiscellaneousService {
     }
 
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        self.remove_media_item_from_collection(
+        self.remove_media_from_collection(
             seen.user_id,
             &seen.metadata_id,
             &DefaultCollection::Watchlist.to_string(),
@@ -4525,7 +4515,7 @@ impl MiscellaneousService {
                 .ok();
             }
             SeenState::Dropped | SeenState::OnAHold => {
-                self.remove_media_item_from_collection(
+                self.remove_media_from_collection(
                     seen.user_id,
                     &seen.metadata_id,
                     &DefaultCollection::InProgress.to_string(),
@@ -4580,7 +4570,7 @@ impl MiscellaneousService {
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
-                        self.remove_media_item_from_collection(
+                        self.remove_media_from_collection(
                             seen.user_id,
                             &seen.metadata_id,
                             &DefaultCollection::InProgress.to_string(),
@@ -4606,7 +4596,7 @@ impl MiscellaneousService {
                         }
                     }
                 } else {
-                    self.remove_media_item_from_collection(
+                    self.remove_media_from_collection(
                         seen.user_id,
                         &seen.metadata_id,
                         &DefaultCollection::InProgress.to_string(),

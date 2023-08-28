@@ -1,6 +1,9 @@
 import type { NextPageWithLayout } from "../../_app";
+import {
+	MediaScrollArea,
+	ReviewItemDisplay,
+} from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { MediaScrollArea, ReviewItemDisplay } from "@/lib/components/MediaItem";
 import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -33,6 +36,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	TypographyStylesProvider,
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
@@ -829,11 +833,13 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<>
 									{mediaDetails.data.description ? (
-										<Text
-											dangerouslySetInnerHTML={{
-												__html: mediaDetails.data.description,
-											}}
-										/>
+										<TypographyStylesProvider>
+											<div
+												dangerouslySetInnerHTML={{
+													__html: mediaDetails.data.description,
+												}}
+											/>
+										</TypographyStylesProvider>
 									) : (
 										<Text fs="italic">No overview available</Text>
 									)}

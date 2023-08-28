@@ -9,6 +9,7 @@ import {
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 } from "@/lib/state";
+import { getSetColor } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -34,8 +35,7 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	ExerciseLot,
 	SetLot,
-	UserDistanceUnit,
-	UserWeightUnit,
+	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -57,14 +57,6 @@ import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
-
-const getSetColor = (l: SetLot) =>
-	match(l)
-		.with(SetLot.WarmUp, () => "yellow")
-		.with(SetLot.Drop, () => "grape.6")
-		.with(SetLot.Failure, () => "red")
-		.with(SetLot.Normal, () => "indigo.6")
-		.exhaustive();
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -102,7 +94,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 const StatInput = (props: {
 	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof ExerciseSet["stats"];
+	stat: keyof ExerciseSet["statistic"];
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -112,15 +104,14 @@ const StatInput = (props: {
 			<NumberInput
 				type="number"
 				value={
-					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx].stats[
-						props.stat
-					]
+					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
+						.statistic[props.stat]
 				}
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
 							const value = typeof v === "number" ? v : undefined;
-							draft.exercises[props.exerciseIdx].sets[props.setIdx].stats[
+							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
 							] = value;
 							if (value === undefined)
@@ -252,9 +243,9 @@ const ExerciseDisplay = (props: {
 						{distanceCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								DISTANCE (
-								{match(userPreferences.data.fitness.exercises.distanceUnit)
-									.with(UserDistanceUnit.Kilometer, () => "KM")
-									.with(UserDistanceUnit.Mile, () => "MI")
+								{match(userPreferences.data.fitness.exercises.unitSystem)
+									.with(UserUnitSystem.Metric, () => "KM")
+									.with(UserUnitSystem.Imperial, () => "MI")
 									.exhaustive()}
 								)
 							</Text>
@@ -262,9 +253,9 @@ const ExerciseDisplay = (props: {
 						{weightCol ? (
 							<Text size="xs" style={{ flex: 1 }} align="center">
 								WEIGHT (
-								{match(userPreferences.data.fitness.exercises.weightUnit)
-									.with(UserWeightUnit.Kilogram, () => "KG")
-									.with(UserWeightUnit.Pound, () => "LB")
+								{match(userPreferences.data.fitness.exercises.unitSystem)
+									.with(UserUnitSystem.Metric, () => "KG")
+									.with(UserUnitSystem.Imperial, () => "LB")
 									.exhaustive()}
 								)
 							</Text>
@@ -388,18 +379,18 @@ const ExerciseDisplay = (props: {
 													.with(
 														ExerciseLot.DistanceAndDuration,
 														() =>
-															typeof s.stats.distance === "number" &&
-															typeof s.stats.duration === "number",
+															typeof s.statistic.distance === "number" &&
+															typeof s.statistic.duration === "number",
 													)
 													.with(
 														ExerciseLot.Duration,
-														() => typeof s.stats.duration === "number",
+														() => typeof s.statistic.duration === "number",
 													)
 													.with(
 														ExerciseLot.RepsAndWeight,
 														() =>
-															typeof s.stats.reps === "number" &&
-															typeof s.stats.weight === "number",
+															typeof s.statistic.reps === "number" &&
+															typeof s.statistic.weight === "number",
 													)
 													.exhaustive()
 											}
@@ -431,7 +422,7 @@ const ExerciseDisplay = (props: {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].sets.push({
-									stats: {},
+									statistic: {},
 									lot: SetLot.Normal,
 									confirmed: false,
 								});
