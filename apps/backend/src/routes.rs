@@ -15,11 +15,9 @@ use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use serde_json::json;
 use tower_cookies::Cookies;
-use uuid::Uuid;
 
 use crate::{
     config::AppConfig,
-    file_storage::FileStorageService,
     fitness::exercise::resolver::ExerciseService,
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
@@ -106,6 +104,8 @@ pub async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> imp
     Json(config.masked_value())
 }
 
+/// Upload a file to the temporary file system. Primarily to be used for uploading
+/// import files.
 pub async fn upload_file(
     mut files: Multipart,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
@@ -119,35 +119,6 @@ pub async fn upload_file(
         let path = env::temp_dir().join(name);
         write(&path, data).unwrap();
         res.push(path);
-    }
-    Ok(Json(json!(res)))
-}
-
-/// Upload a file to the temporary file system. Primarily to be used for uploading
-/// import files.
-pub async fn upload_handler(
-    Extension(file_storage): Extension<Arc<FileStorageService>>,
-    mut files: Multipart,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let mut res = vec![];
-    while let Some(file) = files.next_field().await.unwrap() {
-        let name = file
-            .file_name()
-            .map(String::from)
-            .unwrap_or_else(|| "file.png".to_string());
-        let data = file.bytes().await.unwrap();
-        let key = format!("uploads/{}-{}", Uuid::new_v4(), name);
-        file_storage
-            .upload_file(&key, data.into())
-            .await
-            .map_err(|e| {
-                tracing::error!("{:?}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({"err": "an error occured during file upload"})),
-                )
-            })?;
-        res.push(key);
     }
     Ok(Json(json!(res)))
 }

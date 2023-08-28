@@ -46,7 +46,7 @@ use crate::{
     migrator::Migrator,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
-        static_handler, upload_file, upload_handler,
+        static_handler, upload_file,
     },
     utils::{create_app_services, MemoryAuthData, BASE_DIR, PROJECT_NAME, VERSION},
 };
@@ -213,14 +213,12 @@ async fn main() -> Result<()> {
         .nest("/webhooks", webhook_routes)
         .route("/export/:export_type", get(json_export))
         .route("/config", get(config_handler))
-        .route("/upload-file", post(upload_file))
-        .route("/upload", post(upload_handler))
+        .route("/upload", post(upload_file))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
         .layer(Extension(app_services.exercise_service.clone()))
-        .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
