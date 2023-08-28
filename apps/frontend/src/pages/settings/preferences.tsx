@@ -20,7 +20,6 @@ import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 	UserReviewScale,
-	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
@@ -199,6 +198,8 @@ const Page: NextPageWithLayout = () => {
 					<Divider />
 					<Title order={2}>Exercises</Title>
 					<SimpleGrid cols={1}>
+						{/*
+						// TODO: Introduce this back when we figure out a way to handle units
 						<Select
 							size="xs"
 							label="Unit system to use for measurements"
@@ -215,6 +216,7 @@ const Page: NextPageWithLayout = () => {
 									});
 							}}
 						/>
+						*/}
 						<NumberInput
 							size="xs"
 							label="The number of elements to save in your exercise history"
