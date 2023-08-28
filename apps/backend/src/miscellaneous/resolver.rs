@@ -2294,10 +2294,10 @@ impl MiscellaneousService {
             .collect_vec();
 
         let mut meta: metadata::ActiveModel = meta.into();
+        meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
-        meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
