@@ -538,6 +538,12 @@ struct CreateMediaReminderInput {
     message: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct PresignedPutUrlResponse {
+    upload_url: String,
+    key: String,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -1118,6 +1124,20 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_media_reminder(user_id, metadata_id).await
+    }
+
+    /// Get a presigned URL (valid for 10 minutes) for a given file name.
+    async fn presigned_put_url(
+        &self,
+        gql_ctx: &Context<'_>,
+        file_name: String,
+    ) -> Result<PresignedPutUrlResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let (key, upload_url) = service
+            .file_storage_service
+            .get_presigned_put_url(file_name)
+            .await;
+        Ok(PresignedPutUrlResponse { upload_url, key })
     }
 }
 
