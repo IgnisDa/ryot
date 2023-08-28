@@ -21,6 +21,7 @@ import {
 	ExerciseDetailsDocument,
 	ExerciseLot,
 	SetLot,
+	type SetStatistic,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -34,6 +35,30 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
+
+const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
+	const [first, second] = match(lot)
+		.with(ExerciseLot.DistanceAndDuration, () => [
+			`${statistic.duration} km x ${statistic.duration} min`,
+			`${statistic.distance / statistic.duration} km/min`,
+		])
+		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, ""])
+		.with(ExerciseLot.RepsAndWeight, () => [
+			`${statistic.weight} kg x ${statistic.reps}`,
+			`${statistic.weight * statistic.reps!} vol`,
+		])
+		.exhaustive();
+	return (
+		<>
+			<Text fz="sm">{first}</Text>
+			{second ? (
+				<Text ml="auto" fz="sm">
+					{second}
+				</Text>
+			) : undefined}
+		</>
+	);
+};
 
 const DisplayLifetimeStatistic = (props: {
 	val: any;
@@ -161,25 +186,7 @@ const Page: NextPageWithLayout = () => {
 															.with(SetLot.Normal, () => idx + 1)
 															.otherwise(() => s.lot.at(0))}
 													</Text>
-													<Text fz="sm">
-														{match(exerciseDetails.data.lot)
-															.with(
-																ExerciseLot.DistanceAndDuration,
-																() =>
-																	`${s.statistic.duration} km x ${s.statistic.duration} min`,
-															)
-															.with(
-																ExerciseLot.Duration,
-																() => `${s.statistic.duration} min`,
-															)
-															.with(
-																ExerciseLot.RepsAndWeight,
-																() =>
-																	`${s.statistic.weight} kg x ${s.statistic.reps}`,
-															)
-
-															.exhaustive()}
-													</Text>
+													{getStats(exerciseDetails.data.lot, s.statistic)}
 												</Flex>
 											))}
 										</Paper>
