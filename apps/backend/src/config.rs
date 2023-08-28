@@ -14,15 +14,31 @@ fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
 }
 
+fn default_mal_client_id(_ctx: &()) -> Option<String> {
+    Some("3879694bbe52ac3204be9ff68af8f027".to_owned())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "ANIME_MAL_")]
+pub struct AnimeMalConfig {
+    /// The client ID to be used for the MAL API.
+    #[setting(default = default_mal_client_id)]
+    pub client_id: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_ANILIST_")]
 pub struct AnimeAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct AnimeConfig {
     /// Settings related to Anilist (anime).
     #[setting(nested)]
     pub anilist: AnimeAnilistConfig,
+    /// Settings related to MAL (anime).
+    #[setting(nested)]
+    pub mal: AnimeMalConfig,
 }
 
 impl IsFeatureEnabled for AnimeConfig {}
@@ -50,6 +66,7 @@ pub struct AudibleConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct AudioBookConfig {
     /// Settings related to Audible.
     #[setting(nested)]
@@ -83,6 +100,7 @@ pub struct OpenlibraryConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct BookConfig {
     /// Settings related to Openlibrary.
     #[setting(nested)]
@@ -143,6 +161,7 @@ pub struct MoviesTmdbConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct MovieConfig {
     /// Settings related to TMDB (movies).
     #[setting(nested)]
@@ -156,10 +175,19 @@ impl IsFeatureEnabled for MovieConfig {}
 pub struct MangaAnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MANGA_MAL_")]
+pub struct MangaMalConfig {
+    /// The client ID to be used for the MAL API.
+    #[setting(default = default_mal_client_id)]
+    pub client_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_MANGA_UPDATES_")]
 pub struct MangaMangaUpdatesConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct MangaConfig {
     /// Settings related to Anilist (manga).
     #[setting(nested)]
@@ -167,6 +195,9 @@ pub struct MangaConfig {
     /// Settings related to MangaUpdates.
     #[setting(nested)]
     pub manga_updates: MangaMangaUpdatesConfig,
+    /// Settings related to MAL (manga).
+    #[setting(nested)]
+    pub mal: MangaMalConfig,
 }
 
 impl IsFeatureEnabled for MangaConfig {}
@@ -201,6 +232,7 @@ pub struct ITunesConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct PodcastConfig {
     /// Settings related to Listennotes.
     #[setting(nested)]
@@ -232,6 +264,7 @@ pub struct ShowsTmdbConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct ShowConfig {
     /// Settings related to TMDB (shows).
     #[setting(nested)]
@@ -268,6 +301,7 @@ pub struct IgdbConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
 pub struct VideoGameConfig {
     /// Settings related to IGDB.
     #[setting(nested)]
@@ -478,6 +512,7 @@ impl AppConfig {
     pub fn masked_value(&self) -> Self {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
+        cl.anime.mal.client_id = gt();
         cl.database.url = gt();
         cl.database.auth_db_path = gt();
         cl.file_storage.s3_region = gt();
@@ -486,6 +521,7 @@ impl AppConfig {
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
         cl.integration.hasher_salt = gt();
+        cl.manga.mal.client_id = gt();
         cl.movies.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.shows.tmdb.access_token = gt();
