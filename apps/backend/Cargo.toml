@@ -28,6 +28,7 @@ darkbird = "6.1.8"
 derive_more = { version = "0.99.17", features = ["add", "sum", "add_assign"], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
+flate2 = "1.0.27"
 futures = "0.3.28"
 graphql_client = "0.13.0"
 harsh = "0.2.2"
