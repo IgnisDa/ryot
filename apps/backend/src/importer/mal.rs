@@ -44,9 +44,15 @@ fn convert_to_format(
     item: Item,
     lot: MetadataLot,
 ) -> ImportOrExportMediaItem<ImportOrExportItemIdentifier> {
+    let progress = if item.done != 0 && item.total != 0 {
+        Some(item.done / item.total)
+    } else {
+        None
+    };
     let seen_item = ImportOrExportMediaItemSeen {
         started_on: get_date(item.my_start_date),
         ended_on: get_date(item.my_finish_date),
+        progress,
         ..Default::default()
     };
     let review_item = ImportOrExportItemRating {
@@ -79,13 +85,11 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     for item in manga_data.items.into_iter() {
         media.push(convert_to_format(item, MetadataLot::Manga));
     }
-    dbg!(&media);
-    todo!();
-    // Ok(ImportResult {
-    //     collections: vec![],
-    //     failed_items: vec![],
-    //     media,
-    // })
+    Ok(ImportResult {
+        collections: vec![],
+        failed_items: vec![],
+        media,
+    })
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -101,9 +105,9 @@ struct Item {
     #[serde(alias = "series_title", alias = "manga_title")]
     title: String,
     #[serde(alias = "series_episodes", alias = "manga_chapters")]
-    total: u32,
+    total: i32,
     #[serde(alias = "my_watched_episodes", alias = "my_read_chapters")]
-    done: u32,
+    done: i32,
     my_start_date: String,
     my_finish_date: String,
     my_score: u32,
