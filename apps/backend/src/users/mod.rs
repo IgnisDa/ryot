@@ -287,6 +287,7 @@ pub struct UserYankIntegration {
     pub timestamp: DateTimeUtc,
 }
 
+// FIXME: Remove this
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserYankIntegrations(pub Vec<UserYankIntegration>);
 
@@ -305,6 +306,7 @@ pub struct UserSinkIntegration {
     pub timestamp: DateTimeUtc,
 }
 
+// FIXME: Remove this
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserSinkIntegrations(pub Vec<UserSinkIntegration>);
 
@@ -349,5 +351,6 @@ pub struct UserNotification {
     pub timestamp: DateTimeUtc,
 }
 
+// FIXME: Remove this
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserNotifications(pub Vec<UserNotification>);

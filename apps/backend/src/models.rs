@@ -713,6 +713,7 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
+    // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
@@ -777,6 +778,7 @@ pub mod fitness {
         Plyometrics,
     }
 
+    // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
 
