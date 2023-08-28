@@ -399,12 +399,26 @@ impl ExerciseService {
     }
 
     pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
-        if Exercise::find()
+        let attributes = ExerciseAttributes {
+            muscles: vec![],
+            instructions: ex.attributes.instructions,
+            internal_images: ex
+                .attributes
+                .images
+                .into_iter()
+                .map(StoredUrl::Url)
+                .collect(),
+            images: vec![],
+        };
+        if let Some(e) = Exercise::find()
             .filter(exercise::Column::Identifier.eq(&ex.identifier))
             .one(&self.db)
             .await?
-            .is_none()
         {
+            let mut db_ex: exercise::ActiveModel = e.into();
+            db_ex.attributes = ActiveValue::Set(attributes);
+            db_ex.update(&self.db).await?;
+        } else {
             let lot = match ex.attributes.category {
                 ExerciseCategory::Stretching => ExerciseLot::Duration,
                 ExerciseCategory::Plyometrics => ExerciseLot::Duration,
@@ -421,17 +435,7 @@ impl ExerciseService {
                 name: ActiveValue::Set(ex.name),
                 identifier: ActiveValue::Set(ex.identifier),
                 muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
-                attributes: ActiveValue::Set(ExerciseAttributes {
-                    muscles: vec![],
-                    instructions: ex.attributes.instructions,
-                    internal_images: ex
-                        .attributes
-                        .images
-                        .into_iter()
-                        .map(StoredUrl::Url)
-                        .collect(),
-                    images: vec![],
-                }),
+                attributes: ActiveValue::Set(attributes),
                 lot: ActiveValue::Set(lot),
                 level: ActiveValue::Set(ex.attributes.level),
                 force: ActiveValue::Set(ex.attributes.force),
