@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.9.6"
+version = "2.10.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -28,6 +28,7 @@ darkbird = "6.1.8"
 derive_more = { version = "0.99.17", features = ["add", "sum", "add_assign"], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
+flate2 = "1.0.27"
 futures = "0.3.28"
 graphql_client = "0.13.0"
 harsh = "0.2.2"
@@ -72,6 +73,7 @@ semver = "1.0.18"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.105"
 serde_with = { version = "3.3.0", features = ["chrono_0_4"] }
+serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "*"
 sonyflake = "0.2.0"

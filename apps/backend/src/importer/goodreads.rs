@@ -69,11 +69,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
             .map(|d| {
                 let mut reviews = vec![];
                 let mut single_review = ImportOrExportItemRating {
-                    review: None,
-                    rating: None,
-                    show_season_number: None,
-                    show_episode_number: None,
-                    podcast_episode_number: None,
+                    ..Default::default()
                 };
                 if !d.user_review.is_empty() {
                     single_review.review = Some(ImportOrExportItemReview {
@@ -96,13 +92,10 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                 let mut seen_history = vec![];
                 if !d.user_read_at.is_empty() {
                     seen_history.push(ImportOrExportMediaItemSeen {
-                        started_on: None,
                         ended_on: DateTime::parse_from_rfc2822(&d.user_read_at)
                             .ok()
                             .map(|d| d.with_timezone(&Utc)),
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
+                        ..Default::default()
                     });
                 }
 

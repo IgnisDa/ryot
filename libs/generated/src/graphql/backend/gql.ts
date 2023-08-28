@@ -40,6 +40,7 @@ const documents = {
     "mutation LogoutUser {\n  logoutUser\n}": types.LogoutUserDocument,
     "mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
+    "mutation PresignedPutUrl($fileName: String!) {\n  presignedPutUrl(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}": types.PresignedPutUrlDocument,
     "mutation ProgressUpdate($input: ProgressUpdateInput!) {\n  progressUpdate(input: $input) {\n    ... on IdObject {\n      id\n    }\n    ... on ProgressUpdateError {\n      error\n    }\n  }\n}": types.ProgressUpdateDocument,
     "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
@@ -202,6 +203,10 @@ export function graphql(source: "mutation MergeMetadata($mergeFrom: Int!, $merge
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation PresignedPutUrl($fileName: String!) {\n  presignedPutUrl(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"): (typeof documents)["mutation PresignedPutUrl($fileName: String!) {\n  presignedPutUrl(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

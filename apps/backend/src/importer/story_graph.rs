@@ -84,9 +84,7 @@ pub async fn import(
                     ImportOrExportMediaItemSeen {
                         started_on: None,
                         ended_on: None,
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None
+                        ..Default::default()
                     };
                     record.read_count
                 ];
@@ -123,9 +121,7 @@ pub async fn import(
                             spoiler: Some(false),
                             text: Some(r),
                         }),
-                        show_season_number: None,
-                        show_episode_number: None,
-                        podcast_episode_number: None,
+                        ..Default::default()
                     }],
                     collections,
                 })

@@ -1,7 +1,7 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { gqlClient } from "@/lib/services/api";
+import { BASE_URL, gqlClient } from "@/lib/services/api";
 import { fileToText } from "@/lib/utilities";
 import {
 	Anchor,
@@ -74,6 +74,12 @@ const mediaJsonImportFormSchema = z.object({
 });
 type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
+const malImportFormSchema = z.object({
+	anime: z.string(),
+	manga: z.string(),
+});
+type MalImportFormSchema = z.infer<typeof malImportFormSchema>;
+
 export const ImportSourceElement = (props: {
 	children: JSX.Element | JSX.Element[];
 }) => {
@@ -114,6 +120,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
 		validate: zodResolver(mediaJsonImportFormSchema),
+	});
+	const malImportForm = useForm<MalImportFormSchema>({
+		validate: zodResolver(malImportFormSchema),
 	});
 
 	const deployImportJob = useMutation({
@@ -179,6 +188,12 @@ const Page: NextPageWithLayout = () => {
 											export: await fileToText(
 												mediaJsonImportForm.values.export,
 											),
+										},
+									}))
+									.with(ImportSource.Mal, async () => ({
+										mal: {
+											anime: malImportForm.values.anime,
+											manga: malImportForm.values.manga,
 										},
 									}))
 									.exhaustive();
@@ -301,6 +316,42 @@ const Page: NextPageWithLayout = () => {
 												accept=".json"
 												required
 												{...mediaJsonImportForm.getInputProps("export")}
+											/>
+										</>
+									))
+									.with(ImportSource.Mal, () => (
+										<>
+											<FileInput
+												label="Anime export file"
+												required
+												onChange={async (file) => {
+													if (file) {
+														const formData = new FormData();
+														formData.append(`files[]`, file, file.name);
+														const resp = await fetch(`${BASE_URL}/upload`, {
+															method: "POST",
+															body: formData,
+														});
+														const data = await resp.json();
+														malImportForm.setFieldValue("anime", data[0]);
+													}
+												}}
+											/>
+											<FileInput
+												label="Manga export file"
+												required
+												onChange={async (file) => {
+													if (file) {
+														const formData = new FormData();
+														formData.append(`files[]`, file, file.name);
+														const resp = await fetch(`${BASE_URL}/upload`, {
+															method: "POST",
+															body: formData,
+														});
+														const data = await resp.json();
+														malImportForm.setFieldValue("manga", data[0]);
+													}
+												}}
 											/>
 										</>
 									))

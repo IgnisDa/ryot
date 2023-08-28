@@ -136,7 +136,6 @@ impl MediaProvider for MangaUpdatesService {
             .unwrap_or_default()
             .into_iter()
             .map(|r| r.series_id.unwrap())
-            .into_iter()
             .chain(
                 data.related_series
                     .unwrap_or_default()

@@ -134,9 +134,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         text: Some("".to_owned()),
                         date: item.rated_at,
                     }),
-                    show_season_number: None,
-                    show_episode_number: None,
-                    podcast_episode_number: None,
+                    ..Default::default()
                 });
                 if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
                     a.reviews = d.reviews;
@@ -183,11 +181,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         match process_item(item) {
             Ok(mut d) => {
                 d.seen_history.push(ImportOrExportMediaItemSeen {
-                    started_on: None,
-                    podcast_episode_number: None,
                     ended_on: item.watched_at,
                     show_season_number,
                     show_episode_number,
+                    ..Default::default()
                 });
                 if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
                     a.seen_history = d.seen_history;

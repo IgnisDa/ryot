@@ -115,10 +115,10 @@ impl UserWorkoutSetRecord {
             UserUnitSystem::Metric => du,
             UserUnitSystem::Imperial => {
                 if let Some(w) = du.statistic.weight.as_mut() {
-                    *w = *w * dec!(0.45359);
+                    *w *= dec!(0.45359);
                 }
                 if let Some(d) = du.statistic.distance.as_mut() {
-                    *d = *d * dec!(1.60934);
+                    *d *= dec!(1.60934);
                 }
                 du
             }

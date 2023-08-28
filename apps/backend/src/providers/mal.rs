@@ -202,7 +202,6 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         .body_json()
         .await
         .map_err(|e| anyhow!(e))?;
-    dbg!(&details);
     let (lot, specifics) = match media_type {
         "manga" => (
             MetadataLot::Manga,
