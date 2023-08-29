@@ -138,6 +138,17 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const uploadFileToServiceAndGetPath = async (file: File) => {
+		const formData = new FormData();
+		formData.append(`files[]`, file, file.name);
+		const resp = await fetch(`${BASE_URL}/upload`, {
+			method: "POST",
+			body: formData,
+		});
+		const data: string[] = await resp.json();
+		return data[0];
+	};
+
 	return (
 		<>
 			<Head>
@@ -326,14 +337,10 @@ const Page: NextPageWithLayout = () => {
 												required
 												onChange={async (file) => {
 													if (file) {
-														const formData = new FormData();
-														formData.append(`files[]`, file, file.name);
-														const resp = await fetch(`${BASE_URL}/upload`, {
-															method: "POST",
-															body: formData,
-														});
-														const data = await resp.json();
-														malImportForm.setFieldValue("anime", data[0]);
+														const path = await uploadFileToServiceAndGetPath(
+															file,
+														);
+														malImportForm.setFieldValue("anime", path);
 													}
 												}}
 											/>
@@ -342,14 +349,10 @@ const Page: NextPageWithLayout = () => {
 												required
 												onChange={async (file) => {
 													if (file) {
-														const formData = new FormData();
-														formData.append(`files[]`, file, file.name);
-														const resp = await fetch(`${BASE_URL}/upload`, {
-															method: "POST",
-															body: formData,
-														});
-														const data = await resp.json();
-														malImportForm.setFieldValue("manga", data[0]);
+														const path = await uploadFileToServiceAndGetPath(
+															file,
+														);
+														malImportForm.setFieldValue("manga", path);
 													}
 												}}
 											/>
