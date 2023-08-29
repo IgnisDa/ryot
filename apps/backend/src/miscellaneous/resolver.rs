@@ -3529,7 +3529,11 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::CredentialsMismatch,
             }));
         }
-        let jwt_key = jwt::sign(user.id, &self.config.users.jwt_secret)?;
+        let jwt_key = jwt::sign(
+            user.id,
+            &self.config.users.jwt_secret,
+            self.config.users.token_valid_for_days,
+        )?;
 
         create_cookie(
             gql_ctx,

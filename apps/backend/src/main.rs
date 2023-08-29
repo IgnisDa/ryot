@@ -1,3 +1,5 @@
+// TODO: Allow generating tokens for exports
+
 use std::{
     env,
     fs::{self, create_dir_all},
