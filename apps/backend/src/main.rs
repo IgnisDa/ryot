@@ -31,7 +31,6 @@ use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use sqlx::SqlitePool;
 use tokio::try_join;
-use tower_cookies::CookieManagerLayer;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -224,7 +223,6 @@ async fn main() -> Result<()> {
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
-        .layer(CookieManagerLayer::new())
         .layer(cors);
 
     let port = env::var("PORT")

@@ -1,10 +1,19 @@
 use std::{
+    convert::Infallible,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
+use axum::{
+    async_trait,
+    extract::{FromRequestParts, TypedHeader},
+    headers::{authorization::Bearer, Authorization},
+    http::request::Parts,
+    RequestPartsExt,
+};
+use axum_extra::extract::cookie::CookieJar;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use darkbird::{
     document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
@@ -234,6 +243,31 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
 #[derive(Debug)]
 pub struct GqlCtx {
     pub auth_token: Option<String>,
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for GqlCtx
+where
+    S: Send + Sync,
+{
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let mut ctx = GqlCtx { auth_token: None };
+        let jar = parts.extract::<CookieJar>().await?;
+        if let Some(c) = jar.get(COOKIE_NAME) {
+            ctx.auth_token = Some(c.value().to_owned());
+        } else if let Some(TypedHeader(Authorization(t))) =
+            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
+                .await
+                .ok()
+        {
+            ctx.auth_token = Some(t.token().to_owned());
+        } else if let Some(h) = parts.headers.get("X-Auth-Token") {
+            ctx.auth_token = h.to_str().map(String::from).ok();
+        }
+        Ok(ctx)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
