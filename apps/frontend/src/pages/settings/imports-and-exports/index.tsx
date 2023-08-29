@@ -4,10 +4,13 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { BASE_URL, gqlClient } from "@/lib/services/api";
 import { fileToText } from "@/lib/utilities";
 import {
+	ActionIcon,
+	Alert,
 	Anchor,
 	Box,
 	Button,
 	Container,
+	CopyButton,
 	FileInput,
 	Flex,
 	Group,
@@ -16,16 +19,20 @@ import {
 	Stack,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
+	GenerateAuthTokenDocument,
+	type GenerateAuthTokenMutationVariables,
 	ImportLot,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -138,9 +145,19 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const generateAuthToken = useMutation({
+		mutationFn: async (variables: GenerateAuthTokenMutationVariables) => {
+			const { generateAuthToken } = await gqlClient.request(
+				GenerateAuthTokenDocument,
+				variables,
+			);
+			return generateAuthToken;
+		},
+	});
+
 	const uploadFileToServiceAndGetPath = async (file: File) => {
 		const formData = new FormData();
-		formData.append(`files[]`, file, file.name);
+		formData.append("files[]", file, file.name);
 		const resp = await fetch(`${BASE_URL}/upload`, {
 			method: "POST",
 			body: formData,
@@ -360,6 +377,60 @@ const Page: NextPageWithLayout = () => {
 									))
 									.exhaustive()}
 							</ImportSourceElement>
+						) : undefined}
+						<Flex justify={"space-between"} align={"center"} mt="xl">
+							<Title>Export data</Title>
+							<Group>
+								<Anchor
+									size="xs"
+									href="https://ignisda.github.io/ryot/guides/exporting.html"
+									target="_blank"
+								>
+									Docs
+								</Anchor>
+							</Group>
+						</Flex>
+						<Button
+							variant="light"
+							color="indigo"
+							radius="md"
+							onClick={() => {
+								generateAuthToken.mutate({});
+							}}
+						>
+							Create auth token
+						</Button>
+						{generateAuthToken.data ? (
+							<Box>
+								<Alert
+									title="This token will be shown only once"
+									color="yellow"
+								>
+									<Flex align={"center"}>
+										<CopyButton value={generateAuthToken.data}>
+											{({ copied, copy }) => (
+												<Tooltip
+													label={copied ? "Copied" : "Copy"}
+													withArrow
+													position="right"
+												>
+													<ActionIcon
+														color={copied ? "teal" : "gray"}
+														onClick={copy}
+													>
+														{copied ? (
+															<IconCheck size="1rem" />
+														) : (
+															<IconCopy size="1rem" />
+														)}
+													</ActionIcon>
+												</Tooltip>
+											)}
+										</CopyButton>
+										<TextInput defaultValue={generateAuthToken.data} readOnly />
+									</Flex>
+								</Alert>
+							</Box>
 						) : undefined}
 					</Stack>
 				</Box>

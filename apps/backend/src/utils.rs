@@ -7,13 +7,13 @@ use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
 use axum::{
     async_trait,
-    extract::{FromRequestParts, TypedHeader},
-    headers::{authorization::Bearer, Authorization},
+    extract::FromRequestParts,
     http::{request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
 use axum_extra::extract::cookie::CookieJar;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -218,31 +218,26 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
 }
 
 #[derive(Debug, Default)]
-pub struct GqlCtx {
+pub struct AuthContext {
     pub auth_token: Option<String>,
     pub user_id: Option<i32>,
 }
 
 #[async_trait]
-impl<S> FromRequestParts<S> for GqlCtx
+impl<S> FromRequestParts<S> for AuthContext
 where
     S: Send + Sync,
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let mut ctx = GqlCtx {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let mut ctx = AuthContext {
             ..Default::default()
         };
-        let jar = parts.extract::<CookieJar>().await.unwrap();
-        if let Some(c) = jar.get(COOKIE_NAME) {
+        if let Some(c) = parts.extract::<CookieJar>().await.unwrap().get(COOKIE_NAME) {
             ctx.auth_token = Some(c.value().to_owned());
-        } else if let Some(TypedHeader(Authorization(t))) =
-            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
-                .await
-                .ok()
-        {
-            ctx.auth_token = Some(t.token().to_owned());
+        } else if let Some(h) = parts.headers.get(AUTHORIZATION) {
+            ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
         } else if let Some(h) = parts.headers.get("X-Auth-Token") {
             ctx.auth_token = h.to_str().map(String::from).ok();
         }

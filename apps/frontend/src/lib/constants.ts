@@ -12,8 +12,8 @@ export const APP_ROUTES = {
 		miscellaneous: "/settings/miscellaneous",
 		users: "/settings/users",
 		imports: {
-			new: "/settings/imports",
-			reports: "/settings/imports/reports",
+			new: "/settings/imports-and-exports",
+			reports: "/settings/imports-and-exports/reports",
 		},
 	},
 	media: {

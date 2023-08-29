@@ -30,9 +30,6 @@ media which have a match from _Audible_.
 
 ## Sink plugins
 
-To start, go to the "Settings" tab and generate a new application token from under
-the "Tokens" tab. It will look like this: `rab88f6b10`.
-
 !!! warning
 
     Keep your webhook urls private to prevent abuse.
@@ -58,21 +55,6 @@ to their metadata.
     - Listen to events only for => Choose your user
     - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
 
-### Kodi
-
-The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
-show you are watching. It will work for all the media that have been a valid
-TMDb ID attached to their metadata.
-
-1. Generate a slug in the integration settings page. Copy the newly generated
-    slug.
-2. Download the addon from [github releases]({{ config.repo_url }}/releases).
-    The file will have a name of `script.ryot.zip`.
-3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
-    the zipped addon to your Kodi instance. Once installed, it will be visible under
-    the "Services" sub category named "Ryot".
-4. Click on "Configure" to change the addon settings and fill the correct details.
-
 ### Plex
 
 Automatically add new [Plex](https://www.plex.tv/) movie plays to Ryot. It will
@@ -87,3 +69,18 @@ work for all the media that have been a valid TMDb ID attached to their metadata
 !!! warning
 
     Plex integration is experimental.
+
+### Kodi
+
+The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
+show you are watching. It will work for all the media that have been a valid
+TMDb ID attached to their metadata.
+
+1. Generate a slug in the integration settings page. Copy the newly generated
+    slug.
+2. Download the addon from [github releases]({{ config.repo_url }}/releases).
+    The file will have a name of `script.ryot.zip`.
+3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
+    the zipped addon to your Kodi instance. Once installed, it will be visible under
+    the "Services" sub category named "Ryot".
+4. Click on "Configure" to change the addon settings and fill the correct details.

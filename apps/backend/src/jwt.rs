@@ -11,9 +11,9 @@ pub struct Claims {
 }
 
 impl Claims {
-    pub fn new(id: i32) -> Self {
+    pub fn new(id: i32, token_valid_for_days: i64) -> Self {
         let iat = Utc::now();
-        let exp = iat + Duration::hours(24);
+        let exp = iat + Duration::days(token_valid_for_days);
 
         Self {
             sub: id,
@@ -23,10 +23,10 @@ impl Claims {
     }
 }
 
-pub fn sign(id: i32, jwt_secret: &str) -> Result<String> {
+pub fn sign(id: i32, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
     Ok(jsonwebtoken::encode(
         &Header::default(),
-        &Claims::new(id),
+        &Claims::new(id, token_valid_for_days),
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )?)
 }
