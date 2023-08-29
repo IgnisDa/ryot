@@ -4365,6 +4365,7 @@ impl MiscellaneousService {
         let integration = match integration.as_str() {
             "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
             "plex" => UserSinkIntegrationSettingKind::Plex,
+            "kodi" => UserSinkIntegrationSettingKind::Kodi,
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
         let (user_hash, _) = user_hash_id
