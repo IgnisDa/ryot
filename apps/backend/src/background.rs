@@ -62,12 +62,6 @@ pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<()
         .regenerate_user_summaries()
         .await
         .unwrap();
-    tracing::trace!("Removing old user authentication tokens");
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
-        .delete_expired_user_auth_tokens()
-        .await
-        .unwrap();
     Ok(())
 }
 

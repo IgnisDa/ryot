@@ -7,7 +7,7 @@ use crate::{
         media::{MediaDetails, MediaSearchItem},
         SearchResults,
     },
-    utils::{GqlCtx, MemoryDatabase},
+    utils::GqlCtx,
 };
 
 #[async_trait]
@@ -40,8 +40,6 @@ pub trait IsFeatureEnabled {
 
 #[async_trait]
 pub trait AuthProvider {
-    fn get_auth_db(&self) -> &MemoryDatabase;
-
     fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<GqlCtx>();
         ctx.auth_token

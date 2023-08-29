@@ -33,7 +33,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, user_by_id, MemoryDatabase},
+    utils::{get_case_insensitive_like_query, user_by_id},
 };
 
 use super::logic::UserWorkoutInput;
@@ -201,29 +201,22 @@ impl ExerciseMutation {
 pub struct ExerciseService {
     db: DatabaseConnection,
     config: Arc<AppConfig>,
-    auth_db: MemoryDatabase,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: SqliteStorage<ApplicationJob>,
 }
 
-impl AuthProvider for ExerciseService {
-    fn get_auth_db(&self) -> &MemoryDatabase {
-        &self.auth_db
-    }
-}
+impl AuthProvider for ExerciseService {}
 
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
-        auth_db: MemoryDatabase,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
-            auth_db,
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
         }

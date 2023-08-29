@@ -25,7 +25,6 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
-use darkbird::{Options, Storage, StorageType};
 use itertools::Itertools;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -48,7 +47,7 @@ use crate::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_file,
     },
-    utils::{create_app_services, MemoryAuthData, BASE_DIR, PROJECT_NAME, VERSION},
+    utils::{create_app_services, BASE_DIR, PROJECT_NAME, VERSION},
 };
 
 mod background;
@@ -126,17 +125,6 @@ async fn main() -> Result<()> {
     let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
-    let auth_db = Arc::new(
-        Storage::<String, MemoryAuthData>::open(Options::new(
-            &config.database.auth_db_path,
-            &format!("{}-auth.db", PROJECT_NAME),
-            1000,
-            StorageType::DiskCopies,
-            true,
-        ))
-        .await
-        .unwrap(),
-    );
 
     let selected_database = match db {
         DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
@@ -165,7 +153,6 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
-        auth_db,
         s3_client,
         config,
         &perform_application_job_storage,

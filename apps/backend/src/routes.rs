@@ -114,10 +114,10 @@ pub async fn json_export(
     Path(export_type): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     Extension(exercise_service): Extension<Arc<ExerciseService>>,
-    TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
+    Extension(config): Extension<Arc<AppConfig>>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
-        .await
+    let user_id = user_id_from_token(bearer.token(), &config.users.jwt_secret)
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = match export_type.as_str() {
         "all" => {
