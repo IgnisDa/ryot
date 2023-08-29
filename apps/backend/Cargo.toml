@@ -1,13 +1,18 @@
 [package]
 name = "ryot"
-version = "2.10.1"
+version = "2.10.2-beta.1"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
 
 [dependencies]
 anyhow = "1.0.75"
-apalis = { version = "0.4.4", features = ["cron", "extensions", "limit", "sqlite"] }
+apalis = { version = "0.4.4", features = [
+    "cron",
+    "extensions",
+    "limit",
+    "sqlite",
+] }
 argon2 = "0.5.1"
 async-graphql = { version = "6.0.4", features = [
     "chrono",
@@ -25,7 +30,11 @@ const-str = "0.5.6"
 cookie = "0.17.0"
 csv = "1.2.2"
 darkbird = "6.1.8"
-derive_more = { version = "0.99.17", features = ["add", "sum", "add_assign"], default-features = false }
+derive_more = { version = "0.99.17", features = [
+    "add",
+    "sum",
+    "add_assign",
+], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 flate2 = "1.0.27"
@@ -53,7 +62,7 @@ schematic = { version = "0.11.4", features = [
     "toml",
     "typescript",
     "yaml",
-    "valid_url"
+    "valid_url",
 ] }
 scraper = "0.17.1"
 sea-orm = { version = "0.12.2", features = [
@@ -77,7 +86,12 @@ serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "*"
 sonyflake = "0.2.0"
-specta = { version = "1.0.5", features = ["typescript", "chrono", "rust_decimal", "export"] }
+specta = { version = "1.0.5", features = [
+    "typescript",
+    "chrono",
+    "rust_decimal",
+    "export",
+] }
 strum = { version = "0.25.0", features = ["derive"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",

@@ -24,7 +24,7 @@ pub struct IntegrationMedia {
 pub struct IntegrationService;
 
 impl IntegrationService {
-    pub async fn new() -> Self {
+    pub fn new() -> Self {
         Self
     }
 
@@ -68,7 +68,7 @@ impl IntegrationService {
                 pub session: JellyfinWebhookSessionPayload,
             }
         }
-        // std::fs::write("tmp/output.json", payload)?;
+
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
         let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
             Some(id.clone())
@@ -78,27 +78,89 @@ impl IntegrationService {
                 .as_ref()
                 .and_then(|s| s.provider_ids.tmdb.clone())
         };
-        if let Some(identifier) = identifier {
-            let lot = match payload.item.item_type.as_str() {
-                "Episode" => MetadataLot::Show,
-                "Movie" => MetadataLot::Movie,
-                _ => bail!("Only movies and shows supported"),
-            };
-            Ok(IntegrationMedia {
-                identifier,
-                lot,
-                source: MetadataSource::Tmdb,
-                progress: (payload.session.play_state.position_ticks / payload.item.run_time_ticks
-                    * dec!(100))
-                .to_i32()
-                .unwrap(),
-                podcast_episode_number: None,
-                show_season_number: payload.item.season_number,
-                show_episode_number: payload.item.episode_number,
-            })
-        } else {
+        if identifier.is_none() {
             bail!("No TMDb ID associated with this media")
         }
+        let identifier = identifier.unwrap();
+        let lot = match payload.item.item_type.as_str() {
+            "Episode" => MetadataLot::Show,
+            "Movie" => MetadataLot::Movie,
+            _ => bail!("Only movies and shows supported"),
+        };
+        Ok(IntegrationMedia {
+            identifier,
+            lot,
+            source: MetadataSource::Tmdb,
+            progress: (payload.session.play_state.position_ticks / payload.item.run_time_ticks
+                * dec!(100))
+            .to_i32()
+            .unwrap(),
+            podcast_episode_number: None,
+            show_season_number: payload.item.season_number,
+            show_episode_number: payload.item.episode_number,
+        })
+    }
+
+    pub async fn plex_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+        mod models {
+            use super::*;
+
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            pub struct PlexWebhookMetadataGuid {
+                pub id: String,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            pub struct PlexWebhookMetadataPayload {
+                #[serde(rename = "viewOffset")]
+                pub view_offset: Decimal,
+                pub duration: Decimal,
+                #[serde(rename = "type")]
+                pub item_type: String,
+                #[serde(rename = "Guid")]
+                pub guids: Vec<PlexWebhookMetadataGuid>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            pub struct PlexWebhookPayload {
+                pub event: String,
+                pub user: bool,
+                pub owner: bool,
+                #[serde(rename = "Metadata")]
+                pub metadata: PlexWebhookMetadataPayload,
+            }
+        }
+
+        let payload = match serde_json::from_str::<models::PlexWebhookPayload>(payload) {
+            Result::Ok(val) => val,
+            Result::Err(err) => bail!(err),
+        };
+
+        let tmdb_guid = payload
+            .metadata
+            .guids
+            .into_iter()
+            .find(|g| g.id.starts_with("tmdb://"));
+
+        if tmdb_guid.is_none() {
+            bail!("No TMDb ID associated with this media")
+        }
+        let tmdb_guid = tmdb_guid.unwrap();
+        let identifier = &tmdb_guid.id[7..];
+        let lot = match payload.metadata.item_type.as_str() {
+            "movie" => MetadataLot::Movie,
+            "Episode" => todo!("Shows are not supported for Plex yet"),
+            _ => bail!("Only movies and shows supported"),
+        };
+        Ok(IntegrationMedia {
+            identifier: identifier.to_owned(),
+            lot,
+            source: MetadataSource::Tmdb,
+            progress: (payload.metadata.view_offset / payload.metadata.duration * dec!(100))
+                .to_i32()
+                .unwrap(),
+            podcast_episode_number: None,
+            show_season_number: None,
+            show_episode_number: None,
+        })
     }
 
     pub async fn audiobookshelf_progress(

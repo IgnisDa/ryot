@@ -54,6 +54,20 @@ NEXT_PUBLIC_BASE_URL="http://localhost:8000"
     You will need to run `moon run frontend:build` before you can get the
     backend running. This needs to be done only once.
 
+### Testing webhooks
+
+You can use [Serveo](https://serveo.net/) to test webhooks.
+
+```bash
+$ ssh -R ryot:80:0.0.0.0:8000 serveo.net
+```
+
+This will expose your local server on `https://ryot.serveo.net`. You can use this URL
+in Jellyfin etc. to test events sent to your local Ryot instance.
+
+Another helpful tool is [Webhook.site](https://webhook.site/). It can be used to inspect
+the requests sent to your server.
+
 ### Version Control
 
 Unless it is a very small change, I prefer creating a separate branch and merging it via an

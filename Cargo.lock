@@ -803,7 +803,7 @@ dependencies = [
  "hyper-rustls",
  "lazy_static",
  "pin-project-lite",
- "rustls 0.21.6",
+ "rustls 0.21.7",
  "tokio 1.32.0",
  "tower",
  "tracing",
@@ -2238,9 +2238,9 @@ dependencies = [
 
 [[package]]
 name = "garde"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b9d6ea59620728a8e9fb67bba68dbd88bff7744de0c7149027612334ed6a40b"
+checksum = "efbc4e06c5b4a8fef3ad41939c6116ea06a0d93f647c6430154d924bf021c374"
 dependencies = [
  "garde_derive",
  "once_cell",
@@ -2741,7 +2741,7 @@ dependencies = [
  "http",
  "hyper",
  "log",
- "rustls 0.21.6",
+ "rustls 0.21.7",
  "rustls-native-certs",
  "tokio 1.32.0",
  "tokio-rustls",
@@ -4309,7 +4309,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rustls 0.21.6",
+ "rustls 0.21.7",
  "rustls-pemfile",
  "serde",
  "serde_json",
@@ -4572,9 +4572,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.21.6"
+version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d1feddffcfcc0b33f5c6ce9a29e341e4cd59c3f78e7ee45f4a40c038b1d6cbb"
+checksum = "cd8d6c9f025a446bc4d18ad9632e69aec8f287aa84499ee335599fabd20c3fd8"
 dependencies = [
  "log",
  "ring",
@@ -4621,7 +4621,7 @@ checksum = "dc31bd9b61a32c31f9650d18add92aa83a49ba979c143eefd27fe7177b05bd5f"
 
 [[package]]
 name = "ryot"
-version = "2.10.1"
+version = "2.10.2-beta.1"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4714,9 +4714,9 @@ dependencies = [
 
 [[package]]
 name = "schematic"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa02373b55bb7b7d5e07ad9c7159403aaf86333109c32c0f61ba4dcbb17894a4"
+checksum = "0ed0b8b6eab649fc54d92728ecdef092e94ba11dc0af4ffa807425e24d2c6a58"
 dependencies = [
  "garde",
  "indexmap 2.0.0",
@@ -4736,9 +4736,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_macros"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f90776f5edffda3fe58a368cbd17f31a824089d4fefb9c8d31b934001caa4183"
+checksum = "75c29961ca3807b70767cdac2966bd49bb97922b4c0e620a674b1a0fee8cb9f0"
 dependencies = [
  "convert_case",
  "darling",
@@ -4749,9 +4749,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_types"
-version = "0.4.4"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16f6a9ea8924007ed1b8cc82e9d8bfa7bbd03a5efa0b3603a7ae1431ef86e54"
+checksum = "3c1123bff4039f2c45e13f390fbffd3f3763869de5f8d716816955e34bf87f62"
 
 [[package]]
 name = "scopeguard"
@@ -5494,7 +5494,7 @@ dependencies = [
  "paste",
  "percent-encoding",
  "rust_decimal",
- "rustls 0.21.6",
+ "rustls 0.21.7",
  "rustls-pemfile",
  "serde",
  "serde_json",
@@ -6240,7 +6240,7 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
 dependencies = [
- "rustls 0.21.6",
+ "rustls 0.21.7",
  "tokio 1.32.0",
 ]
 

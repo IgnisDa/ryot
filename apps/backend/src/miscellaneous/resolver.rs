@@ -1242,8 +1242,8 @@ impl MiscellaneousService {
         })
     }
 
-    async fn get_integration_service(&self) -> IntegrationService {
-        IntegrationService::new().await
+    fn get_integration_service(&self) -> IntegrationService {
+        IntegrationService::new()
     }
 
     async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
@@ -4014,6 +4014,9 @@ impl MiscellaneousService {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     format!("Jellyfin slug: {}", slug)
                 }
+                UserSinkIntegrationSetting::Plex { slug } => {
+                    format!("Plex slug: {}", slug)
+                }
             };
             all_integrations.push(GraphqlUserIntegration {
                 id: i.id,
@@ -4082,6 +4085,12 @@ impl MiscellaneousService {
                         .encode(&[user_id.try_into().unwrap()]);
                     let slug = format!("{}--{}", slug, nanoid!(5));
                     UserSinkIntegrationSetting::Jellyfin { slug }
+                }
+                UserSinkIntegrationSettingKind::Plex => {
+                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
+                        .encode(&[user_id.try_into().unwrap()]);
+                    let slug = format!("{}--{}", slug, nanoid!(5));
+                    UserSinkIntegrationSetting::Plex { slug }
                 }
             },
         };
@@ -4340,7 +4349,6 @@ impl MiscellaneousService {
                 let response = match &integration.settings {
                     UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
                         self.get_integration_service()
-                            .await
                             .audiobookshelf_progress(base_url, token)
                             .await
                     }
@@ -4480,6 +4488,7 @@ impl MiscellaneousService {
     ) -> Result<()> {
         let integration = match integration.as_str() {
             "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
+            "plex" => UserSinkIntegrationSettingKind::Plex,
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
         let (user_hash, _) = user_hash_id
@@ -4499,8 +4508,17 @@ impl MiscellaneousService {
                         && integration == UserSinkIntegrationSettingKind::Jellyfin
                     {
                         self.get_integration_service()
-                            .await
                             .jellyfin_progress(&payload)
+                            .await
+                            .ok()
+                    } else {
+                        None
+                    }
+                }
+                UserSinkIntegrationSetting::Plex { slug } => {
+                    if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Plex {
+                        self.get_integration_service()
+                            .plex_progress(&payload)
                             .await
                             .ok()
                     } else {

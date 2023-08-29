@@ -148,7 +148,7 @@ pub async fn perform_application_job(
             exercise_service.update_exercise(exercise).await.unwrap();
         }
         ApplicationJob::AfterMediaSeen(seen) => {
-            tracing::trace!("Performing jobs aftter media seen = {:?}", seen.id);
+            tracing::trace!("Performing jobs after media seen = {:?}", seen.id);
             misc_service.after_media_seen_tasks(seen).await.unwrap();
         }
     };
