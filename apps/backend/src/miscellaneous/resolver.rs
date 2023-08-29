@@ -54,6 +54,7 @@ use crate::{
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
+    jwt,
     migrator::{
         Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, SeenState, UserLot,
@@ -3565,22 +3566,22 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::CredentialsMismatch,
             }));
         }
-        let api_key = Uuid::new_v4().to_string();
+        let jwt_key = jwt::sign(user.id, &self.config.users.jwt_secret)?;
 
-        if self.set_auth_token(&api_key, user.id).await.is_err() {
+        if self.set_auth_token(&jwt_key, user.id).await.is_err() {
             return Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::MutexError,
             }));
         };
         create_cookie(
             gql_ctx,
-            &api_key,
+            &jwt_key,
             false,
             self.config.server.insecure_cookie,
             self.config.server.samesite_none,
             self.config.users.token_valid_for_days,
         )?;
-        Ok(LoginResult::Ok(LoginResponse { api_key }))
+        Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
     }
 
     async fn logout_user(&self, token: &str, gql_ctx: &Context<'_>) -> Result<bool> {

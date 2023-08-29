@@ -1,5 +1,4 @@
 use std::{
-    convert::Infallible,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -10,8 +9,8 @@ use axum::{
     async_trait,
     extract::{FromRequestParts, TypedHeader},
     headers::{authorization::Bearer, Authorization},
-    http::request::Parts,
-    RequestPartsExt,
+    http::{request::Parts, StatusCode},
+    Extension, RequestPartsExt,
 };
 use axum_extra::extract::cookie::CookieJar;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
@@ -41,6 +40,7 @@ use crate::{
     file_storage::FileStorageService,
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
+    jwt,
     miscellaneous::resolver::MiscellaneousService,
     models::StoredUrl,
 };
@@ -240,9 +240,10 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
         .ok_or_else(|| Error::new("No user found"))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct GqlCtx {
     pub auth_token: Option<String>,
+    pub user_id: Option<i32>,
 }
 
 #[async_trait]
@@ -250,11 +251,13 @@ impl<S> FromRequestParts<S> for GqlCtx
 where
     S: Send + Sync,
 {
-    type Rejection = Infallible;
+    type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let mut ctx = GqlCtx { auth_token: None };
-        let jar = parts.extract::<CookieJar>().await?;
+        let mut ctx = GqlCtx {
+            ..Default::default()
+        };
+        let jar = parts.extract::<CookieJar>().await.unwrap();
         if let Some(c) = jar.get(COOKIE_NAME) {
             ctx.auth_token = Some(c.value().to_owned());
         } else if let Some(TypedHeader(Authorization(t))) =
@@ -265,6 +268,12 @@ where
             ctx.auth_token = Some(t.token().to_owned());
         } else if let Some(h) = parts.headers.get("X-Auth-Token") {
             ctx.auth_token = h.to_str().map(String::from).ok();
+        }
+        if let Some(auth_token) = ctx.auth_token.as_ref() {
+            let Extension(config) = parts.extract::<Extension<Arc<AppConfig>>>().await.unwrap();
+            if let Ok(claims) = jwt::verify(auth_token, &config.users.jwt_secret) {
+                ctx.user_id = Some(claims.sub);
+            }
         }
         Ok(ctx)
     }
