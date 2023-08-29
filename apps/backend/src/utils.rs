@@ -236,12 +236,9 @@ where
         };
         if let Some(c) = parts.extract::<CookieJar>().await.unwrap().get(COOKIE_NAME) {
             ctx.auth_token = Some(c.value().to_owned());
-        }
-        if let Some(h) = parts.headers.get(AUTHORIZATION) {
-            ctx.auth_token = h.to_str().map(|s| s.replace("Bearer", "")).ok();
-        }
-        dbg!(&ctx);
-        if let Some(h) = parts.headers.get("X-Auth-Token") {
+        } else if let Some(h) = parts.headers.get(AUTHORIZATION) {
+            ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
+        } else if let Some(h) = parts.headers.get("X-Auth-Token") {
             ctx.auth_token = h.to_str().map(String::from).ok();
         }
         if let Some(auth_token) = ctx.auth_token.as_ref() {
