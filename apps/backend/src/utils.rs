@@ -7,13 +7,13 @@ use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
 use axum::{
     async_trait,
-    extract::{FromRequestParts, TypedHeader},
-    headers::{authorization::Bearer, Authorization},
+    extract::FromRequestParts,
     http::{request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
 use axum_extra::extract::cookie::CookieJar;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -230,20 +230,18 @@ where
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let mut ctx = GqlCtx {
             ..Default::default()
         };
-        let jar = parts.extract::<CookieJar>().await.unwrap();
-        if let Some(c) = jar.get(COOKIE_NAME) {
+        if let Some(c) = parts.extract::<CookieJar>().await.unwrap().get(COOKIE_NAME) {
             ctx.auth_token = Some(c.value().to_owned());
-        } else if let Some(TypedHeader(Authorization(t))) =
-            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
-                .await
-                .ok()
-        {
-            ctx.auth_token = Some(t.token().to_owned());
-        } else if let Some(h) = parts.headers.get("X-Auth-Token") {
+        }
+        if let Some(h) = parts.headers.get(AUTHORIZATION) {
+            ctx.auth_token = h.to_str().map(|s| s.replace("Bearer", "")).ok();
+        }
+        dbg!(&ctx);
+        if let Some(h) = parts.headers.get("X-Auth-Token") {
             ctx.auth_token = h.to_str().map(String::from).ok();
         }
         if let Some(auth_token) = ctx.auth_token.as_ref() {

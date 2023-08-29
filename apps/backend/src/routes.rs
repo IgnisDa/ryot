@@ -6,21 +6,16 @@ use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     body::{boxed, Full},
     extract::{Multipart, Path},
-    headers::{authorization::Bearer, Authorization},
     http::{header, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
-    Extension, Json, TypedHeader,
+    Extension, Json,
 };
 use rust_embed::RustEmbed;
 use serde_json::json;
 
 use crate::{
-    config::AppConfig,
-    fitness::exercise::resolver::ExerciseService,
-    graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService,
-    models::media::ExportAllResponse,
-    utils::{user_id_from_token, GqlCtx},
+    config::AppConfig, fitness::exercise::resolver::ExerciseService, graphql::GraphqlSchema,
+    miscellaneous::resolver::MiscellaneousService, models::media::ExportAllResponse, utils::GqlCtx,
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -114,11 +109,9 @@ pub async fn json_export(
     Path(export_type): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     Extension(exercise_service): Extension<Arc<ExerciseService>>,
-    Extension(config): Extension<Arc<AppConfig>>,
-    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+    ctx: GqlCtx,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(bearer.token(), &config.users.jwt_secret)
-        .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
+    let user_id = ctx.user_id.unwrap();
     let resp = match export_type.as_str() {
         "all" => {
             let media = media_service.export_media(user_id).await.unwrap();
