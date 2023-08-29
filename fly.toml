@@ -14,10 +14,6 @@ kill_timeout = "5s"
 [env]
   PORT = "8080"
 
-[[mounts]]
-  source = "ryot_data"
-  destination = "/data"
-
 [[services]]
   protocol = "tcp"
   internal_port = 8080

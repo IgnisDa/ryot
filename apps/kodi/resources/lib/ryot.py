@@ -23,7 +23,6 @@ class Ryot:
             {
                 "identifier": id,
                 "lot": lot,
-                "source": "Tmdb",
                 "progress": int(progress),
                 "show_season_number": season_number,
                 "show_episode_number": episode_number,
@@ -31,7 +30,10 @@ class Ryot:
         )
 
     def post_json(self, variables: dict):
-        headers = { "Content-Type": "application/json; charset=UTF-8" }
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "User-Agent": "Ryot Kodi <script>"
+        }
         postdata = json.dumps(variables).encode('utf-8')
 
         try:

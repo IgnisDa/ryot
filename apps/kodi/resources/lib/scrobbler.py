@@ -30,9 +30,6 @@ class Scrobbler:
         current_time = player.getTime()
         progress = (current_time / duration) * 100
 
-        if progress < 2:
-            return
-
         slug = self.__addon__.getSettingString("slug")
         instance_url = self.__addon__.getSettingString("instanceUrl")
 
