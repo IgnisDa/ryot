@@ -257,6 +257,7 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						<Textarea
 							label="Review"
+							description={"Markdown is supported"}
 							{...form.getInputProps("text")}
 							autoFocus
 							minRows={10}
