@@ -24,8 +24,8 @@ class Ryot:
                 "identifier": id,
                 "lot": lot,
                 "progress": int(progress),
-                "show_season_number": int(season_number),
-                "show_episode_number": int(episode_number),
+                "show_season_number": season_number,
+                "show_episode_number": episode_number,
             },
         )
 
