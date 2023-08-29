@@ -24,6 +24,7 @@ async-graphql-axum = "6.0.4"
 async-trait = "0.1.73"
 aws-sdk-s3 = "0.30.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
+axum-extra = { version = "0.7.7", default-features = false, features = ["cookie"] }
 chrono = "0.4.26"
 convert_case = "0.6.0"
 const-str = "0.5.6"
@@ -100,7 +101,6 @@ surf = { version = "2.3.2", features = [
 surf-governor = "0.2.0"
 surf-retry = "0.3.1"
 tokio = { version = "1.32.0", features = ["full"] }
-tower-cookies = "0.9.0"
 tower-http = { version = "0.4.3", features = ["catch-panic", "cors", "trace"] }
 tracing = "0.1.37"
 tracing-appender = "0.2.2"
