@@ -50,5 +50,5 @@ USER ryot
 # since we can not use `RUN` directly (there is no shell to execute it).
 WORKDIR /data
 COPY --from=app-builder --chown=ryot:ryot /app/ryot /app
-COPY apps/backend/CHECKS ./CHECKS
+COPY apps/backend/ci/app.json ./app.json
 ENTRYPOINT ["/app"]
