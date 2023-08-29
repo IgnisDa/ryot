@@ -75,8 +75,8 @@ const mediaJsonImportFormSchema = z.object({
 type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
 const malImportFormSchema = z.object({
-	anime: z.string(),
-	manga: z.string(),
+	animePath: z.string(),
+	mangaPath: z.string(),
 });
 type MalImportFormSchema = z.infer<typeof malImportFormSchema>;
 
@@ -203,8 +203,8 @@ const Page: NextPageWithLayout = () => {
 									}))
 									.with(ImportSource.Mal, async () => ({
 										mal: {
-											anime: malImportForm.values.anime,
-											manga: malImportForm.values.manga,
+											animePath: malImportForm.values.mangaPath,
+											mangaPath: malImportForm.values.mangaPath,
 										},
 									}))
 									.exhaustive();
@@ -340,7 +340,7 @@ const Page: NextPageWithLayout = () => {
 														const path = await uploadFileToServiceAndGetPath(
 															file,
 														);
-														malImportForm.setFieldValue("anime", path);
+														malImportForm.setFieldValue("animePath", path);
 													}
 												}}
 											/>
@@ -352,7 +352,7 @@ const Page: NextPageWithLayout = () => {
 														const path = await uploadFileToServiceAndGetPath(
 															file,
 														);
-														malImportForm.setFieldValue("manga", path);
+														malImportForm.setFieldValue("mangaPath", path);
 													}
 												}}
 											/>
