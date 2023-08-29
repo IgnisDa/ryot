@@ -55,7 +55,7 @@ quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
 rand = "0.8.5"
 retainer = "0.3.0"
 rs-utils = { path = "../../libs/rs-utils" }
-rust-embed = "6.8.1"
+rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 schematic = { version = "0.11.4", features = [
