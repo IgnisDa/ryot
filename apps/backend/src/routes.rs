@@ -15,7 +15,8 @@ use serde_json::json;
 
 use crate::{
     config::AppConfig, fitness::exercise::resolver::ExerciseService, graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService, models::media::ExportAllResponse, utils::GqlCtx,
+    miscellaneous::resolver::MiscellaneousService, models::media::ExportAllResponse,
+    utils::AuthContext,
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -71,7 +72,7 @@ pub async fn not_found() -> Response {
 
 pub async fn graphql_handler(
     schema: Extension<GraphqlSchema>,
-    gql_ctx: GqlCtx,
+    gql_ctx: AuthContext,
     req: GraphQLRequest,
 ) -> GraphQLResponse {
     schema.execute(req.into_inner().data(gql_ctx)).await.into()
@@ -109,7 +110,7 @@ pub async fn json_export(
     Path(export_type): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     Extension(exercise_service): Extension<Arc<ExerciseService>>,
-    ctx: GqlCtx,
+    ctx: AuthContext,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = ctx.user_id.unwrap();
     let resp = match export_type.as_str() {

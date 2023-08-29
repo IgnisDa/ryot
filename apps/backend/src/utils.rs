@@ -218,20 +218,20 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
 }
 
 #[derive(Debug, Default)]
-pub struct GqlCtx {
+pub struct AuthContext {
     pub auth_token: Option<String>,
     pub user_id: Option<i32>,
 }
 
 #[async_trait]
-impl<S> FromRequestParts<S> for GqlCtx
+impl<S> FromRequestParts<S> for AuthContext
 where
     S: Send + Sync,
 {
     type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let mut ctx = GqlCtx {
+        let mut ctx = AuthContext {
             ..Default::default()
         };
         if let Some(c) = parts.extract::<CookieJar>().await.unwrap().get(COOKIE_NAME) {

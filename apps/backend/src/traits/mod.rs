@@ -7,7 +7,7 @@ use crate::{
         media::{MediaDetails, MediaSearchItem},
         SearchResults,
     },
-    utils::GqlCtx,
+    utils::AuthContext,
 };
 
 #[async_trait]
@@ -41,14 +41,14 @@ pub trait IsFeatureEnabled {
 #[async_trait]
 pub trait AuthProvider {
     fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
-        let ctx = ctx.data_unchecked::<GqlCtx>();
+        let ctx = ctx.data_unchecked::<AuthContext>();
         ctx.auth_token
             .clone()
             .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<i32> {
-        let ctx = ctx.data_unchecked::<GqlCtx>();
+        let ctx = ctx.data_unchecked::<AuthContext>();
         if let Some(id) = ctx.user_id {
             Ok(id)
         } else {
