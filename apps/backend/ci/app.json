@@ -1,0 +1,14 @@
+{
+	"healthchecks": {
+		"web": [
+			{
+				"attempts": 3,
+				"name": "default-check",
+				"description": "Service up and running",
+				"path": "/config",
+				"type": "startup",
+				"wait": 3
+			}
+		]
+	}
+}

@@ -2,9 +2,7 @@
 
 /* eslint-disable */
 
-export interface AnimeAnilistConfig {
-
-}
+export interface AnimeAnilistConfig {}
 
 export interface AnimeConfig {
 	/** Settings related to Anilist (anime). */
@@ -21,11 +19,9 @@ export interface AudioBookConfig {
 	audible: AudibleConfig;
 }
 
-export interface GoogleBooksConfig {
+export interface GoogleBooksConfig {}
 
-}
-
-export type OpenlibraryCoverImageSize = 'S' | 'M' | 'L';
+export type OpenlibraryCoverImageSize = "S" | "M" | "L";
 
 export interface OpenlibraryConfig {
 	/** The image sizes to fetch from Openlibrary. */
@@ -40,11 +36,6 @@ export interface BookConfig {
 }
 
 export interface DatabaseConfig {
-	/**
-	 * The directory where user auth tokens will be persisted.
-	 * @default '/data'
-	 */
-	auth_db_path: string;
 	/**
 	 * The database connection string. Supports SQLite, MySQL and Postgres.
 	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
@@ -100,18 +91,14 @@ export interface IntegrationConfig {
 	pull_every: number;
 }
 
-export interface MangaAnilistConfig {
-
-}
+export interface MangaAnilistConfig {}
 
 export interface MangaConfig {
 	/** Settings related to Anilist (manga). */
 	anilist: MangaAnilistConfig;
 }
 
-export interface MediaConfig {
-
-}
+export interface MediaConfig {}
 
 export interface MoviesTmdbConfig {
 	/** The access token for the TMDB API. */
@@ -211,7 +198,7 @@ export interface UsersConfig {
 	token_valid_for_days: number;
 }
 
-export type IgdbImageSize = 't_original';
+export type IgdbImageSize = "t_original";
 
 export interface IgdbConfig {
 	/** The image sizes to fetch from IGDB. */

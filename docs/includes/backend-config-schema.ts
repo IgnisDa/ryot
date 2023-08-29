@@ -48,11 +48,6 @@ export interface BookConfig {
 
 export interface DatabaseConfig {
 	/**
-	 * The directory where user auth tokens will be persisted.
-	 * @default '/data'
-	 */
-	auth_db_path: string;
-	/**
 	 * The database connection string. Supports SQLite, MySQL and Postgres.
 	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
 	 */
@@ -262,6 +257,8 @@ export interface UsersConfig {
 	 * @default true
 	 */
 	allow_registration: boolean;
+	/** The secret used for generating JWT tokens. */
+	jwt_secret: string;
 	/**
 	 * Whether users will be allowed to post reviews on this instance.
 	 * @default false

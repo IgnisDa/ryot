@@ -20,7 +20,6 @@ use crate::{
         ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
-    utils::MemoryDatabase,
 };
 
 mod goodreads;
@@ -179,11 +178,7 @@ pub struct ImporterService {
     media_service: Arc<MiscellaneousService>,
 }
 
-impl AuthProvider for ImporterService {
-    fn get_auth_db(&self) -> &MemoryDatabase {
-        self.media_service.get_auth_db()
-    }
-}
+impl AuthProvider for ImporterService {}
 
 impl ImporterService {
     pub fn new(media_service: Arc<MiscellaneousService>) -> Self {

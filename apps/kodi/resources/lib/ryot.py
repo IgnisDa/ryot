@@ -6,62 +6,44 @@ import urllib.parse
 import json
 from typing import Literal, Optional
 
-BASE_PATH = Path(os.path.dirname(__file__))
-QUERIES_PATH = BASE_PATH / "queries"
-MUTATIONS_PATH = BASE_PATH / "mutations"
-
-with open(MUTATIONS_PATH / "CommitMedia.gql") as f:
-    COMMIT_MEDIA = f.read()
-
-with open(MUTATIONS_PATH / "ProgressUpdate.gql") as f:
-    PROGRESS_UPDATE = f.read()
-
-
 class Ryot:
-    def __init__(self, url: str, api_token: str) -> None:
+    def __init__(self, url: str, slug: str) -> None:
         self.url = url
-        self.api_token = api_token
-
-    def media_exists_in_database(self, identifier: str, lot: Literal["MOVIE", "SHOW"]):
-        # since we support only movies and shows
-        input = {"identifier": identifier, "lot": lot, "source": "TMDB"}
-        return self.post_json(COMMIT_MEDIA, input)["data"]["commitMedia"]["id"]
+        self.slug = slug
 
     def update_progress(
         self,
-        id: int,
+        id: str,
+        lot: str,
         progress: int,
         season_number: Optional[int],
         episode_number: Optional[int],
     ):
         return self.post_json(
-            PROGRESS_UPDATE,
             {
-                "input": {
-                    "metadataId": id,
-                    "progress": int(progress),
-                    "date": str(date.today()),
-                    "showSeasonNumber": season_number,
-                    "showEpisodeNumber": episode_number,
-                }
+                "identifier": id,
+                "lot": lot,
+                "source": "Tmdb",
+                "progress": int(progress),
+                "show_season_number": season_number,
+                "show_episode_number": episode_number,
             },
         )
 
-    def post_json(self, query: str, variables: dict):
-        postdata = json.dumps({"query": query, "variables": variables}).encode()
+    def post_json(self, variables: dict):
+        headers = { "Content-Type": "application/json; charset=UTF-8" }
+        postdata = json.dumps(variables).encode('utf-8')
 
-        headers = {
-            "Content-Type": "application/json; charset=UTF-8",
-            "Authorization": f"Bearer {self.api_token}",
-        }
-
-        httprequest = urllib.request.Request(
-            urllib.parse.urljoin(self.url, "/graphql"),
-            data=postdata,
-            headers=headers,
-            method="POST",
-        )
-
-        response = urllib.request.urlopen(httprequest)
-        data = json.loads(response.read().decode("utf-8"))
-        return data
+        try:
+            httprequest = urllib.request.Request(
+                urllib.parse.urljoin(self.url, "/webhooks/integrations/kodi") + '/' + self.slug,
+                data=postdata,
+                headers=headers,
+                method="POST",
+            )
+            response = urllib.request.urlopen(httprequest)
+            data = response.read().decode("utf-8")
+            return (True, data)
+        except Exception as e:
+            return (False, str(e))
+            

@@ -7,7 +7,7 @@ use crate::{
         media::{MediaDetails, MediaSearchItem},
         SearchResults,
     },
-    utils::{user_id_from_token, GqlCtx, MemoryDatabase},
+    utils::GqlCtx,
 };
 
 #[async_trait]
@@ -40,8 +40,6 @@ pub trait IsFeatureEnabled {
 
 #[async_trait]
 pub trait AuthProvider {
-    fn get_auth_db(&self) -> &MemoryDatabase;
-
     fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<GqlCtx>();
         ctx.auth_token
@@ -50,7 +48,11 @@ pub trait AuthProvider {
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<i32> {
-        let token = self.user_auth_token_from_ctx(ctx)?;
-        user_id_from_token(token, self.get_auth_db()).await
+        let ctx = ctx.data_unchecked::<GqlCtx>();
+        if let Some(id) = ctx.user_id {
+            Ok(id)
+        } else {
+            Err(Error::new("User was not logged in"))
+        }
     }
 }

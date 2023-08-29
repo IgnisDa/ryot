@@ -5,18 +5,21 @@ use std::{
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use darkbird::{
-    document::{Document, FullText, Indexer, MaterializedView, Range, RangeField, Tags},
-    Storage,
+use axum::{
+    async_trait,
+    extract::{FromRequestParts, TypedHeader},
+    headers::{authorization::Bearer, Authorization},
+    http::{request::Parts, StatusCode},
+    Extension, RequestPartsExt,
 };
+use axum_extra::extract::cookie::CookieJar;
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use http_types::headers::HeaderName;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
-use serde::{Deserialize, Serialize};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -32,11 +35,10 @@ use crate::{
     file_storage::FileStorageService,
     fitness::exercise::resolver::ExerciseService,
     importer::ImporterService,
+    jwt,
     miscellaneous::resolver::MiscellaneousService,
     models::StoredUrl,
 };
-
-pub type MemoryDatabase = Arc<Storage<String, MemoryAuthData>>;
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -64,13 +66,11 @@ pub struct AppServices {
     pub importer_service: Arc<ImporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
-    pub auth_db: MemoryDatabase,
 }
 
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     db: DatabaseConnection,
-    auth_db: MemoryDatabase,
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     perform_application_job: &SqliteStorage<ApplicationJob>,
@@ -82,7 +82,6 @@ pub async fn create_app_services(
     let exercise_service = Arc::new(ExerciseService::new(
         &db,
         config.clone(),
-        auth_db.clone(),
         file_storage_service.clone(),
         perform_application_job,
     ));
@@ -91,7 +90,6 @@ pub async fn create_app_services(
         MiscellaneousService::new(
             &db,
             config.clone(),
-            auth_db.clone(),
             file_storage_service.clone(),
             perform_application_job,
         )
@@ -104,7 +102,6 @@ pub async fn create_app_services(
         importer_service,
         file_storage_service,
         exercise_service,
-        auth_db,
     }
 }
 
@@ -147,21 +144,10 @@ where
     })
 }
 
-pub async fn user_id_from_token(token: String, auth_db: &MemoryDatabase) -> Result<i32> {
-    let found_token = auth_db.lookup(&token);
-    match found_token {
-        Some(t) => {
-            let mut val = t.value().clone();
-            // DEV: since `t` is a reference to the actual data, we can not
-            // update it before dropping
-            drop(t);
-            let return_value = val.user_id;
-            val.last_used_on = Utc::now();
-            auth_db.insert(token, val).await.unwrap();
-            Ok(return_value)
-        }
-        None => Err(Error::new("The auth token was incorrect")),
-    }
+pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<i32> {
+    jwt::verify(token, jwt_secret)
+        .map(|c| c.sub)
+        .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
 }
 
 pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
@@ -231,45 +217,41 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
         .ok_or_else(|| Error::new("No user found"))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct GqlCtx {
     pub auth_token: Option<String>,
+    pub user_id: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct MemoryAuthData {
-    pub user_id: i32,
-    pub last_used_on: DateTimeUtc,
-}
+#[async_trait]
+impl<S> FromRequestParts<S> for GqlCtx
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, &'static str);
 
-impl Document for MemoryAuthData {}
-
-impl Indexer for MemoryAuthData {
-    fn extract(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
-impl Tags for MemoryAuthData {
-    fn get_tags(&self) -> Vec<String> {
-        vec![]
-    }
-}
-
-impl Range for MemoryAuthData {
-    fn get_fields(&self) -> Vec<RangeField> {
-        vec![]
-    }
-}
-
-impl MaterializedView for MemoryAuthData {
-    fn filter(&self) -> Option<String> {
-        None
-    }
-}
-
-impl FullText for MemoryAuthData {
-    fn get_content(&self) -> Option<String> {
-        None
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let mut ctx = GqlCtx {
+            ..Default::default()
+        };
+        let jar = parts.extract::<CookieJar>().await.unwrap();
+        if let Some(c) = jar.get(COOKIE_NAME) {
+            ctx.auth_token = Some(c.value().to_owned());
+        } else if let Some(TypedHeader(Authorization(t))) =
+            TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
+                .await
+                .ok()
+        {
+            ctx.auth_token = Some(t.token().to_owned());
+        } else if let Some(h) = parts.headers.get("X-Auth-Token") {
+            ctx.auth_token = h.to_str().map(String::from).ok();
+        }
+        if let Some(auth_token) = ctx.auth_token.as_ref() {
+            let Extension(config) = parts.extract::<Extension<Arc<AppConfig>>>().await.unwrap();
+            if let Ok(user_id) = user_id_from_token(auth_token, &config.users.jwt_secret) {
+                ctx.user_id = Some(user_id);
+            }
+        }
+        Ok(ctx)
     }
 }

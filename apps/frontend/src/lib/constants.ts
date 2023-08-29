@@ -7,7 +7,6 @@ export const APP_ROUTES = {
 	settings: {
 		profile: "/settings/profile",
 		preferences: "/settings/preferences",
-		tokens: "/settings/tokens",
 		integrations: "/settings/integrations",
 		notifications: "/settings/notifications",
 		miscellaneous: "/settings/miscellaneous",

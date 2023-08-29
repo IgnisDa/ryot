@@ -54,6 +54,7 @@ use crate::{
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
+    jwt,
     migrator::{
         Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
         Review as TempReview, Seen as TempSeen, SeenState, UserLot,
@@ -97,7 +98,7 @@ use crate::{
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_stored_image, get_user_and_metadata_association, user_by_id, user_id_from_token,
-        MemoryAuthData, MemoryDatabase, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -250,7 +251,6 @@ enum RegisterResult {
 enum LoginErrorVariant {
     UsernameDoesNotExist,
     CredentialsMismatch,
-    MutexError,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -460,12 +460,6 @@ struct CollectionInput {
 struct MediaConsumedInput {
     identifier: String,
     lot: MetadataLot,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct UserAuthToken {
-    token: String,
-    last_used_on: DateTimeUtc,
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone)]
@@ -754,13 +748,6 @@ impl MiscellaneousQuery {
         service.user_notification_platforms(user_id).await
     }
 
-    /// Get all the auth tokens issued to the currently logged in user.
-    async fn user_auth_tokens(&self, gql_ctx: &Context<'_>) -> Result<Vec<UserAuthToken>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_auth_tokens(user_id).await
-    }
-
     /// Get details that can be displayed to a user for a media.
     async fn user_media_details(
         &self,
@@ -965,8 +952,7 @@ impl MiscellaneousMutation {
     /// Logout a user from the server and delete their login token.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_auth_token_from_ctx(gql_ctx)?;
-        service.logout_user(&user_id, gql_ctx).await
+        service.logout_user(gql_ctx).await
     }
 
     /// Update a user's profile details.
@@ -993,13 +979,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.update_user_preference(input, user_id).await
-    }
-
-    /// Generate an auth token without any expiry.
-    async fn generate_application_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.generate_application_token(user_id).await
     }
 
     /// Create a sink based integrations for the currently logged in user.
@@ -1080,13 +1059,6 @@ impl MiscellaneousMutation {
         service.yank_integrations_data_for_user(user_id).await
     }
 
-    /// Delete an auth token for the currently logged in user.
-    async fn delete_user_auth_token(&self, gql_ctx: &Context<'_>, token: String) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_user_auth_token(user_id, token).await
-    }
-
     /// Delete a user. The account making the user must an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
@@ -1094,7 +1066,6 @@ impl MiscellaneousMutation {
         service.admin_account_guard(user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
-
     /// Toggle the monitor on a media for a user.
     async fn toggle_media_monitor(
         &self,
@@ -1143,25 +1114,19 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub auth_db: MemoryDatabase,
     file_storage_service: Arc<FileStorageService>,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<AppConfig>,
 }
 
-impl AuthProvider for MiscellaneousService {
-    fn get_auth_db(&self) -> &MemoryDatabase {
-        &self.auth_db
-    }
-}
+impl AuthProvider for MiscellaneousService {}
 
 impl MiscellaneousService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
-        auth_db: MemoryDatabase,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
@@ -1176,7 +1141,6 @@ impl MiscellaneousService {
 
         Self {
             db: db.clone(),
-            auth_db,
             config,
             file_storage_service,
             seen_progress_cache,
@@ -3343,7 +3307,7 @@ impl MiscellaneousService {
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
+        let found_token = user_id_from_token(token, &self.config.users.jwt_secret);
         if let Ok(user_id) = found_token {
             let user = user_by_id(&self.db, user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
@@ -3565,25 +3529,20 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::CredentialsMismatch,
             }));
         }
-        let api_key = Uuid::new_v4().to_string();
+        let jwt_key = jwt::sign(user.id, &self.config.users.jwt_secret)?;
 
-        if self.set_auth_token(&api_key, user.id).await.is_err() {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::MutexError,
-            }));
-        };
         create_cookie(
             gql_ctx,
-            &api_key,
+            &jwt_key,
             false,
             self.config.server.insecure_cookie,
             self.config.server.samesite_none,
             self.config.users.token_valid_for_days,
         )?;
-        Ok(LoginResult::Ok(LoginResponse { api_key }))
+        Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
     }
 
-    async fn logout_user(&self, token: &str, gql_ctx: &Context<'_>) -> Result<bool> {
+    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         create_cookie(
             gql_ctx,
             "",
@@ -3592,13 +3551,7 @@ impl MiscellaneousService {
             self.config.server.samesite_none,
             self.config.users.token_valid_for_days,
         )?;
-        let found_token = user_id_from_token(token.to_owned(), self.get_auth_db()).await;
-        if found_token.is_ok() {
-            self.get_auth_db().remove(token.to_owned()).await.unwrap();
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        Ok(true)
     }
 
     // this job is run when a user is created for the first time
@@ -3979,14 +3932,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn generate_application_token(&self, user_id: i32) -> Result<String> {
-        let api_token = nanoid!(10);
-        self.set_auth_token(&api_token, user_id)
-            .await
-            .map_err(|_| Error::new("Could not set auth token"))?;
-        Ok(api_token)
-    }
-
     async fn user_integrations(&self, user_id: i32) -> Result<Vec<GraphqlUserIntegration>> {
         let user = user_by_id(&self.db, user_id).await?;
         let mut all_integrations = vec![];
@@ -4016,6 +3961,9 @@ impl MiscellaneousService {
                 }
                 UserSinkIntegrationSetting::Plex { slug } => {
                     format!("Plex slug: {}", slug)
+                }
+                UserSinkIntegrationSetting::Kodi { slug } => {
+                    format!("Kodi slug: {}", slug)
                 }
             };
             all_integrations.push(GraphqlUserIntegration {
@@ -4079,18 +4027,20 @@ impl MiscellaneousService {
         let new_integration = UserSinkIntegration {
             id: new_integration_id,
             timestamp: Utc::now(),
-            settings: match input.lot {
-                UserSinkIntegrationSettingKind::Jellyfin => {
-                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                        .encode(&[user_id.try_into().unwrap()]);
-                    let slug = format!("{}--{}", slug, nanoid!(5));
-                    UserSinkIntegrationSetting::Jellyfin { slug }
-                }
-                UserSinkIntegrationSettingKind::Plex => {
-                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                        .encode(&[user_id.try_into().unwrap()]);
-                    let slug = format!("{}--{}", slug, nanoid!(5));
-                    UserSinkIntegrationSetting::Plex { slug }
+            settings: {
+                let slug = get_id_hasher(&self.config.integration.hasher_salt)
+                    .encode(&[user_id.try_into().unwrap()]);
+                let slug = format!("{}--{}", slug, nanoid!(5));
+                match input.lot {
+                    UserSinkIntegrationSettingKind::Jellyfin => {
+                        UserSinkIntegrationSetting::Jellyfin { slug }
+                    }
+                    UserSinkIntegrationSettingKind::Plex => {
+                        UserSinkIntegrationSetting::Plex { slug }
+                    }
+                    UserSinkIntegrationSettingKind::Kodi => {
+                        UserSinkIntegrationSetting::Kodi { slug }
+                    }
                 }
             },
         };
@@ -4239,20 +4189,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn set_auth_token(&self, api_key: &str, user_id: i32) -> anyhow::Result<()> {
-        self.get_auth_db()
-            .insert(
-                api_key.to_owned(),
-                MemoryAuthData {
-                    user_id: user_id.to_owned(),
-                    last_used_on: Utc::now(),
-                },
-            )
-            .await
-            .unwrap();
-        Ok(())
-    }
-
     async fn media_exists_in_database(
         &self,
         lot: MetadataLot,
@@ -4383,66 +4319,6 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn all_user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
-        let tokens = self
-            .get_auth_db()
-            .iter()
-            .filter_map(|r| {
-                if r.user_id == user_id {
-                    Some(UserAuthToken {
-                        token: r.key().clone(),
-                        last_used_on: r.last_used_on,
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect_vec();
-        let tokens = tokens
-            .into_iter()
-            .sorted_unstable_by_key(|t| t.last_used_on)
-            .rev()
-            .collect();
-        Ok(tokens)
-    }
-
-    pub async fn delete_expired_user_auth_tokens(&self) -> Result<()> {
-        let mut deleted_tokens = 0;
-        for user in self.users_list().await? {
-            let tokens = self.all_user_auth_tokens(user.id).await?;
-            for token in tokens {
-                if Utc::now() - token.last_used_on
-                    > ChronoDuration::days(self.config.users.token_valid_for_days)
-                    && self.get_auth_db().remove(token.token).await.is_ok()
-                {
-                    deleted_tokens += 1;
-                }
-            }
-        }
-        tracing::debug!("Deleted {} expired user auth tokens", deleted_tokens);
-        Ok(())
-    }
-
-    async fn user_auth_tokens(&self, user_id: i32) -> Result<Vec<UserAuthToken>> {
-        let mut tokens = self.all_user_auth_tokens(user_id).await?;
-        tokens.iter_mut().for_each(|t| {
-            // taken from https://users.rust-lang.org/t/take-last-n-characters-from-string/44638/4
-            t.token.drain(0..t.token.len() - 6);
-        });
-        Ok(tokens)
-    }
-
-    async fn delete_user_auth_token(&self, user_id: i32, token: String) -> Result<bool> {
-        let tokens = self.all_user_auth_tokens(user_id).await?;
-        let resp = if let Some(t) = tokens.into_iter().find(|t| t.token.ends_with(&token)) {
-            self.get_auth_db().remove(t.token).await.unwrap();
-            true
-        } else {
-            false
-        };
-        Ok(resp)
-    }
-
     async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
         let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
@@ -4489,6 +4365,7 @@ impl MiscellaneousService {
         let integration = match integration.as_str() {
             "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
             "plex" => UserSinkIntegrationSettingKind::Plex,
+            "kodi" => UserSinkIntegrationSettingKind::Kodi,
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
         let (user_hash, _) = user_hash_id
@@ -4519,6 +4396,16 @@ impl MiscellaneousService {
                     if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Plex {
                         self.get_integration_service()
                             .plex_progress(&payload)
+                            .await
+                            .ok()
+                    } else {
+                        None
+                    }
+                }
+                UserSinkIntegrationSetting::Kodi { slug } => {
+                    if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi {
+                        self.get_integration_service()
+                            .kodi_progress(&payload)
                             .await
                             .ok()
                     } else {
@@ -4877,6 +4764,7 @@ impl MiscellaneousService {
         let associations = MetadataToCreator::find()
             .filter(metadata_to_creator::Column::CreatorId.eq(creator_id))
             .find_also_related(Metadata)
+            .order_by_asc(metadata_to_creator::Column::Index)
             .all(&self.db)
             .await?;
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();

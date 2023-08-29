@@ -27,8 +27,7 @@ Here is the minimal configuration required in development mode:
 ```json title="config/ryot.json"
 {
   "database": {
-    "url": "postgres://postgres:postgres@postgres:5432/postgres",
-    "auth_db_path": "/tmp"
+    "url": "postgres://postgres:postgres@postgres:5432/postgres"
   },
   "server": {
     "cors_origins": ["http://localhost:3000"],

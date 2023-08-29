@@ -115,9 +115,6 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
-    /// The directory where user auth tokens will be persisted.
-    #[setting(default = "/data")]
-    pub auth_db_path: String,
     /// The database connection string. Supports SQLite, MySQL and Postgres.
     /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
@@ -400,6 +397,9 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
+    /// The secret used for generating JWT tokens.
+    #[setting(default = format!("{}", PROJECT_NAME))]
+    pub jwt_secret: String,
     /// Whether users will be allowed to change their password in their profile
     /// settings.
     #[setting(default = true)]
@@ -514,7 +514,6 @@ impl AppConfig {
         let mut cl = self.clone();
         cl.anime.mal.client_id = gt();
         cl.database.url = gt();
-        cl.database.auth_db_path = gt();
         cl.file_storage.s3_region = gt();
         cl.file_storage.s3_bucket_name = gt();
         cl.file_storage.s3_access_key_id = gt();
@@ -530,6 +529,7 @@ impl AppConfig {
         cl.video_games.twitch.client_secret = gt();
         cl.server.config_dump_path = gt();
         cl.server.cors_origins = vec![gt()];
+        cl.users.jwt_secret = gt();
         cl
     }
 }

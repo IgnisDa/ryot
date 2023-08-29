@@ -1,3 +1,0 @@
-mutation DeleteUserAuthToken($token: String!) {
-  deleteUserAuthToken(token: $token)
-}

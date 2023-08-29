@@ -507,7 +507,6 @@ export default function ({ children }: { children: ReactElement }) {
 										label: "Miscellaneous",
 										link: APP_ROUTES.settings.miscellaneous,
 									},
-									{ label: "Tokens", link: APP_ROUTES.settings.tokens },
 									userDetails.data?.__typename === "User" &&
 									userDetails.data.lot === UserLot.Admin
 										? { label: "Users", link: APP_ROUTES.settings.users }

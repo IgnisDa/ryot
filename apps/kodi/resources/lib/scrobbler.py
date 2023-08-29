@@ -33,18 +33,18 @@ class Scrobbler:
         if progress < 2:
             return
 
-        api_token = self.__addon__.getSettingString("apiToken")
+        slug = self.__addon__.getSettingString("slug")
         instance_url = self.__addon__.getSettingString("instanceUrl")
 
-        if len(api_token) == 0:
-            xbmc.log("Ryot: missing api token", xbmc.LOGDEBUG)
+        if len(slug) == 0:
+            xbmc.log("Ryot: missing Kodi slug", xbmc.LOGDEBUG)
             return
 
         if len(instance_url) == 0:
             xbmc.log("Ryot: missing instance url", xbmc.LOGDEBUG)
             return
 
-        ryot_tracker = Ryot(instance_url, api_token)
+        ryot_tracker = Ryot(instance_url, slug)
 
         title = None
         tmdb_id = None
@@ -53,7 +53,7 @@ class Scrobbler:
         episode_number = None
 
         if video_info_tag.getMediaType() == "episode":
-            lot = "SHOW"
+            lot = "Show"
             res = kodi_json_request(
                 "VideoLibrary.GetEpisodeDetails",
                 {"episodeid": video_info_tag.getDbId(), "properties": ["tvshowid"]},
@@ -80,7 +80,7 @@ class Scrobbler:
 
         elif video_info_tag.getMediaType() == "movie":
             tmdb_id = video_info_tag.getUniqueID("tmdb")
-            lot = "MOVIE"
+            lot = "Movie"
             title = video_info_tag.getTitle()
 
         if not title:
@@ -95,28 +95,18 @@ class Scrobbler:
             xbmc.log(f'Ryot: missing tmdbId for "{title}"', xbmc.LOGDEBUG)
             return
 
-        ryot_media_id = self.media_cache.get(tmdb_id)
-
-        if not ryot_media_id:
-            data = ryot_tracker.media_exists_in_database(tmdb_id, lot)
-            ryot_media_id = data
-            self.media_cache[tmdb_id] = data
-
         xbmc.log(
             f'Ryot: updating progress for "{title}" - {progress}%',
             xbmc.LOGDEBUG,
         )
 
-        if progress > 90:
-            ryot_tracker.update_progress(
-                ryot_media_id, 100, season_number, episode_number
-            )
-            return
-
-        ryot_tracker.update_progress(
-            ryot_media_id, progress, season_number, episode_number
+        (status, ex) = ryot_tracker.update_progress(
+            tmdb_id, lot, progress, season_number, episode_number
         )
-
+        if not status:
+            xbmc.log(f'Ryot: {ex}', xbmc.LOGERROR)
+        else:
+            xbmc.log(f'Ryot: {ex}', xbmc.LOGDEBUG)
 
 def kodi_json_request(method: str, params: dict):
     args = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}

@@ -48,10 +48,6 @@ export default function Page() {
 						LoginErrorVariant.UsernameDoesNotExist,
 						() => "The username provided does not exist",
 					)
-					.with(
-						LoginErrorVariant.MutexError,
-						() => "There was an error reading the user database",
-					)
 					.exhaustive();
 				notifications.show({
 					title: "Error in login",

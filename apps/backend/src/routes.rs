@@ -7,14 +7,12 @@ use axum::{
     body::{boxed, Full},
     extract::{Multipart, Path},
     headers::{authorization::Bearer, Authorization},
-    http::{header, HeaderMap, StatusCode, Uri},
+    http::{header, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     Extension, Json, TypedHeader,
 };
-use http::header::AUTHORIZATION;
 use rust_embed::RustEmbed;
 use serde_json::json;
-use tower_cookies::Cookies;
 
 use crate::{
     config::AppConfig,
@@ -22,7 +20,7 @@ use crate::{
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
     models::media::ExportAllResponse,
-    utils::{user_id_from_token, GqlCtx, COOKIE_NAME},
+    utils::{user_id_from_token, GqlCtx},
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -78,22 +76,10 @@ pub async fn not_found() -> Response {
 
 pub async fn graphql_handler(
     schema: Extension<GraphqlSchema>,
-    cookies: Cookies,
-    headers: HeaderMap,
+    gql_ctx: GqlCtx,
     req: GraphQLRequest,
 ) -> GraphQLResponse {
-    let mut req = req.0;
-    let mut ctx = GqlCtx { auth_token: None };
-    let strip = |t: &str| t.replace("Bearer ", "");
-    if let Some(c) = cookies.get(COOKIE_NAME) {
-        ctx.auth_token = Some(c.value().to_owned());
-    } else if let Some(h) = headers.get(AUTHORIZATION) {
-        ctx.auth_token = h.to_str().map(strip).ok();
-    } else if let Some(h) = headers.get("X-Auth-Token") {
-        ctx.auth_token = h.to_str().map(String::from).ok();
-    }
-    req = req.data(ctx);
-    schema.execute(req).await.into()
+    schema.execute(req.into_inner().data(gql_ctx)).await.into()
 }
 
 pub async fn graphql_playground() -> impl IntoResponse {
@@ -128,10 +114,10 @@ pub async fn json_export(
     Path(export_type): Path<String>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     Extension(exercise_service): Extension<Arc<ExerciseService>>,
-    TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
+    Extension(config): Extension<Arc<AppConfig>>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = user_id_from_token(authorization.token().to_owned(), &media_service.auth_db)
-        .await
+    let user_id = user_id_from_token(bearer.token(), &config.users.jwt_secret)
         .map_err(|e| (StatusCode::FORBIDDEN, Json(json!({"err": e.message}))))?;
     let resp = match export_type.as_str() {
         "all" => {

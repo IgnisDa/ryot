@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
     <category label="32001">
-        <setting label="32011" type="text" id="apiToken" default="" />
+        <setting label="32011" type="text" id="slug" default="" />
         <setting label="32012" type="text" id="instanceUrl" default="http://localhost:8000" />
     </category>
 </settings>

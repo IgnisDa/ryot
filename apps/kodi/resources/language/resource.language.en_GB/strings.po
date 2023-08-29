@@ -17,8 +17,8 @@ msgid "General"
 msgstr "General"
 
 msgctxt "#32011"
-msgid "Application token"
-msgstr "Application token"
+msgid "Kodi slug"
+msgstr "Kodi slug"
 
 msgctxt "#32012"
 msgid "Ryot instance url"
