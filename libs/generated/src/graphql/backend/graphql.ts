@@ -1588,6 +1588,7 @@ export enum UserReviewScale {
 
 export enum UserSinkIntegrationSettingKind {
   Jellyfin = 'JELLYFIN',
+  Kodi = 'KODI',
   Plex = 'PLEX'
 }
 

@@ -9,7 +9,7 @@ use crate::{
     utils::get_base_http_client,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationMedia {
     pub identifier: String,
     pub lot: MetadataLot,
@@ -161,6 +161,14 @@ impl IntegrationService {
             show_season_number: None,
             show_episode_number: None,
         })
+    }
+
+    pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+        let payload = match serde_json::from_str::<IntegrationMedia>(payload) {
+            Result::Ok(val) => val,
+            Result::Err(err) => bail!(err),
+        };
+        Ok(payload)
     }
 
     pub async fn audiobookshelf_progress(

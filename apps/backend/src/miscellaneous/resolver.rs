@@ -3962,6 +3962,9 @@ impl MiscellaneousService {
                 UserSinkIntegrationSetting::Plex { slug } => {
                     format!("Plex slug: {}", slug)
                 }
+                UserSinkIntegrationSetting::Kodi { slug } => {
+                    format!("Kodi slug: {}", slug)
+                }
             };
             all_integrations.push(GraphqlUserIntegration {
                 id: i.id,
@@ -4024,18 +4027,20 @@ impl MiscellaneousService {
         let new_integration = UserSinkIntegration {
             id: new_integration_id,
             timestamp: Utc::now(),
-            settings: match input.lot {
-                UserSinkIntegrationSettingKind::Jellyfin => {
-                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                        .encode(&[user_id.try_into().unwrap()]);
-                    let slug = format!("{}--{}", slug, nanoid!(5));
-                    UserSinkIntegrationSetting::Jellyfin { slug }
-                }
-                UserSinkIntegrationSettingKind::Plex => {
-                    let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                        .encode(&[user_id.try_into().unwrap()]);
-                    let slug = format!("{}--{}", slug, nanoid!(5));
-                    UserSinkIntegrationSetting::Plex { slug }
+            settings: {
+                let slug = get_id_hasher(&self.config.integration.hasher_salt)
+                    .encode(&[user_id.try_into().unwrap()]);
+                let slug = format!("{}--{}", slug, nanoid!(5));
+                match input.lot {
+                    UserSinkIntegrationSettingKind::Jellyfin => {
+                        UserSinkIntegrationSetting::Jellyfin { slug }
+                    }
+                    UserSinkIntegrationSettingKind::Plex => {
+                        UserSinkIntegrationSetting::Plex { slug }
+                    }
+                    UserSinkIntegrationSettingKind::Kodi => {
+                        UserSinkIntegrationSetting::Kodi { slug }
+                    }
                 }
             },
         };
@@ -4390,6 +4395,16 @@ impl MiscellaneousService {
                     if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Plex {
                         self.get_integration_service()
                             .plex_progress(&payload)
+                            .await
+                            .ok()
+                    } else {
+                        None
+                    }
+                }
+                UserSinkIntegrationSetting::Kodi { slug } => {
+                    if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi {
+                        self.get_integration_service()
+                            .kodi_progress(&payload)
                             .await
                             .ok()
                     } else {
