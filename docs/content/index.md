@@ -4,11 +4,6 @@ The first user you register is automatically set as admin of the instance.
 
 ## Using Docker
 
-!!! danger "Production Usage"
-
-    You will have to mount a directory to `/data`, giving it `1001:1001` permissions.
-    It is also recommended to use PostgreSQL in production.
-
 To get a demo server running, use the docker image:
 
 ```bash
@@ -40,12 +35,14 @@ services:
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
     environment:
-      - SERVER_INSECURE_COOKIE=true
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres # recommended
+      # - DATABASE_URL=sqlite:./ryot-db.sqlite # SQLite database
+      # - DATABASE_URL=mysql://mysql:mysql@mysql:6749/mysql # MySQL database
+      # - SERVER_INSECURE_COOKIE=true # only needed in localhost or non-https
     ports:
       - "8000:8000"
-    volumes:
-      - ./ryot-data:/data
+    # volumes:
+      # - ./ryot-data:/data # only needed if using sqlite database
     pull_policy: always
     container_name: ryot
 
@@ -53,13 +50,13 @@ volumes:
   postgres_storage:
 ```
 
-!!! warning
-
-    The `SERVER_INSECURE_COOKIE` configuration is only required if you are not
-    running HTTPs.
-
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
 pre-release or release, whichever is newer.
+
+!!! danger "Production Usage"
+
+    If you mount a directory to `/data`, give it `1001:1001`
+    permissions: `sudo chown -R 1001:1001 ./ryot-data`.
 
 ## Quick-run a release
 
