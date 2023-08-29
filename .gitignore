@@ -46,3 +46,4 @@ web-build/
 .cache
 docs/site
 *.log*
+apps/backend/temp
