@@ -5,16 +5,10 @@ Users can export either their entire data or individual parts of it.
 To start, login to your Ryot instance and go to the "Imports and Exports" section
 in the "Settings" section. Then, generate a new auth token.
 
-The base endpoint is `<ryot_url>/export/<type>`. So requests will look like:
+The base endpoint is `/export/<type>`. So requests will look like:
 
 ```bash
-curl <ryot_url>/export/<type> --header 'Authorization: Bearer <token>'
-```
-
-For example:
-
-```bash
-curl 'https://ryot.fly.dev/export/media' --header 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEsImV4cCI6MTcwMTA5Nzk4MywiaWF0IjoxNjkzMzIxOTgzfQ.JW4j0UGk4pGMmcxhkxbEt_P0m4ssu5S-CPSA3B1SniI'
+curl <ryot_instance_url>/export/<type> --header 'X-Auth-Token: <token>'
 ```
 
 ## All (`type=all`)
