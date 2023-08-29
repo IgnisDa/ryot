@@ -137,6 +137,7 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<Textarea
 									label="Description"
+									description={"Markdown is supported"}
 									{...form.getInputProps("description")}
 								/>
 								<FileInput

@@ -63,10 +63,10 @@ pub struct DeployMovaryImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMalImportInput {
-    // The anime export file path (uploaded via temporary upload).
-    anime: String,
-    // The manga export file path (uploaded via temporary upload).
-    manga: String,
+    /// The anime export file path (uploaded via temporary upload).
+    anime_path: String,
+    /// The manga export file path (uploaded via temporary upload).
+    manga_path: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

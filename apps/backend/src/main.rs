@@ -1,5 +1,6 @@
 use std::{
-    env, fs,
+    env,
+    fs::{self, create_dir_all},
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     path::PathBuf,
@@ -320,8 +321,11 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
     st
 }
 
-fn init_tracing() -> WorkerGuard {
-    let file_appender = tracing_appender::rolling::daily(".", format!("{}.log", PROJECT_NAME));
+fn init_tracing() -> Result<WorkerGuard> {
+    let tmp_dir = PathBuf::new().join("tmp");
+    create_dir_all(&tmp_dir)?;
+    let path = tmp_dir.join(format!("{}.log", PROJECT_NAME));
+    let file_appender = tracing_appender::rolling::daily(".", path);
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
@@ -335,5 +339,5 @@ fn init_tracing() -> WorkerGuard {
             ),
     )
     .expect("Unable to set global tracing subscriber");
-    guard
+    Ok(guard)
 }

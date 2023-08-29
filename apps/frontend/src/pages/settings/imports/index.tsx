@@ -75,8 +75,8 @@ const mediaJsonImportFormSchema = z.object({
 type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
 const malImportFormSchema = z.object({
-	anime: z.string(),
-	manga: z.string(),
+	animePath: z.string(),
+	mangaPath: z.string(),
 });
 type MalImportFormSchema = z.infer<typeof malImportFormSchema>;
 
@@ -138,6 +138,17 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const uploadFileToServiceAndGetPath = async (file: File) => {
+		const formData = new FormData();
+		formData.append(`files[]`, file, file.name);
+		const resp = await fetch(`${BASE_URL}/upload`, {
+			method: "POST",
+			body: formData,
+		});
+		const data: string[] = await resp.json();
+		return data[0];
+	};
+
 	return (
 		<>
 			<Head>
@@ -192,8 +203,8 @@ const Page: NextPageWithLayout = () => {
 									}))
 									.with(ImportSource.Mal, async () => ({
 										mal: {
-											anime: malImportForm.values.anime,
-											manga: malImportForm.values.manga,
+											animePath: malImportForm.values.mangaPath,
+											mangaPath: malImportForm.values.mangaPath,
 										},
 									}))
 									.exhaustive();
@@ -326,14 +337,10 @@ const Page: NextPageWithLayout = () => {
 												required
 												onChange={async (file) => {
 													if (file) {
-														const formData = new FormData();
-														formData.append(`files[]`, file, file.name);
-														const resp = await fetch(`${BASE_URL}/upload`, {
-															method: "POST",
-															body: formData,
-														});
-														const data = await resp.json();
-														malImportForm.setFieldValue("anime", data[0]);
+														const path = await uploadFileToServiceAndGetPath(
+															file,
+														);
+														malImportForm.setFieldValue("animePath", path);
 													}
 												}}
 											/>
@@ -342,14 +349,10 @@ const Page: NextPageWithLayout = () => {
 												required
 												onChange={async (file) => {
 													if (file) {
-														const formData = new FormData();
-														formData.append(`files[]`, file, file.name);
-														const resp = await fetch(`${BASE_URL}/upload`, {
-															method: "POST",
-															body: formData,
-														});
-														const data = await resp.json();
-														malImportForm.setFieldValue("manga", data[0]);
+														const path = await uploadFileToServiceAndGetPath(
+															file,
+														);
+														malImportForm.setFieldValue("mangaPath", path);
 													}
 												}}
 											/>
