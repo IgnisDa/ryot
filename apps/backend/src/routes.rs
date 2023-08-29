@@ -1,4 +1,4 @@
-use std::{env, fs::write, sync::Arc};
+use std::{fs::write, path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use async_graphql::http::GraphiQLSource;
@@ -116,7 +116,8 @@ pub async fn upload_file(
             .map(String::from)
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
-        let path = env::temp_dir().join(name);
+        let tmp_dir = PathBuf::new().join("tmp");
+        let path = tmp_dir.join(name);
         write(&path, data).unwrap();
         res.push(path);
     }

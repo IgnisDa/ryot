@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{self, create_dir},
+    fs::{self, create_dir_all},
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     path::PathBuf,
@@ -322,8 +322,8 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
 }
 
 fn init_tracing() -> Result<WorkerGuard> {
-    let tmp_dir = env::temp_dir();
-    create_dir(&tmp_dir).ok();
+    let tmp_dir = PathBuf::new().join("tmp");
+    create_dir_all(&tmp_dir)?;
     let path = tmp_dir.join(format!("{}.log", PROJECT_NAME));
     let file_appender = tracing_appender::rolling::daily(".", path);
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
