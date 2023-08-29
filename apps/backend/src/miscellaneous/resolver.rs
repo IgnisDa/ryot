@@ -4361,7 +4361,7 @@ impl MiscellaneousService {
         user_hash_id: String,
         integration: String,
         payload: String,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let integration = match integration.as_str() {
             "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
             "plex" => UserSinkIntegrationSettingKind::Plex,
@@ -4378,46 +4378,42 @@ impl MiscellaneousService {
             .to_owned()
             .try_into()?;
         let user = user_by_id(&self.db, user_id).await?;
-        for db_integration in user.sink_integrations.0.into_iter() {
-            let progress = match db_integration.settings {
+        let integration = user
+            .sink_integrations
+            .0
+            .into_iter()
+            .find(|i| match &i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    if slug == user_hash_id
-                        && integration == UserSinkIntegrationSettingKind::Jellyfin
-                    {
-                        self.get_integration_service()
-                            .jellyfin_progress(&payload)
-                            .await
-                            .ok()
-                    } else {
-                        None
-                    }
+                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Jellyfin
                 }
                 UserSinkIntegrationSetting::Plex { slug } => {
-                    if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Plex {
-                        self.get_integration_service()
-                            .plex_progress(&payload)
-                            .await
-                            .ok()
-                    } else {
-                        None
-                    }
+                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Plex
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
-                    if slug == user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi {
-                        self.get_integration_service()
-                            .kodi_progress(&payload)
-                            .await
-                            .ok()
-                    } else {
-                        None
-                    }
+                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi
                 }
-            };
-            if let Some(pu) = progress {
-                self.integration_progress_update(pu, user_id).await.ok();
+            })
+            .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
+        let data = match integration.settings {
+            UserSinkIntegrationSetting::Jellyfin { .. } => {
+                self.get_integration_service()
+                    .jellyfin_progress(&payload)
+                    .await
             }
+            UserSinkIntegrationSetting::Plex { .. } => {
+                self.get_integration_service().plex_progress(&payload).await
+            }
+            UserSinkIntegrationSetting::Kodi { .. } => {
+                self.get_integration_service().kodi_progress(&payload).await
+            }
+        };
+        match data {
+            Ok(pu) => {
+                self.integration_progress_update(pu, user_id).await?;
+                Ok("Progress updated successfully".to_owned())
+            }
+            Err(e) => Err(Error::new(e.to_string())),
         }
-        Ok(())
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {

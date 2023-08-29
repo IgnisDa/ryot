@@ -151,13 +151,13 @@ pub async fn integration_webhook(
     Path((integration, user_hash_id)): Path<(String, String)>,
     Extension(media_service): Extension<Arc<MiscellaneousService>>,
     payload: String,
-) -> std::result::Result<StatusCode, StatusCode> {
-    media_service
+) -> std::result::Result<(StatusCode, String), StatusCode> {
+    let response = media_service
         .process_integration_webhook(user_hash_id, integration, payload)
         .await
         .map_err(|e| {
             tracing::error!("{:?}", e);
             StatusCode::UNPROCESSABLE_ENTITY
         })?;
-    Ok(StatusCode::OK)
+    Ok((StatusCode::OK, response))
 }
