@@ -4418,7 +4418,7 @@ impl MiscellaneousService {
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
         if pu.progress < self.config.integration.minimum_progress_limit {
-            return Err(Error::new("Progress outside bound"));
+            return Ok(());
         }
         let progress = if pu.progress > self.config.integration.maximum_progress_limit {
             100
