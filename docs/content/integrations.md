@@ -12,10 +12,6 @@ periodic interval.
     An item is marked as started when it has more than _2%_ progress and
     marked as completed when it has more than _95%_ progress.
 
-!!! warning
-
-    Keep your webhook urls private to prevent abuse.
-
 ## Yank plugins
 
 For each integration you want to enable, credentials for the external server
@@ -36,6 +32,10 @@ media which have a match from _Audible_.
 
 To start, go to the "Settings" tab and generate a new application token from under
 the "Tokens" tab. It will look like this: `rab88f6b10`.
+
+!!! warning
+
+    Keep your webhook urls private to prevent abuse.
 
 ### Jellyfin
 
@@ -81,3 +81,7 @@ work for all the media that have been a valid TMDb ID attached to their metadata
 2. In your Plex Webhooks settings, add a new webhook using the
     following settings:
     - Webhook Url => `<instance_url>/webhooks/integrations/plex/<slug>`
+
+!!! warning
+
+    Plex integration is experimental.
