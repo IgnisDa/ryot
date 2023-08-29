@@ -400,6 +400,9 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
+    /// The secret used for generating JWT tokens.
+    #[setting(default = format!("{}", PROJECT_NAME))]
+    pub jwt_secret: String,
     /// Whether users will be allowed to change their password in their profile
     /// settings.
     #[setting(default = true)]
@@ -530,6 +533,7 @@ impl AppConfig {
         cl.video_games.twitch.client_secret = gt();
         cl.server.config_dump_path = gt();
         cl.server.cors_origins = vec![gt()];
+        cl.users.jwt_secret = gt();
         cl
     }
 }

@@ -60,6 +60,7 @@ mod fitness;
 mod graphql;
 mod importer;
 mod integrations;
+mod jwt;
 mod migrator;
 mod miscellaneous;
 mod models;
