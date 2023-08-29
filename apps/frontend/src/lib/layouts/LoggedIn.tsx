@@ -491,7 +491,7 @@ export default function ({ children }: { children: ReactElement }) {
 										link: APP_ROUTES.settings.preferences,
 									},
 									{
-										label: "Imports",
+										label: "Imports and Exports",
 										link: APP_ROUTES.settings.imports.new,
 									},
 									{ label: "Profile", link: APP_ROUTES.settings.profile },
