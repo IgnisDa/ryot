@@ -1110,6 +1110,13 @@ impl MiscellaneousMutation {
             .await;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }
+
+    /// Generate an auth token without any expiry.
+    async fn generate_auth_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.generate_auth_token(user_id).await
+    }
 }
 
 pub struct MiscellaneousService {
@@ -4945,6 +4952,15 @@ impl MiscellaneousService {
             }
         }
         Ok(resp)
+    }
+
+    async fn generate_auth_token(&self, user_id: i32) -> Result<String> {
+        let auth_token = jwt::sign(
+            user_id,
+            &self.config.users.jwt_secret,
+            self.config.users.token_valid_for_days,
+        )?;
+        Ok(auth_token)
     }
 }
 
