@@ -59,7 +59,6 @@ if ! dokku config:get --global DOKKU_LETSENCRYPT_EMAIL; then
     dokku config:set "$APPNAME" DOKKU_LETSENCRYPT_EMAIL="$EMAIL"
 fi
 
-dokku storage:mount "$APPNAME" /var/lib/dokku/data/storage/"$APPNAME":/data
 dokku domains:add $APPNAME $APPNAME."$(cat /home/dokku/VHOST)"
 dokku letsencrypt:enable "$APPNAME"
 dokku git:from-image "$APPNAME" "$image_sha"
