@@ -13,6 +13,7 @@ use crate::{
 pub struct IntegrationMedia {
     pub identifier: String,
     pub lot: MetadataLot,
+    #[serde(default)]
     pub source: MetadataSource,
     pub progress: i32,
     pub show_season_number: Option<i32>,
@@ -164,10 +165,11 @@ impl IntegrationService {
     }
 
     pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMedia> {
-        let payload = match serde_json::from_str::<IntegrationMedia>(payload) {
+        let mut payload = match serde_json::from_str::<IntegrationMedia>(payload) {
             Result::Ok(val) => val,
             Result::Err(err) => bail!(err),
         };
+        payload.source = MetadataSource::Tmdb;
         Ok(payload)
     }
 
