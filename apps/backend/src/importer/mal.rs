@@ -76,8 +76,8 @@ fn convert_to_format(
 }
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
-    let anime_data = decode_data::<DataRoot>(&input.anime)?;
-    let manga_data = decode_data::<DataRoot>(&input.manga)?;
+    let anime_data = decode_data::<DataRoot>(&input.anime_path)?;
+    let manga_data = decode_data::<DataRoot>(&input.manga_path)?;
     let mut media = vec![];
     for item in anime_data.items.into_iter() {
         media.push(convert_to_format(item, MetadataLot::Anime));

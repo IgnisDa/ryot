@@ -225,8 +225,10 @@ export type DeployImportJobInput = {
 };
 
 export type DeployMalImportInput = {
-  anime: Scalars['String']['input'];
-  manga: Scalars['String']['input'];
+  /** The anime export file path (uploaded via temporary upload). */
+  animePath: Scalars['String']['input'];
+  /** The manga export file path (uploaded via temporary upload). */
+  mangaPath: Scalars['String']['input'];
 };
 
 export type DeployMediaJsonImportInput = {
