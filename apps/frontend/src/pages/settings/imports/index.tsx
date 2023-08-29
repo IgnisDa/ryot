@@ -1,7 +1,7 @@
 import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { gqlClient } from "@/lib/services/api";
+import { BASE_URL, gqlClient } from "@/lib/services/api";
 import { fileToText } from "@/lib/utilities";
 import {
 	Anchor,
@@ -74,6 +74,12 @@ const mediaJsonImportFormSchema = z.object({
 });
 type MediaJsonImportFormSchema = z.infer<typeof mediaJsonImportFormSchema>;
 
+const malImportFormSchema = z.object({
+	animePath: z.string(),
+	mangaPath: z.string(),
+});
+type MalImportFormSchema = z.infer<typeof malImportFormSchema>;
+
 export const ImportSourceElement = (props: {
 	children: JSX.Element | JSX.Element[];
 }) => {
@@ -115,6 +121,9 @@ const Page: NextPageWithLayout = () => {
 	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
 		validate: zodResolver(mediaJsonImportFormSchema),
 	});
+	const malImportForm = useForm<MalImportFormSchema>({
+		validate: zodResolver(malImportFormSchema),
+	});
 
 	const deployImportJob = useMutation({
 		mutationFn: async (variables: DeployImportJobMutationVariables) => {
@@ -128,6 +137,17 @@ const Page: NextPageWithLayout = () => {
 			notifications.show(message);
 		},
 	});
+
+	const uploadFileToServiceAndGetPath = async (file: File) => {
+		const formData = new FormData();
+		formData.append(`files[]`, file, file.name);
+		const resp = await fetch(`${BASE_URL}/upload`, {
+			method: "POST",
+			body: formData,
+		});
+		const data: string[] = await resp.json();
+		return data[0];
+	};
 
 	return (
 		<>
@@ -179,6 +199,12 @@ const Page: NextPageWithLayout = () => {
 											export: await fileToText(
 												mediaJsonImportForm.values.export,
 											),
+										},
+									}))
+									.with(ImportSource.Mal, async () => ({
+										mal: {
+											animePath: malImportForm.values.mangaPath,
+											mangaPath: malImportForm.values.mangaPath,
 										},
 									}))
 									.exhaustive();
@@ -301,6 +327,34 @@ const Page: NextPageWithLayout = () => {
 												accept=".json"
 												required
 												{...mediaJsonImportForm.getInputProps("export")}
+											/>
+										</>
+									))
+									.with(ImportSource.Mal, () => (
+										<>
+											<FileInput
+												label="Anime export file"
+												required
+												onChange={async (file) => {
+													if (file) {
+														const path = await uploadFileToServiceAndGetPath(
+															file,
+														);
+														malImportForm.setFieldValue("animePath", path);
+													}
+												}}
+											/>
+											<FileInput
+												label="Manga export file"
+												required
+												onChange={async (file) => {
+													if (file) {
+														const path = await uploadFileToServiceAndGetPath(
+															file,
+														);
+														malImportForm.setFieldValue("mangaPath", path);
+													}
+												}}
 											/>
 										</>
 									))

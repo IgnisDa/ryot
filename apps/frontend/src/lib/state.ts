@@ -1,8 +1,8 @@
-import type {
-	CreateUserWorkoutMutationVariables,
-	ExerciseLot,
-	SetLot,
-	UserWorkoutSetRecord,
+import {
+	type CreateUserWorkoutMutationVariables,
+	type ExerciseLot,
+	type SetLot,
+	type UserWorkoutSetRecord,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithStorage } from "jotai/utils";
@@ -15,7 +15,7 @@ export type ExerciseSetStats = Immutable<{
 }>;
 
 export type ExerciseSet = Immutable<{
-	stats: ExerciseSetStats;
+	statistic: ExerciseSetStats;
 	lot: SetLot;
 	confirmed: boolean;
 }>;
@@ -77,11 +77,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 	for (const exercise of currentWorkout.exercises) {
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
-			if (set.confirmed)
-				sets.push({
-					lot: set.lot,
-					statistic: set.stats,
-				});
+			if (set.confirmed) {
+				sets.push({ lot: set.lot, statistic: set.statistic });
+			}
 		if (sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);

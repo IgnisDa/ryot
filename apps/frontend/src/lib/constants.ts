@@ -21,12 +21,12 @@ export const APP_ROUTES = {
 		list: "/media/list",
 		postReview: "/media/post-review",
 		collections: {
-			details: "/media/collections",
 			list: "/media/collections/list",
+			details: "/media/collections",
 		},
 		people: {
-			details: "/media/people",
 			list: "/media/people/list",
+			details: "/media/people",
 		},
 		individualMediaItem: {
 			details: "/media/item",
@@ -37,8 +37,9 @@ export const APP_ROUTES = {
 	},
 	fitness: {
 		exercises: {
-			list: "/fitness/exercises/list",
 			currentWorkout: "/fitness/exercises/current-workout",
+			list: "/fitness/exercises/list",
+			details: "/fitness/exercises/details",
 		},
 		measurements: "/fitness/measurements",
 	},

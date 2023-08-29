@@ -24,6 +24,7 @@ use crate::{
 };
 
 mod goodreads;
+mod mal;
 mod media_json;
 mod media_tracker;
 mod movary;
@@ -61,6 +62,14 @@ pub struct DeployMovaryImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMalImportInput {
+    /// The anime export file path (uploaded via temporary upload).
+    anime_path: String,
+    /// The manga export file path (uploaded via temporary upload).
+    manga_path: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployStoryGraphImportInput {
     // The CSV contents of the export file.
     export: String,
@@ -86,6 +95,7 @@ pub struct DeployImportJobInput {
     pub goodreads: Option<DeployGoodreadsImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
+    pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub media_json: Option<DeployMediaJsonImportInput>,
 }
@@ -238,6 +248,7 @@ impl ImporterService {
                 media_tracker::import(input.media_tracker.unwrap()).await?
             }
             ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
+            ImportSource::Mal => mal::import(input.mal.unwrap()).await?,
             ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
             ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
@@ -291,12 +302,17 @@ impl ImporterService {
                 }
             };
             for seen in item.seen_history.iter() {
+                let progress = if seen.progress.is_some() {
+                    seen.progress
+                } else {
+                    Some(100)
+                };
                 match self
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
                             metadata_id: metadata.id,
-                            progress: Some(100),
+                            progress,
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,

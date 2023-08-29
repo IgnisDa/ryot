@@ -1,6 +1,6 @@
 import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
-import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
+import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -403,19 +403,6 @@ const Page: NextPageWithLayout = () => {
 							{ minWidth: "lg", cols: 3 },
 						]}
 					>
-						<Link
-							passHref
-							legacyBehavior
-							href={APP_ROUTES.media.individualMediaItem.create}
-						>
-							<Button
-								variant="outline"
-								component="a"
-								leftIcon={<IconPhotoPlus />}
-							>
-								Create a media item
-							</Button>
-						</Link>
 						{currentWorkout ? (
 							<Link
 								passHref
@@ -443,6 +430,19 @@ const Page: NextPageWithLayout = () => {
 								Start a workout
 							</Button>
 						)}
+						<Link
+							passHref
+							legacyBehavior
+							href={APP_ROUTES.media.individualMediaItem.create}
+						>
+							<Button
+								variant="outline"
+								component="a"
+								leftIcon={<IconPhotoPlus />}
+							>
+								Create a media item
+							</Button>
+						</Link>
 					</SimpleGrid>
 				</Stack>
 			</Container>

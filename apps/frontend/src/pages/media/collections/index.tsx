@@ -1,6 +1,6 @@
 import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
-import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaItem";
+import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";

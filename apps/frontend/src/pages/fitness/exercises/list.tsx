@@ -34,9 +34,9 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	ExerciseInformationDocument,
 	type ExerciseListFilter,
 	ExerciseLot,
+	ExerciseParametersDocument,
 	ExercisesListDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -54,8 +54,10 @@ import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
+import { withQuery } from "ufo";
 
 const defaultFilterValue = {
 	muscle: undefined,
@@ -99,11 +101,11 @@ const Page: NextPageWithLayout = () => {
 	const exerciseInformation = useQuery({
 		queryKey: ["exerciseInformation"],
 		queryFn: async () => {
-			const { exerciseInformation } = await gqlClient.request(
-				ExerciseInformationDocument,
+			const { exerciseParameters } = await gqlClient.request(
+				ExerciseParametersDocument,
 				{},
 			);
-			return exerciseInformation;
+			return exerciseParameters;
 		},
 		staleTime: Infinity,
 	});
@@ -285,16 +287,24 @@ const Page: NextPageWithLayout = () => {
 													radius={"xl"}
 													size="lg"
 												/>
-												<Flex direction={"column"} justify={"space-around"}>
-													<Text>{exercise.name}</Text>
-													{exercise.attributes.muscles.at(0) ? (
-														<Text size="xs">
-															{startCase(
-																snakeCase(exercise.attributes.muscles.at(0)),
-															)}
-														</Text>
-													) : undefined}
-												</Flex>
+												<Link
+													href={withQuery(
+														APP_ROUTES.fitness.exercises.details,
+														{ id: exercise.id },
+													)}
+													style={{ all: "unset", cursor: "pointer" }}
+												>
+													<Flex direction={"column"} justify={"space-around"}>
+														<Text>{exercise.name}</Text>
+														{exercise.attributes.muscles.at(0) ? (
+															<Text size="xs">
+																{startCase(
+																	snakeCase(exercise.attributes.muscles.at(0)),
+																)}
+															</Text>
+														) : undefined}
+													</Flex>
+												</Link>
 											</Flex>
 										))}
 									</SimpleGrid>
@@ -336,7 +346,11 @@ const Page: NextPageWithLayout = () => {
 												lot: exercise.lot,
 												name: exercise.name,
 												sets: [
-													{ confirmed: false, stats: {}, lot: SetLot.Normal },
+													{
+														confirmed: false,
+														statistic: {},
+														lot: SetLot.Normal,
+													},
 												],
 												notes: [],
 											});

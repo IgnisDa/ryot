@@ -207,7 +207,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     let data_len = data.len();
 
     let mut final_data = vec![];
-    // TODO: Technically this can be done in parallel, by executing requests in
+    // DEV: Technically this can be done in parallel, by executing requests in
     // batches. Example: https://users.rust-lang.org/t/can-tokio-semaphore-be-used-to-limit-spawned-tasks/59899.
     for (idx, d) in data.into_iter().enumerate() {
         let lot = MetadataLot::from(d.media_type.clone());
@@ -309,9 +309,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 ImportOrExportItemRating {
                     review,
                     rating: r.rating.map(|d| d.saturating_mul(dec!(20))),
-                    show_season_number: None,
-                    show_episode_number: None,
-                    podcast_episode_number: None,
+                    ..Default::default()
                 }
             })),
             seen_history: details
@@ -330,12 +328,10 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         (None, None)
                     };
                     ImportOrExportMediaItemSeen {
-                        started_on: None,
                         ended_on: s.date,
                         show_season_number: season_number,
                         show_episode_number: episode_number,
-                        // DEV: Since this source does not support podcasts
-                        podcast_episode_number: None,
+                        ..Default::default()
                     }
                 })
                 .collect(),

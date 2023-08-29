@@ -19,9 +19,7 @@ import {
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
-	UserDistanceUnit,
 	UserReviewScale,
-	UserWeightUnit,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
@@ -200,38 +198,25 @@ const Page: NextPageWithLayout = () => {
 					<Divider />
 					<Title order={2}>Exercises</Title>
 					<SimpleGrid cols={1}>
+						{/*
+						// TODO: Introduce this back when we figure out a way to handle units
 						<Select
 							size="xs"
-							label="Unit to use for weight measurements"
-							data={Object.values(UserWeightUnit).map((c) => startCase(c))}
-							defaultValue={userPreferences.data.fitness.exercises.weightUnit}
+							label="Unit system to use for measurements"
+							data={Object.values(UserUnitSystem).map((c) => startCase(c))}
+							defaultValue={userPreferences.data.fitness.exercises.unitSystem}
 							disabled={!coreDetails.data.preferencesChangeAllowed}
 							onChange={(val) => {
 								if (val)
 									updateUserEnabledFeatures.mutate({
 										input: {
-											property: "fitness.exercises.weight_unit",
+											property: "fitness.exercises.unit_system",
 											value: val,
 										},
 									});
 							}}
 						/>
-						<Select
-							size="xs"
-							label="Unit to use for distance measurements"
-							data={Object.values(UserDistanceUnit).map((c) => startCase(c))}
-							defaultValue={userPreferences.data.fitness.exercises.distanceUnit}
-							disabled={!coreDetails.data.preferencesChangeAllowed}
-							onChange={(val) => {
-								if (val)
-									updateUserEnabledFeatures.mutate({
-										input: {
-											property: "fitness.exercises.distance_unit",
-											value: val,
-										},
-									});
-							}}
-						/>
+						*/}
 						<NumberInput
 							size="xs"
 							label="The number of elements to save in your exercise history"

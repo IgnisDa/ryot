@@ -3,7 +3,7 @@ import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { BASE_URL, gqlClient } from "@/lib/services/api";
+import { gqlClient } from "@/lib/services/api";
 import {
 	Box,
 	Button,
@@ -19,19 +19,21 @@ import {
 	Title,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
 	GetPresignedUrlDocument,
 	MetadataLot,
+	PresignedPutUrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCalendar, IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { camelCase } from "lodash";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
@@ -51,7 +53,7 @@ type FormSchema = z.infer<typeof formSchema>;
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 
-	const [images, setImages] = useState<string[]>([]);
+	const [images, setImages] = useListState<string>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	const enabledFeatures = useEnabledCoreFeatures();
@@ -135,6 +137,7 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<Textarea
 									label="Description"
+									description={"Markdown is supported"}
 									{...form.getInputProps("description")}
 								/>
 								<FileInput
@@ -147,20 +150,24 @@ const Page: NextPageWithLayout = () => {
 									}
 									onChange={async (files) => {
 										if (files.length > 0) {
-											const data = new FormData();
+											let totalFiles = 0;
 											for (const file of files) {
-												data.append("files[]", file, file.name);
+												const uploadUrl = await gqlClient.request(
+													PresignedPutUrlDocument,
+													{ fileName: file.name },
+												);
+												await fetch(uploadUrl.presignedPutUrl.uploadUrl, {
+													method: "PUT",
+													body: file,
+													headers: { "Content-Type": file.type },
+												});
+												setImages.append(uploadUrl.presignedPutUrl.key);
+												totalFiles++;
 											}
-											const fetchResp = await fetch(`${BASE_URL}/upload`, {
-												method: "POST",
-												body: data,
-											});
-											const json = await fetchResp.json();
 											notifications.show({
 												title: "Success",
-												message: `Uploaded ${files.length} files`,
+												message: `Uploaded ${totalFiles} files`,
 											});
-											setImages(json);
 										}
 									}}
 									accept="image/png,image/jpeg,image/jpg"

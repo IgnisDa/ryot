@@ -6,7 +6,8 @@ A guide about video games integration for Ryot.
 
 Ryot supports tracking video games via [IGDB](https://www.igdb.com/). However,
 the API is heavily rate limited, so it is not possible to hardcode the API keys
-in the application (unlike other keys which are [hardcoded](/apps/backend/src/config.rs)).
+in the application (unlike other keys which are
+[hardcoded]({{ extra.file_path }}/apps/backend/src/config.rs)).
 
 You can follow the below steps to obtain your own API keys to enable video game
 tracking.

@@ -82,17 +82,17 @@ use crate::{
         igdb::IgdbService,
         itunes::ITunesService,
         listennotes::ListennotesService,
+        mal::{MalAnimeService, MalMangaService, MalService},
         manga_updates::MangaUpdatesService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
-        UserDistanceUnit, UserNotification, UserNotificationSetting, UserNotificationSettingKind,
-        UserNotifications, UserPreferences, UserReviewScale, UserSinkIntegration,
-        UserSinkIntegrationSetting, UserSinkIntegrationSettingKind, UserSinkIntegrations,
-        UserWeightUnit, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
+        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserUnitSystem, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
@@ -538,6 +538,12 @@ struct CreateMediaReminderInput {
     message: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct PresignedPutUrlResponse {
+    upload_url: String,
+    key: String,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -839,7 +845,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .remove_media_item_from_collection(user_id, &metadata_id, &collection_name)
+            .remove_media_from_collection(user_id, &metadata_id, &collection_name)
             .await
     }
 
@@ -1118,6 +1124,20 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_media_reminder(user_id, metadata_id).await
+    }
+
+    /// Get a presigned URL (valid for 10 minutes) for a given file name.
+    async fn presigned_put_url(
+        &self,
+        gql_ctx: &Context<'_>,
+        file_name: String,
+    ) -> Result<PresignedPutUrlResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let (key, upload_url) = service
+            .file_storage_service
+            .get_presigned_put_url(file_name)
+            .await;
+        Ok(PresignedPutUrlResponse { upload_url, key })
     }
 }
 
@@ -1404,6 +1424,14 @@ impl MiscellaneousService {
                     _ => unreachable!(),
                 };
                 Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
+            }
+            MetadataSource::Mal => {
+                let bw = match model.lot {
+                    MetadataLot::Anime => "anime",
+                    MetadataLot::Manga => "manga",
+                    _ => unreachable!(),
+                };
+                Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
             }
         };
 
@@ -1850,17 +1878,9 @@ impl MiscellaneousService {
         let mut items = vec![];
         let prefs = user_by_id(&self.db, user_id).await?.preferences;
 
-        // FIXME: Use correct function once https://github.com/SeaQL/sea-query/pull/671 is resolved
-        struct RoundFunction;
-        impl Iden for RoundFunction {
-            fn unquoted(&self, s: &mut dyn sea_query::Write) {
-                write!(s, "ROUND").unwrap();
-            }
-        }
-
         for met in metas {
             let avg_select = Query::select()
-                .expr(Func::cust(RoundFunction).arg(Func::avg(
+                .expr(Func::round(Func::avg(
                     Expr::col((TempReview::Table, TempReview::Rating)).div(
                         match prefs.general.review_scale {
                             UserReviewScale::OutOfFive => 20,
@@ -2294,10 +2314,10 @@ impl MiscellaneousService {
             .collect_vec();
 
         let mut meta: metadata::ActiveModel = meta.into();
+        meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
-        meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
@@ -2796,6 +2816,17 @@ impl MiscellaneousService {
                 ),
                 _ => return err(),
             },
+            MetadataSource::Mal => match lot {
+                MetadataLot::Anime => Box::new(
+                    MalAnimeService::new(&self.config.anime.mal, self.config.frontend.page_size)
+                        .await,
+                ),
+                MetadataLot::Manga => Box::new(
+                    MalMangaService::new(&self.config.manga.mal, self.config.frontend.page_size)
+                        .await,
+                ),
+                _ => return err(),
+            },
             MetadataSource::Igdb => Box::new(
                 IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
             ),
@@ -3191,7 +3222,7 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    pub async fn remove_media_item_from_collection(
+    pub async fn remove_media_from_collection(
         &self,
         user_id: i32,
         metadata_id: &i32,
@@ -3246,7 +3277,7 @@ impl MiscellaneousService {
             }
             si.delete(&self.db).await.ok();
             if progress < 100 {
-                self.remove_media_item_from_collection(
+                self.remove_media_from_collection(
                     user_id,
                     &metadata_id,
                     &DefaultCollection::InProgress.to_string(),
@@ -3868,13 +3899,9 @@ impl MiscellaneousService {
                         "save_history" => {
                             preferences.fitness.exercises.save_history = value_usize.unwrap()
                         }
-                        "distance_unit" => {
-                            preferences.fitness.exercises.distance_unit =
-                                UserDistanceUnit::from_str(&input.value).unwrap();
-                        }
-                        "weight_unit" => {
-                            preferences.fitness.exercises.weight_unit =
-                                UserWeightUnit::from_str(&input.value).unwrap();
+                        "unit_system" => {
+                            preferences.fitness.exercises.unit_system =
+                                UserUnitSystem::from_str(&input.value).unwrap();
                         }
                         _ => return Err(err()),
                     },
@@ -3887,6 +3914,9 @@ impl MiscellaneousService {
                     "fitness" => match right {
                         "enabled" => {
                             preferences.features_enabled.fitness.enabled = value_bool.unwrap()
+                        }
+                        "measurements" => {
+                            preferences.features_enabled.fitness.measurements = value_bool.unwrap()
                         }
                         _ => return Err(err()),
                     },
@@ -4244,8 +4274,12 @@ impl MiscellaneousService {
             MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
             MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
             MetadataLot::VideoGame => vec![MetadataSource::Igdb],
-            MetadataLot::Anime => vec![MetadataSource::Anilist],
-            MetadataLot::Manga => vec![MetadataSource::Anilist, MetadataSource::MangaUpdates],
+            MetadataLot::Anime => vec![MetadataSource::Anilist, MetadataSource::Mal],
+            MetadataLot::Manga => vec![
+                MetadataSource::Anilist,
+                MetadataSource::MangaUpdates,
+                MetadataSource::Mal,
+            ],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
         }
     }
@@ -4289,6 +4323,10 @@ impl MiscellaneousService {
                     MetadataSource::Anilist => (
                         AnilistService::supported_languages(),
                         AnilistService::default_language(),
+                    ),
+                    MetadataSource::Mal => (
+                        MalService::supported_languages(),
+                        MalService::default_language(),
                     ),
                     MetadataSource::Custom => (
                         CustomService::supported_languages(),
@@ -4523,7 +4561,7 @@ impl MiscellaneousService {
     }
 
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        self.remove_media_item_from_collection(
+        self.remove_media_from_collection(
             seen.user_id,
             &seen.metadata_id,
             &DefaultCollection::Watchlist.to_string(),
@@ -4543,7 +4581,7 @@ impl MiscellaneousService {
                 .ok();
             }
             SeenState::Dropped | SeenState::OnAHold => {
-                self.remove_media_item_from_collection(
+                self.remove_media_from_collection(
                     seen.user_id,
                     &seen.metadata_id,
                     &DefaultCollection::InProgress.to_string(),
@@ -4598,7 +4636,7 @@ impl MiscellaneousService {
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
-                        self.remove_media_item_from_collection(
+                        self.remove_media_from_collection(
                             seen.user_id,
                             &seen.metadata_id,
                             &DefaultCollection::InProgress.to_string(),
@@ -4624,7 +4662,7 @@ impl MiscellaneousService {
                         }
                     }
                 } else {
-                    self.remove_media_item_from_collection(
+                    self.remove_media_from_collection(
                         seen.user_id,
                         &seen.metadata_id,
                         &DefaultCollection::InProgress.to_string(),
@@ -4955,6 +4993,7 @@ impl MiscellaneousService {
                     };
                     let podcast_episode_number = s.podcast_information.map(|d| d.episode);
                     ImportOrExportMediaItemSeen {
+                        progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
                         ended_on: s.finished_on.map(convert_naive_to_utc),
                         show_season_number,

@@ -1,6 +1,0 @@
-query Exercise($exerciseId: Int!) {
-  exercise(exerciseId: $exerciseId) {
-    name
-    lot
-  }
-}

@@ -37,8 +37,7 @@ query UserPreferences {
       }
       exercises {
         saveHistory
-        weightUnit
-        distanceUnit
+        unitSystem
       }
     }
     notifications {
@@ -50,6 +49,7 @@ query UserPreferences {
     featuresEnabled {
       fitness {
         enabled
+        measurements
       }
       media {
         enabled

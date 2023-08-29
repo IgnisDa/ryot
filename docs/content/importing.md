@@ -72,6 +72,18 @@ along with ratings, history, and comments.
 - Export "history.csv", "watchlist.csv" and "ratings.csv".
 - Upload these files in the input.
 
+## MyAnimeList
+
+Manga and Anime can be imported from [MyAnimeList](https://myanimelist.net)
+along with ratings, history and progress.
+  
+### Steps
+
+- Login to your MyAnimeList account and go to
+  [exports](http://myanimelist.net/panel.php?go=export).
+- Export your anime and manga history.
+- Upload these files in the input.
+
 ## StoryGraph
 
 Imports from [StoryGraph](https://thestorygraph.com) work using ISBN. All books

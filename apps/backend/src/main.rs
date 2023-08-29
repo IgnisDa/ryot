@@ -1,5 +1,6 @@
 use std::{
-    env, fs,
+    env,
+    fs::{self, create_dir_all},
     io::{Error as IoError, ErrorKind as IoErrorKind},
     net::SocketAddr,
     path::PathBuf,
@@ -46,7 +47,7 @@ use crate::{
     migrator::Migrator,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
-        static_handler, upload_handler,
+        static_handler, upload_file,
     },
     utils::{create_app_services, MemoryAuthData, BASE_DIR, PROJECT_NAME, VERSION},
 };
@@ -213,13 +214,12 @@ async fn main() -> Result<()> {
         .nest("/webhooks", webhook_routes)
         .route("/export/:export_type", get(json_export))
         .route("/config", get(config_handler))
-        .route("/upload", post(upload_handler))
+        .route("/upload", post(upload_file))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
         .layer(Extension(app_services.exercise_service.clone()))
-        .layer(Extension(app_services.file_storage_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -285,7 +285,7 @@ async fn main() -> Result<()> {
                     .build_fn(yank_integrations_data)
             })
             // application jobs
-            .register_with_count(1, move |c| {
+            .register_with_count(3, move |c| {
                 WorkerBuilder::new(format!("perform_application_job-{c}"))
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisRateLimitLayer::new(
@@ -321,8 +321,11 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
     st
 }
 
-fn init_tracing() -> WorkerGuard {
-    let file_appender = tracing_appender::rolling::daily(".", format!("{}.log", PROJECT_NAME));
+fn init_tracing() -> Result<WorkerGuard> {
+    let tmp_dir = PathBuf::new().join("tmp");
+    create_dir_all(&tmp_dir)?;
+    let path = tmp_dir.join(format!("{}.log", PROJECT_NAME));
+    let file_appender = tracing_appender::rolling::daily(".", path);
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
@@ -336,5 +339,5 @@ fn init_tracing() -> WorkerGuard {
             ),
     )
     .expect("Unable to set global tracing subscriber");
-    guard
+    Ok(guard)
 }
