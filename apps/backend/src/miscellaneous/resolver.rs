@@ -4877,6 +4877,7 @@ impl MiscellaneousService {
         let associations = MetadataToCreator::find()
             .filter(metadata_to_creator::Column::CreatorId.eq(creator_id))
             .find_also_related(Metadata)
+            .order_by_asc(metadata_to_creator::Column::Index)
             .all(&self.db)
             .await?;
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
