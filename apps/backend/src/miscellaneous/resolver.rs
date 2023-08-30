@@ -517,7 +517,7 @@ struct UserMediaDetails {
     is_monitored: bool,
     /// The reminder that the user has set for this media.
     reminder: Option<UserMediaReminder>,
-    /// The number of users who have seen this media
+    /// The number of users who have seen this media.
     seen_by: i32,
 }
 
@@ -538,6 +538,17 @@ struct CreateMediaReminderInput {
 struct PresignedPutUrlResponse {
     upload_url: String,
     key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateReviewCommentInput {
+    /// The review this comment belongs to.
+    review_id: i32,
+    comment_id: Option<String>,
+    text: Option<String>,
+    like_comment: Option<bool>,
+    increment_likes: Option<bool>,
+    should_delete: Option<bool>,
 }
 
 fn create_cookie(
@@ -1118,6 +1129,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
+    }
+
+    /// Create, like or delete a comment on a review.
+    async fn create_review_comment(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateReviewCommentInput,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_review_comment(user_id, input).await
     }
 }
 
@@ -4964,6 +4986,15 @@ impl MiscellaneousService {
             self.config.users.token_valid_for_days,
         )?;
         Ok(auth_token)
+    }
+
+    async fn create_review_comment(
+        &self,
+        user_id: i32,
+        input: CreateReviewCommentInput,
+    ) -> Result<String> {
+        dbg!(input);
+        todo!()
     }
 }
 

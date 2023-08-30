@@ -11,6 +11,16 @@ query UserCreatorDetails($creatorId: Int!) {
         id
         name
       }
+      comments {
+        id
+        text
+        createdOn
+        user {
+          id
+          username
+        }
+        likedBy
+      }
     }
   }
 }
