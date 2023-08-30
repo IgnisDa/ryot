@@ -27,9 +27,9 @@ import {
 	MetadataLot,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
-	ReviewByIdDocument,
 	UserReviewScale,
 	Visibility,
+	ReviewDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconPercentage } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -127,10 +127,10 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["reviewDetails", reviewId],
 		queryFn: async () => {
 			invariant(reviewId, "Can not get review details");
-			const { reviewById } = await gqlClient.request(ReviewByIdDocument, {
+			const { review } = await gqlClient.request(ReviewDocument, {
 				reviewId,
 			});
-			return reviewById;
+			return review;
 		},
 		onSuccess: (data) => {
 			form.setValues({

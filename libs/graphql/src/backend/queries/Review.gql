@@ -1,5 +1,5 @@
-query ReviewById($reviewId: Int!) {
-  reviewById(reviewId: $reviewId) {
+query Review($reviewId: Int!) {
+  review(reviewId: $reviewId) {
     rating
     text
     visibility

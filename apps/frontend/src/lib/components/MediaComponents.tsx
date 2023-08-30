@@ -40,6 +40,7 @@ import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import type { DeepPartial } from "ts-essentials";
 import { withQuery } from "ufo";
 
 export const MediaScrollArea = (props: { children: JSX.Element }) => {
@@ -57,7 +58,7 @@ export const ReviewItemDisplay = ({
 	metadataId,
 	creatorId,
 }: {
-	review: ReviewItem;
+	review: DeepPartial<ReviewItem>;
 	metadataId?: number;
 	creatorId?: number;
 }) => {
@@ -69,13 +70,17 @@ export const ReviewItemDisplay = ({
 		<Box key={review.id} data-review-id={review.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
-					{getInitials(review.postedBy.name)}{" "}
+					{getInitials(review.postedBy?.name || "")}{" "}
 				</Avatar>
 				<Box>
-					<Text>{review.postedBy.name}</Text>
-					<Text>{DateTime.fromJSDate(review.postedOn).toLocaleString()}</Text>
+					<Text>{review.postedBy?.name}</Text>
+					<Text>
+						{DateTime.fromJSDate(
+							review.postedOn || new Date(),
+						).toLocaleString()}
+					</Text>
 				</Box>
-				{user && user.id === review.postedBy.id ? (
+				{user && user.id === review.postedBy?.id ? (
 					<Link
 						href={withQuery(APP_ROUTES.media.postReview, {
 							metadataId,
@@ -138,6 +143,9 @@ export const ReviewItemDisplay = ({
 						</>
 					)
 				) : undefined}
+				<Button variant="subtle" compact>
+					Leave comment
+				</Button>
 			</Box>
 		</Box>
 	) : undefined;

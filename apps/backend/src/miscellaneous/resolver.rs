@@ -585,7 +585,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a review by its ID.
-    async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
+    async fn review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.review_by_id(review_id, user_id).await
