@@ -720,6 +720,18 @@ pub mod media {
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[derive(
+        Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
+    )]
+    pub struct ReviewComment {
+        pub id: String,
+        pub text: String,
+    }
+
+    // FIXME: Remove this
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct ReviewComments(pub Vec<ReviewComment>);
+
+    #[derive(
         Clone,
         Debug,
         PartialEq,
