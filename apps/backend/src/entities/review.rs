@@ -30,6 +30,7 @@ pub struct Model {
     pub creator_id: Option<i32>,
     #[graphql(skip)]
     pub extra_information: Option<SeenOrReviewExtraInformation>,
+    pub comments: Vec<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

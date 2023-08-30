@@ -25,6 +25,7 @@ pub enum Review {
     MetadataId,
     CreatorId,
     Spoiler,
+    Comments,
 }
 
 #[async_trait::async_trait]
@@ -55,6 +56,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
+                    .col(ColumnDef::new(Review::Comments).json().not_null())
                     .col(ColumnDef::new(Review::ExtraInformation).json())
                     .col(
                         ColumnDef::new(Review::Visibility)
