@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "./_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
@@ -51,6 +50,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "./_app";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
@@ -107,7 +107,7 @@ const DisplayStatForMediaType = (props: {
 	const userPreferences = useUserPreferences();
 	const isEnabled = Object.entries(
 		userPreferences.data?.featuresEnabled.media || {},
-	).find(([name, _]) => getLot(name) === props.lot)!;
+	).find(([name, _]) => getLot(name) === props.lot);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size="1.5rem" stroke={1.5} />;
 	return isEnabled ? (

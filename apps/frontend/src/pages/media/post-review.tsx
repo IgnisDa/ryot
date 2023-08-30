@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -41,6 +40,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../_app";
 
 const numberOrUndefined = z.any().optional();
 

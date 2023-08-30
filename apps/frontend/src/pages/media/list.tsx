@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import Grid from "@/lib/components/Grid";
 import {
 	MediaItemWithoutUpdateModal,
@@ -59,6 +58,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../_app";
 
 const defaultFilters = {
 	mineCollectionFilter: undefined,

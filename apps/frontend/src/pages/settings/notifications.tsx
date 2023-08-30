@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -39,6 +38,7 @@ import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../_app";
 
 const createUserNotificationPlatformSchema = z.object({
 	baseUrl: z

@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -25,6 +24,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../_app";
 
 const updateProfileFormSchema = z.object({
 	username: z.string().optional(),

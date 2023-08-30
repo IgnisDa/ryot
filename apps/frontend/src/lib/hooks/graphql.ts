@@ -1,4 +1,3 @@
-import { gqlClient } from "../services/api";
 import {
 	CommitMediaDocument,
 	type CommitMediaMutationVariables,
@@ -10,6 +9,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
+import { gqlClient } from "../services/api";
 
 export function useUser() {
 	const userDetails = useQuery({

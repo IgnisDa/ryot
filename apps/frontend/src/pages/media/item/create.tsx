@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
@@ -36,6 +35,7 @@ import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../../_app";
 
 const optionalString = z.string().optional();
 

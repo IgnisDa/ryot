@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -33,6 +32,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../_app";
 
 const createUserYankIntegrationSchema = z.object({
 	baseUrl: z.string().url().optional(),

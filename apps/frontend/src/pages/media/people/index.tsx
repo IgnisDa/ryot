@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import {
 	MediaScrollArea,
 	ReviewItemDisplay,
@@ -37,6 +36,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

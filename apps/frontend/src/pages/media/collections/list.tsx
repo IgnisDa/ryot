@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -39,6 +38,7 @@ import Link from "next/link";
 import { type ReactElement, useState } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../../_app";
 
 const formSchema = z.object({
 	name: z.string(),

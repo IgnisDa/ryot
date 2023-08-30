@@ -1,16 +1,16 @@
 {
-  "name": "@ryot/root",
-  "packageManager": "yarn@3.6.1",
-  "workspaces": [
-    "apps/*",
-    "libs/*"
-  ],
-  "engines": {
-    "node": "20.5.1"
-  },
-  "devDependencies": {
-    "rome": "12.1.3",
-    "tsconfig-moon": "1.3.0",
-    "typescript": "5.2.2"
-  }
+	"name": "@ryot/root",
+	"packageManager": "yarn@3.6.1",
+	"workspaces": [
+		"apps/*",
+		"libs/*"
+	],
+	"engines": {
+		"node": "20.5.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "1.0.0",
+		"tsconfig-moon": "1.3.0",
+		"typescript": "5.2.2"
+	}
 }

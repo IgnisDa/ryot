@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -52,6 +51,7 @@ import {
 	YAxis,
 } from "recharts";
 import { match } from "ts-pattern";
+import type { NextPageWithLayout } from "../_app";
 
 const getValues = (m: UserMeasurement["stats"]) => {
 	const vals: { name: string; value: string }[] = [];

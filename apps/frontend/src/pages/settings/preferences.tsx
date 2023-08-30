@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -27,6 +26,7 @@ import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import { Fragment, type ReactElement } from "react";
 import { match } from "ts-pattern";
+import type { NextPageWithLayout } from "../_app";
 
 const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();

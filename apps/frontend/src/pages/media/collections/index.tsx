@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
@@ -23,6 +22,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

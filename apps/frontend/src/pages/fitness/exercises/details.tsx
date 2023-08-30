@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -35,6 +34,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
+import type { NextPageWithLayout } from "../../_app";
 
 const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
 	const [first, second] = match(lot)
@@ -45,7 +45,7 @@ const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, ""])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			`${statistic.weight} kg x ${statistic.reps}`,
-			`${statistic.weight * statistic.reps!} vol`,
+			`${statistic.weight * (statistic.reps || 1)} vol`,
 		])
 		.exhaustive();
 	return (
