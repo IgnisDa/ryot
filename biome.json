@@ -16,6 +16,14 @@
 	"organizeImports": {
 		"enabled": true
 	},
+	"files": {
+		"ignoreUnknown": true
+	},
+	"json": {
+		"parser": {
+			"allowComments": true
+		}
+	},
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
