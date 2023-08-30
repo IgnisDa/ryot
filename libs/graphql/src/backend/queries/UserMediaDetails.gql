@@ -40,6 +40,15 @@ query UserMediaDetails($metadataId: Int!) {
         id
         name
       }
+      comments {
+        id
+        text
+        createdOn
+        user {
+          username
+        }
+        likedBy
+      }
     }
     reminder {
       remindOn

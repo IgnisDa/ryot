@@ -720,11 +720,41 @@ pub mod media {
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[derive(
-        Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        Default,
+        Hash,
+        SimpleObject,
+    )]
+    pub struct ReviewCommentUser {
+        pub id: i32,
+        pub username: String,
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        Default,
+        Hash,
+        SimpleObject,
     )]
     pub struct ReviewComment {
         pub id: String,
         pub text: String,
+        pub user: ReviewCommentUser,
+        /// The user ids of all those who liked it.
+        pub liked_by: Vec<i32>,
+        pub created_on: DateTimeUtc,
     }
 
     // FIXME: Remove this

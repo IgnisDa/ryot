@@ -71,8 +71,9 @@ use crate::{
             MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MetadataSuggestion,
             MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            ReviewComment, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -315,6 +316,7 @@ struct ReviewItem {
     show_season: Option<i32>,
     show_episode: Option<i32>,
     podcast_episode: Option<i32>,
+    comments: Vec<ReviewComment>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -2883,6 +2885,7 @@ impl MiscellaneousService {
                         id: user.id,
                         name: user.name,
                     },
+                    comments: r.comments.0,
                 })
             }
             None => Err(Error::new("Unable to find review".to_owned())),
