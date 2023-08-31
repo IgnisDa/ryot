@@ -2873,11 +2873,6 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
-                if r.user_id != user_id && r.visibility == Visibility::Private {
-                    return Err(Error::new(
-                        "Can not view a private review that does not belong to the user.",
-                    ));
-                }
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenOrReviewExtraInformation::Show(d) => {
