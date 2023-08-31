@@ -57,7 +57,6 @@ const Page: NextPageWithLayout = () => {
 			);
 			return userCreatorDetails;
 		},
-		staleTime: Infinity,
 		enabled: !!creatorId,
 	});
 	const creatorDetails = useQuery({
@@ -65,9 +64,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { creatorDetails } = await gqlClient.request(
 				CreatorDetailsDocument,
-				{
-					creatorId,
-				},
+				{ creatorId },
 			);
 			return creatorDetails;
 		},
