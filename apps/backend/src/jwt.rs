@@ -39,6 +39,5 @@ pub fn verify(token: &str, jwt_secret: &str) -> Result<Claims> {
         &Validation::default(),
     )
     .map(|data| data.claims)?;
-    dbg!(&claims);
     Ok(claims)
 }
