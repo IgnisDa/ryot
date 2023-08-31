@@ -1,7 +1,6 @@
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
-use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -48,7 +47,7 @@ struct TmdbImagesResponse {
     posters: Option<Vec<TmdbImage>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, Serialize, Deserialize)]
 struct TmdbEntry {
     id: i32,
     poster_path: Option<String>,
