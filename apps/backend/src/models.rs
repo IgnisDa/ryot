@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
@@ -718,6 +718,47 @@ pub mod media {
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        Default,
+        Hash,
+        SimpleObject,
+    )]
+    pub struct ReviewCommentUser {
+        pub id: i32,
+        pub name: String,
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        Default,
+        SimpleObject,
+    )]
+    pub struct ReviewComment {
+        pub id: String,
+        pub text: String,
+        pub user: ReviewCommentUser,
+        /// The user ids of all those who liked it.
+        pub liked_by: HashSet<i32>,
+        pub created_on: DateTimeUtc,
+    }
+
+    // FIXME: Remove this
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct ReviewComments(pub Vec<ReviewComment>);
 
     #[derive(
         Clone,

@@ -10,7 +10,10 @@ use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
-use cookie::{time::Duration as CookieDuration, time::OffsetDateTime, Cookie, SameSite};
+use cookie::{
+    time::{Duration as CookieDuration, OffsetDateTime},
+    Cookie, SameSite,
+};
 use enum_meta::Meta;
 use futures::{future::join_all, TryStreamExt};
 use harsh::Harsh;
@@ -71,8 +74,9 @@ use crate::{
             MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MetadataSuggestion,
             MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            ReviewComment, ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -315,6 +319,7 @@ struct ReviewItem {
     show_season: Option<i32>,
     show_episode: Option<i32>,
     podcast_episode: Option<i32>,
+    comments: Vec<ReviewComment>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -515,7 +520,7 @@ struct UserMediaDetails {
     is_monitored: bool,
     /// The reminder that the user has set for this media.
     reminder: Option<UserMediaReminder>,
-    /// The number of users who have seen this media
+    /// The number of users who have seen this media.
     seen_by: i32,
 }
 
@@ -538,20 +543,29 @@ struct PresignedPutUrlResponse {
     key: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateReviewCommentInput {
+    /// The review this comment belongs to.
+    review_id: i32,
+    comment_id: Option<String>,
+    text: Option<String>,
+    increment_likes: Option<bool>,
+    decrement_likes: Option<bool>,
+    should_delete: Option<bool>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
     samesite_none: bool,
-    token_valid_till: i64,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
     cookie = if expires {
         cookie.expires(OffsetDateTime::now_utc())
     } else {
-        cookie
-            .expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(token_valid_till)))
+        cookie.expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(400)))
     };
     cookie = if samesite_none {
         cookie.same_site(SameSite::None)
@@ -583,7 +597,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a review by its ID.
-    async fn review_by_id(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
+    async fn review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.review_by_id(review_id, user_id).await
@@ -1116,6 +1130,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
+    }
+
+    /// Create, like or delete a comment on a review.
+    async fn create_review_comment(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateReviewCommentInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_review_comment(user_id, input).await
     }
 }
 
@@ -2848,11 +2873,6 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
-                if r.user_id != user_id && r.visibility == Visibility::Private {
-                    return Err(Error::new(
-                        "Can not view a private review that does not belong to the user.",
-                    ));
-                }
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenOrReviewExtraInformation::Show(d) => {
@@ -2883,6 +2903,7 @@ impl MiscellaneousService {
                         id: user.id,
                         name: user.name,
                     },
+                    comments: r.comments.0,
                 })
             }
             None => Err(Error::new("Unable to find review".to_owned())),
@@ -3548,7 +3569,6 @@ impl MiscellaneousService {
             false,
             self.config.server.insecure_cookie,
             self.config.server.samesite_none,
-            self.config.users.token_valid_for_days,
         )?;
         Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
     }
@@ -3560,7 +3580,6 @@ impl MiscellaneousService {
             true,
             self.config.server.insecure_cookie,
             self.config.server.samesite_none,
-            self.config.users.token_valid_for_days,
         )?;
         Ok(true)
     }
@@ -4961,6 +4980,53 @@ impl MiscellaneousService {
             self.config.users.token_valid_for_days,
         )?;
         Ok(auth_token)
+    }
+
+    async fn create_review_comment(
+        &self,
+        user_id: i32,
+        input: CreateReviewCommentInput,
+    ) -> Result<bool> {
+        let review = Review::find_by_id(input.review_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        let mut comments = review.comments.0.clone();
+        if input.should_delete.unwrap_or_default() {
+            let posn = comments
+                .iter()
+                .position(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .unwrap();
+            comments.remove(posn);
+        } else if input.increment_likes.unwrap_or_default() {
+            let comment = comments
+                .iter_mut()
+                .find(|r| &r.id == input.comment_id.as_ref().unwrap())
+                .unwrap();
+            comment.liked_by.insert(user_id);
+        } else if input.decrement_likes.unwrap_or_default() {
+            let comment = comments
+                .iter_mut()
+                .find(|r| &r.id == input.comment_id.as_ref().unwrap())
+                .unwrap();
+            comment.liked_by.remove(&user_id);
+        } else {
+            let user = user_by_id(&self.db, user_id).await?;
+            comments.push(ReviewComment {
+                id: nanoid!(20),
+                text: input.text.unwrap(),
+                user: ReviewCommentUser {
+                    id: user_id,
+                    name: user.name,
+                },
+                liked_by: HashSet::new(),
+                created_on: Utc::now(),
+            });
+        }
+        let mut review: review::ActiveModel = review.into();
+        review.comments = ActiveValue::Set(ReviewComments(comments));
+        review.update(&self.db).await?;
+        Ok(true)
     }
 }
 

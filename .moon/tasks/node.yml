@@ -26,17 +26,17 @@ fileGroups:
 
 tasks:
   lint:
-    command: "rome check ."
+    command: "biome check ."
     inputs:
-      - "/rome.json"
+      - "/biome.json"
       - "@group(app)"
       - "@group(sources)"
       - "@group(tests)"
 
   format:
-    command: "rome format ."
+    command: "biome format ."
     inputs:
-      - "/rome.json"
+      - "/biome.json"
       - "@group(app)"
       - "@group(sources)"
       - "@group(tests)"

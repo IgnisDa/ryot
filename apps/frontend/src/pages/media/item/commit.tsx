@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useCommitMedia } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -9,6 +8,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

@@ -17,7 +17,9 @@ import {
 	Flex,
 	Image,
 	Loader,
+	Paper,
 	ScrollArea,
+	Stack,
 	Text,
 	Tooltip,
 	TypographyStylesProvider,
@@ -28,6 +30,8 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
+	CreateReviewCommentDocument,
+	type CreateReviewCommentMutationVariables,
 	type MediaSearchQuery,
 	MetadataLot,
 	MetadataSource,
@@ -35,11 +39,17 @@ import {
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
-import { IconEdit, IconStarFilled } from "@tabler/icons-react";
+import {
+	IconArrowBigUp,
+	IconEdit,
+	IconStarFilled,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import type { DeepPartial } from "ts-essentials";
 import { withQuery } from "ufo";
 
 export const MediaScrollArea = (props: { children: JSX.Element }) => {
@@ -56,26 +66,44 @@ export const ReviewItemDisplay = ({
 	review,
 	metadataId,
 	creatorId,
+	refetch,
 }: {
-	review: ReviewItem;
+	review: DeepPartial<ReviewItem>;
 	metadataId?: number;
 	creatorId?: number;
+	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const user = useUser();
 	const userPreferences = useUserPreferences();
+	const createReviewComment = useMutation({
+		mutationFn: async (variables: CreateReviewCommentMutationVariables) => {
+			const { createReviewComment } = await gqlClient.request(
+				CreateReviewCommentDocument,
+				variables,
+			);
+			return createReviewComment;
+		},
+		onSuccess: () => {
+			refetch();
+		},
+	});
 
 	return userPreferences.data ? (
 		<Box key={review.id} data-review-id={review.id}>
 			<Flex align={"center"} gap={"sm"}>
 				<Avatar color="cyan" radius="xl">
-					{getInitials(review.postedBy.name)}{" "}
+					{getInitials(review.postedBy?.name || "")}{" "}
 				</Avatar>
 				<Box>
-					<Text>{review.postedBy.name}</Text>
-					<Text>{DateTime.fromJSDate(review.postedOn).toLocaleString()}</Text>
+					<Text>{review.postedBy?.name}</Text>
+					<Text>
+						{DateTime.fromJSDate(
+							review.postedOn || new Date(),
+						).toLocaleString()}
+					</Text>
 				</Box>
-				{user && user.id === review.postedBy.id ? (
+				{user && user.id === review.postedBy?.id ? (
 					<Link
 						href={withQuery(APP_ROUTES.media.postReview, {
 							metadataId,
@@ -137,6 +165,82 @@ export const ReviewItemDisplay = ({
 							</Collapse>
 						</>
 					)
+				) : undefined}
+				<Button
+					variant="subtle"
+					compact
+					onClick={() => {
+						const comment = prompt("Enter comment");
+						if (comment && review.id)
+							createReviewComment.mutate({
+								input: { reviewId: review.id, text: comment },
+							});
+					}}
+				>
+					Leave comment
+				</Button>
+				{review.comments?.length || 0 > 0 ? (
+					<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
+						<Stack>
+							{review.comments
+								? review.comments.map((c) => (
+										<Stack key={c?.id}>
+											<Flex align={"center"} gap={"sm"}>
+												<Avatar color="cyan" radius="xl">
+													{getInitials(c?.user?.name || "")}{" "}
+												</Avatar>
+												<Box>
+													<Text>{c?.user?.name}</Text>
+													<Text>
+														{DateTime.fromJSDate(
+															c?.createdOn || new Date(),
+														).toLocaleString()}
+													</Text>
+												</Box>
+												{user && user.id === c?.user?.id ? (
+													<ActionIcon
+														color="red"
+														onClick={() => {
+															const yes = confirm(
+																"Are you sure you want to delete this comment?",
+															);
+															if (review.id && yes)
+																createReviewComment.mutate({
+																	input: {
+																		reviewId: review.id,
+																		commentId: c.id,
+																		shouldDelete: true,
+																	},
+																});
+														}}
+													>
+														<IconTrash size="1rem" />
+													</ActionIcon>
+												) : undefined}
+												<ActionIcon
+													onClick={() => {
+														const likedByUser = c?.likedBy?.includes(user?.id);
+														if (review.id)
+															createReviewComment.mutate({
+																input: {
+																	reviewId: review.id,
+																	commentId: c?.id,
+																	incrementLikes: !likedByUser,
+																	decrementLikes: likedByUser,
+																},
+															});
+													}}
+												>
+													<IconArrowBigUp size="1rem" />
+													<Text>{c?.likedBy?.length}</Text>
+												</ActionIcon>
+											</Flex>
+											<Text ml="xs">{c?.text}</Text>
+										</Stack>
+								  ))
+								: undefined}
+						</Stack>
+					</Paper>
 				) : undefined}
 			</Box>
 		</Box>

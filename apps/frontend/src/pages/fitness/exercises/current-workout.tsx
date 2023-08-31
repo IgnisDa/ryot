@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -57,6 +56,7 @@ import { useStopwatch } from "react-timer-hook";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
+import type { NextPageWithLayout } from "../../_app";
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (

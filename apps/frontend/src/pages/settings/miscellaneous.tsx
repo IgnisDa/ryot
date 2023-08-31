@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import { useCoreDetails, useUser } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -25,6 +24,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement } from "react";
+import type { NextPageWithLayout } from "../_app";
 
 const Page: NextPageWithLayout = () => {
 	const userDetails = useUser();

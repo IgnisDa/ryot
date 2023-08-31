@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -33,6 +32,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { BASE_URL, gqlClient } from "@/lib/services/api";
@@ -39,6 +38,7 @@ import Link from "next/link";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../../_app";
 
 const message = {
 	title: "Success",

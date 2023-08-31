@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../_app";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -28,7 +27,7 @@ import {
 	MetadataLot,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
-	ReviewByIdDocument,
+	ReviewDocument,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -41,6 +40,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import type { NextPageWithLayout } from "../_app";
 
 const numberOrUndefined = z.any().optional();
 
@@ -127,10 +127,10 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["reviewDetails", reviewId],
 		queryFn: async () => {
 			invariant(reviewId, "Can not get review details");
-			const { reviewById } = await gqlClient.request(ReviewByIdDocument, {
+			const { review } = await gqlClient.request(ReviewDocument, {
 				reviewId,
 			});
-			return reviewById;
+			return review;
 		},
 		onSuccess: (data) => {
 			form.setValues({

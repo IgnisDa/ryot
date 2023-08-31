@@ -1,5 +1,5 @@
 {
-	"$schema": "./node_modules/rome/configuration_schema.json",
+	"$schema": "https://biomejs.dev/schemas/1.0.0/schema.json",
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -15,6 +15,14 @@
 	},
 	"organizeImports": {
 		"enabled": true
+	},
+	"files": {
+		"ignoreUnknown": true
+	},
+	"json": {
+		"parser": {
+			"allowComments": true
+		}
 	},
 	"vcs": {
 		"enabled": true,

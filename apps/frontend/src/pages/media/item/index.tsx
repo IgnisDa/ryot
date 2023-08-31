@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import {
 	MediaScrollArea,
 	ReviewItemDisplay,
@@ -96,6 +95,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../../_app";
 
 const service = new HumanizeDurationLanguage();
 const humaizer = new HumanizeDuration(service);
@@ -1412,6 +1412,7 @@ const Page: NextPageWithLayout = () => {
 													review={r}
 													key={r.id}
 													metadataId={metadataId}
+													refetch={userMediaDetails.refetch}
 												/>
 											))}
 										</Stack>

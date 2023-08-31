@@ -1,4 +1,3 @@
-import type { NextPageWithLayout } from "../../_app";
 import Grid from "@/lib/components/Grid";
 import { BaseDisplayItem } from "@/lib/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
@@ -25,6 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
+import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const [query, setQuery] = useLocalStorage({
