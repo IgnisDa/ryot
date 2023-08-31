@@ -18,7 +18,7 @@ use crate::{
     utils::get_base_http_client,
 };
 
-pub static URL: &str = "https://api.mangaupdates.com/v1/";
+static URL: &str = "https://api.mangaupdates.com/v1/";
 
 #[derive(Debug, Clone)]
 pub struct MangaUpdatesService {

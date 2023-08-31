@@ -20,7 +20,7 @@ use crate::{
     utils::{convert_date_to_year, get_base_http_client},
 };
 
-pub static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
+static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 
 #[derive(Debug, Clone)]
 pub struct GoogleBooksService {

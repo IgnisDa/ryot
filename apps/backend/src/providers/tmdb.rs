@@ -49,7 +49,7 @@ struct TmdbImagesResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-pub struct TmdbEntry {
+struct TmdbEntry {
     id: i32,
     poster_path: Option<String>,
     backdrop_path: Option<String>,

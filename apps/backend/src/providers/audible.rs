@@ -23,7 +23,7 @@ use crate::{
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
 };
 
-pub static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
+static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 
 #[derive(EnumIter, Display)]
 enum AudibleSimilarityType {
@@ -67,7 +67,7 @@ struct SearchQuery {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-pub struct AudiblePoster {
+struct AudiblePoster {
     #[serde(rename = "2400")]
     image: Option<String>,
     #[serde(rename = "500")]
@@ -75,12 +75,12 @@ pub struct AudiblePoster {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-pub struct AudibleCategoryLadderCollection {
+struct AudibleCategoryLadderCollection {
     ladder: Vec<NamedObject>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject)]
-pub struct AudibleItem {
+struct AudibleItem {
     asin: String,
     title: String,
     authors: Option<Vec<NamedObject>>,

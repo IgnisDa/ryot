@@ -21,7 +21,7 @@ use crate::{
     utils::get_base_http_client,
 };
 
-pub static URL: &str = "https://itunes.apple.com/";
+static URL: &str = "https://itunes.apple.com/";
 
 #[derive(Debug, Clone)]
 pub struct ITunesService {

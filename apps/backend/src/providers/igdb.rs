@@ -24,9 +24,9 @@ use crate::{
     utils::{get_base_http_client, get_now_timestamp},
 };
 
-pub static URL: &str = "https://api.igdb.com/v4/";
-pub static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
-pub static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
+static URL: &str = "https://api.igdb.com/v4/";
+static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
+static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
 
 static FIELDS: &str = "
 fields
