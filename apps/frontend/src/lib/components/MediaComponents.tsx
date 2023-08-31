@@ -17,7 +17,9 @@ import {
 	Flex,
 	Image,
 	Loader,
+	Paper,
 	ScrollArea,
+	Stack,
 	Text,
 	Tooltip,
 	TypographyStylesProvider,
@@ -33,9 +35,11 @@ import {
 	MetadataSource,
 	type ReviewItem,
 	UserReviewScale,
+	CreateReviewCommentDocument,
+	type CreateReviewCommentMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
-import { IconEdit, IconStarFilled } from "@tabler/icons-react";
+import { IconEdit, IconStarFilled, IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Link from "next/link";
@@ -57,14 +61,28 @@ export const ReviewItemDisplay = ({
 	review,
 	metadataId,
 	creatorId,
+	refetch,
 }: {
 	review: DeepPartial<ReviewItem>;
 	metadataId?: number;
 	creatorId?: number;
+	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const user = useUser();
 	const userPreferences = useUserPreferences();
+	const createReviewComment = useMutation({
+		mutationFn: async (variables: CreateReviewCommentMutationVariables) => {
+			const { createReviewComment } = await gqlClient.request(
+				CreateReviewCommentDocument,
+				variables,
+			);
+			return createReviewComment;
+		},
+		onSuccess: () => {
+			refetch();
+		},
+	});
 
 	return userPreferences.data ? (
 		<Box key={review.id} data-review-id={review.id}>
@@ -143,9 +161,65 @@ export const ReviewItemDisplay = ({
 						</>
 					)
 				) : undefined}
-				<Button variant="subtle" compact>
+				<Button
+					variant="subtle"
+					compact
+					onClick={() => {
+						const comment = prompt("Enter comment");
+						if (comment && review.id)
+							createReviewComment.mutate({
+								input: { reviewId: review.id, text: comment },
+							});
+					}}
+				>
 					Leave comment
 				</Button>
+				{(review.comments && review.comments.length) || 0 > 0 ? (
+					<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
+						<Stack>
+							{review.comments
+								? review.comments.map((c) => (
+										<Stack key={c?.id}>
+											<Flex align={"center"} gap={"sm"}>
+												<Avatar color="cyan" radius="xl">
+													{getInitials(c?.user?.name || "")}{" "}
+												</Avatar>
+												<Box>
+													<Text>{c?.user?.name}</Text>
+													<Text>
+														{DateTime.fromJSDate(
+															c?.createdOn || new Date(),
+														).toLocaleString()}
+													</Text>
+												</Box>
+												{user && user.id === c?.user?.id ? (
+													<ActionIcon
+														color="red"
+														onClick={() => {
+															const yes = confirm(
+																"Are you sure you want to delete this comment?",
+															);
+															if (review.id && yes)
+																createReviewComment.mutate({
+																	input: {
+																		reviewId: review.id,
+																		commentId: c.id,
+																		shouldDelete: true,
+																	},
+																});
+														}}
+													>
+														<IconTrash size="1rem" />
+													</ActionIcon>
+												) : undefined}
+											</Flex>
+											<Text ml="xs">{c?.text}</Text>
+										</Stack>
+								  ))
+								: undefined}
+						</Stack>
+					</Paper>
+				) : undefined}
 			</Box>
 		</Box>
 	) : undefined;

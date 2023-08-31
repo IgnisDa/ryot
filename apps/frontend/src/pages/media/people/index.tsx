@@ -198,6 +198,7 @@ const Page: NextPageWithLayout = () => {
 												review={r}
 												key={r.id}
 												creatorId={creatorId}
+												refetch={userCreatorDetails.refetch}
 											/>
 										))}
 									</Stack>

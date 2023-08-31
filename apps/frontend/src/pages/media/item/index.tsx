@@ -1412,6 +1412,7 @@ const Page: NextPageWithLayout = () => {
 													review={r}
 													key={r.id}
 													metadataId={metadataId}
+													refetch={userMediaDetails.refetch}
 												/>
 											))}
 										</Stack>
