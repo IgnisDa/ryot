@@ -30,16 +30,21 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
+	CreateReviewCommentDocument,
+	type CreateReviewCommentMutationVariables,
 	type MediaSearchQuery,
 	MetadataLot,
 	MetadataSource,
 	type ReviewItem,
 	UserReviewScale,
-	CreateReviewCommentDocument,
-	type CreateReviewCommentMutationVariables,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
-import { IconEdit, IconStarFilled, IconTrash } from "@tabler/icons-react";
+import {
+	IconArrowBigUp,
+	IconEdit,
+	IconStarFilled,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Link from "next/link";
@@ -174,7 +179,7 @@ export const ReviewItemDisplay = ({
 				>
 					Leave comment
 				</Button>
-				{(review.comments && review.comments.length) || 0 > 0 ? (
+				{review.comments?.length || 0 > 0 ? (
 					<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
 						<Stack>
 							{review.comments
@@ -212,6 +217,23 @@ export const ReviewItemDisplay = ({
 														<IconTrash size="1rem" />
 													</ActionIcon>
 												) : undefined}
+												<ActionIcon
+													onClick={() => {
+														const likedByUser = c?.likedBy?.includes(user?.id);
+														if (review.id)
+															createReviewComment.mutate({
+																input: {
+																	reviewId: review.id,
+																	commentId: c?.id,
+																	incrementLikes: !likedByUser,
+																	decrementLikes: likedByUser,
+																},
+															});
+													}}
+												>
+													<IconArrowBigUp size="1rem" />
+													<Text>{c?.likedBy?.length}</Text>
+												</ActionIcon>
 											</Flex>
 											<Text ml="xs">{c?.text}</Text>
 										</Stack>
