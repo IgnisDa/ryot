@@ -18,7 +18,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataSuggestion, VideoGameSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, get_now_timestamp},
@@ -43,6 +43,7 @@ fields
     similar_games.name,
     similar_games.cover.*,
     platforms.name,
+    franchises.id,
     genres.*;
 where version_parent = null;
 ";
@@ -81,6 +82,7 @@ struct IgdbSearchResponse {
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
     similar_games: Option<Vec<IgdbSearchResponse>>,
+    franchises: Option<Vec<IdObject>>,
 }
 
 #[derive(Debug, Clone)]
