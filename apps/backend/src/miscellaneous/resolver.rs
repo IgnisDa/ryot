@@ -47,11 +47,11 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
-        metadata_to_genre, metadata_to_suggestion,
+        metadata_to_genre, metadata_to_metadata_group, metadata_to_suggestion,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
-            MetadataToGenre, MetadataToSuggestion, Review, Seen, Suggestion, User, UserMeasurement,
-            UserToMetadata, Workout,
+            MetadataToGenre, MetadataToMetadataGroup, MetadataToSuggestion, Review, Seen,
+            Suggestion, User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen, suggestion, user, user_measurement, user_to_metadata, workout,
     },
@@ -2469,12 +2469,17 @@ impl MiscellaneousService {
         tracing::trace!("Cleaning up media items without associated user activities");
         let mut all_metadata = Metadata::find().stream(&self.db).await?;
         while let Some(metadata) = all_metadata.try_next().await? {
-            let num_associations = UserToMetadata::find()
+            let num_user_associations = UserToMetadata::find()
                 .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations == 0 {
+            let num_group_associations = MetadataToMetadataGroup::find()
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_user_associations + num_group_associations == 0 {
                 metadata.delete(&self.db).await.ok();
             }
         }
