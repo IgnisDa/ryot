@@ -68,7 +68,7 @@ pub struct SearchResults<T: OutputType> {
     pub items: Vec<T>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct IdObject {
     pub id: i32,
 }

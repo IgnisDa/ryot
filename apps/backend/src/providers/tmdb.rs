@@ -17,7 +17,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
             MetadataSuggestion, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
@@ -127,6 +127,7 @@ impl MediaProvider for TmdbMovieService {
             status: Option<String>,
             genres: Vec<NamedObject>,
             production_companies: Option<Vec<TmdbCompany>>,
+            belongs_to_collection: Option<IdObject>,
         }
         let mut rsp = self
             .client
