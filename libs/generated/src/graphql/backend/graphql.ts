@@ -461,6 +461,15 @@ export enum ImportLot {
   Media = 'MEDIA'
 }
 
+export type ImportOrExportItemReviewComment = {
+  createdOn: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  /** The user ids of all those who liked it. */
+  likedBy: Array<Scalars['Int']['output']>;
+  text: Scalars['String']['output'];
+  user: ReviewCommentUser;
+};
+
 export type ImportReport = {
   details?: Maybe<ImportResultResponse>;
   finishedOn?: Maybe<Scalars['DateTime']['output']>;
@@ -1033,8 +1042,6 @@ export type QueryRoot = {
   latestUserSummary: UserSummary;
   /** Get details about a media present in the database. */
   mediaDetails: GraphqlMediaDetails;
-  /** Check if a media with the given metadata and identifier exists in the database. */
-  mediaExistsInDatabase?: Maybe<IdObject>;
   /** Get all the media items related to a user for a specific media type. */
   mediaList: MediaListResults;
   /** Search for a list of media for a given type. */
@@ -1106,13 +1113,6 @@ export type QueryRootMediaDetailsArgs = {
 };
 
 
-export type QueryRootMediaExistsInDatabaseArgs = {
-  identifier: Scalars['String']['input'];
-  lot: MetadataLot;
-  source: MetadataSource;
-};
-
-
 export type QueryRootMediaListArgs = {
   input: MediaListInput;
 };
@@ -1165,22 +1165,13 @@ export enum RegisterErrorVariant {
 
 export type RegisterResult = IdObject | RegisterError;
 
-export type ReviewComment = {
-  createdOn: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  /** The user ids of all those who liked it. */
-  likedBy: Array<Scalars['Int']['output']>;
-  text: Scalars['String']['output'];
-  user: ReviewCommentUser;
-};
-
 export type ReviewCommentUser = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
 };
 
 export type ReviewItem = {
-  comments: Array<ReviewComment>;
+  comments: Array<ImportOrExportItemReviewComment>;
   id: Scalars['Int']['output'];
   podcastEpisode?: Maybe<Scalars['Int']['output']>;
   postedBy: ReviewPostedBy;
