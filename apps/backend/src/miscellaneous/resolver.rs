@@ -5006,13 +5006,13 @@ impl MiscellaneousService {
         } else if input.increment_likes.unwrap_or_default() {
             let comment = comments
                 .iter_mut()
-                .find(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .find(|r| &r.id == input.comment_id.as_ref().unwrap())
                 .unwrap();
             comment.liked_by.insert(user_id);
         } else if input.decrement_likes.unwrap_or_default() {
             let comment = comments
                 .iter_mut()
-                .find(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .find(|r| &r.id == input.comment_id.as_ref().unwrap())
                 .unwrap();
             comment.liked_by.remove(&user_id);
         } else {
