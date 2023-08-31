@@ -255,7 +255,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         publish_date: None,
         specifics,
         suggestions,
-        groups: None,
+        groups: vec![],
     })
 }
 

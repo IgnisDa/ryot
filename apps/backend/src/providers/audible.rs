@@ -309,16 +309,15 @@ impl AudibleService {
             }),
             images,
             suggestions: vec![],
-            groups: Some(
-                item.series
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|g| MetadataGroup {
-                        identifier: g.asin,
-                        source: MetadataSource::Audible,
-                    })
-                    .collect(),
-            ),
+            groups: item
+                .series
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| MetadataGroup {
+                    identifier: g.asin,
+                    source: MetadataSource::Audible,
+                })
+                .collect(),
         }
     }
 }

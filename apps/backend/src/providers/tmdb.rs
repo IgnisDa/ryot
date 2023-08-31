@@ -255,15 +255,14 @@ impl MediaProvider for TmdbMovieService {
                 runtime: Some(data.runtime),
             }),
             suggestions,
-            groups: Some(
-                data.belongs_to_collection
-                    .map(|c| MetadataGroup {
-                        identifier: c.id.to_string(),
-                        source: MetadataSource::Tmdb,
-                    })
-                    .into_iter()
-                    .collect(),
-            ),
+            groups: data
+                .belongs_to_collection
+                .map(|c| MetadataGroup {
+                    identifier: c.id.to_string(),
+                    source: MetadataSource::Tmdb,
+                })
+                .into_iter()
+                .collect(),
         })
     }
 
@@ -547,7 +546,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
-            groups: None,
+            groups: vec![],
         })
     }
 

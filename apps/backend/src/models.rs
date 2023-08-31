@@ -608,7 +608,7 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<MetadataSuggestion>,
-        pub groups: Option<Vec<MetadataGroup>>,
+        pub groups: Vec<MetadataGroup>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

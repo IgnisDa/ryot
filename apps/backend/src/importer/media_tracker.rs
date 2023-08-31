@@ -293,7 +293,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     publish_date: None,
                     specifics: MediaSpecifics::Book(BookSpecifics { pages: num_pages }),
                     suggestions: vec![],
-                    groups: None,
+                    groups: vec![],
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },

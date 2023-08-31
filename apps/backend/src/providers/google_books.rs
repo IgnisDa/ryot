@@ -231,7 +231,7 @@ impl GoogleBooksService {
             images: images.unique().collect(),
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
-            groups: None,
+            groups: vec![],
         }
     }
 }
