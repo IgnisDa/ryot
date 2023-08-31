@@ -587,6 +587,13 @@ pub mod media {
         pub lot: MetadataLot,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+    pub struct MetadataGroup {
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub lot: MetadataLot,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -602,6 +609,7 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<MetadataSuggestion>,
+        pub group: Option<Vec<MetadataGroup>>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

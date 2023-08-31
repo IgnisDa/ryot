@@ -194,6 +194,7 @@ impl MediaProvider for MangaUpdatesService {
             }),
             creators,
             suggestions,
+            group: None,
         };
         Ok(data)
     }

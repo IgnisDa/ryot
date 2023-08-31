@@ -537,6 +537,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
+            group: None,
         })
     }
 

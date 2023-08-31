@@ -3719,6 +3719,7 @@ impl MiscellaneousService {
             specifics,
             production_status: "Released".to_owned(),
             suggestions: vec![],
+            group: None,
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

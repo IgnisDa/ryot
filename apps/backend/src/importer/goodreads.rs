@@ -132,6 +132,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                                 pages: d.book.num_pages.parse().ok(),
                             }),
                             suggestions: vec![],
+                            group: None,
                         },
                     )),
                     seen_history,
