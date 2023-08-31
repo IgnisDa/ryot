@@ -146,7 +146,7 @@ where
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<i32> {
     jwt::verify(token, jwt_secret)
-        .map(|c| c.sub)
+        .map(|c| c.sub.parse().unwrap())
         .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
 }
 
