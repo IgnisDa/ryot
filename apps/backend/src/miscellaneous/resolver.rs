@@ -3123,6 +3123,7 @@ impl MiscellaneousService {
             metadata_id: ActiveValue::Set(input.metadata_id),
             creator_id: ActiveValue::Set(input.creator_id),
             extra_information: ActiveValue::Set(extra_infomation),
+            comments: ActiveValue::Set(ReviewComments(vec![])),
             ..Default::default()
         };
         if let Some(s) = input.spoiler {
