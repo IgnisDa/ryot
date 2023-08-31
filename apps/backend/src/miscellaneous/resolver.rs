@@ -74,9 +74,9 @@ use crate::{
             MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MetadataSuggestion,
             MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewComment, SeenOrReviewExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility,
+            ReviewComment, ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -549,8 +549,8 @@ struct CreateReviewCommentInput {
     review_id: i32,
     comment_id: Option<String>,
     text: Option<String>,
-    like_comment: Option<bool>,
     increment_likes: Option<bool>,
+    decrement_likes: Option<bool>,
     should_delete: Option<bool>,
 }
 
@@ -1137,7 +1137,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateReviewCommentInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_review_comment(user_id, input).await
@@ -4991,9 +4991,47 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: CreateReviewCommentInput,
-    ) -> Result<String> {
-        dbg!(input);
-        todo!()
+    ) -> Result<bool> {
+        let review = Review::find_by_id(input.review_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        let mut comments = review.comments.0.clone();
+        if input.should_delete.unwrap_or_default() {
+            let posn = comments
+                .iter()
+                .position(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .unwrap();
+            comments.remove(posn);
+        } else if input.increment_likes.unwrap_or_default() {
+            let comment = comments
+                .iter_mut()
+                .find(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .unwrap();
+            comment.liked_by.insert(user_id);
+        } else if input.decrement_likes.unwrap_or_default() {
+            let comment = comments
+                .iter_mut()
+                .find(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .unwrap();
+            comment.liked_by.remove(&user_id);
+        } else {
+            let user = user_by_id(&self.db, user_id).await?;
+            comments.push(ReviewComment {
+                id: nanoid!(20),
+                text: input.text.unwrap(),
+                user: ReviewCommentUser {
+                    id: user_id,
+                    name: user.name,
+                },
+                liked_by: HashSet::new(),
+                created_on: Utc::now(),
+            });
+        }
+        let mut review: review::ActiveModel = review.into();
+        review.comments = ActiveValue::Set(ReviewComments(comments));
+        review.update(&self.db).await?;
+        Ok(true)
     }
 }
 

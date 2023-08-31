@@ -46,7 +46,7 @@ query UserMediaDetails($metadataId: Int!) {
         createdOn
         user {
           id
-          username
+          name
         }
         likedBy
       }

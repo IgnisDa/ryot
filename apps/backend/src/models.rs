@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
@@ -733,7 +733,7 @@ pub mod media {
     )]
     pub struct ReviewCommentUser {
         pub id: i32,
-        pub username: String,
+        pub name: String,
     }
 
     #[derive(
@@ -745,7 +745,6 @@ pub mod media {
         Serialize,
         Deserialize,
         Default,
-        Hash,
         SimpleObject,
     )]
     pub struct ReviewComment {
@@ -753,7 +752,7 @@ pub mod media {
         pub text: String,
         pub user: ReviewCommentUser,
         /// The user ids of all those who liked it.
-        pub liked_by: Vec<i32>,
+        pub liked_by: HashSet<i32>,
         pub created_on: DateTimeUtc,
     }
 

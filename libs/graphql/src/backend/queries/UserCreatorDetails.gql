@@ -17,7 +17,7 @@ query UserCreatorDetails($creatorId: Int!) {
         createdOn
         user {
           id
-          username
+          name
         }
         likedBy
       }
