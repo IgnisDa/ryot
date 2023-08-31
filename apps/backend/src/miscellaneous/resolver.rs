@@ -5057,5 +5057,9 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
         show_season_number: rev.show_season,
         show_episode_number: rev.show_episode,
         podcast_episode_number: rev.podcast_episode,
+        comments: match rev.comments.is_empty() {
+            true => None,
+            false => Some(rev.comments),
+        },
     }
 }

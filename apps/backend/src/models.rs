@@ -651,6 +651,8 @@ pub mod media {
         pub show_episode_number: Option<i32>,
         /// If for a podcast, the episode for which this review was for.
         pub podcast_episode_number: Option<i32>,
+        /// The comments attached to this review.
+        pub comments: Option<Vec<ReviewComment>>,
     }
 
     /// Details about a specific media item that needs to be imported or exported.
@@ -730,6 +732,7 @@ pub mod media {
         Default,
         Hash,
         SimpleObject,
+        Type,
     )]
     pub struct ReviewCommentUser {
         pub id: i32,
@@ -746,6 +749,7 @@ pub mod media {
         Deserialize,
         Default,
         SimpleObject,
+        Type,
     )]
     pub struct ReviewComment {
         pub id: String,
