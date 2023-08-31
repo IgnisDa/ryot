@@ -156,6 +156,7 @@ impl MediaProvider for GoogleBooksService {
         })
     }
 }
+
 impl GoogleBooksService {
     fn google_books_response_to_search_response(
         &self,

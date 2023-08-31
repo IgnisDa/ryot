@@ -13,21 +13,13 @@ export type MetadataSource =
 	| "Openlibrary"
 	| "Tmdb";
 
-/**
- * Complete export of the user.
- */
-export type ExportAllResponse = {
-	media: ImportOrExportMediaItem<string>[];
-	people: ImportOrExportPersonItem[];
-	measurements: ExportUserMeasurementItem[];
-};
-
 export type ImportOrExportItemRating = {
 	review: ImportOrExportItemReview | null;
 	rating: string | null;
 	show_season_number: number | null;
 	show_episode_number: number | null;
 	podcast_episode_number: number | null;
+	comments: ImportOrExportItemReviewComment[] | null;
 };
 
 export type ImportOrExportMediaItemSeen = {
@@ -40,30 +32,13 @@ export type ImportOrExportMediaItemSeen = {
 };
 
 /**
- * Details about a specific creator item that needs to be exported.
+ * Complete export of the user.
  */
-export type ImportOrExportPersonItem = {
-	name: string;
-	reviews: ImportOrExportItemRating[];
+export type ExportAllResponse = {
+	media: ImportOrExportMediaItem<string>[];
+	people: ImportOrExportPersonItem[];
+	measurements: ExportUserMeasurementItem[];
 };
-
-export type ExportUserMeasurementItem = {
-	timestamp: string;
-	user_id: number;
-	name: string | null;
-	comment: string | null;
-	stats: UserMeasurementStats;
-};
-
-export type MetadataLot =
-	| "AudioBook"
-	| "Anime"
-	| "Book"
-	| "Podcast"
-	| "Manga"
-	| "Movie"
-	| "Show"
-	| "VideoGame";
 
 export type UserMeasurementStats = {
 	weight?: string | null;
@@ -92,11 +67,23 @@ export type UserMeasurementStats = {
 	custom?: { [key: string]: string } | null;
 };
 
-export type ImportOrExportItemReview = {
-	date: string | null;
-	spoiler: boolean | null;
-	text: string | null;
+export type ExportUserMeasurementItem = {
+	timestamp: string;
+	user_id: number;
+	name: string | null;
+	comment: string | null;
+	stats: UserMeasurementStats;
 };
+
+export type MetadataLot =
+	| "AudioBook"
+	| "Anime"
+	| "Book"
+	| "Podcast"
+	| "Manga"
+	| "Movie"
+	| "Show"
+	| "VideoGame";
 
 /**
  * Details about a specific media item that needs to be imported or exported.
@@ -110,3 +97,27 @@ export type ImportOrExportMediaItem<T> = {
 	reviews: ImportOrExportItemRating[];
 	collections: string[];
 };
+
+export type ImportOrExportItemReview = {
+	date: string | null;
+	spoiler: boolean | null;
+	text: string | null;
+};
+
+export type ImportOrExportItemReviewComment = {
+	id: string;
+	text: string;
+	user: ReviewCommentUser;
+	liked_by: number[];
+	created_on: string;
+};
+
+/**
+ * Details about a specific creator item that needs to be exported.
+ */
+export type ImportOrExportPersonItem = {
+	name: string;
+	reviews: ImportOrExportItemRating[];
+};
+
+export type ReviewCommentUser = { id: number; name: string };

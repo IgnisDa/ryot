@@ -68,15 +68,15 @@ use crate::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
             CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
-            MediaSpecifics, MetadataCreator, MetadataImage, MetadataImages, MetadataSuggestion,
-            MovieSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewComment, ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
+            MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -319,7 +319,7 @@ struct ReviewItem {
     show_season: Option<i32>,
     show_episode: Option<i32>,
     podcast_episode: Option<i32>,
-    comments: Vec<ReviewComment>,
+    comments: Vec<ImportOrExportItemReviewComment>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -5013,7 +5013,7 @@ impl MiscellaneousService {
             comment.liked_by.remove(&user_id);
         } else {
             let user = user_by_id(&self.db, user_id).await?;
-            comments.push(ReviewComment {
+            comments.push(ImportOrExportItemReviewComment {
                 id: nanoid!(20),
                 text: input.text.unwrap(),
                 user: ReviewCommentUser {
@@ -5057,5 +5057,9 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
         show_season_number: rev.show_season,
         show_episode_number: rev.show_episode,
         podcast_episode_number: rev.podcast_episode,
+        comments: match rev.comments.is_empty() {
+            true => None,
+            false => Some(rev.comments),
+        },
     }
 }

@@ -14,6 +14,7 @@ import {
 	Box,
 	Button,
 	Collapse,
+	Divider,
 	Flex,
 	Image,
 	Loader,
@@ -90,160 +91,165 @@ export const ReviewItemDisplay = ({
 	});
 
 	return userPreferences.data ? (
-		<Box key={review.id} data-review-id={review.id}>
-			<Flex align={"center"} gap={"sm"}>
-				<Avatar color="cyan" radius="xl">
-					{getInitials(review.postedBy?.name || "")}{" "}
-				</Avatar>
-				<Box>
-					<Text>{review.postedBy?.name}</Text>
-					<Text>
-						{DateTime.fromJSDate(
-							review.postedOn || new Date(),
-						).toLocaleString()}
-					</Text>
-				</Box>
-				{user && user.id === review.postedBy?.id ? (
-					<Link
-						href={withQuery(APP_ROUTES.media.postReview, {
-							metadataId,
-							creatorId,
-							reviewId: review.id,
-						})}
-						passHref
-						legacyBehavior
-					>
-						<Anchor>
-							<ActionIcon>
-								<IconEdit size="1rem" />
-							</ActionIcon>
-						</Anchor>
-					</Link>
-				) : undefined}
-			</Flex>
-			<Box ml={"sm"} mt={"xs"}>
-				{typeof review.showSeason === "number" ? (
-					<Text color="dimmed">
-						S{review.showSeason}-E
-						{review.showEpisode}
-					</Text>
-				) : undefined}
-				{typeof review.podcastEpisode === "number" ? (
-					<Text color="dimmed">EP-{review.podcastEpisode}</Text>
-				) : undefined}
-				{review.rating > 0 ? (
-					<Flex align={"center"} gap={4}>
-						<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
-						<Text
-							sx={(theme) => ({
-								color: theme.colorScheme === "dark" ? "white" : undefined,
-							})}
-							fw="bold"
-						>
-							{review.rating}
-							{userPreferences.data.general.reviewScale ===
-							UserReviewScale.OutOfFive
-								? undefined
-								: "%"}
+		<>
+			<Box key={review.id} data-review-id={review.id}>
+				<Flex align={"center"} gap={"sm"}>
+					<Avatar color="cyan" radius="xl">
+						{getInitials(review.postedBy?.name || "")}{" "}
+					</Avatar>
+					<Box>
+						<Text>{review.postedBy?.name}</Text>
+						<Text>
+							{DateTime.fromJSDate(
+								review.postedOn || new Date(),
+							).toLocaleString()}
 						</Text>
-					</Flex>
-				) : undefined}
-				{review.text ? (
-					!review.spoiler ? (
-						<TypographyStylesProvider>
-							<div dangerouslySetInnerHTML={{ __html: review.text }} />
-						</TypographyStylesProvider>
-					) : (
-						<>
-							{!opened ? (
-								<Button onClick={toggle} variant={"subtle"} compact>
-									Show spoiler
-								</Button>
-							) : undefined}
-							<Collapse in={opened}>
-								<Text dangerouslySetInnerHTML={{ __html: review.text }} />
-							</Collapse>
-						</>
-					)
-				) : undefined}
-				<Button
-					variant="subtle"
-					compact
-					onClick={() => {
-						const comment = prompt("Enter comment");
-						if (comment && review.id)
-							createReviewComment.mutate({
-								input: { reviewId: review.id, text: comment },
-							});
-					}}
-				>
-					Leave comment
-				</Button>
-				{review.comments?.length || 0 > 0 ? (
-					<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
-						<Stack>
-							{review.comments
-								? review.comments.map((c) => (
-										<Stack key={c?.id}>
-											<Flex align={"center"} gap={"sm"}>
-												<Avatar color="cyan" radius="xl">
-													{getInitials(c?.user?.name || "")}{" "}
-												</Avatar>
-												<Box>
-													<Text>{c?.user?.name}</Text>
-													<Text>
-														{DateTime.fromJSDate(
-															c?.createdOn || new Date(),
-														).toLocaleString()}
-													</Text>
-												</Box>
-												{user && user.id === c?.user?.id ? (
+					</Box>
+					{user && user.id === review.postedBy?.id ? (
+						<Link
+							href={withQuery(APP_ROUTES.media.postReview, {
+								metadataId,
+								creatorId,
+								reviewId: review.id,
+							})}
+							passHref
+							legacyBehavior
+						>
+							<Anchor>
+								<ActionIcon>
+									<IconEdit size="1rem" />
+								</ActionIcon>
+							</Anchor>
+						</Link>
+					) : undefined}
+				</Flex>
+				<Box ml={"sm"} mt={"xs"}>
+					{typeof review.showSeason === "number" ? (
+						<Text color="dimmed">
+							S{review.showSeason}-E
+							{review.showEpisode}
+						</Text>
+					) : undefined}
+					{typeof review.podcastEpisode === "number" ? (
+						<Text color="dimmed">EP-{review.podcastEpisode}</Text>
+					) : undefined}
+					{review.rating > 0 ? (
+						<Flex align={"center"} gap={4}>
+							<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
+							<Text
+								sx={(theme) => ({
+									color: theme.colorScheme === "dark" ? "white" : undefined,
+								})}
+								fw="bold"
+							>
+								{review.rating}
+								{userPreferences.data.general.reviewScale ===
+								UserReviewScale.OutOfFive
+									? undefined
+									: "%"}
+							</Text>
+						</Flex>
+					) : undefined}
+					{review.text ? (
+						!review.spoiler ? (
+							<TypographyStylesProvider>
+								<div dangerouslySetInnerHTML={{ __html: review.text }} />
+							</TypographyStylesProvider>
+						) : (
+							<>
+								{!opened ? (
+									<Button onClick={toggle} variant={"subtle"} compact>
+										Show spoiler
+									</Button>
+								) : undefined}
+								<Collapse in={opened}>
+									<Text dangerouslySetInnerHTML={{ __html: review.text }} />
+								</Collapse>
+							</>
+						)
+					) : undefined}
+					<Button
+						variant="subtle"
+						compact
+						onClick={() => {
+							const comment = prompt("Enter comment");
+							if (comment && review.id)
+								createReviewComment.mutate({
+									input: { reviewId: review.id, text: comment },
+								});
+						}}
+					>
+						Leave comment
+					</Button>
+					{review.comments?.length || 0 > 0 ? (
+						<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
+							<Stack>
+								{review.comments
+									? review.comments.map((c) => (
+											<Stack key={c?.id}>
+												<Flex align={"center"} gap={"sm"}>
+													<Avatar color="cyan" radius="xl">
+														{getInitials(c?.user?.name || "")}{" "}
+													</Avatar>
+													<Box>
+														<Text>{c?.user?.name}</Text>
+														<Text>
+															{DateTime.fromJSDate(
+																c?.createdOn || new Date(),
+															).toLocaleString()}
+														</Text>
+													</Box>
+													{user && user.id === c?.user?.id ? (
+														<ActionIcon
+															color="red"
+															onClick={() => {
+																const yes = confirm(
+																	"Are you sure you want to delete this comment?",
+																);
+																if (review.id && yes)
+																	createReviewComment.mutate({
+																		input: {
+																			reviewId: review.id,
+																			commentId: c.id,
+																			shouldDelete: true,
+																		},
+																	});
+															}}
+														>
+															<IconTrash size="1rem" />
+														</ActionIcon>
+													) : undefined}
 													<ActionIcon
-														color="red"
 														onClick={() => {
-															const yes = confirm(
-																"Are you sure you want to delete this comment?",
+															const likedByUser = c?.likedBy?.includes(
+																user?.id,
 															);
-															if (review.id && yes)
+															if (review.id)
 																createReviewComment.mutate({
 																	input: {
 																		reviewId: review.id,
-																		commentId: c.id,
-																		shouldDelete: true,
+																		commentId: c?.id,
+																		incrementLikes: !likedByUser,
+																		decrementLikes: likedByUser,
 																	},
 																});
 														}}
 													>
-														<IconTrash size="1rem" />
+														<IconArrowBigUp size="1rem" />
+														<Text>{c?.likedBy?.length}</Text>
 													</ActionIcon>
-												) : undefined}
-												<ActionIcon
-													onClick={() => {
-														const likedByUser = c?.likedBy?.includes(user?.id);
-														if (review.id)
-															createReviewComment.mutate({
-																input: {
-																	reviewId: review.id,
-																	commentId: c?.id,
-																	incrementLikes: !likedByUser,
-																	decrementLikes: likedByUser,
-																},
-															});
-													}}
-												>
-													<IconArrowBigUp size="1rem" />
-													<Text>{c?.likedBy?.length}</Text>
-												</ActionIcon>
-											</Flex>
-											<Text ml="xs">{c?.text}</Text>
-										</Stack>
-								  ))
-								: undefined}
-						</Stack>
-					</Paper>
-				) : undefined}
+												</Flex>
+												<Text ml="xs">{c?.text}</Text>
+											</Stack>
+									  ))
+									: undefined}
+							</Stack>
+						</Paper>
+					) : undefined}
+				</Box>
 			</Box>
-		</Box>
+			<Divider />
+		</>
 	) : undefined;
 };
 
