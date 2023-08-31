@@ -112,7 +112,12 @@ pub async fn json_export(
     Extension(exercise_service): Extension<Arc<ExerciseService>>,
     ctx: AuthContext,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = ctx.user_id.unwrap();
+    let user_id = ctx.user_id.ok_or_else(|| {
+        (
+            StatusCode::FORBIDDEN,
+            Json(json!({"err": "User is not authenticated"})),
+        )
+    })?;
     let resp = match export_type.as_str() {
         "all" => {
             let media = media_service.export_media(user_id).await.unwrap();
