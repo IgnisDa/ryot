@@ -2313,38 +2313,37 @@ impl MiscellaneousService {
     async fn associate_creator_with_metadata(
         &self,
         metadata_id: i32,
-        data: Vec<MetadataCreator>,
+        creator: MetadataCreator,
+        index: usize,
     ) -> Result<()> {
-        for (idx, creator) in data.into_iter().enumerate() {
-            let db_creator = if let Some(db_creator) = Creator::find()
-                .filter(creator::Column::Name.eq(&creator.name))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                if db_creator.image.is_none() {
-                    let mut new: creator::ActiveModel = db_creator.clone().into();
-                    new.image = ActiveValue::Set(creator.image);
-                    new.update(&self.db).await?;
-                }
-                db_creator
-            } else {
-                let c = creator::ActiveModel {
-                    name: ActiveValue::Set(creator.name),
-                    image: ActiveValue::Set(creator.image),
-                    extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.unwrap()
+        let db_creator = if let Some(db_creator) = Creator::find()
+            .filter(creator::Column::Name.eq(&creator.name))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            if db_creator.image.is_none() {
+                let mut new: creator::ActiveModel = db_creator.clone().into();
+                new.image = ActiveValue::Set(creator.image);
+                new.update(&self.db).await?;
+            }
+            db_creator
+        } else {
+            let c = creator::ActiveModel {
+                name: ActiveValue::Set(creator.name),
+                image: ActiveValue::Set(creator.image),
+                extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
+                ..Default::default()
             };
-            let intermediate = metadata_to_creator::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
-                creator_id: ActiveValue::Set(db_creator.id),
-                role: ActiveValue::Set(creator.role),
-                index: ActiveValue::Set(idx.try_into().unwrap()),
-            };
-            intermediate.insert(&self.db).await.ok();
-        }
+            c.insert(&self.db).await.unwrap()
+        };
+        let intermediate = metadata_to_creator::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            creator_id: ActiveValue::Set(db_creator.id),
+            role: ActiveValue::Set(creator.role),
+            index: ActiveValue::Set(index.try_into().unwrap()),
+        };
+        intermediate.insert(&self.db).await.ok();
         Ok(())
     }
 
@@ -2449,9 +2448,15 @@ impl MiscellaneousService {
             .filter(metadata_to_suggestion::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        self.associate_creator_with_metadata(metadata_id, creators)
-            .await
-            .ok();
+        MetadataToMetadataGroup::delete_many()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .exec(&self.db)
+            .await?;
+        for (idx, creator) in creators.into_iter().enumerate() {
+            self.associate_creator_with_metadata(metadata_id, creator, idx)
+                .await
+                .ok();
+        }
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
