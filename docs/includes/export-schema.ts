@@ -19,7 +19,7 @@ export type ImportOrExportItemRating = {
 	show_season_number: number | null;
 	show_episode_number: number | null;
 	podcast_episode_number: number | null;
-	comments: ReviewComment[] | null;
+	comments: ImportOrExportItemReviewComment[] | null;
 };
 
 export type ImportOrExportMediaItemSeen = {
@@ -98,18 +98,18 @@ export type ImportOrExportMediaItem<T> = {
 	collections: string[];
 };
 
-export type ReviewComment = {
+export type ImportOrExportItemReview = {
+	date: string | null;
+	spoiler: boolean | null;
+	text: string | null;
+};
+
+export type ImportOrExportItemReviewComment = {
 	id: string;
 	text: string;
 	user: ReviewCommentUser;
 	liked_by: number[];
 	created_on: string;
-};
-
-export type ImportOrExportItemReview = {
-	date: string | null;
-	spoiler: boolean | null;
-	text: string | null;
 };
 
 /**
