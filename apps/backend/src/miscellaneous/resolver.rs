@@ -2846,6 +2846,7 @@ impl MiscellaneousService {
     ) -> Result<MediaDetails> {
         let provider = self.get_provider(lot, source).await?;
         let results = provider.details(identifier).await?;
+        dbg!(&results);
         Ok(results)
     }
 
@@ -3719,7 +3720,7 @@ impl MiscellaneousService {
             specifics,
             production_status: "Released".to_owned(),
             suggestions: vec![],
-            group: None,
+            groups: None,
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

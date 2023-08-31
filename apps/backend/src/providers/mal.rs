@@ -273,7 +273,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .and_then(|d| convert_date_to_year(&d)),
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
-        group: None,
+        groups: None,
     };
     Ok(data)
 }

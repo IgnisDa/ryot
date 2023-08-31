@@ -242,7 +242,7 @@ impl ListennotesService {
                 total_episodes: podcast_data.total_episodes,
             }),
             suggestions: vec![],
-            group: None,
+            groups: None,
         })
     }
 }

@@ -13,8 +13,9 @@ use crate::{
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataSuggestion, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataGroup,
+            MetadataImage, MetadataSuggestion, MovieSpecifics, ShowEpisode, ShowSeason,
+            ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -254,6 +255,15 @@ impl MediaProvider for TmdbMovieService {
                 runtime: Some(data.runtime),
             }),
             suggestions,
+            groups: Some(
+                data.belongs_to_collection
+                    .map(|c| MetadataGroup {
+                        identifier: c.id.to_string(),
+                        source: MetadataSource::Tmdb,
+                    })
+                    .into_iter()
+                    .collect(),
+            ),
         })
     }
 
@@ -537,7 +547,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
-            group: None,
+            groups: None,
         })
     }
 
