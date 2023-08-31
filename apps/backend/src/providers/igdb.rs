@@ -285,6 +285,7 @@ impl IgdbService {
                 .map(|g| MetadataGroup {
                     identifier: g.id.to_string(),
                     source: MetadataSource::Igdb,
+                    lot: MetadataLot::VideoGame,
                 })
                 .collect(),
         }

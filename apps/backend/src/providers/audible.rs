@@ -316,6 +316,7 @@ impl AudibleService {
                 .map(|g| MetadataGroup {
                     identifier: g.asin,
                     source: MetadataSource::Audible,
+                    lot: MetadataLot::AudioBook,
                 })
                 .collect(),
         }

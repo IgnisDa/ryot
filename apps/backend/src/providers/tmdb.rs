@@ -260,6 +260,7 @@ impl MediaProvider for TmdbMovieService {
                 .map(|c| MetadataGroup {
                     identifier: c.id.to_string(),
                     source: MetadataSource::Tmdb,
+                    lot: MetadataLot::Movie,
                 })
                 .into_iter()
                 .collect(),

@@ -591,6 +591,7 @@ pub mod media {
     pub struct MetadataGroup {
         pub identifier: String,
         pub source: MetadataSource,
+        pub lot: MetadataLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
