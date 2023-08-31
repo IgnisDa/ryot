@@ -1,4 +1,15 @@
 
+# Version 2.12.1 (2023-08-31)
+
+## Bug Fixes
+
+* **backend:** comments in new review
+
+## Build
+
+* **backend:** bump version
+
+
 # Version 2.12.0 (2023-08-31)
 
 
