@@ -15,7 +15,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataSuggestion, PartialMetadataGroup,
+            MetadataImage, MetadataImages, MetadataSuggestion, PartialMetadataGroup,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -50,6 +50,7 @@ impl Default for PrimaryQuery {
                 "product_attrs",
                 "product_extended_attrs",
                 "series",
+                "relationships",
             ]
             .join(","),
             image_sizes: ["2400"].join(","),
@@ -81,6 +82,12 @@ struct AudibleCategoryLadderCollection {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct AudibleRelationshipItem {
+    asin: String,
+    sort: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct AudibleItem {
     asin: String,
     title: String,
@@ -93,6 +100,7 @@ struct AudibleItem {
     runtime_length_min: Option<i32>,
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
     series: Option<Vec<AudibleItem>>,
+    relationships: Option<Vec<AudibleRelationshipItem>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -152,7 +160,35 @@ impl MediaProvider for AudibleService {
         &self,
         identifier: &str,
     ) -> Result<(metadata_group::Model, Vec<String>)> {
-        todo!()
+        let data: AudibleItemResponse = self
+            .client
+            .get(identifier)
+            .query(&PrimaryQuery::default())
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let items = data
+            .product
+            .relationships
+            .unwrap()
+            .into_iter()
+            .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
+            .map(|i| i.asin)
+            .collect();
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                identifier: identifier.to_owned(),
+                title: data.product.title,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::AudioBook,
+                source: MetadataSource::Audible,
+            },
+            items,
+        ))
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
