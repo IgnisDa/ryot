@@ -15,7 +15,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MetadataSuggestion, MovieSpecifics, PartialMetadataGroup, ShowEpisode,
+            MetadataImages, MovieSpecifics, PartialMetadata, PartialMetadataGroup, ShowEpisode,
             ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -710,7 +710,7 @@ impl TmdbService {
         client: &Client,
         typ: &str,
         identifier: &str,
-    ) -> Result<Vec<MetadataSuggestion>> {
+    ) -> Result<Vec<PartialMetadata>> {
         let lot = match typ {
             "movie" => MetadataLot::Movie,
             "tv" => MetadataLot::Show,
@@ -735,7 +735,7 @@ impl TmdbService {
                 } else {
                     continue;
                 };
-                suggestions.push(MetadataSuggestion {
+                suggestions.push(PartialMetadata {
                     title: name,
                     image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
                     identifier: entry.id.to_string(),

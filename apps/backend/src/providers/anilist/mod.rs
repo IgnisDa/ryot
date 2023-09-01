@@ -11,7 +11,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, MetadataSuggestion,
+            MetadataCreator, MetadataImage, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -228,7 +228,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .into_iter()
         .map(|r| {
             let data = r.unwrap().media_recommendation.unwrap();
-            MetadataSuggestion {
+            PartialMetadata {
                 title: data.title.unwrap().user_preferred.unwrap(),
                 identifier: data.id.to_string(),
                 source: MetadataSource::Anilist,

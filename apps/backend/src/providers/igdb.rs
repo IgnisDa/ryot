@@ -17,7 +17,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MetadataSuggestion, PartialMetadataGroup, VideoGameSpecifics,
+            MetadataImages, PartialMetadata, PartialMetadataGroup, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -329,7 +329,7 @@ impl IgdbService {
                 .similar_games
                 .unwrap_or_default()
                 .into_iter()
-                .map(|g| MetadataSuggestion {
+                .map(|g| PartialMetadata {
                     title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),

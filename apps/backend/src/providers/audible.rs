@@ -15,7 +15,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MetadataSuggestion, PartialMetadataGroup,
+            MetadataImage, MetadataImages, PartialMetadata, PartialMetadataGroup,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -220,7 +220,7 @@ impl MediaProvider for AudibleService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for sim in data.similar_products.into_iter() {
-                suggestions.push(MetadataSuggestion {
+                suggestions.push(PartialMetadata {
                     title: sim.title,
                     image: sim.product_images.unwrap().image_500,
                     identifier: sim.asin,

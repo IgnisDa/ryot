@@ -72,12 +72,12 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImages, MetadataSuggestion,
-            MovieSpecifics, PartialMetadataGroup, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            MetadataGroupListItem, MetadataImage, MetadataImages, MovieSpecifics, PartialMetadata,
+            PartialMetadataGroup, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2282,7 +2282,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
-        suggestions: Vec<MetadataSuggestion>,
+        suggestions: Vec<PartialMetadata>,
         groups: Vec<PartialMetadataGroup>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
@@ -2464,7 +2464,7 @@ impl MiscellaneousService {
 
     async fn associate_suggestion_with_metadata(
         &self,
-        data: MetadataSuggestion,
+        data: PartialMetadata,
         metadata_id: i32,
     ) -> Result<()> {
         let db_suggestion = if let Some(c) = Suggestion::find()
@@ -2554,7 +2554,7 @@ impl MiscellaneousService {
         source: MetadataSource,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
-        suggestions: Vec<MetadataSuggestion>,
+        suggestions: Vec<PartialMetadata>,
         groups: Vec<PartialMetadataGroup>,
     ) -> Result<()> {
         MetadataToCreator::delete_many()

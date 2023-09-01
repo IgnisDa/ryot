@@ -17,7 +17,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataSuggestion,
+            MetadataImage, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -277,7 +277,7 @@ impl MediaProvider for OpenlibraryService {
                 .next()
                 .and_then(|img| img.value().attr("src"))
                 .map(|src| src.to_string());
-            suggestions.push(MetadataSuggestion {
+            suggestions.push(PartialMetadata {
                 title: name,
                 image,
                 identifier,
