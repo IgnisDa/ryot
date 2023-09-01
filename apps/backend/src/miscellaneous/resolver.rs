@@ -2384,10 +2384,8 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     async fn associate_group_with_metadata(
         &self,
-        metadata_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
         group: PartialMetadataGroup,
@@ -2402,7 +2400,10 @@ impl MiscellaneousService {
         let data = provider.group_details(&group.identifier).await;
         let (group_details, associated_items) = data?;
         let group_id = match existing_group {
-            Some(eg) => eg.id,
+            Some(eg) => {
+                tracing::trace!("Found existing group with {} parts", eg.parts);
+                eg.id
+            }
             None => {
                 let mut db_group: metadata_group::ActiveModel = group_details.into();
                 db_group.id = ActiveValue::NotSet;
@@ -2556,7 +2557,7 @@ impl MiscellaneousService {
                 .ok();
         }
         for group in groups {
-            self.associate_group_with_metadata(metadata_id, lot, source, group)
+            self.associate_group_with_metadata(lot, source, group)
                 .await
                 .ok();
         }
@@ -2848,7 +2849,6 @@ impl MiscellaneousService {
 
     async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
-
         let service: Provider = match source {
             MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
             MetadataSource::Itunes => Box::new(
