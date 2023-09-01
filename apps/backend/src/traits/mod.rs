@@ -27,7 +27,7 @@ pub trait MediaProvider {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<MediaSearchItem>)> {
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
         bail!("This method is not supported for this provider")
     }
 }

@@ -118,7 +118,7 @@ impl MediaProvider for TmdbMovieService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<MediaSearchItem>)> {
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
         todo!()
     }
 

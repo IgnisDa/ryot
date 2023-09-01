@@ -120,7 +120,7 @@ impl MediaProvider for IgdbService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<MediaSearchItem>)> {
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
         todo!()
     }
 
