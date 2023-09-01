@@ -1,8 +1,10 @@
+import { MediaScrollArea } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { getLotGradient } from "@/lib/utilities";
 import {
 	Anchor,
 	Avatar,
@@ -10,11 +12,11 @@ import {
 	Container,
 	Flex,
 	SimpleGrid,
-	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
 import { MetadataGroupDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -22,8 +24,6 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
-import { changeCase } from "@ryot/ts-utils";
-import { getLotGradient } from "@/lib/utilities";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -65,7 +65,7 @@ const Page: NextPageWithLayout = () => {
 					<Flex id="group-details" wrap={"wrap"} gap={4}>
 						<Text>{groupDetails.data.details.parts} media items</Text>
 					</Flex>
-					<Stack>
+					<MediaScrollArea>
 						<SimpleGrid
 							cols={3}
 							breakpoints={[
@@ -108,7 +108,7 @@ const Page: NextPageWithLayout = () => {
 								</Link>
 							))}
 						</SimpleGrid>
-					</Stack>
+					</MediaScrollArea>
 				</MediaDetailsLayout>
 			</Container>
 		</>
