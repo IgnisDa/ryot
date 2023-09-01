@@ -1368,17 +1368,18 @@ impl MiscellaneousService {
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
 
-        let suggestion_ids = MetadataToPartialMetadata::find()
+        let partial_metadata_ids = MetadataToPartialMetadata::find()
+            .select_only()
+            .column(metadata_to_partial_metadata::Column::PartialMetadataId)
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(meta.id))
             .filter(
                 metadata_to_partial_metadata::Column::Relation
                     .eq(MetadataToPartialMetadataRelation::Suggestion),
             )
-            .column(metadata_to_partial_metadata::Column::PartialMetadataId)
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        let suggestions = self.get_partial_metadata(suggestion_ids).await?;
+        let suggestions = self.get_partial_metadata(partial_metadata_ids).await?;
         Ok(MediaBaseData {
             model: meta,
             creators,
