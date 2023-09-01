@@ -177,10 +177,11 @@ impl MediaProvider for AudibleService {
             .into_iter()
             .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
             .map(|i| i.asin)
-            .collect();
+            .collect_vec();
         Ok((
             metadata_group::Model {
                 id: 0,
+                parts: items.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
                 title: data.product.title,
                 images: MetadataImages(vec![]),

@@ -13,6 +13,7 @@ use crate::{
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    pub parts: i32,
     pub identifier: String,
     pub title: String,
     pub images: MetadataImages,

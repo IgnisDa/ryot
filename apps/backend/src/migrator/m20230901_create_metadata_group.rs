@@ -9,6 +9,7 @@ pub struct Migration;
 pub enum MetadataGroup {
     Table,
     Id,
+    Parts,
     Identifier,
     Title,
     Images,
@@ -43,6 +44,7 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(MetadataGroup::Parts).integer().not_null())
                     .col(ColumnDef::new(MetadataGroup::Title).string().not_null())
                     .col(ColumnDef::new(MetadataGroup::Images).json().not_null())
                     .col(ColumnDef::new(MetadataGroup::Lot).string_len(2).not_null())

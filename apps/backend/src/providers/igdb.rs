@@ -154,10 +154,11 @@ where id = {id};
             .unwrap_or_default()
             .into_iter()
             .map(|g| g.id.to_string())
-            .collect();
+            .collect_vec();
         Ok((
             metadata_group::Model {
                 id: 0,
+                parts: items.len().try_into().unwrap(),
                 identifier: details.id.unwrap().to_string(),
                 title: details.name,
                 images: MetadataImages(vec![]),

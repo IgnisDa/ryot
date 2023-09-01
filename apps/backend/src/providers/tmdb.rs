@@ -149,9 +149,15 @@ impl MediaProvider for TmdbMovieService {
         self.base
             .save_all_images(&self.client, "collection", &identifier, &mut images)
             .await?;
+        let parts = data
+            .parts
+            .into_iter()
+            .map(|p| p.id.to_string())
+            .collect_vec();
         Ok((
             metadata_group::Model {
                 id: 0,
+                parts: parts.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
                 title: data.name,
                 images: MetadataImages(
@@ -167,7 +173,7 @@ impl MediaProvider for TmdbMovieService {
                 lot: MetadataLot::Movie,
                 source: MetadataSource::Tmdb,
             },
-            data.parts.into_iter().map(|p| p.id.to_string()).collect(),
+            parts,
         ))
     }
 
