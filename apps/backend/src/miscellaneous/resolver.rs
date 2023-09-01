@@ -2392,41 +2392,39 @@ impl MiscellaneousService {
         source: MetadataSource,
         group: PartialMetadataGroup,
     ) -> Result<()> {
+        let existing_group = MetadataGroup::find()
+            .filter(metadata_group::Column::Identifier.eq(&group.identifier))
+            .filter(metadata_group::Column::Lot.eq(lot))
+            .filter(metadata_group::Column::Source.eq(source))
+            .one(&self.db)
+            .await?;
         let provider = self.get_provider(lot, source).await?;
-        if let Ok((group_details, associated_items)) =
-            provider.group_details(&group.identifier).await
-        {
-            let existing_group = MetadataGroup::find()
-                .filter(metadata_group::Column::Identifier.eq(&group_details.identifier))
-                .filter(metadata_group::Column::Lot.eq(lot))
-                .filter(metadata_group::Column::Source.eq(source))
-                .one(&self.db)
-                .await?;
-            let group_id = match existing_group {
-                Some(eg) => eg.id,
+        let data = provider.group_details(&group.identifier).await;
+        let (group_details, associated_items) = data?;
+        let group_id = match existing_group {
+            Some(eg) => eg.id,
+            None => {
+                let mut db_group: metadata_group::ActiveModel = group_details.into();
+                db_group.id = ActiveValue::NotSet;
+                let new_group = db_group.insert(&self.db).await?;
+                new_group.id
+            }
+        };
+        for (idx, media) in associated_items.iter().enumerate() {
+            let med = self.media_exists_in_database(lot, source, media).await?;
+            let id = match med {
+                Some(m) => m.id,
                 None => {
-                    let mut db_group: metadata_group::ActiveModel = group_details.into();
-                    db_group.id = ActiveValue::NotSet;
-                    let new_group = db_group.insert(&self.db).await?;
-                    new_group.id
+                    let med = self.commit_media(lot, source, media).await?;
+                    med.id
                 }
             };
-            for (idx, media) in associated_items.iter().enumerate() {
-                let med = self.media_exists_in_database(lot, source, media).await?;
-                let id = match med {
-                    Some(m) => m.id,
-                    None => {
-                        let med = self.commit_media(lot, source, media).await?;
-                        med.id
-                    }
-                };
-                let new_association = metadata_to_metadata_group::ActiveModel {
-                    metadata_id: ActiveValue::Set(id),
-                    metadata_group_id: ActiveValue::Set(group_id),
-                    part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-                };
-                new_association.insert(&self.db).await.ok();
-            }
+            let new_association = metadata_to_metadata_group::ActiveModel {
+                metadata_id: ActiveValue::Set(id),
+                metadata_group_id: ActiveValue::Set(group_id),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+            };
+            new_association.insert(&self.db).await.ok();
         }
         Ok(())
     }

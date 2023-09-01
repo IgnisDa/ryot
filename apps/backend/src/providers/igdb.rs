@@ -17,7 +17,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataSuggestion, PartialMetadataGroup, VideoGameSpecifics,
+            MetadataImages, MetadataSuggestion, PartialMetadataGroup, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -29,7 +29,7 @@ static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
 static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
 
-static FIELDS: &str = "
+static GAME_FIELDS: &str = "
 fields
     id,
     name,
@@ -47,6 +47,12 @@ fields
     franchises.id,
     genres.*;
 where version_parent = null;
+";
+static FRANCHISES_FIELDS: &str = "
+fields
+    id,
+    name,
+    games.id;
 ";
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -72,8 +78,9 @@ struct IgdbImage {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbSearchResponse {
-    id: i32,
+    id: Option<i32>,
     name: String,
+    games: Option<Vec<IdObject>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
@@ -84,6 +91,8 @@ struct IgdbSearchResponse {
     platforms: Option<Vec<NamedObject>>,
     similar_games: Option<Vec<IgdbSearchResponse>>,
     franchises: Option<Vec<IdObject>>,
+    #[serde(flatten)]
+    rest_data: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -121,7 +130,42 @@ impl MediaProvider for IgdbService {
         &self,
         identifier: &str,
     ) -> Result<(metadata_group::Model, Vec<String>)> {
-        todo!()
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r#"
+{field}
+where id = {id};
+            "#,
+            field = FRANCHISES_FIELDS,
+            id = identifier
+        );
+        let details: IgdbSearchResponse = client
+            .post("franchises")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Vec<_>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .pop()
+            .unwrap();
+        let items = details
+            .games
+            .unwrap_or_default()
+            .into_iter()
+            .map(|g| g.id.to_string())
+            .collect();
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                identifier: details.id.unwrap().to_string(),
+                title: details.name,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::VideoGame,
+                source: MetadataSource::Igdb,
+            },
+            items,
+        ))
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -131,7 +175,7 @@ impl MediaProvider for IgdbService {
 {field}
 where id = {id};
             "#,
-            field = FIELDS,
+            field = GAME_FIELDS,
             id = identifier
         );
         let mut rsp = client
@@ -160,7 +204,7 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            field = FIELDS,
+            field = GAME_FIELDS,
             limit = self.page_limit,
             offset = (page - 1) * self.page_limit
         );
@@ -249,7 +293,7 @@ impl IgdbService {
             .unique()
             .collect();
         MediaDetails {
-            identifier: item.id.to_string(),
+            identifier: item.id.unwrap().to_string(),
             lot: MetadataLot::VideoGame,
             source: MetadataSource::Igdb,
             production_status: "Released".to_owned(),
@@ -281,7 +325,7 @@ impl IgdbService {
                 .map(|g| MetadataSuggestion {
                     title: g.name,
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                    identifier: g.id.to_string(),
+                    identifier: g.id.unwrap().to_string(),
                     lot: MetadataLot::VideoGame,
                     source: MetadataSource::Igdb,
                 })
