@@ -410,7 +410,7 @@ export type GraphqlMediaDetails = {
   showSpecifics?: Maybe<ShowSpecifics>;
   source: MetadataSource;
   sourceUrl?: Maybe<Scalars['String']['output']>;
-  suggestions: Array<MediaSuggestion>;
+  suggestions: Array<GraphqlPartialMetadata>;
   title: Scalars['String']['output'];
   videoGameSpecifics?: Maybe<VideoGameSpecifics>;
 };
@@ -419,6 +419,15 @@ export type GraphqlMediaGroup = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   part: Scalars['Int']['output'];
+};
+
+export type GraphqlPartialMetadata = {
+  identifier: Scalars['String']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  lot: MetadataLot;
+  metadataId?: Maybe<Scalars['Int']['output']>;
+  source: MetadataSource;
+  title: Scalars['String']['output'];
 };
 
 export type GraphqlUserIntegration = {
@@ -625,15 +634,6 @@ export enum MediaSortOrder {
   Asc = 'ASC',
   Desc = 'DESC'
 }
-
-export type MediaSuggestion = {
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lot: MetadataLot;
-  metadataId?: Maybe<Scalars['Int']['output']>;
-  source: MetadataSource;
-  title: Scalars['String']['output'];
-};
 
 export type MetadataCreatorGroupedByRole = {
   items: Array<Creator>;

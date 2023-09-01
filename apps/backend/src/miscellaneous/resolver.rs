@@ -47,21 +47,23 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, creator, genre, metadata, metadata_group, metadata_to_collection,
-        metadata_to_creator, metadata_to_genre, metadata_to_metadata_group, metadata_to_suggestion,
+        metadata_to_creator, metadata_to_genre, metadata_to_metadata_group,
+        metadata_to_partial_metadata, partial_metadata,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
-            MetadataToCreator, MetadataToGenre, MetadataToMetadataGroup, MetadataToSuggestion,
-            Review, Seen, Suggestion, User, UserMeasurement, UserToMetadata, Workout,
+            MetadataToCreator, MetadataToGenre, MetadataToMetadataGroup, MetadataToPartialMetadata,
+            PartialMetadata as PartialMetadataModel, Review, Seen, User, UserMeasurement,
+            UserToMetadata, Workout,
         },
-        review, seen, suggestion, user, user_measurement, user_to_metadata, workout,
+        review, seen, user, user_measurement, user_to_metadata, workout,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     migrator::{
         Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
-        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        MetadataToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
+        UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -110,7 +112,7 @@ use crate::{
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 #[derive(FromQueryResult, SimpleObject, Debug, Serialize, Deserialize, Clone)]
-struct MediaSuggestion {
+struct GraphqlPartialMetadata {
     identifier: String,
     lot: MetadataLot,
     source: MetadataSource,
@@ -380,7 +382,7 @@ struct MediaBaseData {
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
-    suggestions: Vec<MediaSuggestion>,
+    suggestions: Vec<GraphqlPartialMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -414,7 +416,7 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
-    suggestions: Vec<MediaSuggestion>,
+    suggestions: Vec<GraphqlPartialMetadata>,
     group: Option<GraphqlMediaGroup>,
 }
 
@@ -1366,32 +1368,17 @@ impl MiscellaneousService {
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
 
-        let suggestions = Suggestion::find()
-            .column_as(metadata::Column::Id, "metadata_id")
-            .left_join(MetadataToSuggestion)
-            .join(
-                JoinType::LeftJoin,
-                Suggestion::belongs_to(Metadata)
-                    .from(suggestion::Column::Identifier)
-                    .to(metadata::Column::Identifier)
-                    .on_condition(|left, right| {
-                        Condition::all()
-                            .add(
-                                Expr::col((right.clone(), metadata::Column::Lot))
-                                    .equals((left.clone(), suggestion::Column::Lot)),
-                            )
-                            .add(
-                                Expr::col((right, metadata::Column::Source))
-                                    .equals((left, suggestion::Column::Source)),
-                            )
-                    })
-                    .into(),
+        let suggestion_ids = MetadataToPartialMetadata::find()
+            .filter(metadata_to_partial_metadata::Column::MetadataId.eq(meta.id))
+            .filter(
+                metadata_to_partial_metadata::Column::Relation
+                    .eq(MetadataToPartialMetadataRelation::Suggestion),
             )
-            .filter(metadata_to_suggestion::Column::MetadataId.eq(meta.id))
-            .into_model::<MediaSuggestion>()
+            .column(metadata_to_partial_metadata::Column::PartialMetadataId)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-
+        let suggestions = self.get_partial_metadata(suggestion_ids).await?;
         Ok(MediaBaseData {
             model: meta,
             creators,
@@ -1400,6 +1387,38 @@ impl MiscellaneousService {
             genres,
             suggestions,
         })
+    }
+
+    async fn get_partial_metadata(
+        &self,
+        partial_metadata_ids: Vec<i32>,
+    ) -> Result<Vec<GraphqlPartialMetadata>> {
+        let partial_metadatas = PartialMetadataModel::find()
+            .column_as(metadata::Column::Id, "metadata_id")
+            .left_join(MetadataToPartialMetadata)
+            .join(
+                JoinType::LeftJoin,
+                PartialMetadataModel::belongs_to(Metadata)
+                    .from(partial_metadata::Column::Identifier)
+                    .to(metadata::Column::Identifier)
+                    .on_condition(|left, right| {
+                        Condition::all()
+                            .add(
+                                Expr::col((right.clone(), metadata::Column::Lot))
+                                    .equals((left.clone(), partial_metadata::Column::Lot)),
+                            )
+                            .add(
+                                Expr::col((right, metadata::Column::Source))
+                                    .equals((left, partial_metadata::Column::Source)),
+                            )
+                    })
+                    .into(),
+            )
+            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
+            .into_model::<GraphqlPartialMetadata>()
+            .all(&self.db)
+            .await?;
+        Ok(partial_metadatas)
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
@@ -2467,17 +2486,17 @@ impl MiscellaneousService {
         data: PartialMetadata,
         metadata_id: i32,
     ) -> Result<()> {
-        let db_suggestion = if let Some(c) = Suggestion::find()
-            .filter(suggestion::Column::Identifier.eq(&data.identifier))
-            .filter(suggestion::Column::Lot.eq(data.lot))
-            .filter(suggestion::Column::Source.eq(data.source))
+        let db_partial_metadata = if let Some(c) = PartialMetadataModel::find()
+            .filter(partial_metadata::Column::Identifier.eq(&data.identifier))
+            .filter(partial_metadata::Column::Lot.eq(data.lot))
+            .filter(partial_metadata::Column::Source.eq(data.source))
             .one(&self.db)
             .await
             .unwrap()
         {
             c
         } else {
-            let c = suggestion::ActiveModel {
+            let c = partial_metadata::ActiveModel {
                 title: ActiveValue::Set(data.title),
                 identifier: ActiveValue::Set(data.identifier),
                 lot: ActiveValue::Set(data.lot),
@@ -2487,9 +2506,10 @@ impl MiscellaneousService {
             };
             c.insert(&self.db).await.unwrap()
         };
-        let intermediate = metadata_to_suggestion::ActiveModel {
+        let intermediate = metadata_to_partial_metadata::ActiveModel {
             metadata_id: ActiveValue::Set(metadata_id),
-            suggestion_id: ActiveValue::Set(db_suggestion.id),
+            partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            relation: ActiveValue::Set(MetadataToPartialMetadataRelation::Suggestion),
         };
         intermediate.insert(&self.db).await.ok();
         Ok(())
@@ -2565,8 +2585,8 @@ impl MiscellaneousService {
             .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        MetadataToSuggestion::delete_many()
-            .filter(metadata_to_suggestion::Column::MetadataId.eq(metadata_id))
+        MetadataToPartialMetadata::delete_many()
+            .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
         MetadataToMetadataGroup::delete_many()
@@ -2613,20 +2633,15 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_user_associations + num_group_associations == 0 {
-                metadata.delete(&self.db).await.ok();
-            }
-        }
-        tracing::trace!("Cleaning up suggestions without associated metadata");
-        let mut all_suggestions = Suggestion::find().stream(&self.db).await?;
-        while let Some(suggestion) = all_suggestions.try_next().await? {
-            let num_associations = MetadataToSuggestion::find()
-                .filter(metadata_to_suggestion::Column::SuggestionId.eq(suggestion.id))
+            let num_partial_metadata_associations = MetadataToPartialMetadata::find()
+                .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations == 0 {
-                suggestion.delete(&self.db).await.ok();
+            if num_user_associations + num_group_associations + num_partial_metadata_associations
+                == 0
+            {
+                metadata.delete(&self.db).await.ok();
             }
         }
         tracing::trace!("Cleaning up genres without associated metadata");
