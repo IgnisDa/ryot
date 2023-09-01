@@ -181,6 +181,7 @@ impl MediaProvider for AudibleService {
         Ok((
             metadata_group::Model {
                 id: 0,
+                display_images: vec![],
                 parts: items.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
                 title: data.product.title,

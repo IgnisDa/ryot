@@ -157,6 +157,7 @@ impl MediaProvider for TmdbMovieService {
         Ok((
             metadata_group::Model {
                 id: 0,
+                display_images: vec![],
                 parts: parts.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
                 title: data.name,

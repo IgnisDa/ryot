@@ -158,6 +158,7 @@ where id = {id};
         Ok((
             metadata_group::Model {
                 id: 0,
+                display_images: vec![],
                 parts: items.len().try_into().unwrap(),
                 identifier: details.id.unwrap().to_string(),
                 title: details.name,

@@ -8,6 +8,7 @@ use crate::models::fitness::UserToExerciseExtraInformation;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "user_to_exercise")]
+#[graphql(name = "UserToExercise")]
 pub struct Model {
     #[graphql(skip)]
     #[sea_orm(primary_key, auto_increment = false)]
