@@ -23,6 +23,10 @@ export const APP_ROUTES = {
 			list: "/media/collections/list",
 			details: "/media/collections",
 		},
+		groups: {
+			list: "/media/groups/list",
+			details: "/media/groups",
+		},
 		people: {
 			list: "/media/people/list",
 			details: "/media/people",

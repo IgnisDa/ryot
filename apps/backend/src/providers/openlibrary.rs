@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
@@ -303,6 +302,7 @@ impl MediaProvider for OpenlibraryService {
                 pages: Some(num_pages),
             }),
             suggestions,
+            groups: vec![],
         })
     }
 
@@ -312,7 +312,7 @@ impl MediaProvider for OpenlibraryService {
         page: Option<i32>,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
-        #[derive(Debug, Serialize, Deserialize, SimpleObject)]
+        #[derive(Debug, Serialize, Deserialize)]
         pub struct OpenlibraryBook {
             key: String,
             title: String,

@@ -56,6 +56,30 @@ export const getLot = (lot: unknown) => {
 		.otherwise(() => undefined);
 };
 
+export const getLotGradient = (lot: MetadataLot) =>
+	match(lot)
+		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
+		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
+		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
+		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
+		.with(MetadataLot.VideoGame, () => ({
+			from: "purple",
+			to: "blue",
+		}))
+		.with(MetadataLot.Anime, () => ({
+			from: "red",
+			to: "blue",
+		}))
+		.with(MetadataLot.Manga, () => ({
+			from: "red",
+			to: "green",
+		}))
+		.with(MetadataLot.Podcast, undefined, () => ({
+			from: "yellow",
+			to: "purple",
+		}))
+		.exhaustive();
+
 /**
  * Get the correct source from a string
  */

@@ -62,13 +62,17 @@ pub struct SearchDetails {
     params(media::MediaCreatorSearchItem)
 ))]
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
+#[graphql(concrete(
+    name = "MetadataGroupListResults",
+    params(media::MetadataGroupListItem)
+))]
 #[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct IdObject {
     pub id: i32,
 }
@@ -127,6 +131,18 @@ pub mod media {
     pub struct MediaListItem {
         pub data: MediaSearchItem,
         pub average_rating: Option<Decimal>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
+    pub struct MetadataGroupListItem {
+        pub id: i32,
+        pub title: String,
+        pub description: Option<String>,
+        pub lot: MetadataLot,
+        pub image: Option<String>,
+        #[graphql(skip)]
+        pub images: MetadataImages,
+        pub parts: i32,
     }
 
     #[derive(
@@ -587,6 +603,13 @@ pub mod media {
         pub lot: MetadataLot,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+    pub struct PartialMetadataGroup {
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub lot: MetadataLot,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -602,6 +625,7 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<MetadataSuggestion>,
+        pub groups: Vec<PartialMetadataGroup>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

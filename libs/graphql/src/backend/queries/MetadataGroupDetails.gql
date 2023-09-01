@@ -1,0 +1,21 @@
+query MetadataGroupDetails($metadataGroupId: Int!) {
+  metadataGroupDetails(metadataGroupId: $metadataGroupId) {
+    details {
+      id
+      title
+      lot
+      source
+      displayImages
+      parts
+    }
+    sourceUrl
+    contents {
+      item {
+        identifier
+        title
+        image
+      }
+      part
+    }
+  }
+}

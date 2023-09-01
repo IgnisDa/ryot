@@ -1,8 +1,9 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
+    entities::metadata_group,
     models::{
         media::{MediaDetails, MediaSearchItem},
         SearchResults,
@@ -21,6 +22,14 @@ pub trait MediaProvider {
 
     /// Get details about a media item for the particular identifier.
     async fn details(&self, identifier: &str) -> Result<MediaDetails>;
+
+    /// Get details about a media group for the given identifier.
+    async fn group_details(
+        &self,
+        _identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
+        bail!("This method is not supported for this provider")
+    }
 }
 
 pub trait MediaProviderLanguages {

@@ -1,7 +1,6 @@
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
-use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -11,13 +10,15 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
+    entities::metadata_group,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataSuggestion, MovieSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            MetadataImages, MetadataSuggestion, MovieSpecifics, PartialMetadataGroup, ShowEpisode,
+            ShowSeason, ShowSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
@@ -48,7 +49,7 @@ struct TmdbImagesResponse {
     posters: Option<Vec<TmdbImage>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, Serialize, Deserialize)]
 struct TmdbEntry {
     id: i32,
     poster_path: Option<String>,
@@ -114,6 +115,71 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbCollection {
+            id: i32,
+            name: String,
+            overview: Option<String>,
+            poster_path: Option<String>,
+            backdrop_path: Option<String>,
+            parts: Vec<IdObject>,
+        }
+        let data: TmdbCollection = self
+            .client
+            .get(format!("collection/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut images = vec![];
+        if let Some(i) = data.poster_path {
+            images.push(i);
+        }
+        if let Some(i) = data.backdrop_path {
+            images.push(i);
+        }
+        self.base
+            .save_all_images(&self.client, "collection", &identifier, &mut images)
+            .await?;
+        let parts = data
+            .parts
+            .into_iter()
+            .map(|p| p.id.to_string())
+            .collect_vec();
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                display_images: vec![],
+                parts: parts.len().try_into().unwrap(),
+                identifier: identifier.to_owned(),
+                title: data.name,
+                description: data.overview,
+                images: MetadataImages(
+                    images
+                        .into_iter()
+                        .unique()
+                        .map(|p| MetadataImage {
+                            url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                            lot: MetadataImageLot::Poster,
+                        })
+                        .collect(),
+                ),
+                lot: MetadataLot::Movie,
+                source: MetadataSource::Tmdb,
+            },
+            parts,
+        ))
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {
@@ -127,6 +193,7 @@ impl MediaProvider for TmdbMovieService {
             status: Option<String>,
             genres: Vec<NamedObject>,
             production_companies: Option<Vec<TmdbCompany>>,
+            belongs_to_collection: Option<IdObject>,
         }
         let mut rsp = self
             .client
@@ -254,6 +321,15 @@ impl MediaProvider for TmdbMovieService {
                 runtime: Some(data.runtime),
             }),
             suggestions,
+            groups: data
+                .belongs_to_collection
+                .map(|c| PartialMetadataGroup {
+                    identifier: c.id.to_string(),
+                    source: MetadataSource::Tmdb,
+                    lot: MetadataLot::Movie,
+                })
+                .into_iter()
+                .collect(),
         })
     }
 
@@ -537,6 +613,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
+            groups: vec![],
         })
     }
 

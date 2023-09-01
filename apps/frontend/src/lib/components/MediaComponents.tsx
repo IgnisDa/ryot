@@ -300,13 +300,15 @@ export const BaseDisplayItem = (props: {
 			</Link>
 			<Flex w={"100%"} direction={"column"}>
 				<Flex justify={"space-between"} direction={"row"} w="100%">
-					<Text c="dimmed">{props.bottomLeft}</Text>
+					<Text c="dimmed" size="sm">
+						{props.bottomLeft}
+					</Text>
 					<Tooltip
 						label={props.highlightRightText}
 						disabled={props.highlightRightText ? false : true}
 						position="right"
 					>
-						<Text c={props.highlightRightText ? "yellow" : "dimmed"}>
+						<Text c={props.highlightRightText ? "yellow" : "dimmed"} size="sm">
 							{props.bottomRight}
 						</Text>
 					</Tooltip>

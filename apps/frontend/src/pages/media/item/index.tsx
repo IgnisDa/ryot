@@ -8,7 +8,12 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
+import {
+	Verb,
+	getLotGradient,
+	getStringAsciiValue,
+	getVerb,
+} from "@/lib/utilities";
 import {
 	Accordion,
 	ActionIcon,
@@ -22,7 +27,6 @@ import {
 	Flex,
 	Group,
 	Indicator,
-	type MantineGradient,
 	Menu,
 	Modal,
 	NumberInput,
@@ -563,29 +567,6 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const badgeGradient: MantineGradient = match(mediaDetails.data?.lot)
-		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
-		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
-		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
-		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame, () => ({
-			from: "purple",
-			to: "blue",
-		}))
-		.with(MetadataLot.Anime, () => ({
-			from: "red",
-			to: "blue",
-		}))
-		.with(MetadataLot.Manga, () => ({
-			from: "red",
-			to: "green",
-		}))
-		.with(MetadataLot.Podcast, undefined, () => ({
-			from: "yellow",
-			to: "purple",
-		}))
-		.exhaustive();
-
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
 
 	const PutOnHoldBtn = () => {
@@ -647,13 +628,31 @@ const Page: NextPageWithLayout = () => {
 						source,
 						href: mediaDetails.data.sourceUrl,
 					}}
-				>
-					<Group>
-						<Title id="media-title">{mediaDetails.data.title}</Title>
-						<Badge variant="gradient" gradient={badgeGradient}>
-							{changeCase(mediaDetails.data.lot)}
+					badge={
+						<Badge
+							variant="gradient"
+							gradient={getLotGradient(mediaDetails.data.lot)}
+							size="lg"
+						>
+							<Text size={10}>{changeCase(mediaDetails.data.lot)}</Text>
 						</Badge>
-					</Group>
+					}
+				>
+					<Box>
+						{mediaDetails.data.group ? (
+							<Link
+								href={withQuery(APP_ROUTES.media.groups.details, {
+									id: mediaDetails.data.group.id,
+								})}
+								style={{ color: "unset" }}
+							>
+								<Text color="dimmed" italic>
+									{mediaDetails.data.group.name} #{mediaDetails.data.group.part}
+								</Text>
+							</Link>
+						) : undefined}
+						<Title id="media-title">{mediaDetails.data.title}</Title>
+					</Box>
 					{userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
 							{userMediaDetails.data.collections.map((col) => (

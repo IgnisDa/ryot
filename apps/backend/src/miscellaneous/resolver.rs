@@ -46,12 +46,12 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
-        metadata_to_genre, metadata_to_suggestion,
+        collection, creator, genre, metadata, metadata_group, metadata_to_collection,
+        metadata_to_creator, metadata_to_genre, metadata_to_metadata_group, metadata_to_suggestion,
         prelude::{
-            Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
-            MetadataToGenre, MetadataToSuggestion, Review, Seen, Suggestion, User, UserMeasurement,
-            UserToMetadata, Workout,
+            Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
+            MetadataToCreator, MetadataToGenre, MetadataToMetadataGroup, MetadataToSuggestion,
+            Review, Seen, Suggestion, User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen, suggestion, user, user_measurement, user_to_metadata, workout,
     },
@@ -72,8 +72,9 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MetadataGroupListItem, MetadataImage, MetadataImages, MetadataSuggestion,
+            MovieSpecifics, PartialMetadataGroup, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
@@ -350,6 +351,21 @@ struct CreatorDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataGroupMetadataItem {
+    /// The media item itself.
+    item: MediaSearchItem,
+    /// The position of this media in the group.
+    part: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataGroupDetails {
+    details: metadata_group::Model,
+    source_url: Option<String>,
+    contents: Vec<MetadataGroupMetadataItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
@@ -365,6 +381,13 @@ struct MediaBaseData {
     backdrop_images: Vec<String>,
     genres: Vec<String>,
     suggestions: Vec<MediaSuggestion>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlMediaGroup {
+    id: i32,
+    name: String,
+    part: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -392,6 +415,7 @@ struct GraphqlMediaDetails {
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
     suggestions: Vec<MediaSuggestion>,
+    group: Option<GraphqlMediaGroup>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -645,6 +669,16 @@ impl MiscellaneousQuery {
         service.creator_details(creator_id).await
     }
 
+    /// Get details about a metadata group present in the database.
+    async fn metadata_group_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_group_id: i32,
+    ) -> Result<MetadataGroupDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_group_details(metadata_group_id).await
+    }
+
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
@@ -685,20 +719,6 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.media_search(lot, source, input).await
-    }
-
-    /// Check if a media with the given metadata and identifier exists in the database.
-    async fn media_exists_in_database(
-        &self,
-        gql_ctx: &Context<'_>,
-        identifier: String,
-        lot: MetadataLot,
-        source: MetadataSource,
-    ) -> Result<Option<IdObject>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service
-            .media_exists_in_database(lot, source, &identifier)
-            .await
     }
 
     /// Get all the metadata sources possible for a lot.
@@ -792,6 +812,16 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.creators_list(input).await
+    }
+
+    /// Get paginated list of metadata groups.
+    async fn metadata_groups_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<MetadataGroupListItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_groups_list(input).await
     }
 }
 
@@ -1431,8 +1461,27 @@ impl MiscellaneousService {
             }
         };
 
+        let group = {
+            let association = MetadataToMetadataGroup::find()
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(model.id))
+                .one(&self.db)
+                .await?;
+            match association {
+                None => None,
+                Some(a) => {
+                    let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
+                    Some(GraphqlMediaGroup {
+                        id: grp.id,
+                        name: grp.title,
+                        part: a.part,
+                    })
+                }
+            }
+        };
+
         let mut resp = GraphqlMediaDetails {
             id: model.id,
+            group,
             title: model.title,
             identifier: model.identifier,
             production_status: model.production_status,
@@ -2234,6 +2283,7 @@ impl MiscellaneousService {
         production_status: String,
         publish_year: Option<i32>,
         suggestions: Vec<MetadataSuggestion>,
+        groups: Vec<PartialMetadataGroup>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2319,45 +2369,95 @@ impl MiscellaneousService {
         meta.specifics = ActiveValue::Set(specifics);
         let metadata = meta.update(&self.db).await.unwrap();
 
-        self.change_metadata_associations(metadata.id, creators, genres, suggestions)
-            .await?;
+        self.change_metadata_associations(
+            metadata.id,
+            metadata.lot,
+            metadata.source,
+            creators,
+            genres,
+            suggestions,
+            groups,
+        )
+        .await?;
         Ok(notifications)
     }
 
     async fn associate_creator_with_metadata(
         &self,
         metadata_id: i32,
-        data: Vec<MetadataCreator>,
+        creator: MetadataCreator,
+        index: usize,
     ) -> Result<()> {
-        for (idx, creator) in data.into_iter().enumerate() {
-            let db_creator = if let Some(db_creator) = Creator::find()
-                .filter(creator::Column::Name.eq(&creator.name))
-                .one(&self.db)
-                .await
-                .unwrap()
-            {
-                if db_creator.image.is_none() {
-                    let mut new: creator::ActiveModel = db_creator.clone().into();
-                    new.image = ActiveValue::Set(creator.image);
-                    new.update(&self.db).await?;
+        let db_creator = if let Some(db_creator) = Creator::find()
+            .filter(creator::Column::Name.eq(&creator.name))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            if db_creator.image.is_none() {
+                let mut new: creator::ActiveModel = db_creator.clone().into();
+                new.image = ActiveValue::Set(creator.image);
+                new.update(&self.db).await?;
+            }
+            db_creator
+        } else {
+            let c = creator::ActiveModel {
+                name: ActiveValue::Set(creator.name),
+                image: ActiveValue::Set(creator.image),
+                extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
+                ..Default::default()
+            };
+            c.insert(&self.db).await.unwrap()
+        };
+        let intermediate = metadata_to_creator::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            creator_id: ActiveValue::Set(db_creator.id),
+            role: ActiveValue::Set(creator.role),
+            index: ActiveValue::Set(index.try_into().unwrap()),
+        };
+        intermediate.insert(&self.db).await.ok();
+        Ok(())
+    }
+
+    pub async fn associate_group_with_metadata(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        group: PartialMetadataGroup,
+    ) -> Result<()> {
+        let existing_group = MetadataGroup::find()
+            .filter(metadata_group::Column::Identifier.eq(&group.identifier))
+            .filter(metadata_group::Column::Lot.eq(lot))
+            .filter(metadata_group::Column::Source.eq(source))
+            .one(&self.db)
+            .await?;
+        let provider = self.get_provider(lot, source).await?;
+        let data = provider.group_details(&group.identifier).await;
+        let (group_details, associated_items) = data?;
+        let group_id = match existing_group {
+            Some(eg) => eg.id,
+            None => {
+                let mut db_group: metadata_group::ActiveModel = group_details.into();
+                db_group.id = ActiveValue::NotSet;
+                let new_group = db_group.insert(&self.db).await?;
+                new_group.id
+            }
+        };
+        for (idx, media) in associated_items.iter().enumerate() {
+            let med = self.media_exists_in_database(lot, source, media).await?;
+            let id = match med {
+                Some(m) => m.id,
+                None => {
+                    let med = self.commit_media(lot, source, media).await?;
+                    med.id
                 }
-                db_creator
-            } else {
-                let c = creator::ActiveModel {
-                    name: ActiveValue::Set(creator.name),
-                    image: ActiveValue::Set(creator.image),
-                    extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
-                    ..Default::default()
-                };
-                c.insert(&self.db).await.unwrap()
             };
-            let intermediate = metadata_to_creator::ActiveModel {
-                metadata_id: ActiveValue::Set(metadata_id),
-                creator_id: ActiveValue::Set(db_creator.id),
-                role: ActiveValue::Set(creator.role),
-                index: ActiveValue::Set(idx.try_into().unwrap()),
+            let new_association = metadata_to_metadata_group::ActiveModel {
+                metadata_id: ActiveValue::Set(id),
+                metadata_group_id: ActiveValue::Set(group_id),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
             };
-            intermediate.insert(&self.db).await.ok();
+            new_association.insert(&self.db).await.ok();
         }
         Ok(())
     }
@@ -2436,9 +2536,12 @@ impl MiscellaneousService {
 
         self.change_metadata_associations(
             metadata.id,
+            metadata.lot,
+            metadata.source,
             details.creators,
             details.genres,
             details.suggestions,
+            details.groups,
         )
         .await?;
         Ok(IdObject { id: metadata.id })
@@ -2447,9 +2550,12 @@ impl MiscellaneousService {
     async fn change_metadata_associations(
         &self,
         metadata_id: i32,
+        lot: MetadataLot,
+        source: MetadataSource,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
         suggestions: Vec<MetadataSuggestion>,
+        groups: Vec<PartialMetadataGroup>,
     ) -> Result<()> {
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
@@ -2463,9 +2569,15 @@ impl MiscellaneousService {
             .filter(metadata_to_suggestion::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        self.associate_creator_with_metadata(metadata_id, creators)
-            .await
-            .ok();
+        MetadataToMetadataGroup::delete_many()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .exec(&self.db)
+            .await?;
+        for (idx, creator) in creators.into_iter().enumerate() {
+            self.associate_creator_with_metadata(metadata_id, creator, idx)
+                .await
+                .ok();
+        }
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
@@ -2476,6 +2588,14 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
+        for group in groups {
+            self.perform_application_job
+                .clone()
+                .push(ApplicationJob::AssociateGroupWithMetadata(
+                    lot, source, group,
+                ))
+                .await?;
+        }
         Ok(())
     }
 
@@ -2483,12 +2603,17 @@ impl MiscellaneousService {
         tracing::trace!("Cleaning up media items without associated user activities");
         let mut all_metadata = Metadata::find().stream(&self.db).await?;
         while let Some(metadata) = all_metadata.try_next().await? {
-            let num_associations = UserToMetadata::find()
+            let num_user_associations = UserToMetadata::find()
                 .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations == 0 {
+            let num_group_associations = MetadataToMetadataGroup::find()
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata.id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_user_associations + num_group_associations == 0 {
                 metadata.delete(&self.db).await.ok();
             }
         }
@@ -2759,7 +2884,6 @@ impl MiscellaneousService {
 
     async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
-
         let service: Provider = match source {
             MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
             MetadataSource::Itunes => Box::new(
@@ -2849,6 +2973,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
+    #[async_recursion::async_recursion]
     pub async fn commit_media(
         &self,
         lot: MetadataLot,
@@ -3305,6 +3430,7 @@ impl MiscellaneousService {
                     details.production_status,
                     details.publish_year,
                     details.suggestions,
+                    details.groups,
                 )
                 .await?
             }
@@ -3719,6 +3845,7 @@ impl MiscellaneousService {
             specifics,
             production_status: "Released".to_owned(),
             suggestions: vec![],
+            groups: vec![],
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(
@@ -4729,6 +4856,55 @@ impl MiscellaneousService {
         })
     }
 
+    pub async fn metadata_groups_list(
+        &self,
+        input: SearchInput,
+    ) -> Result<SearchResults<MetadataGroupListItem>> {
+        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let query = MetadataGroup::find()
+            .apply_if(input.query, |query, v| {
+                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                    Expr::col(metadata_group::Column::Title),
+                    &v,
+                )))
+            })
+            .order_by_asc(metadata_group::Column::Title);
+        let paginator = query
+            .clone()
+            .into_model::<MetadataGroupListItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let mut items = vec![];
+        for c in paginator.fetch_page(page - 1).await? {
+            let mut c = c;
+            let mut image = None;
+            if let Some(i) = c
+                .images
+                .0
+                .iter()
+                .find(|i| i.lot == MetadataImageLot::Poster)
+            {
+                image = Some(get_stored_image(i.url.clone(), &self.file_storage_service).await);
+            }
+            c.image = image;
+            items.push(c);
+        }
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+            items,
+        })
+    }
+
     pub async fn creators_list(
         &self,
         input: SearchInput,
@@ -4823,6 +4999,68 @@ impl MiscellaneousService {
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
         Ok(CreatorDetails { details, contents })
+    }
+
+    async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {
+        let mut group = MetadataGroup::find_by_id(metadata_group_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        let mut images = vec![];
+        for image in group.images.0.iter() {
+            images.push(get_stored_image(image.url.clone(), &self.file_storage_service).await);
+        }
+        group.display_images = images;
+        let slug = slug::slugify(&group.title);
+        let identifier = &group.identifier;
+
+        let source_url = match group.source {
+            MetadataSource::Custom
+            | MetadataSource::Anilist
+            | MetadataSource::Listennotes
+            | MetadataSource::Itunes
+            | MetadataSource::MangaUpdates
+            | MetadataSource::Mal
+            | MetadataSource::Openlibrary
+            | MetadataSource::GoogleBooks => None,
+            MetadataSource::Audible => Some(format!(
+                "https://www.audible.com/series/{slug}/{identifier}"
+            )),
+            MetadataSource::Tmdb => Some(format!(
+                "https://www.themoviedb.org/collections/{identifier}-{slug}"
+            )),
+            MetadataSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
+        };
+
+        let associations = MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
+            .order_by_asc(metadata_to_metadata_group::Column::Part)
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let mut contents = vec![];
+        for (asc, item) in associations {
+            let item = item.unwrap();
+            let (poster_images, backdrop_images) = self.metadata_images(&item).await?;
+            let images = poster_images
+                .into_iter()
+                .chain(backdrop_images.into_iter())
+                .collect_vec();
+            contents.push(MetadataGroupMetadataItem {
+                item: MediaSearchItem {
+                    identifier: item.id.to_string(),
+                    title: item.title,
+                    image: images.get(0).cloned(),
+                    publish_year: item.publish_year,
+                },
+                part: asc.part,
+            })
+        }
+        Ok(MetadataGroupDetails {
+            details: group,
+            source_url,
+            contents,
+        })
     }
 
     async fn create_media_reminder(

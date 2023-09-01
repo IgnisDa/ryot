@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use http_types::mime;
@@ -11,11 +10,12 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::AudibleConfig,
+    entities::metadata_group,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataSuggestion,
+            MetadataImage, MetadataImages, MetadataSuggestion, PartialMetadataGroup,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -49,6 +49,8 @@ impl Default for PrimaryQuery {
                 "media",
                 "product_attrs",
                 "product_extended_attrs",
+                "series",
+                "relationships",
             ]
             .join(","),
             image_sizes: ["2400"].join(","),
@@ -66,31 +68,39 @@ struct SearchQuery {
     primary: PrimaryQuery,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, Serialize, Deserialize)]
 struct AudiblePoster {
     #[serde(rename = "2400")]
-    image: Option<String>,
+    image_2400: Option<String>,
     #[serde(rename = "500")]
-    image500: Option<String>,
+    image_500: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, Serialize, Deserialize)]
 struct AudibleCategoryLadderCollection {
     ladder: Vec<NamedObject>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, Serialize, Deserialize)]
+struct AudibleRelationshipItem {
+    asin: String,
+    sort: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct AudibleItem {
     asin: String,
     title: String,
     authors: Option<Vec<NamedObject>>,
     narrators: Option<Vec<NamedObject>>,
-    product_images: AudiblePoster,
+    product_images: Option<AudiblePoster>,
     merchandising_summary: Option<String>,
     publisher_summary: Option<String>,
     release_date: Option<String>,
     runtime_length_min: Option<i32>,
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
+    series: Option<Vec<AudibleItem>>,
+    relationships: Option<Vec<AudibleRelationshipItem>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -146,6 +156,44 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
+        let data: AudibleItemResponse = self
+            .client
+            .get(identifier)
+            .query(&PrimaryQuery::default())
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let items = data
+            .product
+            .relationships
+            .unwrap()
+            .into_iter()
+            .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
+            .map(|i| i.asin)
+            .collect_vec();
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                display_images: vec![],
+                parts: items.len().try_into().unwrap(),
+                identifier: identifier.to_owned(),
+                title: data.product.title,
+                description: None,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::AudioBook,
+                source: MetadataSource::Audible,
+            },
+            items,
+        ))
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -174,7 +222,7 @@ impl MediaProvider for AudibleService {
             for sim in data.similar_products.into_iter() {
                 suggestions.push(MetadataSuggestion {
                     title: sim.title,
-                    image: sim.product_images.image500,
+                    image: sim.product_images.unwrap().image_500,
                     identifier: sim.asin,
                     source: MetadataSource::Audible,
                     lot: MetadataLot::AudioBook,
@@ -249,10 +297,16 @@ impl MediaProvider for AudibleService {
 
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
-        let images = Vec::from_iter(item.product_images.image.map(|a| MetadataImage {
-            url: StoredUrl::Url(a),
-            lot: MetadataImageLot::Poster,
-        }));
+        let images =
+            Vec::from_iter(
+                item.product_images
+                    .unwrap()
+                    .image_2400
+                    .map(|a| MetadataImage {
+                        url: StoredUrl::Url(a),
+                        lot: MetadataImageLot::Poster,
+                    }),
+            );
         let release_date = item.release_date.unwrap_or_default();
         let mut creators = item
             .authors
@@ -302,6 +356,16 @@ impl AudibleService {
             }),
             images,
             suggestions: vec![],
+            groups: item
+                .series
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| PartialMetadataGroup {
+                    identifier: g.asin,
+                    source: MetadataSource::Audible,
+                    lot: MetadataLot::AudioBook,
+                })
+                .collect(),
         }
     }
 }

@@ -12,13 +12,14 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
+    entities::metadata_group,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataSuggestion, VideoGameSpecifics,
+            MetadataImages, MetadataSuggestion, PartialMetadataGroup, VideoGameSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, get_now_timestamp},
@@ -28,7 +29,7 @@ static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
 static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
 
-static FIELDS: &str = "
+static GAME_FIELDS: &str = "
 fields
     id,
     name,
@@ -43,6 +44,7 @@ fields
     similar_games.name,
     similar_games.cover.*,
     platforms.name,
+    collection.id,
     genres.*;
 where version_parent = null;
 ";
@@ -71,7 +73,8 @@ struct IgdbImage {
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbSearchResponse {
     id: i32,
-    name: String,
+    name: Option<String>,
+    games: Option<Vec<IgdbSearchResponse>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
@@ -81,6 +84,10 @@ struct IgdbSearchResponse {
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
     similar_games: Option<Vec<IgdbSearchResponse>>,
+    version_parent: Option<i32>,
+    collection: Option<IdObject>,
+    #[serde(flatten)]
+    rest_data: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +121,60 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<String>)> {
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r"
+fields
+    id,
+    name,
+    games.id,
+    games.version_parent;
+where id = {id};
+            ",
+            id = identifier
+        );
+        let details: IgdbSearchResponse = client
+            .post("collections")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Vec<_>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .pop()
+            .unwrap();
+        let items = details
+            .games
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|g| {
+                if g.version_parent.is_some() {
+                    None
+                } else {
+                    Some(g.id.to_string())
+                }
+            })
+            .collect_vec();
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                display_images: vec![],
+                parts: items.len().try_into().unwrap(),
+                identifier: details.id.to_string(),
+                title: details.name.unwrap_or_default(),
+                description: None,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::VideoGame,
+                source: MetadataSource::Igdb,
+            },
+            items,
+        ))
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(
@@ -121,7 +182,7 @@ impl MediaProvider for IgdbService {
 {field}
 where id = {id};
             "#,
-            field = FIELDS,
+            field = GAME_FIELDS,
             id = identifier
         );
         let mut rsp = client
@@ -150,7 +211,7 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            field = FIELDS,
+            field = GAME_FIELDS,
             limit = self.page_limit,
             offset = (page - 1) * self.page_limit
         );
@@ -243,7 +304,7 @@ impl IgdbService {
             lot: MetadataLot::VideoGame,
             source: MetadataSource::Igdb,
             production_status: "Released".to_owned(),
-            title: item.name,
+            title: item.name.unwrap(),
             description: item.summary,
             creators,
             images,
@@ -269,12 +330,21 @@ impl IgdbService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| MetadataSuggestion {
-                    title: g.name,
+                    title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
                     lot: MetadataLot::VideoGame,
                     source: MetadataSource::Igdb,
                 })
+                .collect(),
+            groups: item
+                .collection
+                .map(|g| PartialMetadataGroup {
+                    identifier: g.id.to_string(),
+                    source: MetadataSource::Igdb,
+                    lot: MetadataLot::VideoGame,
+                })
+                .into_iter()
                 .collect(),
         }
     }

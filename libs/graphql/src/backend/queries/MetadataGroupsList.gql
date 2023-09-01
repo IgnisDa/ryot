@@ -1,0 +1,15 @@
+query MetadataGroupsList($input: SearchInput!) {
+  metadataGroupsList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items {
+      id
+      title
+      lot
+      parts
+      image
+    }
+  }
+}

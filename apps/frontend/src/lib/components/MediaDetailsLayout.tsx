@@ -12,18 +12,14 @@ function getSurroundingElements<T>(array: T[], element: number): number[] {
 	return [element - 1, element, element + 1];
 }
 
-export default function ({
-	children,
-	backdropImages,
-	posterImages,
-	externalLink,
-}: {
+export default function (props: {
 	children: JSX.Element | (JSX.Element | undefined)[];
 	posterImages: (string | null | undefined)[];
 	backdropImages: string[];
 	externalLink?: { source: string; href?: string | null };
+	badge?: JSX.Element;
 }) {
-	const images = [...posterImages, ...backdropImages];
+	const images = [...props.posterImages, ...props.backdropImages];
 	const [activeImageId, setActiveImageId] = useState<number>(0);
 
 	return (
@@ -37,9 +33,9 @@ export default function ({
 					[t.fn.largerThan("md")]: { width: "35%" },
 				})}
 			>
-				{posterImages.length > 1 ? (
+				{props.posterImages.length > 1 ? (
 					<Carousel
-						withIndicators={posterImages.length > 1}
+						withIndicators={props.posterImages.length > 1}
 						w={300}
 						onSlideChange={setActiveImageId}
 					>
@@ -58,14 +54,14 @@ export default function ({
 				) : (
 					<Box w={300}>
 						<Image
-							src={posterImages[0] || backdropImages[0]}
+							src={props.posterImages[0] || props.backdropImages[0]}
 							withPlaceholder
 							height={400}
 							radius="lg"
 						/>
 					</Box>
 				)}
-				{externalLink ? (
+				{props.externalLink ? (
 					<Badge
 						id="data-source"
 						pos="absolute"
@@ -76,18 +72,25 @@ export default function ({
 						variant="filled"
 					>
 						<Flex gap={4} align={"center"}>
-							<Text size={10}>{startCase(snakeCase(externalLink.source))}</Text>
-							{externalLink.href ? (
-								<Anchor href={externalLink.href} target="_blank" mt={2}>
+							<Text size={10}>
+								{startCase(snakeCase(props.externalLink.source))}
+							</Text>
+							{props.externalLink.href ? (
+								<Anchor href={props.externalLink.href} target="_blank" mt={2}>
 									<IconExternalLink size="0.8rem" />
 								</Anchor>
 							) : undefined}
 						</Flex>
 					</Badge>
 				) : undefined}
+				{props.badge ? (
+					<Box pos="absolute" top={10} right={36}>
+						{props.badge}
+					</Box>
+				) : undefined}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
-				{children}
+				{props.children}
 			</Stack>
 		</Flex>
 	);
