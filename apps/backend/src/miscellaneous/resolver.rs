@@ -351,6 +351,20 @@ struct CreatorDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataGroupMetadataItem {
+    /// The media item itself.
+    item: MediaSearchItem,
+    /// The position of this media in the group.
+    part: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataGroupDetails {
+    details: metadata_group::Model,
+    contents: Vec<MetadataGroupMetadataItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
@@ -652,6 +666,16 @@ impl MiscellaneousQuery {
     ) -> Result<CreatorDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.creator_details(creator_id).await
+    }
+
+    /// Get details about a metadata group present in the database.
+    async fn metadata_group_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_group_id: i32,
+    ) -> Result<MetadataGroupDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_group_details(metadata_group_id).await
     }
 
     /// Get all the media items related to a user for a specific media type.
@@ -4974,6 +4998,22 @@ impl MiscellaneousService {
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
         Ok(CreatorDetails { details, contents })
+    }
+
+    async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {
+        let mut group = MetadataGroup::find_by_id(metadata_group_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        let mut images = vec![];
+        for image in group.images.0.iter() {
+            images.push(get_stored_image(image.url.clone(), &self.file_storage_service).await);
+        }
+        group.display_images = images;
+        Ok(MetadataGroupDetails {
+            details: group,
+            contents: vec![],
+        })
     }
 
     async fn create_media_reminder(
