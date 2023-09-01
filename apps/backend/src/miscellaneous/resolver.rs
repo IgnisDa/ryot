@@ -5010,9 +5010,33 @@ impl MiscellaneousService {
             images.push(get_stored_image(image.url.clone(), &self.file_storage_service).await);
         }
         group.display_images = images;
+        let associations = MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
+            .order_by_asc(metadata_to_metadata_group::Column::Part)
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let mut contents = vec![];
+        for (asc, item) in associations {
+            let item = item.unwrap();
+            let (poster_images, backdrop_images) = self.metadata_images(&item).await?;
+            let images = poster_images
+                .into_iter()
+                .chain(backdrop_images.into_iter())
+                .collect_vec();
+            contents.push(MetadataGroupMetadataItem {
+                item: MediaSearchItem {
+                    identifier: item.id.to_string(),
+                    title: item.title,
+                    image: images.get(0).cloned(),
+                    publish_year: item.publish_year,
+                },
+                part: asc.part,
+            })
+        }
         Ok(MetadataGroupDetails {
             details: group,
-            contents: vec![],
+            contents,
         })
     }
 
