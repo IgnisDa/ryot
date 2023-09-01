@@ -4,9 +4,11 @@ query MetadataGroupDetails($metadataGroupId: Int!) {
       id
       title
       lot
+      source
       displayImages
       parts
     }
+    sourceUrl
     contents {
       item {
         identifier

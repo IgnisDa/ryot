@@ -361,6 +361,7 @@ struct MetadataGroupMetadataItem {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct MetadataGroupDetails {
     details: metadata_group::Model,
+    source_url: Option<String>,
     contents: Vec<MetadataGroupMetadataItem>,
 }
 
@@ -5010,6 +5011,27 @@ impl MiscellaneousService {
             images.push(get_stored_image(image.url.clone(), &self.file_storage_service).await);
         }
         group.display_images = images;
+        let slug = slug::slugify(&group.title);
+        let identifier = &group.identifier;
+
+        let source_url = match group.source {
+            MetadataSource::Custom
+            | MetadataSource::Anilist
+            | MetadataSource::Listennotes
+            | MetadataSource::Itunes
+            | MetadataSource::MangaUpdates
+            | MetadataSource::Mal
+            | MetadataSource::Openlibrary
+            | MetadataSource::GoogleBooks => None,
+            MetadataSource::Audible => Some(format!(
+                "https://www.audible.com/series/{slug}/{identifier}"
+            )),
+            MetadataSource::Tmdb => Some(format!(
+                "https://www.themoviedb.org/collections/{identifier}-{slug}"
+            )),
+            MetadataSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
+        };
+
         let associations = MetadataToMetadataGroup::find()
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
             .order_by_asc(metadata_to_metadata_group::Column::Part)
@@ -5036,6 +5058,7 @@ impl MiscellaneousService {
         }
         Ok(MetadataGroupDetails {
             details: group,
+            source_url,
             contents,
         })
     }

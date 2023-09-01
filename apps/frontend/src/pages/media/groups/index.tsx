@@ -51,6 +51,10 @@ const Page: NextPageWithLayout = () => {
 				<MediaDetailsLayout
 					posterImages={groupDetails.data.details.displayImages}
 					backdropImages={[]}
+					externalLink={{
+						source: groupDetails.data.details.source,
+						href: groupDetails.data.sourceUrl,
+					}}
 					badge={
 						<Badge
 							variant="gradient"
