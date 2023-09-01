@@ -15,8 +15,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataSuggestion, MovieSpecifics, PartialMetadataGroup, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            MetadataImages, MetadataSuggestion, MovieSpecifics, PartialMetadataGroup, ShowEpisode,
+            ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -119,7 +119,56 @@ impl MediaProvider for TmdbMovieService {
         &self,
         identifier: &str,
     ) -> Result<(metadata_group::Model, Vec<String>)> {
-        todo!()
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbCollection {
+            id: i32,
+            name: String,
+            poster_path: Option<String>,
+            backdrop_path: Option<String>,
+            parts: Vec<IdObject>,
+        }
+        let data: TmdbCollection = self
+            .client
+            .get(format!("collection/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut images = vec![];
+        if let Some(i) = data.poster_path {
+            images.push(i);
+        }
+        if let Some(i) = data.backdrop_path {
+            images.push(i);
+        }
+        self.base
+            .save_all_images(&self.client, "collection", &identifier, &mut images)
+            .await?;
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                identifier: identifier.to_owned(),
+                title: data.name,
+                images: MetadataImages(
+                    images
+                        .into_iter()
+                        .unique()
+                        .map(|p| MetadataImage {
+                            url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                            lot: MetadataImageLot::Poster,
+                        })
+                        .collect(),
+                ),
+                lot: MetadataLot::Movie,
+                source: MetadataSource::Tmdb,
+            },
+            data.parts.into_iter().map(|p| p.id.to_string()).collect(),
+        ))
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {

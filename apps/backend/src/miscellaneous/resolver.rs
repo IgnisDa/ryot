@@ -46,12 +46,12 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        collection, creator, genre, metadata, metadata_to_collection, metadata_to_creator,
-        metadata_to_genre, metadata_to_metadata_group, metadata_to_suggestion,
+        collection, creator, genre, metadata, metadata_group, metadata_to_collection,
+        metadata_to_creator, metadata_to_genre, metadata_to_metadata_group, metadata_to_suggestion,
         prelude::{
-            Collection, Creator, Genre, Metadata, MetadataToCollection, MetadataToCreator,
-            MetadataToGenre, MetadataToMetadataGroup, MetadataToSuggestion, Review, Seen,
-            Suggestion, User, UserMeasurement, UserToMetadata, Workout,
+            Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
+            MetadataToCreator, MetadataToGenre, MetadataToMetadataGroup, MetadataToSuggestion,
+            Review, Seen, Suggestion, User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen, suggestion, user, user_measurement, user_to_metadata, workout,
     },
@@ -2357,6 +2357,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     async fn associate_group_with_metadata(
         &self,
         metadata_id: i32,
@@ -2368,10 +2369,33 @@ impl MiscellaneousService {
         if let Ok((group_details, associated_items)) =
             provider.group_details(&group.identifier).await
         {
+            let existing_group = MetadataGroup::find()
+                .filter(metadata_group::Column::Identifier.eq(&group_details.identifier))
+                .filter(metadata_group::Column::Lot.eq(lot))
+                .filter(metadata_group::Column::Source.eq(source))
+                .one(&self.db)
+                .await?;
+            let group_id = match existing_group {
+                Some(eg) => eg.id,
+                None => {
+                    let mut db_group: metadata_group::ActiveModel = group_details.into();
+                    db_group.id = ActiveValue::NotSet;
+                    let new_group = db_group.insert(&self.db).await?;
+                    new_group.id
+                }
+            };
+            // for media in associated_items.iter() {
+            //     let med = self.commit_media(lot, source, media).await?;
+            //     let existing_group_association = MetadataToMetadataGroup::find()
+            //         .filter(metadata_to_metadata_group::Column::MediaGroupId.eq(group_id))
+            //         .filter(metadata_to_metadata_group::Column::MetadataId.eq(med.id))
+            //         .one(&self.db)
+            //         .await?;
+            // }
             if join_all(
                 associated_items
                     .iter()
-                    .map(|media| self.media_exists_in_database(lot, source, &media.identifier)),
+                    .map(|media| self.media_exists_in_database(lot, source, &media)),
             )
             .await
             .into_iter()
@@ -2380,7 +2404,6 @@ impl MiscellaneousService {
             {
                 return Ok(());
             }
-            dbg!(&group_details, &associated_items);
         }
         Ok(())
     }
