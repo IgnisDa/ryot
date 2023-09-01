@@ -21,6 +21,7 @@ async-graphql = { version = "6.0.4", features = [
     "uuid",
 ] }
 async-graphql-axum = "6.0.4"
+async-recursion = "1.0.4"
 async-trait = "0.1.73"
 aws-sdk-s3 = "0.30.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
