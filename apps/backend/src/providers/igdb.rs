@@ -12,6 +12,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
+    entities::metadata_group,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
@@ -116,6 +117,13 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<MediaSearchItem>)> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(

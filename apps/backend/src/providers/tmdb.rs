@@ -10,6 +10,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
+    entities::metadata_group,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
@@ -114,6 +115,13 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<MediaSearchItem>)> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbMovie {

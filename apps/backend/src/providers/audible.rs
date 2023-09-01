@@ -10,6 +10,7 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::AudibleConfig,
+    entities::metadata_group,
     migrator::{MetadataImageLot, MetadataLot, MetadataSource},
     models::{
         media::{
@@ -147,6 +148,13 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<MediaSearchItem>)> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client

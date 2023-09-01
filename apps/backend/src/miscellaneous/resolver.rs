@@ -2365,7 +2365,23 @@ impl MiscellaneousService {
         group: PartialMetadataGroup,
     ) -> Result<()> {
         let provider = self.get_provider(lot, source).await?;
-        dbg!(&group);
+        if let Ok((group_details, associated_items)) =
+            provider.group_details(&group.identifier).await
+        {
+            if join_all(
+                associated_items
+                    .iter()
+                    .map(|media| self.media_exists_in_database(lot, source, &media.identifier)),
+            )
+            .await
+            .into_iter()
+            .map(|k| k.unwrap().is_some())
+            .all(bool::from)
+            {
+                return Ok(());
+            }
+            dbg!(&group_details, &associated_items);
+        }
         Ok(())
     }
 
