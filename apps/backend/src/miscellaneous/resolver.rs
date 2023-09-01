@@ -72,9 +72,9 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            MetadataGroup, MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
@@ -2220,6 +2220,7 @@ impl MiscellaneousService {
         production_status: String,
         publish_year: Option<i32>,
         suggestions: Vec<MetadataSuggestion>,
+        groups: Vec<MetadataGroup>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2305,8 +2306,16 @@ impl MiscellaneousService {
         meta.specifics = ActiveValue::Set(specifics);
         let metadata = meta.update(&self.db).await.unwrap();
 
-        self.change_metadata_associations(metadata.id, creators, genres, suggestions)
-            .await?;
+        self.change_metadata_associations(
+            metadata.id,
+            metadata.lot,
+            metadata.source,
+            creators,
+            genres,
+            suggestions,
+            groups,
+        )
+        .await?;
         Ok(notifications)
     }
 
@@ -2344,6 +2353,18 @@ impl MiscellaneousService {
             index: ActiveValue::Set(index.try_into().unwrap()),
         };
         intermediate.insert(&self.db).await.ok();
+        Ok(())
+    }
+
+    async fn associate_group_with_metadata(
+        &self,
+        metadata_id: i32,
+        lot: MetadataLot,
+        source: MetadataSource,
+        group: MetadataGroup,
+    ) -> Result<()> {
+        let provider = self.get_provider(lot, source).await?;
+        dbg!(&group);
         Ok(())
     }
 
@@ -2421,9 +2442,12 @@ impl MiscellaneousService {
 
         self.change_metadata_associations(
             metadata.id,
+            metadata.lot,
+            metadata.source,
             details.creators,
             details.genres,
             details.suggestions,
+            details.groups,
         )
         .await?;
         Ok(IdObject { id: metadata.id })
@@ -2432,9 +2456,12 @@ impl MiscellaneousService {
     async fn change_metadata_associations(
         &self,
         metadata_id: i32,
+        lot: MetadataLot,
+        source: MetadataSource,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
         suggestions: Vec<MetadataSuggestion>,
+        groups: Vec<MetadataGroup>,
     ) -> Result<()> {
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
@@ -2464,6 +2491,11 @@ impl MiscellaneousService {
         }
         for suggestion in suggestions {
             self.associate_suggestion_with_metadata(suggestion, metadata_id)
+                .await
+                .ok();
+        }
+        for group in groups {
+            self.associate_group_with_metadata(metadata_id, lot, source, group)
                 .await
                 .ok();
         }
@@ -2842,7 +2874,6 @@ impl MiscellaneousService {
     ) -> Result<MediaDetails> {
         let provider = self.get_provider(lot, source).await?;
         let results = provider.details(identifier).await?;
-        dbg!(&results);
         Ok(results)
     }
 
@@ -3302,6 +3333,7 @@ impl MiscellaneousService {
                     details.production_status,
                     details.publish_year,
                     details.suggestions,
+                    details.groups,
                 )
                 .await?
             }
