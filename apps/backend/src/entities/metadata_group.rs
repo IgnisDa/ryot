@@ -3,7 +3,10 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::migrator::{MetadataLot, MetadataSource};
+use crate::{
+    migrator::{MetadataLot, MetadataSource},
+    models::media::MetadataImages,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "metadata_group")]
@@ -12,7 +15,7 @@ pub struct Model {
     pub id: i32,
     pub identifier: String,
     pub title: String,
-    pub image: Option<String>,
+    pub images: MetadataImages,
     pub lot: MetadataLot,
     pub source: MetadataSource,
 }

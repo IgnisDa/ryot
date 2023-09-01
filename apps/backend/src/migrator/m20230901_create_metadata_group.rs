@@ -11,7 +11,7 @@ pub enum MetadataGroup {
     Id,
     Identifier,
     Title,
-    Image,
+    Images,
     Lot,
     Source,
 }
@@ -43,7 +43,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(MetadataGroup::Title).string().not_null())
-                    .col(ColumnDef::new(MetadataGroup::Image).text().null())
+                    .col(ColumnDef::new(MetadataGroup::Images).json().not_null())
                     .col(ColumnDef::new(MetadataGroup::Lot).string_len(2).not_null())
                     .col(
                         ColumnDef::new(MetadataGroup::Source)
