@@ -14,7 +14,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataGroup, MetadataImage, MetadataSuggestion,
+            MetadataImage, MetadataSuggestion, PartialMetadataGroup,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -313,7 +313,7 @@ impl AudibleService {
                 .series
                 .unwrap_or_default()
                 .into_iter()
-                .map(|g| MetadataGroup {
+                .map(|g| PartialMetadataGroup {
                     identifier: g.asin,
                     source: MetadataSource::Audible,
                     lot: MetadataLot::AudioBook,

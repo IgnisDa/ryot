@@ -72,11 +72,12 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataGroup, MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics,
+            PartialMetadataGroup, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2220,7 +2221,7 @@ impl MiscellaneousService {
         production_status: String,
         publish_year: Option<i32>,
         suggestions: Vec<MetadataSuggestion>,
-        groups: Vec<MetadataGroup>,
+        groups: Vec<PartialMetadataGroup>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2361,7 +2362,7 @@ impl MiscellaneousService {
         metadata_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
-        group: MetadataGroup,
+        group: PartialMetadataGroup,
     ) -> Result<()> {
         let provider = self.get_provider(lot, source).await?;
         dbg!(&group);
@@ -2461,7 +2462,7 @@ impl MiscellaneousService {
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
         suggestions: Vec<MetadataSuggestion>,
-        groups: Vec<MetadataGroup>,
+        groups: Vec<PartialMetadataGroup>,
     ) -> Result<()> {
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
