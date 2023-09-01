@@ -20,7 +20,7 @@ pub enum MetadataGroup {
 pub enum MetadataToMetadataGroup {
     Table,
     MetadataId,
-    MediaGroupId,
+    MetadataGroupId,
 }
 
 #[async_trait::async_trait]
@@ -75,7 +75,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MetadataToMetadataGroup::MediaGroupId)
+                        ColumnDef::new(MetadataToMetadataGroup::MetadataGroupId)
                             .integer()
                             .not_null(),
                     )
@@ -83,7 +83,7 @@ impl MigrationTrait for Migration {
                         Index::create()
                             .name("pk-metadata_to_metadata-group")
                             .col(MetadataToMetadataGroup::MetadataId)
-                            .col(MetadataToMetadataGroup::MediaGroupId),
+                            .col(MetadataToMetadataGroup::MetadataGroupId),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -101,7 +101,7 @@ impl MigrationTrait for Migration {
                             .name("fk-metadata-group_id-metadata_id")
                             .from(
                                 MetadataToMetadataGroup::Table,
-                                MetadataToMetadataGroup::MediaGroupId,
+                                MetadataToMetadataGroup::MetadataGroupId,
                             )
                             .to(MetadataGroup::Table, MetadataGroup::Id)
                             .on_delete(ForeignKeyAction::Cascade)

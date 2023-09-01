@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub media_group_id: i32,
+    pub metadata_group_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -24,7 +24,7 @@ pub enum Relation {
     Metadata,
     #[sea_orm(
         belongs_to = "super::metadata_group::Entity",
-        from = "Column::MediaGroupId",
+        from = "Column::MetadataGroupId",
         to = "super::metadata_group::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
