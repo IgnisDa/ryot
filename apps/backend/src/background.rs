@@ -8,8 +8,9 @@ use crate::{
     entities::{metadata, seen},
     fitness::exercise::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
+    migrator::{MetadataLot, MetadataSource},
     miscellaneous::resolver::MiscellaneousService,
-    models::fitness::Exercise,
+    models::{fitness::Exercise, media::PartialMetadataGroup},
 };
 
 // Cron Jobs
@@ -88,6 +89,7 @@ pub enum ApplicationJob {
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
     AfterMediaSeen(seen::Model),
+    AssociateGroupWithMetadata(MetadataLot, MetadataSource, PartialMetadataGroup),
 }
 
 impl Job for ApplicationJob {
@@ -138,12 +140,22 @@ pub async fn perform_application_job(
             }
         }
         ApplicationJob::UpdateExerciseJob(exercise) => {
-            tracing::trace!("Updating {:?}", exercise.name);
+            tracing::trace!("Updating exercise name = {:?}", exercise.name);
             exercise_service.update_exercise(exercise).await.unwrap();
         }
         ApplicationJob::AfterMediaSeen(seen) => {
             tracing::trace!("Performing jobs after media seen = {:?}", seen.id);
             misc_service.after_media_seen_tasks(seen).await.unwrap();
+        }
+        ApplicationJob::AssociateGroupWithMetadata(lot, source, group) => {
+            tracing::trace!(
+                "Getting data for metadata group identifier = {:?}",
+                group.identifier
+            );
+            misc_service
+                .associate_group_with_metadata(lot, source, group)
+                .await
+                .ok();
         }
     };
     Ok(())

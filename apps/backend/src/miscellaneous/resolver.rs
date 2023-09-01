@@ -2419,7 +2419,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn associate_group_with_metadata(
+    pub async fn associate_group_with_metadata(
         &self,
         lot: MetadataLot,
         source: MetadataSource,
@@ -2435,10 +2435,7 @@ impl MiscellaneousService {
         let data = provider.group_details(&group.identifier).await;
         let (group_details, associated_items) = data?;
         let group_id = match existing_group {
-            Some(eg) => {
-                tracing::trace!("Found existing group with {} parts", eg.parts);
-                eg.id
-            }
+            Some(eg) => eg.id,
             None => {
                 let mut db_group: metadata_group::ActiveModel = group_details.into();
                 db_group.id = ActiveValue::NotSet;
@@ -2592,9 +2589,12 @@ impl MiscellaneousService {
                 .ok();
         }
         for group in groups {
-            self.associate_group_with_metadata(lot, source, group)
-                .await
-                .ok();
+            self.perform_application_job
+                .clone()
+                .push(ApplicationJob::AssociateGroupWithMetadata(
+                    lot, source, group,
+                ))
+                .await?;
         }
         Ok(())
     }
