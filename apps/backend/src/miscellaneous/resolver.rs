@@ -369,6 +369,13 @@ struct MediaBaseData {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlMediaGroup {
+    id: i32,
+    name: String,
+    part: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMediaDetails {
     id: i32,
     title: String,
@@ -393,6 +400,7 @@ struct GraphqlMediaDetails {
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
     suggestions: Vec<MediaSuggestion>,
+    group: Option<GraphqlMediaGroup>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1418,8 +1426,27 @@ impl MiscellaneousService {
             }
         };
 
+        let group = {
+            let association = MetadataToMetadataGroup::find()
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(model.id))
+                .one(&self.db)
+                .await?;
+            match association {
+                None => None,
+                Some(a) => {
+                    let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
+                    Some(GraphqlMediaGroup {
+                        id: grp.id,
+                        name: grp.title,
+                        part: a.part,
+                    })
+                }
+            }
+        };
+
         let mut resp = GraphqlMediaDetails {
             id: model.id,
+            group,
             title: model.title,
             identifier: model.identifier,
             production_status: model.production_status,
