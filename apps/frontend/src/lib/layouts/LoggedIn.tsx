@@ -342,6 +342,7 @@ export default function ({ children }: { children: ReactElement }) {
 				href: undefined,
 			})) || []),
 		{ label: "People", href: APP_ROUTES.media.people.list },
+		{ label: "Groups", href: APP_ROUTES.media.groups.list },
 		{ label: "Collections", href: APP_ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,
