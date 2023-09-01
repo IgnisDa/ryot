@@ -647,13 +647,28 @@ const Page: NextPageWithLayout = () => {
 						source,
 						href: mediaDetails.data.sourceUrl,
 					}}
-				>
-					<Group>
-						<Title id="media-title">{mediaDetails.data.title}</Title>
-						<Badge variant="gradient" gradient={badgeGradient}>
-							{changeCase(mediaDetails.data.lot)}
+					badge={
+						<Badge variant="gradient" gradient={badgeGradient} size="lg">
+							<Text size={10}>{changeCase(mediaDetails.data.lot)}</Text>
 						</Badge>
-					</Group>
+					}
+				>
+					<Box>
+						<Title id="media-title">{mediaDetails.data.title}</Title>
+						{mediaDetails.data.group ? (
+							<Link
+								passHref
+								legacyBehavior
+								href={withQuery(APP_ROUTES.media.groups.details, {
+									id: mediaDetails.data.group.id,
+								})}
+							>
+								<Anchor>
+									{mediaDetails.data.group.name} #{mediaDetails.data.group.part}
+								</Anchor>
+							</Link>
+						) : undefined}
+					</Box>
 					{userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
 							{userMediaDetails.data.collections.map((col) => (
