@@ -654,20 +654,19 @@ const Page: NextPageWithLayout = () => {
 					}
 				>
 					<Box>
-						<Title id="media-title">{mediaDetails.data.title}</Title>
 						{mediaDetails.data.group ? (
 							<Link
-								passHref
-								legacyBehavior
 								href={withQuery(APP_ROUTES.media.groups.details, {
 									id: mediaDetails.data.group.id,
 								})}
+								style={{ color: "unset" }}
 							>
-								<Anchor>
+								<Text color="dimmed" italic>
 									{mediaDetails.data.group.name} #{mediaDetails.data.group.part}
-								</Anchor>
+								</Text>
 							</Link>
 						) : undefined}
+						<Title id="media-title">{mediaDetails.data.title}</Title>
 					</Box>
 					{userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
