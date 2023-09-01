@@ -48,12 +48,6 @@ fields
     genres.*;
 where version_parent = null;
 ";
-static COLLECTION_FIELDS: &str = "
-fields
-    id,
-    name,
-    games.id;
-";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbCompany {
@@ -78,9 +72,9 @@ struct IgdbImage {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbSearchResponse {
-    id: Option<i32>,
-    name: String,
-    games: Option<Vec<IdObject>>,
+    id: i32,
+    name: Option<String>,
+    games: Option<Vec<IgdbSearchResponse>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
@@ -90,6 +84,7 @@ struct IgdbSearchResponse {
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
     similar_games: Option<Vec<IgdbSearchResponse>>,
+    version_parent: Option<i32>,
     collection: Option<IdObject>,
     #[serde(flatten)]
     rest_data: std::collections::HashMap<String, serde_json::Value>,
@@ -132,11 +127,14 @@ impl MediaProvider for IgdbService {
     ) -> Result<(metadata_group::Model, Vec<String>)> {
         let client = get_client(&self.config).await;
         let req_body = format!(
-            r#"
-{field}
+            r"
+fields
+    id,
+    name,
+    games.id,
+    games.version_parent;
 where id = {id};
-            "#,
-            field = COLLECTION_FIELDS,
+            ",
             id = identifier
         );
         let details: IgdbSearchResponse = client
@@ -153,15 +151,21 @@ where id = {id};
             .games
             .unwrap_or_default()
             .into_iter()
-            .map(|g| g.id.to_string())
+            .flat_map(|g| {
+                if g.version_parent.is_some() {
+                    None
+                } else {
+                    Some(g.id.to_string())
+                }
+            })
             .collect_vec();
         Ok((
             metadata_group::Model {
                 id: 0,
                 display_images: vec![],
                 parts: items.len().try_into().unwrap(),
-                identifier: details.id.unwrap().to_string(),
-                title: details.name,
+                identifier: details.id.to_string(),
+                title: details.name.unwrap_or_default(),
                 images: MetadataImages(vec![]),
                 lot: MetadataLot::VideoGame,
                 source: MetadataSource::Igdb,
@@ -295,11 +299,11 @@ impl IgdbService {
             .unique()
             .collect();
         MediaDetails {
-            identifier: item.id.unwrap().to_string(),
+            identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
             source: MetadataSource::Igdb,
             production_status: "Released".to_owned(),
-            title: item.name,
+            title: item.name.unwrap(),
             description: item.summary,
             creators,
             images,
@@ -325,9 +329,9 @@ impl IgdbService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| MetadataSuggestion {
-                    title: g.name,
+                    title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                    identifier: g.id.unwrap().to_string(),
+                    identifier: g.id.to_string(),
                     lot: MetadataLot::VideoGame,
                     source: MetadataSource::Igdb,
                 })
