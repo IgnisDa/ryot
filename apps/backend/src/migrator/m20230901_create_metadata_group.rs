@@ -21,6 +21,7 @@ pub enum MetadataToMetadataGroup {
     Table,
     MetadataId,
     MetadataGroupId,
+    Part,
 }
 
 #[async_trait::async_trait]
@@ -76,6 +77,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MetadataToMetadataGroup::MetadataGroupId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToMetadataGroup::Part)
                             .integer()
                             .not_null(),
                     )

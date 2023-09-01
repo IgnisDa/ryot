@@ -2384,7 +2384,7 @@ impl MiscellaneousService {
                     new_group.id
                 }
             };
-            for media in associated_items.iter() {
+            for (idx, media) in associated_items.iter().enumerate() {
                 let med = self.media_exists_in_database(lot, source, media).await?;
                 let id = match med {
                     Some(m) => m.id,
@@ -2396,6 +2396,7 @@ impl MiscellaneousService {
                 let new_association = metadata_to_metadata_group::ActiveModel {
                     metadata_id: ActiveValue::Set(id),
                     metadata_group_id: ActiveValue::Set(group_id),
+                    part: ActiveValue::Set((idx + 1).try_into().unwrap()),
                 };
                 new_association.insert(&self.db).await.ok();
             }

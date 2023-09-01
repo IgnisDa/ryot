@@ -10,6 +10,7 @@ pub struct Model {
     pub metadata_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_group_id: i32,
+    pub part: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
