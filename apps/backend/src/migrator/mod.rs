@@ -29,6 +29,7 @@ pub use m20230509_create_import_report::ImportSource;
 pub use m20230622_create_exercise::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
+pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
 
 pub struct Migrator;
 
