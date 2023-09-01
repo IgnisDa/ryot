@@ -44,11 +44,11 @@ fields
     similar_games.name,
     similar_games.cover.*,
     platforms.name,
-    franchises.id,
+    collection.id,
     genres.*;
 where version_parent = null;
 ";
-static FRANCHISES_FIELDS: &str = "
+static COLLECTION_FIELDS: &str = "
 fields
     id,
     name,
@@ -90,7 +90,7 @@ struct IgdbSearchResponse {
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
     similar_games: Option<Vec<IgdbSearchResponse>>,
-    franchises: Option<Vec<IdObject>>,
+    collection: Option<IdObject>,
     #[serde(flatten)]
     rest_data: std::collections::HashMap<String, serde_json::Value>,
 }
@@ -136,11 +136,11 @@ impl MediaProvider for IgdbService {
 {field}
 where id = {id};
             "#,
-            field = FRANCHISES_FIELDS,
+            field = COLLECTION_FIELDS,
             id = identifier
         );
         let details: IgdbSearchResponse = client
-            .post("franchises")
+            .post("collections")
             .body_string(req_body)
             .await
             .map_err(|e| anyhow!(e))?
@@ -333,14 +333,13 @@ impl IgdbService {
                 })
                 .collect(),
             groups: item
-                .franchises
-                .unwrap_or_default()
-                .into_iter()
+                .collection
                 .map(|g| PartialMetadataGroup {
                     identifier: g.id.to_string(),
                     source: MetadataSource::Igdb,
                     lot: MetadataLot::VideoGame,
                 })
+                .into_iter()
                 .collect(),
         }
     }
