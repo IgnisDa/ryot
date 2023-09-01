@@ -70,7 +70,7 @@ const Page: NextPageWithLayout = () => {
 	return coreDetails.data ? (
 		<>
 			<Head>
-				<title>List People | Ryot</title>
+				<title>List Groups | Ryot</title>
 			</Head>
 			<Container>
 				<Stack>
