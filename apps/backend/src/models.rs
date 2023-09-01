@@ -62,6 +62,10 @@ pub struct SearchDetails {
     params(media::MediaCreatorSearchItem)
 ))]
 #[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
+#[graphql(concrete(
+    name = "MetadataGroupListResults",
+    params(media::MetadataGroupListItem)
+))]
 #[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
@@ -127,6 +131,17 @@ pub mod media {
     pub struct MediaListItem {
         pub data: MediaSearchItem,
         pub average_rating: Option<Decimal>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
+    pub struct MetadataGroupListItem {
+        pub id: i32,
+        pub title: String,
+        pub lot: MetadataLot,
+        pub image: Option<String>,
+        #[graphql(skip)]
+        pub images: MetadataImages,
+        pub parts: i32,
     }
 
     #[derive(

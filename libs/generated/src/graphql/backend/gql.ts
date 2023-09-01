@@ -67,6 +67,7 @@ const documents = {
     "query MediaList($input: MediaListInput!) {\n  mediaList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      averageRating\n      data {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaListDocument,
     "query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {\n  mediaSearch(lot: $lot, source: $source, input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      databaseId\n      item {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MediaSearchDocument,
     "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}": types.MediaSourcesForLotDocument,
+    "query MetadataGroupsList($input: SearchInput!) {\n  metadataGroupsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      title\n      lot\n      parts\n      image\n    }\n  }\n}": types.MetadataGroupsListDocument,
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query Review($reviewId: Int!) {\n  review(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n    showSeason\n    showEpisode\n    podcastEpisode\n  }\n}": types.ReviewDocument,
     "query UserCreatorDetails($creatorId: Int!) {\n  userCreatorDetails(creatorId: $creatorId) {\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      postedOn\n      postedBy {\n        id\n        name\n      }\n      comments {\n        id\n        text\n        createdOn\n        user {\n          id\n          name\n        }\n        likedBy\n      }\n    }\n  }\n}": types.UserCreatorDetailsDocument,
@@ -310,6 +311,10 @@ export function graphql(source: "query MediaSearch($lot: MetadataLot!, $source: 
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}"): (typeof documents)["query MediaSourcesForLot($lot: MetadataLot!) {\n  mediaSourcesForLot(lot: $lot)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query MetadataGroupsList($input: SearchInput!) {\n  metadataGroupsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      title\n      lot\n      parts\n      image\n    }\n  }\n}"): (typeof documents)["query MetadataGroupsList($input: SearchInput!) {\n  metadataGroupsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      title\n      lot\n      parts\n      image\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

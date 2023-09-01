@@ -72,12 +72,12 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MetadataSuggestion, MovieSpecifics,
-            PartialMetadataGroup, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            MetadataGroupListItem, MetadataImage, MetadataImages, MetadataSuggestion,
+            MovieSpecifics, PartialMetadataGroup, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -787,6 +787,16 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.creators_list(input).await
+    }
+
+    /// Get paginated list of metadata groups.
+    async fn metadata_groups_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<MetadataGroupListItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_groups_list(input).await
     }
 }
 
@@ -4818,6 +4828,55 @@ impl MiscellaneousService {
             m.monitored
         } else {
             false
+        })
+    }
+
+    pub async fn metadata_groups_list(
+        &self,
+        input: SearchInput,
+    ) -> Result<SearchResults<MetadataGroupListItem>> {
+        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let query = MetadataGroup::find()
+            .apply_if(input.query, |query, v| {
+                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                    Expr::col(metadata_group::Column::Title),
+                    &v,
+                )))
+            })
+            .order_by_asc(metadata_group::Column::Title);
+        let paginator = query
+            .clone()
+            .into_model::<MetadataGroupListItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let mut items = vec![];
+        for c in paginator.fetch_page(page - 1).await? {
+            let mut c = c;
+            let mut image = None;
+            if let Some(i) = c
+                .images
+                .0
+                .iter()
+                .find(|i| i.lot == MetadataImageLot::Poster)
+            {
+                image = Some(get_stored_image(i.url.clone(), &self.file_storage_service).await);
+            }
+            c.image = image;
+            items.push(c);
+        }
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+            items,
         })
     }
 
