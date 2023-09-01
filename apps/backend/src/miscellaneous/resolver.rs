@@ -2384,25 +2384,20 @@ impl MiscellaneousService {
                     new_group.id
                 }
             };
-            // for media in associated_items.iter() {
-            //     let med = self.commit_media(lot, source, media).await?;
-            //     let existing_group_association = MetadataToMetadataGroup::find()
-            //         .filter(metadata_to_metadata_group::Column::MediaGroupId.eq(group_id))
-            //         .filter(metadata_to_metadata_group::Column::MetadataId.eq(med.id))
-            //         .one(&self.db)
-            //         .await?;
-            // }
-            if join_all(
-                associated_items
-                    .iter()
-                    .map(|media| self.media_exists_in_database(lot, source, &media)),
-            )
-            .await
-            .into_iter()
-            .map(|k| k.unwrap().is_some())
-            .all(bool::from)
-            {
-                return Ok(());
+            for media in associated_items.iter() {
+                let med = self.media_exists_in_database(lot, source, media).await?;
+                let id = match med {
+                    Some(m) => m.id,
+                    None => {
+                        let med = self.commit_media(lot, source, media).await?;
+                        med.id
+                    }
+                };
+                let new_association = metadata_to_metadata_group::ActiveModel {
+                    metadata_id: ActiveValue::Set(id),
+                    metadata_group_id: ActiveValue::Set(group_id),
+                };
+                new_association.insert(&self.db).await.ok();
             }
         }
         Ok(())
