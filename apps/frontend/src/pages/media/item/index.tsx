@@ -8,7 +8,12 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
+import {
+	Verb,
+	getLotGradient,
+	getStringAsciiValue,
+	getVerb,
+} from "@/lib/utilities";
 import {
 	Accordion,
 	ActionIcon,
@@ -22,7 +27,6 @@ import {
 	Flex,
 	Group,
 	Indicator,
-	type MantineGradient,
 	Menu,
 	Modal,
 	NumberInput,
@@ -563,29 +567,6 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const badgeGradient: MantineGradient = match(mediaDetails.data?.lot)
-		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
-		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
-		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
-		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame, () => ({
-			from: "purple",
-			to: "blue",
-		}))
-		.with(MetadataLot.Anime, () => ({
-			from: "red",
-			to: "blue",
-		}))
-		.with(MetadataLot.Manga, () => ({
-			from: "red",
-			to: "green",
-		}))
-		.with(MetadataLot.Podcast, undefined, () => ({
-			from: "yellow",
-			to: "purple",
-		}))
-		.exhaustive();
-
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
 
 	const PutOnHoldBtn = () => {
@@ -648,7 +629,11 @@ const Page: NextPageWithLayout = () => {
 						href: mediaDetails.data.sourceUrl,
 					}}
 					badge={
-						<Badge variant="gradient" gradient={badgeGradient} size="lg">
+						<Badge
+							variant="gradient"
+							gradient={getLotGradient(mediaDetails.data.lot)}
+							size="lg"
+						>
 							<Text size={10}>{changeCase(mediaDetails.data.lot)}</Text>
 						</Badge>
 					}

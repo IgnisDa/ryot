@@ -6,6 +6,7 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	Anchor,
 	Avatar,
+	Badge,
 	Container,
 	Flex,
 	SimpleGrid,
@@ -21,6 +22,8 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
+import { changeCase } from "@ryot/ts-utils";
+import { getLotGradient } from "@/lib/utilities";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -48,6 +51,15 @@ const Page: NextPageWithLayout = () => {
 				<MediaDetailsLayout
 					posterImages={groupDetails.data.details.displayImages}
 					backdropImages={[]}
+					badge={
+						<Badge
+							variant="gradient"
+							gradient={getLotGradient(groupDetails.data.details.lot)}
+							size="lg"
+						>
+							<Text size={10}>{changeCase(groupDetails.data.details.lot)}</Text>
+						</Badge>
+					}
 				>
 					<Title id="group-title">{groupDetails.data.details.title}</Title>
 					<Flex id="group-details" wrap={"wrap"} gap={4}>
