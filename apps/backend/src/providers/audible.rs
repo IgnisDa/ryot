@@ -185,6 +185,7 @@ impl MediaProvider for AudibleService {
                 parts: items.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
                 title: data.product.title,
+                description: None,
                 images: MetadataImages(vec![]),
                 lot: MetadataLot::AudioBook,
                 source: MetadataSource::Audible,

@@ -166,6 +166,7 @@ where id = {id};
                 parts: items.len().try_into().unwrap(),
                 identifier: details.id.to_string(),
                 title: details.name.unwrap_or_default(),
+                description: None,
                 images: MetadataImages(vec![]),
                 lot: MetadataLot::VideoGame,
                 source: MetadataSource::Igdb,

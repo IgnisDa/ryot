@@ -18,6 +18,7 @@ pub struct Model {
     pub parts: i32,
     pub identifier: String,
     pub title: String,
+    pub description: Option<String>,
     #[graphql(skip)]
     pub images: MetadataImages,
     #[sea_orm(ignore)]

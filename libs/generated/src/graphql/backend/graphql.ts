@@ -641,6 +641,7 @@ export type MetadataCreatorGroupedByRole = {
 };
 
 export type MetadataGroup = {
+  description?: Maybe<Scalars['String']['output']>;
   displayImages: Array<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   identifier: Scalars['String']['output'];
@@ -657,6 +658,7 @@ export type MetadataGroupDetails = {
 };
 
 export type MetadataGroupListItem = {
+  description?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   image?: Maybe<Scalars['String']['output']>;
   lot: MetadataLot;

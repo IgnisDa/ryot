@@ -123,6 +123,7 @@ impl MediaProvider for TmdbMovieService {
         struct TmdbCollection {
             id: i32,
             name: String,
+            overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
             parts: Vec<IdObject>,
@@ -161,6 +162,7 @@ impl MediaProvider for TmdbMovieService {
                 parts: parts.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
                 title: data.name,
+                description: data.overview,
                 images: MetadataImages(
                     images
                         .into_iter()
