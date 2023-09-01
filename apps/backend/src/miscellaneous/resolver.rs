@@ -2912,6 +2912,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
+    #[async_recursion::async_recursion]
     pub async fn commit_media(
         &self,
         lot: MetadataLot,
