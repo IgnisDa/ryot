@@ -219,7 +219,6 @@ impl UserWorkoutInput {
                     personal_bests: vec![],
                 });
             }
-            workout_totals.push(total.clone());
             let mut personal_bests = association.extra_information.personal_bests.clone();
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
@@ -242,11 +241,14 @@ impl UserWorkoutInput {
                 if let Some(r) = possible_record {
                     if set.get_personal_best(best_type) > r.data.get_personal_best(best_type) {
                         set.personal_bests.push(*best_type);
+                        total.personal_bests_achieved += 1;
                     }
                 } else {
                     set.personal_bests.push(*best_type);
+                    total.personal_bests_achieved += 1;
                 }
             }
+            workout_totals.push(total.clone());
             for (set_idx, set) in sets.iter().enumerate() {
                 for best in set.personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
