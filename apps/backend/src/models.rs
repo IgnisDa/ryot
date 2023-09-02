@@ -14,7 +14,7 @@ use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
-    entities::{exercise::Model as ExerciseModel, user_measurement},
+    entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataImageLot, MetadataLot, MetadataSource, SeenState,
@@ -78,6 +78,7 @@ pub struct IdObject {
 }
 
 pub mod media {
+
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -603,13 +604,6 @@ pub mod media {
         pub lot: MetadataLot,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-    pub struct PartialMetadataGroup {
-        pub identifier: String,
-        pub source: MetadataSource,
-        pub lot: MetadataLot,
-    }
-
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -625,7 +619,7 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadata>,
-        pub groups: Vec<PartialMetadataGroup>,
+        pub groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

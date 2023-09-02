@@ -75,11 +75,10 @@ use crate::{
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
             MetadataGroupListItem, MetadataImage, MetadataImages, MovieSpecifics, PartialMetadata,
-            PartialMetadataGroup, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2303,7 +2302,7 @@ impl MiscellaneousService {
         production_status: String,
         publish_year: Option<i32>,
         suggestions: Vec<PartialMetadata>,
-        groups: Vec<PartialMetadataGroup>,
+        groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2443,42 +2442,42 @@ impl MiscellaneousService {
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        group: PartialMetadataGroup,
+        group: (metadata_group::Model, Vec<PartialMetadata>),
     ) -> Result<()> {
-        let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(&group.identifier))
-            .filter(metadata_group::Column::Lot.eq(lot))
-            .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.db)
-            .await?;
-        let provider = self.get_provider(lot, source).await?;
-        let data = provider.group_details(&group.identifier).await;
-        let (group_details, associated_items) = data?;
-        let group_id = match existing_group {
-            Some(eg) => eg.id,
-            None => {
-                let mut db_group: metadata_group::ActiveModel = group_details.into();
-                db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.db).await?;
-                new_group.id
-            }
-        };
-        for (idx, media) in associated_items.iter().enumerate() {
-            let med = self.media_exists_in_database(lot, source, media).await?;
-            let id = match med {
-                Some(m) => m.id,
-                None => {
-                    let med = self.commit_media(lot, source, media).await?;
-                    med.id
-                }
-            };
-            let new_association = metadata_to_metadata_group::ActiveModel {
-                metadata_id: ActiveValue::Set(id),
-                metadata_group_id: ActiveValue::Set(group_id),
-                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-            };
-            new_association.insert(&self.db).await.ok();
-        }
+        // let existing_group = MetadataGroup::find()
+        //     .filter(metadata_group::Column::Identifier.eq(&group.identifier))
+        //     .filter(metadata_group::Column::Lot.eq(lot))
+        //     .filter(metadata_group::Column::Source.eq(source))
+        //     .one(&self.db)
+        //     .await?;
+        // let provider = self.get_provider(lot, source).await?;
+        // let data = provider.group_details(&group.identifier).await;
+        // let (group_details, associated_items) = data?;
+        // let group_id = match existing_group {
+        //     Some(eg) => eg.id,
+        //     None => {
+        //         let mut db_group: metadata_group::ActiveModel = group_details.into();
+        //         db_group.id = ActiveValue::NotSet;
+        //         let new_group = db_group.insert(&self.db).await?;
+        //         new_group.id
+        //     }
+        // };
+        // for (idx, media) in associated_items.iter().enumerate() {
+        //     let med = self.media_exists_in_database(lot, source, media).await?;
+        //     let id = match med {
+        //         Some(m) => m.id,
+        //         None => {
+        //             let med = self.commit_media(lot, source, media).await?;
+        //             med.id
+        //         }
+        //     };
+        //     let new_association = metadata_to_metadata_group::ActiveModel {
+        //         metadata_id: ActiveValue::Set(id),
+        //         metadata_group_id: ActiveValue::Set(group_id),
+        //         part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+        //     };
+        //     new_association.insert(&self.db).await.ok();
+        // }
         Ok(())
     }
 
@@ -2576,7 +2575,7 @@ impl MiscellaneousService {
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
         suggestions: Vec<PartialMetadata>,
-        groups: Vec<PartialMetadataGroup>,
+        groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
     ) -> Result<()> {
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
@@ -2610,12 +2609,9 @@ impl MiscellaneousService {
                 .ok();
         }
         for group in groups {
-            self.perform_application_job
-                .clone()
-                .push(ApplicationJob::AssociateGroupWithMetadata(
-                    lot, source, group,
-                ))
-                .await?;
+            self.associate_group_with_metadata(lot, source, group)
+                .await
+                .ok();
         }
         Ok(())
     }
