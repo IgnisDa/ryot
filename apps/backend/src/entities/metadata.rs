@@ -37,12 +37,8 @@ pub enum Relation {
     MetadataToCreator,
     #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
     MetadataToGenre,
-    #[sea_orm(has_many = "super::metadata_to_metadata_group::Entity")]
-    MetadataToMetadataGroup,
     #[sea_orm(has_many = "super::metadata_to_partial_metadata::Entity")]
     MetadataToPartialMetadata,
-    #[sea_orm(has_many = "super::metadata_to_suggestion::Entity")]
-    MetadataToSuggestion,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
@@ -69,21 +65,9 @@ impl Related<super::metadata_to_genre::Entity> for Entity {
     }
 }
 
-impl Related<super::metadata_to_metadata_group::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MetadataToMetadataGroup.def()
-    }
-}
-
 impl Related<super::metadata_to_partial_metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataToPartialMetadata.def()
-    }
-}
-
-impl Related<super::metadata_to_suggestion::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MetadataToSuggestion.def()
     }
 }
 
@@ -127,19 +111,6 @@ impl Related<super::genre::Entity> for Entity {
     }
 }
 
-impl Related<super::metadata_group::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::metadata_to_metadata_group::Relation::MetadataGroup.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(
-            super::metadata_to_metadata_group::Relation::Metadata
-                .def()
-                .rev(),
-        )
-    }
-}
-
 impl Related<super::partial_metadata::Entity> for Entity {
     fn to() -> RelationDef {
         super::metadata_to_partial_metadata::Relation::PartialMetadata.def()
@@ -147,19 +118,6 @@ impl Related<super::partial_metadata::Entity> for Entity {
     fn via() -> Option<RelationDef> {
         Some(
             super::metadata_to_partial_metadata::Relation::Metadata
-                .def()
-                .rev(),
-        )
-    }
-}
-
-impl Related<super::suggestion::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::metadata_to_suggestion::Relation::Suggestion.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(
-            super::metadata_to_suggestion::Relation::Metadata
                 .def()
                 .rev(),
         )
