@@ -1,4 +1,11 @@
 
+# Version 2.14.1 (2023-09-02)
+
+## Bug Fixes
+
+* **backend:** calculate total bests for workouts
+
+
 # Version 2.14.0 (2023-09-02)
 
 
