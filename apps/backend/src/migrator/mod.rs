@@ -56,8 +56,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230825_create_suggestion::Migration),
             Box::new(m20230830_add_comments_field_to_review::Migration),
             Box::new(m20230901_create_metadata_group::Migration),
-            Box::new(m20230901_create_partial_metadata::Migration),
             Box::new(m20230902_remove_useless_tables::Migration),
+            Box::new(m20230901_create_partial_metadata::Migration),
         ]
     }
 }
