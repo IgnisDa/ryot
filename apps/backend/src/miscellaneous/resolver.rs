@@ -2426,7 +2426,22 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?;
         let group_id = match existing_group {
-            Some(eg) => eg.id,
+            Some(eg) => {
+                if eg.title != group.title
+                    || eg.description != group.description
+                    || eg.images != group.images
+                {
+                    let title = group.title.clone();
+                    let description = group.description.clone();
+                    let images = group.images.clone();
+                    let mut db_group: metadata_group::ActiveModel = group.into();
+                    db_group.title = ActiveValue::Set(title);
+                    db_group.description = ActiveValue::Set(description);
+                    db_group.images = ActiveValue::Set(images);
+                    db_group.update(&self.db).await?;
+                }
+                eg.id
+            }
             None => {
                 let mut db_group: metadata_group::ActiveModel = group.into();
                 db_group.id = ActiveValue::NotSet;
