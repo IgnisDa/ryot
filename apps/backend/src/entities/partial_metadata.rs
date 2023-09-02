@@ -75,19 +75,21 @@ impl Related<super::metadata_group::Entity> for Entity {
 
 #[async_trait]
 impl ActiveModelBehavior for ActiveModel {
-    async fn before_save<C>(mut self, db: &C, _insert: bool) -> Result<Self, DbErr>
+    async fn before_save<C>(mut self, db: &C, insert: bool) -> Result<Self, DbErr>
     where
         C: ConnectionTrait,
     {
-        let copied = self.clone();
-        if let Some(m) = Metadata::find()
-            .filter(metadata::Column::Identifier.eq(copied.identifier.unwrap()))
-            .filter(metadata::Column::Lot.eq(copied.lot.unwrap()))
-            .filter(metadata::Column::Source.eq(copied.source.unwrap()))
-            .one(db)
-            .await?
-        {
-            self.metadata_id = ActiveValue::Set(Some(m.id));
+        if insert {
+            let copied = self.clone();
+            if let Some(m) = Metadata::find()
+                .filter(metadata::Column::Identifier.eq(copied.identifier.unwrap()))
+                .filter(metadata::Column::Lot.eq(copied.lot.unwrap()))
+                .filter(metadata::Column::Source.eq(copied.source.unwrap()))
+                .one(db)
+                .await?
+            {
+                self.metadata_id = ActiveValue::Set(Some(m.id));
+            }
         }
         Ok(self)
     }
