@@ -74,7 +74,7 @@ export const getLotGradient = (lot: MetadataLot) =>
 			from: "red",
 			to: "green",
 		}))
-		.with(MetadataLot.Podcast, undefined, () => ({
+		.with(MetadataLot.Podcast, () => ({
 			from: "yellow",
 			to: "purple",
 		}))

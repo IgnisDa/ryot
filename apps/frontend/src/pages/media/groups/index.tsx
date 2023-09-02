@@ -79,22 +79,30 @@ const Page: NextPageWithLayout = () => {
 						>
 							{groupDetails.data.contents.map((media) => (
 								<Link
-									key={media.item.identifier}
+									key={media.identifier}
 									passHref
 									legacyBehavior
-									href={withQuery(
-										APP_ROUTES.media.individualMediaItem.details,
-										{ id: media.item.identifier },
-									)}
+									href={
+										media.metadataId
+											? withQuery(
+													APP_ROUTES.media.individualMediaItem.details,
+													{ id: media.metadataId },
+											  )
+											: withQuery(APP_ROUTES.media.individualMediaItem.commit, {
+													identifier: media.identifier,
+													lot: media.lot,
+													source: media.source,
+											  })
+									}
 								>
-									<Anchor data-media-id={media.item.identifier}>
+									<Anchor data-media-id={media.identifier}>
 										<Avatar
 											imageProps={{ loading: "lazy" }}
-											src={media.item.image}
+											src={media.image}
 											h={100}
 											w={85}
 											mx="auto"
-											alt={`${media.item.title} picture`}
+											alt={`${media.title} picture`}
 											styles={{
 												image: { objectPosition: "top" },
 											}}
@@ -106,7 +114,7 @@ const Page: NextPageWithLayout = () => {
 											lineClamp={1}
 											mt={4}
 										>
-											{media.item.title}
+											{media.title}
 										</Text>
 									</Anchor>
 								</Link>
