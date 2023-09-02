@@ -5,6 +5,7 @@ use super::Metadata;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+// FIXME: Remove this model
 #[derive(Iden)]
 pub enum Suggestion {
     Table,
@@ -16,6 +17,7 @@ pub enum Suggestion {
     Source,
 }
 
+// FIXME: Remove this model
 #[derive(Iden)]
 pub enum MetadataToSuggestion {
     Table,

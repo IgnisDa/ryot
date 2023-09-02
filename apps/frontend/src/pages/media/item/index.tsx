@@ -8,12 +8,7 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import {
-	Verb,
-	getLotGradient,
-	getStringAsciiValue,
-	getVerb,
-} from "@/lib/utilities";
+import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
 import {
 	Accordion,
 	ActionIcon,
@@ -626,17 +621,9 @@ const Page: NextPageWithLayout = () => {
 					posterImages={mediaDetails.data.posterImages}
 					externalLink={{
 						source,
+						lot: mediaDetails.data.lot,
 						href: mediaDetails.data.sourceUrl,
 					}}
-					badge={
-						<Badge
-							variant="gradient"
-							gradient={getLotGradient(mediaDetails.data.lot)}
-							size="lg"
-						>
-							<Text size={10}>{changeCase(mediaDetails.data.lot)}</Text>
-						</Badge>
-					}
 				>
 					<Box>
 						{mediaDetails.data.group ? (

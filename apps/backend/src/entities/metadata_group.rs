@@ -29,23 +29,23 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::metadata_to_metadata_group::Entity")]
-    MetadataToMetadataGroup,
+    #[sea_orm(has_many = "super::partial_metadata_to_metadata_group::Entity")]
+    PartialMetadataToMetadataGroup,
 }
 
-impl Related<super::metadata_to_metadata_group::Entity> for Entity {
+impl Related<super::partial_metadata_to_metadata_group::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::MetadataToMetadataGroup.def()
+        Relation::PartialMetadataToMetadataGroup.def()
     }
 }
 
-impl Related<super::metadata::Entity> for Entity {
+impl Related<super::partial_metadata::Entity> for Entity {
     fn to() -> RelationDef {
-        super::metadata_to_metadata_group::Relation::Metadata.def()
+        super::partial_metadata_to_metadata_group::Relation::PartialMetadata.def()
     }
     fn via() -> Option<RelationDef> {
         Some(
-            super::metadata_to_metadata_group::Relation::MetadataGroup
+            super::partial_metadata_to_metadata_group::Relation::MetadataGroup
                 .def()
                 .rev(),
         )

@@ -1,6 +1,10 @@
 import { Carousel } from "@mantine/carousel";
 import { Anchor, Badge, Box, Flex, Image, Stack, Text } from "@mantine/core";
-import { snakeCase, startCase } from "@ryot/ts-utils";
+import type {
+	MetadataLot,
+	MetadataSource,
+} from "@ryot/generated/graphql/backend/graphql";
+import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -16,8 +20,11 @@ export default function (props: {
 	children: JSX.Element | (JSX.Element | undefined)[];
 	posterImages: (string | null | undefined)[];
 	backdropImages: string[];
-	externalLink?: { source: string; href?: string | null };
-	badge?: JSX.Element;
+	externalLink?: {
+		lot: MetadataLot;
+		source: MetadataSource;
+		href?: string | null;
+	};
 }) {
 	const images = [...props.posterImages, ...props.backdropImages];
 	const [activeImageId, setActiveImageId] = useState<number>(0);
@@ -73,7 +80,8 @@ export default function (props: {
 					>
 						<Flex gap={4} align={"center"}>
 							<Text size={10}>
-								{startCase(snakeCase(props.externalLink.source))}
+								{snakeCase(props.externalLink.source)}:
+								{snakeCase(props.externalLink.lot)}
 							</Text>
 							{props.externalLink.href ? (
 								<Anchor href={props.externalLink.href} target="_blank" mt={2}>
@@ -82,11 +90,6 @@ export default function (props: {
 							) : undefined}
 						</Flex>
 					</Badge>
-				) : undefined}
-				{props.badge ? (
-					<Box pos="absolute" top={10} right={36}>
-						{props.badge}
-					</Box>
 				) : undefined}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>

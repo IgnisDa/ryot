@@ -16,7 +16,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataSuggestion, PodcastEpisode, PodcastSpecifics,
+            PartialMetadata, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -77,7 +77,7 @@ impl MediaProvider for ListennotesService {
         details.suggestions = rec_data
             .recommendations
             .into_iter()
-            .map(|r| MetadataSuggestion {
+            .map(|r| PartialMetadata {
                 title: r.title,
                 image: r.thumbnail,
                 identifier: r.id,

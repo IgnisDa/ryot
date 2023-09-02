@@ -10,7 +10,7 @@ use crate::{
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataSuggestion,
+            MetadataImage, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -151,7 +151,7 @@ impl MediaProvider for MangaUpdatesService {
                 .body_json()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            suggestions.push(MetadataSuggestion {
+            suggestions.push(PartialMetadata {
                 title: data.title.unwrap(),
                 image: data.image.unwrap().url.original,
                 identifier: data.series_id.unwrap().to_string(),

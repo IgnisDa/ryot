@@ -19,6 +19,8 @@ mod m20230819_create_workout;
 mod m20230825_create_suggestion;
 mod m20230830_add_comments_field_to_review;
 mod m20230901_create_metadata_group;
+mod m20230901_create_partial_metadata;
+mod m20230902_remove_useless_tables;
 
 pub use m20230410_create_metadata::{Metadata, MetadataImageLot, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -28,6 +30,7 @@ pub use m20230509_create_import_report::ImportSource;
 pub use m20230622_create_exercise::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
+pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
 
 pub struct Migrator;
 
@@ -53,6 +56,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230825_create_suggestion::Migration),
             Box::new(m20230830_add_comments_field_to_review::Migration),
             Box::new(m20230901_create_metadata_group::Migration),
+            Box::new(m20230902_remove_useless_tables::Migration),
+            Box::new(m20230901_create_partial_metadata::Migration),
         ]
     }
 }

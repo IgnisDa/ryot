@@ -26,6 +26,7 @@ import {
 	GetPresignedUrlDocument,
 	MetadataLot,
 	PresignedPutUrlDocument,
+	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCalendar, IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -102,7 +103,7 @@ const Page: NextPageWithLayout = () => {
 				<MediaDetailsLayout
 					posterImages={imageUrls?.data || []}
 					backdropImages={[]}
-					externalLink={{ source: "custom" }}
+					externalLink={{ source: MetadataSource.Custom, lot: form.values.lot }}
 				>
 					<ScrollArea.Autosize mah={400}>
 						<Box

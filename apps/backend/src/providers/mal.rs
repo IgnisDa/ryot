@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataSuggestion,
+            MetadataImage, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -221,7 +221,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
     };
     let mut suggestions = vec![];
     for rel in details.related_anime.unwrap_or_default().into_iter() {
-        suggestions.push(MetadataSuggestion {
+        suggestions.push(PartialMetadata {
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
@@ -230,7 +230,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         });
     }
     for rel in details.related_manga.unwrap_or_default().into_iter() {
-        suggestions.push(MetadataSuggestion {
+        suggestions.push(PartialMetadata {
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
@@ -239,7 +239,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         });
     }
     for rel in details.recommendations.unwrap_or_default().into_iter() {
-        suggestions.push(MetadataSuggestion {
+        suggestions.push(PartialMetadata {
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
