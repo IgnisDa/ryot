@@ -10,12 +10,12 @@ query MetadataGroupDetails($metadataGroupId: Int!) {
     }
     sourceUrl
     contents {
-      item {
-        identifier
-        title
-        image
-      }
-      part
+      identifier
+      title
+      image
+      metadataId
+      lot
+      source
     }
   }
 }

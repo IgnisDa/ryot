@@ -595,7 +595,7 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct PartialMetadata {
         pub title: String,
         pub image: Option<String>,

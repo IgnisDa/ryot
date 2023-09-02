@@ -47,13 +47,13 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, creator, genre, metadata, metadata_group, metadata_to_collection,
-        metadata_to_creator, metadata_to_genre, metadata_to_metadata_group,
-        metadata_to_partial_metadata, partial_metadata, partial_metadata_to_metadata_group,
+        metadata_to_creator, metadata_to_genre, metadata_to_partial_metadata, partial_metadata,
+        partial_metadata_to_metadata_group,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
-            MetadataToCreator, MetadataToGenre, MetadataToMetadataGroup, MetadataToPartialMetadata,
-            PartialMetadata as PartialMetadataModel, Review, Seen, User, UserMeasurement,
-            UserToMetadata, Workout,
+            MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
+            PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Review, Seen,
+            User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen, user, user_measurement, user_to_metadata, workout,
     },
@@ -352,18 +352,10 @@ struct CreatorDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct MetadataGroupMetadataItem {
-    /// The media item itself.
-    item: MediaSearchItem,
-    /// The position of this media in the group.
-    part: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct MetadataGroupDetails {
     details: metadata_group::Model,
     source_url: Option<String>,
-    contents: Vec<MetadataGroupMetadataItem>,
+    contents: Vec<GraphqlPartialMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -1481,19 +1473,33 @@ impl MiscellaneousService {
         };
 
         let group = {
-            let association = MetadataToMetadataGroup::find()
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(model.id))
+            let existing_partial_metadata = PartialMetadataModel::find()
+                .filter(partial_metadata::Column::Identifier.eq(&model.identifier))
+                .filter(partial_metadata::Column::Lot.eq(model.lot))
+                .filter(partial_metadata::Column::Source.eq(model.source))
                 .one(&self.db)
                 .await?;
-            match association {
+            match existing_partial_metadata {
                 None => None,
-                Some(a) => {
-                    let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
-                    Some(GraphqlMediaGroup {
-                        id: grp.id,
-                        name: grp.title,
-                        part: a.part,
-                    })
+                Some(epm) => {
+                    let association = PartialMetadataToMetadataGroup::find()
+                        .filter(
+                            partial_metadata_to_metadata_group::Column::PartialMetadataId
+                                .eq(epm.id),
+                        )
+                        .one(&self.db)
+                        .await?;
+                    match association {
+                        None => None,
+                        Some(a) => {
+                            let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
+                            Some(GraphqlMediaGroup {
+                                id: grp.id,
+                                name: grp.title,
+                                part: a.part,
+                            })
+                        }
+                    }
                 }
             }
         };
@@ -2587,10 +2593,6 @@ impl MiscellaneousService {
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        MetadataToMetadataGroup::delete_many()
-            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-            .exec(&self.db)
-            .await?;
         for (idx, creator) in creators.into_iter().enumerate() {
             self.associate_creator_with_metadata(metadata_id, creator, idx)
                 .await
@@ -2624,19 +2626,12 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
-            let num_group_associations = MetadataToMetadataGroup::find()
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata.id))
-                .count(&self.db)
-                .await
-                .unwrap();
             let num_partial_metadata_associations = MetadataToPartialMetadata::find()
                 .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_user_associations + num_group_associations + num_partial_metadata_associations
-                == 0
-            {
+            if num_user_associations + num_partial_metadata_associations == 0 {
                 metadata.delete(&self.db).await.ok();
             }
         }
@@ -5043,30 +5038,15 @@ impl MiscellaneousService {
             MetadataSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
         };
 
-        let associations = MetadataToMetadataGroup::find()
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
-            .order_by_asc(metadata_to_metadata_group::Column::Part)
-            .find_also_related(Metadata)
+        let associations = PartialMetadataToMetadataGroup::find()
+            .select_only()
+            .column(partial_metadata_to_metadata_group::Column::PartialMetadataId)
+            .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
+            .order_by_asc(partial_metadata_to_metadata_group::Column::Part)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        let mut contents = vec![];
-        for (asc, item) in associations {
-            let item = item.unwrap();
-            let (poster_images, backdrop_images) = self.metadata_images(&item).await?;
-            let images = poster_images
-                .into_iter()
-                .chain(backdrop_images.into_iter())
-                .collect_vec();
-            contents.push(MetadataGroupMetadataItem {
-                item: MediaSearchItem {
-                    identifier: item.id.to_string(),
-                    title: item.title,
-                    image: images.get(0).cloned(),
-                    publish_year: item.publish_year,
-                },
-                part: asc.part,
-            })
-        }
+        let contents = self.get_partial_metadata(associations).await?;
         Ok(MetadataGroupDetails {
             details: group,
             source_url,
