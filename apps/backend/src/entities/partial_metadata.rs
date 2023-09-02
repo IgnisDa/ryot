@@ -12,10 +12,10 @@ pub struct Model {
     pub id: i32,
     pub identifier: String,
     pub title: String,
-    #[sea_orm(column_type = "Text", nullable)]
     pub image: Option<String>,
     pub lot: MetadataLot,
     pub source: MetadataSource,
+    pub metadata_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -16,6 +16,7 @@ pub enum PartialMetadata {
     Image,
     Lot,
     Source,
+    MetadataId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
@@ -71,6 +72,19 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(PartialMetadata::Source)
                             .string_len(2)
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToPartialMetadata::MetadataId)
+                            .integer()
+                            .null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-metadata_id-base-partial-metadata_id")
+                            .from(PartialMetadata::Table, PartialMetadata::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
