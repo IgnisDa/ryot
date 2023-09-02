@@ -2558,6 +2558,7 @@ impl MiscellaneousService {
             .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
+        // suggestions
         MetadataToPartialMetadata::delete_many()
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
