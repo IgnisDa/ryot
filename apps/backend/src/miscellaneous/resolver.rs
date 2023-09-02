@@ -1360,7 +1360,10 @@ impl MiscellaneousService {
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        let suggestions = self.get_partial_metadata(partial_metadata_ids).await?;
+        let suggestions = PartialMetadataModel::find()
+            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
+            .all(&self.db)
+            .await?;
         Ok(MediaBaseData {
             model: meta,
             creators,
@@ -1369,17 +1372,6 @@ impl MiscellaneousService {
             genres,
             suggestions,
         })
-    }
-
-    async fn get_partial_metadata(
-        &self,
-        partial_metadata_ids: Vec<i32>,
-    ) -> Result<Vec<partial_metadata::Model>> {
-        let partial_metadatas = PartialMetadataModel::find()
-            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
-            .all(&self.db)
-            .await?;
-        Ok(partial_metadatas)
     }
 
     async fn media_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
