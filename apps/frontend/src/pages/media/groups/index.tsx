@@ -4,11 +4,9 @@ import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLotGradient } from "@/lib/utilities";
 import {
 	Anchor,
 	Avatar,
-	Badge,
 	Container,
 	Flex,
 	SimpleGrid,
@@ -16,7 +14,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { MetadataGroupDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -53,17 +50,9 @@ const Page: NextPageWithLayout = () => {
 					backdropImages={[]}
 					externalLink={{
 						source: groupDetails.data.details.source,
+						lot: groupDetails.data.details.lot,
 						href: groupDetails.data.sourceUrl,
 					}}
-					badge={
-						<Badge
-							variant="gradient"
-							gradient={getLotGradient(groupDetails.data.details.lot)}
-							size="lg"
-						>
-							<Text size={10}>{changeCase(groupDetails.data.details.lot)}</Text>
-						</Badge>
-					}
 				>
 					<Title id="group-title">{groupDetails.data.details.title}</Title>
 					<Flex id="group-details" wrap={"wrap"} gap={4}>
