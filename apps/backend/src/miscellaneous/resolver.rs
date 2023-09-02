@@ -48,7 +48,7 @@ use crate::{
     entities::{
         collection, creator, genre, metadata, metadata_group, metadata_to_collection,
         metadata_to_creator, metadata_to_genre, metadata_to_metadata_group,
-        metadata_to_partial_metadata, partial_metadata,
+        metadata_to_partial_metadata, partial_metadata, partial_metadata_to_metadata_group,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
             MetadataToCreator, MetadataToGenre, MetadataToMetadataGroup, MetadataToPartialMetadata,
@@ -2442,42 +2442,32 @@ impl MiscellaneousService {
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        group: (metadata_group::Model, Vec<PartialMetadata>),
+        (group, associated_items): (metadata_group::Model, Vec<PartialMetadata>),
     ) -> Result<()> {
-        // let existing_group = MetadataGroup::find()
-        //     .filter(metadata_group::Column::Identifier.eq(&group.identifier))
-        //     .filter(metadata_group::Column::Lot.eq(lot))
-        //     .filter(metadata_group::Column::Source.eq(source))
-        //     .one(&self.db)
-        //     .await?;
-        // let provider = self.get_provider(lot, source).await?;
-        // let data = provider.group_details(&group.identifier).await;
-        // let (group_details, associated_items) = data?;
-        // let group_id = match existing_group {
-        //     Some(eg) => eg.id,
-        //     None => {
-        //         let mut db_group: metadata_group::ActiveModel = group_details.into();
-        //         db_group.id = ActiveValue::NotSet;
-        //         let new_group = db_group.insert(&self.db).await?;
-        //         new_group.id
-        //     }
-        // };
-        // for (idx, media) in associated_items.iter().enumerate() {
-        //     let med = self.media_exists_in_database(lot, source, media).await?;
-        //     let id = match med {
-        //         Some(m) => m.id,
-        //         None => {
-        //             let med = self.commit_media(lot, source, media).await?;
-        //             med.id
-        //         }
-        //     };
-        //     let new_association = metadata_to_metadata_group::ActiveModel {
-        //         metadata_id: ActiveValue::Set(id),
-        //         metadata_group_id: ActiveValue::Set(group_id),
-        //         part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-        //     };
-        //     new_association.insert(&self.db).await.ok();
-        // }
+        let existing_group = MetadataGroup::find()
+            .filter(metadata_group::Column::Identifier.eq(&group.identifier))
+            .filter(metadata_group::Column::Lot.eq(lot))
+            .filter(metadata_group::Column::Source.eq(source))
+            .one(&self.db)
+            .await?;
+        let group_id = match existing_group {
+            Some(eg) => eg.id,
+            None => {
+                let mut db_group: metadata_group::ActiveModel = group.into();
+                db_group.id = ActiveValue::NotSet;
+                let new_group = db_group.insert(&self.db).await?;
+                new_group.id
+            }
+        };
+        for (idx, media) in associated_items.into_iter().enumerate() {
+            let db_partial_metadata = self.create_partial_metadata(media).await?;
+            let intermediate = partial_metadata_to_metadata_group::ActiveModel {
+                metadata_group_id: ActiveValue::Set(group_id),
+                partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+                part: ActiveValue::Set(idx.try_into().unwrap()),
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
         Ok(())
     }
 
@@ -2486,7 +2476,21 @@ impl MiscellaneousService {
         data: PartialMetadata,
         metadata_id: i32,
     ) -> Result<()> {
-        let db_partial_metadata = if let Some(c) = PartialMetadataModel::find()
+        let db_partial_metadata = self.create_partial_metadata(data).await?;
+        let intermediate = metadata_to_partial_metadata::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            relation: ActiveValue::Set(MetadataToPartialMetadataRelation::Suggestion),
+        };
+        intermediate.insert(&self.db).await.ok();
+        Ok(())
+    }
+
+    async fn create_partial_metadata(
+        &self,
+        data: PartialMetadata,
+    ) -> Result<partial_metadata::Model> {
+        let model = if let Some(c) = PartialMetadataModel::find()
             .filter(partial_metadata::Column::Identifier.eq(&data.identifier))
             .filter(partial_metadata::Column::Lot.eq(data.lot))
             .filter(partial_metadata::Column::Source.eq(data.source))
@@ -2506,13 +2510,7 @@ impl MiscellaneousService {
             };
             c.insert(&self.db).await.unwrap()
         };
-        let intermediate = metadata_to_partial_metadata::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            relation: ActiveValue::Set(MetadataToPartialMetadataRelation::Suggestion),
-        };
-        intermediate.insert(&self.db).await.ok();
-        Ok(())
+        Ok(model)
     }
 
     async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
@@ -2608,6 +2606,7 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
+        // DEV: Ideally, we shoud remove partial_metadata to metadata_group association but does not really matter
         for group in groups {
             self.associate_group_with_metadata(lot, source, group)
                 .await
