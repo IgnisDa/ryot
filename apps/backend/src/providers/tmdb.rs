@@ -179,7 +179,7 @@ impl TmdbMovieService {
                 display_images: vec![],
                 parts: parts.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
-                title: data.name,
+                title: replace_from_end(data.name, " Collection", ""),
                 description: data.overview,
                 images: MetadataImages(
                     images
@@ -763,4 +763,14 @@ impl TmdbService {
         }
         Ok(suggestions)
     }
+}
+
+fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
+    if let Some(last_index) = input_string.rfind(search_string) {
+        let mut modified_string = input_string.clone();
+        let end = last_index + search_string.len();
+        modified_string.replace_range(last_index..end, replace_string);
+        return modified_string;
+    }
+    input_string
 }
