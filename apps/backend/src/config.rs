@@ -386,7 +386,7 @@ pub struct SchedulerConfig {
     pub database_url: String,
     /// The number of jobs to process every 5 seconds when updating metadata in
     /// the background.
-    #[setting(default = 10)]
+    #[setting(default = 5)]
     pub rate_limit_num: u64,
     /// Deploy a job every x hours that performs user cleanup and summary
     /// calculation.
