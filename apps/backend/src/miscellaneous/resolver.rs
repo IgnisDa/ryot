@@ -5026,7 +5026,12 @@ impl MiscellaneousService {
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        let contents = self.get_partial_metadata(associations).await?;
+        let contents = PartialMetadataModel::find()
+            .filter(partial_metadata::Column::Id.is_in(associations))
+            .left_join(PartialMetadataToMetadataGroup)
+            .order_by_asc(partial_metadata_to_metadata_group::Column::Part)
+            .all(&self.db)
+            .await?;
         Ok(MetadataGroupDetails {
             details: group,
             source_url,
