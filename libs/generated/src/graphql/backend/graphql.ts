@@ -209,7 +209,7 @@ export type CreatorDetails = {
 
 export type CreatorDetailsGroupedByRole = {
   /** The media items in which this role was performed. */
-  items: Array<GraphqlPartialMetadata>;
+  items: Array<PartialMetadata>;
   /** The name of the role performed. */
   name: Scalars['String']['output'];
 };
@@ -410,7 +410,7 @@ export type GraphqlMediaDetails = {
   showSpecifics?: Maybe<ShowSpecifics>;
   source: MetadataSource;
   sourceUrl?: Maybe<Scalars['String']['output']>;
-  suggestions: Array<GraphqlPartialMetadata>;
+  suggestions: Array<PartialMetadata>;
   title: Scalars['String']['output'];
   videoGameSpecifics?: Maybe<VideoGameSpecifics>;
 };
@@ -419,15 +419,6 @@ export type GraphqlMediaGroup = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   part: Scalars['Int']['output'];
-};
-
-export type GraphqlPartialMetadata = {
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lot: MetadataLot;
-  metadataId?: Maybe<Scalars['Int']['output']>;
-  source: MetadataSource;
-  title: Scalars['String']['output'];
 };
 
 export type GraphqlUserIntegration = {
@@ -652,7 +643,7 @@ export type MetadataGroup = {
 };
 
 export type MetadataGroupDetails = {
-  contents: Array<GraphqlPartialMetadata>;
+  contents: Array<PartialMetadata>;
   details: MetadataGroup;
   sourceUrl?: Maybe<Scalars['String']['output']>;
 };
@@ -960,6 +951,15 @@ export type MutationRootUpdateUserArgs = {
 
 export type MutationRootUpdateUserPreferenceArgs = {
   input: UpdateUserPreferenceInput;
+};
+
+export type PartialMetadata = {
+  identifier: Scalars['String']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  lot: MetadataLot;
+  metadataId?: Maybe<Scalars['Int']['output']>;
+  source: MetadataSource;
+  title: Scalars['String']['output'];
 };
 
 export type PodcastEpisode = {

@@ -110,16 +110,6 @@ use crate::{
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
-#[derive(FromQueryResult, SimpleObject, Debug, Serialize, Deserialize, Clone)]
-struct GraphqlPartialMetadata {
-    identifier: String,
-    lot: MetadataLot,
-    source: MetadataSource,
-    title: String,
-    image: Option<String>,
-    metadata_id: Option<i32>,
-}
-
 #[derive(Debug)]
 pub enum MediaStateChanged {
     StatusChanged,
@@ -355,7 +345,7 @@ struct CreatorDetails {
 struct MetadataGroupDetails {
     details: metadata_group::Model,
     source_url: Option<String>,
-    contents: Vec<GraphqlPartialMetadata>,
+    contents: Vec<partial_metadata::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -363,7 +353,7 @@ struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<GraphqlPartialMetadata>,
+    items: Vec<partial_metadata::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -373,7 +363,7 @@ struct MediaBaseData {
     poster_images: Vec<String>,
     backdrop_images: Vec<String>,
     genres: Vec<String>,
-    suggestions: Vec<GraphqlPartialMetadata>,
+    suggestions: Vec<partial_metadata::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -407,7 +397,7 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
-    suggestions: Vec<GraphqlPartialMetadata>,
+    suggestions: Vec<partial_metadata::Model>,
     group: Option<GraphqlMediaGroup>,
 }
 
@@ -1384,30 +1374,9 @@ impl MiscellaneousService {
     async fn get_partial_metadata(
         &self,
         partial_metadata_ids: Vec<i32>,
-    ) -> Result<Vec<GraphqlPartialMetadata>> {
+    ) -> Result<Vec<partial_metadata::Model>> {
         let partial_metadatas = PartialMetadataModel::find()
-            .column_as(metadata::Column::Id, "metadata_id")
-            .left_join(MetadataToPartialMetadata)
-            .join(
-                JoinType::LeftJoin,
-                PartialMetadataModel::belongs_to(Metadata)
-                    .from(partial_metadata::Column::Identifier)
-                    .to(metadata::Column::Identifier)
-                    .on_condition(|left, right| {
-                        Condition::all()
-                            .add(
-                                Expr::col((right.clone(), metadata::Column::Lot))
-                                    .equals((left.clone(), partial_metadata::Column::Lot)),
-                            )
-                            .add(
-                                Expr::col((right, metadata::Column::Source))
-                                    .equals((left, partial_metadata::Column::Source)),
-                            )
-                    })
-                    .into(),
-            )
             .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
-            .into_model::<GraphqlPartialMetadata>()
             .all(&self.db)
             .await?;
         Ok(partial_metadatas)
@@ -4984,13 +4953,14 @@ impl MiscellaneousService {
             } else {
                 None
             };
-            let metadata = GraphqlPartialMetadata {
-                identifier: m.id.to_string(),
+            let metadata = partial_metadata::Model {
+                identifier: m.identifier,
                 title: m.title,
                 image,
                 lot: m.lot,
                 source: m.source,
                 metadata_id: Some(m.id),
+                id: m.id,
             };
             contents
                 .entry(assoc.role)
