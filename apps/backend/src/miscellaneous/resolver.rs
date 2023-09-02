@@ -3130,29 +3130,31 @@ impl MiscellaneousService {
                 }
             }
         }
-        let metas = collection.find_related(Metadata).paginate(
-            &self.db,
-            input
-                .take
-                .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
-        );
+
+        let metas = Metadata::find()
+            .join(
+                JoinType::Join,
+                user_to_metadata::Relation::Metadata.def().rev(),
+            )
+            .join(
+                JoinType::Join,
+                metadata_to_collection::Relation::Metadata.def().rev(),
+            )
+            .filter(metadata_to_collection::Column::CollectionId.eq(collection.id))
+            .order_by_desc(user_to_metadata::Column::LastUpdatedOn)
+            .paginate(
+                &self.db,
+                input
+                    .take
+                    .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
+            );
 
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
         } = metas.num_items_and_pages().await?;
         let mut meta_data = vec![];
-        for meta in metas.fetch_page(page - 1).await? {
-            let m = Metadata::find_by_id(meta.id)
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let u_t_m = UserToMetadata::find()
-                .filter(user_to_metadata::Column::UserId.eq(collection.user_id))
-                .filter(user_to_metadata::Column::MetadataId.eq(meta.id))
-                .one(&self.db)
-                .await?;
+        for m in metas.fetch_page(page - 1).await? {
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.id.to_string(),
@@ -3160,17 +3162,14 @@ impl MiscellaneousService {
                     title: m.title,
                     publish_year: m.publish_year,
                 },
-                u_t_m.map(|d| d.last_updated_on).unwrap_or_default(),
                 m.lot,
             ));
         }
-        meta_data.sort_by_key(|item| item.1);
         let items = meta_data
             .into_iter()
-            .rev()
             .map(|a| MediaSearchItemWithLot {
                 details: a.0,
-                lot: a.2,
+                lot: a.1,
             })
             .collect();
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
