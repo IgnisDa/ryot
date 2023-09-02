@@ -178,7 +178,7 @@ export interface SchedulerConfig {
 	/**
 	 * The number of jobs to process every 5 seconds when updating metadata in
 	 * the background.
-	 * @default 20
+	 * @default 10
 	 */
 	rate_limit_num: number;
 	/**
