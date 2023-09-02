@@ -127,22 +127,22 @@ const Page: NextPageWithLayout = () => {
 											>
 												{role.items.map((item) => (
 													<Link
-														key={item.details.identifier}
+														key={item.metadataId}
 														passHref
 														legacyBehavior
 														href={withQuery(
 															APP_ROUTES.media.individualMediaItem.details,
-															{ id: item.details.identifier },
+															{ id: item.metadataId },
 														)}
 													>
-														<Anchor data-media-id={item.details.identifier}>
+														<Anchor data-media-id={item.metadataId}>
 															<Avatar
 																imageProps={{ loading: "lazy" }}
-																src={item.details.image}
+																src={item.image}
 																h={100}
 																w={85}
 																mx="auto"
-																alt={`${item.details.title} picture`}
+																alt={`${item.title} picture`}
 																styles={{
 																	image: { objectPosition: "top" },
 																}}
@@ -154,7 +154,7 @@ const Page: NextPageWithLayout = () => {
 																lineClamp={1}
 																mt={4}
 															>
-																{item.details.title}
+																{item.title}
 															</Text>
 														</Anchor>
 													</Link>
