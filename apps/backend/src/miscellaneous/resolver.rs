@@ -363,7 +363,7 @@ struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<MediaSearchItemWithLot>,
+    items: Vec<GraphqlPartialMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -4984,14 +4984,13 @@ impl MiscellaneousService {
             } else {
                 None
             };
-            let metadata = MediaSearchItemWithLot {
-                details: MediaSearchItem {
-                    identifier: m.id.to_string(),
-                    title: m.title,
-                    publish_year: m.publish_year,
-                    image,
-                },
+            let metadata = GraphqlPartialMetadata {
+                identifier: m.id.to_string(),
+                title: m.title,
+                image,
                 lot: m.lot,
+                source: m.source,
+                metadata_id: Some(m.id),
             };
             contents
                 .entry(assoc.role)
