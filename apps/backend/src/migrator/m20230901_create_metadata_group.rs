@@ -18,6 +18,7 @@ pub enum MetadataGroup {
     Source,
 }
 
+// FIXME: Remove this model
 #[derive(Iden)]
 pub enum MetadataToMetadataGroup {
     Table,
