@@ -15,7 +15,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, PartialMetadata, PartialMetadataGroup,
+            MetadataImage, MetadataImages, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -68,7 +68,7 @@ struct SearchQuery {
     primary: PrimaryQuery,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudiblePoster {
     #[serde(rename = "2400")]
     image_2400: Option<String>,
@@ -76,18 +76,18 @@ struct AudiblePoster {
     image_500: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleCategoryLadderCollection {
     ladder: Vec<NamedObject>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleRelationshipItem {
     asin: String,
     sort: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleItem {
     asin: String,
     title: String,
@@ -103,12 +103,12 @@ struct AudibleItem {
     relationships: Option<Vec<AudibleRelationshipItem>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct AudibleItemResponse {
     product: AudibleItem,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct AudibleItemSimResponse {
     similar_products: Vec<AudibleItem>,
 }
@@ -156,44 +156,6 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
-    async fn group_details(
-        &self,
-        identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<String>)> {
-        let data: AudibleItemResponse = self
-            .client
-            .get(identifier)
-            .query(&PrimaryQuery::default())
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let items = data
-            .product
-            .relationships
-            .unwrap()
-            .into_iter()
-            .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
-            .map(|i| i.asin)
-            .collect_vec();
-        Ok((
-            metadata_group::Model {
-                id: 0,
-                display_images: vec![],
-                parts: items.len().try_into().unwrap(),
-                identifier: identifier.to_owned(),
-                title: data.product.title,
-                description: None,
-                images: MetadataImages(vec![]),
-                lot: MetadataLot::AudioBook,
-                source: MetadataSource::Audible,
-            },
-            items,
-        ))
-    }
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -203,6 +165,10 @@ impl MediaProvider for AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut groups = vec![];
+        for s in data.product.clone().series.unwrap_or_default() {
+            groups.push(self.group_details(&s.asin).await?);
+        }
         let mut item = self.audible_response_to_search_response(data.product);
         let mut suggestions = vec![];
         for sim_type in AudibleSimilarityType::iter() {
@@ -230,6 +196,7 @@ impl MediaProvider for AudibleService {
             }
         }
         item.suggestions = suggestions.into_iter().unique().collect();
+        item.groups = groups;
         Ok(item)
     }
 
@@ -296,6 +263,62 @@ impl MediaProvider for AudibleService {
 }
 
 impl AudibleService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+        let data: AudibleItemResponse = self
+            .client
+            .get(identifier)
+            .query(&PrimaryQuery::default())
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let items = data
+            .product
+            .relationships
+            .unwrap()
+            .into_iter()
+            .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
+            .map(|i| i.asin)
+            .collect_vec();
+        let mut collection_contents = vec![];
+        for i in items {
+            let mut rsp = self
+                .client
+                .get(&i)
+                .query(&PrimaryQuery::default())
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            collection_contents.push(PartialMetadata {
+                title: data.product.title,
+                image: data.product.product_images.and_then(|i| i.image_2400),
+                identifier: i,
+                source: MetadataSource::Audible,
+                lot: MetadataLot::AudioBook,
+            })
+        }
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                display_images: vec![],
+                parts: collection_contents.len().try_into().unwrap(),
+                identifier: identifier.to_owned(),
+                title: data.product.title,
+                description: None,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::AudioBook,
+                source: MetadataSource::Audible,
+            },
+            collection_contents,
+        ))
+    }
+
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
         let images =
             Vec::from_iter(
@@ -356,16 +379,7 @@ impl AudibleService {
             }),
             images,
             suggestions: vec![],
-            groups: item
-                .series
-                .unwrap_or_default()
-                .into_iter()
-                .map(|g| PartialMetadataGroup {
-                    identifier: g.asin,
-                    source: MetadataSource::Audible,
-                    lot: MetadataLot::AudioBook,
-                })
-                .collect(),
+            groups: vec![],
         }
     }
 }
