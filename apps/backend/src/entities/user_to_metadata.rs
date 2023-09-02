@@ -23,7 +23,7 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::metadata::Entity",
-        from = "Column::UserId",
+        from = "Column::MetadataId",
         to = "super::metadata::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
