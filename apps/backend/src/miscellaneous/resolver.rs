@@ -2279,6 +2279,8 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
 
+        // compare diff using serde diff
+
         if meta.production_status != production_status {
             notifications.push((
                 format!(

@@ -145,6 +145,7 @@ impl MigrationTrait for Migration {
                                 MetadataToPartialMetadata::PartialMetadataId,
                             )
                             .to(PartialMetadata::Table, PartialMetadata::Id)
+                            // FIXME: Use `SetNull` and also remove `after_save` sea-orm hook for `metadata`
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
