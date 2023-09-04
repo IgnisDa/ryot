@@ -566,7 +566,7 @@ fn create_cookie(
     api_key: &str,
     expires: bool,
     insecure_cookie: bool,
-    samesite_none: bool,
+    same_site_none: bool,
 ) -> Result<()> {
     let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
     cookie = if expires {
@@ -574,7 +574,7 @@ fn create_cookie(
     } else {
         cookie.expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(400)))
     };
-    cookie = if samesite_none {
+    cookie = if same_site_none {
         cookie.same_site(SameSite::None)
     } else {
         cookie.same_site(SameSite::Strict)
@@ -1903,22 +1903,22 @@ impl MiscellaneousService {
             .offset(((input.page - 1) * self.config.frontend.page_size) as u64)
             .to_owned();
         let stmt = self.get_db_stmt(main_select);
-        let metas = InnerMediaSearchItem::find_by_statement(stmt)
+        let metadata_items = InnerMediaSearchItem::find_by_statement(stmt)
             .all(&self.db)
             .await?;
         let mut items = vec![];
-        let prefs = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
 
-        for met in metas {
+        for met in metadata_items {
             let avg_select = Query::select()
                 .expr(Func::round_with_precision(
                     Func::avg(Expr::col((TempReview::Table, TempReview::Rating)).div(
-                        match prefs.general.review_scale {
+                        match preferences.general.review_scale {
                             UserReviewScale::OutOfFive => 20,
                             UserReviewScale::OutOfHundred => 1,
                         },
                     )),
-                    match prefs.general.review_scale {
+                    match preferences.general.review_scale {
                         UserReviewScale::OutOfFive => 1,
                         UserReviewScale::OutOfHundred => 0,
                     },
@@ -2551,6 +2551,7 @@ impl MiscellaneousService {
         Ok(IdObject { id: metadata.id })
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn change_metadata_associations(
         &self,
         metadata_id: i32,
@@ -2589,7 +2590,7 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
-        // DEV: Ideally, we shoud remove partial_metadata to metadata_group association but does not really matter
+        // DEV: Ideally, we should remove partial_metadata to metadata_group association but does not really matter
         for group in groups {
             self.associate_group_with_metadata(lot, source, group)
                 .await
@@ -2701,24 +2702,24 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
-        let mut prefs = user_by_id(&self.db, user_id).await?.preferences;
-        prefs.features_enabled.media.anime =
-            self.config.anime.is_enabled() && prefs.features_enabled.media.anime;
-        prefs.features_enabled.media.audio_book =
-            self.config.audio_books.is_enabled() && prefs.features_enabled.media.audio_book;
-        prefs.features_enabled.media.book =
-            self.config.books.is_enabled() && prefs.features_enabled.media.book;
-        prefs.features_enabled.media.show =
-            self.config.shows.is_enabled() && prefs.features_enabled.media.show;
-        prefs.features_enabled.media.manga =
-            self.config.manga.is_enabled() && prefs.features_enabled.media.manga;
-        prefs.features_enabled.media.movie =
-            self.config.movies.is_enabled() && prefs.features_enabled.media.movie;
-        prefs.features_enabled.media.podcast =
-            self.config.podcasts.is_enabled() && prefs.features_enabled.media.podcast;
-        prefs.features_enabled.media.video_game =
-            self.config.video_games.is_enabled() && prefs.features_enabled.media.video_game;
-        Ok(prefs)
+        let mut preferences = user_by_id(&self.db, user_id).await?.preferences;
+        preferences.features_enabled.media.anime =
+            self.config.anime.is_enabled() && preferences.features_enabled.media.anime;
+        preferences.features_enabled.media.audio_book =
+            self.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
+        preferences.features_enabled.media.book =
+            self.config.books.is_enabled() && preferences.features_enabled.media.book;
+        preferences.features_enabled.media.show =
+            self.config.shows.is_enabled() && preferences.features_enabled.media.show;
+        preferences.features_enabled.media.manga =
+            self.config.manga.is_enabled() && preferences.features_enabled.media.manga;
+        preferences.features_enabled.media.movie =
+            self.config.movies.is_enabled() && preferences.features_enabled.media.movie;
+        preferences.features_enabled.media.podcast =
+            self.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
+        preferences.features_enabled.media.video_game =
+            self.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
+        Ok(preferences)
     }
 
     async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
@@ -2975,7 +2976,7 @@ impl MiscellaneousService {
     }
 
     async fn review_by_id(&self, review_id: i32, user_id: i32) -> Result<ReviewItem> {
-        let prefs = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
             Some(r) => {
@@ -2993,7 +2994,7 @@ impl MiscellaneousService {
                     id: r.id,
                     posted_on: r.posted_on,
                     rating: r.rating.map(|s| {
-                        s.checked_div(match prefs.general.review_scale {
+                        s.checked_div(match preferences.general.review_scale {
                             UserReviewScale::OutOfFive => dec!(20),
                             UserReviewScale::OutOfHundred => dec!(1),
                         })
@@ -3135,7 +3136,7 @@ impl MiscellaneousService {
             }
         }
 
-        let metas = Metadata::find()
+        let all_metadata_items = Metadata::find()
             .join(
                 JoinType::Join,
                 user_to_metadata::Relation::Metadata.def().rev(),
@@ -3156,9 +3157,9 @@ impl MiscellaneousService {
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
-        } = metas.num_items_and_pages().await?;
+        } = all_metadata_items.num_items_and_pages().await?;
         let mut meta_data = vec![];
-        for m in metas.fetch_page(page - 1).await? {
+        for m in all_metadata_items.fetch_page(page - 1).await? {
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.id.to_string(),
@@ -3202,7 +3203,7 @@ impl MiscellaneousService {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
         };
-        let extra_infomation = if let (Some(season), Some(episode)) =
+        let extra_information = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
             Some(SeenOrReviewExtraInformation::Show(
@@ -3214,21 +3215,23 @@ impl MiscellaneousService {
             })
         };
         if input.rating.is_none() && input.text.is_none() {
-            return Err(Error::new("Atleast one of rating or review is required."));
+            return Err(Error::new("At-least one of rating or review is required."));
         }
 
-        let prefs = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let mut review_obj = review::ActiveModel {
             id: review_id,
-            rating: ActiveValue::Set(input.rating.map(|r| match prefs.general.review_scale {
-                UserReviewScale::OutOfFive => r * dec!(20),
-                UserReviewScale::OutOfHundred => r,
-            })),
+            rating: ActiveValue::Set(input.rating.map(
+                |r| match preferences.general.review_scale {
+                    UserReviewScale::OutOfFive => r * dec!(20),
+                    UserReviewScale::OutOfHundred => r,
+                },
+            )),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
             creator_id: ActiveValue::Set(input.creator_id),
-            extra_information: ActiveValue::Set(extra_infomation),
+            extra_information: ActiveValue::Set(extra_information),
             comments: ActiveValue::Set(ReviewComments(vec![])),
             ..Default::default()
         };
@@ -3398,7 +3401,7 @@ impl MiscellaneousService {
         let maybe_details = self
             .details_from_provider_for_existing_media(metadata_id)
             .await;
-        let notifs = match maybe_details {
+        let notifications = match maybe_details {
             Ok(details) => {
                 self.update_media(
                     metadata_id,
@@ -3421,7 +3424,7 @@ impl MiscellaneousService {
             }
         };
         tracing::trace!("Updated metadata for {:?}", metadata_id);
-        Ok(notifs)
+        Ok(notifications)
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
