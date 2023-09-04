@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.14.1"
+version = "2.14.2"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -25,7 +25,9 @@ async-recursion = "1.0.4"
 async-trait = "0.1.73"
 aws-sdk-s3 = "0.30.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
-axum-extra = { version = "0.7.7", default-features = false, features = ["cookie"] }
+axum-extra = { version = "0.7.7", default-features = false, features = [
+    "cookie",
+] }
 chrono = "0.4.26"
 convert_case = "0.6.0"
 const-str = "0.5.6"
