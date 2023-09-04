@@ -1911,14 +1911,18 @@ impl MiscellaneousService {
 
         for met in metas {
             let avg_select = Query::select()
-                .expr(Func::round(Func::avg(
-                    Expr::col((TempReview::Table, TempReview::Rating)).div(
+                .expr(Func::round_with_precision(
+                    Func::avg(Expr::col((TempReview::Table, TempReview::Rating)).div(
                         match prefs.general.review_scale {
                             UserReviewScale::OutOfFive => 20,
                             UserReviewScale::OutOfHundred => 1,
                         },
-                    ),
-                )))
+                    )),
+                    match prefs.general.review_scale {
+                        UserReviewScale::OutOfFive => 1,
+                        UserReviewScale::OutOfHundred => 0,
+                    },
+                ))
                 .from(TempReview::Table)
                 .cond_where(
                     Cond::all()
