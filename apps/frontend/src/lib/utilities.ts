@@ -5,6 +5,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
+	IconBook2,
 	IconBooks,
 	IconBrandAppleArcade,
 	IconDeviceDesktop,
@@ -77,6 +78,10 @@ export const getLotGradient = (lot: MetadataLot) =>
 		.with(MetadataLot.Podcast, () => ({
 			from: "yellow",
 			to: "purple",
+		}))
+		.with(MetadataLot.VisualNovel, () => ({
+			from: "green",
+			to: "yellow",
 		}))
 		.exhaustive();
 
@@ -170,5 +175,6 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Podcast, () => IconMicrophone)
 		.with(MetadataLot.Manga, () => IconDeviceTvOld)
 		.with(MetadataLot.Anime, () => IconBooks)
+		.with(MetadataLot.VisualNovel, () => IconBook2)
 		.exhaustive();
 };
