@@ -151,6 +151,7 @@ export type CreateCustomMediaInput = {
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
   videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
+  visualNovelSpecifics?: InputMaybe<VisualNovelSpecificsInput>;
 };
 
 export type CreateCustomMediaResult = CreateCustomMediaError | IdObject;
@@ -413,6 +414,7 @@ export type GraphqlMediaDetails = {
   suggestions: Array<PartialMetadata>;
   title: Scalars['String']['output'];
   videoGameSpecifics?: Maybe<VideoGameSpecifics>;
+  visualNovelSpecifics?: Maybe<VisualNovelSpecifics>;
 };
 
 export type GraphqlMediaGroup = {
@@ -670,7 +672,8 @@ export enum MetadataLot {
   Movie = 'MOVIE',
   Podcast = 'PODCAST',
   Show = 'SHOW',
-  VideoGame = 'VIDEO_GAME'
+  VideoGame = 'VIDEO_GAME',
+  VisualNovel = 'VISUAL_NOVEL'
 }
 
 export enum MetadataSource {
@@ -684,7 +687,8 @@ export enum MetadataSource {
   Mal = 'MAL',
   MangaUpdates = 'MANGA_UPDATES',
   Openlibrary = 'OPENLIBRARY',
-  Tmdb = 'TMDB'
+  Tmdb = 'TMDB',
+  Vndb = 'VNDB'
 }
 
 export type MovieSpecifics = {
@@ -1625,6 +1629,7 @@ export type UserMediaSummary = {
   reviewsPosted: Scalars['Int']['output'];
   shows: ShowsSummary;
   videoGames: VideoGamesSummary;
+  visualNovels: VisualNovelsSummary;
 };
 
 export enum UserNotificationSettingKind {
@@ -1730,6 +1735,18 @@ export enum Visibility {
   Private = 'PRIVATE',
   Public = 'PUBLIC'
 }
+
+export type VisualNovelSpecifics = {
+  length?: Maybe<Scalars['Int']['output']>;
+};
+
+export type VisualNovelSpecificsInput = {
+  length?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type VisualNovelsSummary = {
+  runtime: Scalars['Int']['output'];
+};
 
 export enum WorkoutSetPersonalBest {
   OneRm = 'ONE_RM',

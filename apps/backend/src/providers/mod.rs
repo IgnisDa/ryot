@@ -8,3 +8,4 @@ pub mod mal;
 pub mod manga_updates;
 pub mod openlibrary;
 pub mod tmdb;
+pub mod vndb;

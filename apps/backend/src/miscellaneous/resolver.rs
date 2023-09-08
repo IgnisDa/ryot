@@ -94,6 +94,7 @@ use crate::{
         manga_updates::MangaUpdatesService,
         openlibrary::OpenlibraryService,
         tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
+        vndb::VndbService,
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
     users::{
@@ -2876,7 +2877,9 @@ impl MiscellaneousService {
     async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MetadataSource::Vndb => todo!(),
+            MetadataSource::Vndb => Box::new(
+                VndbService::new(&self.config.visual_novel, self.config.frontend.page_size).await,
+            ),
             MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
             MetadataSource::Itunes => Box::new(
                 ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
@@ -4432,7 +4435,10 @@ impl MiscellaneousService {
                         CustomService::supported_languages(),
                         CustomService::default_language(),
                     ),
-                    MetadataSource::Vndb => todo!(),
+                    MetadataSource::Vndb => (
+                        VndbService::supported_languages(),
+                        VndbService::default_language(),
+                    ),
                 };
                 ProviderLanguageInformation {
                     supported,
