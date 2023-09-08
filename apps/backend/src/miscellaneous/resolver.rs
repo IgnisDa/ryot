@@ -79,6 +79,7 @@ use crate::{
             ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -135,6 +136,7 @@ struct CreateCustomMediaInput {
     video_game_specifics: Option<VideoGameSpecifics>,
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
+    visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -392,6 +394,7 @@ struct GraphqlMediaDetails {
     movie_specifics: Option<MovieSpecifics>,
     show_specifics: Option<ShowSpecifics>,
     video_game_specifics: Option<VideoGameSpecifics>,
+    visual_novel_specifics: Option<VisualNovelSpecifics>,
     audio_book_specifics: Option<AudioBookSpecifics>,
     podcast_specifics: Option<PodcastSpecifics>,
     manga_specifics: Option<MangaSpecifics>,
@@ -1431,6 +1434,7 @@ impl MiscellaneousService {
                 };
                 Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
             }
+            MetadataSource::Vndb => Some(format!("https://vndb.org/{identifier}")),
         };
 
         let group = {
@@ -1484,6 +1488,7 @@ impl MiscellaneousService {
             movie_specifics: None,
             show_specifics: None,
             video_game_specifics: None,
+            visual_novel_specifics: None,
             audio_book_specifics: None,
             podcast_specifics: None,
             manga_specifics: None,
@@ -1509,6 +1514,9 @@ impl MiscellaneousService {
             }
             MediaSpecifics::VideoGame(a) => {
                 resp.video_game_specifics = Some(a);
+            }
+            MediaSpecifics::VisualNovel(a) => {
+                resp.visual_novel_specifics = Some(a);
             }
             MediaSpecifics::Anime(a) => {
                 resp.anime_specifics = Some(a);
@@ -2868,6 +2876,7 @@ impl MiscellaneousService {
     async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
+            MetadataSource::Vndb => todo!(),
             MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
             MetadataSource::Itunes => Box::new(
                 ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
@@ -3495,6 +3504,7 @@ impl MiscellaneousService {
             .stream(&self.db)
             .await?;
 
+        let mut unique_video_games = HashSet::new();
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
         let mut unique_podcasts = HashSet::new();
@@ -3581,7 +3591,12 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::VideoGame(_item) => {
-                    ls.media.video_games.played += 1;
+                    unique_video_games.insert(seen.metadata_id);
+                }
+                MediaSpecifics::VisualNovel(item) => {
+                    if let Some(r) = item.length {
+                        ls.media.visual_novels.runtime += r;
+                    }
                 }
                 MediaSpecifics::Unknown => {}
             }
@@ -3593,6 +3608,8 @@ impl MiscellaneousService {
         ls.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
         ls.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
         ls.media.creators_interacted_with += unique_creators.len();
+
+        ls.media.video_games.played = i32::try_from(unique_video_games.len()).unwrap();
 
         let user_model = user::ActiveModel {
             id: ActiveValue::Unchanged(user_id),
@@ -3785,6 +3802,10 @@ impl MiscellaneousService {
             MetadataLot::VideoGame => match input.video_game_specifics {
                 None => return err(),
                 Some(ref mut s) => MediaSpecifics::VideoGame(s.clone()),
+            },
+            MetadataLot::VisualNovel => match input.visual_novel_specifics {
+                None => return err(),
+                Some(ref mut s) => MediaSpecifics::VisualNovel(s.clone()),
             },
             MetadataLot::Anime => match input.anime_specifics {
                 None => return err(),
@@ -4359,6 +4380,7 @@ impl MiscellaneousService {
                 MetadataSource::Mal,
             ],
             MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
+            MetadataLot::VisualNovel => vec![MetadataSource::Vndb],
         }
     }
 
@@ -4410,6 +4432,7 @@ impl MiscellaneousService {
                         CustomService::supported_languages(),
                         CustomService::default_language(),
                     ),
+                    MetadataSource::Vndb => todo!(),
                 };
                 ProviderLanguageInformation {
                     supported,
@@ -5006,6 +5029,7 @@ impl MiscellaneousService {
             | MetadataSource::MangaUpdates
             | MetadataSource::Mal
             | MetadataSource::Openlibrary
+            | MetadataSource::Vndb
             | MetadataSource::GoogleBooks => None,
             MetadataSource::Audible => Some(format!(
                 "https://www.audible.com/series/{slug}/{identifier}"
