@@ -3507,6 +3507,7 @@ impl MiscellaneousService {
             .stream(&self.db)
             .await?;
 
+        let mut unique_visual_novels = HashSet::new();
         let mut unique_video_games = HashSet::new();
         let mut unique_shows = HashSet::new();
         let mut unique_show_seasons = HashSet::new();
@@ -3597,6 +3598,7 @@ impl MiscellaneousService {
                     unique_video_games.insert(seen.metadata_id);
                 }
                 MediaSpecifics::VisualNovel(item) => {
+                    unique_visual_novels.insert(seen.metadata_id);
                     if let Some(r) = item.length {
                         ls.media.visual_novels.runtime += r;
                     }
@@ -3613,6 +3615,8 @@ impl MiscellaneousService {
         ls.media.creators_interacted_with += unique_creators.len();
 
         ls.media.video_games.played = i32::try_from(unique_video_games.len()).unwrap();
+
+        ls.media.visual_novels.played = i32::try_from(unique_visual_novels.len()).unwrap();
 
         let user_model = user::ActiveModel {
             id: ActiveValue::Unchanged(user_id),

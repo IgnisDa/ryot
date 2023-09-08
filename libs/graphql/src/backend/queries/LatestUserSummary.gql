@@ -30,6 +30,7 @@ query LatestUserSummary {
         playedEpisodes
       }
       visualNovels {
+        played
         runtime
       }
       videoGames {

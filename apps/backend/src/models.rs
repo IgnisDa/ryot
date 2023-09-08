@@ -412,6 +412,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct VisualNovelsSummary {
+        pub played: i32,
         pub runtime: i32,
     }
 
