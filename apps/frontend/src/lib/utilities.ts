@@ -36,6 +36,7 @@ export const getLot = (lot: unknown) => {
 		.with("books", "book", () => MetadataLot.Book)
 		.with("movies", "movie", () => MetadataLot.Movie)
 		.with("tv", "show", "shows", () => MetadataLot.Show)
+		.with("visualnovel", "visual novel", () => MetadataLot.VisualNovel)
 		.with(
 			"games",
 			"videogames",

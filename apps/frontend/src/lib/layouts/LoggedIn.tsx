@@ -335,12 +335,16 @@ export default function ({ children }: { children: ReactElement }) {
 	const mediaLinks = [
 		...(Object.entries(userPreferences?.data?.featuresEnabled.media || {})
 			.filter(([v, _]) => v !== "enabled")
-			.map(([name, enabled]) => ({ name: getLot(name)!, enabled }))
+			.map(([name, enabled]) => {
+				return { name: getLot(name)!, enabled };
+			})
 			?.filter((f) => f.enabled)
-			.map((f) => ({
-				label: changeCase(f.name.toString()),
-				href: undefined,
-			})) || []),
+			.map((f) => {
+				return {
+					label: changeCase(f.name.toString()),
+					href: undefined,
+				};
+			}) || []),
 		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Groups", href: APP_ROUTES.media.groups.list },
 		{ label: "Collections", href: APP_ROUTES.media.collections.list },
