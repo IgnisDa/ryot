@@ -2368,6 +2368,22 @@ impl MiscellaneousService {
                         ),
                         MediaStateChanged::EpisodeReleased,
                     ));
+                } else {
+                    for (before_episode, after_episode) in
+                        zip(p1.episodes.iter(), p2.episodes.iter())
+                    {
+                        if before_episode.title != after_episode.title {
+                            notifications.push((
+                                format!(
+                                    "Episode name changed from {:#?} to {:#?} (EP{})",
+                                    before_episode.title,
+                                    after_episode.title,
+                                    before_episode.number
+                                ),
+                                MediaStateChanged::EpisodeNameChanged,
+                            ));
+                        }
+                    }
                 }
             }
             _ => {}
