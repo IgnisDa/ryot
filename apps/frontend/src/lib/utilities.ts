@@ -116,6 +116,7 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 					MetadataLot.Movie,
 					MetadataLot.Show,
 					MetadataLot.Anime,
+					MetadataLot.VisualNovel,
 					() => "watch",
 				)
 				.with(
