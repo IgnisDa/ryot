@@ -29,6 +29,9 @@ query LatestUserSummary {
         played
         playedEpisodes
       }
+      visualNovels {
+        runtime
+      }
       videoGames {
         played
       }

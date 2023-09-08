@@ -4058,6 +4058,10 @@ impl MiscellaneousService {
                             "video_game" => {
                                 preferences.features_enabled.media.video_game = value_bool.unwrap()
                             }
+                            "visual_novel" => {
+                                preferences.features_enabled.media.visual_novel =
+                                    value_bool.unwrap()
+                            }
                             "manga" => {
                                 preferences.features_enabled.media.manga = value_bool.unwrap()
                             }

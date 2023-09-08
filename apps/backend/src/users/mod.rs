@@ -41,6 +41,7 @@ pub struct UserMediaFeaturesEnabledPreferences {
     pub podcast: bool,
     pub show: bool,
     pub video_game: bool,
+    pub visual_novel: bool,
 }
 
 impl Default for UserMediaFeaturesEnabledPreferences {
@@ -55,6 +56,7 @@ impl Default for UserMediaFeaturesEnabledPreferences {
             podcast: true,
             show: true,
             video_game: true,
+            visual_novel: true,
         }
     }
 }
