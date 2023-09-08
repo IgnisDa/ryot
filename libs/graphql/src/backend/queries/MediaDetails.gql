@@ -77,6 +77,9 @@ query MediaDetails($metadataId: Int!) {
         }
       }
     }
+    visualNovelSpecifics {
+      length
+    }
     videoGameSpecifics {
       platforms
     }
