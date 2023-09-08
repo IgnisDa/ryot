@@ -1,10 +1,10 @@
-$schema: 'https://moonrepo.dev/schemas/toolchain.json'
+$schema: "https://moonrepo.dev/schemas/toolchain.json"
 
 node:
-  version: '20.5.1'
-  packageManager: 'yarn'
+  version: "20.5.1"
+  packageManager: "yarn"
   yarn:
-    version: '3.6.1'
+    version: "3.6.1"
   addEnginesConstraint: true
   dedupeOnLockfileChange: false
   inferTasksFromScripts: false
