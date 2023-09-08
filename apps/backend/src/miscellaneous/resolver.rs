@@ -115,9 +115,10 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 #[derive(Debug)]
 pub enum MediaStateChanged {
     StatusChanged,
-    EpisodeReleased,
     ReleaseDateChanged,
     NumberOfSeasonsChanged,
+    EpisodeReleased,
+    EpisodeNameChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2336,6 +2337,25 @@ impl MiscellaneousService {
                                 ),
                                 MediaStateChanged::EpisodeReleased,
                             ));
+                        } else {
+                            for (before_episode, after_episode) in
+                                zip(s1.episodes.iter(), s2.episodes.iter())
+                            {
+                                dbg!(&before_episode);
+                                dbg!(&after_episode);
+                                if before_episode.name != after_episode.name {
+                                    notifications.push((
+                                        format!(
+                                            "Episode name changed from {:#?} to {:#?} (Season {} Episode {})",
+                                            before_episode.name,
+                                            after_episode.name,
+                                            s1.season_number,
+                                            before_episode.episode_number
+                                        ),
+                                        MediaStateChanged::EpisodeNameChanged
+                                    ));
+                                }
+                            }
                         }
                     }
                 }
@@ -4084,6 +4104,9 @@ impl MiscellaneousService {
                 "episode_released" => {
                     preferences.notifications.episode_released = value_bool.unwrap()
                 }
+                "episode_name_changed" => {
+                    preferences.notifications.episode_name_changed = value_bool.unwrap()
+                }
                 "status_changed" => preferences.notifications.status_changed = value_bool.unwrap(),
                 "release_date_changed" => {
                     preferences.notifications.release_date_changed = value_bool.unwrap()
@@ -4829,6 +4852,13 @@ impl MiscellaneousService {
         }
         if matches!(change, MediaStateChanged::EpisodeReleased)
             && preferences.notifications.episode_released
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::EpisodeNameChanged)
+            && preferences.notifications.episode_name_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await

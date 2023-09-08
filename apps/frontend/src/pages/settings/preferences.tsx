@@ -102,6 +102,10 @@ const Page: NextPageWithLayout = () => {
 									key={idx}
 									size="xs"
 									label={match(name)
+										.with(
+											"episodeNameChanged",
+											() => "Name of an episode changes",
+										)
 										.with("episodeReleased", () => "Number of episodes changes")
 										.with("statusChanged", () => "Status changes")
 										.with("releaseDateChanged", () => "Release date changes")
