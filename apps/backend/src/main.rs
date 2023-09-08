@@ -28,7 +28,7 @@ use axum::{
 use itertools::Itertools;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use sqlx::SqlitePool;
+use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::try_join;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
@@ -147,7 +147,11 @@ async fn main() -> Result<()> {
         }
     }
 
-    let pool = SqlitePool::connect(&config.scheduler.database_url).await?;
+    let pool = PoolOptions::new()
+        .max_lifetime(None)
+        .idle_timeout(None)
+        .connect(&config.scheduler.database_url)
+        .await?;
 
     let perform_application_job_storage = create_storage(pool.clone()).await;
 

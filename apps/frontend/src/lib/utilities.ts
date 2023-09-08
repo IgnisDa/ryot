@@ -5,6 +5,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
+	IconBook2,
 	IconBooks,
 	IconBrandAppleArcade,
 	IconDeviceDesktop,
@@ -35,6 +36,12 @@ export const getLot = (lot: unknown) => {
 		.with("books", "book", () => MetadataLot.Book)
 		.with("movies", "movie", () => MetadataLot.Movie)
 		.with("tv", "show", "shows", () => MetadataLot.Show)
+		.with(
+			"visual_novel",
+			"visualnovel",
+			"visual novel",
+			() => MetadataLot.VisualNovel,
+		)
 		.with(
 			"games",
 			"videogames",
@@ -78,6 +85,10 @@ export const getLotGradient = (lot: MetadataLot) =>
 			from: "yellow",
 			to: "purple",
 		}))
+		.with(MetadataLot.VisualNovel, () => ({
+			from: "green",
+			to: "yellow",
+		}))
 		.exhaustive();
 
 /**
@@ -110,6 +121,7 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 					MetadataLot.Movie,
 					MetadataLot.Show,
 					MetadataLot.Anime,
+					MetadataLot.VisualNovel,
 					() => "watch",
 				)
 				.with(
@@ -170,5 +182,6 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Podcast, () => IconMicrophone)
 		.with(MetadataLot.Manga, () => IconDeviceTvOld)
 		.with(MetadataLot.Anime, () => IconBooks)
+		.with(MetadataLot.VisualNovel, () => IconBook2)
 		.exhaustive();
 };

@@ -204,12 +204,12 @@ pub mod media {
     pub struct PodcastEpisode {
         pub number: i32,
         pub id: String,
-        #[serde(rename = "audio_length_sec")]
+        #[serde(alias = "audio_length_sec")]
         pub runtime: Option<i32>,
-        #[serde(rename = "description")]
+        #[serde(alias = "description")]
         pub overview: Option<String>,
         pub title: String,
-        #[serde(rename = "pub_date_ms")]
+        #[serde(alias = "pub_date_ms")]
         pub publish_date: i64,
         pub thumbnail: Option<String>,
     }
@@ -309,6 +309,23 @@ pub mod media {
         FromJsonQueryResult,
         InputObject,
     )]
+    #[graphql(input_name = "VisualNovelSpecificsInput")]
+    pub struct VisualNovelSpecifics {
+        pub length: Option<i32>,
+    }
+
+    #[derive(
+        Debug,
+        PartialEq,
+        Eq,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        Default,
+        FromJsonQueryResult,
+        InputObject,
+    )]
     #[graphql(input_name = "AnimeSpecificsInput")]
     pub struct AnimeSpecifics {
         pub episodes: Option<i32>,
@@ -381,6 +398,22 @@ pub mod media {
     )]
     pub struct VideoGamesSummary {
         pub played: i32,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct VisualNovelsSummary {
+        pub played: i32,
+        pub runtime: i32,
     }
 
     #[derive(
@@ -500,6 +533,7 @@ pub mod media {
         pub podcasts: PodcastsSummary,
         pub shows: ShowsSummary,
         pub video_games: VideoGamesSummary,
+        pub visual_novels: VisualNovelsSummary,
         pub audio_books: AudioBooksSummary,
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
@@ -720,6 +754,7 @@ pub mod media {
         Podcast(PodcastSpecifics),
         Show(ShowSpecifics),
         VideoGame(VideoGameSpecifics),
+        VisualNovel(VisualNovelSpecifics),
         Anime(AnimeSpecifics),
         Manga(MangaSpecifics),
         #[default]

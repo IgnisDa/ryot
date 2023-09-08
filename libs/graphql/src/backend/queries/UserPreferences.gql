@@ -61,6 +61,7 @@ query UserPreferences {
         podcast
         show
         videoGame
+        visualNovel
       }
     }
   }

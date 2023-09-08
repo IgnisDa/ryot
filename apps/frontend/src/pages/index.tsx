@@ -275,6 +275,21 @@ const Page: NextPageWithLayout = () => {
 							]}
 						/>
 						<DisplayStatForMediaType
+							lot={MetadataLot.VisualNovel}
+							data={[
+								{
+									label: "Visual Novels",
+									value: latestUserSummary.data.media.visualNovels.played,
+									type: "number",
+								},
+								{
+									label: "Runtime",
+									value: latestUserSummary.data.media.visualNovels.runtime,
+									type: "duration",
+								},
+							]}
+						/>
+						<DisplayStatForMediaType
 							lot={MetadataLot.AudioBook}
 							data={[
 								{

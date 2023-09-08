@@ -319,6 +319,12 @@ impl IsFeatureEnabled for VideoGameConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "VISUAL_NOVEL_")]
+pub struct VisualNovelConfig {}
+
+impl IsFeatureEnabled for VisualNovelConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
     /// The access key ID for the S3 compatible file storage. **Required** to
@@ -502,6 +508,9 @@ pub struct AppConfig {
     /// Settings related to video games.
     #[setting(nested)]
     pub video_games: VideoGameConfig,
+    /// Settings related to visual novels.
+    #[setting(nested)]
+    pub visual_novel: VisualNovelConfig,
     /// Settings related to server.
     #[setting(nested)]
     pub server: ServerConfig,

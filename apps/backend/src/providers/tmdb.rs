@@ -160,7 +160,7 @@ impl TmdbMovieService {
             images.push(i);
         }
         self.base
-            .save_all_images(&self.client, "collection", &identifier, &mut images)
+            .save_all_images(&self.client, "collection", identifier, &mut images)
             .await?;
         let parts = data
             .parts

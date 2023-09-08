@@ -298,6 +298,10 @@ export interface VideoGameConfig {
 	twitch: TwitchConfig;
 }
 
+export interface VisualNovelConfig {
+
+}
+
 export interface AppConfig {
 	/** Settings related to anime. */
 	anime: AnimeConfig;
@@ -333,4 +337,6 @@ export interface AppConfig {
 	users: UsersConfig;
 	/** Settings related to video games. */
 	video_games: VideoGameConfig;
+	/** Settings related to visual novels. */
+	visual_novel: VisualNovelConfig;
 }

@@ -134,10 +134,12 @@ function ProgressModal(props: {
 			<IconBrandPagekit size="1.5rem" />,
 			"Chapters",
 		])
-		.with(MetadataLot.Movie, MetadataLot.AudioBook, () => [
-			<IconClock size="1.5rem" />,
-			"Minutes",
-		])
+		.with(
+			MetadataLot.Movie,
+			MetadataLot.VisualNovel,
+			MetadataLot.AudioBook,
+			() => [<IconClock size="1.5rem" />, "Minutes"],
+		)
 		.otherwise(() => [null, null]);
 
 	return (
@@ -907,7 +909,8 @@ const Page: NextPageWithLayout = () => {
 												mediaDetails.data.bookSpecifics?.pages ||
 												mediaDetails.data.movieSpecifics?.runtime ||
 												mediaDetails.data.mangaSpecifics?.chapters ||
-												mediaDetails.data.animeSpecifics?.episodes
+												mediaDetails.data.animeSpecifics?.episodes ||
+												mediaDetails.data.visualNovelSpecifics?.length
 											}
 										/>
 									) : undefined}
