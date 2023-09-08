@@ -75,6 +75,8 @@ pub enum MetadataSource {
     Openlibrary,
     #[sea_orm(string_value = "TM")]
     Tmdb,
+    #[sea_orm(string_value = "VN")]
+    Vndb,
 }
 
 // The different types of media that can be stored
@@ -113,6 +115,8 @@ pub enum MetadataLot {
     Show,
     #[sea_orm(string_value = "VG")]
     VideoGame,
+    #[sea_orm(string_value = "VN")]
+    VisualNovel,
 }
 
 // This is responsible for storing common metadata about all media items
