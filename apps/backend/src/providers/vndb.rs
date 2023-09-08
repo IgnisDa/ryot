@@ -20,6 +20,12 @@ use crate::{
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
+const FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
+const FIELDS: &str = const_str::concat!(
+    FIELDS_SMALL,
+    ",",
+    "length_minutes,tags.name,developers.name,devstatus,description"
+);
 
 #[derive(Debug, Clone)]
 pub struct VndbService {
@@ -72,7 +78,16 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for VndbService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
+        let mut rsp = self
+            .client
+            .post("vn")
+            .body_json(&serde_json::json!({
+                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
+                "fields": FIELDS
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
         let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         let d = self.google_books_response_to_search_response(item);
@@ -87,10 +102,10 @@ impl MediaProvider for VndbService {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
-            .get("vn")
-            .query(&serde_json::json!({
+            .post("vn")
+            .body_json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
-                "fields": "title,image.url,released",
+                "fields": FIELDS_SMALL,
                 "results": self.page_limit,
                 "page": page
             }))
