@@ -2341,18 +2341,16 @@ impl MiscellaneousService {
                             for (before_episode, after_episode) in
                                 zip(s1.episodes.iter(), s2.episodes.iter())
                             {
-                                dbg!(&before_episode);
-                                dbg!(&after_episode);
                                 if before_episode.name != after_episode.name {
                                     notifications.push((
                                         format!(
-                                            "Episode name changed from {:#?} to {:#?} (Season {} Episode {})",
+                                            "Episode name changed from {:#?} to {:#?} (S{}E{})",
                                             before_episode.name,
                                             after_episode.name,
                                             s1.season_number,
                                             before_episode.episode_number
                                         ),
-                                        MediaStateChanged::EpisodeNameChanged
+                                        MediaStateChanged::EpisodeNameChanged,
                                     ));
                                 }
                             }
