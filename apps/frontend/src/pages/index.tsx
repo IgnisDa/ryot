@@ -279,6 +279,11 @@ const Page: NextPageWithLayout = () => {
 							data={[
 								{
 									label: "Visual Novels",
+									value: latestUserSummary.data.media.visualNovels.played,
+									type: "number",
+								},
+								{
+									label: "Runtime",
 									value: latestUserSummary.data.media.visualNovels.runtime,
 									type: "duration",
 								},
