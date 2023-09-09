@@ -778,6 +778,7 @@ pub mod media {
     pub struct MetadataProviderReviews {
         pub audible: Option<Decimal>,
         pub anilist: Option<Decimal>,
+        pub google_books: Option<Decimal>,
         pub vndb: Option<Decimal>,
     }
 

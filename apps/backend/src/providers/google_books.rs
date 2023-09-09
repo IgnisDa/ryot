@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
@@ -12,7 +13,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MetadataImage, MetadataProviderReviews,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -60,6 +61,7 @@ struct ImageLinks {
 #[serde(rename_all = "camelCase")]
 struct ItemVolumeInfo {
     title: String,
+    average_rating: Option<Decimal>,
     published_date: Option<String>,
     image_links: Option<ImageLinks>,
     description: Option<String>,
@@ -229,6 +231,10 @@ impl GoogleBooksService {
                 pages: item.page_count,
             }),
             images: images.unique().collect(),
+            provider_reviews: MetadataProviderReviews {
+                google_books: item.average_rating,
+                ..Default::default()
+            },
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
             groups: vec![],
