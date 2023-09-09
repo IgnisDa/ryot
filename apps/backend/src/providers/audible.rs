@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
@@ -15,7 +16,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, PartialMetadata,
+            MetadataImage, MetadataImages, MetadataProviderReviews, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -51,6 +52,7 @@ impl Default for PrimaryQuery {
                 "product_extended_attrs",
                 "series",
                 "relationships",
+                "rating",
             ]
             .join(","),
             image_sizes: ["2400"].join(","),
@@ -88,11 +90,23 @@ struct AudibleRelationshipItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct AudibleRating {
+    display_average_rating: Option<Decimal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AudibleRatings {
+    num_reviews: i32,
+    overall_distribution: AudibleRating,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleItem {
     asin: String,
     title: String,
     authors: Option<Vec<NamedObject>>,
     narrators: Option<Vec<NamedObject>>,
+    rating: Option<AudibleRatings>,
     product_images: Option<AudiblePoster>,
     merchandising_summary: Option<String>,
     publisher_summary: Option<String>,
@@ -352,6 +366,15 @@ impl AudibleService {
                 }),
         );
         let description = item.publisher_summary.or(item.merchandising_summary);
+        let rating = if let Some(r) = item.rating {
+            if r.num_reviews > 0 {
+                r.overall_distribution.display_average_rating
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
@@ -378,6 +401,10 @@ impl AudibleService {
                 runtime: item.runtime_length_min,
             }),
             images,
+            provider_reviews: MetadataProviderReviews {
+                audible: rating,
+                ..Default::default()
+            },
             suggestions: vec![],
             groups: vec![],
         }

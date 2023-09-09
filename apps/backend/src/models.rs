@@ -776,6 +776,7 @@ pub mod media {
 
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataProviderReviews {
+        pub audible: Option<Decimal>,
         pub anilist: Option<Decimal>,
         pub vndb: Option<Decimal>,
     }
