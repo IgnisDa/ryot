@@ -55,7 +55,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../_app";
@@ -72,6 +72,7 @@ const Page: NextPageWithLayout = () => {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [query, setQuery] = useState("");
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
 		key: "mineSortOrder",
 		defaultValue: defaultFilters.mineSortOrder,
@@ -105,10 +106,6 @@ const Page: NextPageWithLayout = () => {
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		defaultValue: "1",
 		key: "savedSearchPage",
-	});
-	const [query, setQuery] = useLocalStorage({
-		key: "savedQuery",
-		getInitialValueInEffect: false,
 	});
 	const [searchSource, setSearchSource] = useLocalStorage({
 		key: "savedSearchSource",
@@ -210,6 +207,10 @@ const Page: NextPageWithLayout = () => {
 	useEffect(() => {
 		setDebouncedQuery(query?.trim());
 	}, [query]);
+
+	useEffect(() => {
+		if (query && lot) setQuery("");
+	}, [lot]);
 
 	const ClearButton = () =>
 		query ? (
