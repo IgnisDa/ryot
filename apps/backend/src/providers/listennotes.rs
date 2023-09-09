@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{collections::HashMap, env, sync::OnceLock};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -46,7 +46,13 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
-        let client = get_client_config(URL, &config.listennotes.api_token).await;
+        let client = get_client_config(
+            env::var("LISTENNOTES_API_URL")
+                .unwrap_or_else(|_| URL.to_owned())
+                .as_str(),
+            &config.listennotes.api_token,
+        )
+        .await;
         Self { client, page_limit }
     }
 }
