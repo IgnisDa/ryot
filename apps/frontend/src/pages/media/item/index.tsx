@@ -21,10 +21,12 @@ import {
 	Container,
 	Flex,
 	Group,
+	Image,
 	Indicator,
 	Menu,
 	Modal,
 	NumberInput,
+	Paper,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -690,7 +692,7 @@ const Page: NextPageWithLayout = () => {
 							))}
 						</Group>
 					) : undefined}
-					<Flex id="media-details" wrap={"wrap"} gap={4}>
+					<Flex id="media-details" wrap={"wrap"} gap={4} align={"center"}>
 						{mediaDetails.data.genres.length > 0 ? (
 							<Text color="dimmed">
 								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
@@ -752,6 +754,40 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						{mediaDetails.data.publishYear ? (
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
+						) : undefined}
+						{mediaDetails.data.providerRating ? (
+							<Paper
+								px={4}
+								withBorder
+								display={"flex"}
+								style={{ alignItems: "center", gap: 6 }}
+							>
+								<Image
+									alt="Logo"
+									height={30}
+									width={30}
+									src={`/images/provider-logos/${match(mediaDetails.data.source)
+										.with(MetadataSource.Anilist, () => "anilist.svg")
+										.with(MetadataSource.Audible, () => "audible.svg")
+										.with(MetadataSource.GoogleBooks, () => "google-books.svg")
+										.with(MetadataSource.Igdb, () => "igdb.svg")
+										.with(MetadataSource.Itunes, () => "itunes.svg")
+										.with(MetadataSource.Listennotes, () => "listennotes.webp")
+										.with(MetadataSource.Mal, () => "mal.svg")
+										.with(
+											MetadataSource.MangaUpdates,
+											() => "manga-updates.svg",
+										)
+										.with(MetadataSource.Openlibrary, () => "openlibrary.svg")
+										.with(MetadataSource.Tmdb, () => "tmdb.svg")
+										.with(MetadataSource.Vndb, () => "vndb.ico")
+										.with(MetadataSource.Custom, () => undefined)
+										.exhaustive()}`}
+								/>
+								<Text>
+									{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
+								</Text>
+							</Paper>
 						) : undefined}
 					</Flex>
 					{userMediaDetails.data.reminder ? (
