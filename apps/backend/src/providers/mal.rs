@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::Client;
@@ -12,7 +13,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, PartialMetadata,
+            MetadataImage, MetadataProviderReviews, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -178,6 +179,7 @@ struct ItemNode {
     genres: Option<Vec<NamedObject>>,
     studios: Option<Vec<NamedObject>>,
     start_date: Option<String>,
+    mean: Option<Decimal>,
     status: Option<String>,
     num_episodes: Option<i32>,
     num_chapters: Option<i32>,
@@ -195,7 +197,7 @@ struct ItemData {
 async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDetails> {
     let details: ItemNode = client
         .get(format!("{}/{}", media_type, id))
-        .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime" }))
+        .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean" }))
         .unwrap()
         .await
         .map_err(|e| anyhow!(e))?
@@ -273,6 +275,10 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .and_then(|d| convert_date_to_year(&d)),
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
+        provider_reviews: MetadataProviderReviews {
+            mal: details.mean,
+            ..Default::default()
+        },
         groups: vec![],
     };
     Ok(data)

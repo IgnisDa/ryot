@@ -782,6 +782,7 @@ pub mod media {
         pub google_books: Option<Decimal>,
         pub igdb: Option<Decimal>,
         pub manga_updates: Option<Decimal>,
+        pub mal: Option<Decimal>,
         pub vndb: Option<Decimal>,
     }
 
