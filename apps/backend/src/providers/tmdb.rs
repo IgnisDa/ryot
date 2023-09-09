@@ -4,6 +4,8 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hashbag::HashBag;
 use itertools::Itertools;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
@@ -15,8 +17,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            MetadataImages, MetadataProviderReviews, MovieSpecifics, PartialMetadata, ShowEpisode,
+            ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -76,6 +78,7 @@ struct TmdbListResponse<T = TmdbEntry> {
 struct TmdbMovie {
     id: i32,
     title: String,
+    vote_average: Option<Decimal>,
     overview: Option<String>,
     poster_path: Option<String>,
     backdrop_path: Option<String>,
@@ -344,6 +347,10 @@ impl MediaProvider for TmdbMovieService {
             }),
             suggestions,
             groups,
+            provider_reviews: MetadataProviderReviews {
+                tmdb: data.vote_average.map(|r| r * dec!(10)),
+                ..Default::default()
+            },
         })
     }
 
@@ -427,6 +434,7 @@ impl MediaProvider for TmdbShowService {
             seasons: Vec<TmdbSeasonNumber>,
             genres: Vec<NamedObject>,
             status: Option<String>,
+            vote_average: Option<Decimal>,
             production_companies: Option<Vec<TmdbCompany>>,
         }
         let mut rsp = self
@@ -627,6 +635,10 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
+            provider_reviews: MetadataProviderReviews {
+                tmdb: show_data.vote_average.map(|r| r * dec!(10)),
+                ..Default::default()
+            },
             groups: vec![],
         })
     }
