@@ -774,12 +774,14 @@ pub mod media {
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
+    #[skip_serializing_none]
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataProviderReviews {
         pub audible: Option<Decimal>,
         pub anilist: Option<Decimal>,
         pub google_books: Option<Decimal>,
         pub igdb: Option<Decimal>,
+        pub manga_updates: Option<Decimal>,
         pub vndb: Option<Decimal>,
     }
 
