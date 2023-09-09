@@ -86,6 +86,7 @@ impl MediaProvider for VndbService {
             .post("vn")
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
+                "count": true,
                 "fields": FIELDS
             }))
             .unwrap()
