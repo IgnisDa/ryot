@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,7 +18,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, PartialMetadata, VideoGameSpecifics,
+            MetadataImages, MetadataProviderReviews, PartialMetadata, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -40,6 +41,7 @@ fields
     involved_companies.company.logo.*,
     involved_companies.*,
     artworks.*,
+    rating,
     similar_games.id,
     similar_games.name,
     similar_games.cover.*,
@@ -74,6 +76,7 @@ struct IgdbImage {
 struct IgdbSearchResponse {
     id: i32,
     name: Option<String>,
+    rating: Option<Decimal>,
     games: Option<Vec<IgdbSearchResponse>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
@@ -350,6 +353,10 @@ where id = {id};
                     source: MetadataSource::Igdb,
                 })
                 .collect(),
+            provider_reviews: MetadataProviderReviews {
+                igdb: item.rating,
+                ..Default::default()
+            },
             groups: vec![],
         }
     }

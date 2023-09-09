@@ -779,6 +779,7 @@ pub mod media {
         pub audible: Option<Decimal>,
         pub anilist: Option<Decimal>,
         pub google_books: Option<Decimal>,
+        pub igdb: Option<Decimal>,
         pub vndb: Option<Decimal>,
     }
 
