@@ -143,6 +143,8 @@ pub enum Metadata {
     Identifier,
     // the provider source
     Source,
+    // the rating from the provider
+    ProviderRating,
     // details about the media
     Specifics,
 }
@@ -182,6 +184,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
+                    .col(ColumnDef::new(Metadata::ProviderRating).decimal().null())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())

@@ -1,9 +1,10 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{collections::HashMap, env, sync::OnceLock};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -45,7 +46,13 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
-        let client = get_client_config(URL, &config.listennotes.api_token).await;
+        let client = get_client_config(
+            env::var("LISTENNOTES_API_URL")
+                .unwrap_or_else(|_| URL.to_owned())
+                .as_str(),
+            &config.listennotes.api_token,
+        )
+        .await;
         Self { client, page_limit }
     }
 }
@@ -183,6 +190,7 @@ impl ListennotesService {
         struct Podcast {
             title: String,
             description: Option<String>,
+            listen_score: Option<Decimal>,
             id: String,
             #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
             #[serde(rename = "earliest_pub_date_ms")]
@@ -241,6 +249,7 @@ impl ListennotesService {
                     .collect(),
                 total_episodes: podcast_data.total_episodes,
             }),
+            provider_rating: podcast_data.listen_score,
             suggestions: vec![],
             groups: vec![],
         })

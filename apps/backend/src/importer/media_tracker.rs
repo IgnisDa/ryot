@@ -287,6 +287,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                             image: None,
                         })
                         .collect(),
+                    provider_rating: None,
                     genres: vec![],
                     images: vec![],
                     publish_year: None,

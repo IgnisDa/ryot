@@ -302,6 +302,7 @@ impl MediaProvider for OpenlibraryService {
                 pages: Some(num_pages),
             }),
             suggestions,
+            provider_rating: None,
             groups: vec![],
         })
     }

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use http_types::mime;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
@@ -85,6 +86,7 @@ struct ItemRecord {
     authors: Option<Vec<ItemAuthor>>,
     genres: Option<Vec<ItemGenre>>,
     categories: Option<Vec<ItemCategory>>,
+    bayesian_rating: Option<Decimal>,
     recommendations: Option<Vec<ItemRecord>>,
     related_series: Option<Vec<ItemRecord>>,
     latest_chapter: Option<i32>,
@@ -194,6 +196,7 @@ impl MediaProvider for MangaUpdatesService {
             }),
             creators,
             suggestions,
+            provider_rating: data.bayesian_rating,
             groups: vec![],
         };
         Ok(data)

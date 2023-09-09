@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use http_types::mime;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
@@ -24,7 +25,7 @@ const FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
 const FIELDS: &str = const_str::concat!(
     FIELDS_SMALL,
     ",",
-    "length_minutes,tags.name,developers.name,devstatus,description"
+    "length_minutes,tags.name,developers.name,devstatus,description,rating"
 );
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,7 @@ struct ImageLinks {
 struct ItemResponse {
     id: String,
     title: String,
+    rating: Option<Decimal>,
     released: Option<String>,
     description: Option<String>,
     image_links: Option<ImageLinks>,
@@ -71,6 +73,7 @@ struct ItemResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResponse {
+    count: i32,
     more: bool,
     results: Option<Vec<ItemResponse>>,
 }
@@ -83,6 +86,7 @@ impl MediaProvider for VndbService {
             .post("vn")
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
+                "count": true,
                 "fields": FIELDS
             }))
             .unwrap()
@@ -106,6 +110,7 @@ impl MediaProvider for VndbService {
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "fields": FIELDS_SMALL,
+                "count": true,
                 "results": self.page_limit,
                 "page": page
             }))
@@ -145,7 +150,7 @@ impl MediaProvider for VndbService {
         let next_page = if search.more { Some(page + 1) } else { None };
         Ok(SearchResults {
             details: SearchDetails {
-                total: 100,
+                total: search.count,
                 next_page,
             },
             items: resp,
@@ -204,6 +209,7 @@ impl VndbService {
             specifics: MediaSpecifics::VisualNovel(VisualNovelSpecifics {
                 length: item.length_minutes,
             }),
+            provider_rating: item.rating,
             images: images.unique().collect(),
             suggestions: vec![],
             groups: vec![],

@@ -379,14 +379,7 @@ export default function ({ children }: { children: ReactElement }) {
 				return null;
 			}
 		},
-		onSuccess: (data) => {
-			if (data) {
-				notifications.show({
-					title: "Success",
-					message: "You were logged out successfully",
-					color: "green",
-				});
-			}
+		onSuccess: (_data) => {
 			router.push(APP_ROUTES.auth.login);
 		},
 	});

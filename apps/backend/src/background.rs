@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::{Job, JobContext, JobError};
 use sea_orm::prelude::DateTimeUtc;
@@ -116,9 +116,16 @@ pub async fn perform_application_job(
             misc_service.calculate_user_summary(user_id).await.unwrap();
         }
         ApplicationJob::RecalculateUserSummary(user_id) => {
+            let start = Instant::now();
             tracing::trace!("Calculating summary for user {:?}", user_id);
             misc_service.calculate_user_summary(user_id).await.unwrap();
-            tracing::trace!("Summary calculation complete for user {:?}", user_id);
+            let end = Instant::now();
+            let diff = end - start;
+            tracing::trace!(
+                "Summary calculation complete for user {:?}, (took {}s)",
+                user_id,
+                diff.as_secs()
+            );
         }
         ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();

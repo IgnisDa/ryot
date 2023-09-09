@@ -383,6 +383,7 @@ struct GraphqlMediaDetails {
     title: String,
     identifier: String,
     description: Option<String>,
+    provider_rating: Option<Decimal>,
     production_status: String,
     lot: MetadataLot,
     source: MetadataSource,
@@ -1473,30 +1474,31 @@ impl MiscellaneousService {
 
         let mut resp = GraphqlMediaDetails {
             id: model.id,
-            group,
-            title: model.title,
-            identifier: model.identifier,
-            production_status: model.production_status,
-            description: model.description,
-            publish_year: model.publish_year,
-            publish_date: model.publish_date,
-            source: model.source,
             lot: model.lot,
-            creators,
-            genres,
-            poster_images,
-            backdrop_images,
+            title: model.title,
+            source: model.source,
+            identifier: model.identifier,
+            description: model.description,
+            publish_date: model.publish_date,
+            publish_year: model.publish_year,
+            provider_rating: model.provider_rating,
+            production_status: model.production_status,
             book_specifics: None,
-            movie_specifics: None,
             show_specifics: None,
-            video_game_specifics: None,
-            visual_novel_specifics: None,
-            audio_book_specifics: None,
-            podcast_specifics: None,
+            movie_specifics: None,
             manga_specifics: None,
             anime_specifics: None,
+            podcast_specifics: None,
+            video_game_specifics: None,
+            audio_book_specifics: None,
+            visual_novel_specifics: None,
+            group,
+            genres,
+            creators,
             source_url,
             suggestions,
+            poster_images,
+            backdrop_images,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
@@ -2276,6 +2278,7 @@ impl MiscellaneousService {
         metadata_id: i32,
         title: String,
         description: Option<String>,
+        provider_rating: Option<Decimal>,
         images: Vec<MetadataImage>,
         specifics: MediaSpecifics,
         creators: Vec<MetadataCreator>,
@@ -2397,6 +2400,7 @@ impl MiscellaneousService {
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
+        meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.production_status = ActiveValue::Set(production_status);
@@ -2579,6 +2583,7 @@ impl MiscellaneousService {
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
+            provider_rating: ActiveValue::Set(details.provider_rating),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await?;
@@ -3004,7 +3009,6 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    #[async_recursion::async_recursion]
     pub async fn commit_media(
         &self,
         lot: MetadataLot,
@@ -3455,6 +3459,7 @@ impl MiscellaneousService {
                     metadata_id,
                     details.title,
                     details.description,
+                    details.provider_rating,
                     details.images,
                     details.specifics,
                     details.creators,
@@ -3892,6 +3897,7 @@ impl MiscellaneousService {
             publish_date: None,
             specifics,
             production_status: "Released".to_owned(),
+            provider_rating: None,
             suggestions: vec![],
             groups: vec![],
         };

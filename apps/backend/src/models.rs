@@ -653,6 +653,7 @@ pub mod media {
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadata>,
         pub groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        pub provider_rating: Option<Decimal>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
