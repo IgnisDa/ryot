@@ -692,7 +692,7 @@ const Page: NextPageWithLayout = () => {
 							))}
 						</Group>
 					) : undefined}
-					<Flex id="media-details" wrap={"wrap"} gap={4} align={"center"}>
+					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
 						{mediaDetails.data.genres.length > 0 ? (
 							<Text color="dimmed">
 								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
@@ -764,8 +764,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								<Image
 									alt="Logo"
-									height={24}
-									width={24}
+									height={20}
 									src={`/images/provider-logos/${match(mediaDetails.data.source)
 										.with(MetadataSource.Anilist, () => "anilist.svg")
 										.with(MetadataSource.Audible, () => "audible.svg")
@@ -784,7 +783,7 @@ const Page: NextPageWithLayout = () => {
 										.with(MetadataSource.Custom, () => undefined)
 										.exhaustive()}`}
 								/>
-								<Text size="sm">
+								<Text fw="bold" fz="sm">
 									{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
 								</Text>
 							</Paper>
