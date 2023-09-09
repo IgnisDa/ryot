@@ -23,6 +23,7 @@ pub struct Model {
     pub lot: MetadataLot,
     pub last_updated_on: DateTimeUtc,
     pub title: String,
+    // FIXME: Remove this
     #[sea_orm(indexed)]
     pub identifier: String,
     pub description: Option<String>,
