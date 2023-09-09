@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataProviderReviews, PartialMetadata,
+            MetadataImage, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -275,10 +275,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .and_then(|d| convert_date_to_year(&d)),
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
-        provider_reviews: MetadataProviderReviews {
-            mal: details.mean,
-            ..Default::default()
-        },
+        provider_rating: details.mean,
         groups: vec![],
     };
     Ok(data)

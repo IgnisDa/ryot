@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, MetadataProviderReviews, PartialMetadata,
+            MetadataCreator, MetadataImage, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -257,10 +257,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         publish_date: None,
         specifics,
         suggestions,
-        provider_reviews: MetadataProviderReviews {
-            anilist: score,
-            ..Default::default()
-        },
+        provider_rating: score,
         groups: vec![],
     })
 }

@@ -16,7 +16,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, MetadataProviderReviews, PartialMetadata,
+            MetadataImage, MetadataImages, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -401,10 +401,7 @@ impl AudibleService {
                 runtime: item.runtime_length_min,
             }),
             images,
-            provider_reviews: MetadataProviderReviews {
-                audible: rating,
-                ..Default::default()
-            },
+            provider_rating: rating,
             suggestions: vec![],
             groups: vec![],
         }

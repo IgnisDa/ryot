@@ -18,7 +18,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MetadataProviderReviews, PartialMetadata, VideoGameSpecifics,
+            MetadataImages, PartialMetadata, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -353,10 +353,7 @@ where id = {id};
                     source: MetadataSource::Igdb,
                 })
                 .collect(),
-            provider_reviews: MetadataProviderReviews {
-                igdb: item.rating,
-                ..Default::default()
-            },
+            provider_rating: item.rating,
             groups: vec![],
         }
     }

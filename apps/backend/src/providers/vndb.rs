@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataProviderReviews, VisualNovelSpecifics,
+            VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -208,10 +208,7 @@ impl VndbService {
             specifics: MediaSpecifics::VisualNovel(VisualNovelSpecifics {
                 length: item.length_minutes,
             }),
-            provider_reviews: MetadataProviderReviews {
-                vndb: item.rating,
-                ..Default::default()
-            },
+            provider_rating: item.rating,
             images: images.unique().collect(),
             suggestions: vec![],
             groups: vec![],

@@ -17,8 +17,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MetadataProviderReviews, MovieSpecifics, PartialMetadata, ShowEpisode,
-            ShowSeason, ShowSpecifics,
+            MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode, ShowSeason,
+            ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -347,10 +347,7 @@ impl MediaProvider for TmdbMovieService {
             }),
             suggestions,
             groups,
-            provider_reviews: MetadataProviderReviews {
-                tmdb: data.vote_average.map(|r| r * dec!(10)),
-                ..Default::default()
-            },
+            provider_rating: data.vote_average.map(|r| r * dec!(10)),
         })
     }
 
@@ -635,10 +632,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
-            provider_reviews: MetadataProviderReviews {
-                tmdb: show_data.vote_average.map(|r| r * dec!(10)),
-                ..Default::default()
-            },
+            provider_rating: show_data.vote_average.map(|r| r * dec!(10)),
             groups: vec![],
         })
     }

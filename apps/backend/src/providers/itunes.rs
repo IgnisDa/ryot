@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataProviderReviews, PodcastEpisode, PodcastSpecifics,
+            PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -179,7 +179,7 @@ impl MediaProvider for ITunesService {
                 total_episodes,
             }),
             // DEV: API does not return any ratings
-            provider_reviews: MetadataProviderReviews::default(),
+            provider_rating: None,
             // DEV: I could not find a way to get similar podcasts from the API
             suggestions: vec![],
             groups: vec![],

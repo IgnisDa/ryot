@@ -11,7 +11,7 @@ use crate::{
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataProviderReviews, PartialMetadata,
+            MetadataImage, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -196,10 +196,7 @@ impl MediaProvider for MangaUpdatesService {
             }),
             creators,
             suggestions,
-            provider_reviews: MetadataProviderReviews {
-                manga_updates: data.bayesian_rating,
-                ..Default::default()
-            },
+            provider_rating: data.bayesian_rating,
             groups: vec![],
         };
         Ok(data)

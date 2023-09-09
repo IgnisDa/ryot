@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataProviderReviews,
+            MetadataImage,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -231,10 +231,7 @@ impl GoogleBooksService {
                 pages: item.page_count,
             }),
             images: images.unique().collect(),
-            provider_reviews: MetadataProviderReviews {
-                google_books: item.average_rating,
-                ..Default::default()
-            },
+            provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
             groups: vec![],

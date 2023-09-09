@@ -653,7 +653,7 @@ pub mod media {
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadata>,
         pub groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
-        pub provider_reviews: MetadataProviderReviews,
+        pub provider_rating: Option<Decimal>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -773,20 +773,6 @@ pub mod media {
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
-
-    #[skip_serializing_none]
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataProviderReviews {
-        pub audible: Option<Decimal>,
-        pub anilist: Option<Decimal>,
-        pub google_books: Option<Decimal>,
-        pub igdb: Option<Decimal>,
-        pub manga_updates: Option<Decimal>,
-        pub mal: Option<Decimal>,
-        pub listennotes: Option<Decimal>,
-        pub tmdb: Option<Decimal>,
-        pub vndb: Option<Decimal>,
-    }
 
     #[derive(
         Clone,

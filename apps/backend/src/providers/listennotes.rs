@@ -17,7 +17,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataProviderReviews, PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            PartialMetadata, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -243,10 +243,7 @@ impl ListennotesService {
                     .collect(),
                 total_episodes: podcast_data.total_episodes,
             }),
-            provider_reviews: MetadataProviderReviews {
-                listennotes: podcast_data.listen_score,
-                ..Default::default()
-            },
+            provider_rating: podcast_data.listen_score,
             suggestions: vec![],
             groups: vec![],
         })

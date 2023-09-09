@@ -17,7 +17,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataProviderReviews, PartialMetadata,
+            MetadataImage, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -302,7 +302,7 @@ impl MediaProvider for OpenlibraryService {
                 pages: Some(num_pages),
             }),
             suggestions,
-            provider_reviews: MetadataProviderReviews::default(),
+            provider_rating: None,
             groups: vec![],
         })
     }
