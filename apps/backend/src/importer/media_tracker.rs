@@ -19,7 +19,7 @@ use crate::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-            MediaDetails, MediaSpecifics, MetadataCreator, Visibility,
+            MediaDetails, MediaSpecifics, MetadataCreator, MetadataProviderReviews, Visibility,
         },
         IdObject,
     },
@@ -287,6 +287,9 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                             image: None,
                         })
                         .collect(),
+                    provider_reviews: MetadataProviderReviews {
+                        ..Default::default()
+                    },
                     genres: vec![],
                     images: vec![],
                     publish_year: None,

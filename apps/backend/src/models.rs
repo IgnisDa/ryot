@@ -653,6 +653,7 @@ pub mod media {
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadata>,
         pub groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        pub provider_reviews: MetadataProviderReviews,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -772,6 +773,11 @@ pub mod media {
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
+
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct MetadataProviderReviews {
+        pub anilist: Option<Decimal>,
+    }
 
     #[derive(
         Clone,

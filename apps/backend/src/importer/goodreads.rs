@@ -16,7 +16,7 @@ use crate::{
         media::{
             BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MetadataImage, MetadataProviderReviews,
         },
         StoredUrl,
     },
@@ -121,16 +121,19 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                                 role: "Author".to_owned(),
                                 image: None,
                             }],
-                            genres: vec![],
+                            provider_reviews: MetadataProviderReviews {
+                                ..Default::default()
+                            },
                             images: vec![MetadataImage {
                                 url: StoredUrl::Url(d.book_large_image_url),
                                 lot: MetadataImageLot::Poster,
                             }],
-                            publish_year: d.book_published.parse().ok(),
-                            publish_date: None,
                             specifics: MediaSpecifics::Book(BookSpecifics {
                                 pages: d.book.num_pages.parse().ok(),
                             }),
+                            publish_year: d.book_published.parse().ok(),
+                            publish_date: None,
+                            genres: vec![],
                             suggestions: vec![],
                             groups: vec![],
                         },
