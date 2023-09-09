@@ -2276,6 +2276,7 @@ impl MiscellaneousService {
         metadata_id: i32,
         title: String,
         description: Option<String>,
+        provider_rating: Option<Decimal>,
         images: Vec<MetadataImage>,
         specifics: MediaSpecifics,
         creators: Vec<MetadataCreator>,
@@ -2397,6 +2398,7 @@ impl MiscellaneousService {
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
+        meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(MetadataImages(images));
         meta.production_status = ActiveValue::Set(production_status);
@@ -2579,6 +2581,7 @@ impl MiscellaneousService {
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
+            provider_rating: ActiveValue::Set(details.provider_rating),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await?;
@@ -3454,6 +3457,7 @@ impl MiscellaneousService {
                     metadata_id,
                     details.title,
                     details.description,
+                    details.provider_rating,
                     details.images,
                     details.specifics,
                     details.creators,

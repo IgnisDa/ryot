@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use rust_decimal::Decimal;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +32,7 @@ pub struct Model {
     pub source: MetadataSource,
     pub specifics: MediaSpecifics,
     pub production_status: String,
+    pub provider_rating: Option<Decimal>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
