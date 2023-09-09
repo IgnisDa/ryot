@@ -21,6 +21,7 @@ query DetailsQuery($id: Int!) {
         role
       }
     }
+    averageScore
     recommendations {
       nodes {
         mediaRecommendation {

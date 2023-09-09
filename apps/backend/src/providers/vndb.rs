@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use http_types::mime;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
@@ -11,7 +12,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            VisualNovelSpecifics,
+            MetadataProviderReviews, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -24,7 +25,7 @@ const FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
 const FIELDS: &str = const_str::concat!(
     FIELDS_SMALL,
     ",",
-    "length_minutes,tags.name,developers.name,devstatus,description"
+    "length_minutes,tags.name,developers.name,devstatus,description,rating"
 );
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,7 @@ struct ImageLinks {
 struct ItemResponse {
     id: String,
     title: String,
+    rating: Option<Decimal>,
     released: Option<String>,
     description: Option<String>,
     image_links: Option<ImageLinks>,
@@ -204,6 +206,10 @@ impl VndbService {
             specifics: MediaSpecifics::VisualNovel(VisualNovelSpecifics {
                 length: item.length_minutes,
             }),
+            provider_reviews: MetadataProviderReviews {
+                vndb: item.rating,
+                ..Default::default()
+            },
             images: images.unique().collect(),
             suggestions: vec![],
             groups: vec![],

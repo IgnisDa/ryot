@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, PartialMetadata,
+            MetadataCreator, MetadataImage, MetadataProviderReviews, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -241,6 +242,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             }
         })
         .collect();
+    let score = details.average_score.map(|s| Decimal::from(s));
     Ok(MediaDetails {
         identifier: details.id.to_string(),
         title: details.title.unwrap().user_preferred.unwrap(),
@@ -255,6 +257,10 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         publish_date: None,
         specifics,
         suggestions,
+        provider_reviews: MetadataProviderReviews {
+            anilist: score,
+            ..Default::default()
+        },
         groups: vec![],
     })
 }
