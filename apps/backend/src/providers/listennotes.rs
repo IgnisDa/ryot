@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -16,7 +17,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            MetadataProviderReviews, PartialMetadata, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -183,6 +184,7 @@ impl ListennotesService {
         struct Podcast {
             title: String,
             description: Option<String>,
+            listen_score: Option<Decimal>,
             id: String,
             #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
             #[serde(rename = "earliest_pub_date_ms")]
@@ -241,6 +243,10 @@ impl ListennotesService {
                     .collect(),
                 total_episodes: podcast_data.total_episodes,
             }),
+            provider_reviews: MetadataProviderReviews {
+                listennotes: podcast_data.listen_score,
+                ..Default::default()
+            },
             suggestions: vec![],
             groups: vec![],
         })

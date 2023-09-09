@@ -783,6 +783,7 @@ pub mod media {
         pub igdb: Option<Decimal>,
         pub manga_updates: Option<Decimal>,
         pub mal: Option<Decimal>,
+        pub listennotes: Option<Decimal>,
         pub vndb: Option<Decimal>,
     }
 
