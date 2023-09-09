@@ -757,15 +757,15 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						{mediaDetails.data.providerRating ? (
 							<Paper
-								px={4}
+								p={4}
 								withBorder
 								display={"flex"}
 								style={{ alignItems: "center", gap: 6 }}
 							>
 								<Image
 									alt="Logo"
-									height={30}
-									width={30}
+									height={24}
+									width={24}
 									src={`/images/provider-logos/${match(mediaDetails.data.source)
 										.with(MetadataSource.Anilist, () => "anilist.svg")
 										.with(MetadataSource.Audible, () => "audible.svg")
@@ -784,7 +784,7 @@ const Page: NextPageWithLayout = () => {
 										.with(MetadataSource.Custom, () => undefined)
 										.exhaustive()}`}
 								/>
-								<Text>
+								<Text size="sm">
 									{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
 								</Text>
 							</Paper>
