@@ -36,7 +36,7 @@ impl IntegrationService {
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
             pub struct JellyfinWebhookSessionPlayStatePayload {
-                pub position_ticks: Decimal,
+                pub position_ticks: Option<Decimal>,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
@@ -51,7 +51,7 @@ impl IntegrationService {
             #[derive(Serialize, Deserialize, Debug, Clone)]
             #[serde(rename_all = "PascalCase")]
             pub struct JellyfinWebhookItemPayload {
-                pub run_time_ticks: Decimal,
+                pub run_time_ticks: Option<Decimal>,
                 #[serde(rename = "Type")]
                 pub item_type: String,
                 pub provider_ids: JellyfinWebhookItemProviderIdsPayload,
@@ -82,7 +82,15 @@ impl IntegrationService {
         if identifier.is_none() {
             bail!("No TMDb ID associated with this media")
         }
+        if payload.item.run_time_ticks.is_none() {
+            bail!("No run time associated with this media")
+        }
+        if payload.session.play_state.position_ticks.is_none() {
+            bail!("No position associated with this media")
+        }
         let identifier = identifier.unwrap();
+        let runtime = payload.item.run_time_ticks.unwrap();
+        let position = payload.session.play_state.position_ticks.unwrap();
         let lot = match payload.item.item_type.as_str() {
             "Episode" => MetadataLot::Show,
             "Movie" => MetadataLot::Movie,
@@ -92,10 +100,7 @@ impl IntegrationService {
             identifier,
             lot,
             source: MetadataSource::Tmdb,
-            progress: (payload.session.play_state.position_ticks / payload.item.run_time_ticks
-                * dec!(100))
-            .to_i32()
-            .unwrap(),
+            progress: (position / runtime * dec!(100)).to_i32().unwrap(),
             podcast_episode_number: None,
             show_season_number: payload.item.season_number,
             show_episode_number: payload.item.episode_number,
@@ -204,6 +209,7 @@ impl IntegrationService {
                 pub library_items: Vec<Item>,
             }
         }
+
         let client: Client = get_base_http_client(
             &format!("{}/api/", base_url),
             vec![(AUTHORIZATION, format!("Bearer {access_token}"))],
