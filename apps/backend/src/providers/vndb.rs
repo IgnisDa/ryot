@@ -73,6 +73,7 @@ struct ItemResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResponse {
+    count: i32,
     more: bool,
     results: Option<Vec<ItemResponse>>,
 }
@@ -108,6 +109,7 @@ impl MediaProvider for VndbService {
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "fields": FIELDS_SMALL,
+                "count": true,
                 "results": self.page_limit,
                 "page": page
             }))
@@ -147,7 +149,7 @@ impl MediaProvider for VndbService {
         let next_page = if search.more { Some(page + 1) } else { None };
         Ok(SearchResults {
             details: SearchDetails {
-                total: 100,
+                total: search.count,
                 next_page,
             },
             items: resp,
