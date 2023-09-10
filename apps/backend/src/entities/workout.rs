@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::fitness::logic::{WorkoutInformation, WorkoutSummary};
+use crate::models::fitness::{WorkoutInformation, WorkoutSummary};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "workout")]
