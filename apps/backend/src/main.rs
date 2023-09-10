@@ -21,6 +21,7 @@ use apalis::{
 };
 use aws_sdk_s3::config::Region;
 use axum::{
+    extract::DefaultBodyLimit,
     http::{header, Method},
     routing::{get, post, Router},
     Extension, Server,
@@ -91,6 +92,7 @@ async fn main() -> Result<()> {
     let rate_limit_num = config.scheduler.rate_limit_num;
     let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
+    let max_file_size = config.server.max_file_size;
     fs::write(
         &config.server.config_dump_path,
         serde_json::to_string_pretty(&config)?,
@@ -202,11 +204,11 @@ async fn main() -> Result<()> {
     );
 
     let app_routes = Router::new()
+        .route("/config", get(config_handler))
+        .route("/graphql", get(graphql_playground).post(graphql_handler))
         .nest("/webhooks", webhook_routes)
         .route("/export/:export_type", get(json_export))
-        .route("/config", get(config_handler))
         .route("/upload", post(upload_file))
-        .route("/graphql", get(graphql_playground).post(graphql_handler))
         .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
@@ -214,6 +216,7 @@ async fn main() -> Result<()> {
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
+        .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
         .layer(cors);
 
     let port = env::var("PORT")

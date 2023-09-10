@@ -401,6 +401,37 @@ pub struct SchedulerConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "SERVER_")]
+pub struct ServerConfig {
+    /// The path where the config file will be written once the server boots up.
+    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
+    pub config_dump_path: String,
+    /// An array of URLs for CORS.
+    #[setting(default = vec![], parse_env = schematic::env::split_comma)]
+    pub cors_origins: Vec<String>,
+    /// Whether default credentials will be populated on the login page of the
+    /// instance.
+    pub default_credentials: bool,
+    /// This will make auth cookies insecure and should be set to `true` if you
+    /// are running the server on `localhost`.
+    /// [More information](https://github.com/IgnisDa/ryot/issues/23)
+    pub insecure_cookie: bool,
+    /// This will set SameSite=None on the auth cookies.
+    pub samesite_none: bool,
+    /// The hours in which a media can be marked as seen again for a user. This
+    /// is used so that the same media can not be used marked as started when
+    /// it has been already marked as seen in the last `n` hours.
+    #[setting(default = 2)]
+    pub progress_update_threshold: i64,
+    /// Whether users will be allowed to deploy a update all metadata job.
+    #[setting(default = true)]
+    pub deploy_update_all_metadata_job_allowed: bool,
+    /// The maximum file size in MB for user uploads.
+    #[setting(default = 70)]
+    pub max_file_size: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
     /// The secret used for generating JWT tokens.
@@ -427,34 +458,6 @@ pub struct UsersConfig {
     /// The number of days till login auth token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "SERVER_")]
-pub struct ServerConfig {
-    /// The path where the config file will be written once the server boots up.
-    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
-    pub config_dump_path: String,
-    /// An array of URLs for CORS.
-    #[setting(default = vec![], parse_env = schematic::env::split_comma)]
-    pub cors_origins: Vec<String>,
-    /// Whether default credentials will be populated on the login page of the
-    /// instance.
-    pub default_credentials: bool,
-    /// This will make auth cookies insecure and should be set to `true` if you
-    /// are running the server on `localhost`.
-    /// [More information](https://github.com/IgnisDa/ryot/issues/23)
-    pub insecure_cookie: bool,
-    /// This will set SameSite=None on the auth cookies.
-    pub samesite_none: bool,
-    /// The hours in which a media can be marked as seen again for a user. This
-    /// is used so that the same media can not be used marked as started when
-    /// it has been already marked as seen in the last `n` hours.
-    #[setting(default = 2)]
-    pub progress_update_threshold: i64,
-    /// Whether users will be allowed to deploy a update all metadata job.
-    #[setting(default = true)]
-    pub deploy_update_all_metadata_job_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

@@ -211,6 +211,11 @@ export interface ServerConfig {
 	 */
 	insecure_cookie: boolean;
 	/**
+	 * The maximum file size in MB for user uploads.
+	 * @default 70
+	 */
+	max_file_size: number;
+	/**
 	 * The hours in which a media can be marked as seen again for a user. This
 	 * is used so that the same media can not be used marked as started when
 	 * it has been already marked as seen in the last `n` hours.
