@@ -364,8 +364,7 @@ struct CreatorDetailsGroupedByRole {
 struct MediaBaseData {
     model: metadata::Model,
     creators: Vec<MetadataCreatorGroupedByRole>,
-    poster_images: Vec<String>,
-    backdrop_images: Vec<String>,
+    assets: GraphqlMediaAssets,
     genres: Vec<String>,
     suggestions: Vec<partial_metadata::Model>,
 }
@@ -375,6 +374,11 @@ struct GraphqlMediaGroup {
     id: i32,
     name: String,
     part: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlMediaAssets {
+    images: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -389,8 +393,7 @@ struct GraphqlMediaDetails {
     source: MetadataSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
     genres: Vec<String>,
-    poster_images: Vec<String>,
-    backdrop_images: Vec<String>,
+    assets: GraphqlMediaAssets,
     publish_year: Option<i32>,
     publish_date: Option<NaiveDate>,
     book_specifics: Option<BookSpecifics>,
@@ -1263,20 +1266,12 @@ impl MiscellaneousService {
         IntegrationService::new()
     }
 
-    async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
-        let mut poster_images = vec![];
-        let mut backdrop_images = vec![];
+    async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
+        let mut images = vec![];
         for i in meta.images.0.clone() {
-            match i.lot {
-                MetadataImageLot::Backdrop => {
-                    backdrop_images.push(get_stored_image(i.url, &self.file_storage_service).await);
-                }
-                MetadataImageLot::Poster => {
-                    poster_images.push(get_stored_image(i.url, &self.file_storage_service).await);
-                }
-            };
+            images.push(get_stored_image(i.url, &self.file_storage_service).await);
         }
-        Ok((poster_images, backdrop_images))
+        Ok(GraphqlMediaAssets { images })
     }
 
     async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
@@ -1337,7 +1332,6 @@ impl MiscellaneousService {
                 })
                 .or_insert(vec![creator.clone()]);
         }
-        let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
             *d = markdown_to_html_opts(
                 d,
@@ -1372,11 +1366,11 @@ impl MiscellaneousService {
             .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
             .all(&self.db)
             .await?;
+        let assets = self.metadata_assets(&meta).await.unwrap();
         Ok(MediaBaseData {
             model: meta,
             creators,
-            poster_images,
-            backdrop_images,
+            assets,
             genres,
             suggestions,
         })
@@ -1386,8 +1380,7 @@ impl MiscellaneousService {
         let MediaBaseData {
             model,
             creators,
-            poster_images,
-            backdrop_images,
+            assets,
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
@@ -1499,8 +1492,7 @@ impl MiscellaneousService {
             creators,
             source_url,
             suggestions,
-            poster_images,
-            backdrop_images,
+            assets,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
@@ -1962,8 +1954,8 @@ impl MiscellaneousService {
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
             let images = serde_json::from_value(met.images).unwrap();
-            let (poster_images, _) = self
-                .metadata_images(&metadata::Model {
+            let assets = self
+                .metadata_assets(&metadata::Model {
                     images,
                     ..Default::default()
                 })
@@ -1972,7 +1964,7 @@ impl MiscellaneousService {
                 data: MediaSearchItem {
                     identifier: met.id.to_string(),
                     title: met.title,
-                    image: poster_images.get(0).cloned(),
+                    image: assets.images.get(0).cloned(),
                     publish_year: met.publish_year,
                 },
                 average_rating: avg,
@@ -3230,7 +3222,7 @@ impl MiscellaneousService {
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.id.to_string(),
-                    image: self.metadata_images(&m).await?.0.first().cloned(),
+                    image: self.metadata_assets(&m).await?.images.first().cloned(),
                     title: m.title,
                     publish_year: m.publish_year,
                 },
