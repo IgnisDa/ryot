@@ -1614,6 +1614,9 @@ impl MiscellaneousService {
             .await?
             .and_then(|n| n.reminder);
 
+        let average_rating =
+            reviews.iter().flat_map(|r| r.rating).sum::<Decimal>() / Decimal::from(reviews.len());
+
         Ok(UserMediaDetails {
             collections,
             reviews,
@@ -3077,6 +3080,8 @@ impl MiscellaneousService {
         creator_id: Option<i32>,
     ) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
+            .select_only()
+            .column(review::Column::Id)
             .order_by_desc(review::Column::PostedOn)
             .apply_if(metadata_id, |query, v| {
                 query.filter(review::Column::MetadataId.eq(v))
@@ -3084,12 +3089,13 @@ impl MiscellaneousService {
             .apply_if(creator_id, |query, v| {
                 query.filter(review::Column::CreatorId.eq(v))
             })
+            .into_tuple::<i32>()
             .all(&self.db)
             .await
             .unwrap();
         let mut reviews = vec![];
-        for r in all_reviews {
-            reviews.push(self.review_by_id(r.id, user_id).await?);
+        for r_id in all_reviews {
+            reviews.push(self.review_by_id(r_id, user_id).await?);
         }
         let all_reviews = reviews
             .into_iter()
