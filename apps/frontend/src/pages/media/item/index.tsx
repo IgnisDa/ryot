@@ -4,7 +4,7 @@ import {
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -67,6 +67,7 @@ import {
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -81,6 +82,7 @@ import {
 	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
+	IconStarFilled,
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
@@ -428,6 +430,7 @@ const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 	const coreDetails = useCoreDetails();
+	const preferences = useUserPreferences();
 
 	const [
 		progressModalOpened,
@@ -614,7 +617,10 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return coreDetails.data && mediaDetails.data && userMediaDetails.data ? (
+	return coreDetails.data &&
+		mediaDetails.data &&
+		preferences.data &&
+		userMediaDetails.data ? (
 		<>
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
@@ -755,40 +761,79 @@ const Page: NextPageWithLayout = () => {
 						{mediaDetails.data.publishYear ? (
 							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : undefined}
-						{mediaDetails.data.providerRating ? (
-							<Paper
-								p={4}
-								withBorder
-								display={"flex"}
-								style={{ alignItems: "center", gap: 6 }}
-							>
-								<Image
-									alt="Logo"
-									height={20}
-									src={`/images/provider-logos/${match(mediaDetails.data.source)
-										.with(MetadataSource.Anilist, () => "anilist.svg")
-										.with(MetadataSource.Audible, () => "audible.svg")
-										.with(MetadataSource.GoogleBooks, () => "google-books.svg")
-										.with(MetadataSource.Igdb, () => "igdb.svg")
-										.with(MetadataSource.Itunes, () => "itunes.svg")
-										.with(MetadataSource.Listennotes, () => "listennotes.webp")
-										.with(MetadataSource.Mal, () => "mal.svg")
-										.with(
-											MetadataSource.MangaUpdates,
-											() => "manga-updates.svg",
-										)
-										.with(MetadataSource.Openlibrary, () => "openlibrary.svg")
-										.with(MetadataSource.Tmdb, () => "tmdb.svg")
-										.with(MetadataSource.Vndb, () => "vndb.ico")
-										.with(MetadataSource.Custom, () => undefined)
-										.exhaustive()}`}
-								/>
-								<Text fw="bold" fz="sm">
-									{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
-								</Text>
-							</Paper>
-						) : undefined}
 					</Flex>
+					{mediaDetails.data.providerRating ||
+					userMediaDetails.data.averageRating ? (
+						<Group>
+							{mediaDetails.data.providerRating ? (
+								<Paper
+									p={4}
+									display={"flex"}
+									style={{
+										flexDirection: "column",
+										alignItems: "center",
+										gap: 6,
+									}}
+								>
+									<Image
+										alt="Logo"
+										height={20}
+										src={`/images/provider-logos/${match(
+											mediaDetails.data.source,
+										)
+											.with(MetadataSource.Anilist, () => "anilist.svg")
+											.with(MetadataSource.Audible, () => "audible.svg")
+											.with(
+												MetadataSource.GoogleBooks,
+												() => "google-books.svg",
+											)
+											.with(MetadataSource.Igdb, () => "igdb.svg")
+											.with(MetadataSource.Itunes, () => "itunes.svg")
+											.with(
+												MetadataSource.Listennotes,
+												() => "listennotes.webp",
+											)
+											.with(MetadataSource.Mal, () => "mal.svg")
+											.with(
+												MetadataSource.MangaUpdates,
+												() => "manga-updates.svg",
+											)
+											.with(MetadataSource.Openlibrary, () => "openlibrary.svg")
+											.with(MetadataSource.Tmdb, () => "tmdb.svg")
+											.with(MetadataSource.Vndb, () => "vndb.ico")
+											.with(MetadataSource.Custom, () => undefined)
+											.exhaustive()}`}
+									/>
+									<Text fz="sm">
+										{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
+									</Text>
+								</Paper>
+							) : undefined}
+							{userMediaDetails.data.averageRating ? (
+								<Paper
+									p={4}
+									display={"flex"}
+									style={{
+										flexDirection: "column",
+										alignItems: "center",
+										gap: 6,
+									}}
+								>
+									<IconStarFilled
+										size="1.2rem"
+										style={{ color: "#EBE600FF" }}
+									/>
+									<Text fz="sm">
+										{parseFloat(userMediaDetails.data.averageRating).toFixed(1)}
+										{preferences.data.general.reviewScale ===
+										UserReviewScale.OutOfFive
+											? undefined
+											: "%"}
+									</Text>
+								</Paper>
+							) : undefined}
+						</Group>
+					) : undefined}
 					{userMediaDetails.data.reminder ? (
 						<Alert
 							icon={<IconAlertCircle size="1rem" />}

@@ -1,14 +1,14 @@
 use std::cmp::Ordering;
 
 use anyhow::{anyhow, Result};
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::InputObject;
 use chrono::Utc;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, FromJsonQueryResult, QueryFilter,
+    EntityTrait, QueryFilter,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +19,10 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::fitness::{
-        ExerciseBestSetRecord, SetLot, SetStatistic, TotalMeasurement,
+        ExerciseBestSetRecord, ProcessedExercise, SetLot, SetStatistic, TotalMeasurement,
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-        UserToExerciseHistoryExtraInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
+        UserToExerciseHistoryExtraInformation, WorkoutInformation, WorkoutSetPersonalBest,
+        WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -61,45 +62,6 @@ fn get_index_of_highest_pb(
             }
         })
         .map(|(index, _)| index)
-}
-
-#[derive(
-    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
-)]
-pub struct ProcessedExercise {
-    pub exercise_name: String,
-    pub exercise_id: i32,
-    pub sets: Vec<WorkoutSetRecord>,
-    pub notes: Vec<String>,
-    pub rest_time: Option<u16>,
-    pub total: TotalMeasurement,
-}
-
-#[derive(
-    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
-)]
-pub struct WorkoutInformation {
-    /// Each grouped superset of exercises will be in a vector. They will contain
-    /// the `exercise.idx`.
-    pub supersets: Vec<Vec<u16>>,
-    pub exercises: Vec<ProcessedExercise>,
-}
-
-#[derive(
-    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
-)]
-pub struct WorkoutSummaryExercise {
-    pub num_sets: usize,
-    pub name: String,
-    pub best_set: WorkoutSetRecord,
-}
-
-#[derive(
-    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
-)]
-pub struct WorkoutSummary {
-    pub total: TotalMeasurement,
-    pub exercises: Vec<WorkoutSummaryExercise>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

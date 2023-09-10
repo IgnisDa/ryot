@@ -26,6 +26,7 @@ query UserMediaDetails($metadataId: Int!) {
     history {
       ...SeenPart
     }
+    averageRating
     reviews {
       id
       rating

@@ -14,7 +14,7 @@ use rust_embed::RustEmbed;
 use serde_json::json;
 
 use crate::{
-    config::AppConfig, fitness::exercise::resolver::ExerciseService, graphql::GraphqlSchema,
+    config::AppConfig, fitness::resolver::ExerciseService, graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService, models::media::ExportAllResponse,
     utils::AuthContext,
 };

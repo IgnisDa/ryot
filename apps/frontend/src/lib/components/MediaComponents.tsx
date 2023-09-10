@@ -51,6 +51,7 @@ import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import type { DeepPartial } from "ts-essentials";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
 export const MediaScrollArea = (props: { children: JSX.Element }) => {
@@ -181,7 +182,7 @@ export const ReviewItemDisplay = ({
 					>
 						Leave comment
 					</Button>
-					{review.comments?.length || 0 > 0 ? (
+					{(review.comments?.length || 0) > 0 ? (
 						<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
 							<Stack>
 								{review.comments
@@ -381,7 +382,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"0.8rem"} style={{ color: "#EBE600FF" }} />
 							<Text color="white" size="xs" fw="bold" pr={4}>
-								{props.averageRating}{" "}
+								{match(userPreferences.data.general.reviewScale)
+									.with(UserReviewScale.OutOfFive, () =>
+										// rome-ignore lint/style/noNonNullAssertion: it is validated above
+										parseFloat(props.averageRating!.toString()).toFixed(1),
+									)
+									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
+									.exhaustive()}{" "}
 								{userPreferences.data.general.reviewScale ===
 								UserReviewScale.OutOfFive
 									? undefined

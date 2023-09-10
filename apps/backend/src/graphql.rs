@@ -1,7 +1,7 @@
 use async_graphql::{EmptySubscription, MergedObject, Schema};
 
 use crate::{
-    fitness::exercise::resolver::{ExerciseMutation, ExerciseQuery},
+    fitness::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
     utils::AppServices,
