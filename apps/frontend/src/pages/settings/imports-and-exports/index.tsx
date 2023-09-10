@@ -158,11 +158,10 @@ const Page: NextPageWithLayout = () => {
 	const uploadFileToServiceAndGetPath = async (file: File) => {
 		const formData = new FormData();
 		formData.append("files[]", file, file.name);
-		const resp = await fetch(`${BASE_URL}/upload`, {
-			method: "POST",
-			body: formData,
-		});
-		const data: string[] = await resp.json();
+		const xhr = new XMLHttpRequest();
+		xhr.open("POST", `${BASE_URL}/upload`, false);
+		xhr.send(formData);
+		const data: string[] = JSON.parse(xhr.responseText);
 		return data[0];
 	};
 
