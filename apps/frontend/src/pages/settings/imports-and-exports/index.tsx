@@ -251,208 +251,215 @@ const Page: NextPageWithLayout = () => {
 					}}
 				>
 					<Stack>
-						<Flex justify={"space-between"} align={"center"}>
-							<Title>Import data</Title>
-							<Group>
-								<Link
-									passHref
-									legacyBehavior
-									href={APP_ROUTES.settings.imports.reports}
-								>
-									<Anchor size="xs">Reports</Anchor>
-								</Link>
-								<Anchor
-									size="xs"
-									href="https://ignisda.github.io/ryot/importing.html"
-									target="_blank"
-								>
-									Docs
-								</Anchor>
-							</Group>
-						</Flex>
-						{progress ? (
-							<Progress
-								value={progress}
-								striped
-								animate
-								size={"sm"}
-								color="orange"
-							/>
-						) : undefined}
-						<Select
-							label="Select a source"
-							required
-							data={Object.values(ImportSource).map((is) => ({
-								label: changeCase(is),
-								value: is,
-							}))}
-							onChange={(v) => {
-								if (v) setDeployImportSource(v as ImportSource);
-							}}
-						/>
-						{deployImportSource ? (
-							<ImportSourceElement>
-								{match(deployImportSource)
-									.with(ImportSource.MediaTracker, () => (
-										<>
-											<TextInput
-												label="Instance Url"
-												required
-												{...mediaTrackerImportForm.getInputProps("apiUrl")}
-											/>
-											<PasswordInput
-												mt="sm"
-												label="API Key"
-												required
-												{...mediaTrackerImportForm.getInputProps("apiKey")}
-											/>
-										</>
-									))
-									.with(ImportSource.Goodreads, () => (
-										<>
-											<TextInput
-												label="RSS URL"
-												required
-												{...goodreadsImportForm.getInputProps("rssUrl")}
-											/>
-										</>
-									))
-									.with(ImportSource.Trakt, () => (
-										<>
-											<TextInput
-												label="Username"
-												required
-												{...traktImportForm.getInputProps("username")}
-											/>
-										</>
-									))
-									.with(ImportSource.Movary, () => (
-										<>
-											<FileInput
-												label="History CSV file"
-												accept=".csv"
-												required
-												{...movaryImportForm.getInputProps("history")}
-											/>
-											<FileInput
-												label="Ratings CSV file"
-												accept=".csv"
-												required
-												{...movaryImportForm.getInputProps("ratings")}
-											/>
-											<FileInput
-												label="Watchlist CSV file"
-												accept=".csv"
-												required
-												{...movaryImportForm.getInputProps("watchlist")}
-											/>
-										</>
-									))
-									.with(ImportSource.StoryGraph, () => (
-										<>
-											<FileInput
-												label="CSV export file"
-												accept=".csv"
-												required
-												{...storyGraphImportForm.getInputProps("export")}
-											/>
-										</>
-									))
-									.with(ImportSource.MediaJson, () => (
-										<>
-											<FileInput
-												label="JSON export file"
-												accept=".json"
-												required
-												{...mediaJsonImportForm.getInputProps("export")}
-											/>
-										</>
-									))
-									.with(ImportSource.Mal, () => (
-										<>
-											<FileInput
-												label="Anime export file"
-												required
-												onChange={async (file) => {
-													if (file) {
-														const path = await uploadFileToServiceAndGetPath(
-															file,
-														);
-														malImportForm.setFieldValue("animePath", path);
-													}
-												}}
-											/>
-											<FileInput
-												label="Manga export file"
-												required
-												onChange={async (file) => {
-													if (file) {
-														const path = await uploadFileToServiceAndGetPath(
-															file,
-														);
-														malImportForm.setFieldValue("mangaPath", path);
-													}
-												}}
-											/>
-										</>
-									))
-									.exhaustive()}
-							</ImportSourceElement>
-						) : undefined}
-						<Flex justify={"space-between"} align={"center"} mt="xl">
-							<Title>Export data</Title>
-							<Group>
-								<Anchor
-									size="xs"
-									href="https://ignisda.github.io/ryot/guides/exporting.html"
-									target="_blank"
-								>
-									Docs
-								</Anchor>
-							</Group>
-						</Flex>
-						<Button
-							variant="light"
-							color="indigo"
-							radius="md"
-							onClick={() => {
-								generateAuthToken.mutate({});
-							}}
-						>
-							Create auth token
-						</Button>
-						{generateAuthToken.data ? (
-							<Box>
-								<Alert
-									title="This token will be shown only once"
-									color="yellow"
-								>
-									<Flex align={"center"}>
-										<CopyButton value={generateAuthToken.data}>
-											{({ copied, copy }) => (
-												<Tooltip
-													label={copied ? "Copied" : "Copy"}
-													withArrow
-													position="right"
-												>
-													<ActionIcon
-														color={copied ? "teal" : "gray"}
-														onClick={copy}
+						<>
+							<Flex justify={"space-between"} align={"center"} mt="xl">
+								<Title order={2}>Export data</Title>
+								<Group>
+									<Anchor
+										size="xs"
+										href="https://ignisda.github.io/ryot/guides/exporting.html"
+										target="_blank"
+									>
+										Docs
+									</Anchor>
+								</Group>
+							</Flex>
+							<Button
+								variant="light"
+								color="indigo"
+								radius="md"
+								onClick={() => {
+									generateAuthToken.mutate({});
+								}}
+							>
+								Create auth token
+							</Button>
+							{generateAuthToken.data ? (
+								<Box>
+									<Alert
+										title="This token will be shown only once"
+										color="yellow"
+									>
+										<Flex align={"center"}>
+											<CopyButton value={generateAuthToken.data}>
+												{({ copied, copy }) => (
+													<Tooltip
+														label={copied ? "Copied" : "Copy"}
+														withArrow
+														position="right"
 													>
-														{copied ? (
-															<IconCheck size="1rem" />
-														) : (
-															<IconCopy size="1rem" />
-														)}
-													</ActionIcon>
-												</Tooltip>
-											)}
-										</CopyButton>
-										<TextInput defaultValue={generateAuthToken.data} readOnly />
-									</Flex>
-								</Alert>
-							</Box>
-						) : undefined}
+														<ActionIcon
+															color={copied ? "teal" : "gray"}
+															onClick={copy}
+														>
+															{copied ? (
+																<IconCheck size="1rem" />
+															) : (
+																<IconCopy size="1rem" />
+															)}
+														</ActionIcon>
+													</Tooltip>
+												)}
+											</CopyButton>
+											<TextInput
+												defaultValue={generateAuthToken.data}
+												readOnly
+											/>
+										</Flex>
+									</Alert>
+								</Box>
+							) : undefined}
+						</>
+						<>
+							<Flex justify={"space-between"} align={"center"}>
+								<Title order={2}>Import data</Title>
+								<Group>
+									<Link
+										passHref
+										legacyBehavior
+										href={APP_ROUTES.settings.imports.reports}
+									>
+										<Anchor size="xs">Reports</Anchor>
+									</Link>
+									<Anchor
+										size="xs"
+										href="https://ignisda.github.io/ryot/importing.html"
+										target="_blank"
+									>
+										Docs
+									</Anchor>
+								</Group>
+							</Flex>
+							{progress ? (
+								<Progress
+									value={progress}
+									striped
+									animate
+									size={"sm"}
+									color="orange"
+								/>
+							) : undefined}
+							<Select
+								label="Select a source"
+								required
+								data={Object.values(ImportSource).map((is) => ({
+									label: changeCase(is),
+									value: is,
+								}))}
+								onChange={(v) => {
+									if (v) setDeployImportSource(v as ImportSource);
+								}}
+							/>
+							{deployImportSource ? (
+								<ImportSourceElement>
+									{match(deployImportSource)
+										.with(ImportSource.MediaTracker, () => (
+											<>
+												<TextInput
+													label="Instance Url"
+													required
+													{...mediaTrackerImportForm.getInputProps("apiUrl")}
+												/>
+												<PasswordInput
+													mt="sm"
+													label="API Key"
+													required
+													{...mediaTrackerImportForm.getInputProps("apiKey")}
+												/>
+											</>
+										))
+										.with(ImportSource.Goodreads, () => (
+											<>
+												<TextInput
+													label="RSS URL"
+													required
+													{...goodreadsImportForm.getInputProps("rssUrl")}
+												/>
+											</>
+										))
+										.with(ImportSource.Trakt, () => (
+											<>
+												<TextInput
+													label="Username"
+													required
+													{...traktImportForm.getInputProps("username")}
+												/>
+											</>
+										))
+										.with(ImportSource.Movary, () => (
+											<>
+												<FileInput
+													label="History CSV file"
+													accept=".csv"
+													required
+													{...movaryImportForm.getInputProps("history")}
+												/>
+												<FileInput
+													label="Ratings CSV file"
+													accept=".csv"
+													required
+													{...movaryImportForm.getInputProps("ratings")}
+												/>
+												<FileInput
+													label="Watchlist CSV file"
+													accept=".csv"
+													required
+													{...movaryImportForm.getInputProps("watchlist")}
+												/>
+											</>
+										))
+										.with(ImportSource.StoryGraph, () => (
+											<>
+												<FileInput
+													label="CSV export file"
+													accept=".csv"
+													required
+													{...storyGraphImportForm.getInputProps("export")}
+												/>
+											</>
+										))
+										.with(ImportSource.MediaJson, () => (
+											<>
+												<FileInput
+													label="JSON export file"
+													accept=".json"
+													required
+													{...mediaJsonImportForm.getInputProps("export")}
+												/>
+											</>
+										))
+										.with(ImportSource.Mal, () => (
+											<>
+												<FileInput
+													label="Anime export file"
+													required
+													onChange={async (file) => {
+														if (file) {
+															const path = await uploadFileToServiceAndGetPath(
+																file,
+															);
+															malImportForm.setFieldValue("animePath", path);
+														}
+													}}
+												/>
+												<FileInput
+													label="Manga export file"
+													required
+													onChange={async (file) => {
+														if (file) {
+															const path = await uploadFileToServiceAndGetPath(
+																file,
+															);
+															malImportForm.setFieldValue("mangaPath", path);
+														}
+													}}
+												/>
+											</>
+										))
+										.exhaustive()}
+								</ImportSourceElement>
+							) : undefined}
+						</>
 					</Stack>
 				</Box>
 			</Container>
