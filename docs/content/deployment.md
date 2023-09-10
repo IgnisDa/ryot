@@ -13,7 +13,6 @@ exists). It needs to be run with `sudo` privileges.
 
 Re-running it updates the running server to the latest version.
 
-
 ```bash
 #!/usr/bin/env bash
 
@@ -82,26 +81,28 @@ The demo Ryot instance is deployed to [Fly](https://fly.io). The following steps
 are required to deploy to Fly.
 
 1. Create a new postgres database for Ryot.
-    ```bash
-    flyctl postgres create ryot-db
-    ```
+
+   ```bash
+   flyctl postgres create ryot-db
+   ```
 
 2. Copy the [`fly.toml`]({{ extra.file_path }}/fly.toml) in the root of this
-repository to your own repository. You **WILL** have to change the `app` key to
-a name of your choosing. Deploy it using the below command.
-    ```bash
-    flyctl launch
-    ```
+   repository to your own repository. You **WILL** have to change the `app` key to
+   a name of your choosing. Deploy it using the below command.
+   `bash
+ flyctl launch
+ `
 
 3. Connect the database.
-    ```bash
-    fly postgres attach --app ryot ryot-db
-    ```
+
+   ```bash
+   fly postgres attach --app ryot ryot-db
+   ```
 
 4. Optionally you can configure the instance using `fly secrets set`.
-    ```bash
-    fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
-    ```
+   ```bash
+   fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
+   ```
 
 ## Cosmos
 
@@ -118,4 +119,3 @@ with the URL chosen.
 The instance will be available under your newly created URL via HTTPS if it
 is enabled. You can then proceed with creating your first user via the web
 interface's registration page.
-

@@ -1,0 +1,26 @@
+{
+  "name": "@ryot/browser-extension",
+  "displayName": "Ryot",
+  "version": "0.0.1",
+  "description": "The Ryot browser extension",
+  "author": "IgnisDa <ignisda2001@gmail.com>",
+  "manifest": {
+    "host_permissions": [
+      "https://*/*"
+    ]
+  },
+  "dependencies": {
+    "plasmo": "0.83.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "4.1.0",
+    "@types/chrome": "0.0.245",
+    "@types/node": "20.5.9",
+    "@types/react": "18.2.21",
+    "@types/react-dom": "18.2.7",
+    "prettier": "3.0.3",
+    "typescript": "5.2.2"
+  }
+}

@@ -20,16 +20,16 @@ tracking.
 
 3. Click on "Register Your Application" on the dashboard.
 
-3. Fill up the details. You must use a unique name. Any name will suffice. Click on
-	"Create" when you are done.
+4. Fill up the details. You must use a unique name. Any name will suffice. Click on
+   "Create" when you are done.
 
-4. You will be guided back to your application dashboard. Click on "Manage" for
-	the application you just created.
+5. You will be guided back to your application dashboard. Click on "Manage" for
+   the application you just created.
 
-5. Generate a client secret. Copy the **Client ID** and **Client Secret**.
+6. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 
-6. Set the `video_games.*` configuration variables in the environment as
-	described in the [configuration](../configuration.md) docs.
+7. Set the `video_games.*` configuration variables in the environment as
+   described in the [configuration](../configuration.md) docs.
 
 ## Conclusion
 

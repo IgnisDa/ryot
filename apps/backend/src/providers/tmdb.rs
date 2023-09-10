@@ -347,7 +347,15 @@ impl MediaProvider for TmdbMovieService {
             }),
             suggestions,
             groups,
-            provider_rating: data.vote_average.map(|r| r * dec!(10)),
+            provider_rating: if let Some(av) = data.vote_average {
+                if av != dec!(0) {
+                    Some(av * dec!(10))
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
         })
     }
 
@@ -632,7 +640,15 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
-            provider_rating: show_data.vote_average.map(|r| r * dec!(10)),
+            provider_rating: if let Some(av) = show_data.vote_average {
+                if av != dec!(0) {
+                    Some(av * dec!(10))
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
             groups: vec![],
         })
     }

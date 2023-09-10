@@ -804,8 +804,35 @@ const Page: NextPageWithLayout = () => {
 											.with(MetadataSource.Custom, () => undefined)
 											.exhaustive()}`}
 									/>
+
 									<Text fz="sm">
 										{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
+										{match(mediaDetails.data.source)
+											.with(
+												MetadataSource.Anilist,
+												MetadataSource.Igdb,
+												MetadataSource.Listennotes,
+												MetadataSource.Tmdb,
+												MetadataSource.Vndb,
+												() => "%",
+											)
+											.with(
+												MetadataSource.Audible,
+												MetadataSource.GoogleBooks,
+												() => "/5",
+											)
+											.with(
+												MetadataSource.Mal,
+												MetadataSource.MangaUpdates,
+												() => "/10",
+											)
+											.with(
+												MetadataSource.Custom,
+												MetadataSource.Itunes,
+												MetadataSource.Openlibrary,
+												() => undefined,
+											)
+											.exhaustive()}
 									</Text>
 								</Paper>
 							) : undefined}
