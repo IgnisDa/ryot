@@ -1,8 +1,32 @@
 tasks:
-  build:
+  build-chrome:
     command:
       - plasmo
       - build
+      - --target=chrome-mv3
+      - --zip
+    outputs:
+      - build/chrome-mv3-prod.zip
+
+  build-firefox:
+    command:
+      - plasmo
+      - build
+      - --target=firefox-mv2
+      - --zip
+    outputs:
+      - build/firefox-mv2-prod.zip
+
+  build:
+    command:
+      - echo
+      - "Build all browser extensions"
+    deps:
+      - build-chrome
+      - build-firefox
+    options:
+      runDepsInParallel: false
+
   dev:
     command:
       - plasmo
