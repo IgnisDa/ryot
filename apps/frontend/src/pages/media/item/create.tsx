@@ -101,8 +101,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					posterImages={imageUrls?.data || []}
-					backdropImages={[]}
+					images={imageUrls?.data || []}
 					externalLink={{ source: MetadataSource.Custom, lot: form.values.lot }}
 				>
 					<ScrollArea.Autosize mah={400}>

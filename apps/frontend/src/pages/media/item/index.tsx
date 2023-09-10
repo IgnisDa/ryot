@@ -627,8 +627,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					backdropImages={mediaDetails.data.backdropImages}
-					posterImages={mediaDetails.data.posterImages}
+					images={mediaDetails.data.assets.images}
 					externalLink={{
 						source,
 						lot: mediaDetails.data.lot,

@@ -18,15 +18,13 @@ function getSurroundingElements<T>(array: T[], element: number): number[] {
 
 export default function (props: {
 	children: JSX.Element | (JSX.Element | undefined)[];
-	posterImages: (string | null | undefined)[];
-	backdropImages: string[];
+	images: (string | null | undefined)[];
 	externalLink?: {
 		lot: MetadataLot;
 		source: MetadataSource;
 		href?: string | null;
 	};
 }) {
-	const images = [...props.posterImages, ...props.backdropImages];
 	const [activeImageId, setActiveImageId] = useState<number>(0);
 
 	return (
@@ -40,15 +38,17 @@ export default function (props: {
 					[t.fn.largerThan("md")]: { width: "35%" },
 				})}
 			>
-				{props.posterImages.length > 1 ? (
+				{props.images.length > 1 ? (
 					<Carousel
-						withIndicators={props.posterImages.length > 1}
+						withIndicators={props.images.length > 1}
 						w={300}
 						onSlideChange={setActiveImageId}
 					>
-						{images.map((url, idx) => (
+						{props.images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
-								{getSurroundingElements(images, activeImageId).includes(idx) ? (
+								{getSurroundingElements(props.images, activeImageId).includes(
+									idx,
+								) ? (
 									<Image
 										src={url}
 										radius="lg"
@@ -61,7 +61,7 @@ export default function (props: {
 				) : (
 					<Box w={300}>
 						<Image
-							src={props.posterImages[0] || props.backdropImages[0]}
+							src={props.images[0]}
 							withPlaceholder
 							height={400}
 							radius="lg"
