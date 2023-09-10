@@ -11,6 +11,7 @@ use sea_query::{Alias, Condition, Expr, Func};
 use serde::{Deserialize, Serialize};
 use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
+use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
@@ -377,6 +378,7 @@ impl ExerciseService {
         })
     }
 
+    #[instrument(skip(self))]
     async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
@@ -386,11 +388,13 @@ impl ExerciseService {
                 .clone()
                 .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
+            tracing::trace!(job_id = ?job, "Deployed job to update exercise library.");
             job_ids.push(job.to_string());
         }
         Ok(job_ids.len().try_into().unwrap())
     }
 
+    #[instrument(skip(self, ex))]
     pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             muscles: vec![],
@@ -408,6 +412,10 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
+            tracing::trace!(
+                "Updating existing exercise with identifier: {}",
+                ex.identifier
+            );
             let mut db_ex: exercise::ActiveModel = e.into();
             db_ex.attributes = ActiveValue::Set(attributes);
             db_ex.update(&self.db).await?;
@@ -436,7 +444,8 @@ impl ExerciseService {
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
                 ..Default::default()
             };
-            db_exercise.insert(&self.db).await?;
+            let created_exercise = db_exercise.insert(&self.db).await?;
+            tracing::trace!("Created new exercise with id: {}", created_exercise.id);
         }
         Ok(())
     }
@@ -494,10 +503,12 @@ impl ExerciseService {
         }
     }
 
+    #[instrument(skip(self))]
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
         let user = user_by_id(&self.db, user_id).await?;
         let sf = Sonyflake::new().unwrap();
         let id = sf.next_id().unwrap().to_string();
+        tracing::trace!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
             .await?;
