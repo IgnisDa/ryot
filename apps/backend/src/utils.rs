@@ -33,7 +33,7 @@ use crate::{
         user, user_to_metadata,
     },
     file_storage::FileStorageService,
-    fitness::exercise::resolver::ExerciseService,
+    fitness::resolver::ExerciseService,
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,

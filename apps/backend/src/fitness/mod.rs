@@ -1,1 +1,2 @@
-pub mod exercise;
+pub mod logic;
+pub mod resolver;

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{metadata, seen},
-    fitness::exercise::resolver::ExerciseService,
+    fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
     models::fitness::Exercise,
