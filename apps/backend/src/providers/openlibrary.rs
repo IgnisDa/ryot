@@ -262,28 +262,30 @@ impl MediaProvider for OpenlibraryService {
                     .map(|href| href.to_string())
                     .unwrap(),
             );
-            let name = item
+            if let Some(n) = item
                 .select(&image_selector)
                 .next()
                 .and_then(|img| img.value().attr("alt"))
                 .map(|alt| alt.to_string())
-                .unwrap()
-                .split(" by ")
-                .next()
-                .map(|name| name.trim().to_string())
-                .unwrap();
-            let image = item
-                .select(&image_selector)
-                .next()
-                .and_then(|img| img.value().attr("src"))
-                .map(|src| src.to_string());
-            suggestions.push(PartialMetadata {
-                title: name,
-                image,
-                identifier,
-                lot: MetadataLot::Book,
-                source: MetadataSource::Openlibrary,
-            });
+            {
+                let name = n
+                    .split(" by ")
+                    .next()
+                    .map(|name| name.trim().to_string())
+                    .unwrap();
+                let image = item
+                    .select(&image_selector)
+                    .next()
+                    .and_then(|img| img.value().attr("src"))
+                    .map(|src| src.to_string());
+                suggestions.push(PartialMetadata {
+                    title: name,
+                    image,
+                    identifier,
+                    lot: MetadataLot::Book,
+                    source: MetadataSource::Openlibrary,
+                });
+            }
         }
 
         Ok(MediaDetails {
