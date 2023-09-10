@@ -20,7 +20,7 @@ tasks:
   build:
     command:
       - echo
-      - "Build all browser extensions"
+      - "Built all browser extensions"
     deps:
       - build-chrome
       - build-firefox
