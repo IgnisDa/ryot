@@ -47,6 +47,7 @@ fields
     similar_games.cover.*,
     platforms.name,
     collection.id,
+    videos.*,
     genres.*;
 where version_parent = null;
 ";
@@ -142,6 +143,7 @@ where id = {id};
 
         let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
+        dbg!(&detail);
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![self.group_details(&c.id.to_string()).await?],
             None => vec![],

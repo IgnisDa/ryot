@@ -243,7 +243,18 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         })
         .collect();
     let score = details.average_score.map(Decimal::from);
-    let videos = Vec::from_iter(details.trailer.map(|t| t.id));
+    // let videos = Vec::from_iter(details.trailer.and_then(|t| {
+    //     let url = match t.site.unwrap().as_str() {
+    //         "youtube" => format!("https://www.youtube.com/watch?v={}", t.id.unwrap()),
+    //         "dailymotion" => format!("https://www.dailymotion.com/video/{}", t.id.unwrap()),
+    //         _ => unreachable!(),
+    //     };
+    //     MetadataAsset {
+    //         url: StoredUrl::Url(url),
+    //         lot: MetadataAssetLot::Video,
+    //     }
+    // }));
+    // dbg!(videos);
     Ok(MediaDetails {
         identifier: details.id.to_string(),
         title: details.title.unwrap().user_preferred.unwrap(),
