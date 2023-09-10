@@ -73,13 +73,14 @@ use crate::{
             ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MovieSpecifics,
-            PartialMetadata, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataAsset,
+            MetadataAssetLot, MetadataCreator, MetadataGroupListItem, MetadataImages,
+            MovieSpecifics, PartialMetadata, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -385,29 +386,29 @@ struct GraphqlMediaAssets {
 struct GraphqlMediaDetails {
     id: i32,
     title: String,
-    identifier: String,
-    description: Option<String>,
-    provider_rating: Option<Decimal>,
-    production_status: String,
     lot: MetadataLot,
-    source: MetadataSource,
-    creators: Vec<MetadataCreatorGroupedByRole>,
+    identifier: String,
     genres: Vec<String>,
-    assets: GraphqlMediaAssets,
+    source: MetadataSource,
     publish_year: Option<i32>,
+    production_status: String,
+    source_url: Option<String>,
+    assets: GraphqlMediaAssets,
+    description: Option<String>,
     publish_date: Option<NaiveDate>,
+    group: Option<GraphqlMediaGroup>,
+    provider_rating: Option<Decimal>,
     book_specifics: Option<BookSpecifics>,
-    movie_specifics: Option<MovieSpecifics>,
     show_specifics: Option<ShowSpecifics>,
-    video_game_specifics: Option<VideoGameSpecifics>,
-    visual_novel_specifics: Option<VisualNovelSpecifics>,
-    audio_book_specifics: Option<AudioBookSpecifics>,
-    podcast_specifics: Option<PodcastSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
-    source_url: Option<String>,
     suggestions: Vec<partial_metadata::Model>,
-    group: Option<GraphqlMediaGroup>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    creators: Vec<MetadataCreatorGroupedByRole>,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -2283,7 +2284,7 @@ impl MiscellaneousService {
         title: String,
         description: Option<String>,
         provider_rating: Option<Decimal>,
-        images: Vec<MetadataImage>,
+        images: Vec<MetadataAsset>,
         specifics: MediaSpecifics,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
@@ -3876,9 +3877,9 @@ impl MiscellaneousService {
             .images
             .unwrap_or_default()
             .into_iter()
-            .map(|i| MetadataImage {
+            .map(|i| MetadataAsset {
                 url: StoredUrl::S3(i),
-                lot: MetadataImageLot::Poster,
+                lot: MetadataAssetLot::Poster,
             })
             .collect();
         let creators = input
@@ -4965,7 +4966,7 @@ impl MiscellaneousService {
                 .images
                 .0
                 .iter()
-                .find(|i| i.lot == MetadataImageLot::Poster)
+                .find(|i| i.lot == MetadataAssetLot::Poster)
             {
                 image = Some(get_stored_image(i.url.clone(), &self.file_storage_service).await);
             }

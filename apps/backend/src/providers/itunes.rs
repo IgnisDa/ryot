@@ -12,8 +12,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset, MetadataAssetLot,
+            MetadataCreator, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -137,9 +137,9 @@ impl MediaProvider for ITunesService {
         let images = details
             .image
             .into_iter()
-            .map(|a| MetadataImage {
+            .map(|a| MetadataAsset {
                 url: StoredUrl::Url(a),
-                lot: MetadataImageLot::Poster,
+                lot: MetadataAssetLot::Poster,
             })
             .collect();
         let episodes: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;

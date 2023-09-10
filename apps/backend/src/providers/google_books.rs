@@ -12,8 +12,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset,
+            MetadataAssetLot, MetadataCreator,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -186,9 +186,9 @@ impl GoogleBooksService {
                 images.push(a);
             }
         };
-        let images = images.into_iter().map(|a| MetadataImage {
+        let images = images.into_iter().map(|a| MetadataAsset {
             url: StoredUrl::Url(a),
-            lot: MetadataImageLot::Poster,
+            lot: MetadataAssetLot::Poster,
         });
         let mut creators = item
             .authors

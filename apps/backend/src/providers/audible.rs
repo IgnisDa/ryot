@@ -15,8 +15,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot, MetadataImages, PartialMetadata,
+            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset,
+            MetadataAssetLot, MetadataCreator, MetadataImages, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -339,9 +339,9 @@ impl AudibleService {
                 item.product_images
                     .unwrap()
                     .image_2400
-                    .map(|a| MetadataImage {
+                    .map(|a| MetadataAsset {
                         url: StoredUrl::Url(a),
-                        lot: MetadataImageLot::Poster,
+                        lot: MetadataAssetLot::Poster,
                     }),
             );
         let release_date = item.release_date.unwrap_or_default();

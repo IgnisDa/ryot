@@ -16,8 +16,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset, MetadataAssetLot,
+            MetadataCreator, PartialMetadata, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -230,9 +230,9 @@ impl ListennotesService {
                 .filter_map(|g| GENRES.get().unwrap().get(&g).cloned())
                 .unique()
                 .collect(),
-            images: Vec::from_iter(podcast_data.image.map(|a| MetadataImage {
+            images: Vec::from_iter(podcast_data.image.map(|a| MetadataAsset {
                 url: StoredUrl::Url(a),
-                lot: MetadataImageLot::Poster,
+                lot: MetadataAssetLot::Poster,
             })),
             publish_year: podcast_data.publish_date.map(|r| r.year()),
             publish_date: podcast_data.publish_date.map(|d| d.date_naive()),

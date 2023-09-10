@@ -10,8 +10,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset,
+            MetadataAssetLot, MetadataCreator, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -182,9 +182,9 @@ impl MediaProvider for MangaUpdatesService {
                 .collect(),
             images: Vec::from_iter(data.image.unwrap().url.original)
                 .into_iter()
-                .map(|i| MetadataImage {
+                .map(|i| MetadataAsset {
                     url: StoredUrl::Url(i),
-                    lot: MetadataImageLot::Poster,
+                    lot: MetadataAssetLot::Poster,
                 })
                 .collect(),
             publish_date: None,

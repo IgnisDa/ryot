@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            MetadataAsset, MetadataAssetLot, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -264,9 +264,9 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .into_iter()
             .map(|g| g.name)
             .collect(),
-        images: vec![MetadataImage {
+        images: vec![MetadataAsset {
             url: StoredUrl::Url(details.main_picture.large),
-            lot: MetadataImageLot::Poster,
+            lot: MetadataAssetLot::Poster,
         }],
         specifics,
         publish_year: details

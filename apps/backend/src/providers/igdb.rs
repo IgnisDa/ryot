@@ -17,8 +17,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, MetadataImages, PartialMetadata, VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset, MetadataAssetLot,
+            MetadataCreator, MetadataImages, PartialMetadata, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -275,17 +275,17 @@ where id = {id};
     }
 
     fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
-        let mut images = Vec::from_iter(item.cover.map(|a| MetadataImage {
+        let mut images = Vec::from_iter(item.cover.map(|a| MetadataAsset {
             url: StoredUrl::Url(self.get_cover_image_url(a.image_id)),
-            lot: MetadataImageLot::Poster,
+            lot: MetadataAssetLot::Poster,
         }));
         let additional_images =
             item.artworks
                 .unwrap_or_default()
                 .into_iter()
-                .map(|a| MetadataImage {
+                .map(|a| MetadataAsset {
                     url: StoredUrl::Url(self.get_cover_image_url(a.image_id)),
-                    lot: MetadataImageLot::Poster,
+                    lot: MetadataAssetLot::Poster,
                 });
         images.extend(additional_images);
         let creators = item

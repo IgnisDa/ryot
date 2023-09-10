@@ -16,8 +16,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset,
+            MetadataAssetLot, MetadataCreator, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -212,9 +212,9 @@ impl MediaProvider for OpenlibraryService {
         let images = images
             .into_iter()
             .filter(|c| c > &0)
-            .map(|c| MetadataImage {
+            .map(|c| MetadataAsset {
                 url: StoredUrl::Url(self.get_book_cover_image_url(c)),
-                lot: MetadataImageLot::Poster,
+                lot: MetadataAssetLot::Poster,
             })
             .unique()
             .collect();
