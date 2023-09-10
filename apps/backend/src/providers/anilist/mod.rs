@@ -243,6 +243,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         })
         .collect();
     let score = details.average_score.map(Decimal::from);
+    let videos = Vec::from_iter(details.trailer.map(|t| t.id));
     Ok(MediaDetails {
         identifier: details.id.to_string(),
         title: details.title.unwrap().user_preferred.unwrap(),
