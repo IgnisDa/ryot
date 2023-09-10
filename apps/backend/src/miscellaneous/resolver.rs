@@ -535,6 +535,8 @@ struct UserMediaDetails {
     reminder: Option<UserMediaReminder>,
     /// The number of users who have seen this media.
     seen_by: i32,
+    /// The average rating of this media in this service.
+    average_rating: Option<Decimal>,
 }
 
 #[derive(SimpleObject)]
@@ -1614,8 +1616,14 @@ impl MiscellaneousService {
             .await?
             .and_then(|n| n.reminder);
 
-        let average_rating =
-            reviews.iter().flat_map(|r| r.rating).sum::<Decimal>() / Decimal::from(reviews.len());
+        let average_rating = if reviews.is_empty() {
+            None
+        } else {
+            Some(
+                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
+                    / Decimal::from(reviews.len()),
+            )
+        };
 
         Ok(UserMediaDetails {
             collections,
@@ -1626,6 +1634,7 @@ impl MiscellaneousService {
             is_monitored,
             seen_by,
             reminder,
+            average_rating,
         })
     }
 
