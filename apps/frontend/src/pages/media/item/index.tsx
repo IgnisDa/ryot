@@ -4,7 +4,7 @@ import {
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -67,6 +67,7 @@ import {
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -429,6 +430,7 @@ const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 	const coreDetails = useCoreDetails();
+	const preferences = useUserPreferences();
 
 	const [
 		progressModalOpened,
@@ -615,7 +617,10 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return coreDetails.data && mediaDetails.data && userMediaDetails.data ? (
+	return coreDetails.data &&
+		mediaDetails.data &&
+		preferences.data &&
+		userMediaDetails.data ? (
 		<>
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
@@ -820,6 +825,10 @@ const Page: NextPageWithLayout = () => {
 									/>
 									<Text fz="sm">
 										{parseFloat(userMediaDetails.data.averageRating).toFixed(1)}
+										{preferences.data.general.reviewScale ===
+										UserReviewScale.OutOfFive
+											? undefined
+											: "%"}
 									</Text>
 								</Paper>
 							) : undefined}
