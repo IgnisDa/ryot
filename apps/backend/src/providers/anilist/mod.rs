@@ -12,7 +12,8 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, MetadataImageLot, PartialMetadata,
+            MetadataCreator, MetadataImage, MetadataImageLot, MetadataVideo, MetadataVideoSource,
+            PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -243,18 +244,14 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         })
         .collect();
     let score = details.average_score.map(Decimal::from);
-    // let videos = Vec::from_iter(details.trailer.and_then(|t| {
-    //     let url = match t.site.unwrap().as_str() {
-    //         "youtube" => format!("https://www.youtube.com/watch?v={}", t.id.unwrap()),
-    //         "dailymotion" => format!("https://www.dailymotion.com/video/{}", t.id.unwrap()),
-    //         _ => unreachable!(),
-    //     };
-    //     MetadataAsset {
-    //         url: StoredUrl::Url(url),
-    //         lot: MetadataAssetLot::Video,
-    //     }
-    // }));
-    // dbg!(videos);
+    let videos = Vec::from_iter(details.trailer.map(|t| MetadataVideo {
+        identifier: StoredUrl::Url(t.id.unwrap()),
+        source: match t.site.unwrap().as_str() {
+            "youtube" => MetadataVideoSource::Youtube,
+            "dailymotion" => MetadataVideoSource::Dailymotion,
+            _ => unreachable!(),
+        },
+    }));
     Ok(MediaDetails {
         identifier: details.id.to_string(),
         title: details.title.unwrap().user_preferred.unwrap(),

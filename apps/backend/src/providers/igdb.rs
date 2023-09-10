@@ -1,3 +1,5 @@
+// TODO: video support
+
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
@@ -18,7 +20,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, MetadataImages, PartialMetadata, VideoGameSpecifics,
+            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
+            VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -59,6 +62,11 @@ struct IgdbCompany {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct IgdbVideo {
+    video_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct IgdbInvolvedCompany {
     company: IgdbCompany,
     developer: bool,
@@ -84,6 +92,7 @@ struct IgdbSearchResponse {
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTimeUtc>,
     involved_companies: Option<Vec<IgdbInvolvedCompany>>,
+    videos: Option<Vec<IgdbVideo>>,
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
@@ -143,7 +152,6 @@ where id = {id};
 
         let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
-        dbg!(&detail);
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![self.group_details(&c.id.to_string()).await?],
             None => vec![],
@@ -317,6 +325,15 @@ where id = {id};
             })
             .unique()
             .collect();
+        let videos = item
+            .videos
+            .unwrap_or_default()
+            .into_iter()
+            .map(|vid| MetadataVideo {
+                identifier: StoredUrl::Url(vid.video_id),
+                source: MetadataVideoSource::Youtube,
+            })
+            .collect_vec();
         MediaDetails {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,

@@ -790,11 +790,30 @@ pub mod media {
     }
 
     #[derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        EnumIter,
+        FromJsonQueryResult,
+        Deserialize,
+        Serialize,
+        Hash,
+        Default,
+    )]
+    pub enum MetadataVideoSource {
+        #[default]
+        Youtube,
+        Dailymotion,
+    }
+
+    #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataVideo {
-        pub url: StoredUrl,
-        pub lot: MetadataImageLot,
+        pub identifier: StoredUrl,
+        pub source: MetadataVideoSource,
     }
 
     // FIXME: Remove this
