@@ -4,7 +4,7 @@ Integrations can be used to continuously update your media progress. They can
 be of two types:
 
 - _Yank_: Progress data is downloaded from an externally running server at a
-periodic interval.
+  periodic interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
 
 !!! info
@@ -24,9 +24,9 @@ The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all
 media which have a match from _Audible_.
 
 1. Obtain an API token as described in the Audiobookshelf
-[authentication](https://api.audiobookshelf.org/#authentication) docs.
+   [authentication](https://api.audiobookshelf.org/#authentication) docs.
 2. Go to your Ryot user settings and add the correct details as described in the
-[yank](#yank-plugins) section.
+   [yank](#yank-plugins) section.
 
 ## Sink plugins
 
@@ -47,13 +47,13 @@ to their metadata.
     to be installed and active in Jellyfin.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
-    slug.
+   slug.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
-    following settings:
-    - Webhook Url => `<instance_url>/webhooks/integrations/jellyfin/<slug>`
-    - Payload format => `Default`
-    - Listen to events only for => Choose your user
-    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
+   following settings:
+   - Webhook Url => `<instance_url>/webhooks/integrations/jellyfin/<slug>`
+   - Payload format => `Default`
+   - Listen to events only for => Choose your user
+   - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
 
 ### Plex
 
@@ -61,10 +61,10 @@ Automatically add new [Plex](https://www.plex.tv/) movie plays to Ryot. It will
 work for all the media that have been a valid TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
-    slug.
+   slug.
 2. In your Plex Webhooks settings, add a new webhook using the
-    following settings:
-    - Webhook Url => `<instance_url>/webhooks/integrations/plex/<slug>`
+   following settings:
+   - Webhook Url => `<instance_url>/webhooks/integrations/plex/<slug>`
 
 !!! warning
 
@@ -77,10 +77,10 @@ show you are watching. It will work for all the media that have been a valid
 TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
-    slug.
+   slug.
 2. Download the addon from [github releases]({{ config.repo_url }}/releases).
-    The file will have a name of `script.ryot.zip`.
+   The file will have a name of `script.ryot.zip`.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
-    the zipped addon to your Kodi instance. Once installed, it will be visible under
-    the "Services" sub category named "Ryot".
+   the zipped addon to your Kodi instance. Once installed, it will be visible under
+   the "Services" sub category named "Ryot".
 4. Click on "Configure" to change the addon settings and fill the correct details.

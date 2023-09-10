@@ -160,7 +160,8 @@ jobs:
   # Mark the Github Release™ as a non-draft now that everything has succeeded!
   publish-release:
     # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
-    needs: [create-release, upload-artifacts, docker-release, upload-kodi-plugin]
+    needs:
+      [create-release, upload-artifacts, docker-release, upload-kodi-plugin]
     if: ${{ always() && needs.create-release.result == 'success' && (needs.upload-artifacts.result == 'skipped' || needs.upload-artifacts.result == 'success') }}
     runs-on: ubuntu-latest
     env:

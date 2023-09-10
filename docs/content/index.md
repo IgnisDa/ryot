@@ -42,7 +42,7 @@ services:
     ports:
       - "8000:8000"
     # volumes:
-      # - ./ryot-data:/data # only needed if using sqlite database
+    # - ./ryot-data:/data # only needed if using sqlite database
     pull_policy: always
     container_name: ryot
 
