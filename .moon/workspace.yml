@@ -1,12 +1,13 @@
-$schema: 'https://moonrepo.dev/schemas/workspace.json'
+$schema: "https://moonrepo.dev/schemas/workspace.json"
 
 projects:
-  frontend: 'apps/frontend'
-  kodi: 'apps/kodi'
-  generated: 'libs/generated'
-  graphql: 'libs/graphql'
-  ts-utils: 'libs/ts-utils'
+  browser-extension: "apps/browser-extension"
+  frontend: "apps/frontend"
+  kodi: "apps/kodi"
+  generated: "libs/generated"
+  graphql: "libs/graphql"
+  ts-utils: "libs/ts-utils"
 
 vcs:
-  manager: 'git'
-  defaultBranch: 'main'
+  manager: "git"
+  defaultBranch: "main"

@@ -1,0 +1,15 @@
+tasks:
+  build:
+    command:
+      - plasmo
+      - build
+  dev:
+    command:
+      - plasmo
+      - dev
+    local: true
+
+  test:
+    command:
+      - plasmo
+      - test
