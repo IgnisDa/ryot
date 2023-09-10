@@ -52,6 +52,7 @@ export function useEnabledCoreFeatures() {
 
 export function useCommitMedia(
 	lot?: MetadataLot,
+	// rome-ignore lint/suspicious/noExplicitAny: required
 	onSuccess?: (id: any) => void,
 ) {
 	const commitMedia = useMutation({

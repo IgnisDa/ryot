@@ -162,6 +162,7 @@ const Page: NextPageWithLayout = () => {
 			return postReview;
 		},
 		onSuccess,
+		// rome-ignore lint/suspicious/noExplicitAny: required
 		onError: (e: any) => {
 			notifications.show({
 				message: e.response.errors[0].message,

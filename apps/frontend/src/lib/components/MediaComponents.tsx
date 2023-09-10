@@ -154,6 +154,7 @@ export const ReviewItemDisplay = ({
 					{review.text ? (
 						!review.spoiler ? (
 							<TypographyStylesProvider>
+								{/* rome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 								<div dangerouslySetInnerHTML={{ __html: review.text }} />
 							</TypographyStylesProvider>
 						) : (
@@ -164,6 +165,7 @@ export const ReviewItemDisplay = ({
 									</Button>
 								) : undefined}
 								<Collapse in={opened}>
+									{/* rome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 									<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 								</Collapse>
 							</>

@@ -61,8 +61,10 @@ const getValues = (m: UserMeasurement["stats"]) => {
 				vals.push({ name: key, value: val });
 			}
 		} else {
-			for (const [keyC, valC] of Object.entries(m.custom || {}))
+			for (const [keyC, valC] of Object.entries(m.custom || {})) {
+				// rome-ignore lint/suspicious/noExplicitAny: required
 				vals.push({ name: keyC, value: valC as any });
+			}
 		}
 	}
 	return vals;
@@ -120,8 +122,8 @@ const DisplayMeasurement = (props: {
 					{props.measurement.comment ? (
 						<Text align="center">Comment: {props.measurement.comment}</Text>
 					) : undefined}
-					{values.map((v, idx) => (
-						<Text key={idx} align="center">
+					{values.map((v) => (
+						<Text key={v.name} align="center">
 							{startCase(snakeCase(v.name))}: {v.value}
 						</Text>
 					))}
@@ -223,6 +225,7 @@ const Page: NextPageWithLayout = () => {
 							}
 							if (Object.keys(submitData).length > 0) {
 								createUserMeasurement.mutate({
+									// rome-ignore lint/suspicious/noExplicitAny: required
 									input: submitData as any,
 								});
 							}
@@ -241,6 +244,7 @@ const Page: NextPageWithLayout = () => {
 									.filter((n) => n !== "custom")
 									.filter(
 										(n) =>
+											// rome-ignore lint/suspicious/noExplicitAny: required
 											(preferences as any).data.fitness.measurements.inbuilt[n],
 									)
 									.map((v) => (
@@ -280,6 +284,7 @@ const Page: NextPageWithLayout = () => {
 								...Object.keys(preferences.data.fitness.measurements.inbuilt)
 									.filter(
 										(n) =>
+											// rome-ignore lint/suspicious/noExplicitAny: required
 											(preferences as any).data.fitness.measurements.inbuilt[n],
 									)
 									.map((v) => ({ name: v, value: v })),
@@ -340,9 +345,9 @@ const Page: NextPageWithLayout = () => {
 									{ minWidth: "xl", cols: 4 },
 								]}
 							>
-								{userMeasurementsList.data.map((m, idx) => (
+								{userMeasurementsList.data.map((m) => (
 									<DisplayMeasurement
-										key={idx}
+										key={m.timestamp.toISOString()}
 										measurement={m}
 										refetch={userMeasurementsList.refetch}
 									/>

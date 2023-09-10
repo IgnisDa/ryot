@@ -146,8 +146,8 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Title>Notification settings</Title>
 					{userNotificationPlatform.data.length > 0 ? (
-						userNotificationPlatform.data.map((notif, idx) => (
-							<Paper p="xs" withBorder key={idx}>
+						userNotificationPlatform.data.map((notif) => (
+							<Paper p="xs" withBorder key={notif.id}>
 								<Flex align={"center"} justify={"space-between"}>
 									<Box w="80%">
 										<Text size="xs" lineClamp={1}>

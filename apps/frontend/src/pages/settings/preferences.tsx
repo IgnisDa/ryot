@@ -67,12 +67,14 @@ const Page: NextPageWithLayout = () => {
 							<Title order={4}>{startCase(facet)}</Title>
 							<SimpleGrid cols={2}>
 								{Object.entries(
+									// rome-ignore lint/suspicious/noExplicitAny: required here
 									(userPreferences.data.featuresEnabled as any)[facet],
-								).map(([name, isEnabled], idx) => (
+								).map(([name, isEnabled]) => (
 									<Switch
 										size="xs"
-										key={idx}
+										key={name}
 										label={changeCase(snakeCase(name))}
+										// rome-ignore lint/suspicious/noExplicitAny: required here
 										checked={isEnabled as any}
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(ev) => {
@@ -97,9 +99,9 @@ const Page: NextPageWithLayout = () => {
 					</Text>
 					<SimpleGrid cols={2}>
 						{Object.entries(userPreferences.data.notifications).map(
-							([name, isEnabled], idx) => (
+							([name, isEnabled]) => (
 								<Switch
-									key={idx}
+									key={name}
 									size="xs"
 									label={match(name)
 										.with(
@@ -159,10 +161,10 @@ const Page: NextPageWithLayout = () => {
 					<SimpleGrid cols={2}>
 						{Object.entries(
 							userPreferences.data.fitness.measurements.inbuilt,
-						).map(([name, isEnabled], idx) => (
+						).map(([name, isEnabled]) => (
 							<Switch
 								size="xs"
-								key={idx}
+								key={name}
 								label={changeCase(snakeCase(name))}
 								checked={isEnabled}
 								disabled={!coreDetails.data.preferencesChangeAllowed}

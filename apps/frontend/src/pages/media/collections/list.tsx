@@ -91,6 +91,7 @@ const Page: NextPageWithLayout = () => {
 		onSuccess: (_data) => {
 			collections.refetch();
 		},
+		// rome-ignore lint/suspicious/noExplicitAny: required
 		onError: (e: any) => {
 			notifications.show({
 				title: "Error in operation",

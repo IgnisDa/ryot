@@ -119,8 +119,8 @@ const Page: NextPageWithLayout = () => {
 					<Title>Integration settings</Title>
 
 					{userIntegrations.data.length > 0 ? (
-						userIntegrations.data.map((i, idx) => (
-							<Paper p="xs" withBorder key={idx}>
+						userIntegrations.data.map((i) => (
+							<Paper p="xs" withBorder key={i.id}>
 								<Flex align={"center"} justify={"space-between"}>
 									<Box>
 										<Text size="xs">{i.description}</Text>
@@ -168,7 +168,9 @@ const Page: NextPageWithLayout = () => {
 									if (createUserYankIntegrationLot) {
 										createUserYankIntegration.mutate({
 											input: {
+												// rome-ignore lint/style/noNonNullAssertion: any is required here
 												baseUrl: values.baseUrl!,
+												// rome-ignore lint/style/noNonNullAssertion: any is required here
 												token: values.token!,
 												lot: createUserYankIntegrationLot,
 											},
@@ -193,6 +195,7 @@ const Page: NextPageWithLayout = () => {
 											...Object.values(UserYankIntegrationSettingKind),
 											...Object.values(UserSinkIntegrationSettingKind),
 										]}
+										// rome-ignore lint/suspicious/noExplicitAny: required here
 										onChange={(v: any) => {
 											if (v) {
 												if (

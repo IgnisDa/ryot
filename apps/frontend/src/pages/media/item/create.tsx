@@ -108,6 +108,7 @@ const Page: NextPageWithLayout = () => {
 						<Box
 							component="form"
 							onSubmit={form.onSubmit((values) => {
+								// rome-ignore lint/suspicious/noExplicitAny: required
 								const input: any = {
 									...values,
 									images,

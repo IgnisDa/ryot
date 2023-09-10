@@ -65,6 +65,7 @@ export default function Page() {
 						viewBox="0 0 362 145"
 						className={classes.image}
 					>
+						<title>404</title>
 						<path
 							fill={
 								theme.colorScheme === "dark"
