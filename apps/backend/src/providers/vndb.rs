@@ -11,8 +11,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset, MetadataAssetLot,
-            MetadataCreator, VisualNovelSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataImageLot, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -167,9 +167,9 @@ impl VndbService {
         for i in item.screenshots.unwrap_or_default() {
             images.push(i.url);
         }
-        let images = images.into_iter().map(|a| MetadataAsset {
+        let images = images.into_iter().map(|a| MetadataImage {
             url: StoredUrl::Url(a),
-            lot: MetadataAssetLot::Poster,
+            lot: MetadataImageLot::Poster,
         });
         let creators = item
             .developers

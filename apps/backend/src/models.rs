@@ -647,7 +647,7 @@ pub mod media {
         pub production_status: String,
         pub creators: Vec<MetadataCreator>,
         pub genres: Vec<String>,
-        pub images: Vec<MetadataAsset>,
+        pub images: Vec<MetadataImage>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
@@ -775,24 +775,31 @@ pub mod media {
         Default,
         Hash,
     )]
-    pub enum MetadataAssetLot {
+    pub enum MetadataImageLot {
         Backdrop,
         #[default]
         Poster,
-        Video,
     }
 
     #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
-    pub struct MetadataAsset {
+    pub struct MetadataImage {
         pub url: StoredUrl,
-        pub lot: MetadataAssetLot,
+        pub lot: MetadataImageLot,
+    }
+
+    #[derive(
+        Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
+    )]
+    pub struct MetadataVideo {
+        pub url: StoredUrl,
+        pub lot: MetadataImageLot,
     }
 
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataImages(pub Vec<MetadataAsset>);
+    pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[derive(
         Clone,

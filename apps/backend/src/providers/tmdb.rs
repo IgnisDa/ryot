@@ -16,8 +16,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataAsset, MetadataAssetLot,
-            MetadataCreator, MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            MetadataImageLot, MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode,
             ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -188,9 +188,9 @@ impl TmdbMovieService {
                     images
                         .into_iter()
                         .unique()
-                        .map(|p| MetadataAsset {
+                        .map(|p| MetadataImage {
                             url: StoredUrl::Url(self.base.get_cover_image_url(p)),
-                            lot: MetadataAssetLot::Poster,
+                            lot: MetadataImageLot::Poster,
                         })
                         .collect(),
                 ),
@@ -331,9 +331,9 @@ impl MediaProvider for TmdbMovieService {
             images: image_ids
                 .into_iter()
                 .unique()
-                .map(|p| MetadataAsset {
+                .map(|p| MetadataImage {
                     url: StoredUrl::Url(self.base.get_cover_image_url(p)),
-                    lot: MetadataAssetLot::Poster,
+                    lot: MetadataImageLot::Poster,
                 })
                 .collect(),
             publish_year: data
@@ -592,9 +592,9 @@ impl MediaProvider for TmdbShowService {
             images: image_ids
                 .into_iter()
                 .unique()
-                .map(|p| MetadataAsset {
+                .map(|p| MetadataImage {
                     url: StoredUrl::Url(self.base.get_cover_image_url(p)),
-                    lot: MetadataAssetLot::Poster,
+                    lot: MetadataImageLot::Poster,
                 })
                 .collect(),
             publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),

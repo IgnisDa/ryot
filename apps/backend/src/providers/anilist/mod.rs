@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataAsset, MetadataAssetLot, MetadataCreator, PartialMetadata,
+            MetadataCreator, MetadataImage, MetadataImageLot, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -165,9 +165,9 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
     }
     let images = images
         .into_iter()
-        .map(|i| MetadataAsset {
+        .map(|i| MetadataImage {
             url: StoredUrl::Url(i),
-            lot: MetadataAssetLot::Poster,
+            lot: MetadataImageLot::Poster,
         })
         .unique()
         .collect();
