@@ -8,11 +8,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, PartialMetadata,
+            MetadataCreator, MetadataImage, MetadataImageLot, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },

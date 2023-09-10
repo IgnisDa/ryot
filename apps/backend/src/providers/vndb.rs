@@ -8,11 +8,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::VisualNovelConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            VisualNovelSpecifics,
+            MetadataImageLot, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },

@@ -7,11 +7,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::MangaMangaUpdatesConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, PartialMetadata,
+            MetadataImage, MetadataImageLot, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },

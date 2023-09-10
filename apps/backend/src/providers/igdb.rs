@@ -14,11 +14,11 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     config::VideoGameConfig,
     entities::metadata_group,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, PartialMetadata, VideoGameSpecifics,
+            MetadataImageLot, MetadataImages, PartialMetadata, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },

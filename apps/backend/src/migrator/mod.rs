@@ -23,7 +23,7 @@ mod m20230901_create_partial_metadata;
 mod m20230902_remove_useless_tables;
 mod m20230909_add_provider_rating_field_to_metadata;
 
-pub use m20230410_create_metadata::{Metadata, MetadataImageLot, MetadataLot, MetadataSource};
+pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
 pub use m20230419_create_seen::{Seen, SeenState};
 pub use m20230505_create_review::Review;

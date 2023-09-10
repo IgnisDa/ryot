@@ -9,11 +9,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::GoogleBooksConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MetadataImage, MetadataImageLot,
         },
         SearchDetails, SearchResults, StoredUrl,
     },

@@ -17,7 +17,7 @@ use crate::{
     entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
-        MetadataImageLot, MetadataLot, MetadataSource, SeenState,
+        MetadataLot, MetadataSource, SeenState,
     },
 };
 
@@ -763,9 +763,36 @@ pub mod media {
     }
 
     #[derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        EnumIter,
+        FromJsonQueryResult,
+        Deserialize,
+        Serialize,
+        Default,
+        Hash,
+    )]
+    pub enum MetadataImageLot {
+        Backdrop,
+        #[default]
+        Poster,
+    }
+
+    #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
+        pub url: StoredUrl,
+        pub lot: MetadataImageLot,
+    }
+
+    #[derive(
+        Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
+    )]
+    pub struct MetadataVideo {
         pub url: StoredUrl,
         pub lot: MetadataImageLot,
     }

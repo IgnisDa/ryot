@@ -12,28 +12,6 @@ pub struct Migration;
 pub static METADATA_IDENTIFIER_INDEX: &str = "metadata_identifier__index";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Default,
-    Hash,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum MetadataImageLot {
-    #[sea_orm(string_value = "B")]
-    Backdrop,
-    #[default]
-    #[sea_orm(string_value = "P")]
-    Poster,
-}
-
 // The different types of media that can be stored
 #[derive(
     Debug,

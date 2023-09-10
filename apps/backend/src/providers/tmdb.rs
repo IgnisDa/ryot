@@ -13,12 +13,12 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     entities::metadata_group,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            MetadataImageLot, MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode,
+            ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },

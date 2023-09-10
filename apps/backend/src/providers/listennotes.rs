@@ -13,11 +13,11 @@ use surf::Client;
 
 use crate::{
     config::PodcastConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            MetadataImageLot, PartialMetadata, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },

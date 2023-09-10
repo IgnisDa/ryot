@@ -9,11 +9,11 @@ use surf::Client;
 
 use crate::{
     config::{AnimeMalConfig, MangaMalConfig},
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, PartialMetadata,
+            MetadataImage, MetadataImageLot, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
