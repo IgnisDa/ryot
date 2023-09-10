@@ -14,6 +14,7 @@ import {
 	Flex,
 	Group,
 	PasswordInput,
+	Progress,
 	Select,
 	Stack,
 	TextInput,
@@ -109,6 +110,7 @@ export const ImportSourceElement = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
+	const [progress, setProgress] = useState<number | null>(null);
 
 	const mediaTrackerImportForm = useForm<MediaTrackerImportFormSchema>({
 		validate: zodResolver(mediaTrackerImportFormSchema),
@@ -158,11 +160,22 @@ const Page: NextPageWithLayout = () => {
 	const uploadFileToServiceAndGetPath = async (file: File) => {
 		const formData = new FormData();
 		formData.append("files[]", file, file.name);
-		const xhr = new XMLHttpRequest();
-		xhr.open("POST", `${BASE_URL}/upload`, false);
-		xhr.send(formData);
-		const data: string[] = JSON.parse(xhr.responseText);
-		return data[0];
+		const data: string = await new Promise((resolve) => {
+			const xhr = new XMLHttpRequest();
+			xhr.upload.addEventListener("progress", (event) => {
+				if (event.lengthComputable) {
+					setProgress((event.loaded / event.total) * 100);
+				}
+			});
+			xhr.addEventListener("load", () => {
+				setProgress(null);
+				const data: string[] = JSON.parse(xhr.responseText);
+				resolve(data[0]);
+			});
+			xhr.open("POST", `${BASE_URL}/upload`, true);
+			xhr.send(formData);
+		});
+		return data;
 	};
 
 	return (
@@ -257,6 +270,15 @@ const Page: NextPageWithLayout = () => {
 								</Anchor>
 							</Group>
 						</Flex>
+						{progress ? (
+							<Progress
+								value={progress}
+								striped
+								animate
+								size={"sm"}
+								color="orange"
+							/>
+						) : undefined}
 						<Select
 							label="Select a source"
 							required
