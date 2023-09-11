@@ -462,17 +462,26 @@ impl MediaProvider for TmdbShowService {
             status: Option<String>,
             vote_average: Option<Decimal>,
             production_companies: Option<Vec<TmdbCompany>>,
+            videos: Option<TmdbVideoResults>,
         }
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
             .query(&json!({
                 "language": self.base.language,
+                "append_to_response": "videos",
             }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let show_data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut videos = vec![];
+        if let Some(vid) = show_data.videos {
+            videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
+                identifier: StoredUrl::Url(vid.id),
+                source: MetadataVideoSource::Youtube,
+            }))
+        }
         let mut image_ids = Vec::from_iter(show_data.poster_path);
         if let Some(u) = show_data.backdrop_path {
             image_ids.push(u);
