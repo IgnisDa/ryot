@@ -74,12 +74,13 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MovieSpecifics,
-            PartialMetadata, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
+            MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
+            VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -1268,8 +1269,10 @@ impl MiscellaneousService {
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
         let mut images = vec![];
-        for i in meta.images.0.clone() {
-            images.push(get_stored_image(i.url, &self.file_storage_service).await);
+        if let Some(imgs) = &meta.images {
+            for i in imgs.0.clone() {
+                images.push(get_stored_image(i.url, &self.file_storage_service).await);
+            }
         }
         Ok(GraphqlMediaAssets { images })
     }
@@ -2284,6 +2287,7 @@ impl MiscellaneousService {
         description: Option<String>,
         provider_rating: Option<Decimal>,
         images: Vec<MetadataImage>,
+        videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
@@ -2406,7 +2410,8 @@ impl MiscellaneousService {
         meta.title = ActiveValue::Set(title);
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
-        meta.images = ActiveValue::Set(MetadataImages(images));
+        meta.images = ActiveValue::Set(Some(MetadataImages(images)));
+        meta.videos = ActiveValue::Set(Some(MetadataVideos(videos)));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
@@ -2583,7 +2588,8 @@ impl MiscellaneousService {
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
-            images: ActiveValue::Set(MetadataImages(details.images)),
+            images: ActiveValue::Set(Some(MetadataImages(details.images))),
+            videos: ActiveValue::Set(Some(MetadataVideos(details.videos))),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
@@ -3468,6 +3474,7 @@ impl MiscellaneousService {
                     details.description,
                     details.provider_rating,
                     details.images,
+                    details.videos,
                     details.specifics,
                     details.creators,
                     details.genres,
@@ -5055,8 +5062,12 @@ impl MiscellaneousService {
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
-            let image = if let Some(i) = m.images.0.first() {
-                Some(get_stored_image(i.url.clone(), &self.file_storage_service).await)
+            let image = if let Some(imgs) = m.images {
+                if let Some(i) = imgs.0.first() {
+                    Some(get_stored_image(i.url.clone(), &self.file_storage_service).await)
+                } else {
+                    None
+                }
             } else {
                 None
             };
