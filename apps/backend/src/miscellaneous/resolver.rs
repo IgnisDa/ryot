@@ -130,6 +130,7 @@ struct CreateCustomMediaInput {
     creators: Option<Vec<String>>,
     genres: Option<Vec<String>>,
     images: Option<Vec<String>>,
+    is_nsfw: Option<bool>,
     publish_year: Option<i32>,
     audio_book_specifics: Option<AudioBookSpecifics>,
     book_specifics: Option<BookSpecifics>,
@@ -3951,8 +3952,7 @@ impl MiscellaneousService {
             specifics,
             production_status: "Released".to_owned(),
             provider_rating: None,
-            // TODO: Allow marking as nsfw
-            is_nsfw: None,
+            is_nsfw: input.is_nsfw,
             publish_date: None,
             suggestions: vec![],
             groups: vec![],

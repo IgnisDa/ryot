@@ -8,11 +8,13 @@ import {
 	Button,
 	Container,
 	FileInput,
+	Group,
 	JsonInput,
 	NumberInput,
 	ScrollArea,
 	Select,
 	Stack,
+	Switch,
 	TextInput,
 	Textarea,
 	Title,
@@ -44,6 +46,7 @@ const formSchema = z.object({
 	title: z.string(),
 	lot: z.nativeEnum(MetadataLot),
 	description: optionalString,
+	isNsfw: z.boolean().optional(),
 	publishYear: z.number().optional(),
 	genres: optionalString,
 	creators: optionalString,
@@ -130,17 +133,25 @@ const Page: NextPageWithLayout = () => {
 									required
 									autoFocus
 								/>
-								<Select
-									label="Type"
-									{...form.getInputProps("lot")}
-									data={Object.values(MetadataLot)}
-									required
-								/>
+								<Group>
+									<Select
+										label="Type"
+										{...form.getInputProps("lot")}
+										data={Object.values(MetadataLot)}
+										required
+									/>
+									<Switch
+										mt="md"
+										label={"Is it NSFW?"}
+										{...form.getInputProps("isNsfw")}
+									/>
+								</Group>
 								<Textarea
 									label="Description"
 									description={"Markdown is supported"}
 									{...form.getInputProps("description")}
 								/>
+
 								<FileInput
 									label="Images"
 									multiple
