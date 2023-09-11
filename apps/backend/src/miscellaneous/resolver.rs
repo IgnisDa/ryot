@@ -2305,6 +2305,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: i32,
         title: String,
+        is_nsfw: Option<bool>,
         description: Option<String>,
         provider_rating: Option<Decimal>,
         images: Vec<MetadataImage>,
@@ -2429,6 +2430,10 @@ impl MiscellaneousService {
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
+        meta.is_nsfw = match is_nsfw {
+            None => ActiveValue::NotSet,
+            Some(n) => ActiveValue::Set(n),
+        };
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(Some(MetadataImages(images)));
@@ -2615,6 +2620,10 @@ impl MiscellaneousService {
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
             provider_rating: ActiveValue::Set(details.provider_rating),
+            is_nsfw: match details.is_nsfw {
+                None => ActiveValue::NotSet,
+                Some(n) => ActiveValue::Set(n),
+            },
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await?;
@@ -3492,6 +3501,7 @@ impl MiscellaneousService {
                 self.update_media(
                     metadata_id,
                     details.title,
+                    details.is_nsfw,
                     details.description,
                     details.provider_rating,
                     details.images,
