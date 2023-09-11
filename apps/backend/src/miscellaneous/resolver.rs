@@ -1680,6 +1680,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<SearchResults<MediaListItem>> {
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .apply_if(
@@ -1702,6 +1703,10 @@ impl MiscellaneousService {
         let mut main_select = Query::select()
             .expr(Expr::col((metadata_alias.clone(), Asterisk)))
             .from_as(TempMetadata::Table, metadata_alias.clone())
+            .and_where_option(match preferences.general.display_nsfw {
+                true => None,
+                false => Some(Expr::col((metadata_alias.clone(), TempMetadata::IsNsfw)).eq(false)),
+            })
             .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).eq(input.lot))
             .and_where(
                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
@@ -1947,7 +1952,6 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut items = vec![];
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
 
         for met in metadata_items {
             let avg_select = Query::select()
