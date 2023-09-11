@@ -193,6 +193,12 @@ const Page: NextPageWithLayout = () => {
 				<Box
 					component="form"
 					onSubmit={form.onSubmit((values) => {
+						if (
+							userPreferences.data.general.reviewScale ===
+								UserReviewScale.OutOfFive &&
+							typeof values.rating !== "undefined"
+						)
+							values.rating = Math.round(values.rating * 20);
 						postReview.mutate({
 							input: {
 								metadataId,
