@@ -2,6 +2,7 @@ query UserPreferences {
   userPreferences {
     general {
       reviewScale
+      displayNsfw
     }
     fitness {
       measurements {

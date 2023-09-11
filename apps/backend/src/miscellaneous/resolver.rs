@@ -4190,6 +4190,9 @@ impl MiscellaneousService {
                     preferences.general.review_scale =
                         UserReviewScale::from_str(&input.value).unwrap();
                 }
+                "display_nsfw" => {
+                    preferences.general.display_nsfw = value_bool.unwrap();
+                }
                 _ => return Err(err()),
             },
             _ => return Err(err()),

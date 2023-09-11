@@ -263,6 +263,7 @@ pub enum UserReviewScale {
 #[serde(default)]
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
+    pub display_nsfw: bool,
 }
 
 #[derive(
