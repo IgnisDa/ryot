@@ -1,5 +1,3 @@
-// TODO: video support
-
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
