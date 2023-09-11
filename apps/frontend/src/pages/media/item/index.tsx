@@ -68,6 +68,7 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
+	MetadataVideoSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -1587,9 +1588,32 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="videos">
 							<MediaScrollArea>
 								{mediaDetails.data.assets.videos.length > 0 ? (
-									<>
-										{JSON.stringify(mediaDetails.data.assets.videos, null, 4)}
-									</>
+									<Stack>
+										{mediaDetails.data.assets.videos.map((v) => (
+											<Box key={v.videoId}>
+												<iframe
+													width={"100%"}
+													height={200}
+													src={
+														match(v.source)
+															.with(
+																MetadataVideoSource.Youtube,
+																() => "https://www.youtube.com/embed/",
+															)
+															.with(
+																MetadataVideoSource.Dailymotion,
+																() =>
+																	"https://www.dailymotion.com/embed/video/",
+															)
+															.exhaustive() + v.videoId
+													}
+													title="YouTube video player"
+													allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+													allowFullScreen
+												/>
+											</Box>
+										))}
+									</Stack>
 								) : (
 									<Text fs="italic">No videos available</Text>
 								)}
