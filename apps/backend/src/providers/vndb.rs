@@ -211,6 +211,7 @@ impl VndbService {
             }),
             provider_rating: item.rating,
             images: images.unique().collect(),
+            is_nsfw: None,
             videos: vec![],
             suggestions: vec![],
             groups: vec![],

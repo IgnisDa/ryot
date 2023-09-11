@@ -255,6 +255,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
     Ok(MediaDetails {
         identifier: details.id.to_string(),
         title: details.title.unwrap().user_preferred.unwrap(),
+        is_nsfw: details.is_adult,
         production_status: "Released".to_owned(),
         source: MetadataSource::Anilist,
         description: details.description,

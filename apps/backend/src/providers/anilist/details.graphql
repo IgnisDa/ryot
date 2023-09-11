@@ -4,6 +4,7 @@ query DetailsQuery($id: Int!) {
     title {
       userPreferred
     }
+    isAdult
     episodes
     chapters
     volumes

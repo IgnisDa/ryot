@@ -375,6 +375,7 @@ where id = {id};
                 .collect(),
             provider_rating: item.rating,
             groups: vec![],
+            is_nsfw: None,
         }
     }
 

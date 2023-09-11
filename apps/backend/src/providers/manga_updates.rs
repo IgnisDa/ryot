@@ -187,8 +187,6 @@ impl MediaProvider for MangaUpdatesService {
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
-            videos: vec![],
-            publish_date: None,
             publish_year: data.year.and_then(|y| y.parse().ok()),
             specifics: MediaSpecifics::Manga(MangaSpecifics {
                 chapters: data.latest_chapter,
@@ -198,7 +196,10 @@ impl MediaProvider for MangaUpdatesService {
             creators,
             suggestions,
             provider_rating: data.bayesian_rating,
+            videos: vec![],
+            publish_date: None,
             groups: vec![],
+            is_nsfw: None,
         };
         Ok(data)
     }

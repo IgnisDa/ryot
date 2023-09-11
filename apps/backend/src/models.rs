@@ -640,6 +640,7 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
+        pub is_nsfw: Option<bool>,
         pub title: String,
         pub source: MetadataSource,
         pub description: Option<String>,

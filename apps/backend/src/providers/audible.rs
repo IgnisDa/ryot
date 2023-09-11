@@ -104,6 +104,7 @@ struct AudibleRatings {
 struct AudibleItem {
     asin: String,
     title: String,
+    is_adult_product: Option<bool>,
     authors: Option<Vec<NamedObject>>,
     narrators: Option<Vec<NamedObject>>,
     rating: Option<AudibleRatings>,
@@ -379,6 +380,7 @@ impl AudibleService {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
+            is_nsfw: item.is_adult_product,
             production_status: "Released".to_owned(),
             title: item.title,
             description,

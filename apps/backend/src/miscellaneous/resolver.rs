@@ -3926,15 +3926,17 @@ impl MiscellaneousService {
             creators,
             genres: input.genres.unwrap_or_default(),
             images,
-            // TODO: Allow videos
-            videos: vec![],
             publish_year: input.publish_year,
-            publish_date: None,
             specifics,
             production_status: "Released".to_owned(),
             provider_rating: None,
+            // TODO: Allow marking as nsfw
+            is_nsfw: None,
+            publish_date: None,
             suggestions: vec![],
             groups: vec![],
+            // TODO: Allow videos
+            videos: vec![],
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

@@ -298,15 +298,16 @@ impl MediaProvider for OpenlibraryService {
             creators,
             genres,
             images,
-            videos: vec![],
             publish_year: first_release_date.map(|d| d.year()),
-            publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
             }),
             suggestions,
+            publish_date: None,
             provider_rating: None,
+            videos: vec![],
             groups: vec![],
+            is_nsfw: None,
         })
     }
 

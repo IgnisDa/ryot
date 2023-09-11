@@ -189,6 +189,7 @@ impl ListennotesService {
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
             title: String,
+            explicit_content: Option<bool>,
             description: Option<String>,
             listen_score: Option<Decimal>,
             id: String,
@@ -215,6 +216,7 @@ impl ListennotesService {
         Ok(MediaDetails {
             identifier: podcast_data.id,
             title: podcast_data.title,
+            is_nsfw: podcast_data.explicit_content,
             production_status: "Released".to_owned(),
             description: podcast_data.description,
             lot: MetadataLot::Podcast,
