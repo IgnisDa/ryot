@@ -930,7 +930,8 @@ const Page: NextPageWithLayout = () => {
 									Suggestions
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.assets.videos.length > 0 ? (
+							{!coreDetails.data.videosDisabled &&
+							mediaDetails.data.assets.videos.length > 0 ? (
 								<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
 									Videos
 								</Tabs.Tab>
@@ -1576,35 +1577,38 @@ const Page: NextPageWithLayout = () => {
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						<Tabs.Panel value="videos">
-							<MediaScrollArea>
-								<Stack>
-									{mediaDetails.data.assets.videos.map((v) => (
-										<Box key={v.videoId}>
-											<iframe
-												width={"100%"}
-												height={200}
-												src={
-													match(v.source)
-														.with(
-															MetadataVideoSource.Youtube,
-															() => "https://www.youtube.com/embed/",
-														)
-														.with(
-															MetadataVideoSource.Dailymotion,
-															() => "https://www.dailymotion.com/embed/video/",
-														)
-														.exhaustive() + v.videoId
-												}
-												title="YouTube video player"
-												allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-												allowFullScreen
-											/>
-										</Box>
-									))}
-								</Stack>
-							</MediaScrollArea>
-						</Tabs.Panel>
+						{!coreDetails.data.videosDisabled ? (
+							<Tabs.Panel value="videos">
+								<MediaScrollArea>
+									<Stack>
+										{mediaDetails.data.assets.videos.map((v) => (
+											<Box key={v.videoId}>
+												<iframe
+													width={"100%"}
+													height={200}
+													src={
+														match(v.source)
+															.with(
+																MetadataVideoSource.Youtube,
+																() => "https://www.youtube.com/embed/",
+															)
+															.with(
+																MetadataVideoSource.Dailymotion,
+																() =>
+																	"https://www.dailymotion.com/embed/video/",
+															)
+															.exhaustive() + v.videoId
+													}
+													title="YouTube video player"
+													allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+													allowFullScreen
+												/>
+											</Box>
+										))}
+									</Stack>
+								</MediaScrollArea>
+							</Tabs.Panel>
+						) : undefined}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>
