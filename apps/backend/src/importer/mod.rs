@@ -258,6 +258,9 @@ impl ImporterService {
                 .await?
             }
         };
+        let preferences = user_by_id(&self.media_service.db, user_id)
+            .await?
+            .preferences;
         import.media = import
             .media
             .into_iter()
@@ -335,9 +338,6 @@ impl ImporterService {
                     tracing::debug!("Skipping review since it has no content");
                     continue;
                 }
-                let preferences = user_by_id(&self.media_service.db, user_id)
-                    .await?
-                    .preferences;
                 let rating = match preferences.general.review_scale {
                     UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
                     UserReviewScale::OutOfHundred => review.rating,
