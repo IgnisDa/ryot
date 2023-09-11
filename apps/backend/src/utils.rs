@@ -199,7 +199,7 @@ where
     )
 }
 
-pub async fn get_stored_image(
+pub async fn get_stored_asset(
     url: StoredUrl,
     files_storage_service: &Arc<FileStorageService>,
 ) -> String {

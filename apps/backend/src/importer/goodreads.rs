@@ -10,13 +10,13 @@ use crate::{
         DeployGoodreadsImportInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
         ImportResult,
     },
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
     models::{
         media::{
             BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MetadataImage, MetadataImageLot,
         },
         StoredUrl,
     },
@@ -121,7 +121,6 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                                 role: "Author".to_owned(),
                                 image: None,
                             }],
-                            provider_rating: None,
                             images: vec![MetadataImage {
                                 url: StoredUrl::Url(d.book_large_image_url),
                                 lot: MetadataImageLot::Poster,
@@ -130,6 +129,8 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                                 pages: d.book.num_pages.parse().ok(),
                             }),
                             publish_year: d.book_published.parse().ok(),
+                            videos: vec![],
+                            provider_rating: None,
                             publish_date: None,
                             genres: vec![],
                             suggestions: vec![],

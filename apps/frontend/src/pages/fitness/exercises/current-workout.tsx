@@ -166,7 +166,7 @@ const ExerciseDisplay = (props: {
 							</Menu.Target>
 						</Flex>
 						{currentWorkout.exercises[props.exerciseIdx].notes.map((n, idx) => (
-							<Flex key={idx} align="center" gap="xs">
+							<Flex key={n} align="center" gap="xs">
 								<Textarea
 									style={{ flexGrow: 1 }}
 									placeholder="Add a note"
@@ -268,7 +268,7 @@ const ExerciseDisplay = (props: {
 						<Box w="10%" />
 					</Flex>
 					{props.exercise.sets.map((s, idx) => (
-						<Flex key={idx} justify="space-between" align="start">
+						<Flex key={`${idx}`} justify="space-between" align="start">
 							<Menu>
 								<Menu.Target>
 									<UnstyledButton w="5%">
@@ -504,7 +504,7 @@ const Page: NextPageWithLayout = () => {
 						/>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
-							<Fragment key={idx}>
+							<Fragment key={ex.exerciseId + idx}>
 								<ExerciseDisplay exercise={ex} exerciseIdx={idx} />
 								<Divider />
 							</Fragment>

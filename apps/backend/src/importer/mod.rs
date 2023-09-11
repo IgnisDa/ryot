@@ -4,6 +4,7 @@ use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
 use itertools::Itertools;
+use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromJsonQueryResult, QueryFilter,
     QueryOrder,
@@ -20,6 +21,8 @@ use crate::{
         ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
     },
     traits::AuthProvider,
+    users::UserReviewScale,
+    utils::user_by_id,
 };
 
 mod goodreads;
@@ -255,6 +258,9 @@ impl ImporterService {
                 .await?
             }
         };
+        let preferences = user_by_id(&self.media_service.db, user_id)
+            .await?
+            .preferences;
         import.media = import
             .media
             .into_iter()
@@ -332,6 +338,10 @@ impl ImporterService {
                     tracing::debug!("Skipping review since it has no content");
                     continue;
                 }
+                let rating = match preferences.general.review_scale {
+                    UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
+                    UserReviewScale::OutOfHundred => review.rating,
+                };
                 let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
                 let date = review.review.clone().map(|r| r.date);
@@ -340,7 +350,7 @@ impl ImporterService {
                     .post_review(
                         user_id,
                         PostReviewInput {
-                            rating: review.rating,
+                            rating,
                             text,
                             spoiler,
                             date: date.flatten(),

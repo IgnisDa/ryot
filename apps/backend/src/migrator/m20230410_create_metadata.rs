@@ -12,28 +12,6 @@ pub struct Migration;
 pub static METADATA_IDENTIFIER_INDEX: &str = "metadata_identifier__index";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Default,
-    Hash,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum MetadataImageLot {
-    #[sea_orm(string_value = "B")]
-    Backdrop,
-    #[default]
-    #[sea_orm(string_value = "P")]
-    Poster,
-}
-
 // The different types of media that can be stored
 #[derive(
     Debug,
@@ -139,6 +117,8 @@ pub enum Metadata {
     ProductionStatus,
     // all the images for this media item
     Images,
+    // all the videos for this media item
+    Videos,
     // the unique identifier that is returned by the metadata provider
     Identifier,
     // the provider source
@@ -187,6 +167,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal().null())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json())
+                    .col(ColumnDef::new(Metadata::Videos).json())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Metadata::Specifics).json().not_null())

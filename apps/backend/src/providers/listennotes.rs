@@ -13,11 +13,11 @@ use surf::Client;
 
 use crate::{
     config::PodcastConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            MetadataImageLot, PartialMetadata, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -234,6 +234,7 @@ impl ListennotesService {
                 url: StoredUrl::Url(a),
                 lot: MetadataImageLot::Poster,
             })),
+            videos: vec![],
             publish_year: podcast_data.publish_date.map(|r| r.year()),
             publish_date: podcast_data.publish_date.map(|d| d.date_naive()),
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {

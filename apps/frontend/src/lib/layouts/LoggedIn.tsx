@@ -62,7 +62,7 @@ const Footer = () => {
 		.with(undefined, null, () => [undefined, undefined])
 		.with(
 			UpgradeType.Minor,
-			() => ["blue", <>There is an update available.</>] as const,
+			() => ["blue", "There is an update available."] as const,
 		)
 		.with(
 			UpgradeType.Major,
@@ -229,6 +229,7 @@ function ThemeToggle() {
 }
 
 interface LinksGroupProps {
+	// biome-ignore lint/suspicious/noExplicitAny: required here
 	icon: React.FC<any>;
 	label: string;
 	href?: string;
@@ -258,6 +259,7 @@ export function LinksGroup({
 		<>
 			<UnstyledButton<typeof Link>
 				component={!hasLinks ? Link : undefined}
+				// biome-ignore lint/suspicious/noExplicitAny: required here
 				href={!hasLinks ? href : (undefined as any)}
 				onClick={
 					hasLinks
@@ -336,6 +338,7 @@ export default function ({ children }: { children: ReactElement }) {
 		...(Object.entries(userPreferences?.data?.featuresEnabled.media || {})
 			.filter(([v, _]) => v !== "enabled")
 			.map(([name, enabled]) => {
+				// biome-ignore lint/style/noNonNullAssertion: required here
 				return { name: getLot(name)!, enabled };
 			})
 			?.filter((f) => f.enabled)
@@ -362,7 +365,10 @@ export default function ({ children }: { children: ReactElement }) {
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				href: `${(APP_ROUTES.fitness as any)[f.name]}`,
+				href: `${
+					// biome-ignore lint/suspicious/noExplicitAny: required here
+					(APP_ROUTES.fitness as any)[f.name]
+				}`,
 			})) || []),
 		{ label: "Exercises", href: APP_ROUTES.fitness.exercises.list },
 	].map((link, _index) => ({
@@ -509,6 +515,7 @@ export default function ({ children }: { children: ReactElement }) {
 									userDetails.data.lot === UserLot.Admin
 										? { label: "Users", link: APP_ROUTES.settings.users }
 										: undefined,
+									// biome-ignore lint/suspicious/noExplicitAny: required here
 								].filter(Boolean) as any
 							}
 						/>

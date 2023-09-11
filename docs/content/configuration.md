@@ -4,7 +4,8 @@ You can specify configuration options via files (loaded from `config/ryot.json`,
 `config/ryot.toml`, `config/ryot.yaml`) or via environment variables.
 
 To set the equivalent environment variables, join keys by `_` (underscore) and
-_UPPER_SNAKE_CASE_ the characters.
+_UPPER_SNAKE_CASE_ the characters. For example, `video_games.twitch.client_id`
+becomes `VIDEO_GAMES_TWITCH_CLIENT_ID`.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
 ([example](https://ryot.fly.dev/config)). This can also be treated as a [health

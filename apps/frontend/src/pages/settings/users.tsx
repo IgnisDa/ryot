@@ -164,8 +164,8 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 					</Modal>
 					{users.data
-						? users.data.map((user, idx) => (
-								<Paper p="xs" withBorder key={idx}>
+						? users.data.map((user) => (
+								<Paper p="xs" withBorder key={user.id}>
 									<Flex align={"center"} justify={"space-between"}>
 										<Box>
 											<Text>{user.name}</Text>

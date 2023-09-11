@@ -154,6 +154,7 @@ export const ReviewItemDisplay = ({
 					{review.text ? (
 						!review.spoiler ? (
 							<TypographyStylesProvider>
+								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 								<div dangerouslySetInnerHTML={{ __html: review.text }} />
 							</TypographyStylesProvider>
 						) : (
@@ -164,6 +165,7 @@ export const ReviewItemDisplay = ({
 									</Button>
 								) : undefined}
 								<Collapse in={opened}>
+									{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 									<Text dangerouslySetInnerHTML={{ __html: review.text }} />
 								</Collapse>
 							</>
@@ -384,7 +386,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 							<Text color="white" size="xs" fw="bold" pr={4}>
 								{match(userPreferences.data.general.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
-										// rome-ignore lint/style/noNonNullAssertion: it is validated above
+										// biome-ignore lint/style/noNonNullAssertion: it is validated above
 										parseFloat(props.averageRating!.toString()).toFixed(1),
 									)
 									.with(UserReviewScale.OutOfHundred, () => props.averageRating)

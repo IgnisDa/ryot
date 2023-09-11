@@ -12,11 +12,11 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     config::AudibleConfig,
     entities::metadata_group,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImages, PartialMetadata,
+            MetadataImage, MetadataImageLot, MetadataImages, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -401,6 +401,7 @@ impl AudibleService {
                 runtime: item.runtime_length_min,
             }),
             images,
+            videos: vec![],
             provider_rating: rating,
             suggestions: vec![],
             groups: vec![],

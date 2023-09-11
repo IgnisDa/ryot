@@ -61,9 +61,9 @@ use crate::{
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     migrator::{
-        Metadata as TempMetadata, MetadataImageLot, MetadataLot, MetadataSource,
-        MetadataToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToMetadata as TempUserToMetadata,
+        Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
+        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
+        UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -74,9 +74,10 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImages, MovieSpecifics, PartialMetadata,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
+            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
             VisualNovelSpecifics,
@@ -105,7 +106,7 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_stored_image, get_user_and_metadata_association, user_by_id, user_id_from_token,
+        get_stored_asset, get_user_and_metadata_association, user_by_id, user_id_from_token,
         AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
@@ -364,8 +365,7 @@ struct CreatorDetailsGroupedByRole {
 struct MediaBaseData {
     model: metadata::Model,
     creators: Vec<MetadataCreatorGroupedByRole>,
-    poster_images: Vec<String>,
-    backdrop_images: Vec<String>,
+    assets: GraphqlMediaAssets,
     genres: Vec<String>,
     suggestions: Vec<partial_metadata::Model>,
 }
@@ -375,6 +375,18 @@ struct GraphqlMediaGroup {
     id: i32,
     name: String,
     part: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlVideoAsset {
+    video_id: String,
+    source: MetadataVideoSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlMediaAssets {
+    images: Vec<String>,
+    videos: Vec<GraphqlVideoAsset>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -389,8 +401,7 @@ struct GraphqlMediaDetails {
     source: MetadataSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
     genres: Vec<String>,
-    poster_images: Vec<String>,
-    backdrop_images: Vec<String>,
+    assets: GraphqlMediaAssets,
     publish_year: Option<i32>,
     publish_date: Option<NaiveDate>,
     book_specifics: Option<BookSpecifics>,
@@ -498,6 +509,7 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
+    videos_disabled: bool,
     upgrade: Option<UpgradeType>,
     page_limit: i32,
     deploy_update_all_metadata_job_allowed: bool,
@@ -1250,6 +1262,7 @@ impl MiscellaneousService {
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
+            videos_disabled: self.config.users.videos_disabled,
             upgrade,
             page_limit: self.config.frontend.page_size,
             deploy_update_all_metadata_job_allowed: self
@@ -1263,20 +1276,24 @@ impl MiscellaneousService {
         IntegrationService::new()
     }
 
-    async fn metadata_images(&self, meta: &metadata::Model) -> Result<(Vec<String>, Vec<String>)> {
-        let mut poster_images = vec![];
-        let mut backdrop_images = vec![];
-        for i in meta.images.0.clone() {
-            match i.lot {
-                MetadataImageLot::Backdrop => {
-                    backdrop_images.push(get_stored_image(i.url, &self.file_storage_service).await);
-                }
-                MetadataImageLot::Poster => {
-                    poster_images.push(get_stored_image(i.url, &self.file_storage_service).await);
-                }
-            };
+    async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
+        let mut images = vec![];
+        let mut videos = vec![];
+        if let Some(imgs) = &meta.images {
+            for i in imgs.0.clone() {
+                images.push(get_stored_asset(i.url, &self.file_storage_service).await);
+            }
         }
-        Ok((poster_images, backdrop_images))
+        if let Some(vids) = &meta.videos {
+            for v in vids.0.clone() {
+                let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
+                videos.push(GraphqlVideoAsset {
+                    source: v.source,
+                    video_id: url,
+                })
+            }
+        }
+        Ok(GraphqlMediaAssets { images, videos })
     }
 
     async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
@@ -1337,7 +1354,6 @@ impl MiscellaneousService {
                 })
                 .or_insert(vec![creator.clone()]);
         }
-        let (poster_images, backdrop_images) = self.metadata_images(&meta).await.unwrap();
         if let Some(ref mut d) = meta.description {
             *d = markdown_to_html_opts(
                 d,
@@ -1372,11 +1388,11 @@ impl MiscellaneousService {
             .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
             .all(&self.db)
             .await?;
+        let assets = self.metadata_assets(&meta).await.unwrap();
         Ok(MediaBaseData {
             model: meta,
             creators,
-            poster_images,
-            backdrop_images,
+            assets,
             genres,
             suggestions,
         })
@@ -1386,8 +1402,7 @@ impl MiscellaneousService {
         let MediaBaseData {
             model,
             creators,
-            poster_images,
-            backdrop_images,
+            assets,
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
@@ -1499,8 +1514,7 @@ impl MiscellaneousService {
             creators,
             source_url,
             suggestions,
-            poster_images,
-            backdrop_images,
+            assets,
         };
         match model.specifics {
             MediaSpecifics::AudioBook(a) => {
@@ -1962,8 +1976,8 @@ impl MiscellaneousService {
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
             let images = serde_json::from_value(met.images).unwrap();
-            let (poster_images, _) = self
-                .metadata_images(&metadata::Model {
+            let assets = self
+                .metadata_assets(&metadata::Model {
                     images,
                     ..Default::default()
                 })
@@ -1972,7 +1986,7 @@ impl MiscellaneousService {
                 data: MediaSearchItem {
                     identifier: met.id.to_string(),
                     title: met.title,
-                    image: poster_images.get(0).cloned(),
+                    image: assets.images.get(0).cloned(),
                     publish_year: met.publish_year,
                 },
                 average_rating: avg,
@@ -2292,6 +2306,7 @@ impl MiscellaneousService {
         description: Option<String>,
         provider_rating: Option<Decimal>,
         images: Vec<MetadataImage>,
+        videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
         creators: Vec<MetadataCreator>,
         genres: Vec<String>,
@@ -2414,7 +2429,8 @@ impl MiscellaneousService {
         meta.title = ActiveValue::Set(title);
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
-        meta.images = ActiveValue::Set(MetadataImages(images));
+        meta.images = ActiveValue::Set(Some(MetadataImages(images)));
+        meta.videos = ActiveValue::Set(Some(MetadataVideos(videos)));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
@@ -2591,7 +2607,8 @@ impl MiscellaneousService {
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
-            images: ActiveValue::Set(MetadataImages(details.images)),
+            images: ActiveValue::Set(Some(MetadataImages(details.images))),
+            videos: ActiveValue::Set(Some(MetadataVideos(details.videos))),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
@@ -3230,7 +3247,7 @@ impl MiscellaneousService {
             meta_data.push((
                 MediaSearchItem {
                     identifier: m.id.to_string(),
-                    image: self.metadata_images(&m).await?.0.first().cloned(),
+                    image: self.metadata_assets(&m).await?.images.first().cloned(),
                     title: m.title,
                     publish_year: m.publish_year,
                 },
@@ -3476,6 +3493,7 @@ impl MiscellaneousService {
                     details.description,
                     details.provider_rating,
                     details.images,
+                    details.videos,
                     details.specifics,
                     details.creators,
                     details.genres,
@@ -3908,6 +3926,8 @@ impl MiscellaneousService {
             creators,
             genres: input.genres.unwrap_or_default(),
             images,
+            // TODO: Allow videos
+            videos: vec![],
             publish_year: input.publish_year,
             publish_date: None,
             specifics,
@@ -4975,7 +4995,7 @@ impl MiscellaneousService {
                 .iter()
                 .find(|i| i.lot == MetadataImageLot::Poster)
             {
-                image = Some(get_stored_image(i.url.clone(), &self.file_storage_service).await);
+                image = Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await);
             }
             c.image = image;
             items.push(c);
@@ -5061,8 +5081,12 @@ impl MiscellaneousService {
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
-            let image = if let Some(i) = m.images.0.first() {
-                Some(get_stored_image(i.url.clone(), &self.file_storage_service).await)
+            let image = if let Some(imgs) = m.images {
+                if let Some(i) = imgs.0.first() {
+                    Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await)
+                } else {
+                    None
+                }
             } else {
                 None
             };
@@ -5096,7 +5120,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut images = vec![];
         for image in group.images.0.iter() {
-            images.push(get_stored_image(image.url.clone(), &self.file_storage_service).await);
+            images.push(get_stored_asset(image.url.clone(), &self.file_storage_service).await);
         }
         group.display_images = images;
         let slug = slug::slugify(&group.title);

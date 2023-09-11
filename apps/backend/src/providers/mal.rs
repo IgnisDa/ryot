@@ -9,11 +9,11 @@ use surf::Client;
 
 use crate::{
     config::{AnimeMalConfig, MangaMalConfig},
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, PartialMetadata,
+            MetadataImage, MetadataImageLot, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -268,6 +268,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             url: StoredUrl::Url(details.main_picture.large),
             lot: MetadataImageLot::Poster,
         }],
+        videos: vec![],
         specifics,
         publish_year: details
             .start_date

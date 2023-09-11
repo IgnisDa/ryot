@@ -9,11 +9,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::ITunesConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            PodcastEpisode, PodcastSpecifics,
+            MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -172,6 +172,7 @@ impl MediaProvider for ITunesService {
             lot: MetadataLot::Podcast,
             description,
             images,
+            videos: vec![],
             creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {

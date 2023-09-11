@@ -10,7 +10,7 @@ use crate::{
     file_storage::FileStorageService,
     migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
-    utils::get_stored_image,
+    utils::get_stored_asset,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
@@ -38,7 +38,7 @@ impl Model {
         let mut converted_exercise = self.clone();
         let mut images = vec![];
         for image in self.attributes.internal_images.iter() {
-            images.push(get_stored_image(image.clone(), file_storage_service).await);
+            images.push(get_stored_asset(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
         // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.

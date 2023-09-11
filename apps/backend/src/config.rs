@@ -452,6 +452,9 @@ pub struct UsersConfig {
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
+    /// Whether videos will be displayed in the media details.
+    #[setting(default = false)]
+    pub videos_disabled: bool,
     /// Whether users will be allowed to post reviews on this instance.
     #[setting(default = false)]
     pub reviews_disabled: bool,

@@ -209,22 +209,26 @@ const Page: NextPageWithLayout = () => {
 												<IconFilterOff size="1.5rem" />
 											</ActionIcon>
 										</Group>
-										{Object.keys(defaultFilterValue).map((f, idx) => (
+										{Object.keys(defaultFilterValue).map((f) => (
 											<Select
-												key={idx}
+												key={f}
 												withinPortal
 												clearable
+												// biome-ignore lint/suspicious/noExplicitAny: required heres
 												data={(exerciseInformation.data.filters as any)[f].map(
+													// biome-ignore lint/suspicious/noExplicitAny: required heres
 													(v: any) => ({
 														label: startCase(snakeCase(v)),
 														value: v,
 													}),
 												)}
 												label={startCase(f)}
+												// biome-ignore lint/suspicious/noExplicitAny: required heres
 												value={(exerciseFilters as any)[f]}
 												onChange={(v) => {
 													setExerciseFilters(
 														produce(exerciseFilters, (draft) => {
+															// biome-ignore lint/suspicious/noExplicitAny: required heres
 															(draft as any)[f] = v;
 														}),
 													);

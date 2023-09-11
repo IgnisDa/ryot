@@ -2,7 +2,7 @@
 
 Importing is meant to be a one-time operation. They are irreversible. Ryot
 supports importing media from a number of sources. To start importing, click on
-"Imports" link under the "Settings" section in the sidebar.
+"Imports and Exports" link under the "Settings" section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import is
 complete. You can go to the reports page by click on "Reports" link on the imports
@@ -64,7 +64,7 @@ their ratings, history, comments and lists. A few points to note.
 
 The Watchlist and all movies can be imported from [Movary](https://movary.org)
 along with ratings, history, and comments.
-  
+
 ### Steps
 
 - Login to your Movary account and go to the settings page. Go to "Personal data"
@@ -76,7 +76,7 @@ along with ratings, history, and comments.
 
 Manga and Anime can be imported from [MyAnimeList](https://myanimelist.net)
 along with ratings, history and progress.
-  
+
 ### Steps
 
 - Login to your MyAnimeList account and go to

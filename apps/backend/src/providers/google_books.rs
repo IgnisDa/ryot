@@ -9,11 +9,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::GoogleBooksConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage,
+            MetadataImage, MetadataImageLot,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -231,6 +231,7 @@ impl GoogleBooksService {
                 pages: item.page_count,
             }),
             images: images.unique().collect(),
+            videos: vec![],
             provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],

@@ -101,14 +101,14 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					posterImages={imageUrls?.data || []}
-					backdropImages={[]}
+					images={imageUrls?.data || []}
 					externalLink={{ source: MetadataSource.Custom, lot: form.values.lot }}
 				>
 					<ScrollArea.Autosize mah={400}>
 						<Box
 							component="form"
 							onSubmit={form.onSubmit((values) => {
+								// biome-ignore lint/suspicious/noExplicitAny: required
 								const input: any = {
 									...values,
 									images,

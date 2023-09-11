@@ -17,6 +17,7 @@ import {
 	Progress,
 	Select,
 	Stack,
+	Tabs,
 	TextInput,
 	Title,
 	Tooltip,
@@ -184,284 +185,291 @@ const Page: NextPageWithLayout = () => {
 				<title>Perform a new import | Ryot</title>
 			</Head>
 			<Container size={"xs"}>
-				<Box
-					component="form"
-					onSubmit={async (e) => {
-						e.preventDefault();
-						const yes = confirm(
-							"Are you sure you want to deploy an import job? This action is irreversible.",
-						);
-						if (yes) {
-							if (deployImportSource) {
-								const values = await match(deployImportSource)
-									.with(ImportSource.Goodreads, () => ({
-										goodreads: goodreadsImportForm.values,
-									}))
-									.with(ImportSource.Trakt, () => ({
-										trakt: traktImportForm.values,
-									}))
-									.with(ImportSource.MediaTracker, () => ({
-										mediaTracker: mediaTrackerImportForm.values,
-									}))
-									.with(ImportSource.Movary, async () => ({
-										movary: {
-											ratings: await fileToText(
-												movaryImportForm.values.ratings,
-											),
-											history: await fileToText(
-												movaryImportForm.values.history,
-											),
-											watchlist: await fileToText(
-												movaryImportForm.values.watchlist,
-											),
-										},
-									}))
-									.with(ImportSource.StoryGraph, async () => ({
-										storyGraph: {
-											export: await fileToText(
-												storyGraphImportForm.values.export,
-											),
-										},
-									}))
-									.with(ImportSource.MediaJson, async () => ({
-										mediaJson: {
-											export: await fileToText(
-												mediaJsonImportForm.values.export,
-											),
-										},
-									}))
-									.with(ImportSource.Mal, async () => ({
-										mal: {
-											animePath: malImportForm.values.mangaPath,
-											mangaPath: malImportForm.values.mangaPath,
-										},
-									}))
-									.exhaustive();
-								if (values) {
-									deployImportJob.mutate({
-										input: {
-											lot: ImportLot.Media,
-											source: deployImportSource,
-											...values,
-										},
-									});
+				<Tabs defaultValue={"import"}>
+					<Tabs.List>
+						<Tabs.Tab value="import">Import</Tabs.Tab>
+						<Tabs.Tab value="export">Export</Tabs.Tab>
+					</Tabs.List>
+					<Box
+						mt="xl"
+						component="form"
+						onSubmit={async (e) => {
+							e.preventDefault();
+							const yes = confirm(
+								"Are you sure you want to deploy an import job? This action is irreversible.",
+							);
+							if (yes) {
+								if (deployImportSource) {
+									const values = await match(deployImportSource)
+										.with(ImportSource.Goodreads, () => ({
+											goodreads: goodreadsImportForm.values,
+										}))
+										.with(ImportSource.Trakt, () => ({
+											trakt: traktImportForm.values,
+										}))
+										.with(ImportSource.MediaTracker, () => ({
+											mediaTracker: mediaTrackerImportForm.values,
+										}))
+										.with(ImportSource.Movary, async () => ({
+											movary: {
+												ratings: await fileToText(
+													movaryImportForm.values.ratings,
+												),
+												history: await fileToText(
+													movaryImportForm.values.history,
+												),
+												watchlist: await fileToText(
+													movaryImportForm.values.watchlist,
+												),
+											},
+										}))
+										.with(ImportSource.StoryGraph, async () => ({
+											storyGraph: {
+												export: await fileToText(
+													storyGraphImportForm.values.export,
+												),
+											},
+										}))
+										.with(ImportSource.MediaJson, async () => ({
+											mediaJson: {
+												export: await fileToText(
+													mediaJsonImportForm.values.export,
+												),
+											},
+										}))
+										.with(ImportSource.Mal, async () => ({
+											mal: {
+												animePath: malImportForm.values.mangaPath,
+												mangaPath: malImportForm.values.mangaPath,
+											},
+										}))
+										.exhaustive();
+									if (values) {
+										deployImportJob.mutate({
+											input: {
+												lot: ImportLot.Media,
+												source: deployImportSource,
+												...values,
+											},
+										});
+									}
 								}
 							}
-						}
-					}}
-				>
-					<Stack>
-						<>
-							<Flex justify={"space-between"} align={"center"} mt="xl">
-								<Title order={2}>Export data</Title>
-								<Group>
-									<Anchor
-										size="xs"
-										href="https://ignisda.github.io/ryot/guides/exporting.html"
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Group>
-							</Flex>
-							<Button
-								variant="light"
-								color="indigo"
-								radius="md"
-								onClick={() => {
-									generateAuthToken.mutate({});
-								}}
-							>
-								Create auth token
-							</Button>
-							{generateAuthToken.data ? (
-								<Box>
-									<Alert
-										title="This token will be shown only once"
-										color="yellow"
-									>
-										<Flex align={"center"}>
-											<CopyButton value={generateAuthToken.data}>
-												{({ copied, copy }) => (
-													<Tooltip
-														label={copied ? "Copied" : "Copy"}
-														withArrow
-														position="right"
-													>
-														<ActionIcon
-															color={copied ? "teal" : "gray"}
-															onClick={copy}
+						}}
+					>
+						<Tabs.Panel value="export">
+							<Stack>
+								<Flex justify={"space-between"} align={"center"}>
+									<Title order={2}>Export data</Title>
+									<Group>
+										<Anchor
+											size="xs"
+											href="https://ignisda.github.io/ryot/guides/exporting.html"
+											target="_blank"
+										>
+											Docs
+										</Anchor>
+									</Group>
+								</Flex>
+								<Button
+									variant="light"
+									color="indigo"
+									radius="md"
+									onClick={() => {
+										generateAuthToken.mutate({});
+									}}
+								>
+									Create auth token
+								</Button>
+								{generateAuthToken.data ? (
+									<Box>
+										<Alert
+											title="This token will be shown only once"
+											color="yellow"
+										>
+											<Flex align={"center"}>
+												<CopyButton value={generateAuthToken.data}>
+													{({ copied, copy }) => (
+														<Tooltip
+															label={copied ? "Copied" : "Copy"}
+															withArrow
+															position="right"
 														>
-															{copied ? (
-																<IconCheck size="1rem" />
-															) : (
-																<IconCopy size="1rem" />
-															)}
-														</ActionIcon>
-													</Tooltip>
-												)}
-											</CopyButton>
-											<TextInput
-												defaultValue={generateAuthToken.data}
-												readOnly
-											/>
-										</Flex>
-									</Alert>
-								</Box>
-							) : undefined}
-						</>
-						<>
-							<Flex justify={"space-between"} align={"center"}>
-								<Title order={2}>Import data</Title>
-								<Group>
-									<Link
-										passHref
-										legacyBehavior
-										href={APP_ROUTES.settings.imports.reports}
-									>
-										<Anchor size="xs">Reports</Anchor>
-									</Link>
-									<Anchor
-										size="xs"
-										href="https://ignisda.github.io/ryot/importing.html"
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Group>
-							</Flex>
-							{progress ? (
-								<Progress
-									value={progress}
-									striped
-									animate
-									size={"sm"}
-									color="orange"
+															<ActionIcon
+																color={copied ? "teal" : "gray"}
+																onClick={copy}
+															>
+																{copied ? (
+																	<IconCheck size="1rem" />
+																) : (
+																	<IconCopy size="1rem" />
+																)}
+															</ActionIcon>
+														</Tooltip>
+													)}
+												</CopyButton>
+												<TextInput
+													defaultValue={generateAuthToken.data}
+													readOnly
+												/>
+											</Flex>
+										</Alert>
+									</Box>
+								) : undefined}
+							</Stack>
+						</Tabs.Panel>
+						<Tabs.Panel value="import">
+							<Stack>
+								<Flex justify={"space-between"} align={"center"}>
+									<Title order={2}>Import data</Title>
+									<Group>
+										<Link
+											passHref
+											legacyBehavior
+											href={APP_ROUTES.settings.imports.reports}
+										>
+											<Anchor size="xs">Reports</Anchor>
+										</Link>
+										<Anchor
+											size="xs"
+											href="https://ignisda.github.io/ryot/importing.html"
+											target="_blank"
+										>
+											Docs
+										</Anchor>
+									</Group>
+								</Flex>
+								{progress ? (
+									<Progress
+										value={progress}
+										striped
+										animate
+										size={"sm"}
+										color="orange"
+									/>
+								) : undefined}
+								<Select
+									label="Select a source"
+									required
+									data={Object.values(ImportSource).map((is) => ({
+										label: changeCase(is),
+										value: is,
+									}))}
+									onChange={(v) => {
+										if (v) setDeployImportSource(v as ImportSource);
+									}}
 								/>
-							) : undefined}
-							<Select
-								label="Select a source"
-								required
-								data={Object.values(ImportSource).map((is) => ({
-									label: changeCase(is),
-									value: is,
-								}))}
-								onChange={(v) => {
-									if (v) setDeployImportSource(v as ImportSource);
-								}}
-							/>
-							{deployImportSource ? (
-								<ImportSourceElement>
-									{match(deployImportSource)
-										.with(ImportSource.MediaTracker, () => (
-											<>
-												<TextInput
-													label="Instance Url"
-													required
-													{...mediaTrackerImportForm.getInputProps("apiUrl")}
-												/>
-												<PasswordInput
-													mt="sm"
-													label="API Key"
-													required
-													{...mediaTrackerImportForm.getInputProps("apiKey")}
-												/>
-											</>
-										))
-										.with(ImportSource.Goodreads, () => (
-											<>
-												<TextInput
-													label="RSS URL"
-													required
-													{...goodreadsImportForm.getInputProps("rssUrl")}
-												/>
-											</>
-										))
-										.with(ImportSource.Trakt, () => (
-											<>
-												<TextInput
-													label="Username"
-													required
-													{...traktImportForm.getInputProps("username")}
-												/>
-											</>
-										))
-										.with(ImportSource.Movary, () => (
-											<>
-												<FileInput
-													label="History CSV file"
-													accept=".csv"
-													required
-													{...movaryImportForm.getInputProps("history")}
-												/>
-												<FileInput
-													label="Ratings CSV file"
-													accept=".csv"
-													required
-													{...movaryImportForm.getInputProps("ratings")}
-												/>
-												<FileInput
-													label="Watchlist CSV file"
-													accept=".csv"
-													required
-													{...movaryImportForm.getInputProps("watchlist")}
-												/>
-											</>
-										))
-										.with(ImportSource.StoryGraph, () => (
-											<>
-												<FileInput
-													label="CSV export file"
-													accept=".csv"
-													required
-													{...storyGraphImportForm.getInputProps("export")}
-												/>
-											</>
-										))
-										.with(ImportSource.MediaJson, () => (
-											<>
-												<FileInput
-													label="JSON export file"
-													accept=".json"
-													required
-													{...mediaJsonImportForm.getInputProps("export")}
-												/>
-											</>
-										))
-										.with(ImportSource.Mal, () => (
-											<>
-												<FileInput
-													label="Anime export file"
-													required
-													onChange={async (file) => {
-														if (file) {
-															const path = await uploadFileToServiceAndGetPath(
-																file,
-															);
-															malImportForm.setFieldValue("animePath", path);
-														}
-													}}
-												/>
-												<FileInput
-													label="Manga export file"
-													required
-													onChange={async (file) => {
-														if (file) {
-															const path = await uploadFileToServiceAndGetPath(
-																file,
-															);
-															malImportForm.setFieldValue("mangaPath", path);
-														}
-													}}
-												/>
-											</>
-										))
-										.exhaustive()}
-								</ImportSourceElement>
-							) : undefined}
-						</>
-					</Stack>
-				</Box>
+								{deployImportSource ? (
+									<ImportSourceElement>
+										{match(deployImportSource)
+											.with(ImportSource.MediaTracker, () => (
+												<>
+													<TextInput
+														label="Instance Url"
+														required
+														{...mediaTrackerImportForm.getInputProps("apiUrl")}
+													/>
+													<PasswordInput
+														mt="sm"
+														label="API Key"
+														required
+														{...mediaTrackerImportForm.getInputProps("apiKey")}
+													/>
+												</>
+											))
+											.with(ImportSource.Goodreads, () => (
+												<>
+													<TextInput
+														label="RSS URL"
+														required
+														{...goodreadsImportForm.getInputProps("rssUrl")}
+													/>
+												</>
+											))
+											.with(ImportSource.Trakt, () => (
+												<>
+													<TextInput
+														label="Username"
+														required
+														{...traktImportForm.getInputProps("username")}
+													/>
+												</>
+											))
+											.with(ImportSource.Movary, () => (
+												<>
+													<FileInput
+														label="History CSV file"
+														accept=".csv"
+														required
+														{...movaryImportForm.getInputProps("history")}
+													/>
+													<FileInput
+														label="Ratings CSV file"
+														accept=".csv"
+														required
+														{...movaryImportForm.getInputProps("ratings")}
+													/>
+													<FileInput
+														label="Watchlist CSV file"
+														accept=".csv"
+														required
+														{...movaryImportForm.getInputProps("watchlist")}
+													/>
+												</>
+											))
+											.with(ImportSource.StoryGraph, () => (
+												<>
+													<FileInput
+														label="CSV export file"
+														accept=".csv"
+														required
+														{...storyGraphImportForm.getInputProps("export")}
+													/>
+												</>
+											))
+											.with(ImportSource.MediaJson, () => (
+												<>
+													<FileInput
+														label="JSON export file"
+														accept=".json"
+														required
+														{...mediaJsonImportForm.getInputProps("export")}
+													/>
+												</>
+											))
+											.with(ImportSource.Mal, () => (
+												<>
+													<FileInput
+														label="Anime export file"
+														required
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(file);
+																malImportForm.setFieldValue("animePath", path);
+															}
+														}}
+													/>
+													<FileInput
+														label="Manga export file"
+														required
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(file);
+																malImportForm.setFieldValue("mangaPath", path);
+															}
+														}}
+													/>
+												</>
+											))
+											.exhaustive()}
+									</ImportSourceElement>
+								) : undefined}
+							</Stack>
+						</Tabs.Panel>
+					</Box>
+				</Tabs>
 			</Container>
 		</>
 	);

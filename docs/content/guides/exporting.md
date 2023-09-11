@@ -3,7 +3,7 @@
 Users can export either their entire data or individual parts of it.
 
 To start, login to your Ryot instance and go to the "Imports and Exports" section
-in the "Settings" section. Then, generate a new auth token.
+in the "Settings" section. Select the "Export" tab and then generate a new auth token.
 
 The base endpoint is `/export/<type>`. So requests will look like:
 

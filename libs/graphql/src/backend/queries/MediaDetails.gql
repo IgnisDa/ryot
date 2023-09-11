@@ -13,9 +13,14 @@ query MediaDetails($metadataId: Int!) {
         image
       }
     }
-    posterImages
+    assets {
+      images
+      videos {
+        videoId
+        source
+      }
+    }
     providerRating
-    backdropImages
     publishYear
     publishDate
     genres

@@ -46,8 +46,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					posterImages={groupDetails.data.details.displayImages}
-					backdropImages={[]}
+					images={groupDetails.data.details.displayImages}
 					externalLink={{
 						source: groupDetails.data.details.source,
 						lot: groupDetails.data.details.lot,

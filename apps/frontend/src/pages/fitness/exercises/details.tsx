@@ -61,6 +61,7 @@ const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
 };
 
 const DisplayLifetimeStatistic = (props: {
+	// biome-ignore lint/suspicious/noExplicitAny: required here
 	val: any;
 	unit?: string;
 	stat: string;
@@ -175,7 +176,7 @@ const Page: NextPageWithLayout = () => {
 												)}
 											</Text>
 											{h.sets.map((s, idx) => (
-												<Flex key={idx} align={"center"}>
+												<Flex key={`${idx}`} align={"center"}>
 													<Text
 														fz="sm"
 														color={getSetColor(s.lot)}

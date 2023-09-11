@@ -1,3 +1,5 @@
+// TODO: video support
+
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
@@ -13,12 +15,12 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
     entities::metadata_group,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadata, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -75,6 +77,16 @@ struct TmdbListResponse<T = TmdbEntry> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbVideo {
+    key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbVideoResults {
+    results: Vec<TmdbVideo>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbMovie {
     id: i32,
     title: String,
@@ -88,6 +100,7 @@ struct TmdbMovie {
     genres: Option<Vec<NamedObject>>,
     production_companies: Option<Vec<TmdbCompany>>,
     belongs_to_collection: Option<IdObject>,
+    videos: Option<TmdbVideoResults>,
 }
 
 #[derive(Debug, Clone)]
@@ -210,11 +223,19 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("movie/{}", &identifier))
             .query(&json!({
                 "language": self.base.language,
+                "append_to_response": "videos",
             }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut videos = vec![];
+        if let Some(vid) = data.videos {
+            videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
+                identifier: StoredUrl::Url(vid.key),
+                source: MetadataVideoSource::Youtube,
+            }))
+        }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCreditsResponse {
             cast: Vec<TmdbCredit>,
@@ -336,6 +357,7 @@ impl MediaProvider for TmdbMovieService {
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
+            videos,
             publish_year: data
                 .release_date
                 .as_ref()
@@ -441,17 +463,26 @@ impl MediaProvider for TmdbShowService {
             status: Option<String>,
             vote_average: Option<Decimal>,
             production_companies: Option<Vec<TmdbCompany>>,
+            videos: Option<TmdbVideoResults>,
         }
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
             .query(&json!({
                 "language": self.base.language,
+                "append_to_response": "videos",
             }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let show_data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut videos = vec![];
+        if let Some(vid) = show_data.videos {
+            videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
+                identifier: StoredUrl::Url(vid.key),
+                source: MetadataVideoSource::Youtube,
+            }))
+        }
         let mut image_ids = Vec::from_iter(show_data.poster_path);
         if let Some(u) = show_data.backdrop_path {
             image_ids.push(u);
@@ -597,6 +628,7 @@ impl MediaProvider for TmdbShowService {
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
+            videos,
             publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),
             specifics: MediaSpecifics::Show(ShowSpecifics {
                 seasons: seasons

@@ -17,7 +17,7 @@ use crate::{
     entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
-        MetadataImageLot, MetadataLot, MetadataSource, SeenState,
+        MetadataLot, MetadataSource, SeenState,
     },
 };
 
@@ -648,6 +648,7 @@ pub mod media {
         pub creators: Vec<MetadataCreator>,
         pub genres: Vec<String>,
         pub images: Vec<MetadataImage>,
+        pub videos: Vec<MetadataVideo>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
@@ -763,6 +764,25 @@ pub mod media {
     }
 
     #[derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        EnumIter,
+        FromJsonQueryResult,
+        Deserialize,
+        Serialize,
+        Default,
+        Hash,
+    )]
+    pub enum MetadataImageLot {
+        Backdrop,
+        #[default]
+        Poster,
+    }
+
+    #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
@@ -770,9 +790,41 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
+    #[derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        EnumIter,
+        FromJsonQueryResult,
+        Deserialize,
+        Serialize,
+        Hash,
+        Default,
+        Enum,
+    )]
+    pub enum MetadataVideoSource {
+        #[default]
+        Youtube,
+        Dailymotion,
+    }
+
+    #[derive(
+        Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
+    )]
+    pub struct MetadataVideo {
+        pub identifier: StoredUrl,
+        pub source: MetadataVideoSource,
+    }
+
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
+
+    // FIXME: Remove this
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct MetadataVideos(pub Vec<MetadataVideo>);
 
     #[derive(
         Clone,

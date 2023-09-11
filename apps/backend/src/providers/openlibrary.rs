@@ -13,11 +13,11 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
-    migrator::{MetadataImageLot, MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, PartialMetadata,
+            MetadataImage, MetadataImageLot, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -298,6 +298,7 @@ impl MediaProvider for OpenlibraryService {
             creators,
             genres,
             images,
+            videos: vec![],
             publish_year: first_release_date.map(|d| d.year()),
             publish_date: None,
             specifics: MediaSpecifics::Book(BookSpecifics {
