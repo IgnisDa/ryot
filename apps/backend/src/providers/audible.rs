@@ -401,6 +401,7 @@ impl AudibleService {
                 runtime: item.runtime_length_min,
             }),
             images,
+            videos: vec![],
             provider_rating: rating,
             suggestions: vec![],
             groups: vec![],

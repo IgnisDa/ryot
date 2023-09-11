@@ -3900,6 +3900,8 @@ impl MiscellaneousService {
             creators,
             genres: input.genres.unwrap_or_default(),
             images,
+            // TODO: Allow videos
+            videos: vec![],
             publish_year: input.publish_year,
             publish_date: None,
             specifics,

@@ -231,6 +231,7 @@ impl GoogleBooksService {
                 pages: item.page_count,
             }),
             images: images.unique().collect(),
+            videos: vec![],
             provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],

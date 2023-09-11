@@ -357,6 +357,7 @@ impl MediaProvider for TmdbMovieService {
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
+            videos,
             publish_year: data
                 .release_date
                 .as_ref()
@@ -627,6 +628,7 @@ impl MediaProvider for TmdbShowService {
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
+            videos,
             publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),
             specifics: MediaSpecifics::Show(ShowSpecifics {
                 seasons: seasons

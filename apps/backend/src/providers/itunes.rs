@@ -172,6 +172,7 @@ impl MediaProvider for ITunesService {
             lot: MetadataLot::Podcast,
             description,
             images,
+            videos: vec![],
             creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {

@@ -261,6 +261,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         lot,
         creators,
         images,
+        videos,
         genres: genres.into_iter().unique().collect(),
         publish_year: year,
         publish_date: None,

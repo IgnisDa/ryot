@@ -343,6 +343,7 @@ where id = {id};
             description: item.summary,
             creators,
             images,
+            videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
             genres: item

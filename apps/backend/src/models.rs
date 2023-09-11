@@ -648,6 +648,7 @@ pub mod media {
         pub creators: Vec<MetadataCreator>,
         pub genres: Vec<String>,
         pub images: Vec<MetadataImage>,
+        pub videos: Vec<MetadataVideo>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,

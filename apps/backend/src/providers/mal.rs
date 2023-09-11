@@ -268,6 +268,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             url: StoredUrl::Url(details.main_picture.large),
             lot: MetadataImageLot::Poster,
         }],
+        videos: vec![],
         specifics,
         publish_year: details
             .start_date
