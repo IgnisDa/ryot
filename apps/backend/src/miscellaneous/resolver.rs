@@ -2399,20 +2399,24 @@ impl MiscellaneousService {
                     }
                 }
             }
-            (MediaSpecifics::Anime(p1), MediaSpecifics::Anime(p2)) => {
-                if p1.episodes != p2.episodes {
-                    notifications.push((
-                        format!("Number of episodes changed from {:#?} to {:#?}", p1, p2),
-                        MediaStateChanged::ChaptersOrEpisodesChanged,
-                    ));
+            (MediaSpecifics::Anime(a1), MediaSpecifics::Anime(a2)) => {
+                if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
+                    if e1 != e2 {
+                        notifications.push((
+                            format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
+                            MediaStateChanged::ChaptersOrEpisodesChanged,
+                        ));
+                    }
                 }
             }
-            (MediaSpecifics::Manga(p1), MediaSpecifics::Manga(p2)) => {
-                if p1.chapters != p2.chapters {
-                    notifications.push((
-                        format!("Number of chapters changed from {:#?} to {:#?}", p1, p2),
-                        MediaStateChanged::ChaptersOrEpisodesChanged,
-                    ));
+            (MediaSpecifics::Manga(p1), MediaSpecifics::Manga(m2)) => {
+                if let (Some(c1), Some(c2)) = (p1.chapters, m2.chapters) {
+                    if c1 != c2 {
+                        notifications.push((
+                            format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
+                            MediaStateChanged::ChaptersOrEpisodesChanged,
+                        ));
+                    }
                 }
             }
             (MediaSpecifics::Podcast(p1), MediaSpecifics::Podcast(p2)) => {
