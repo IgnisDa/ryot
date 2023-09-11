@@ -1,5 +1,17 @@
 
 
+# Version 2.16.1 (2023-09-11)
+
+## Bug Fixes
+
+- **backend:** change key for disabling videos
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.16.0 (2023-09-11)
 
 
