@@ -11,9 +11,12 @@ use strum::EnumString;
 pub struct UserNotificationsPreferences {
     pub status_changed: bool,
     pub episode_released: bool,
-    pub episode_name_changed: bool,
     pub release_date_changed: bool,
+    // Show
+    pub episode_name_changed: bool,
     pub number_of_seasons_changed: bool,
+    // Anime and Manga
+    pub number_of_chapters_or_episodes_changed: bool,
 }
 
 impl Default for UserNotificationsPreferences {
@@ -24,6 +27,7 @@ impl Default for UserNotificationsPreferences {
             episode_name_changed: true,
             release_date_changed: true,
             number_of_seasons_changed: true,
+            number_of_chapters_or_episodes_changed: true,
         }
     }
 }

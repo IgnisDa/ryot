@@ -4201,6 +4201,11 @@ impl MiscellaneousService {
                 "number_of_seasons_changed" => {
                     preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
                 }
+                "number_of_chapters_or_episodes_changed" => {
+                    preferences
+                        .notifications
+                        .number_of_chapters_or_episodes_changed = value_bool.unwrap()
+                }
                 _ => return Err(err()),
             },
             "general" => match right {

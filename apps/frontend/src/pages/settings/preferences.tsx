@@ -115,6 +115,11 @@ const Page: NextPageWithLayout = () => {
 											"numberOfSeasonsChanged",
 											() => "Number of seasons changes",
 										)
+										.with(
+											"numberOfChaptersOrEpisodesChanged",
+											() =>
+												"Number of chapters/episodes changes for manga/anime",
+										)
 										.otherwise(() => undefined)}
 									checked={isEnabled}
 									disabled={!coreDetails.data.preferencesChangeAllowed}
