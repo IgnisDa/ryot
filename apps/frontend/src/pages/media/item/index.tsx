@@ -1597,6 +1597,7 @@ const Page: NextPageWithLayout = () => {
 																() =>
 																	"https://www.dailymotion.com/embed/video/",
 															)
+															.with(MetadataVideoSource.Custom, () => "")
 															.exhaustive() + v.videoId
 													}
 													title="YouTube video player"

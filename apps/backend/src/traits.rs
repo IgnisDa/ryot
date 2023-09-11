@@ -17,6 +17,7 @@ pub trait MediaProvider {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>>;
 
     /// Get details about a media item for the particular identifier.

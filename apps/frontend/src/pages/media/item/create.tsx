@@ -8,11 +8,13 @@ import {
 	Button,
 	Container,
 	FileInput,
+	Group,
 	JsonInput,
 	NumberInput,
 	ScrollArea,
 	Select,
 	Stack,
+	Switch,
 	TextInput,
 	Textarea,
 	Title,
@@ -28,7 +30,7 @@ import {
 	MetadataSource,
 	PresignedPutUrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconCalendar, IconPhoto } from "@tabler/icons-react";
+import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { camelCase } from "lodash";
 import Head from "next/head";
@@ -44,6 +46,7 @@ const formSchema = z.object({
 	title: z.string(),
 	lot: z.nativeEnum(MetadataLot),
 	description: optionalString,
+	isNsfw: z.boolean().optional(),
 	publishYear: z.number().optional(),
 	genres: optionalString,
 	creators: optionalString,
@@ -55,21 +58,25 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 
 	const [images, setImages] = useListState<string>([]);
+	const [videos, setVideos] = useListState<string>([]);
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	const enabledFeatures = useEnabledCoreFeatures();
 	const imageUrls = useQuery(
 		["presignedUrl", images],
 		async () => {
-			const urls = [];
-			for (const image of images) {
+			const imageUrls = [];
+			const videoUrls = [];
+			const getUrl = async (key: string) => {
 				const { getPresignedUrl } = await gqlClient.request(
 					GetPresignedUrlDocument,
-					{ key: image },
+					{ key },
 				);
-				urls.push(getPresignedUrl);
-			}
-			return urls || [];
+				return getPresignedUrl;
+			};
+			for (const image of images) imageUrls.push(await getUrl(image));
+			for (const video of videos) videoUrls.push(await getUrl(video));
+			return { imageUrls, videoUrls };
 		},
 		{ staleTime: Infinity },
 	);
@@ -94,14 +101,38 @@ const Page: NextPageWithLayout = () => {
 
 	const fileUploadNowAllowed = !enabledFeatures?.data?.fileStorage;
 
+	const uploadFiles = async (files: File[], to: "image" | "video") => {
+		if (files.length > 0) {
+			let totalFiles = 0;
+			for (const file of files) {
+				const uploadUrl = await gqlClient.request(PresignedPutUrlDocument, {
+					fileName: file.name,
+				});
+				await fetch(uploadUrl.presignedPutUrl.uploadUrl, {
+					method: "PUT",
+					body: file,
+					headers: { "Content-Type": file.type },
+				});
+				if (to === "image") setImages.append(uploadUrl.presignedPutUrl.key);
+				else if (to === "video")
+					setVideos.append(uploadUrl.presignedPutUrl.key);
+				totalFiles++;
+			}
+			notifications.show({
+				title: "Success",
+				message: `Uploaded ${totalFiles} files`,
+			});
+		}
+	};
+
 	return (
 		<>
 			<Head>
-				<title>Create media item | Ryot</title>
+				<title>Create Media | Ryot</title>
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					images={imageUrls?.data || []}
+					images={imageUrls?.data?.imageUrls || []}
 					externalLink={{ source: MetadataSource.Custom, lot: form.values.lot }}
 				>
 					<ScrollArea.Autosize mah={400}>
@@ -112,6 +143,7 @@ const Page: NextPageWithLayout = () => {
 								const input: any = {
 									...values,
 									images,
+									videos,
 									[`${camelCase(values.lot)}Specifics`]: JSON.parse(
 										values.specifics || "{}",
 									),
@@ -130,12 +162,19 @@ const Page: NextPageWithLayout = () => {
 									required
 									autoFocus
 								/>
-								<Select
-									label="Type"
-									{...form.getInputProps("lot")}
-									data={Object.values(MetadataLot)}
-									required
-								/>
+								<Group>
+									<Select
+										label="Type"
+										{...form.getInputProps("lot")}
+										data={Object.values(MetadataLot)}
+										required
+									/>
+									<Switch
+										mt="md"
+										label={"Is it NSFW?"}
+										{...form.getInputProps("isNsfw")}
+									/>
+								</Group>
 								<Textarea
 									label="Description"
 									description={"Markdown is supported"}
@@ -149,30 +188,21 @@ const Page: NextPageWithLayout = () => {
 										fileUploadNowAllowed &&
 										"Please set the S3 variables required to enable file uploading"
 									}
-									onChange={async (files) => {
-										if (files.length > 0) {
-											let totalFiles = 0;
-											for (const file of files) {
-												const uploadUrl = await gqlClient.request(
-													PresignedPutUrlDocument,
-													{ fileName: file.name },
-												);
-												await fetch(uploadUrl.presignedPutUrl.uploadUrl, {
-													method: "PUT",
-													body: file,
-													headers: { "Content-Type": file.type },
-												});
-												setImages.append(uploadUrl.presignedPutUrl.key);
-												totalFiles++;
-											}
-											notifications.show({
-												title: "Success",
-												message: `Uploaded ${totalFiles} files`,
-											});
-										}
-									}}
+									onChange={(f) => uploadFiles(f, "image")}
 									accept="image/png,image/jpeg,image/jpg"
 									icon={<IconPhoto />}
+								/>
+								<FileInput
+									label="Videos"
+									multiple
+									disabled={fileUploadNowAllowed}
+									description={
+										fileUploadNowAllowed &&
+										"Please set the S3 variables required to enable file uploading"
+									}
+									onChange={(f) => uploadFiles(f, "video")}
+									accept="video/mp4,video/x-m4v,video/*"
+									icon={<IconVideo />}
 								/>
 								<NumberInput
 									label="Publish year"

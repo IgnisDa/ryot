@@ -2,6 +2,7 @@ query UserPreferences {
   userPreferences {
     general {
       reviewScale
+      displayNsfw
     }
     fitness {
       measurements {
@@ -46,6 +47,7 @@ query UserPreferences {
       statusChanged
       releaseDateChanged
       numberOfSeasonsChanged
+      numberOfChaptersOrEpisodesChanged
     }
     featuresEnabled {
       fitness {

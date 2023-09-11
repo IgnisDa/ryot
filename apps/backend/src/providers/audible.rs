@@ -104,6 +104,7 @@ struct AudibleRatings {
 struct AudibleItem {
     asin: String,
     title: String,
+    is_adult_product: Option<bool>,
     authors: Option<Vec<NamedObject>>,
     narrators: Option<Vec<NamedObject>>,
     rating: Option<AudibleRatings>,
@@ -218,6 +219,7 @@ impl MediaProvider for AudibleService {
         &self,
         query: &str,
         page: Option<i32>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Serialize, Deserialize, Debug)]
@@ -379,6 +381,7 @@ impl AudibleService {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
+            is_nsfw: item.is_adult_product,
             production_status: "Released".to_owned(),
             title: item.title,
             description,

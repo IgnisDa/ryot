@@ -5,6 +5,7 @@ query MediaDetails($metadataId: Int!) {
     identifier
     lot
     source
+    isNsfw
     creators {
       name
       items {

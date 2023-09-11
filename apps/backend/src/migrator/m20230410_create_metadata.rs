@@ -127,6 +127,8 @@ pub enum Metadata {
     ProviderRating,
     // details about the media
     Specifics,
+    // whether it is not safe for work
+    IsNsfw,
 }
 
 #[async_trait::async_trait]
@@ -168,6 +170,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json())
                     .col(ColumnDef::new(Metadata::Videos).json())
+                    .col(ColumnDef::new(Metadata::IsNsfw).boolean().default(false))
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Metadata::Specifics).json().not_null())

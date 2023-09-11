@@ -99,6 +99,7 @@ impl MediaProvider for GoogleBooksService {
         &self,
         query: &str,
         page: Option<i32>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * self.page_limit;
@@ -231,11 +232,12 @@ impl GoogleBooksService {
                 pages: item.page_count,
             }),
             images: images.unique().collect(),
-            videos: vec![],
             provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
             groups: vec![],
+            videos: vec![],
+            is_nsfw: None,
         }
     }
 }

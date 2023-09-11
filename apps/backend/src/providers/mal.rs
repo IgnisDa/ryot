@@ -64,6 +64,7 @@ impl MediaProvider for MalAnimeService {
         &self,
         query: &str,
         page: Option<i32>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
@@ -105,6 +106,7 @@ impl MediaProvider for MalMangaService {
         &self,
         query: &str,
         page: Option<i32>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
@@ -175,6 +177,7 @@ struct ItemNode {
     id: i128,
     title: String,
     main_picture: ItemImage,
+    nsfw: Option<String>,
     synopsis: Option<String>,
     genres: Option<Vec<NamedObject>>,
     studios: Option<Vec<NamedObject>>,
@@ -197,7 +200,7 @@ struct ItemData {
 async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDetails> {
     let details: ItemNode = client
         .get(format!("{}/{}", media_type, id))
-        .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean" }))
+        .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
         .unwrap()
         .await
         .map_err(|e| anyhow!(e))?
@@ -250,14 +253,15 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         });
     }
     suggestions.shuffle(&mut thread_rng());
+    let is_nsfw = details.nsfw.map(|n| !matches!(n.as_str(), "white"));
     let data = MediaDetails {
         identifier: details.id.to_string(),
         title: details.title,
         source: MetadataSource::Mal,
         description: details.synopsis,
         lot,
+        is_nsfw,
         production_status: details.status.unwrap_or_else(|| "Released".to_owned()),
-        creators: vec![],
         genres: details
             .genres
             .unwrap_or_default()
@@ -268,7 +272,6 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             url: StoredUrl::Url(details.main_picture.large),
             lot: MetadataImageLot::Poster,
         }],
-        videos: vec![],
         specifics,
         publish_year: details
             .start_date
@@ -277,6 +280,8 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
         provider_rating: details.mean,
+        creators: vec![],
+        videos: vec![],
         groups: vec![],
     };
     Ok(data)

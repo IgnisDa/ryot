@@ -120,6 +120,7 @@ pub enum MediaStateChanged {
     NumberOfSeasonsChanged,
     EpisodeReleased,
     EpisodeNameChanged,
+    ChaptersOrEpisodesChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -130,6 +131,8 @@ struct CreateCustomMediaInput {
     creators: Option<Vec<String>>,
     genres: Option<Vec<String>>,
     images: Option<Vec<String>>,
+    videos: Option<Vec<String>>,
+    is_nsfw: Option<bool>,
     publish_year: Option<i32>,
     audio_book_specifics: Option<AudioBookSpecifics>,
     book_specifics: Option<BookSpecifics>,
@@ -394,6 +397,7 @@ struct GraphqlMediaDetails {
     id: i32,
     title: String,
     identifier: String,
+    is_nsfw: bool,
     description: Option<String>,
     provider_rating: Option<Decimal>,
     production_status: String,
@@ -721,7 +725,8 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.media_search(lot, source, input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.media_search(lot, source, input, user_id).await
     }
 
     /// Get all the metadata sources possible for a lot.
@@ -1494,6 +1499,7 @@ impl MiscellaneousService {
             lot: model.lot,
             title: model.title,
             source: model.source,
+            is_nsfw: model.is_nsfw,
             identifier: model.identifier,
             description: model.description,
             publish_date: model.publish_date,
@@ -1678,6 +1684,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<SearchResults<MediaListItem>> {
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let meta = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .apply_if(
@@ -1700,6 +1707,10 @@ impl MiscellaneousService {
         let mut main_select = Query::select()
             .expr(Expr::col((metadata_alias.clone(), Asterisk)))
             .from_as(TempMetadata::Table, metadata_alias.clone())
+            .and_where_option(match preferences.general.display_nsfw {
+                true => None,
+                false => Some(Expr::col((metadata_alias.clone(), TempMetadata::IsNsfw)).eq(false)),
+            })
             .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).eq(input.lot))
             .and_where(
                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
@@ -1945,7 +1956,6 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut items = vec![];
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
 
         for met in metadata_items {
             let avg_select = Query::select()
@@ -2303,6 +2313,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: i32,
         title: String,
+        is_nsfw: Option<bool>,
         description: Option<String>,
         provider_rating: Option<Decimal>,
         images: Vec<MetadataImage>,
@@ -2388,6 +2399,26 @@ impl MiscellaneousService {
                     }
                 }
             }
+            (MediaSpecifics::Anime(a1), MediaSpecifics::Anime(a2)) => {
+                if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
+                    if e1 != e2 {
+                        notifications.push((
+                            format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
+                            MediaStateChanged::ChaptersOrEpisodesChanged,
+                        ));
+                    }
+                }
+            }
+            (MediaSpecifics::Manga(p1), MediaSpecifics::Manga(m2)) => {
+                if let (Some(c1), Some(c2)) = (p1.chapters, m2.chapters) {
+                    if c1 != c2 {
+                        notifications.push((
+                            format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
+                            MediaStateChanged::ChaptersOrEpisodesChanged,
+                        ));
+                    }
+                }
+            }
             (MediaSpecifics::Podcast(p1), MediaSpecifics::Podcast(p2)) => {
                 if p1.episodes.len() != p2.episodes.len() {
                     notifications.push((
@@ -2427,6 +2458,10 @@ impl MiscellaneousService {
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
+        meta.is_nsfw = match is_nsfw {
+            None => ActiveValue::NotSet,
+            Some(n) => ActiveValue::Set(n),
+        };
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(Some(MetadataImages(images)));
@@ -2613,6 +2648,10 @@ impl MiscellaneousService {
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
             provider_rating: ActiveValue::Set(details.provider_rating),
+            is_nsfw: match details.is_nsfw {
+                None => ActiveValue::NotSet,
+                Some(n) => ActiveValue::Set(n),
+            },
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await?;
@@ -2818,6 +2857,7 @@ impl MiscellaneousService {
         lot: MetadataLot,
         source: MetadataSource,
         input: SearchInput,
+        user_id: i32,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         if let Some(q) = input.query {
             if q.is_empty() {
@@ -2829,8 +2869,11 @@ impl MiscellaneousService {
                     items: vec![],
                 });
             }
+            let preferences = user_by_id(&self.db, user_id).await?.preferences;
             let provider = self.get_provider(lot, source).await?;
-            let results = provider.search(&q, input.page).await?;
+            let results = provider
+                .search(&q, input.page, preferences.general.display_nsfw)
+                .await?;
             let mut all_idens = results
                 .items
                 .iter()
@@ -3490,6 +3533,7 @@ impl MiscellaneousService {
                 self.update_media(
                     metadata_id,
                     details.title,
+                    details.is_nsfw,
                     details.description,
                     details.provider_rating,
                     details.images,
@@ -3907,6 +3951,15 @@ impl MiscellaneousService {
                 lot: MetadataImageLot::Poster,
             })
             .collect();
+        let videos = input
+            .videos
+            .unwrap_or_default()
+            .into_iter()
+            .map(|i| MetadataVideo {
+                identifier: StoredUrl::S3(i),
+                source: MetadataVideoSource::Custom,
+            })
+            .collect();
         let creators = input
             .creators
             .unwrap_or_default()
@@ -3926,13 +3979,13 @@ impl MiscellaneousService {
             creators,
             genres: input.genres.unwrap_or_default(),
             images,
-            // TODO: Allow videos
-            videos: vec![],
+            videos,
             publish_year: input.publish_year,
-            publish_date: None,
             specifics,
             production_status: "Released".to_owned(),
             provider_rating: None,
+            is_nsfw: input.is_nsfw,
+            publish_date: None,
             suggestions: vec![],
             groups: vec![],
         };
@@ -4169,12 +4222,20 @@ impl MiscellaneousService {
                 "number_of_seasons_changed" => {
                     preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
                 }
+                "number_of_chapters_or_episodes_changed" => {
+                    preferences
+                        .notifications
+                        .number_of_chapters_or_episodes_changed = value_bool.unwrap()
+                }
                 _ => return Err(err()),
             },
             "general" => match right {
                 "review_scale" => {
                     preferences.general.review_scale =
                         UserReviewScale::from_str(&input.value).unwrap();
+                }
+                "display_nsfw" => {
+                    preferences.general.display_nsfw = value_bool.unwrap();
                 }
                 _ => return Err(err()),
             },
@@ -4914,6 +4975,15 @@ impl MiscellaneousService {
         }
         if matches!(change, MediaStateChanged::EpisodeNameChanged)
             && preferences.notifications.episode_name_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::ChaptersOrEpisodesChanged)
+            && preferences
+                .notifications
+                .number_of_chapters_or_episodes_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await

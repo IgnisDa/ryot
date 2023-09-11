@@ -90,6 +90,7 @@ struct TmdbVideoResults {
 struct TmdbMovie {
     id: i32,
     title: String,
+    adult: Option<bool>,
     vote_average: Option<Decimal>,
     overview: Option<String>,
     poster_path: Option<String>,
@@ -338,6 +339,7 @@ impl MediaProvider for TmdbMovieService {
 
         Ok(MediaDetails {
             identifier: data.id.to_string(),
+            is_nsfw: data.adult,
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
             production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
@@ -385,6 +387,7 @@ impl MediaProvider for TmdbMovieService {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
@@ -394,6 +397,7 @@ impl MediaProvider for TmdbMovieService {
                 "query": query.to_owned(),
                 "page": page,
                 "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await
@@ -454,6 +458,7 @@ impl MediaProvider for TmdbShowService {
         struct TmdbShow {
             id: i32,
             name: String,
+            adult: Option<bool>,
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
@@ -606,6 +611,7 @@ impl MediaProvider for TmdbShowService {
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name,
+            is_nsfw: show_data.adult,
             lot: MetadataLot::Show,
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
@@ -689,6 +695,7 @@ impl MediaProvider for TmdbShowService {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
@@ -697,7 +704,8 @@ impl MediaProvider for TmdbShowService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": self.base.language
+                "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await

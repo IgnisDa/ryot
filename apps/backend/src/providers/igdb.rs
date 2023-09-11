@@ -1,5 +1,3 @@
-// TODO: video support
-
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
@@ -165,6 +163,7 @@ where id = {id};
         &self,
         query: &str,
         page: Option<i32>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let client = get_client(&self.config).await;
@@ -375,6 +374,7 @@ where id = {id};
                 .collect(),
             provider_rating: item.rating,
             groups: vec![],
+            is_nsfw: None,
         }
     }
 

@@ -115,6 +115,11 @@ const Page: NextPageWithLayout = () => {
 											"numberOfSeasonsChanged",
 											() => "Number of seasons changes",
 										)
+										.with(
+											"numberOfChaptersOrEpisodesChanged",
+											() =>
+												"Number of chapters/episodes changes for manga/anime",
+										)
 										.otherwise(() => undefined)}
 									checked={isEnabled}
 									disabled={!coreDetails.data.preferencesChangeAllowed}
@@ -132,7 +137,7 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title order={2}>General</Title>
-					<SimpleGrid cols={2}>
+					<SimpleGrid cols={2} style={{ alignItems: "center" }}>
 						<Select
 							size="xs"
 							label="Scale used for rating in reviews"
@@ -150,6 +155,21 @@ const Page: NextPageWithLayout = () => {
 											value: val,
 										},
 									});
+							}}
+						/>
+						<Switch
+							size="xs"
+							mt="md"
+							label={"Whether NSFW will be displayed"}
+							checked={userPreferences.data.general.displayNsfw}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(ev) => {
+								updateUserEnabledFeatures.mutate({
+									input: {
+										property: "general.display_nsfw",
+										value: String(ev.currentTarget.checked),
+									},
+								});
 							}}
 						/>
 					</SimpleGrid>

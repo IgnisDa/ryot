@@ -172,7 +172,6 @@ impl MediaProvider for ITunesService {
             lot: MetadataLot::Podcast,
             description,
             images,
-            videos: vec![],
             creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
@@ -184,6 +183,8 @@ impl MediaProvider for ITunesService {
             // DEV: I could not find a way to get similar podcasts from the API
             suggestions: vec![],
             groups: vec![],
+            videos: vec![],
+            is_nsfw: None,
         })
     }
 
@@ -191,6 +192,7 @@ impl MediaProvider for ITunesService {
         &self,
         query: &str,
         page: Option<i32>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self

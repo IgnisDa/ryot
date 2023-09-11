@@ -296,6 +296,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     publish_date: None,
                     suggestions: vec![],
                     groups: vec![],
+                    is_nsfw: None,
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },
