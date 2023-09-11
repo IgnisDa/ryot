@@ -67,14 +67,14 @@ const Page: NextPageWithLayout = () => {
 							<Title order={4}>{startCase(facet)}</Title>
 							<SimpleGrid cols={2}>
 								{Object.entries(
-									// rome-ignore lint/suspicious/noExplicitAny: required here
+									// biome-ignore lint/suspicious/noExplicitAny: required here
 									(userPreferences.data.featuresEnabled as any)[facet],
 								).map(([name, isEnabled]) => (
 									<Switch
 										size="xs"
 										key={name}
 										label={changeCase(snakeCase(name))}
-										// rome-ignore lint/suspicious/noExplicitAny: required here
+										// biome-ignore lint/suspicious/noExplicitAny: required here
 										checked={isEnabled as any}
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(ev) => {

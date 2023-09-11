@@ -168,9 +168,9 @@ const Page: NextPageWithLayout = () => {
 									if (createUserYankIntegrationLot) {
 										createUserYankIntegration.mutate({
 											input: {
-												// rome-ignore lint/style/noNonNullAssertion: any is required here
+												// biome-ignore lint/style/noNonNullAssertion: any is required here
 												baseUrl: values.baseUrl!,
-												// rome-ignore lint/style/noNonNullAssertion: any is required here
+												// biome-ignore lint/style/noNonNullAssertion: any is required here
 												token: values.token!,
 												lot: createUserYankIntegrationLot,
 											},
@@ -195,7 +195,7 @@ const Page: NextPageWithLayout = () => {
 											...Object.values(UserYankIntegrationSettingKind),
 											...Object.values(UserSinkIntegrationSettingKind),
 										]}
-										// rome-ignore lint/suspicious/noExplicitAny: required here
+										// biome-ignore lint/suspicious/noExplicitAny: required here
 										onChange={(v: any) => {
 											if (v) {
 												if (

@@ -62,7 +62,7 @@ const getValues = (m: UserMeasurement["stats"]) => {
 			}
 		} else {
 			for (const [keyC, valC] of Object.entries(m.custom || {})) {
-				// rome-ignore lint/suspicious/noExplicitAny: required
+				// biome-ignore lint/suspicious/noExplicitAny: required
 				vals.push({ name: keyC, value: valC as any });
 			}
 		}
@@ -219,7 +219,7 @@ const Page: NextPageWithLayout = () => {
 							}
 							if (Object.keys(submitData).length > 0) {
 								createUserMeasurement.mutate({
-									// rome-ignore lint/suspicious/noExplicitAny: required
+									// biome-ignore lint/suspicious/noExplicitAny: required
 									input: submitData as any,
 								});
 							}
@@ -238,7 +238,7 @@ const Page: NextPageWithLayout = () => {
 									.filter((n) => n !== "custom")
 									.filter(
 										(n) =>
-											// rome-ignore lint/suspicious/noExplicitAny: required
+											// biome-ignore lint/suspicious/noExplicitAny: required
 											(preferences as any).data.fitness.measurements.inbuilt[n],
 									)
 									.map((v) => (
@@ -278,7 +278,7 @@ const Page: NextPageWithLayout = () => {
 								...Object.keys(preferences.data.fitness.measurements.inbuilt)
 									.filter(
 										(n) =>
-											// rome-ignore lint/suspicious/noExplicitAny: required
+											// biome-ignore lint/suspicious/noExplicitAny: required
 											(preferences as any).data.fitness.measurements.inbuilt[n],
 									)
 									.map((v) => ({ name: v, value: v })),

@@ -61,7 +61,7 @@ const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
 };
 
 const DisplayLifetimeStatistic = (props: {
-	// rome-ignore lint/suspicious/noExplicitAny: required here
+	// biome-ignore lint/suspicious/noExplicitAny: required here
 	val: any;
 	unit?: string;
 	stat: string;

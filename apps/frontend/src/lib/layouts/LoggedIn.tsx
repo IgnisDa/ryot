@@ -229,7 +229,7 @@ function ThemeToggle() {
 }
 
 interface LinksGroupProps {
-	// rome-ignore lint/suspicious/noExplicitAny: required here
+	// biome-ignore lint/suspicious/noExplicitAny: required here
 	icon: React.FC<any>;
 	label: string;
 	href?: string;
@@ -259,7 +259,7 @@ export function LinksGroup({
 		<>
 			<UnstyledButton<typeof Link>
 				component={!hasLinks ? Link : undefined}
-				// rome-ignore lint/suspicious/noExplicitAny: required here
+				// biome-ignore lint/suspicious/noExplicitAny: required here
 				href={!hasLinks ? href : (undefined as any)}
 				onClick={
 					hasLinks
@@ -338,7 +338,7 @@ export default function ({ children }: { children: ReactElement }) {
 		...(Object.entries(userPreferences?.data?.featuresEnabled.media || {})
 			.filter(([v, _]) => v !== "enabled")
 			.map(([name, enabled]) => {
-				// rome-ignore lint/style/noNonNullAssertion: required here
+				// biome-ignore lint/style/noNonNullAssertion: required here
 				return { name: getLot(name)!, enabled };
 			})
 			?.filter((f) => f.enabled)
@@ -366,7 +366,7 @@ export default function ({ children }: { children: ReactElement }) {
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
 				href: `${
-					// rome-ignore lint/suspicious/noExplicitAny: required here
+					// biome-ignore lint/suspicious/noExplicitAny: required here
 					(APP_ROUTES.fitness as any)[f.name]
 				}`,
 			})) || []),
@@ -515,7 +515,7 @@ export default function ({ children }: { children: ReactElement }) {
 									userDetails.data.lot === UserLot.Admin
 										? { label: "Users", link: APP_ROUTES.settings.users }
 										: undefined,
-									// rome-ignore lint/suspicious/noExplicitAny: required here
+									// biome-ignore lint/suspicious/noExplicitAny: required here
 								].filter(Boolean) as any
 							}
 						/>
