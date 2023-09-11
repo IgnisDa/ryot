@@ -13,21 +13,21 @@ apalis = { version = "0.4.4", features = [
     "limit",
     "sqlite",
 ] }
-argon2 = "0.5.1"
-async-graphql = { version = "6.0.4", features = [
+argon2 = "0.5.2"
+async-graphql = { version = "6.0.6", features = [
     "chrono",
     "decimal",
     "log",
     "uuid",
 ] }
-async-graphql-axum = "6.0.4"
+async-graphql-axum = "6.0.6"
 async-trait = "0.1.73"
 aws-sdk-s3 = "0.30.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
 axum-extra = { version = "0.7.7", default-features = false, features = [
     "cookie",
 ] }
-chrono = "0.4.26"
+chrono = "0.4.30"
 convert_case = "0.6.0"
 const-str = "0.5.6"
 cookie = "0.17.0"
@@ -102,7 +102,7 @@ surf = { version = "2.3.2", features = [
 surf-governor = "0.2.0"
 surf-retry = "0.3.1"
 tokio = { version = "1.32.0", features = ["full"] }
-tower-http = { version = "0.4.3", features = ["catch-panic", "cors", "trace"] }
+tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.37", features = ["attributes"] }
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
