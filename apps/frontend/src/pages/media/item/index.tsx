@@ -59,6 +59,7 @@ import {
 	type MergeMetadataMutationVariables,
 	MetadataLot,
 	MetadataSource,
+	MetadataVideoSource,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
 	RemoveMediaFromCollectionDocument,
@@ -68,7 +69,6 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
-	MetadataVideoSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -895,12 +895,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="history"
-								icon={<IconRotateClockwise size="1rem" />}
-							>
-								History
-							</Tabs.Tab>
+							{userMediaDetails.data.history.length > 0 ? (
+								<Tabs.Tab
+									value="history"
+									icon={<IconRotateClockwise size="1rem" />}
+								>
+									History
+								</Tabs.Tab>
+							) : undefined}
 							{mediaDetails.data.showSpecifics ? (
 								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
 									Seasons
@@ -914,7 +916,8 @@ const Page: NextPageWithLayout = () => {
 									Episodes
 								</Tabs.Tab>
 							) : undefined}
-							{!coreDetails.data.reviewsDisabled ? (
+							{!coreDetails.data.reviewsDisabled &&
+							userMediaDetails.data.reviews.length > 0 ? (
 								<Tabs.Tab
 									value="reviews"
 									icon={<IconMessageCircle2 size="1rem" />}
@@ -922,12 +925,16 @@ const Page: NextPageWithLayout = () => {
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
-							<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
-								Suggestions
-							</Tabs.Tab>
-							<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
-								Videos
-							</Tabs.Tab>
+							{mediaDetails.data.suggestions.length > 0 ? (
+								<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
+									Suggestions
+								</Tabs.Tab>
+							) : undefined}
+							{mediaDetails.data.assets.videos.length > 0 ? (
+								<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
+									Videos
+								</Tabs.Tab>
+							) : undefined}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
@@ -1275,83 +1282,75 @@ const Page: NextPageWithLayout = () => {
 										{userMediaDetails.data.history.length} time
 										{userMediaDetails.data.history.length > 1 ? "s" : ""} by you
 									</Text>
-									{userMediaDetails.data.history.length > 0 ? (
-										userMediaDetails.data.history.map((h) => (
-											<Flex
-												key={h.id}
-												direction={"column"}
-												ml="md"
-												data-seen-id={h.id}
-											>
-												<Flex gap="xl">
-													<Text fw="bold">
-														{changeCase(h.state)}{" "}
-														{h.progress !== 100
-															? `(${h.progress}%)`
-															: undefined}
+									{userMediaDetails.data.history.map((h) => (
+										<Flex
+											key={h.id}
+											direction={"column"}
+											ml="md"
+											data-seen-id={h.id}
+										>
+											<Flex gap="xl">
+												<Text fw="bold">
+													{changeCase(h.state)}{" "}
+													{h.progress !== 100 ? `(${h.progress}%)` : undefined}
+												</Text>
+												{h.showInformation ? (
+													<Text color="dimmed">
+														S{h.showInformation.season}-E
+														{h.showInformation.episode}
 													</Text>
-													{h.showInformation ? (
-														<Text color="dimmed">
-															S{h.showInformation.season}-E
-															{h.showInformation.episode}
+												) : undefined}
+												{h.podcastInformation ? (
+													<Text color="dimmed">
+														EP-{h.podcastInformation.episode}
+													</Text>
+												) : undefined}
+											</Flex>
+											<Flex ml="sm" direction={"column"} gap={4}>
+												<Flex gap="xl">
+													<Flex gap={"xs"}>
+														<Text size="sm">Started:</Text>
+														<Text size="sm" fw="bold">
+															{h.startedOn
+																? DateTime.fromISO(h.startedOn).toLocaleString()
+																: "N/A"}
 														</Text>
-													) : undefined}
-													{h.podcastInformation ? (
-														<Text color="dimmed">
-															EP-{h.podcastInformation.episode}
+													</Flex>
+													<Flex gap={"xs"}>
+														<Text size="sm">Ended:</Text>
+														<Text size="sm" fw="bold">
+															{h.finishedOn
+																? DateTime.fromISO(
+																		h.finishedOn,
+																  ).toLocaleString()
+																: "N/A"}
 														</Text>
-													) : undefined}
+													</Flex>
 												</Flex>
-												<Flex ml="sm" direction={"column"} gap={4}>
-													<Flex gap="xl">
-														<Flex gap={"xs"}>
-															<Text size="sm">Started:</Text>
-															<Text size="sm" fw="bold">
-																{h.startedOn
-																	? DateTime.fromISO(
-																			h.startedOn,
-																	  ).toLocaleString()
-																	: "N/A"}
-															</Text>
-														</Flex>
-														<Flex gap={"xs"}>
-															<Text size="sm">Ended:</Text>
-															<Text size="sm" fw="bold">
-																{h.finishedOn
-																	? DateTime.fromISO(
-																			h.finishedOn,
-																	  ).toLocaleString()
-																	: "N/A"}
-															</Text>
-														</Flex>
+												<Flex gap={"md"}>
+													<Flex gap={"xs"}>
+														<Text size="sm">Updated:</Text>
+														<Text size="sm" fw="bold">
+															{DateTime.fromJSDate(
+																h.lastUpdatedOn,
+															).toLocaleString()}
+														</Text>
 													</Flex>
-													<Flex gap={"md"}>
-														<Flex gap={"xs"}>
-															<Text size="sm">Updated:</Text>
-															<Text size="sm" fw="bold">
-																{DateTime.fromJSDate(
-																	h.lastUpdatedOn,
-																).toLocaleString()}
-															</Text>
-														</Flex>
-														<Button
-															variant="outline"
-															color="red"
-															leftIcon={<IconX size="1.2rem" />}
-															compact
-															onClick={() => {
-																deleteSeenItem.mutate({ seenId: h.id });
-															}}
-														>
-															Delete
-														</Button>
-													</Flex>
+													<Button
+														variant="outline"
+														color="red"
+														leftIcon={<IconX size="1.2rem" />}
+														compact
+														onClick={() => {
+															deleteSeenItem.mutate({ seenId: h.id });
+														}}
+													>
+														Delete
+													</Button>
 												</Flex>
 											</Flex>
-										))
-									) : (
-										<Text fs="italic">You have no history for this item</Text>
-									)}
+										</Flex>
+									))}
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
@@ -1506,117 +1505,104 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						{!coreDetails.data.reviewsDisabled ? (
 							<Tabs.Panel value="reviews">
-								{userMediaDetails.data.reviews.length > 0 ? (
-									<MediaScrollArea>
-										<Stack>
-											{userMediaDetails.data.reviews.map((r) => (
-												<ReviewItemDisplay
-													review={r}
-													key={r.id}
-													metadataId={metadataId}
-													refetch={userMediaDetails.refetch}
-												/>
-											))}
-										</Stack>
-									</MediaScrollArea>
-								) : (
-									<Text fs="italic">No reviews posted</Text>
-								)}
+								<MediaScrollArea>
+									<Stack>
+										{userMediaDetails.data.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												metadataId={metadataId}
+												refetch={userMediaDetails.refetch}
+											/>
+										))}
+									</Stack>
+								</MediaScrollArea>
 							</Tabs.Panel>
 						) : undefined}
 						<Tabs.Panel value="suggestions">
 							<MediaScrollArea>
-								{mediaDetails.data.suggestions.length > 0 ? (
-									<SimpleGrid
-										cols={3}
-										breakpoints={[
-											{ minWidth: "md", cols: 4 },
-											{ minWidth: "lg", cols: 5 },
-										]}
-									>
-										{mediaDetails.data.suggestions.map((sug) => (
-											<Link
-												key={sug.identifier}
-												passHref
-												legacyBehavior
-												href={
-													sug.metadataId
-														? withQuery(
-																APP_ROUTES.media.individualMediaItem.details,
-																{ id: sug.metadataId },
-														  )
-														: withQuery(
-																APP_ROUTES.media.individualMediaItem.commit,
-																{
-																	identifier: sug.identifier,
-																	lot: sug.lot,
-																	source: sug.source,
-																},
-														  )
-												}
-											>
-												<Anchor data-media-id={sug.identifier}>
-													<Avatar
-														imageProps={{ loading: "lazy" }}
-														src={sug.image}
-														h={100}
-														w={85}
-														mx="auto"
-														alt={`${sug.title} picture`}
-														styles={{
-															image: { objectPosition: "top" },
-														}}
-													/>
-													<Text
-														color="dimmed"
-														size="xs"
-														align="center"
-														lineClamp={1}
-														mt={4}
-													>
-														{sug.title}
-													</Text>
-												</Anchor>
-											</Link>
-										))}
-									</SimpleGrid>
-								) : (
-									<Text fs="italic">No suggestions available</Text>
-								)}
+								<SimpleGrid
+									cols={3}
+									breakpoints={[
+										{ minWidth: "md", cols: 4 },
+										{ minWidth: "lg", cols: 5 },
+									]}
+								>
+									{mediaDetails.data.suggestions.map((sug) => (
+										<Link
+											key={sug.identifier}
+											passHref
+											legacyBehavior
+											href={
+												sug.metadataId
+													? withQuery(
+															APP_ROUTES.media.individualMediaItem.details,
+															{ id: sug.metadataId },
+													  )
+													: withQuery(
+															APP_ROUTES.media.individualMediaItem.commit,
+															{
+																identifier: sug.identifier,
+																lot: sug.lot,
+																source: sug.source,
+															},
+													  )
+											}
+										>
+											<Anchor data-media-id={sug.identifier}>
+												<Avatar
+													imageProps={{ loading: "lazy" }}
+													src={sug.image}
+													h={100}
+													w={85}
+													mx="auto"
+													alt={`${sug.title} picture`}
+													styles={{
+														image: { objectPosition: "top" },
+													}}
+												/>
+												<Text
+													color="dimmed"
+													size="xs"
+													align="center"
+													lineClamp={1}
+													mt={4}
+												>
+													{sug.title}
+												</Text>
+											</Anchor>
+										</Link>
+									))}
+								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="videos">
 							<MediaScrollArea>
-								{mediaDetails.data.assets.videos.length > 0 ? (
-									<Stack>
-										{mediaDetails.data.assets.videos.map((v) => (
-											<Box key={v.videoId}>
-												<iframe
-													width={"100%"}
-													height={200}
-													src={
-														match(v.source)
-															.with(
-																MetadataVideoSource.Youtube,
-																() => "https://www.youtube.com/embed/",
-															)
-															.with(
-																MetadataVideoSource.Dailymotion,
-																() =>
-																	"https://www.dailymotion.com/embed/video/",
-															)
-															.exhaustive() + v.videoId
-													}
-													title="YouTube video player"
-													allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-													allowFullScreen
-												/>
-											</Box>
-										))}
-									</Stack>
-								) : (
-									<Text fs="italic">No videos available</Text>
-								)}
+								<Stack>
+									{mediaDetails.data.assets.videos.map((v) => (
+										<Box key={v.videoId}>
+											<iframe
+												width={"100%"}
+												height={200}
+												src={
+													match(v.source)
+														.with(
+															MetadataVideoSource.Youtube,
+															() => "https://www.youtube.com/embed/",
+														)
+														.with(
+															MetadataVideoSource.Dailymotion,
+															() => "https://www.dailymotion.com/embed/video/",
+														)
+														.exhaustive() + v.videoId
+												}
+												title="YouTube video player"
+												allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+												allowFullScreen
+											/>
+										</Box>
+									))}
+								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
 					</Tabs>
