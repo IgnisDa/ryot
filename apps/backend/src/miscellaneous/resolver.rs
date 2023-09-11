@@ -106,7 +106,7 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_stored_image, get_user_and_metadata_association, user_by_id, user_id_from_token,
+        get_stored_asset, get_user_and_metadata_association, user_by_id, user_id_from_token,
         AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
@@ -380,6 +380,7 @@ struct GraphqlMediaGroup {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMediaAssets {
     images: Vec<String>,
+    videos: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -1269,12 +1270,18 @@ impl MiscellaneousService {
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
         let mut images = vec![];
+        let mut videos = vec![];
         if let Some(imgs) = &meta.images {
             for i in imgs.0.clone() {
-                images.push(get_stored_image(i.url, &self.file_storage_service).await);
+                images.push(get_stored_asset(i.url, &self.file_storage_service).await);
             }
         }
-        Ok(GraphqlMediaAssets { images })
+        if let Some(vids) = &meta.videos {
+            for v in vids.0.clone() {
+                videos.push(get_stored_asset(v.identifier, &self.file_storage_service).await);
+            }
+        }
+        Ok(GraphqlMediaAssets { images, videos })
     }
 
     async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
@@ -4976,7 +4983,7 @@ impl MiscellaneousService {
                 .iter()
                 .find(|i| i.lot == MetadataImageLot::Poster)
             {
-                image = Some(get_stored_image(i.url.clone(), &self.file_storage_service).await);
+                image = Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await);
             }
             c.image = image;
             items.push(c);
@@ -5064,7 +5071,7 @@ impl MiscellaneousService {
             let m = metadata.unwrap();
             let image = if let Some(imgs) = m.images {
                 if let Some(i) = imgs.0.first() {
-                    Some(get_stored_image(i.url.clone(), &self.file_storage_service).await)
+                    Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await)
                 } else {
                     None
                 }
@@ -5101,7 +5108,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut images = vec![];
         for image in group.images.0.iter() {
-            images.push(get_stored_image(image.url.clone(), &self.file_storage_service).await);
+            images.push(get_stored_asset(image.url.clone(), &self.file_storage_service).await);
         }
         group.display_images = images;
         let slug = slug::slugify(&group.title);
