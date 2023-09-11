@@ -120,6 +120,7 @@ pub enum MediaStateChanged {
     NumberOfSeasonsChanged,
     EpisodeReleased,
     EpisodeNameChanged,
+    ChaptersOrEpisodesChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2396,6 +2397,22 @@ impl MiscellaneousService {
                             }
                         }
                     }
+                }
+            }
+            (MediaSpecifics::Anime(p1), MediaSpecifics::Anime(p2)) => {
+                if p1.episodes != p2.episodes {
+                    notifications.push((
+                        format!("Number of episodes changed from {:#?} to {:#?}", p1, p2),
+                        MediaStateChanged::ChaptersOrEpisodesChanged,
+                    ));
+                }
+            }
+            (MediaSpecifics::Manga(p1), MediaSpecifics::Manga(p2)) => {
+                if p1.chapters != p2.chapters {
+                    notifications.push((
+                        format!("Number of chapters changed from {:#?} to {:#?}", p1, p2),
+                        MediaStateChanged::ChaptersOrEpisodesChanged,
+                    ));
                 }
             }
             (MediaSpecifics::Podcast(p1), MediaSpecifics::Podcast(p2)) => {
@@ -4954,6 +4971,15 @@ impl MiscellaneousService {
         }
         if matches!(change, MediaStateChanged::EpisodeNameChanged)
             && preferences.notifications.episode_name_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::ChaptersOrEpisodesChanged)
+            && preferences
+                .notifications
+                .number_of_chapters_or_episodes_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
