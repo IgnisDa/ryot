@@ -397,6 +397,7 @@ impl MediaProvider for TmdbMovieService {
                 "query": query.to_owned(),
                 "page": page,
                 "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await
@@ -703,7 +704,8 @@ impl MediaProvider for TmdbShowService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": self.base.language
+                "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await
