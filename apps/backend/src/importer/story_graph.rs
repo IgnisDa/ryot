@@ -90,7 +90,7 @@ pub async fn import(
                 ];
                 if let Some(w) = record.last_date_read {
                     let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-                    let read_at = Some(DateTime::from_utc(
+                    let read_at = Some(DateTime::from_naive_utc_and_offset(
                         NaiveDateTime::new(w, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
                         Utc,
                     ));

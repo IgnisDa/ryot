@@ -159,7 +159,7 @@ pub fn convert_date_to_year(d: &str) -> Option<i32> {
 }
 
 pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
-    DateTime::from_utc(
+    DateTime::from_naive_utc_and_offset(
         NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         Utc,
     )
