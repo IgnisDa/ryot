@@ -99,6 +99,7 @@ impl MediaProvider for GoogleBooksService {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * self.page_limit;

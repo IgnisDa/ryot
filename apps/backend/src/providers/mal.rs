@@ -64,6 +64,7 @@ impl MediaProvider for MalAnimeService {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
@@ -105,6 +106,7 @@ impl MediaProvider for MalMangaService {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,

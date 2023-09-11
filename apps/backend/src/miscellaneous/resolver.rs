@@ -722,7 +722,8 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.media_search(lot, source, input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.media_search(lot, source, input, user_id).await
     }
 
     /// Get all the metadata sources possible for a lot.
@@ -2833,6 +2834,7 @@ impl MiscellaneousService {
         lot: MetadataLot,
         source: MetadataSource,
         input: SearchInput,
+        user_id: i32,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         if let Some(q) = input.query {
             if q.is_empty() {
@@ -2844,8 +2846,11 @@ impl MiscellaneousService {
                     items: vec![],
                 });
             }
+            let preferences = user_by_id(&self.db, user_id).await?.preferences;
             let provider = self.get_provider(lot, source).await?;
-            let results = provider.search(&q, input.page).await?;
+            let results = provider
+                .search(&q, input.page, preferences.general.display_nsfw)
+                .await?;
             let mut all_idens = results
                 .items
                 .iter()
