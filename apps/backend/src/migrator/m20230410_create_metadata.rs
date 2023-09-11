@@ -117,6 +117,8 @@ pub enum Metadata {
     ProductionStatus,
     // all the images for this media item
     Images,
+    // all the videos for this media item
+    Videos,
     // the unique identifier that is returned by the metadata provider
     Identifier,
     // the provider source
@@ -165,6 +167,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal().null())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json())
+                    .col(ColumnDef::new(Metadata::Videos).json())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Metadata::Specifics).json().not_null())
