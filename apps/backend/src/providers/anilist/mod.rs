@@ -27,7 +27,8 @@ static URL: &str = "https://graphql.anilist.co";
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
     query_path = "src/providers/anilist/search.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug",
+    variables_derives = "Debug"
 )]
 struct SearchQuery;
 
@@ -35,7 +36,8 @@ struct SearchQuery;
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
     query_path = "src/providers/anilist/details.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug",
+    variables_derives = "Debug"
 )]
 struct DetailsQuery;
 
@@ -88,6 +90,7 @@ impl MediaProvider for AnilistAnimeService {
             query,
             page,
             self.base.page_limit,
+            display_nsfw,
         )
         .await?;
         Ok(SearchResults {
@@ -130,6 +133,7 @@ impl MediaProvider for AnilistMangaService {
             query,
             page,
             self.base.page_limit,
+            display_nsfw,
         )
         .await?;
         Ok(SearchResults {
@@ -281,6 +285,8 @@ async fn search(
     query: &str,
     page: Option<i32>,
     page_limit: i32,
+    // DEV: I expected that setting `isAdult` will return all results, but it instead returns only the adult ones which is not what I want
+    _is_adult: bool,
 ) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
     let variables = search_query::Variables {
