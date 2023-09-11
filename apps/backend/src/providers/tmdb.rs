@@ -78,7 +78,7 @@ struct TmdbListResponse<T = TmdbEntry> {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbVideo {
-    id: String,
+    key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -232,7 +232,7 @@ impl MediaProvider for TmdbMovieService {
         let mut videos = vec![];
         if let Some(vid) = data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
-                identifier: StoredUrl::Url(vid.id),
+                identifier: StoredUrl::Url(vid.key),
                 source: MetadataVideoSource::Youtube,
             }))
         }
@@ -479,7 +479,7 @@ impl MediaProvider for TmdbShowService {
         let mut videos = vec![];
         if let Some(vid) = show_data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
-                identifier: StoredUrl::Url(vid.id),
+                identifier: StoredUrl::Url(vid.key),
                 source: MetadataVideoSource::Youtube,
             }))
         }
