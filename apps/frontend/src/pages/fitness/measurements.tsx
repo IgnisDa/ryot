@@ -207,13 +207,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Measurements | Ryot</title>
 			</Head>
 			<Container>
-				<Drawer
-					opened={opened}
-					onClose={close}
-					title="Add new measurement"
-					// FIXME: Remove this once https://github.com/mantinedev/mantine/issues/4548 is fixed
-					transitionProps={{ transition: "slide-right" }}
-				>
+				<Drawer opened={opened} onClose={close} title="Add new measurement">
 					<Box
 						component="form"
 						onSubmit={(e) => {
