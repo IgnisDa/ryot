@@ -429,6 +429,9 @@ pub struct ServerConfig {
     /// The maximum file size in MB for user uploads.
     #[setting(default = 70)]
     pub max_file_size: usize,
+    /// Whether videos will be displayed in the media details.
+    #[setting(default = false)]
+    pub videos_disabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -452,9 +455,6 @@ pub struct UsersConfig {
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
-    /// Whether videos will be displayed in the media details.
-    #[setting(default = false)]
-    pub videos_disabled: bool,
     /// Whether users will be allowed to post reviews on this instance.
     #[setting(default = false)]
     pub reviews_disabled: bool,
@@ -505,6 +505,9 @@ pub struct AppConfig {
     /// Settings related to scheduler.
     #[setting(nested)]
     pub scheduler: SchedulerConfig,
+    /// Settings related to server.
+    #[setting(nested)]
+    pub server: ServerConfig,
     /// Settings related to shows.
     #[setting(nested)]
     pub shows: ShowConfig,
@@ -517,9 +520,6 @@ pub struct AppConfig {
     /// Settings related to visual novels.
     #[setting(nested)]
     pub visual_novel: VisualNovelConfig,
-    /// Settings related to server.
-    #[setting(nested)]
-    pub server: ServerConfig,
 }
 
 impl AppConfig {

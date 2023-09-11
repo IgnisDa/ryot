@@ -224,6 +224,11 @@ export interface ServerConfig {
 	progress_update_threshold: number;
 	/** This will set SameSite=None on the auth cookies. */
 	samesite_none: boolean;
+	/**
+	 * Whether videos will be displayed in the media details.
+	 * @default false
+	 */
+	videos_disabled: boolean;
 }
 
 export interface ShowsTmdbConfig {
@@ -274,11 +279,6 @@ export interface UsersConfig {
 	 * @default 90
 	 */
 	token_valid_for_days: number;
-	/**
-	 * Whether videos will be displayed in the media details.
-	 * @default false
-	 */
-	videos_disabled: boolean;
 }
 
 export type IgdbImageSize = 't_original';

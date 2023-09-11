@@ -1262,7 +1262,7 @@ impl MiscellaneousService {
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
-            videos_disabled: self.config.users.videos_disabled,
+            videos_disabled: self.config.server.videos_disabled,
             upgrade,
             page_limit: self.config.frontend.page_size,
             deploy_update_all_metadata_job_allowed: self
