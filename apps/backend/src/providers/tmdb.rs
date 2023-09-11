@@ -1,3 +1,5 @@
+// TODO: video support
+
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
@@ -17,8 +19,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, MetadataImages, MovieSpecifics, PartialMetadata, ShowEpisode,
-            ShowSeason, ShowSpecifics,
+            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadata, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -75,6 +77,16 @@ struct TmdbListResponse<T = TmdbEntry> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbVideo {
+    id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbVideoResults {
+    results: Vec<TmdbVideo>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbMovie {
     id: i32,
     title: String,
@@ -88,6 +100,7 @@ struct TmdbMovie {
     genres: Option<Vec<NamedObject>>,
     production_companies: Option<Vec<TmdbCompany>>,
     belongs_to_collection: Option<IdObject>,
+    videos: Option<TmdbVideoResults>,
 }
 
 #[derive(Debug, Clone)]
@@ -210,11 +223,19 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("movie/{}", &identifier))
             .query(&json!({
                 "language": self.base.language,
+                "append_to_response": "videos",
             }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
         let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut videos = vec![];
+        if let Some(vid) = data.videos {
+            videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
+                identifier: StoredUrl::Url(vid.id),
+                source: MetadataVideoSource::Youtube,
+            }))
+        }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCreditsResponse {
             cast: Vec<TmdbCredit>,
