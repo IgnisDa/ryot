@@ -285,7 +285,6 @@ async fn search(
     query: &str,
     page: Option<i32>,
     page_limit: i32,
-    // DEV: I expected that setting `isAdult` will return all results, but it instead returns only the adult ones which is not what I want
     _is_adult: bool,
 ) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
