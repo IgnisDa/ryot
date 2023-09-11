@@ -3,6 +3,7 @@ use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use surf::http::headers::CONTENT_TYPE;
@@ -128,7 +129,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             match process_item(item) {
                 Ok(mut d) => {
                     d.reviews.push(ImportOrExportItemRating {
-                        rating: item.rating,
+                        rating: item
+                            .rating
+                            // DEV: Rates items out of 10
+                            .map(|e| e * dec!(10)),
                         review: Some(ImportOrExportItemReview {
                             spoiler: Some(false),
                             text: Some("".to_owned()),
