@@ -10,8 +10,9 @@ query CoreDetails {
     usernameChangeAllowed
     itemDetailsHeight
     reviewsDisabled
+    videosDisabled
     upgrade
     pageLimit
     deployUpdateAllMetadataJobAllowed
-   }
+  }
 }

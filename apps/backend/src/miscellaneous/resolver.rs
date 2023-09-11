@@ -509,6 +509,7 @@ struct CoreDetails {
     username_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
+    videos_disabled: bool,
     upgrade: Option<UpgradeType>,
     page_limit: i32,
     deploy_update_all_metadata_job_allowed: bool,
@@ -1261,6 +1262,7 @@ impl MiscellaneousService {
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
             reviews_disabled: self.config.users.reviews_disabled,
+            videos_disabled: self.config.users.videos_disabled,
             upgrade,
             page_limit: self.config.frontend.page_size,
             deploy_update_all_metadata_job_allowed: self

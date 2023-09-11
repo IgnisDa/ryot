@@ -274,6 +274,11 @@ export interface UsersConfig {
 	 * @default 90
 	 */
 	token_valid_for_days: number;
+	/**
+	 * Whether videos will be displayed in the media details.
+	 * @default false
+	 */
+	videos_disabled: boolean;
 }
 
 export type IgdbImageSize = 't_original';
