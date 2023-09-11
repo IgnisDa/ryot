@@ -824,7 +824,7 @@ pub struct MiscellaneousMutation;
 
 #[Object]
 impl MiscellaneousMutation {
-    /// Create or update a review. They should always have a scale of `ReviewScale::OutOfHundred`.
+    /// Create or update a review.
     async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -3277,9 +3277,15 @@ impl MiscellaneousService {
             return Err(Error::new("At-least one of rating or review is required."));
         }
 
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let mut review_obj = review::ActiveModel {
             id: review_id,
-            rating: ActiveValue::Set(input.rating),
+            rating: ActiveValue::Set(input.rating.map(
+                |r| match preferences.general.review_scale {
+                    UserReviewScale::OutOfFive => r * dec!(20),
+                    UserReviewScale::OutOfHundred => r,
+                },
+            )),
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
