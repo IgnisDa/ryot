@@ -15,7 +15,10 @@ query MediaDetails($metadataId: Int!) {
     }
     assets {
       images
-      videos
+      videos {
+        videoId
+        source
+      }
     }
     providerRating
     publishYear

@@ -802,6 +802,7 @@ pub mod media {
         Serialize,
         Hash,
         Default,
+        Enum,
     )]
     pub enum MetadataVideoSource {
         #[default]

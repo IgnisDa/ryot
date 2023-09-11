@@ -75,8 +75,8 @@ use crate::{
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
             MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
@@ -378,9 +378,15 @@ struct GraphqlMediaGroup {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlVideoAsset {
+    video_id: String,
+    source: MetadataVideoSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMediaAssets {
     images: Vec<String>,
-    videos: Vec<String>,
+    videos: Vec<GraphqlVideoAsset>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -1278,7 +1284,11 @@ impl MiscellaneousService {
         }
         if let Some(vids) = &meta.videos {
             for v in vids.0.clone() {
-                videos.push(get_stored_asset(v.identifier, &self.file_storage_service).await);
+                let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
+                videos.push(GraphqlVideoAsset {
+                    source: v.source,
+                    video_id: url,
+                })
             }
         }
         Ok(GraphqlMediaAssets { images, videos })

@@ -84,6 +84,7 @@ import {
 	IconRotateClockwise,
 	IconStarFilled,
 	IconUser,
+	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -923,6 +924,9 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
 								Suggestions
 							</Tabs.Tab>
+							<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
+								Videos
+							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
@@ -1577,6 +1581,17 @@ const Page: NextPageWithLayout = () => {
 									</SimpleGrid>
 								) : (
 									<Text fs="italic">No suggestions available</Text>
+								)}
+							</MediaScrollArea>
+						</Tabs.Panel>
+						<Tabs.Panel value="videos">
+							<MediaScrollArea>
+								{mediaDetails.data.assets.videos.length > 0 ? (
+									<>
+										{JSON.stringify(mediaDetails.data.assets.videos, null, 4)}
+									</>
+								) : (
+									<Text fs="italic">No videos available</Text>
 								)}
 							</MediaScrollArea>
 						</Tabs.Panel>
