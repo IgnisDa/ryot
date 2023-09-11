@@ -64,7 +64,7 @@ impl MediaProvider for MalAnimeService {
         &self,
         query: &str,
         page: Option<i32>,
-        display_nsfw: bool,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
@@ -106,7 +106,7 @@ impl MediaProvider for MalMangaService {
         &self,
         query: &str,
         page: Option<i32>,
-        display_nsfw: bool,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
@@ -253,10 +253,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         });
     }
     suggestions.shuffle(&mut thread_rng());
-    let is_nsfw = details.nsfw.map(|n| match n.as_str() {
-        "white" => false,
-        _ => true,
-    });
+    let is_nsfw = details.nsfw.map(|n| !matches!(n.as_str(), "white"));
     let data = MediaDetails {
         identifier: details.id.to_string(),
         title: details.title,

@@ -208,7 +208,7 @@ impl MediaProvider for MangaUpdatesService {
         &self,
         query: &str,
         page: Option<i32>,
-        display_nsfw: bool,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let search: SearchResponse = self
