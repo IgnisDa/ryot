@@ -821,6 +821,10 @@ pub mod media {
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
+    // FIXME: Remove this
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct MetadataVideos(pub Vec<MetadataVideo>);
+
     #[derive(
         Clone,
         Debug,

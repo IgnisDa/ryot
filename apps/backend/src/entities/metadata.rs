@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::prelude::PartialMetadata,
     migrator::{MetadataLot, MetadataSource},
-    models::media::{MediaSpecifics, MetadataImages},
+    models::media::{MediaSpecifics, MetadataImages, MetadataVideos},
 };
 
 use super::partial_metadata;
@@ -30,6 +30,7 @@ pub struct Model {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub images: MetadataImages,
+    pub videos: MetadataVideos,
     pub source: MetadataSource,
     pub specifics: MediaSpecifics,
     pub production_status: String,
