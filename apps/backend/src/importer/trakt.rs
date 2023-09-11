@@ -32,6 +32,7 @@ struct Id {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Item {
+    title: String,
     season: Option<i32>,
     number: Option<i32>,
     ids: Id,
@@ -44,7 +45,7 @@ struct ListItemResponse {
     episode: Option<Item>,
     watched_at: Option<DateTimeUtc>,
     rated_at: Option<DateTimeUtc>,
-    rating: Option<u8>,
+    rating: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -119,30 +120,30 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             ..Default::default()
         })
         .collect_vec();
-    let mut rsp = client.get("ratings").await.unwrap();
-    let ratings: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
-    for item in ratings.iter() {
-        match process_item(item) {
-            Ok(mut d) => {
-                d.reviews.push(ImportOrExportItemRating {
-                    rating: item
-                        .rating
-                        // DEV: Rates items out of 10
-                        .and_then(|e| Decimal::from_f32_retain((e * 10).into())),
-                    review: Some(ImportOrExportItemReview {
-                        spoiler: Some(false),
-                        text: Some("".to_owned()),
-                        date: item.rated_at,
-                    }),
-                    ..Default::default()
-                });
-                if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
-                    a.reviews = d.reviews;
-                } else {
-                    media_items.push(d)
+
+    for typ in ["movies", "shows"] {
+        let mut rsp = client.get(format!("ratings/{}", typ)).await.unwrap();
+        let ratings: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        for item in ratings.iter() {
+            match process_item(item) {
+                Ok(mut d) => {
+                    d.reviews.push(ImportOrExportItemRating {
+                        rating: item.rating,
+                        review: Some(ImportOrExportItemReview {
+                            spoiler: Some(false),
+                            text: Some("".to_owned()),
+                            date: item.rated_at,
+                        }),
+                        ..Default::default()
+                    });
+                    if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                        a.reviews = d.reviews;
+                    } else {
+                        media_items.push(d)
+                    }
                 }
+                Err(d) => failed_items.push(d),
             }
-            Err(d) => failed_items.push(d),
         }
     }
 
