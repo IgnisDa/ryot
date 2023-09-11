@@ -809,6 +809,7 @@ pub mod media {
         #[default]
         Youtube,
         Dailymotion,
+        Custom,
     }
 
     #[derive(

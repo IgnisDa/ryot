@@ -130,6 +130,7 @@ struct CreateCustomMediaInput {
     creators: Option<Vec<String>>,
     genres: Option<Vec<String>>,
     images: Option<Vec<String>>,
+    videos: Option<Vec<String>>,
     is_nsfw: Option<bool>,
     publish_year: Option<i32>,
     audio_book_specifics: Option<AudioBookSpecifics>,
@@ -3929,6 +3930,15 @@ impl MiscellaneousService {
                 lot: MetadataImageLot::Poster,
             })
             .collect();
+        let videos = input
+            .videos
+            .unwrap_or_default()
+            .into_iter()
+            .map(|i| MetadataVideo {
+                identifier: StoredUrl::S3(i),
+                source: MetadataVideoSource::Custom,
+            })
+            .collect();
         let creators = input
             .creators
             .unwrap_or_default()
@@ -3948,6 +3958,7 @@ impl MiscellaneousService {
             creators,
             genres: input.genres.unwrap_or_default(),
             images,
+            videos,
             publish_year: input.publish_year,
             specifics,
             production_status: "Released".to_owned(),
@@ -3956,8 +3967,6 @@ impl MiscellaneousService {
             publish_date: None,
             suggestions: vec![],
             groups: vec![],
-            // TODO: Allow videos
-            videos: vec![],
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

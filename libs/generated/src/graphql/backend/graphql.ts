@@ -144,6 +144,7 @@ export type CreateCustomMediaInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
   images?: InputMaybe<Array<Scalars['String']['input']>>;
+  isNsfw?: InputMaybe<Scalars['Boolean']['input']>;
   lot: MetadataLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
@@ -152,6 +153,7 @@ export type CreateCustomMediaInput = {
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
   videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
+  videos?: InputMaybe<Array<Scalars['String']['input']>>;
   visualNovelSpecifics?: InputMaybe<VisualNovelSpecificsInput>;
 };
 
@@ -704,6 +706,7 @@ export enum MetadataSource {
 }
 
 export enum MetadataVideoSource {
+  Custom = 'CUSTOM',
   Dailymotion = 'DAILYMOTION',
   Youtube = 'YOUTUBE'
 }
