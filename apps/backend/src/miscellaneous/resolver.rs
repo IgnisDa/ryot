@@ -598,6 +598,19 @@ struct GraphqlCalendarEvent {
     podcast_episode_number: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+struct UserCalendarEventsResponse {
+    events: Vec<GraphqlCalendarEvent>,
+    total: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+struct UserCalendarEventInput {
+    metadata_lot: Option<MetadataLot>,
+    start_time: Option<NaiveDate>,
+    end_time: Option<NaiveDate>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -829,14 +842,11 @@ impl MiscellaneousQuery {
     async fn user_calendar_events(
         &self,
         gql_ctx: &Context<'_>,
-        start_time: Option<NaiveDate>,
-        end_time: Option<NaiveDate>,
-    ) -> Result<Vec<GraphqlCalendarEvent>> {
+        input: UserCalendarEventInput,
+    ) -> Result<UserCalendarEventsResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .user_calendar_events(user_id, start_time, end_time)
-            .await
+        service.user_calendar_events(user_id, input).await
     }
 
     /// Get paginated list of creators.
@@ -1706,10 +1716,9 @@ impl MiscellaneousService {
     async fn user_calendar_events(
         &self,
         user_id: i32,
-        start_time: Option<NaiveDate>,
-        end_time: Option<NaiveDate>,
-    ) -> Result<Vec<GraphqlCalendarEvent>> {
-        if let (Some(start), Some(end)) = (start_time, end_time) {
+        input: UserCalendarEventInput,
+    ) -> Result<UserCalendarEventsResponse> {
+        if let (Some(start), Some(end)) = (input.start_time, input.end_time) {
             if start <= end {
                 return Err(Error::new("Start time must be greater than end time"));
             }
@@ -1723,17 +1732,14 @@ impl MiscellaneousService {
             metadata_title: String,
             metadata_lot: MetadataLot,
         }
-        let selected_events = CalendarEvent::find()
+        let main_select = CalendarEvent::find()
             .select_only()
             .filter(
                 Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
                     .eq(user_id),
             )
-            .apply_if(start_time, |query, v| {
-                query.filter(calendar_event::Column::Date.lte(v))
-            })
-            .apply_if(end_time, |query, v| {
-                query.filter(calendar_event::Column::Date.gte(v))
+            .apply_if(input.metadata_lot, |query, v| {
+                query.filter(Expr::col((TempMetadata::Table, metadata::Column::Lot)).eq(v))
             })
             .column_as(
                 Expr::col((TempCalendarEvent::Table, calendar_event::Column::Id)),
@@ -1772,12 +1778,20 @@ impl MiscellaneousService {
                     .from(metadata::Column::Id)
                     .to(calendar_event::Column::MetadataId)
                     .into(),
-            )
+            );
+        let total = main_select.clone().count(&self.db).await?;
+        let all_events = main_select
+            .apply_if(input.start_time, |query, v| {
+                query.filter(calendar_event::Column::Date.lte(v))
+            })
+            .apply_if(input.end_time, |query, v| {
+                query.filter(calendar_event::Column::Date.gte(v))
+            })
             .into_model::<CalEvent>()
             .all(&self.db)
             .await?;
         let mut events = vec![];
-        for evt in selected_events {
+        for evt in all_events {
             let mut calc = GraphqlCalendarEvent {
                 calendar_event_id: evt.calendar_event_id,
                 date: evt.date,
@@ -1802,7 +1816,7 @@ impl MiscellaneousService {
             }
             events.push(calc);
         }
-        Ok(events)
+        Ok(UserCalendarEventsResponse { events, total })
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {

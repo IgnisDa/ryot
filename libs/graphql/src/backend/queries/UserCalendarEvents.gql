@@ -1,11 +1,14 @@
-query UserCalendarEvents($startTime: NaiveDate, $endTime: NaiveDate) {
-  userCalendarEvents(startTime: $startTime, endTime: $endTime) {
-    calendarEventId
-    metadataId
-    metadataTitle
-    metadataLot
-    showSeasonNumber
-    showEpisodeNumber
-    podcastEpisodeNumber
+query UserCalendarEvents($input: UserCalendarEventInput!) {
+  userCalendarEvents(input: $input) {
+    total
+    events {
+      calendarEventId
+      metadataId
+      metadataTitle
+      metadataLot
+      showSeasonNumber
+      showEpisodeNumber
+      podcastEpisodeNumber
+    }
   }
 }
