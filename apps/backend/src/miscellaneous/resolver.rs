@@ -5473,8 +5473,10 @@ impl MiscellaneousService {
 
     #[instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        // First delete invalid events
-        let mut calendar_stream = CalendarEvent::find().stream(&self.db).await?;
+        let mut calendar_stream = CalendarEvent::find()
+            .order_by_asc(calendar_event::Column::Id)
+            .stream(&self.db)
+            .await?;
         while let Some(cal_event) = calendar_stream.try_next().await? {
             let meta = cal_event
                 .find_related(Metadata)
@@ -5543,8 +5545,8 @@ impl MiscellaneousService {
                     .await?;
             }
         }
+        tracing::debug!("Finished deleting invalid calendar events");
 
-        // Create new ones
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
             .filter(metadata::Column::PublishDate.is_not_null())
@@ -5637,6 +5639,7 @@ impl MiscellaneousService {
                     .ok();
             }
         }
+        tracing::debug!("Finished updating calendar events");
         Ok(())
     }
 }
