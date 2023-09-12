@@ -62,9 +62,9 @@ use crate::{
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     migrator::{
-        Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
-        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        CalendarEvent as TempCalendarEvent, Metadata as TempMetadata, MetadataLot, MetadataSource,
+        MetadataToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
+        UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -586,12 +586,13 @@ struct CreateReviewCommentInput {
     should_delete: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 struct GraphqlCalendarEvent {
     calendar_event_id: i32,
     date: NaiveDate,
     metadata_id: i32,
     metadata_title: String,
+    metadata_lot: MetadataLot,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
     podcast_episode_number: Option<i32>,
@@ -824,13 +825,13 @@ impl MiscellaneousQuery {
         service.user_creator_details(user_id, creator_id).await
     }
 
-    /// Get calendar events for a user b/w a given date range.
+    /// Get calendar events for a user between a given date range.
     async fn user_calendar_events(
         &self,
         gql_ctx: &Context<'_>,
         start_time: Option<NaiveDate>,
         end_time: Option<NaiveDate>,
-    ) -> Result<GraphqlCalendarEvent> {
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
@@ -1707,22 +1708,101 @@ impl MiscellaneousService {
         user_id: i32,
         start_time: Option<NaiveDate>,
         end_time: Option<NaiveDate>,
-    ) -> Result<GraphqlCalendarEvent> {
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
         if let (Some(start), Some(end)) = (start_time, end_time) {
             if start <= end {
                 return Err(Error::new("Start time must be greater than end time"));
             }
         }
         #[derive(Debug, FromQueryResult, Clone)]
-        struct GraphqlCalendarEvent {
+        struct CalEvent {
             calendar_event_id: i32,
             date: NaiveDate,
+            metadata_extra_information: Option<String>,
             metadata_id: i32,
             metadata_title: String,
-            metadata_extra_information: Option<String>,
+            metadata_lot: MetadataLot,
         }
-        dbg!(&start_time, &end_time);
-        todo!()
+        let selected_events = CalendarEvent::find()
+            .select_only()
+            .filter(
+                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
+                    .eq(user_id),
+            )
+            .apply_if(start_time, |query, v| {
+                query.filter(calendar_event::Column::Date.lte(v))
+            })
+            .apply_if(end_time, |query, v| {
+                query.filter(calendar_event::Column::Date.gte(v))
+            })
+            .column_as(
+                Expr::col((TempCalendarEvent::Table, calendar_event::Column::Id)),
+                "calendar_event_id",
+            )
+            .expr(Expr::col((
+                TempCalendarEvent::Table,
+                calendar_event::Column::Date,
+            )))
+            .expr(Expr::col((
+                TempCalendarEvent::Table,
+                calendar_event::Column::MetadataExtraInformation,
+            )))
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Id)),
+                "metadata_id",
+            )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Lot)),
+                "metadata_lot",
+            )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Title)),
+                "metadata_title",
+            )
+            .join_rev(
+                JoinType::Join,
+                UserToMetadata::belongs_to(CalendarEvent)
+                    .from(user_to_metadata::Column::MetadataId)
+                    .to(calendar_event::Column::MetadataId)
+                    .into(),
+            )
+            .join_rev(
+                JoinType::Join,
+                Metadata::belongs_to(CalendarEvent)
+                    .from(metadata::Column::Id)
+                    .to(calendar_event::Column::MetadataId)
+                    .into(),
+            )
+            .into_model::<CalEvent>()
+            .all(&self.db)
+            .await?;
+        let mut events = vec![];
+        for evt in selected_events {
+            let mut calc = GraphqlCalendarEvent {
+                calendar_event_id: evt.calendar_event_id,
+                date: evt.date,
+                metadata_id: evt.metadata_id,
+                metadata_title: evt.metadata_title,
+                metadata_lot: evt.metadata_lot,
+                ..Default::default()
+            };
+            if let Some(ex) = &evt.metadata_extra_information {
+                let specifics =
+                    serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ex)
+                        .unwrap();
+                match specifics {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                        calc.show_season_number = Some(s.season);
+                        calc.show_episode_number = Some(s.episode);
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
+                        calc.podcast_episode_number = Some(p.episode);
+                    }
+                }
+            }
+            events.push(calc);
+        }
+        Ok(events)
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {

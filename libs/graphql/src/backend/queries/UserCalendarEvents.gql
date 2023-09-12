@@ -3,6 +3,7 @@ query UserCalendarEvents($startTime: NaiveDate, $endTime: NaiveDate) {
     calendarEventId
     metadataId
     metadataTitle
+    metadataLot
     showSeasonNumber
     showEpisodeNumber
     podcastEpisodeNumber
