@@ -30,7 +30,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
-                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).json())
+                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).json_binary())
                     .col(ColumnDef::new(CalendarEvent::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
@@ -40,6 +40,18 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("calendar_event-date-metadataid-info__uq-idx")
+                    .table(CalendarEvent::Table)
+                    .col(CalendarEvent::Date)
+                    .col(CalendarEvent::MetadataId)
+                    .col(CalendarEvent::MetadataExtraInformation)
                     .to_owned(),
             )
             .await?;
