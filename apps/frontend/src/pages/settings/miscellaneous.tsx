@@ -13,6 +13,8 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
+	DeployRecalculateCalendarEventsJobDocument,
+	type DeployRecalculateCalendarEventsJobMutationVariables,
 	RegenerateUserSummaryDocument,
 	type RegenerateUserSummaryMutationVariables,
 	UpdateAllMetadataDocument,
@@ -56,6 +58,25 @@ const Page: NextPageWithLayout = () => {
 			notifications.show({
 				title: "Success",
 				message: "All metadata will be updated in the background",
+				color: "green",
+			});
+		},
+	});
+
+	const deployRecalculateCalendarEventsJob = useMutation({
+		mutationFn: async (
+			variables: DeployRecalculateCalendarEventsJobMutationVariables,
+		) => {
+			const { deployRecalculateCalendarEventsJob } = await gqlClient.request(
+				DeployRecalculateCalendarEventsJobDocument,
+				variables,
+			);
+			return deployRecalculateCalendarEventsJob;
+		},
+		onSuccess: () => {
+			notifications.show({
+				title: "Success",
+				message: "Calender events will be updated in the background",
 				color: "green",
 			});
 		},
@@ -107,8 +128,39 @@ const Page: NextPageWithLayout = () => {
 								Deploy job
 							</Button>
 							<Divider />
+							<Box>
+								<Title order={4}>Update Calendar Events</Title>
+								<Text>
+									Create any pending calendar events, or delete ones that have
+									changed. Useful if you have added new media items or dates
+									have changed.
+								</Text>
+							</Box>
+							<Button
+								onClick={() => deployRecalculateCalendarEventsJob.mutate({})}
+								loading={deployRecalculateCalendarEventsJob.isLoading}
+							>
+								Deploy job
+							</Button>
+							<Divider />
 						</>
 					) : undefined}
+					<>
+						<Box>
+							<Title order={4}>Regenerate Summaries</Title>
+							<Text>
+								Regenerate all pre-computed summaries from the beginning. This
+								may be useful if, for some reason, summaries are faulty or
+								preconditions have changed. This may take some time.
+							</Text>
+						</Box>
+						<Button
+							onClick={() => regenerateUserSummary.mutate({})}
+							loading={regenerateUserSummary.isLoading}
+						>
+							Clean and regenerate
+						</Button>
+					</>
 					<>
 						<Box>
 							<Title order={4}>Synchronize integrations progress</Title>
@@ -126,22 +178,6 @@ const Page: NextPageWithLayout = () => {
 						</Button>
 					</>
 					<Divider />
-					<>
-						<Box>
-							<Title order={4}>Regenerate Summaries</Title>
-							<Text>
-								Regenerate all pre-computed summaries from the beginning. This
-								may be useful if, for some reason, summaries are faulty or
-								preconditions have changed. This may take some time.
-							</Text>
-						</Box>
-						<Button
-							onClick={() => regenerateUserSummary.mutate({})}
-							loading={regenerateUserSummary.isLoading}
-						>
-							Clean and regenerate
-						</Button>
-					</>
 				</Stack>
 			</Container>
 		</>
