@@ -1,5 +1,6 @@
 export const APP_ROUTES = {
 	dashboard: "/",
+	calendar: "/calendar",
 	auth: {
 		login: "/auth/login",
 		register: "/auth/register",
