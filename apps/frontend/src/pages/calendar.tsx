@@ -29,12 +29,14 @@ const Page: NextPageWithLayout = () => {
 		const { userCalendarEvents } = await gqlClient.request(
 			UserCalendarEventsDocument,
 			{
-				endTime: dateRange[0]
-					? DateTime.fromJSDate(dateRange[0]).toISODate()
-					: undefined,
-				startTime: dateRange[1]
-					? DateTime.fromJSDate(dateRange[1]).toISODate()
-					: undefined,
+				input: {
+					endTime: dateRange[0]
+						? DateTime.fromJSDate(dateRange[0]).toISODate()
+						: undefined,
+					startTime: dateRange[1]
+						? DateTime.fromJSDate(dateRange[1]).toISODate()
+						: undefined,
+				},
 			},
 		);
 		return userCalendarEvents;
