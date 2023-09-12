@@ -1,0 +1,10 @@
+query UserCalendarEvents($startTime: NaiveDate, $endTime: NaiveDate) {
+  userCalendarEvents(startTime: $startTime, endTime: $endTime) {
+    calendarEventId
+    metadataId
+    metadataTitle
+    showSeasonNumber
+    showEpisodeNumber
+    podcastEpisodeNumber
+  }
+}

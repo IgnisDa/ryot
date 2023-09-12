@@ -586,6 +586,17 @@ struct CreateReviewCommentInput {
     should_delete: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GraphqlCalendarEvent {
+    calendar_event_id: i32,
+    date: NaiveDate,
+    metadata_id: i32,
+    metadata_title: String,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -811,6 +822,20 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_creator_details(user_id, creator_id).await
+    }
+
+    /// Get calendar events for a user b/w a given date range.
+    async fn user_calendar_events(
+        &self,
+        gql_ctx: &Context<'_>,
+        start_time: Option<NaiveDate>,
+        end_time: Option<NaiveDate>,
+    ) -> Result<GraphqlCalendarEvent> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .user_calendar_events(user_id, start_time, end_time)
+            .await
     }
 
     /// Get paginated list of creators.
@@ -1675,6 +1700,29 @@ impl MiscellaneousService {
     ) -> Result<UserCreatorDetails> {
         let reviews = self.item_reviews(user_id, None, Some(creator_id)).await?;
         Ok(UserCreatorDetails { reviews })
+    }
+
+    async fn user_calendar_events(
+        &self,
+        user_id: i32,
+        start_time: Option<NaiveDate>,
+        end_time: Option<NaiveDate>,
+    ) -> Result<GraphqlCalendarEvent> {
+        if let (Some(start), Some(end)) = (start_time, end_time) {
+            if start <= end {
+                return Err(Error::new("Start time must be greater than end time"));
+            }
+        }
+        #[derive(Debug, FromQueryResult, Clone)]
+        struct GraphqlCalendarEvent {
+            calendar_event_id: i32,
+            date: NaiveDate,
+            metadata_id: i32,
+            metadata_title: String,
+            metadata_extra_information: Option<String>,
+        }
+        dbg!(&start_time, &end_time);
+        todo!()
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
