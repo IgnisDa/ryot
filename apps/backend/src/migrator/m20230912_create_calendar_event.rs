@@ -30,7 +30,9 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
-                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).json_binary())
+                    // DEV: We use string to avoid problems since json does not
+                    // allow index. I could have used JSONB but no MySQL support.
+                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).string())
                     .col(ColumnDef::new(CalendarEvent::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
