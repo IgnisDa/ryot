@@ -37,7 +37,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres # recommended
       # - DATABASE_URL=sqlite:./ryot-db.sqlite # SQLite database
-      # - DATABASE_URL=mysql://mysql:mysql@mysql:6749/mysql # MySQL database
+      # - DATABASE_URL=mysql://mysql:mysql@mysql:6749/mysql # MySQL database (will be removed in the next major release)
       # - SERVER_INSECURE_COOKIE=true # only needed in localhost or non-https
     ports:
       - "8000:8000"
