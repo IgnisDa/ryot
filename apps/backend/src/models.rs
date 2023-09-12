@@ -243,8 +243,7 @@ pub mod media {
             where
                 E: de::Error,
             {
-                NaiveDate::parse_from_str(v, "%Y-%m-%d")
-                    .or_else(|_| Err(E::custom("Could not convert timestamp")))
+                NaiveDate::parse_from_str(v, "%Y-%m-%d").map_err(|_| E::custom("Could not convert timestamp"))
             }
         }
 
