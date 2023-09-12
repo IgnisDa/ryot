@@ -123,7 +123,9 @@ impl IntegrationService {
                 pub item_type: String,
                 #[serde(rename = "viewOffset")]
                 pub view_offset: Option<Decimal>,
-                pub duration: Decimal,                
+                pub duration: Decimal,
+                #[serde(rename = "grandparentTitle")]
+                pub show_name: Option<String>,
                 #[serde(rename = "parentIndex")]
                 pub season_number: Option<i32>,
                 #[serde(rename = "index")]
@@ -153,7 +155,7 @@ impl IntegrationService {
         let json_payload = payload_regex.find(payload)
             .map(|x| x.as_str())
             .unwrap_or("");
-        
+        std::fs::write("data/output_plex_pauload.json", payload)?;
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
             Result::Ok(val) => val,
             Result::Err(err) => bail!("Error during JSON payload deserialisation {}", err),
