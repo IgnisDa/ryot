@@ -5474,7 +5474,8 @@ impl MiscellaneousService {
             .order_by_desc(metadata::Column::LastUpdatedOn)
             .stream(&self.db)
             .await?;
-        let mut inserts = vec![];
+        let mut calendar_events_inserts = vec![];
+        let mut metadata_updates = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
             match &meta.specifics {
                 MediaSpecifics::Podcast(ps) => {
@@ -5494,7 +5495,7 @@ impl MiscellaneousService {
                             )),
                             ..Default::default()
                         };
-                        inserts.push(event);
+                        calendar_events_inserts.push(event);
                     }
                 }
                 MediaSpecifics::Show(ss) => {
@@ -5517,7 +5518,7 @@ impl MiscellaneousService {
                                     )),
                                     ..Default::default()
                                 };
-                                inserts.push(event);
+                                calendar_events_inserts.push(event);
                             }
                         }
                     }
@@ -5529,16 +5530,25 @@ impl MiscellaneousService {
                         metadata_extra_information: ActiveValue::Set(None),
                         ..Default::default()
                     };
-                    inserts.push(event);
+                    calendar_events_inserts.push(event);
                 }
             };
-            let mut meta: metadata::ActiveModel = meta.into();
-            meta.last_processed_on_for_calendar = ActiveValue::Set(Some(Utc::now()));
-            meta.update(&self.db).await.ok();
+            metadata_updates.push(meta.id);
         }
-        if !inserts.is_empty() {
-            CalendarEvent::insert_many(inserts)
+        if !calendar_events_inserts.is_empty() {
+            CalendarEvent::insert_many(calendar_events_inserts)
                 .exec_without_returning(&self.db)
+                .await
+                .ok();
+        }
+        if !metadata_updates.is_empty() {
+            Metadata::update_many()
+                .set(metadata::ActiveModel {
+                    last_processed_on_for_calendar: ActiveValue::Set(Some(Utc::now())),
+                    ..Default::default()
+                })
+                .filter(metadata::Column::Id.is_in(metadata_updates))
+                .exec(&self.db)
                 .await
                 .ok();
         }
