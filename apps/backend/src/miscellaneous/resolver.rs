@@ -35,7 +35,8 @@ use sea_orm::{
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
-    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
+    OnConflict, PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType,
+    Values,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -50,8 +51,8 @@ use crate::{
         metadata_to_collection, metadata_to_creator, metadata_to_genre,
         metadata_to_partial_metadata, partial_metadata, partial_metadata_to_metadata_group,
         prelude::{
-            Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
-            MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
+            CalendarEvent, Collection, Creator, Genre, Metadata, MetadataGroup,
+            MetadataToCollection, MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Review, Seen,
             User, UserMeasurement, UserToMetadata, Workout,
         },
@@ -5477,6 +5478,26 @@ impl MiscellaneousService {
         while let Some(meta) = metadata_stream.try_next().await? {
             let mut inserts = vec![];
             match meta.specifics {
+                MediaSpecifics::Podcast(ps) => {
+                    for episode in ps.episodes {
+                        let event = calendar_event::ActiveModel {
+                            date: ActiveValue::Set(episode.publish_date),
+                            metadata_id: ActiveValue::Set(Some(meta.id)),
+                            metadata_extra_information: ActiveValue::Set(Some(
+                                serde_json::to_string(
+                                    &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                        SeenPodcastExtraInformation {
+                                            episode: episode.number,
+                                        },
+                                    ),
+                                )
+                                .unwrap(),
+                            )),
+                            ..Default::default()
+                        };
+                        inserts.push(event);
+                    }
+                }
                 MediaSpecifics::Show(ss) => {
                     for season in ss.seasons {
                         for episode in season.episodes {
@@ -5504,7 +5525,12 @@ impl MiscellaneousService {
                 }
                 _ => {}
             };
-            dbg!(&inserts);
+            if !inserts.is_empty() {
+                CalendarEvent::insert_many(inserts)
+                    .exec_without_returning(&self.db)
+                    .await
+                    .ok();
+            }
         }
         Ok(())
     }
