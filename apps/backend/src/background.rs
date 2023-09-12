@@ -88,6 +88,7 @@ pub enum ApplicationJob {
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
     AfterMediaSeen(seen::Model),
+    RecalculateCalendarEvents,
 }
 
 impl Job for ApplicationJob {
@@ -151,6 +152,10 @@ pub async fn perform_application_job(
         ApplicationJob::AfterMediaSeen(seen) => {
             tracing::trace!("Performing jobs after media seen = {:?}", seen.id);
             misc_service.after_media_seen_tasks(seen).await.unwrap();
+        }
+        ApplicationJob::RecalculateCalendarEvents => {
+            tracing::trace!("Recalculating calendar events");
+            misc_service.recalculate_calendar_events().await.unwrap();
         }
     };
     Ok(())

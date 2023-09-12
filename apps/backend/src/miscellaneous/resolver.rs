@@ -1118,6 +1118,7 @@ impl MiscellaneousMutation {
         service.admin_account_guard(user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
+
     /// Toggle the monitor on a media for a user.
     async fn toggle_media_monitor(
         &self,
@@ -1179,6 +1180,14 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_review_comment(user_id, input).await
+    }
+
+    /// Recalculate all calendar events. User must an `Admin`.
+    async fn deploy_recalculate_calendar_events_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.admin_account_guard(user_id).await?;
+        service.deploy_recalculate_calendar_events_job().await
     }
 }
 
@@ -5447,6 +5456,18 @@ impl MiscellaneousService {
         review.comments = ActiveValue::Set(ReviewComments(comments));
         review.update(&self.db).await?;
         Ok(true)
+    }
+
+    pub async fn deploy_recalculate_calendar_events_job(&self) -> Result<bool> {
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::RecalculateCalendarEvents)
+            .await?;
+        Ok(true)
+    }
+
+    pub async fn recalculate_calendar_events(&self) -> Result<()> {
+        Ok(())
     }
 }
 
