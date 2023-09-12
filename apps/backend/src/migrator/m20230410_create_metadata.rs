@@ -129,6 +129,8 @@ pub enum Metadata {
     Specifics,
     // whether it is not safe for work
     IsNsfw,
+    // Time when this item has been processed by the calendar
+    ProcessedOn,
 }
 
 #[async_trait::async_trait]
@@ -164,6 +166,11 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Metadata::ProductionStatus)
                             .string()
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Metadata::ProcessedOn)
+                            .timestamp_with_time_zone()
+                            .null(),
                     )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal().null())
