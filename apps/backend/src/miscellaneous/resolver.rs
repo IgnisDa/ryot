@@ -35,8 +35,7 @@ use sea_orm::{
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
-    OnConflict, PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType,
-    Values,
+    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -5481,8 +5480,8 @@ impl MiscellaneousService {
                 MediaSpecifics::Podcast(ps) => {
                     for episode in ps.episodes {
                         let event = calendar_event::ActiveModel {
-                            date: ActiveValue::Set(episode.publish_date),
                             metadata_id: ActiveValue::Set(Some(meta.id)),
+                            date: ActiveValue::Set(episode.publish_date),
                             metadata_extra_information: ActiveValue::Set(Some(
                                 serde_json::to_string(
                                     &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
@@ -5503,8 +5502,8 @@ impl MiscellaneousService {
                         for episode in season.episodes {
                             if let Some(date) = episode.publish_date {
                                 let event = calendar_event::ActiveModel {
-                                    date: ActiveValue::Set(date),
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
+                                    date: ActiveValue::Set(date),
                                     metadata_extra_information: ActiveValue::Set(Some(
                                         serde_json::to_string(
                                             &SeenOrReviewOrCalendarEventExtraInformation::Show(
@@ -5523,7 +5522,15 @@ impl MiscellaneousService {
                         }
                     }
                 }
-                _ => {}
+                _ => {
+                    let event = calendar_event::ActiveModel {
+                        metadata_id: ActiveValue::Set(Some(meta.id)),
+                        date: ActiveValue::Set(meta.publish_date.unwrap()),
+                        metadata_extra_information: ActiveValue::Set(None),
+                        ..Default::default()
+                    };
+                    inserts.push(event);
+                }
             };
             if !inserts.is_empty() {
                 CalendarEvent::insert_many(inserts)
