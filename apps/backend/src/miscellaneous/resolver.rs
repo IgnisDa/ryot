@@ -2332,6 +2332,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
+        publish_date: Option<NaiveDate>,
         suggestions: Vec<PartialMetadata>,
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
@@ -2477,6 +2478,7 @@ impl MiscellaneousService {
         meta.videos = ActiveValue::Set(Some(MetadataVideos(videos)));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
+        meta.publish_date = ActiveValue::Set(publish_date);
         meta.specifics = ActiveValue::Set(specifics);
         meta.last_processed_on_for_calendar = ActiveValue::Set(None);
         let metadata = meta.update(&self.db).await.unwrap();
@@ -3557,6 +3559,7 @@ impl MiscellaneousService {
                     details.genres,
                     details.production_status,
                     details.publish_year,
+                    details.publish_date,
                     details.suggestions,
                     details.groups,
                 )
