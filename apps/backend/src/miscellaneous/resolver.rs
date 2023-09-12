@@ -5476,9 +5476,9 @@ impl MiscellaneousService {
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
             let mut inserts = vec![];
-            match meta.specifics {
+            match &meta.specifics {
                 MediaSpecifics::Podcast(ps) => {
-                    for episode in ps.episodes {
+                    for episode in ps.episodes.iter() {
                         let event = calendar_event::ActiveModel {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
@@ -5498,8 +5498,8 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::Show(ss) => {
-                    for season in ss.seasons {
-                        for episode in season.episodes {
+                    for season in ss.seasons.iter() {
+                        for episode in season.episodes.iter() {
                             if let Some(date) = episode.publish_date {
                                 let event = calendar_event::ActiveModel {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
@@ -5538,6 +5538,9 @@ impl MiscellaneousService {
                     .await
                     .ok();
             }
+            let mut meta: metadata::ActiveModel = meta.into();
+            meta.last_processed_on_for_calendar = ActiveValue::Set(Some(Utc::now()));
+            meta.update(&self.db).await.ok();
         }
         Ok(())
     }
