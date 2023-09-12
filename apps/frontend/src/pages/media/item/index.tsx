@@ -1484,6 +1484,7 @@ const Page: NextPageWithLayout = () => {
 												name={e.title}
 												posterImages={[e.thumbnail || ""]}
 												key={e.number}
+												publishDate={e.publishDate}
 												displayIndicator={
 													userMediaDetails.data.history.filter(
 														(h) => h.podcastInformation?.episode === e.number,
