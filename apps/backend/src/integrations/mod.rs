@@ -3,6 +3,7 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
+use regex::Regex;
 
 use crate::{
     migrator::{MetadataLot, MetadataSource},
@@ -107,38 +108,63 @@ impl IntegrationService {
         })
     }
 
-    pub async fn plex_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+    pub async fn plex_progress(&self, payload: &str, plex_user: &str) -> Result<IntegrationMedia> {
         mod models {
             use super::*;
 
             #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookMetadataGuid {
+                #[serde(rename = "id")]
                 pub id: String,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
-            pub struct PlexWebhookMetadataPayload {
-                #[serde(rename = "viewOffset")]
-                pub view_offset: Decimal,
-                pub duration: Decimal,
+            pub struct PlexWebhookMetadataPayload {               
                 #[serde(rename = "type")]
                 pub item_type: String,
+                #[serde(rename = "viewOffset")]
+                pub view_offset: Option<Decimal>,
+                pub duration: Decimal,                
+                #[serde(rename = "parentIndex")]
+                pub season_number: Option<i32>,
+                #[serde(rename = "index")]
+                pub episode_number: Option<i32>,
                 #[serde(rename = "Guid")]
                 pub guids: Vec<PlexWebhookMetadataGuid>,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
+            pub struct PlexWebhookAccount {
+                #[serde(rename = "title")]
+                pub plex_user: String,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookPayload {
-                pub event: String,
+                #[serde(rename = "event")]
+                pub event_type: String,
                 pub user: bool,
                 pub owner: bool,
                 #[serde(rename = "Metadata")]
                 pub metadata: PlexWebhookMetadataPayload,
+                #[serde(rename = "Account")]
+                pub account: PlexWebhookAccount,
             }
         }
-
-        let payload = match serde_json::from_str::<models::PlexWebhookPayload>(payload) {
+                
+        let payload_regex = Regex::new(r#"\{.*\}"#).unwrap();
+        let json_payload = payload_regex.find(payload)
+            .map(|x| x.as_str())
+            .unwrap_or("");
+        
+        let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
             Result::Ok(val) => val,
-            Result::Err(err) => bail!(err),
+            Result::Err(err) => bail!("Error during JSON payload deserialisation {}", err),
         };
+        if plex_user != payload.account.plex_user {
+            bail!("Ignoring non matching user {}", payload.account.plex_user);
+        }
+        match payload.event_type.as_str() {
+            "media.play" | "media.scrobble" | "media.resume" => (),
+            _ => bail!("Ignoring event type {}", payload.event_type)
+        }
 
         let tmdb_guid = payload
             .metadata
@@ -153,19 +179,22 @@ impl IntegrationService {
         let identifier = &tmdb_guid.id[7..];
         let lot = match payload.metadata.item_type.as_str() {
             "movie" => MetadataLot::Movie,
-            "Episode" => todo!("Shows are not supported for Plex yet"),
+            "episode" => MetadataLot::Show,
             _ => bail!("Only movies and shows supported"),
         };
+        let progress = match payload.metadata.view_offset {
+            Some(offset) => (offset / payload.metadata.duration * dec!(100)).to_i32().unwrap(),
+            None => 0
+        };
+        
         Ok(IntegrationMedia {
             identifier: identifier.to_owned(),
             lot,
             source: MetadataSource::Tmdb,
-            progress: (payload.metadata.view_offset / payload.metadata.duration * dec!(100))
-                .to_i32()
-                .unwrap(),
+            progress,
             podcast_episode_number: None,
-            show_season_number: None,
-            show_episode_number: None,
+            show_season_number: payload.metadata.season_number,
+            show_episode_number: payload.metadata.episode_number,
         })
     }
 

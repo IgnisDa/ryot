@@ -107,6 +107,7 @@ tracing = { version = "0.1.37", features = ["attributes"] }
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
 uuid = "1.4.1"
+regex = "1"
 
 [dev-dependencies]
 rstest = "0.18.2"

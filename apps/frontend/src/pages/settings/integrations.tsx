@@ -37,6 +37,7 @@ import type { NextPageWithLayout } from "../_app";
 const createUserYankIntegrationSchema = z.object({
 	baseUrl: z.string().url().optional(),
 	token: z.string().optional(),
+	username: z.string().optional(),
 });
 type CreateUserYankIntegationSchema = z.infer<
 	typeof createUserYankIntegrationSchema
@@ -177,7 +178,10 @@ const Page: NextPageWithLayout = () => {
 										});
 									} else if (createUserSinkIntegrationLot) {
 										createUserSinkIntegration.mutate({
-											input: { lot: createUserSinkIntegrationLot },
+											input: { 
+												lot: createUserSinkIntegrationLot, 
+												username: values.username
+											},
 										});
 									}
 									closeCreateUserYankIntegrationModal();
@@ -237,6 +241,17 @@ const Page: NextPageWithLayout = () => {
 													"token",
 												)}
 											/>
+										</>
+									) : undefined}
+									{createUserSinkIntegrationLot == UserSinkIntegrationSettingKind.Plex ? (
+										<>
+											<TextInput
+												label="Username"
+												required
+												{...createUserYankIntegrationForm.getInputProps(
+													"username",
+												)}
+											/>											
 										</>
 									) : undefined}
 									<Button
