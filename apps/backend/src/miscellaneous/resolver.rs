@@ -46,9 +46,9 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        collection, creator, genre, metadata, metadata_group, metadata_to_collection,
-        metadata_to_creator, metadata_to_genre, metadata_to_partial_metadata, partial_metadata,
-        partial_metadata_to_metadata_group,
+        calendar_event, collection, creator, genre, metadata, metadata_group,
+        metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_to_partial_metadata, partial_metadata, partial_metadata_to_metadata_group,
         prelude::{
             Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
             MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
@@ -2478,6 +2478,7 @@ impl MiscellaneousService {
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.specifics = ActiveValue::Set(specifics);
+        meta.last_processed_on_for_calendar = ActiveValue::Set(None);
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
@@ -5467,6 +5468,44 @@ impl MiscellaneousService {
     }
 
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
+        let mut metadata_stream = Metadata::find()
+            .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
+            .filter(metadata::Column::PublishDate.is_not_null())
+            .order_by_desc(metadata::Column::LastUpdatedOn)
+            .stream(&self.db)
+            .await?;
+        while let Some(meta) = metadata_stream.try_next().await? {
+            let mut inserts = vec![];
+            match meta.specifics {
+                MediaSpecifics::Show(ss) => {
+                    for season in ss.seasons {
+                        for episode in season.episodes {
+                            if let Some(date) = episode.publish_date {
+                                let event = calendar_event::ActiveModel {
+                                    date: ActiveValue::Set(date),
+                                    metadata_id: ActiveValue::Set(Some(meta.id)),
+                                    metadata_extra_information: ActiveValue::Set(Some(
+                                        serde_json::to_string(
+                                            &SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                                SeenShowExtraInformation {
+                                                    season: season.season_number,
+                                                    episode: episode.episode_number,
+                                                },
+                                            ),
+                                        )
+                                        .unwrap(),
+                                    )),
+                                    ..Default::default()
+                                };
+                                inserts.push(event);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            };
+            dbg!(&inserts);
+        }
         Ok(())
     }
 }
