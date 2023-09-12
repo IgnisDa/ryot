@@ -46,6 +46,8 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
         .unwrap();
     tracing::trace!("Checking and sending any pending reminders");
     service.send_pending_media_reminders().await.unwrap();
+    tracing::trace!("Updating calendar events");
+    service.recalculate_calendar_events().await.unwrap();
     Ok(())
 }
 
