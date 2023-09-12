@@ -5474,8 +5474,8 @@ impl MiscellaneousService {
             .order_by_desc(metadata::Column::LastUpdatedOn)
             .stream(&self.db)
             .await?;
+        let mut inserts = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
-            let mut inserts = vec![];
             match &meta.specifics {
                 MediaSpecifics::Podcast(ps) => {
                     for episode in ps.episodes.iter() {
@@ -5532,15 +5532,15 @@ impl MiscellaneousService {
                     inserts.push(event);
                 }
             };
-            if !inserts.is_empty() {
-                CalendarEvent::insert_many(inserts)
-                    .exec_without_returning(&self.db)
-                    .await
-                    .ok();
-            }
             let mut meta: metadata::ActiveModel = meta.into();
             meta.last_processed_on_for_calendar = ActiveValue::Set(Some(Utc::now()));
             meta.update(&self.db).await.ok();
+        }
+        if !inserts.is_empty() {
+            CalendarEvent::insert_many(inserts)
+                .exec_without_returning(&self.db)
+                .await
+                .ok();
         }
         Ok(())
     }
