@@ -36,6 +36,7 @@ pub struct Model {
     pub specifics: MediaSpecifics,
     pub production_status: String,
     pub provider_rating: Option<Decimal>,
+    pub last_processed_on_for_calendar: Option<DateTimeUtc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

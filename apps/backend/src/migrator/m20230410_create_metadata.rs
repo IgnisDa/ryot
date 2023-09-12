@@ -133,6 +133,8 @@ pub enum Metadata {
     LastProcessedOnForCalendar,
 }
 
+// TODO: Check schema difference using https://michaelsogos.github.io/pg-diff/
+
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
