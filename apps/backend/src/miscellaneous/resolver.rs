@@ -78,9 +78,9 @@ use crate::{
             MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
-            VisualNovelSpecifics,
+            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, Visibility, VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2147,7 +2147,7 @@ impl MiscellaneousService {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
                                 }));
                             }
-                            Some(SeenOrReviewExtraInformation::Show(
+                            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
                                 SeenShowExtraInformation { season, episode },
                             ))
                         } else {
@@ -2172,7 +2172,7 @@ impl MiscellaneousService {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
                                 }));
                             }
-                            Some(SeenOrReviewExtraInformation::Podcast(
+                            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
                                 SeenPodcastExtraInformation { episode },
                             ))
                         } else {
@@ -3107,10 +3107,12 @@ impl MiscellaneousService {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
-                        SeenOrReviewExtraInformation::Show(d) => {
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(d) => {
                             (Some(d.season), Some(d.episode), None)
                         }
-                        SeenOrReviewExtraInformation::Podcast(d) => (None, None, Some(d.episode)),
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
+                            (None, None, Some(d.episode))
+                        }
                     },
                     None => (None, None, None),
                 };
@@ -3333,12 +3335,14 @@ impl MiscellaneousService {
         let extra_information = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
-            Some(SeenOrReviewExtraInformation::Show(
+            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
                 SeenShowExtraInformation { season, episode },
             ))
         } else {
             input.podcast_episode_number.map(|episode| {
-                SeenOrReviewExtraInformation::Podcast(SeenPodcastExtraInformation { episode })
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(SeenPodcastExtraInformation {
+                    episode,
+                })
             })
         };
         if input.rating.is_none() && input.text.is_none() {
@@ -3672,8 +3676,10 @@ impl MiscellaneousService {
                         match seen.extra_information.to_owned() {
                             None => continue,
                             Some(sei) => match sei {
-                                SeenOrReviewExtraInformation::Show(_) => unreachable!(),
-                                SeenOrReviewExtraInformation::Podcast(s) => {
+                                SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
+                                    unreachable!()
+                                }
+                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
                                             ls.media.podcasts.runtime += r;
@@ -3696,8 +3702,10 @@ impl MiscellaneousService {
                     for season in item.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
-                                SeenOrReviewExtraInformation::Podcast(_) => unreachable!(),
-                                SeenOrReviewExtraInformation::Show(s) => {
+                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
+                                    unreachable!()
+                                }
+                                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
                                     if s.season == season.season_number
                                         && s.episode == episode.episode_number
                                     {
@@ -5446,10 +5454,10 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
-                SeenOrReviewExtraInformation::Show(sea) => {
+                SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }
-                SeenOrReviewExtraInformation::Podcast(sea) => {
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(sea) => {
                     s.podcast_information = Some(sea.clone());
                 }
             };

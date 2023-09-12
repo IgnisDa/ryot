@@ -908,7 +908,7 @@ pub mod media {
     }
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
-    pub enum SeenOrReviewExtraInformation {
+    pub enum SeenOrReviewOrCalendarEventExtraInformation {
         Show(SeenShowExtraInformation),
         Podcast(SeenPodcastExtraInformation),
     }
