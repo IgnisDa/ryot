@@ -40,6 +40,7 @@ use sea_query::{
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use surf::http::headers::USER_AGENT;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -5470,7 +5471,80 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    #[instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
+        // First delete invalid events
+        let mut calendar_stream = CalendarEvent::find().stream(&self.db).await?;
+        while let Some(cal_event) = calendar_stream.try_next().await? {
+            let meta = cal_event
+                .find_related(Metadata)
+                .one(&self.db)
+                .await?
+                .unwrap();
+            let mut need_to_delete = false;
+            if let Some(ei) = &cal_event.metadata_extra_information {
+                let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ei)
+                    .unwrap();
+                match info {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
+                        if let MediaSpecifics::Show(show_info) = meta.specifics {
+                            if let Some((se, ep)) = show_info
+                                .seasons
+                                .iter()
+                                .flat_map(|s| {
+                                    s.episodes
+                                        .iter()
+                                        .map(|e| (s.season_number, e.episode_number))
+                                })
+                                .find(|(s, e)| s == &show.season && e == &show.episode)
+                            {
+                                if let Some(season) =
+                                    show_info.seasons.iter().find(|s| s.season_number == se)
+                                {
+                                    if let Some(episode) =
+                                        season.episodes.iter().find(|e| e.episode_number == ep)
+                                    {
+                                        if episode.publish_date.unwrap() != cal_event.date {
+                                            need_to_delete = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
+                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
+                            if let Some(ep) = podcast_info
+                                .episodes
+                                .iter()
+                                .find(|e| e.number == podcast.episode)
+                            {
+                                if let Some(episode) =
+                                    podcast_info.episodes.iter().find(|e| e.number == ep.number)
+                                {
+                                    if episode.publish_date != cal_event.date {
+                                        need_to_delete = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if cal_event.date != meta.publish_date.unwrap() {
+                need_to_delete = true;
+            }
+            if need_to_delete {
+                tracing::trace!(
+                    "Need to delete calendar event id = {:#?} since it is invalid",
+                    cal_event.id
+                );
+                CalendarEvent::delete_by_id(cal_event.id)
+                    .exec(&self.db)
+                    .await?;
+            }
+        }
+
+        // Create new ones
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
             .filter(metadata::Column::PublishDate.is_not_null())
@@ -5539,6 +5613,10 @@ impl MiscellaneousService {
             metadata_updates.push(meta.id);
         }
         if !calendar_events_inserts.is_empty() {
+            tracing::debug!(
+                "Inserting {} calendar events.",
+                calendar_events_inserts.len()
+            );
             for inserts in calendar_events_inserts.chunks(800) {
                 CalendarEvent::insert_many(inserts.to_owned())
                     .exec_without_returning(&self.db)
