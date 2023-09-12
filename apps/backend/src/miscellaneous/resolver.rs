@@ -5536,21 +5536,25 @@ impl MiscellaneousService {
             metadata_updates.push(meta.id);
         }
         if !calendar_events_inserts.is_empty() {
-            CalendarEvent::insert_many(calendar_events_inserts)
-                .exec_without_returning(&self.db)
-                .await
-                .ok();
+            for inserts in calendar_events_inserts.chunks(800) {
+                CalendarEvent::insert_many(inserts.to_owned())
+                    .exec_without_returning(&self.db)
+                    .await
+                    .ok();
+            }
         }
         if !metadata_updates.is_empty() {
-            Metadata::update_many()
-                .set(metadata::ActiveModel {
-                    last_processed_on_for_calendar: ActiveValue::Set(Some(Utc::now())),
-                    ..Default::default()
-                })
-                .filter(metadata::Column::Id.is_in(metadata_updates))
-                .exec(&self.db)
-                .await
-                .ok();
+            for updates in metadata_updates.chunks(800) {
+                Metadata::update_many()
+                    .set(metadata::ActiveModel {
+                        last_processed_on_for_calendar: ActiveValue::Set(Some(Utc::now())),
+                        ..Default::default()
+                    })
+                    .filter(metadata::Column::Id.is_in(updates.to_owned()))
+                    .exec(&self.db)
+                    .await
+                    .ok();
+            }
         }
         Ok(())
     }
