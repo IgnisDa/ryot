@@ -6,6 +6,7 @@ import {
 	ActionIcon,
 	Box,
 	Button,
+	Card,
 	Container,
 	Group,
 	Loader,
@@ -14,13 +15,46 @@ import {
 	Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { UserCalendarEventsDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	UserCalendarEventsDocument,
+	type UserCalendarEventsQuery,
+} from "@ryot/generated/graphql/backend/graphql";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "./_app";
+
+const CalendarEvent = (props: {
+	day: UserCalendarEventsQuery["userCalendarEvents"][number];
+}) => {
+	const date = DateTime.fromISO(props.day.date);
+
+	return (
+		<Card
+			data-calendar-date={props.day.date}
+			withBorder
+			radius={"sm"}
+			padding={"xs"}
+			mt="sm"
+		>
+			<Card.Section withBorder p="sm">
+				<Group position="apart">
+					<Text>{date.toFormat("d LLLL")}</Text>
+					<Text>{date.toFormat("cccc")}</Text>
+				</Group>
+			</Card.Section>
+			<Text mt="sm" color="dimmed" size="sm">
+				<Text component="span" inherit color="blue">
+					200+ images uploaded
+				</Text>{" "}
+				since last visit, review them to select which one should be added to
+				your gallery
+			</Text>
+		</Card>
+	);
+};
 
 const Page: NextPageWithLayout = () => {
 	const coreDetails = useCoreDetails();
@@ -78,24 +112,21 @@ const Page: NextPageWithLayout = () => {
 							</ActionIcon>
 						</Button.Group>
 					</Group>
-					<Group position="center">
-						{calendarEvents.data ? (
-							<Box>
-								{calendarEvents.data.events.map((ce) => (
-									<Box
-										key={ce.calendarEventId}
-										data-calendar-event-id={ce.calendarEventId}
-									>
-										<Text>
-											{ce.metadataTitle}: {ce.date}
-										</Text>
-									</Box>
-								))}
-							</Box>
-						) : (
+					{calendarEvents.data ? (
+						<Box>
+							{calendarEvents.data.length > 0 ? (
+								calendarEvents.data.map((ce) => (
+									<CalendarEvent day={ce} key={ce.date} />
+								))
+							) : (
+								<Text italic>No events in this time period</Text>
+							)}
+						</Box>
+					) : (
+						<Group position="center">
 							<Loader size="lg" />
-						)}
-					</Group>
+						</Group>
+					)}
 				</Stack>
 			</Container>
 		</>
