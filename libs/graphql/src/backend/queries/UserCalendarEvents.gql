@@ -5,7 +5,6 @@ query UserCalendarEvents($input: UserCalendarEventInput!) {
       calendarEventId
       metadataId
       metadataTitle
-      metadataLot
       showSeasonNumber
       showEpisodeNumber
       podcastEpisodeNumber

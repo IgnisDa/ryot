@@ -9,7 +9,6 @@ const config: CodegenConfig = {
 			UUID: "string",
 			DateTime: "Date",
 			NaiveDate: "string",
-			Decimal: "string",
 		},
 	},
 	documents: [
