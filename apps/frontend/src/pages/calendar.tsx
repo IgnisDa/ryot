@@ -2,10 +2,18 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, Stack } from "@mantine/core";
-import { MonthPicker } from "@mantine/dates";
+import {
+	ActionIcon,
+	Box,
+	Button,
+	Container,
+	Group,
+	Stack,
+	Title,
+} from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { UserCalendarEventsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
@@ -14,48 +22,61 @@ import type { NextPageWithLayout } from "./_app";
 
 const Page: NextPageWithLayout = () => {
 	const coreDetails = useCoreDetails();
-	const [dateRange, setDateRange] = useLocalStorage<[Date | null, Date | null]>(
-		{
-			defaultValue: [
-				DateTime.now().minus({ months: 2 }).toJSDate(),
-				new Date(),
-			], // [end, start]
-			key: "savedCalendarDate",
-			getInitialValueInEffect: false,
+	const [selectedMonth, setMonth] = useLocalStorage({
+		defaultValue: DateTime.now(),
+		key: "savedCalendarDay",
+		getInitialValueInEffect: false,
+		serialize: (value) => {
+			return value.toISO() as string;
 		},
-	);
-
-	const calendarEvents = useQuery(["calendarEvents", dateRange], async () => {
-		const { userCalendarEvents } = await gqlClient.request(
-			UserCalendarEventsDocument,
-			{
-				input: {
-					endTime: dateRange[0]
-						? DateTime.fromJSDate(dateRange[0]).toISODate()
-						: undefined,
-					startTime: dateRange[1]
-						? DateTime.fromJSDate(dateRange[1]).toISODate()
-						: undefined,
-				},
-			},
-		);
-		return userCalendarEvents;
+		deserialize: (value) => {
+			return DateTime.fromISO(value);
+		},
 	});
 
-	return coreDetails.data ? (
+	const calendarEvents = useQuery(
+		["calendarEvents", selectedMonth],
+		async () => {
+			const { userCalendarEvents } = await gqlClient.request(
+				UserCalendarEventsDocument,
+				{ input: { month: selectedMonth.month, year: selectedMonth.year } },
+			);
+			return userCalendarEvents;
+		},
+		{ staleTime: Infinity },
+	);
+
+	return coreDetails.data && selectedMonth ? (
 		<>
 			<Head>
 				<title>Calendar</title>
 			</Head>
-			<Container>
+			<Container size="xs">
 				<Stack>
-					<MonthPicker
-						size="xs"
-						type="range"
-						value={dateRange}
-						onChange={setDateRange}
-					/>
-					<Box>{JSON.stringify(calendarEvents.data)}</Box>
+					<Group position="apart">
+						<Title order={4}>{selectedMonth.toFormat("LLLL, yyyy")}</Title>
+						<Button.Group>
+							<ActionIcon
+								variant="default"
+								onClick={() => {
+									const newMonth = selectedMonth.minus({ month: 1 });
+									setMonth(newMonth);
+								}}
+							>
+								<IconChevronLeft />
+							</ActionIcon>
+							<ActionIcon
+								variant="default"
+								onClick={() => {
+									const newMonth = selectedMonth.plus({ month: 1 });
+									setMonth(newMonth);
+								}}
+							>
+								<IconChevronRight />
+							</ActionIcon>
+						</Button.Group>
+					</Group>
+					<Box>{JSON.stringify(calendarEvents.data, null, 4)}</Box>
 				</Stack>
 			</Container>
 		</>
