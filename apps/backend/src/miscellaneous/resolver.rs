@@ -1324,7 +1324,7 @@ impl MiscellaneousService {
     }
 
     fn get_integration_service(&self) -> IntegrationService {
-        IntegrationService::new(&self.db)
+        IntegrationService::new()
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -4881,7 +4881,7 @@ impl MiscellaneousService {
                 }
             })
             .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
-        let data = match integration.settings {
+        let maybe_progress_update = match integration.settings {
             UserSinkIntegrationSetting::Jellyfin { .. } => {
                 self.get_integration_service()
                     .jellyfin_progress(&payload)
@@ -4889,14 +4889,14 @@ impl MiscellaneousService {
             }
             UserSinkIntegrationSetting::Plex { plex_user, .. } => {
                 self.get_integration_service()
-                    .plex_progress(&payload, plex_user)
+                    .plex_progress(&payload, plex_user, &self.db)
                     .await
             }
             UserSinkIntegrationSetting::Kodi { .. } => {
                 self.get_integration_service().kodi_progress(&payload).await
             }
         };
-        match data {
+        match maybe_progress_update {
             Ok(pu) => {
                 self.integration_progress_update(pu, user_id).await?;
                 Ok("Progress updated successfully".to_owned())
