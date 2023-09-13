@@ -178,9 +178,9 @@ const Page: NextPageWithLayout = () => {
 										});
 									} else if (createUserSinkIntegrationLot) {
 										createUserSinkIntegration.mutate({
-											input: { 
-												lot: createUserSinkIntegrationLot, 
-												username: values.username
+											input: {
+												lot: createUserSinkIntegrationLot,
+												username: values.username,
 											},
 										});
 									}
@@ -243,15 +243,15 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									) : undefined}
-									{createUserSinkIntegrationLot == UserSinkIntegrationSettingKind.Plex ? (
+									{createUserSinkIntegrationLot ==
+									UserSinkIntegrationSettingKind.Plex ? (
 										<>
 											<TextInput
 												label="Username"
-												required
 												{...createUserYankIntegrationForm.getInputProps(
 													"username",
 												)}
-											/>											
+											/>
 										</>
 									) : undefined}
 									<Button
