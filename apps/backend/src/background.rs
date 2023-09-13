@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     entities::{metadata, seen},
@@ -97,6 +98,7 @@ impl Job for ApplicationJob {
     const NAME: &'static str = "apalis::ApplicationJob";
 }
 
+#[instrument(skip(ctx))]
 pub async fn perform_application_job(
     information: ApplicationJob,
     ctx: JobContext,
@@ -154,7 +156,6 @@ pub async fn perform_application_job(
         }
     };
     let end = Instant::now();
-    let diff = end - start;
-    tracing::trace!("Job completed, took {}s", diff.as_secs());
+    tracing::trace!("Job completed, took {}s", (end - start).as_secs());
     Ok(())
 }

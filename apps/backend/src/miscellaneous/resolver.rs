@@ -518,7 +518,7 @@ struct CoreDetails {
     videos_disabled: bool,
     upgrade: Option<UpgradeType>,
     page_limit: i32,
-    deploy_update_all_metadata_job_allowed: bool,
+    deploy_admin_jobs_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1303,23 +1303,20 @@ impl MiscellaneousService {
             None
         };
         Ok(CoreDetails {
-            docs_link: "https://ignisda.github.io/ryot".to_owned(),
-            repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            upgrade,
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
+            docs_link: "https://ignisda.github.io/ryot".to_owned(),
+            repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            page_limit: self.config.frontend.page_size,
+            videos_disabled: self.config.server.videos_disabled,
+            reviews_disabled: self.config.users.reviews_disabled,
+            default_credentials: self.config.server.default_credentials,
+            item_details_height: self.config.frontend.item_details_height,
             username_change_allowed: self.config.users.allow_changing_username,
             password_change_allowed: self.config.users.allow_changing_password,
             preferences_change_allowed: self.config.users.allow_changing_preferences,
-            default_credentials: self.config.server.default_credentials,
-            item_details_height: self.config.frontend.item_details_height,
-            reviews_disabled: self.config.users.reviews_disabled,
-            videos_disabled: self.config.server.videos_disabled,
-            upgrade,
-            page_limit: self.config.frontend.page_size,
-            deploy_update_all_metadata_job_allowed: self
-                .config
-                .server
-                .deploy_update_all_metadata_job_allowed,
+            deploy_admin_jobs_allowed: self.config.server.deploy_admin_jobs_allowed,
         })
     }
 
@@ -3716,7 +3713,7 @@ impl MiscellaneousService {
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
-        if !self.config.server.deploy_update_all_metadata_job_allowed {
+        if !self.config.server.deploy_admin_jobs_allowed {
             return Ok(false);
         }
         let metadatas = Metadata::find()
