@@ -2,11 +2,12 @@ use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
-use sea_orm::DatabaseConnection;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
+    entities::{metadata, prelude::Metadata},
     migrator::{MetadataLot, MetadataSource},
     utils::get_base_http_client,
 };
@@ -188,9 +189,24 @@ impl IntegrationService {
         }
         let tmdb_guid = tmdb_guid.unwrap();
         let identifier = &tmdb_guid.id[7..];
-        let lot = match payload.metadata.item_type.as_str() {
-            "movie" => MetadataLot::Movie,
-            "episode" => MetadataLot::Show,
+        let (identifier, lot) = match payload.metadata.item_type.as_str() {
+            "movie" => (identifier.to_owned(), MetadataLot::Movie),
+            "episode" => {
+                // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
+                // title of the show is the same on both platforms and the TMDB ID sent by
+                // Plex (which is actually the episode ID) is also present in the media
+                // specifics we have in DB.
+                let db_show = Metadata::find()
+                    .filter(metadata::Column::Lot.eq(MetadataLot::Show))
+                    .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
+                    .filter(metadata::Column::Specifics.contains(identifier))
+                    .one(&self.db)
+                    .await?;
+                if db_show.is_none() {
+                    bail!("No show found with TMDb ID {}", identifier);
+                }
+                (db_show.unwrap().identifier, MetadataLot::Show)
+            }
             _ => bail!("Only movies and shows supported"),
         };
         let progress = match payload.metadata.view_offset {
@@ -201,7 +217,7 @@ impl IntegrationService {
         };
 
         Ok(IntegrationMedia {
-            identifier: identifier.to_owned(),
+            identifier,
             lot,
             source: MetadataSource::Tmdb,
             progress,
