@@ -3,13 +3,14 @@ use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_query::{Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
     migrator::{MetadataLot, MetadataSource},
-    utils::get_base_http_client,
+    utils::{get_base_http_client, get_case_insensitive_like_query},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,7 +201,11 @@ impl IntegrationService {
                 let db_show = Metadata::find()
                     .filter(metadata::Column::Lot.eq(MetadataLot::Show))
                     .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
-                    .filter(metadata::Column::Specifics.contains(identifier))
+                    .filter(metadata::Column::Title.contains(payload.metadata.show_name.unwrap()))
+                    .filter(get_case_insensitive_like_query(
+                        Func::cast_as(Expr::col(metadata::Column::Specifics), Alias::new("text")),
+                        identifier,
+                    ))
                     .one(db)
                     .await?;
                 if db_show.is_none() {
