@@ -4437,7 +4437,11 @@ impl MiscellaneousService {
                     format!("Jellyfin slug: {}", slug)
                 }
                 UserSinkIntegrationSetting::Plex { slug, plex_user } => {
-                    format!("Plex slug: {},  Plex user: {}", slug, plex_user)
+                    format!(
+                        "Plex slug: {},  Plex user: {}",
+                        slug,
+                        plex_user.unwrap_or_default()
+                    )
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
                     format!("Kodi slug: {}", slug)
@@ -4512,12 +4516,10 @@ impl MiscellaneousService {
                     UserSinkIntegrationSettingKind::Jellyfin => {
                         UserSinkIntegrationSetting::Jellyfin { slug }
                     }
-                    UserSinkIntegrationSettingKind::Plex => {
-                        UserSinkIntegrationSetting::Plex {
-                            slug, 
-                            plex_user: input.username.unwrap(),
-                        }
-                    }
+                    UserSinkIntegrationSettingKind::Plex => UserSinkIntegrationSetting::Plex {
+                        slug,
+                        plex_user: input.username,
+                    },
                     UserSinkIntegrationSettingKind::Kodi => {
                         UserSinkIntegrationSetting::Kodi { slug }
                     }
@@ -4871,7 +4873,7 @@ impl MiscellaneousService {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Jellyfin
                 }
-                UserSinkIntegrationSetting::Plex { slug , ..} => {
+                UserSinkIntegrationSetting::Plex { slug, .. } => {
                     slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Plex
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
@@ -4886,7 +4888,9 @@ impl MiscellaneousService {
                     .await
             }
             UserSinkIntegrationSetting::Plex { plex_user, .. } => {
-                self.get_integration_service().plex_progress(&payload, &plex_user).await
+                self.get_integration_service()
+                    .plex_progress(&payload, plex_user)
+                    .await
             }
             UserSinkIntegrationSetting::Kodi { .. } => {
                 self.get_integration_service().kodi_progress(&payload).await

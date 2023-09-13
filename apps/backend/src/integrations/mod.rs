@@ -108,7 +108,11 @@ impl IntegrationService {
         })
     }
 
-    pub async fn plex_progress(&self, payload: &str, plex_user: &str) -> Result<IntegrationMedia> {
+    pub async fn plex_progress(
+        &self,
+        payload: &str,
+        plex_user: Option<String>,
+    ) -> Result<IntegrationMedia> {
         mod models {
             use super::*;
 
@@ -158,10 +162,12 @@ impl IntegrationService {
             .unwrap_or("");
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
             Result::Ok(val) => val,
-            Result::Err(err) => bail!("Error during JSON payload deserialisation {}", err),
+            Result::Err(err) => bail!("Error during JSON payload deserialization {}", err),
         };
-        if plex_user != payload.account.plex_user {
-            bail!("Ignoring non matching user {}", payload.account.plex_user);
+        if let Some(plex_user) = plex_user {
+            if plex_user != payload.account.plex_user {
+                bail!("Ignoring non matching user {}", payload.account.plex_user);
+            }
         }
         match payload.event_type.as_str() {
             "media.play" | "media.scrobble" | "media.resume" => {}
