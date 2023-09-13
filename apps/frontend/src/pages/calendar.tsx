@@ -8,7 +8,9 @@ import {
 	Button,
 	Container,
 	Group,
+	Loader,
 	Stack,
+	Text,
 	Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
@@ -76,7 +78,24 @@ const Page: NextPageWithLayout = () => {
 							</ActionIcon>
 						</Button.Group>
 					</Group>
-					<Box>{JSON.stringify(calendarEvents.data, null, 4)}</Box>
+					<Group position="center">
+						{calendarEvents.data ? (
+							<Box>
+								{calendarEvents.data.events.map((ce) => (
+									<Box
+										key={ce.calendarEventId}
+										data-calendar-event-id={ce.calendarEventId}
+									>
+										<Text>
+											{ce.metadataTitle}: {ce.date}
+										</Text>
+									</Box>
+								))}
+							</Box>
+						) : (
+							<Loader size="lg" />
+						)}
+					</Group>
 				</Stack>
 			</Container>
 		</>
