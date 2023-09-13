@@ -40,18 +40,19 @@ use sea_query::{
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use surf::http::headers::USER_AGENT;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        collection, creator, genre, metadata, metadata_group, metadata_to_collection,
-        metadata_to_creator, metadata_to_genre, metadata_to_partial_metadata, partial_metadata,
-        partial_metadata_to_metadata_group,
+        calendar_event, collection, creator, genre, metadata, metadata_group,
+        metadata_to_collection, metadata_to_creator, metadata_to_genre,
+        metadata_to_partial_metadata, partial_metadata, partial_metadata_to_metadata_group,
         prelude::{
-            Collection, Creator, Genre, Metadata, MetadataGroup, MetadataToCollection,
-            MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
+            CalendarEvent, Collection, Creator, Genre, Metadata, MetadataGroup,
+            MetadataToCollection, MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Review, Seen,
             User, UserMeasurement, UserToMetadata, Workout,
         },
@@ -61,9 +62,9 @@ use crate::{
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     migrator::{
-        Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
-        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        CalendarEvent as TempCalendarEvent, Metadata as TempMetadata, MetadataLot, MetadataSource,
+        MetadataToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
+        UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -78,9 +79,9 @@ use crate::{
             MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
-            SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility,
-            VisualNovelSpecifics,
+            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, Visibility, VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -106,8 +107,8 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_stored_asset, get_user_and_metadata_association, user_by_id, user_id_from_token,
-        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        get_first_and_last_day_of_month, get_stored_asset, get_user_and_metadata_association,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -585,6 +586,30 @@ struct CreateReviewCommentInput {
     should_delete: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+struct GraphqlCalendarEvent {
+    calendar_event_id: i32,
+    date: NaiveDate,
+    metadata_id: i32,
+    metadata_title: String,
+    metadata_lot: MetadataLot,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+struct GroupedCalendarEvent {
+    events: Vec<GraphqlCalendarEvent>,
+    date: NaiveDate,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+struct UserCalendarEventInput {
+    year: i32,
+    month: u32,
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -810,6 +835,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_creator_details(user_id, creator_id).await
+    }
+
+    /// Get calendar events for a user between a given date range.
+    async fn user_calendar_events(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserCalendarEventInput,
+    ) -> Result<Vec<GroupedCalendarEvent>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_calendar_events(user_id, input).await
     }
 
     /// Get paginated list of creators.
@@ -1118,6 +1154,7 @@ impl MiscellaneousMutation {
         service.admin_account_guard(user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
+
     /// Toggle the monitor on a media for a user.
     async fn toggle_media_monitor(
         &self,
@@ -1179,6 +1216,14 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_review_comment(user_id, input).await
+    }
+
+    /// Recalculate all calendar events. User must an `Admin`.
+    async fn deploy_recalculate_calendar_events_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.admin_account_guard(user_id).await?;
+        service.deploy_recalculate_calendar_events_job().await
     }
 }
 
@@ -1667,6 +1712,110 @@ impl MiscellaneousService {
         Ok(UserCreatorDetails { reviews })
     }
 
+    async fn user_calendar_events(
+        &self,
+        user_id: i32,
+        input: UserCalendarEventInput,
+    ) -> Result<Vec<GroupedCalendarEvent>> {
+        #[derive(Debug, FromQueryResult, Clone)]
+        struct CalEvent {
+            calendar_event_id: i32,
+            date: NaiveDate,
+            metadata_extra_information: Option<String>,
+            metadata_id: i32,
+            metadata_title: String,
+            metadata_lot: MetadataLot,
+        }
+        let main_select = CalendarEvent::find()
+            .select_only()
+            .filter(
+                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
+                    .eq(user_id),
+            )
+            .column_as(
+                Expr::col((TempCalendarEvent::Table, calendar_event::Column::Id)),
+                "calendar_event_id",
+            )
+            .expr(Expr::col((
+                TempCalendarEvent::Table,
+                calendar_event::Column::Date,
+            )))
+            .expr(Expr::col((
+                TempCalendarEvent::Table,
+                calendar_event::Column::MetadataExtraInformation,
+            )))
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Id)),
+                "metadata_id",
+            )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Lot)),
+                "metadata_lot",
+            )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Title)),
+                "metadata_title",
+            )
+            .join_rev(
+                JoinType::Join,
+                UserToMetadata::belongs_to(CalendarEvent)
+                    .from(user_to_metadata::Column::MetadataId)
+                    .to(calendar_event::Column::MetadataId)
+                    .into(),
+            )
+            .join_rev(
+                JoinType::Join,
+                Metadata::belongs_to(CalendarEvent)
+                    .from(metadata::Column::Id)
+                    .to(calendar_event::Column::MetadataId)
+                    .into(),
+            )
+            .order_by_asc(calendar_event::Column::Date);
+        let (end_day, start_day) = get_first_and_last_day_of_month(input.year, input.month);
+        let all_events = main_select
+            .filter(calendar_event::Column::Date.lte(start_day))
+            .filter(calendar_event::Column::Date.gte(end_day))
+            .into_model::<CalEvent>()
+            .all(&self.db)
+            .await?;
+        let mut events = vec![];
+        for evt in all_events {
+            let mut calc = GraphqlCalendarEvent {
+                calendar_event_id: evt.calendar_event_id,
+                date: evt.date,
+                metadata_id: evt.metadata_id,
+                metadata_title: evt.metadata_title,
+                metadata_lot: evt.metadata_lot,
+                ..Default::default()
+            };
+            if let Some(ex) = &evt.metadata_extra_information {
+                let specifics =
+                    serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ex)
+                        .unwrap();
+                match specifics {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                        calc.show_season_number = Some(s.season);
+                        calc.show_episode_number = Some(s.episode);
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
+                        calc.podcast_episode_number = Some(p.episode);
+                    }
+                }
+            }
+            events.push(calc);
+        }
+        let grouped_events = events
+            .into_iter()
+            .group_by(|event| event.date)
+            .into_iter()
+            .map(|(date, events)| GroupedCalendarEvent {
+                date,
+                events: events.collect(),
+            })
+            .collect();
+        Ok(grouped_events)
+    }
+
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
         let mut seen = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
@@ -2147,7 +2296,7 @@ impl MiscellaneousService {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
                                 }));
                             }
-                            Some(SeenOrReviewExtraInformation::Show(
+                            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
                                 SeenShowExtraInformation { season, episode },
                             ))
                         } else {
@@ -2172,7 +2321,7 @@ impl MiscellaneousService {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
                                 }));
                             }
-                            Some(SeenOrReviewExtraInformation::Podcast(
+                            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
                                 SeenPodcastExtraInformation { episode },
                             ))
                         } else {
@@ -2323,6 +2472,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
+        publish_date: Option<NaiveDate>,
         suggestions: Vec<PartialMetadata>,
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
@@ -2468,7 +2618,9 @@ impl MiscellaneousService {
         meta.videos = ActiveValue::Set(Some(MetadataVideos(videos)));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
+        meta.publish_date = ActiveValue::Set(publish_date);
         meta.specifics = ActiveValue::Set(specifics);
+        meta.last_processed_on_for_calendar = ActiveValue::Set(None);
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
@@ -3107,10 +3259,12 @@ impl MiscellaneousService {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
                 let (show_se, show_ep, podcast_ep) = match r.extra_information {
                     Some(s) => match s {
-                        SeenOrReviewExtraInformation::Show(d) => {
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(d) => {
                             (Some(d.season), Some(d.episode), None)
                         }
-                        SeenOrReviewExtraInformation::Podcast(d) => (None, None, Some(d.episode)),
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
+                            (None, None, Some(d.episode))
+                        }
                     },
                     None => (None, None, None),
                 };
@@ -3333,12 +3487,14 @@ impl MiscellaneousService {
         let extra_information = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
-            Some(SeenOrReviewExtraInformation::Show(
+            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
                 SeenShowExtraInformation { season, episode },
             ))
         } else {
             input.podcast_episode_number.map(|episode| {
-                SeenOrReviewExtraInformation::Podcast(SeenPodcastExtraInformation { episode })
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(SeenPodcastExtraInformation {
+                    episode,
+                })
             })
         };
         if input.rating.is_none() && input.text.is_none() {
@@ -3543,6 +3699,7 @@ impl MiscellaneousService {
                     details.genres,
                     details.production_status,
                     details.publish_year,
+                    details.publish_date,
                     details.suggestions,
                     details.groups,
                 )
@@ -3672,8 +3829,10 @@ impl MiscellaneousService {
                         match seen.extra_information.to_owned() {
                             None => continue,
                             Some(sei) => match sei {
-                                SeenOrReviewExtraInformation::Show(_) => unreachable!(),
-                                SeenOrReviewExtraInformation::Podcast(s) => {
+                                SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
+                                    unreachable!()
+                                }
+                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
                                     if s.episode == episode.number {
                                         if let Some(r) = episode.runtime {
                                             ls.media.podcasts.runtime += r;
@@ -3696,8 +3855,10 @@ impl MiscellaneousService {
                     for season in item.seasons {
                         for episode in season.episodes {
                             match seen.extra_information.to_owned().unwrap() {
-                                SeenOrReviewExtraInformation::Podcast(_) => unreachable!(),
-                                SeenOrReviewExtraInformation::Show(s) => {
+                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
+                                    unreachable!()
+                                }
+                                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
                                     if s.season == season.season_number
                                         && s.episode == episode.episode_number
                                     {
@@ -5440,16 +5601,196 @@ impl MiscellaneousService {
         review.update(&self.db).await?;
         Ok(true)
     }
+
+    pub async fn deploy_recalculate_calendar_events_job(&self) -> Result<bool> {
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::RecalculateCalendarEvents)
+            .await?;
+        Ok(true)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn recalculate_calendar_events(&self) -> Result<()> {
+        let mut calendar_stream = CalendarEvent::find()
+            .order_by_asc(calendar_event::Column::Id)
+            .stream(&self.db)
+            .await?;
+        while let Some(cal_event) = calendar_stream.try_next().await? {
+            let meta = cal_event
+                .find_related(Metadata)
+                .one(&self.db)
+                .await?
+                .unwrap();
+            let mut need_to_delete = false;
+            if let Some(ei) = &cal_event.metadata_extra_information {
+                let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ei)
+                    .unwrap();
+                match info {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
+                        if let MediaSpecifics::Show(show_info) = meta.specifics {
+                            if let Some((se, ep)) = show_info
+                                .seasons
+                                .iter()
+                                .flat_map(|s| {
+                                    s.episodes
+                                        .iter()
+                                        .map(|e| (s.season_number, e.episode_number))
+                                })
+                                .find(|(s, e)| s == &show.season && e == &show.episode)
+                            {
+                                if let Some(season) =
+                                    show_info.seasons.iter().find(|s| s.season_number == se)
+                                {
+                                    if let Some(episode) =
+                                        season.episodes.iter().find(|e| e.episode_number == ep)
+                                    {
+                                        if episode.publish_date.unwrap() != cal_event.date {
+                                            need_to_delete = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
+                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
+                            if let Some(ep) = podcast_info
+                                .episodes
+                                .iter()
+                                .find(|e| e.number == podcast.episode)
+                            {
+                                if let Some(episode) =
+                                    podcast_info.episodes.iter().find(|e| e.number == ep.number)
+                                {
+                                    if episode.publish_date != cal_event.date {
+                                        need_to_delete = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if cal_event.date != meta.publish_date.unwrap() {
+                need_to_delete = true;
+            }
+            if need_to_delete {
+                tracing::trace!(
+                    "Need to delete calendar event id = {:#?} since it is invalid",
+                    cal_event.id
+                );
+                CalendarEvent::delete_by_id(cal_event.id)
+                    .exec(&self.db)
+                    .await?;
+            }
+        }
+        tracing::debug!("Finished deleting invalid calendar events");
+
+        let mut metadata_stream = Metadata::find()
+            .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
+            .filter(metadata::Column::PublishDate.is_not_null())
+            .order_by_desc(metadata::Column::LastUpdatedOn)
+            .stream(&self.db)
+            .await?;
+        let mut calendar_events_inserts = vec![];
+        let mut metadata_updates = vec![];
+        while let Some(meta) = metadata_stream.try_next().await? {
+            match &meta.specifics {
+                MediaSpecifics::Podcast(ps) => {
+                    for episode in ps.episodes.iter() {
+                        let event = calendar_event::ActiveModel {
+                            metadata_id: ActiveValue::Set(Some(meta.id)),
+                            date: ActiveValue::Set(episode.publish_date),
+                            metadata_extra_information: ActiveValue::Set(Some(
+                                serde_json::to_string(
+                                    &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                        SeenPodcastExtraInformation {
+                                            episode: episode.number,
+                                        },
+                                    ),
+                                )
+                                .unwrap(),
+                            )),
+                            ..Default::default()
+                        };
+                        calendar_events_inserts.push(event);
+                    }
+                }
+                MediaSpecifics::Show(ss) => {
+                    for season in ss.seasons.iter() {
+                        for episode in season.episodes.iter() {
+                            if let Some(date) = episode.publish_date {
+                                let event = calendar_event::ActiveModel {
+                                    metadata_id: ActiveValue::Set(Some(meta.id)),
+                                    date: ActiveValue::Set(date),
+                                    metadata_extra_information: ActiveValue::Set(Some(
+                                        serde_json::to_string(
+                                            &SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                                SeenShowExtraInformation {
+                                                    season: season.season_number,
+                                                    episode: episode.episode_number,
+                                                },
+                                            ),
+                                        )
+                                        .unwrap(),
+                                    )),
+                                    ..Default::default()
+                                };
+                                calendar_events_inserts.push(event);
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    let event = calendar_event::ActiveModel {
+                        metadata_id: ActiveValue::Set(Some(meta.id)),
+                        date: ActiveValue::Set(meta.publish_date.unwrap()),
+                        metadata_extra_information: ActiveValue::Set(None),
+                        ..Default::default()
+                    };
+                    calendar_events_inserts.push(event);
+                }
+            };
+            metadata_updates.push(meta.id);
+        }
+        if !calendar_events_inserts.is_empty() {
+            tracing::debug!(
+                "Inserting {} calendar events",
+                calendar_events_inserts.len()
+            );
+            for inserts in calendar_events_inserts.chunks(800) {
+                CalendarEvent::insert_many(inserts.to_owned())
+                    .exec_without_returning(&self.db)
+                    .await
+                    .ok();
+            }
+        }
+        if !metadata_updates.is_empty() {
+            for updates in metadata_updates.chunks(800) {
+                Metadata::update_many()
+                    .set(metadata::ActiveModel {
+                        last_processed_on_for_calendar: ActiveValue::Set(Some(Utc::now())),
+                        ..Default::default()
+                    })
+                    .filter(metadata::Column::Id.is_in(updates.to_owned()))
+                    .exec(&self.db)
+                    .await
+                    .ok();
+            }
+        }
+        tracing::debug!("Finished updating calendar events");
+        Ok(())
+    }
 }
 
 fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
-                SeenOrReviewExtraInformation::Show(sea) => {
+                SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }
-                SeenOrReviewExtraInformation::Podcast(sea) => {
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(sea) => {
                     s.podcast_information = Some(sea.clone());
                 }
             };

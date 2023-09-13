@@ -46,6 +46,8 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
         .unwrap();
     tracing::trace!("Checking and sending any pending reminders");
     service.send_pending_media_reminders().await.unwrap();
+    tracing::trace!("Recalculating calendar events");
+    service.recalculate_calendar_events().await.unwrap();
     Ok(())
 }
 
@@ -88,6 +90,7 @@ pub enum ApplicationJob {
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
     AfterMediaSeen(seen::Model),
+    RecalculateCalendarEvents,
 }
 
 impl Job for ApplicationJob {
@@ -101,6 +104,7 @@ pub async fn perform_application_job(
     let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
+    let start = Instant::now();
     match information {
         ApplicationJob::ImportMedia(user_id, input) => {
             tracing::trace!("Importing media");
@@ -116,16 +120,8 @@ pub async fn perform_application_job(
             misc_service.calculate_user_summary(user_id).await.unwrap();
         }
         ApplicationJob::RecalculateUserSummary(user_id) => {
-            let start = Instant::now();
             tracing::trace!("Calculating summary for user {:?}", user_id);
             misc_service.calculate_user_summary(user_id).await.unwrap();
-            let end = Instant::now();
-            let diff = end - start;
-            tracing::trace!(
-                "Summary calculation complete for user {:?}, (took {}s)",
-                user_id,
-                diff.as_secs()
-            );
         }
         ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
@@ -152,6 +148,13 @@ pub async fn perform_application_job(
             tracing::trace!("Performing jobs after media seen = {:?}", seen.id);
             misc_service.after_media_seen_tasks(seen).await.unwrap();
         }
+        ApplicationJob::RecalculateCalendarEvents => {
+            tracing::trace!("Recalculating calendar events");
+            misc_service.recalculate_calendar_events().await.unwrap();
+        }
     };
+    let end = Instant::now();
+    let diff = end - start;
+    tracing::trace!("Job completed, took {}s", diff.as_secs());
     Ok(())
 }

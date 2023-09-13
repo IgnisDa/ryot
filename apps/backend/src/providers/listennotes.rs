@@ -22,7 +22,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::{convert_naive_to_utc, get_base_http_client},
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -101,7 +101,7 @@ impl MediaProvider for ListennotesService {
                     let new_details = self
                         .details_with_paginated_episodes(
                             identifier,
-                            Some(next_pub_date),
+                            Some(convert_naive_to_utc(next_pub_date).timestamp()),
                             Some(episode_number),
                         )
                         .await?;

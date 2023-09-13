@@ -158,7 +158,7 @@ impl MediaProvider for ITunesService {
                 runtime: e.track_time_millis.map(|t| t / 1000 / 60),
                 overview: e.description,
                 title: e.track_name.unwrap(),
-                publish_date: e.release_date.map(|d| d.timestamp()).unwrap(),
+                publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
                 thumbnail: e.artwork_url_60,
             })
             .collect_vec();

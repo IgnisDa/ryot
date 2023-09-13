@@ -217,6 +217,16 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
         .ok_or_else(|| Error::new("No user found"))
 }
 
+pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
+    let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
+        .unwrap_or_else(|| NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
+        .pred_opt()
+        .unwrap();
+
+    (first_day, last_day)
+}
+
 #[derive(Debug, Default)]
 pub struct AuthContext {
     pub auth_token: Option<String>,

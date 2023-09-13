@@ -103,7 +103,7 @@ import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const service = new HumanizeDurationLanguage();
-const humaizer = new HumanizeDuration(service);
+const humanizer = new HumanizeDuration(service);
 const formatter = new Intl.ListFormat("en", {
 	style: "long",
 	type: "conjunction",
@@ -379,6 +379,7 @@ const AccordionLabel = ({
 	children,
 	displayIndicator,
 	runtime,
+	publishDate,
 }: {
 	name: string;
 	posterImages: string[];
@@ -386,6 +387,7 @@ const AccordionLabel = ({
 	children: JSX.Element;
 	displayIndicator: number;
 	runtime?: number | null;
+	publishDate?: string | null;
 }) => {
 	return (
 		<Stack>
@@ -411,7 +413,13 @@ const AccordionLabel = ({
 				<Text>{name}</Text>
 				{runtime ? (
 					<Text size={"xs"} color="dimmed">
-						({humaizer.humanize(runtime * 1000 * 60)})
+						({humanizer.humanize(runtime * 1000 * 60)}
+						{publishDate
+							? `, ${DateTime.fromISO(publishDate).toLocaleString(
+									DateTime.DATE_MED,
+							  )}`
+							: undefined}
+						)
 					</Text>
 				) : undefined}
 			</Group>
@@ -740,7 +748,7 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed">
 								{" "}
 								•{" "}
-								{humaizer.humanize(
+								{humanizer.humanize(
 									mediaDetails.data.movieSpecifics.runtime * 1000 * 60,
 								)}
 							</Text>
@@ -755,7 +763,7 @@ const Page: NextPageWithLayout = () => {
 							<Text color="dimmed">
 								{" "}
 								•{" "}
-								{humaizer.humanize(
+								{humanizer.humanize(
 									mediaDetails.data.audioBookSpecifics.runtime * 1000 * 60,
 								)}
 							</Text>
@@ -1420,6 +1428,7 @@ const Page: NextPageWithLayout = () => {
 																	{...e}
 																	key={e.episodeNumber}
 																	name={`${e.episodeNumber}. ${e.name}`}
+																	publishDate={e.publishDate}
 																	displayIndicator={
 																		userMediaDetails.data.history.filter(
 																			(h) =>
@@ -1475,6 +1484,7 @@ const Page: NextPageWithLayout = () => {
 												name={e.title}
 												posterImages={[e.thumbnail || ""]}
 												key={e.number}
+												publishDate={e.publishDate}
 												displayIndicator={
 													userMediaDetails.data.history.filter(
 														(h) => h.podcastInformation?.episode === e.number,

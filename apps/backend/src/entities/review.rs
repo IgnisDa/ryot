@@ -6,7 +6,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::media::{ReviewComments, SeenOrReviewExtraInformation, Visibility},
+    models::media::{ReviewComments, SeenOrReviewOrCalendarEventExtraInformation, Visibility},
     utils::associate_user_with_metadata,
 };
 
@@ -23,7 +23,7 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: Option<i32>,
     pub creator_id: Option<i32>,
-    pub extra_information: Option<SeenOrReviewExtraInformation>,
+    pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
     pub comments: ReviewComments,
 }
 

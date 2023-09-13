@@ -24,6 +24,8 @@ mod m20230902_remove_useless_tables;
 mod m20230909_add_provider_rating_field_to_metadata;
 mod m20230909_add_videos_field_to_metadata;
 mod m20230911_add_is_nsfw_to_metadata;
+mod m20230912_add_last_processed_for_calendar_to_metadata;
+mod m20230912_create_calendar_event;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -34,6 +36,7 @@ pub use m20230622_create_exercise::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
 pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
+pub use m20230912_create_calendar_event::CalendarEvent;
 
 pub struct Migrator;
 
@@ -64,6 +67,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230909_add_provider_rating_field_to_metadata::Migration),
             Box::new(m20230909_add_videos_field_to_metadata::Migration),
             Box::new(m20230911_add_is_nsfw_to_metadata::Migration),
+            Box::new(m20230912_add_last_processed_for_calendar_to_metadata::Migration),
+            Box::new(m20230912_create_calendar_event::Migration),
         ]
     }
 }
