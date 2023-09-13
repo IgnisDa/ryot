@@ -132,8 +132,8 @@ const Page: NextPageWithLayout = () => {
 								<Title order={4}>Update Calendar Events</Title>
 								<Text>
 									Create any pending calendar events, or delete ones that have
-									changed. Useful if you have added new media items or dates
-									have changed.
+									changed. Useful if you have added new media items or publish
+									dates have changed. This is run every 24 hours automatically.
 								</Text>
 							</Box>
 							<Button
