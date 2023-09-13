@@ -107,8 +107,8 @@ use crate::{
     },
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_stored_asset, get_user_and_metadata_association, user_by_id, user_id_from_token,
-        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        get_first_and_last_day_of_month, get_stored_asset, get_user_and_metadata_association,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -607,8 +607,8 @@ struct UserCalendarEventsResponse {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 struct UserCalendarEventInput {
     metadata_lot: Option<MetadataLot>,
-    start_time: Option<NaiveDate>,
-    end_time: Option<NaiveDate>,
+    year: i32,
+    month: u32,
 }
 
 fn create_cookie(
@@ -1718,11 +1718,6 @@ impl MiscellaneousService {
         user_id: i32,
         input: UserCalendarEventInput,
     ) -> Result<UserCalendarEventsResponse> {
-        if let (Some(start), Some(end)) = (input.start_time, input.end_time) {
-            if start <= end {
-                return Err(Error::new("Start time must be greater than end time"));
-            }
-        }
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             calendar_event_id: i32,
@@ -1780,13 +1775,10 @@ impl MiscellaneousService {
                     .into(),
             );
         let total = main_select.clone().count(&self.db).await?;
+        let (end_day, start_day) = get_first_and_last_day_of_month(input.year, input.month);
         let all_events = main_select
-            .apply_if(input.start_time, |query, v| {
-                query.filter(calendar_event::Column::Date.lte(v))
-            })
-            .apply_if(input.end_time, |query, v| {
-                query.filter(calendar_event::Column::Date.gte(v))
-            })
+            .filter(calendar_event::Column::Date.lte(start_day))
+            .filter(calendar_event::Column::Date.gte(end_day))
             .into_model::<CalEvent>()
             .all(&self.db)
             .await?;

@@ -1428,9 +1428,9 @@ export type User = {
 };
 
 export type UserCalendarEventInput = {
-  endTime?: InputMaybe<Scalars['NaiveDate']['input']>;
   metadataLot?: InputMaybe<MetadataLot>;
-  startTime?: InputMaybe<Scalars['NaiveDate']['input']>;
+  month: Scalars['Int']['input'];
+  year: Scalars['Int']['input'];
 };
 
 export type UserCalendarEventsResponse = {
