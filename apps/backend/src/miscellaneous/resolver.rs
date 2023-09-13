@@ -1324,7 +1324,7 @@ impl MiscellaneousService {
     }
 
     fn get_integration_service(&self) -> IntegrationService {
-        IntegrationService::new()
+        IntegrationService::new(&self.db)
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {

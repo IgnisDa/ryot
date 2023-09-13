@@ -2,6 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
@@ -23,11 +24,13 @@ pub struct IntegrationMedia {
 }
 
 #[derive(Debug)]
-pub struct IntegrationService;
+pub struct IntegrationService {
+    db: DatabaseConnection,
+}
 
 impl IntegrationService {
-    pub fn new() -> Self {
-        Self
+    pub fn new(db: &DatabaseConnection) -> Self {
+        Self { db: db.clone() }
     }
 
     pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMedia> {
