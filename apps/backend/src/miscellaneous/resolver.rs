@@ -1773,7 +1773,8 @@ impl MiscellaneousService {
                     .from(metadata::Column::Id)
                     .to(calendar_event::Column::MetadataId)
                     .into(),
-            );
+            )
+            .order_by_asc(calendar_event::Column::Date);
         let total = main_select.clone().count(&self.db).await?;
         let (end_day, start_day) = get_first_and_last_day_of_month(input.year, input.month);
         let all_events = main_select
