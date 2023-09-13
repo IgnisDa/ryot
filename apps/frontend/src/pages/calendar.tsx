@@ -45,13 +45,26 @@ const CalendarEvent = (props: {
 					<Text>{date.toFormat("cccc")}</Text>
 				</Group>
 			</Card.Section>
-			<Text mt="sm" color="dimmed" size="sm">
-				<Text component="span" inherit color="blue">
-					200+ images uploaded
-				</Text>{" "}
-				since last visit, review them to select which one should be added to
-				your gallery
-			</Text>
+			{props.day.events.map((evt) => (
+				<Text
+					key={evt.calendarEventId}
+					data-calendar-event-id={evt.calendarEventId}
+					mt="sm"
+				>
+					{evt.metadataTitle}{" "}
+					{typeof evt.showSeasonNumber === "number" ? (
+						<Text span color="dimmed">
+							(S{evt.showSeasonNumber}-E
+							{evt.showEpisodeNumber})
+						</Text>
+					) : undefined}
+					{typeof evt.podcastEpisodeNumber === "number" ? (
+						<Text span color="dimmed">
+							(EP-{evt.podcastEpisodeNumber})
+						</Text>
+					) : undefined}
+				</Text>
+			))}
 		</Card>
 	);
 };
