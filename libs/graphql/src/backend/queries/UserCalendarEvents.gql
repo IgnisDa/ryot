@@ -1,9 +1,8 @@
 query UserCalendarEvents($input: UserCalendarEventInput!) {
   userCalendarEvents(input: $input) {
-    total
+    date
     events {
       calendarEventId
-      date
       metadataId
       metadataTitle
       metadataLot

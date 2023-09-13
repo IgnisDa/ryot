@@ -599,9 +599,9 @@ struct GraphqlCalendarEvent {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
-struct UserCalendarEventsResponse {
+struct GroupedCalendarEvent {
     events: Vec<GraphqlCalendarEvent>,
-    total: u64,
+    date: NaiveDate,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
@@ -843,7 +843,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: UserCalendarEventInput,
-    ) -> Result<UserCalendarEventsResponse> {
+    ) -> Result<Vec<GroupedCalendarEvent>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_calendar_events(user_id, input).await
@@ -1717,7 +1717,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: UserCalendarEventInput,
-    ) -> Result<UserCalendarEventsResponse> {
+    ) -> Result<Vec<GroupedCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             calendar_event_id: i32,
@@ -1775,7 +1775,6 @@ impl MiscellaneousService {
                     .into(),
             )
             .order_by_asc(calendar_event::Column::Date);
-        let total = main_select.clone().count(&self.db).await?;
         let (end_day, start_day) = get_first_and_last_day_of_month(input.year, input.month);
         let all_events = main_select
             .filter(calendar_event::Column::Date.lte(start_day))
@@ -1809,7 +1808,16 @@ impl MiscellaneousService {
             }
             events.push(calc);
         }
-        Ok(UserCalendarEventsResponse { events, total })
+        let grouped_events = events
+            .into_iter()
+            .group_by(|event| event.date)
+            .into_iter()
+            .map(|(date, events)| GroupedCalendarEvent {
+                date,
+                events: events.collect(),
+            })
+            .collect();
+        Ok(grouped_events)
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
