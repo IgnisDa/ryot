@@ -20,7 +20,7 @@ export type Scalars = {
    * The input/output is a string in RFC3339 format.
    */
   DateTime: { input: Date; output: Date; }
-  Decimal: { input: any; output: any; }
+  Decimal: { input: string; output: string; }
   /** A scalar that can represent any JSON Object value. */
   JSONObject: { input: any; output: any; }
   /**
@@ -32,7 +32,7 @@ export type Scalars = {
    * * `1994-11-13`
    * * `2000-02-24`
    */
-  NaiveDate: { input: any; output: any; }
+  NaiveDate: { input: string; output: string; }
 };
 
 export type AddMediaToCollection = {
@@ -2163,14 +2163,14 @@ export type MediaDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MediaDetailsQuery = { mediaDetails: { title: string, description?: string | null, identifier: string, lot: MetadataLot, source: MetadataSource, isNsfw: boolean, providerRating?: any | null, publishYear?: number | null, publishDate?: any | null, genres: Array<string>, sourceUrl?: string | null, creators: Array<{ name: string, items: Array<{ id: number, name: string, image?: string | null }> }>, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> }, group?: { id: number, name: string, part: number } | null, suggestions: Array<{ lot: MetadataLot, source: MetadataSource, identifier: string, title: string, image?: string | null, metadataId?: number | null }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: any }> } | null, showSpecifics?: { seasons: Array<{ seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: any | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
+export type MediaDetailsQuery = { mediaDetails: { title: string, description?: string | null, identifier: string, lot: MetadataLot, source: MetadataSource, isNsfw: boolean, providerRating?: string | null, publishYear?: number | null, publishDate?: string | null, genres: Array<string>, sourceUrl?: string | null, creators: Array<{ name: string, items: Array<{ id: number, name: string, image?: string | null }> }>, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> }, group?: { id: number, name: string, part: number } | null, suggestions: Array<{ lot: MetadataLot, source: MetadataSource, identifier: string, title: string, image?: string | null, metadataId?: number | null }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { seasons: Array<{ seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
 
 export type MediaListQueryVariables = Exact<{
   input: MediaListInput;
 }>;
 
 
-export type MediaListQuery = { mediaList: { details: { total: number, nextPage?: number | null }, items: Array<{ averageRating?: any | null, data: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } };
+export type MediaListQuery = { mediaList: { details: { total: number, nextPage?: number | null }, items: Array<{ averageRating?: string | null, data: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } };
 
 export type MediaSearchQueryVariables = Exact<{
   lot: MetadataLot;
@@ -2212,21 +2212,21 @@ export type ReviewQueryVariables = Exact<{
 }>;
 
 
-export type ReviewQuery = { review: { rating?: any | null, text?: string | null, visibility: Visibility, spoiler: boolean, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null } };
+export type ReviewQuery = { review: { rating?: string | null, text?: string | null, visibility: Visibility, spoiler: boolean, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null } };
 
 export type UserCalendarEventsQueryVariables = Exact<{
   input: UserCalendarEventInput;
 }>;
 
 
-export type UserCalendarEventsQuery = { userCalendarEvents: Array<{ date: any, events: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MetadataLot, showSeasonNumber?: number | null, showEpisodeNumber?: number | null, podcastEpisodeNumber?: number | null }> }> };
+export type UserCalendarEventsQuery = { userCalendarEvents: Array<{ date: string, events: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MetadataLot, showSeasonNumber?: number | null, showEpisodeNumber?: number | null, podcastEpisodeNumber?: number | null }> }> };
 
 export type UserCreatorDetailsQueryVariables = Exact<{
   creatorId: Scalars['Int']['input'];
 }>;
 
 
-export type UserCreatorDetailsQuery = { userCreatorDetails: { reviews: Array<{ id: number, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, postedOn: Date, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: Date, likedBy: Array<number>, user: { id: number, name: string } }> }> } };
+export type UserCreatorDetailsQuery = { userCreatorDetails: { reviews: Array<{ id: number, rating?: string | null, text?: string | null, spoiler: boolean, visibility: Visibility, postedOn: Date, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: Date, likedBy: Array<number>, user: { id: number, name: string } }> }> } };
 
 export type UserDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2238,7 +2238,7 @@ export type UserExerciseDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserExerciseDetailsQuery = { userExerciseDetails?: { history: Array<{ workoutId: string, workoutName?: string | null, workoutTime: Date, sets: Array<{ lot: SetLot, statistic: { duration?: any | null, distance?: any | null, reps?: number | null, weight?: any | null } }> }>, details: { exerciseId: number, numTimesPerformed: number, lastUpdatedOn: Date, extraInformation: { lifetimeStats: { weight: any, reps: number, distance: any, duration: any }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, setIdx: number, data: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: any | null, distance?: any | null, reps?: number | null, weight?: any | null } } }> }> } } } | null };
+export type UserExerciseDetailsQuery = { userExerciseDetails?: { history: Array<{ workoutId: string, workoutName?: string | null, workoutTime: Date, sets: Array<{ lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null } }> }>, details: { exerciseId: number, numTimesPerformed: number, lastUpdatedOn: Date, extraInformation: { lifetimeStats: { weight: string, reps: number, distance: string, duration: string }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, setIdx: number, data: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null } } }> }> } } } | null };
 
 export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2250,16 +2250,16 @@ export type UserMeasurementsListQueryVariables = Exact<{
 }>;
 
 
-export type UserMeasurementsListQuery = { userMeasurementsList: Array<{ timestamp: Date, name?: string | null, comment?: string | null, stats: { weight?: any | null, bodyMassIndex?: any | null, totalBodyWater?: any | null, muscle?: any | null, leanBodyMass?: any | null, bodyFat?: any | null, boneMass?: any | null, visceralFat?: any | null, waistCircumference?: any | null, waistToHeightRatio?: any | null, hipCircumference?: any | null, waistToHipRatio?: any | null, chestCircumference?: any | null, thighCircumference?: any | null, bicepsCircumference?: any | null, neckCircumference?: any | null, bodyFatCaliper?: any | null, chestSkinfold?: any | null, abdominalSkinfold?: any | null, thighSkinfold?: any | null, basalMetabolicRate?: any | null, totalDailyEnergyExpenditure?: any | null, calories?: any | null, custom?: any | null } }> };
+export type UserMeasurementsListQuery = { userMeasurementsList: Array<{ timestamp: Date, name?: string | null, comment?: string | null, stats: { weight?: string | null, bodyMassIndex?: string | null, totalBodyWater?: string | null, muscle?: string | null, leanBodyMass?: string | null, bodyFat?: string | null, boneMass?: string | null, visceralFat?: string | null, waistCircumference?: string | null, waistToHeightRatio?: string | null, hipCircumference?: string | null, waistToHipRatio?: string | null, chestCircumference?: string | null, thighCircumference?: string | null, bicepsCircumference?: string | null, neckCircumference?: string | null, bodyFatCaliper?: string | null, chestSkinfold?: string | null, abdominalSkinfold?: string | null, thighSkinfold?: string | null, basalMetabolicRate?: string | null, totalDailyEnergyExpenditure?: string | null, calories?: string | null, custom?: any | null } }> };
 
-export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null };
+export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null };
 
 export type UserMediaDetailsQueryVariables = Exact<{
   metadataId: Scalars['Int']['input'];
 }>;
 
 
-export type UserMediaDetailsQuery = { userMediaDetails: { averageRating?: any | null, isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: any | null, finishedOn?: any | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, reviews: Array<{ id: number, rating?: any | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: Date, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: Date, likedBy: Array<number>, user: { id: number, name: string } }> }>, reminder?: { remindOn: any, message: string } | null, nextEpisode?: { seasonNumber?: number | null, episodeNumber?: number | null } | null } };
+export type UserMediaDetailsQuery = { userMediaDetails: { averageRating?: string | null, isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: Date, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, reviews: Array<{ id: number, rating?: string | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: Date, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: Date, likedBy: Array<number>, user: { id: number, name: string } }> }>, reminder?: { remindOn: string, message: string } | null, nextEpisode?: { seasonNumber?: number | null, episodeNumber?: number | null } | null } };
 
 export type UserNotificationPlatformsQueryVariables = Exact<{ [key: string]: never; }>;
 

@@ -8,6 +8,8 @@ const config: CodegenConfig = {
 		scalars: {
 			UUID: "string",
 			DateTime: "Date",
+			NaiveDate: "string",
+			Decimal: "string",
 		},
 	},
 	documents: [
