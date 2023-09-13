@@ -62,6 +62,7 @@ query MediaDetails($metadataId: Int!) {
         thumbnail
         number
         runtime
+        publishDate
       }
       totalEpisodes
     }

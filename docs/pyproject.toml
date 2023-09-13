@@ -8,10 +8,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-mkdocs-macros-plugin = "^1.0.2"
-mkdocs-material = "^9.1.18"
-mkdocs-awesome-pages-plugin = "^2.9.1"
-
+mkdocs-macros-plugin = "1.0.4"
+mkdocs-material = "9.3.1"
+mkdocs-awesome-pages-plugin = "2.9.2"
 
 [build-system]
 requires = ["poetry-core"]

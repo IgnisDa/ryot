@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod calendar_event;
 pub mod collection;
 pub mod creator;
 pub mod exercise;

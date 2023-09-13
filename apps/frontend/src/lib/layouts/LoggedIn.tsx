@@ -35,6 +35,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
+	IconCalendar,
 	IconChevronLeft,
 	IconChevronRight,
 	IconDeviceSpeaker,
@@ -477,6 +478,13 @@ export default function ({ children }: { children: ReactElement }) {
 								links={fitnessLinks}
 							/>
 						) : undefined}
+						<LinksGroup
+							label="Calendar"
+							icon={IconCalendar}
+							href={APP_ROUTES.calendar}
+							opened={false}
+							setOpened={() => {}}
+						/>
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}

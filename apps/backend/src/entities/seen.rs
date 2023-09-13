@@ -11,7 +11,8 @@ use crate::{
     entities::{prelude::UserToMetadata, user_to_metadata},
     migrator::SeenState,
     models::media::{
-        SeenOrReviewExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+        SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+        SeenShowExtraInformation,
     },
     utils::associate_user_with_metadata,
 };
@@ -34,7 +35,7 @@ pub struct Model {
     pub state: SeenState,
     #[graphql(skip)]
     #[serde(skip)]
-    pub extra_information: Option<SeenOrReviewExtraInformation>,
+    pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
     #[sea_orm(ignore)]
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]

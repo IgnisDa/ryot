@@ -40,12 +40,12 @@ const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
 	const [first, second] = match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
 			`${statistic.duration} km x ${statistic.duration} min`,
-			`${statistic.distance / statistic.duration} km/min`,
+			`${(statistic.distance || 1) / (statistic.duration || 1)} km/min`,
 		])
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, ""])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			`${statistic.weight} kg x ${statistic.reps}`,
-			`${statistic.weight * (statistic.reps || 1)} vol`,
+			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
 		])
 		.exhaustive();
 	return (

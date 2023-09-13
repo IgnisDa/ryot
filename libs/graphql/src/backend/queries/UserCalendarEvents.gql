@@ -1,0 +1,14 @@
+query UserCalendarEvents($input: UserCalendarEventInput!) {
+  userCalendarEvents(input: $input) {
+    date
+    events {
+      calendarEventId
+      metadataId
+      metadataTitle
+      metadataLot
+      showSeasonNumber
+      showEpisodeNumber
+      podcastEpisodeNumber
+    }
+  }
+}

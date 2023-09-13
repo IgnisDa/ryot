@@ -1,7 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -9,7 +12,7 @@ use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use specta::Type;
 
@@ -209,9 +212,42 @@ pub mod media {
         #[serde(alias = "description")]
         pub overview: Option<String>,
         pub title: String,
-        #[serde(alias = "pub_date_ms")]
-        pub publish_date: i64,
+        #[serde(alias = "pub_date_ms", deserialize_with = "deserialize_date")]
+        pub publish_date: NaiveDate,
         pub thumbnail: Option<String>,
+    }
+
+    fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        struct JsonStringVisitor;
+
+        impl<'de> de::Visitor<'de> for JsonStringVisitor {
+            type Value = NaiveDate;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a number")
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                NaiveDateTime::from_timestamp_millis(v.try_into().unwrap())
+                    .ok_or_else(|| E::custom("Could not convert timestamp"))
+                    .map(|d| d.date())
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                NaiveDate::parse_from_str(v, "%Y-%m-%d").map_err(|_| E::custom("Could not convert timestamp"))
+            }
+        }
+
+        deserializer.deserialize_any(JsonStringVisitor)
     }
 
     #[derive(
@@ -908,7 +944,7 @@ pub mod media {
     }
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
-    pub enum SeenOrReviewExtraInformation {
+    pub enum SeenOrReviewOrCalendarEventExtraInformation {
         Show(SeenShowExtraInformation),
         Podcast(SeenPodcastExtraInformation),
     }
