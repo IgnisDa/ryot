@@ -65,8 +65,8 @@ const CalendarEvent = (props: {
 								id: evt.metadataId,
 							})}
 						>
-							<Anchor>{evt.metadataTitle} </Anchor>
-						</Link>
+							<Anchor>{evt.metadataTitle}</Anchor>
+						</Link>{' '}
 						{typeof evt.showSeasonNumber === "number" ? (
 							<Text span color="dimmed" size="sm">
 								(S{evt.showSeasonNumber}-E
