@@ -606,7 +606,6 @@ struct GroupedCalendarEvent {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 struct UserCalendarEventInput {
-    metadata_lot: Option<MetadataLot>,
     year: i32,
     month: u32,
 }
@@ -1733,9 +1732,6 @@ impl MiscellaneousService {
                 Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
                     .eq(user_id),
             )
-            .apply_if(input.metadata_lot, |query, v| {
-                query.filter(Expr::col((TempMetadata::Table, metadata::Column::Lot)).eq(v))
-            })
             .column_as(
                 Expr::col((TempCalendarEvent::Table, calendar_event::Column::Id)),
                 "calendar_event_id",

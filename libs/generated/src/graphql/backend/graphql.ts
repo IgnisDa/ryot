@@ -1433,7 +1433,6 @@ export type User = {
 };
 
 export type UserCalendarEventInput = {
-  metadataLot?: InputMaybe<MetadataLot>;
   month: Scalars['Int']['input'];
   year: Scalars['Int']['input'];
 };
