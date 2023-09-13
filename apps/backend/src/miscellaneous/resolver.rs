@@ -4440,7 +4440,7 @@ impl MiscellaneousService {
                     format!(
                         "Plex slug: {},  Plex user: {}",
                         slug,
-                        plex_user.unwrap_or_default()
+                        plex_user.unwrap_or_else(|| "N/A".to_owned())
                     )
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
