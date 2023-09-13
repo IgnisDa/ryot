@@ -1,9 +1,11 @@
+import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
+	Anchor,
 	Box,
 	Button,
 	Card,
@@ -23,7 +25,9 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
+import Link from "next/link";
 import { type ReactElement } from "react";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "./_app";
 
 const CalendarEvent = (props: {
@@ -47,19 +51,28 @@ const CalendarEvent = (props: {
 			</Card.Section>
 			{props.day.events.map((evt) => (
 				<Text
+					mt="sm"
+					size="sm"
 					key={evt.calendarEventId}
 					data-calendar-event-id={evt.calendarEventId}
-					mt="sm"
 				>
-					{evt.metadataTitle}{" "}
+					<Link
+						passHref
+						legacyBehavior
+						href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
+							id: evt.metadataId,
+						})}
+					>
+						<Anchor>{evt.metadataTitle} </Anchor>
+					</Link>
 					{typeof evt.showSeasonNumber === "number" ? (
-						<Text span color="dimmed">
+						<Text span color="dimmed" size="sm">
 							(S{evt.showSeasonNumber}-E
 							{evt.showEpisodeNumber})
 						</Text>
 					) : undefined}
 					{typeof evt.podcastEpisodeNumber === "number" ? (
-						<Text span color="dimmed">
+						<Text span color="dimmed" size="sm">
 							(EP-{evt.podcastEpisodeNumber})
 						</Text>
 					) : undefined}
