@@ -122,7 +122,6 @@ impl IntegrationService {
 
             #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookMetadataGuid {
-                #[serde(rename = "id")]
                 pub id: String,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -166,16 +165,19 @@ impl IntegrationService {
             .unwrap_or("");
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
             Result::Ok(val) => val,
-            Result::Err(err) => bail!("Error during JSON payload deserialization {}", err),
+            Result::Err(err) => bail!("Error during JSON payload deserialization {:#}", err),
         };
         if let Some(plex_user) = plex_user {
             if plex_user != payload.account.plex_user {
-                bail!("Ignoring non matching user {}", payload.account.plex_user);
+                bail!(
+                    "Ignoring non matching user {:#?}",
+                    payload.account.plex_user
+                );
             }
         }
         match payload.event_type.as_str() {
             "media.play" | "media.scrobble" | "media.resume" => {}
-            _ => bail!("Ignoring event type {}", payload.event_type),
+            _ => bail!("Ignoring event type {:#?}", payload.event_type),
         };
 
         let tmdb_guid = payload
@@ -213,7 +215,7 @@ impl IntegrationService {
             Some(offset) => (offset / payload.metadata.duration * dec!(100))
                 .to_i32()
                 .unwrap(),
-            None => 0,
+            None => bail!("No position associated with this media"),
         };
 
         Ok(IntegrationMedia {
