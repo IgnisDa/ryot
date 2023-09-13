@@ -5755,7 +5755,7 @@ impl MiscellaneousService {
         }
         if !calendar_events_inserts.is_empty() {
             tracing::debug!(
-                "Inserting {} calendar events.",
+                "Inserting {} calendar events",
                 calendar_events_inserts.len()
             );
             for inserts in calendar_events_inserts.chunks(800) {
