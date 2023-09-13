@@ -21,6 +21,7 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
+import { snakeCase, startCase } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -50,33 +51,38 @@ const CalendarEvent = (props: {
 				</Group>
 			</Card.Section>
 			{props.day.events.map((evt) => (
-				<Text
-					mt="sm"
-					size="sm"
+				<Group
 					key={evt.calendarEventId}
 					data-calendar-event-id={evt.calendarEventId}
+					position="apart"
+					align="end"
 				>
-					<Link
-						passHref
-						legacyBehavior
-						href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
-							id: evt.metadataId,
-						})}
-					>
-						<Anchor>{evt.metadataTitle} </Anchor>
-					</Link>
-					{typeof evt.showSeasonNumber === "number" ? (
-						<Text span color="dimmed" size="sm">
-							(S{evt.showSeasonNumber}-E
-							{evt.showEpisodeNumber})
-						</Text>
-					) : undefined}
-					{typeof evt.podcastEpisodeNumber === "number" ? (
-						<Text span color="dimmed" size="sm">
-							(EP-{evt.podcastEpisodeNumber})
-						</Text>
-					) : undefined}
-				</Text>
+					<Text mt="sm" size="sm">
+						<Link
+							passHref
+							legacyBehavior
+							href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
+								id: evt.metadataId,
+							})}
+						>
+							<Anchor>{evt.metadataTitle} </Anchor>
+						</Link>
+						{typeof evt.showSeasonNumber === "number" ? (
+							<Text span color="dimmed" size="sm">
+								(S{evt.showSeasonNumber}-E
+								{evt.showEpisodeNumber})
+							</Text>
+						) : undefined}
+						{typeof evt.podcastEpisodeNumber === "number" ? (
+							<Text span color="dimmed" size="sm">
+								(EP-{evt.podcastEpisodeNumber})
+							</Text>
+						) : undefined}
+					</Text>
+					<Text size="sm" color="dimmed">
+						{startCase(snakeCase(evt.metadataLot))}
+					</Text>
+				</Group>
 			))}
 		</Card>
 	);
@@ -116,10 +122,12 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack>
 					<Group position="apart">
-						<Title order={4}>{selectedMonth.toFormat("LLLL, yyyy")}</Title>
+						<Title order={3} underline>
+							{selectedMonth.toFormat("LLLL, yyyy")}
+						</Title>
 						<Button.Group>
 							<ActionIcon
-								variant="default"
+								variant="outline"
 								onClick={() => {
 									const newMonth = selectedMonth.minus({ month: 1 });
 									setMonth(newMonth);
@@ -128,7 +136,8 @@ const Page: NextPageWithLayout = () => {
 								<IconChevronLeft />
 							</ActionIcon>
 							<ActionIcon
-								variant="default"
+								variant="outline"
+								ml="xs"
 								onClick={() => {
 									const newMonth = selectedMonth.plus({ month: 1 });
 									setMonth(newMonth);
