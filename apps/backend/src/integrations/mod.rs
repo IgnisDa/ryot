@@ -1,9 +1,9 @@
 use anyhow::{anyhow, bail, Result};
+use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
-use regex::Regex;
 
 use crate::{
     migrator::{MetadataLot, MetadataSource},
@@ -118,7 +118,7 @@ impl IntegrationService {
                 pub id: String,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
-            pub struct PlexWebhookMetadataPayload {               
+            pub struct PlexWebhookMetadataPayload {
                 #[serde(rename = "type")]
                 pub item_type: String,
                 #[serde(rename = "viewOffset")]
@@ -150,12 +150,12 @@ impl IntegrationService {
                 pub account: PlexWebhookAccount,
             }
         }
-                
+
         let payload_regex = Regex::new(r#"\{.*\}"#).unwrap();
-        let json_payload = payload_regex.find(payload)
+        let json_payload = payload_regex
+            .find(payload)
             .map(|x| x.as_str())
             .unwrap_or("");
-        std::fs::write("data/output_plex_pauload.json", payload)?;
         let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
             Result::Ok(val) => val,
             Result::Err(err) => bail!("Error during JSON payload deserialisation {}", err),
@@ -164,9 +164,9 @@ impl IntegrationService {
             bail!("Ignoring non matching user {}", payload.account.plex_user);
         }
         match payload.event_type.as_str() {
-            "media.play" | "media.scrobble" | "media.resume" => (),
-            _ => bail!("Ignoring event type {}", payload.event_type)
-        }
+            "media.play" | "media.scrobble" | "media.resume" => {}
+            _ => bail!("Ignoring event type {}", payload.event_type),
+        };
 
         let tmdb_guid = payload
             .metadata
@@ -185,10 +185,12 @@ impl IntegrationService {
             _ => bail!("Only movies and shows supported"),
         };
         let progress = match payload.metadata.view_offset {
-            Some(offset) => (offset / payload.metadata.duration * dec!(100)).to_i32().unwrap(),
-            None => 0
+            Some(offset) => (offset / payload.metadata.duration * dec!(100))
+                .to_i32()
+                .unwrap(),
+            None => 0,
         };
-        
+
         Ok(IntegrationMedia {
             identifier: identifier.to_owned(),
             lot,
