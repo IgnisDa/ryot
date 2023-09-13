@@ -134,7 +134,7 @@ export const ReviewItemDisplay = ({
 					{typeof review.podcastEpisode === "number" ? (
 						<Text color="dimmed">EP-{review.podcastEpisode}</Text>
 					) : undefined}
-					{review.rating > 0 ? (
+					{(review.rating || 0) > 0 ? (
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
 							<Text
