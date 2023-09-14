@@ -195,13 +195,11 @@ impl IntegrationService {
             "movie" => (identifier.to_owned(), MetadataLot::Movie),
             "episode" => {
                 // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
-                // title of the show is the same on both platforms and the TMDB ID sent by
-                // Plex (which is actually the episode ID) is also present in the media
-                // specifics we have in DB.
+                // TMDB ID sent by Plex (which is actually the episode ID) is also present
+                // in the media specifics we have in DB.
                 let db_show = Metadata::find()
                     .filter(metadata::Column::Lot.eq(MetadataLot::Show))
                     .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
-                    .filter(metadata::Column::Title.contains(payload.metadata.show_name.unwrap()))
                     .filter(get_case_insensitive_like_query(
                         Func::cast_as(Expr::col(metadata::Column::Specifics), Alias::new("text")),
                         identifier,
