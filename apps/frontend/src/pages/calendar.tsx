@@ -66,7 +66,7 @@ const CalendarEvent = (props: {
 							})}
 						>
 							<Anchor>{evt.metadataTitle}</Anchor>
-						</Link>{' '}
+						</Link>{" "}
 						{typeof evt.showSeasonNumber === "number" ? (
 							<Text span color="dimmed" size="sm">
 								(S{evt.showSeasonNumber}-E
@@ -148,15 +148,21 @@ const Page: NextPageWithLayout = () => {
 						</Button.Group>
 					</Group>
 					{calendarEvents.data ? (
-						<Box>
-							{calendarEvents.data.length > 0 ? (
-								calendarEvents.data.map((ce) => (
+						calendarEvents.data.length > 0 ? (
+							<Box>
+								<Box>
+									<Text display={"inline"} fw="bold">
+										{calendarEvents.data.length}
+									</Text>{" "}
+									items found
+								</Box>
+								{calendarEvents.data.map((ce) => (
 									<CalendarEvent day={ce} key={ce.date} />
-								))
-							) : (
-								<Text italic>No events in this time period</Text>
-							)}
-						</Box>
+								))}
+							</Box>
+						) : (
+							<Text italic>No events in this time period</Text>
+						)
 					) : (
 						<Group position="center">
 							<Loader size="lg" />
