@@ -5066,15 +5066,17 @@ impl MiscellaneousService {
         metadata_id: i32,
     ) -> Result<Vec<i32>> {
         let mut user_ids = vec![];
-        let collections = Collection::find()
-            .filter(collection::Column::Name.eq(DefaultCollection::Watchlist.to_string()))
-            .find_with_related(Metadata)
-            .all(&self.db)
-            .await?;
-        for (col, metadatas) in collections {
-            for metadata in metadatas {
-                if metadata.id == metadata_id {
-                    user_ids.push(col.user_id);
+        for your_col in [DefaultCollection::Watchlist, DefaultCollection::InProgress] {
+            let collections = Collection::find()
+                .filter(collection::Column::Name.eq(your_col.to_string()))
+                .find_with_related(Metadata)
+                .all(&self.db)
+                .await?;
+            for (col, metadatas) in collections {
+                for metadata in metadatas {
+                    if metadata.id == metadata_id {
+                        user_ids.push(col.user_id);
+                    }
                 }
             }
         }
