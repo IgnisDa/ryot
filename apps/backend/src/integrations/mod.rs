@@ -176,7 +176,7 @@ impl IntegrationService {
             }
         }
         match payload.event_type.as_str() {
-            "media.play" | "media.scrobble" | "media.resume" => {}
+            "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}
             _ => bail!("Ignoring event type {:#?}", payload.event_type),
         };
 
@@ -217,7 +217,10 @@ impl IntegrationService {
             Some(offset) => (offset / payload.metadata.duration * dec!(100))
                 .to_i32()
                 .unwrap(),
-            None => bail!("No position associated with this media"),
+            None => match payload.event_type.as_str() {
+                "media.scrobble" => 100,
+                _ => bail!("No position associated with this media"),
+            }
         };
 
         Ok(IntegrationMedia {
