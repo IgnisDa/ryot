@@ -70,9 +70,9 @@ work for all the media that have been a valid TMDb ID attached to their metadata
 
 !!! warning
 
-   Since Plex does not send the expected TMDb ID for shows, show progress will only be
-   synced if you already have the show in the Ryot database. To do this, simply add the
-   show to your Ryot watchlist.
+   Since Plex does not send the expected TMDb ID for shows, progress will only be synced
+   if you already have the show in the Ryot database. To do this, simply add the show to
+   your Ryot watchlist.
 
 ### Kodi
 
