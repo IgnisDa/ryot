@@ -4433,11 +4433,11 @@ impl MiscellaneousService {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     format!("Jellyfin slug: {}", slug)
                 }
-                UserSinkIntegrationSetting::Plex { slug, plex_user } => {
+                UserSinkIntegrationSetting::Plex { slug, user } => {
                     format!(
                         "Plex slug: {},  Plex user: {}",
                         slug,
-                        plex_user.unwrap_or_else(|| "N/A".to_owned())
+                        user.unwrap_or_else(|| "N/A".to_owned())
                     )
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
@@ -4515,7 +4515,7 @@ impl MiscellaneousService {
                     }
                     UserSinkIntegrationSettingKind::Plex => UserSinkIntegrationSetting::Plex {
                         slug,
-                        plex_user: input.username,
+                        user: input.username,
                     },
                     UserSinkIntegrationSettingKind::Kodi => {
                         UserSinkIntegrationSetting::Kodi { slug }
@@ -4884,9 +4884,9 @@ impl MiscellaneousService {
                     .jellyfin_progress(&payload)
                     .await
             }
-            UserSinkIntegrationSetting::Plex { plex_user, .. } => {
+            UserSinkIntegrationSetting::Plex { user, .. } => {
                 self.get_integration_service()
-                    .plex_progress(&payload, plex_user, &self.db)
+                    .plex_progress(&payload, user, &self.db)
                     .await
             }
             UserSinkIntegrationSetting::Kodi { .. } => {
