@@ -3137,10 +3137,6 @@ impl MiscellaneousService {
         .await)
     }
 
-    pub async fn get_tmdb_show_service(&self) -> Result<TmdbShowService> {
-        Ok(TmdbShowService::new(&self.config.shows.tmdb, self.config.frontend.page_size).await)
-    }
-
     async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
@@ -3171,7 +3167,10 @@ impl MiscellaneousService {
                     .await,
             ),
             MetadataSource::Tmdb => match lot {
-                MetadataLot::Show => Box::new(self.get_tmdb_show_service().await?),
+                MetadataLot::Show => Box::new(
+                    TmdbShowService::new(&self.config.shows.tmdb, self.config.frontend.page_size)
+                        .await,
+                ),
                 MetadataLot::Movie => Box::new(
                     TmdbMovieService::new(&self.config.movies.tmdb, self.config.frontend.page_size)
                         .await,
@@ -4887,12 +4886,7 @@ impl MiscellaneousService {
             }
             UserSinkIntegrationSetting::Plex { plex_user, .. } => {
                 self.get_integration_service()
-                    .plex_progress(
-                        &payload,
-                        plex_user,
-                        &self.db,
-                        self.get_tmdb_show_service().await?,
-                    )
+                    .plex_progress(&payload, plex_user, &self.db)
                     .await
             }
             UserSinkIntegrationSetting::Kodi { .. } => {
