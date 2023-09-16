@@ -68,6 +68,12 @@ work for all the media that have been a valid TMDb ID attached to their metadata
    following settings:
    - Webhook Url => `<instance_url>/webhooks/integrations/plex/<slug>`
 
+!!! warning
+
+   Since Plex does not send the expected TMDb ID for shows, show progress will only be
+   synced if you already have the show in the Ryot database. To do this, simply add the
+   show to your Ryot watchlist.
+
 ### Kodi
 
 The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
