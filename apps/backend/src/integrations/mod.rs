@@ -10,6 +10,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     entities::{metadata, prelude::Metadata},
     migrator::{MetadataLot, MetadataSource},
+    providers::tmdb::TmdbShowService,
     utils::{get_base_http_client, get_case_insensitive_like_query},
 };
 
@@ -116,6 +117,7 @@ impl IntegrationService {
         payload: &str,
         plex_user: Option<String>,
         db: &DatabaseConnection,
+        tmdb_show_service: TmdbShowService,
     ) -> Result<IntegrationMedia> {
         mod models {
             use super::*;
