@@ -158,6 +158,7 @@ struct GraphqlUserIntegration {
     description: String,
     timestamp: DateTimeUtc,
     lot: UserIntegrationLot,
+    slug: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -4425,23 +4426,25 @@ impl MiscellaneousService {
                 lot: UserIntegrationLot::Yank,
                 description,
                 timestamp: i.timestamp,
+                slug: None,
             })
         });
         let sink_integrations = user.sink_integrations.0;
         sink_integrations.into_iter().for_each(|i| {
-            let description = match i.settings {
+            let (description, slug) = match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    format!("Jellyfin slug: {}", slug)
+                    (format!("Jellyfin slug: {}", &slug), slug)
                 }
-                UserSinkIntegrationSetting::Plex { slug, user } => {
+                UserSinkIntegrationSetting::Plex { slug, user } => (
                     format!(
                         "Plex slug: {},  Plex user: {}",
-                        slug,
+                        &slug,
                         user.unwrap_or_else(|| "N/A".to_owned())
-                    )
-                }
+                    ),
+                    slug,
+                ),
                 UserSinkIntegrationSetting::Kodi { slug } => {
-                    format!("Kodi slug: {}", slug)
+                    (format!("Kodi slug: {}", &slug), slug)
                 }
             };
             all_integrations.push(GraphqlUserIntegration {
@@ -4449,6 +4452,7 @@ impl MiscellaneousService {
                 lot: UserIntegrationLot::Sink,
                 description,
                 timestamp: i.timestamp,
+                slug: Some(slug),
             })
         });
         Ok(all_integrations)
