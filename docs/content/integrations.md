@@ -47,10 +47,10 @@ to their metadata.
     to be installed and active in Jellyfin.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
-   slug.
+   webhook Url.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
    following settings:
-   - Webhook Url => `<instance_url>/webhooks/integrations/jellyfin/<slug>`
+   - Webhook Url => `<paste_url_copied>`
    - Payload format => `Default`
    - Listen to events only for => Choose your user
    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
@@ -61,18 +61,18 @@ Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It 
 work for all the media that have been a valid TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page using the following settings:
-    - Username => Your Plex `Fullname`. If you have no `Fullname` specified in Plex,
+   - Username => Your Plex `Fullname`. If you have no `Fullname` specified in Plex,
      fallback to your Plex `Username`. This will be used to filter webhooks for the
-     specified Plex account only
+     specified Plex account only.
 2. In your Plex Webhooks settings, add a new webhook using the
    following settings:
-   - Webhook Url => `<instance_url>/webhooks/integrations/plex/<slug>`
+   - Webhook Url => `<paste_url_copied>`
 
 !!! warning
 
-   Since Plex does not send the expected TMDb ID for shows, progress will only be synced
-   if you already have the show in the Ryot database. To do this, simply add the show to
-   your watchlist.
+Since Plex does not send the expected TMDb ID for shows, progress will only be synced
+if you already have the show in the Ryot database. To do this, simply add the show to
+your watchlist.
 
 ### Kodi
 
@@ -81,7 +81,7 @@ show you are watching. It will work for all the media that have been a valid
 TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
-   slug.
+   webhook Url.
 2. Download the addon from [github releases]({{ config.repo_url }}/releases).
    The file will have a name of `script.ryot.zip`.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
