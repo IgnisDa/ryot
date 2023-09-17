@@ -70,9 +70,9 @@ work for all the media that have been a valid TMDb ID attached to their metadata
 
 !!! warning
 
-Since Plex does not send the expected TMDb ID for shows, progress will only be synced
-if you already have the show in the Ryot database. To do this, simply add the show to
-your watchlist.
+    Since Plex does not send the expected TMDb ID for shows, progress will only be synced
+    if you already have the show in the Ryot database. To do this, simply add the show to
+    your watchlist.
 
 ### Kodi
 
@@ -87,4 +87,4 @@ TMDb ID attached to their metadata.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
    the zipped addon to your Kodi instance. Once installed, it will be visible under
    the "Services" sub category named "Ryot".
-4. Click on "Configure" to change the addon settings and fill the correct details.
+4. Click on "Configure" to fill in the correct details.
