@@ -31,7 +31,7 @@ import {
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
-import { IconCopy } from "@tabler/icons-react";
+import { IconCopy, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -148,10 +148,9 @@ const Page: NextPageWithLayout = () => {
 												)}
 											</CopyButton>
 										) : undefined}
-										<Button
+										<ActionIcon
 											color="red"
-											variant="outline"
-											size="xs"
+											size="sm"
 											onClick={() => {
 												const yes = confirm(
 													"Are you sure you want to delete this integration?",
@@ -163,8 +162,8 @@ const Page: NextPageWithLayout = () => {
 													});
 											}}
 										>
-											Delete
-										</Button>
+											<IconTrash />
+										</ActionIcon>
 									</Group>
 								</Flex>
 							</Paper>
