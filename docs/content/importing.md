@@ -16,7 +16,6 @@ the following caveats:
 - Items that are in progress are always imported with 100% progress. They are
   added to the "In Progress" collection so you can manually fix their progress
   if needed.
-- Ryot does not support [calendars](https://github.com/IgnisDa/ryot/issues/66) yet.
 
 ### Steps
 

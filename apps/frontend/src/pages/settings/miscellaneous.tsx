@@ -28,6 +28,12 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
+const DisabledNotice = () => (
+	<Text size="xs" color="dimmed">
+		Deploying this job is disabled on this instance.
+	</Text>
+);
+
 const Page: NextPageWithLayout = () => {
 	const userDetails = useUser();
 	const coreDetails = useCoreDetails();
@@ -115,15 +121,13 @@ const Page: NextPageWithLayout = () => {
 									stored. The more media you have, the longer this will take.
 								</Text>
 							</Box>
-							{!coreDetails.data.deployUpdateAllMetadataJobAllowed ? (
-								<Text size="xs" color="dimmed">
-									Deploying this job is disabled on this instance.
-								</Text>
+							{!coreDetails.data.deployAdminJobsAllowed ? (
+								<DisabledNotice />
 							) : undefined}
 							<Button
 								onClick={() => deployUpdateAllMetadataJobs.mutate({})}
 								loading={deployUpdateAllMetadataJobs.isLoading}
-								disabled={!coreDetails.data.deployUpdateAllMetadataJobAllowed}
+								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
 							</Button>
@@ -136,9 +140,13 @@ const Page: NextPageWithLayout = () => {
 									dates have changed. This is run every 24 hours automatically.
 								</Text>
 							</Box>
+							{!coreDetails.data.deployAdminJobsAllowed ? (
+								<DisabledNotice />
+							) : undefined}
 							<Button
 								onClick={() => deployRecalculateCalendarEventsJob.mutate({})}
 								loading={deployRecalculateCalendarEventsJob.isLoading}
+								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
 							</Button>

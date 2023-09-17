@@ -200,10 +200,11 @@ export interface ServerConfig {
 	 */
 	default_credentials: boolean;
 	/**
-	 * Whether users will be allowed to deploy a update all metadata job.
+	 * Admin jobs take a lot of resources, so they can be disabled completely from being
+	 * triggered manually. They still run as background jobs.
 	 * @default true
 	 */
-	deploy_update_all_metadata_job_allowed: boolean;
+	deploy_admin_jobs_allowed: boolean;
 	/**
 	 * This will make auth cookies insecure and should be set to `true` if you
 	 * are running the server on `localhost`.

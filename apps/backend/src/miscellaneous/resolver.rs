@@ -187,6 +187,7 @@ struct CreateUserNotificationPlatformInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserSinkIntegrationInput {
     lot: UserSinkIntegrationSettingKind,
+    username: Option<String>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -517,7 +518,7 @@ struct CoreDetails {
     videos_disabled: bool,
     upgrade: Option<UpgradeType>,
     page_limit: i32,
-    deploy_update_all_metadata_job_allowed: bool,
+    deploy_admin_jobs_allowed: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1302,23 +1303,20 @@ impl MiscellaneousService {
             None
         };
         Ok(CoreDetails {
-            docs_link: "https://ignisda.github.io/ryot".to_owned(),
-            repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            upgrade,
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
+            docs_link: "https://ignisda.github.io/ryot".to_owned(),
+            repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            page_limit: self.config.frontend.page_size,
+            videos_disabled: self.config.server.videos_disabled,
+            reviews_disabled: self.config.users.reviews_disabled,
+            default_credentials: self.config.server.default_credentials,
+            item_details_height: self.config.frontend.item_details_height,
             username_change_allowed: self.config.users.allow_changing_username,
             password_change_allowed: self.config.users.allow_changing_password,
             preferences_change_allowed: self.config.users.allow_changing_preferences,
-            default_credentials: self.config.server.default_credentials,
-            item_details_height: self.config.frontend.item_details_height,
-            reviews_disabled: self.config.users.reviews_disabled,
-            videos_disabled: self.config.server.videos_disabled,
-            upgrade,
-            page_limit: self.config.frontend.page_size,
-            deploy_update_all_metadata_job_allowed: self
-                .config
-                .server
-                .deploy_update_all_metadata_job_allowed,
+            deploy_admin_jobs_allowed: self.config.server.deploy_admin_jobs_allowed,
         })
     }
 
@@ -3715,7 +3713,7 @@ impl MiscellaneousService {
     }
 
     pub async fn update_all_metadata(&self) -> Result<bool> {
-        if !self.config.server.deploy_update_all_metadata_job_allowed {
+        if !self.config.server.deploy_admin_jobs_allowed {
             return Ok(false);
         }
         let metadatas = Metadata::find()
@@ -4435,8 +4433,12 @@ impl MiscellaneousService {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     format!("Jellyfin slug: {}", slug)
                 }
-                UserSinkIntegrationSetting::Plex { slug } => {
-                    format!("Plex slug: {}", slug)
+                UserSinkIntegrationSetting::Plex { slug, user } => {
+                    format!(
+                        "Plex slug: {},  Plex user: {}",
+                        slug,
+                        user.unwrap_or_else(|| "N/A".to_owned())
+                    )
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
                     format!("Kodi slug: {}", slug)
@@ -4511,9 +4513,10 @@ impl MiscellaneousService {
                     UserSinkIntegrationSettingKind::Jellyfin => {
                         UserSinkIntegrationSetting::Jellyfin { slug }
                     }
-                    UserSinkIntegrationSettingKind::Plex => {
-                        UserSinkIntegrationSetting::Plex { slug }
-                    }
+                    UserSinkIntegrationSettingKind::Plex => UserSinkIntegrationSetting::Plex {
+                        slug,
+                        user: input.username,
+                    },
                     UserSinkIntegrationSettingKind::Kodi => {
                         UserSinkIntegrationSetting::Kodi { slug }
                     }
@@ -4867,7 +4870,7 @@ impl MiscellaneousService {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Jellyfin
                 }
-                UserSinkIntegrationSetting::Plex { slug } => {
+                UserSinkIntegrationSetting::Plex { slug, .. } => {
                     slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Plex
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
@@ -4875,20 +4878,22 @@ impl MiscellaneousService {
                 }
             })
             .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
-        let data = match integration.settings {
+        let maybe_progress_update = match integration.settings {
             UserSinkIntegrationSetting::Jellyfin { .. } => {
                 self.get_integration_service()
                     .jellyfin_progress(&payload)
                     .await
             }
-            UserSinkIntegrationSetting::Plex { .. } => {
-                self.get_integration_service().plex_progress(&payload).await
+            UserSinkIntegrationSetting::Plex { user, .. } => {
+                self.get_integration_service()
+                    .plex_progress(&payload, user, &self.db)
+                    .await
             }
             UserSinkIntegrationSetting::Kodi { .. } => {
                 self.get_integration_service().kodi_progress(&payload).await
             }
         };
-        match data {
+        match maybe_progress_update {
             Ok(pu) => {
                 self.integration_progress_update(pu, user_id).await?;
                 Ok("Progress updated successfully".to_owned())
@@ -5061,15 +5066,17 @@ impl MiscellaneousService {
         metadata_id: i32,
     ) -> Result<Vec<i32>> {
         let mut user_ids = vec![];
-        let collections = Collection::find()
-            .filter(collection::Column::Name.eq(DefaultCollection::Watchlist.to_string()))
-            .find_with_related(Metadata)
-            .all(&self.db)
-            .await?;
-        for (col, metadatas) in collections {
-            for metadata in metadatas {
-                if metadata.id == metadata_id {
-                    user_ids.push(col.user_id);
+        for your_col in [DefaultCollection::Watchlist, DefaultCollection::InProgress] {
+            let collections = Collection::find()
+                .filter(collection::Column::Name.eq(your_col.to_string()))
+                .find_with_related(Metadata)
+                .all(&self.db)
+                .await?;
+            for (col, metadatas) in collections {
+                for metadata in metadatas {
+                    if metadata.id == metadata_id {
+                        user_ids.push(col.user_id);
+                    }
                 }
             }
         }

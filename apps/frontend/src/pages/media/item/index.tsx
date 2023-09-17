@@ -374,6 +374,7 @@ function CreateReminderModal(props: {
 
 const AccordionLabel = ({
 	name,
+	id,
 	posterImages,
 	overview,
 	children,
@@ -382,6 +383,7 @@ const AccordionLabel = ({
 	publishDate,
 }: {
 	name: string;
+	id?: number | null;
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
@@ -390,7 +392,7 @@ const AccordionLabel = ({
 	publishDate?: string | null;
 }) => {
 	return (
-		<Stack>
+		<Stack data-episode-id={id}>
 			<Flex align={"center"} gap="sm">
 				<Indicator
 					disabled={displayIndicator === 0}

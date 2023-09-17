@@ -13,6 +13,6 @@ query CoreDetails {
     videosDisabled
     upgrade
     pageLimit
-    deployUpdateAllMetadataJobAllowed
+    deployAdminJobsAllowed
   }
 }

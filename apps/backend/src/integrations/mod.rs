@@ -1,12 +1,16 @@
 use anyhow::{anyhow, bail, Result};
+use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_query::{Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
+    entities::{metadata, prelude::Metadata},
     migrator::{MetadataLot, MetadataSource},
-    utils::get_base_http_client,
+    utils::{get_base_http_client, get_case_insensitive_like_query},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,7 +111,12 @@ impl IntegrationService {
         })
     }
 
-    pub async fn plex_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+    pub async fn plex_progress(
+        &self,
+        payload: &str,
+        plex_user: Option<String>,
+        db: &DatabaseConnection,
+    ) -> Result<IntegrationMedia> {
         mod models {
             use super::*;
 
@@ -117,27 +126,58 @@ impl IntegrationService {
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookMetadataPayload {
-                #[serde(rename = "viewOffset")]
-                pub view_offset: Decimal,
-                pub duration: Decimal,
                 #[serde(rename = "type")]
                 pub item_type: String,
+                #[serde(rename = "viewOffset")]
+                pub view_offset: Option<Decimal>,
+                pub duration: Decimal,
+                #[serde(rename = "grandparentTitle")]
+                pub show_name: Option<String>,
+                #[serde(rename = "parentIndex")]
+                pub season_number: Option<i32>,
+                #[serde(rename = "index")]
+                pub episode_number: Option<i32>,
                 #[serde(rename = "Guid")]
                 pub guids: Vec<PlexWebhookMetadataGuid>,
             }
             #[derive(Serialize, Deserialize, Debug, Clone)]
+            pub struct PlexWebhookAccount {
+                #[serde(rename = "title")]
+                pub plex_user: String,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
             pub struct PlexWebhookPayload {
-                pub event: String,
+                #[serde(rename = "event")]
+                pub event_type: String,
                 pub user: bool,
                 pub owner: bool,
                 #[serde(rename = "Metadata")]
                 pub metadata: PlexWebhookMetadataPayload,
+                #[serde(rename = "Account")]
+                pub account: PlexWebhookAccount,
             }
         }
 
-        let payload = match serde_json::from_str::<models::PlexWebhookPayload>(payload) {
+        let payload_regex = Regex::new(r#"\{.*\}"#).unwrap();
+        let json_payload = payload_regex
+            .find(payload)
+            .map(|x| x.as_str())
+            .unwrap_or("");
+        let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
             Result::Ok(val) => val,
-            Result::Err(err) => bail!(err),
+            Result::Err(err) => bail!("Error during JSON payload deserialization {:#}", err),
+        };
+        if let Some(plex_user) = plex_user {
+            if plex_user != payload.account.plex_user {
+                bail!(
+                    "Ignoring non matching user {:#?}",
+                    payload.account.plex_user
+                );
+            }
+        }
+        match payload.event_type.as_str() {
+            "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}
+            _ => bail!("Ignoring event type {:#?}", payload.event_type),
         };
 
         let tmdb_guid = payload
@@ -151,21 +191,46 @@ impl IntegrationService {
         }
         let tmdb_guid = tmdb_guid.unwrap();
         let identifier = &tmdb_guid.id[7..];
-        let lot = match payload.metadata.item_type.as_str() {
-            "movie" => MetadataLot::Movie,
-            "Episode" => todo!("Shows are not supported for Plex yet"),
+        let (identifier, lot) = match payload.metadata.item_type.as_str() {
+            "movie" => (identifier.to_owned(), MetadataLot::Movie),
+            "episode" => {
+                // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
+                // TMDB ID sent by Plex (which is actually the episode ID) is also present
+                // in the media specifics we have in DB.
+                let db_show = Metadata::find()
+                    .filter(metadata::Column::Lot.eq(MetadataLot::Show))
+                    .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
+                    .filter(get_case_insensitive_like_query(
+                        Func::cast_as(Expr::col(metadata::Column::Specifics), Alias::new("text")),
+                        identifier,
+                    ))
+                    .one(db)
+                    .await?;
+                if db_show.is_none() {
+                    bail!("No show found with TMDb ID {}", identifier);
+                }
+                (db_show.unwrap().identifier, MetadataLot::Show)
+            }
             _ => bail!("Only movies and shows supported"),
         };
-        Ok(IntegrationMedia {
-            identifier: identifier.to_owned(),
-            lot,
-            source: MetadataSource::Tmdb,
-            progress: (payload.metadata.view_offset / payload.metadata.duration * dec!(100))
+        let progress = match payload.metadata.view_offset {
+            Some(offset) => (offset / payload.metadata.duration * dec!(100))
                 .to_i32()
                 .unwrap(),
+            None => match payload.event_type.as_str() {
+                "media.scrobble" => 100,
+                _ => bail!("No position associated with this media"),
+            }
+        };
+
+        Ok(IntegrationMedia {
+            identifier,
+            lot,
+            source: MetadataSource::Tmdb,
+            progress,
             podcast_episode_number: None,
-            show_season_number: None,
-            show_episode_number: None,
+            show_season_number: payload.metadata.season_number,
+            show_episode_number: payload.metadata.episode_number,
         })
     }
 
