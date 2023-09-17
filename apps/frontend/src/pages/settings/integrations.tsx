@@ -136,7 +136,7 @@ const Page: NextPageWithLayout = () => {
 											<CopyButton
 												value={`${
 													window.location.origin
-												}/webhooks/${i.description
+												}/webhooks/integrations/${i.description
 													.toLowerCase()
 													.split(" ")
 													.at(0)}/${i.slug}`}
