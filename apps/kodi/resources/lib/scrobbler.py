@@ -30,18 +30,13 @@ class Scrobbler:
         current_time = player.getTime()
         progress = (current_time / duration) * 100
 
-        slug = self.__addon__.getSettingString("slug")
-        instance_url = self.__addon__.getSettingString("instanceUrl")
+        webhook_url = self.__addon__.getSettingString("webhookUrl")
 
-        if len(slug) == 0:
-            xbmc.log("Ryot: missing Kodi slug", xbmc.LOGDEBUG)
+        if len(webhook_url) == 0:
+            xbmc.log("Ryot: missing webhook url", xbmc.LOGDEBUG)
             return
 
-        if len(instance_url) == 0:
-            xbmc.log("Ryot: missing instance url", xbmc.LOGDEBUG)
-            return
-
-        ryot_tracker = Ryot(instance_url, slug)
+        ryot_tracker = Ryot(webhook_url)
 
         title = None
         tmdb_id = None
