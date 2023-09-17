@@ -17,9 +17,5 @@ msgid "General"
 msgstr "General"
 
 msgctxt "#32011"
-msgid "Kodi slug"
-msgstr "Kodi slug"
-
-msgctxt "#32012"
-msgid "Ryot instance url"
-msgstr "Ryot instance url"
+msgid "Ryot webhook url"
+msgstr "Ryot webhook url"

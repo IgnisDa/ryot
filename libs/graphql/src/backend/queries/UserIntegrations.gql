@@ -4,5 +4,6 @@ query UserIntegrations {
     lot
     description
     timestamp
+    slug
   }
 }

@@ -2,14 +2,12 @@ import os
 from pathlib import Path
 from datetime import date
 import urllib.request
-import urllib.parse
 import json
 from typing import Literal, Optional
 
 class Ryot:
-    def __init__(self, url: str, slug: str) -> None:
+    def __init__(self, url: str) -> None:
         self.url = url
-        self.slug = slug
 
     def update_progress(
         self,
@@ -38,7 +36,7 @@ class Ryot:
 
         try:
             httprequest = urllib.request.Request(
-                urllib.parse.urljoin(self.url, "/webhooks/integrations/kodi") + '/' + self.slug,
+                self.url,
                 data=postdata,
                 headers=headers,
                 method="POST",
@@ -48,4 +46,3 @@ class Ryot:
             return (True, data)
         except Exception as e:
             return (False, str(e))
-            

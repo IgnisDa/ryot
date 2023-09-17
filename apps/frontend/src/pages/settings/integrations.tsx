@@ -2,10 +2,13 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	ActionIcon,
 	Box,
 	Button,
 	Container,
+	CopyButton,
 	Flex,
+	Group,
 	Modal,
 	Paper,
 	Select,
@@ -28,6 +31,7 @@ import {
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
+import { IconCopy } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useState } from "react";
@@ -127,22 +131,41 @@ const Page: NextPageWithLayout = () => {
 										<Text size="xs">{i.description}</Text>
 										<Text size="xs">{formatTimeAgo(i.timestamp)}</Text>
 									</Box>
-									<Button
-										color="red"
-										variant="outline"
-										onClick={() => {
-											const yes = confirm(
-												"Are you sure you want to delete this integration?",
-											);
-											if (yes)
-												deleteUserIntegration.mutate({
-													integrationId: i.id,
-													integrationLot: i.lot,
-												});
-										}}
-									>
-										Delete
-									</Button>
+									<Group>
+										{i.slug ? (
+											<CopyButton
+												value={`${
+													window.location.origin
+												}/webhooks/integrations/${i.description
+													.toLowerCase()
+													.split(" ")
+													.at(0)}/${i.slug}`}
+											>
+												{({ copy }) => (
+													<ActionIcon color="green" onClick={copy}>
+														<IconCopy />
+													</ActionIcon>
+												)}
+											</CopyButton>
+										) : undefined}
+										<Button
+											color="red"
+											variant="outline"
+											size="xs"
+											onClick={() => {
+												const yes = confirm(
+													"Are you sure you want to delete this integration?",
+												);
+												if (yes)
+													deleteUserIntegration.mutate({
+														integrationId: i.id,
+														integrationLot: i.lot,
+													});
+											}}
+										>
+											Delete
+										</Button>
+									</Group>
 								</Flex>
 							</Paper>
 						))
@@ -243,7 +266,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</>
 									) : undefined}
-									{createUserSinkIntegrationLot ==
+									{createUserSinkIntegrationLot ===
 									UserSinkIntegrationSettingKind.Plex ? (
 										<>
 											<TextInput
