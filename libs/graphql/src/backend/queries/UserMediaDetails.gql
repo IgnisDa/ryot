@@ -5,6 +5,7 @@ fragment SeenPart on Seen {
   startedOn
   finishedOn
   lastUpdatedOn
+  numTimesUpdated
   showInformation {
     episode
     season

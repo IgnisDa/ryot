@@ -476,6 +476,14 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 		enabled: !!metadataId,
+		onSuccess: (data) => {
+			// If the seasons or episodes tab was open before, we need to change it.
+			if (
+				(activeTab === "seasons" || activeTab === "episodes") &&
+				![MetadataLot.Show, MetadataLot.Podcast].includes(data.lot)
+			)
+				setActiveTab("overview");
+		},
 	});
 	const userMediaDetails = useQuery({
 		queryKey: ["userMediaDetails", metadataId],
@@ -1299,6 +1307,7 @@ const Page: NextPageWithLayout = () => {
 											direction={"column"}
 											ml="md"
 											data-seen-id={h.id}
+											data-seen-num-times-updated={h.numTimesUpdated}
 										>
 											<Flex gap="xl">
 												<Text fw="bold">

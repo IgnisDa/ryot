@@ -37,6 +37,7 @@ pub enum Seen {
     LastUpdatedOn,
     // for the time being this stores the `season` and `episode` numbers
     ExtraInformation,
+    NumTimesUpdated,
 }
 
 #[async_trait::async_trait]
@@ -63,6 +64,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
+                    .col(ColumnDef::new(Seen::NumTimesUpdated).integer())
                     .col(
                         ColumnDef::new(Seen::State)
                             .string_len(2)
