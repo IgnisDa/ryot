@@ -2916,6 +2916,28 @@ impl MiscellaneousService {
                 creator.delete(&self.db).await.ok();
             }
         }
+        tracing::trace!("Cleaning up partial metadata without associated metadata");
+        let mut all_partial_metadata = PartialMetadataModel::find().stream(&self.db).await?;
+        while let Some(partial_metadata) = all_partial_metadata.try_next().await? {
+            let num_associations = MetadataToPartialMetadata::find()
+                .filter(
+                    metadata_to_partial_metadata::Column::PartialMetadataId.eq(partial_metadata.id),
+                )
+                .count(&self.db)
+                .await
+                .unwrap();
+            let num_group_associations = PartialMetadataToMetadataGroup::find()
+                .filter(
+                    partial_metadata_to_metadata_group::Column::PartialMetadataId
+                        .eq(partial_metadata.id),
+                )
+                .count(&self.db)
+                .await
+                .unwrap();
+            if num_associations + num_group_associations == 0 {
+                partial_metadata.delete(&self.db).await.ok();
+            }
+        }
         Ok(())
     }
 

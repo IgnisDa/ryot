@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use super::{m20230901_create_metadata_group::MetadataGroup, Metadata};
 
+pub static PARTIAL_METADATA_FK_1: &str = "fk-metadata_id-partial-metadata_id";
+pub static PARTIAL_METADATA_TO_METADATA_GROUP_FK_1: &str =
+    "partial-metadata-to-metadata-group-fk-1";
+pub static PARTIAL_METADATA_TO_METADATA_GROUP_FK_2: &str =
+    "partial-metadata-to-metadata-group-fk-2";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -80,7 +86,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-metadata_id-partial-metadata_id")
+                            .name(PARTIAL_METADATA_FK_1)
                             .from(PartialMetadata::Table, PartialMetadata::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -145,7 +151,6 @@ impl MigrationTrait for Migration {
                                 MetadataToPartialMetadata::PartialMetadataId,
                             )
                             .to(PartialMetadata::Table, PartialMetadata::Id)
-                            // FIXME: Use `SetNull` and also remove `after_save` sea-orm hook for `metadata`
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -179,7 +184,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_partial-metadata-to-metadata-group_id-metadata-partial-metadata_id")
+                            .name(PARTIAL_METADATA_TO_METADATA_GROUP_FK_1)
                             .from(
                                 PartialMetadataToMetadataGroup::Table,
                                 PartialMetadataToMetadataGroup::PartialMetadataId,
@@ -190,9 +195,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(
-                                "fk_partial-metadata-to-metadata-group-group_id-metadata-group_id",
-                            )
+                            .name(PARTIAL_METADATA_TO_METADATA_GROUP_FK_2)
                             .from(
                                 PartialMetadataToMetadataGroup::Table,
                                 PartialMetadataToMetadataGroup::MetadataGroupId,

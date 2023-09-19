@@ -7,12 +7,10 @@ use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::prelude::PartialMetadata,
+    entities::{partial_metadata, prelude::PartialMetadata},
     migrator::{MetadataLot, MetadataSource},
     models::media::{MediaSpecifics, MetadataImages, MetadataVideos},
 };
-
-use super::partial_metadata;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "metadata")]
@@ -171,24 +169,5 @@ impl ActiveModelBehavior for ActiveModel {
             m.update(db).await?;
         }
         Ok(model)
-    }
-
-    async fn after_delete<C>(self, db: &C) -> Result<Self, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        let copied = self.clone();
-        if let Some(m) = PartialMetadata::find()
-            .filter(partial_metadata::Column::Identifier.eq(copied.identifier.unwrap()))
-            .filter(partial_metadata::Column::Lot.eq(copied.lot.unwrap()))
-            .filter(partial_metadata::Column::Source.eq(copied.source.unwrap()))
-            .one(db)
-            .await?
-        {
-            let mut m: partial_metadata::ActiveModel = m.into();
-            m.metadata_id = ActiveValue::Set(None);
-            m.update(db).await?;
-        }
-        Ok(self)
     }
 }
