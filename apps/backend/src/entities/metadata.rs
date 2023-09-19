@@ -3,10 +3,11 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    entities::{partial_metadata, prelude::PartialMetadata},
     migrator::{MetadataLot, MetadataSource},
     models::media::{MediaSpecifics, MetadataImages, MetadataVideos},
 };
@@ -151,4 +152,22 @@ impl Related<super::user::Entity> for Entity {
 }
 
 #[async_trait]
-impl ActiveModelBehavior for ActiveModel {}
+impl ActiveModelBehavior for ActiveModel {
+    async fn after_save<C>(model: Model, db: &C, _insert: bool) -> Result<Model, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        if let Some(m) = PartialMetadata::find()
+            .filter(partial_metadata::Column::Identifier.eq(model.identifier.clone()))
+            .filter(partial_metadata::Column::Lot.eq(model.lot))
+            .filter(partial_metadata::Column::Source.eq(model.source))
+            .one(db)
+            .await?
+        {
+            let mut m: partial_metadata::ActiveModel = m.into();
+            m.metadata_id = ActiveValue::Set(Some(model.id));
+            m.update(db).await?;
+        }
+        Ok(model)
+    }
+}
