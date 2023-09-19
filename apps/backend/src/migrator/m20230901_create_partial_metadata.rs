@@ -198,6 +198,7 @@ impl MigrationTrait for Migration {
                                 PartialMetadataToMetadataGroup::MetadataGroupId,
                             )
                             .to(MetadataGroup::Table, MetadataGroup::Id)
+                            // FIXME: Use `SetNull`
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
