@@ -6,9 +6,9 @@ use super::{m20230901_create_metadata_group::MetadataGroup, Metadata};
 
 pub static PARTIAL_METADATA_FK_1: &str = "fk-metadata_id-partial-metadata_id";
 pub static PARTIAL_METADATA_TO_METADATA_GROUP_FK_1: &str =
-    "fk_partial-metadata-to-metadata-group-group_id-metadata-group_id";
+    "partial-metadata-to-metadata-group-fk-1";
 pub static PARTIAL_METADATA_TO_METADATA_GROUP_FK_2: &str =
-    "fk_partial-metadata-to-metadata-group_id-metadata-partial-metadata_id";
+    "partial-metadata-to-metadata-group-fk-2";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
