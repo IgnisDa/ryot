@@ -1307,6 +1307,7 @@ const Page: NextPageWithLayout = () => {
 											direction={"column"}
 											ml="md"
 											data-seen-id={h.id}
+											data-seen-num-times-updated={h.numTimesUpdated}
 										>
 											<Flex gap="xl">
 												<Text fw="bold">
