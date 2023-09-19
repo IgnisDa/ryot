@@ -2917,10 +2917,7 @@ impl MiscellaneousService {
             }
         }
         tracing::trace!("Cleaning up partial metadata without associated metadata");
-        let mut all_partial_metadata = PartialMetadataModel::find()
-            .filter(partial_metadata::Column::MetadataId.is_null())
-            .stream(&self.db)
-            .await?;
+        let mut all_partial_metadata = PartialMetadataModel::find().stream(&self.db).await?;
         while let Some(partial_metadata) = all_partial_metadata.try_next().await? {
             let num_associations = MetadataToPartialMetadata::find()
                 .filter(
