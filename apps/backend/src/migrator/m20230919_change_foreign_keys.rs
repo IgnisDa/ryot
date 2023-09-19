@@ -12,6 +12,7 @@ async fn change_fk_definition<'a>(
     old_name: &str,
     new_name: &str,
     manager: &SchemaManager<'a>,
+    action: &str,
 ) -> Result<(), DbErr> {
     let db = manager.get_connection();
     let stmt = Statement::from_sql_and_values(
@@ -27,7 +28,7 @@ async fn change_fk_definition<'a>(
                     r#"
 ALTER TABLE partial_metadata_to_metadata_group
 DROP CONSTRAINT "{old_name}",
-ADD CONSTRAINT "{new_name}" FOREIGN KEY (metadata_group_id) REFERENCES metadata_group(id) ON UPDATE CASCADE ON DELETE SET NULL;
+ADD CONSTRAINT "{new_name}" FOREIGN KEY (metadata_group_id) REFERENCES metadata_group(id) ON UPDATE CASCADE ON DELETE {action};
 "#
                 ))
                 .await?;
@@ -44,12 +45,14 @@ impl MigrationTrait for Migration {
                 "fk_partial-metadata-to-metadata-group-group_id-metadata-group_i",
                 PARTIAL_METADATA_TO_METADATA_GROUP_FK_1,
                 manager,
+                "CASCADE",
             )
             .await?;
             change_fk_definition(
                 "fk_partial-metadata-to-metadata-group_id-metadata-partial-metad",
                 PARTIAL_METADATA_TO_METADATA_GROUP_FK_2,
                 manager,
+                "CASCADE",
             )
             .await?;
         }
