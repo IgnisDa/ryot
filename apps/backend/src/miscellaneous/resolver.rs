@@ -2236,9 +2236,12 @@ impl MiscellaneousService {
         let seen = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
+                let num_times_seen = prev_seen[0].num_times_updated;
                 let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
+                last_seen.num_times_updated =
+                    ActiveValue::Set(Some(num_times_seen.unwrap_or_default() + 1));
                 last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                 if progress == 100 {
                     last_seen.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
@@ -2256,8 +2259,11 @@ impl MiscellaneousService {
                     .unwrap();
                 match last_seen {
                     Some(ls) => {
+                        let num_times_seen = ls.num_times_updated;
                         let mut last_seen: seen::ActiveModel = ls.into();
                         last_seen.state = ActiveValue::Set(new_state);
+                        last_seen.num_times_updated =
+                            ActiveValue::Set(Some(num_times_seen.unwrap_or_default() + 1));
                         last_seen.last_updated_on = ActiveValue::Set(Utc::now());
                         last_seen.update(&self.db).await.unwrap()
                     }
