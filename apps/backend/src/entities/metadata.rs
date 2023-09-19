@@ -3,16 +3,13 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::prelude::PartialMetadata,
     migrator::{MetadataLot, MetadataSource},
     models::media::{MediaSpecifics, MetadataImages, MetadataVideos},
 };
-
-use super::partial_metadata;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "metadata")]
@@ -154,41 +151,4 @@ impl Related<super::user::Entity> for Entity {
 }
 
 #[async_trait]
-impl ActiveModelBehavior for ActiveModel {
-    async fn after_save<C>(model: Model, db: &C, _insert: bool) -> Result<Model, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        if let Some(m) = PartialMetadata::find()
-            .filter(partial_metadata::Column::Identifier.eq(model.identifier.clone()))
-            .filter(partial_metadata::Column::Lot.eq(model.lot))
-            .filter(partial_metadata::Column::Source.eq(model.source))
-            .one(db)
-            .await?
-        {
-            let mut m: partial_metadata::ActiveModel = m.into();
-            m.metadata_id = ActiveValue::Set(Some(model.id));
-            m.update(db).await?;
-        }
-        Ok(model)
-    }
-
-    async fn after_delete<C>(self, db: &C) -> Result<Self, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        let copied = self.clone();
-        if let Some(m) = PartialMetadata::find()
-            .filter(partial_metadata::Column::Identifier.eq(copied.identifier.unwrap()))
-            .filter(partial_metadata::Column::Lot.eq(copied.lot.unwrap()))
-            .filter(partial_metadata::Column::Source.eq(copied.source.unwrap()))
-            .one(db)
-            .await?
-        {
-            let mut m: partial_metadata::ActiveModel = m.into();
-            m.metadata_id = ActiveValue::Set(None);
-            m.update(db).await?;
-        }
-        Ok(self)
-    }
-}
+impl ActiveModelBehavior for ActiveModel {}
