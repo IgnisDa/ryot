@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use super::{m20230901_create_metadata_group::MetadataGroup, Metadata};
 
+pub static PARTIAL_METADATA_FK_1: &str =
+    "fk_partial-metadata-to-metadata-group-group_id-metadata-group_id";
+pub static PARTIAL_METADATA_FK_2: &str =
+    "fk_partial-metadata-to-metadata-group_id-metadata-partial-metadata_id";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -179,7 +184,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_partial-metadata-to-metadata-group_id-metadata-partial-metadata_id")
+                            .name(PARTIAL_METADATA_FK_1)
                             .from(
                                 PartialMetadataToMetadataGroup::Table,
                                 PartialMetadataToMetadataGroup::PartialMetadataId,
@@ -190,15 +195,12 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(
-                                "fk_partial-metadata-to-metadata-group-group_id-metadata-group_id",
-                            )
+                            .name(PARTIAL_METADATA_FK_2)
                             .from(
                                 PartialMetadataToMetadataGroup::Table,
                                 PartialMetadataToMetadataGroup::MetadataGroupId,
                             )
                             .to(MetadataGroup::Table, MetadataGroup::Id)
-                            // FIXME: Use `SetNull`
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
