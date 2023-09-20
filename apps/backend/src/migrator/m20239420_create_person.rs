@@ -1,0 +1,118 @@
+use sea_orm_migration::prelude::*;
+
+use super::Metadata;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+pub static METADATA_TO_PERSON_PRIMARY_KEY: &str = "pk-media-item_person";
+
+#[derive(Iden)]
+pub enum Person {
+    Table,
+    Id,
+    Identifier,
+    Source,
+    Name,
+    Image,
+    ExtraInformation,
+}
+
+#[derive(Iden)]
+pub enum MetadataToPerson {
+    Table,
+    MetadataId,
+    PersonId,
+    Role,
+    // The order in which the person will be displayed
+    Index,
+}
+
+// TODO: Model to associate person to partial_metadata (for media suggestions).
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(Person::Table)
+                    .col(
+                        ColumnDef::new(Person::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Person::Name)
+                            .string()
+                            .unique_key()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(Person::Identifier).string().not_null())
+                    .col(ColumnDef::new(Person::Source).string_len(2).not_null())
+                    .col(ColumnDef::new(Person::Image).string())
+                    .col(ColumnDef::new(Person::ExtraInformation).json().not_null())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("person-identifier-source__unique_index")
+                    .table(Person::Table)
+                    .col(Person::Identifier)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(MetadataToPerson::Table)
+                    .col(
+                        ColumnDef::new(MetadataToPerson::MetadataId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToPerson::PersonId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(MetadataToPerson::Index).integer().not_null())
+                    .primary_key(
+                        Index::create()
+                            .name(METADATA_TO_PERSON_PRIMARY_KEY)
+                            .col(MetadataToPerson::MetadataId)
+                            .col(MetadataToPerson::PersonId)
+                            .col(MetadataToPerson::Role),
+                    )
+                    .col(ColumnDef::new(MetadataToPerson::Role).string().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-media-item_media-person_id")
+                            .from(MetadataToPerson::Table, MetadataToPerson::MetadataId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-person-item_media-person_id")
+                            .from(MetadataToPerson::Table, MetadataToPerson::PersonId)
+                            .to(Person::Table, Person::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        Ok(())
+    }
+}

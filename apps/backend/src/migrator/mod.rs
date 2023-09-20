@@ -28,6 +28,7 @@ mod m20230912_add_last_processed_for_calendar_to_metadata;
 mod m20230912_create_calendar_event;
 mod m20230919_add_num_times_updated_field_to_seen;
 mod m20230919_change_foreign_keys;
+mod m20239420_create_person;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -73,6 +74,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20230919_add_num_times_updated_field_to_seen::Migration),
             Box::new(m20230919_change_foreign_keys::Migration),
+            Box::new(m20239420_create_person::Migration),
         ]
     }
 }
