@@ -4550,7 +4550,7 @@ dependencies = [
  "rust_decimal_macros",
  "schematic",
  "scraper",
- "sea-orm 0.12.2 (git+https://github.com/SeaQL/sea-orm.git?rev=59754f5)",
+ "sea-orm",
  "sea-orm-migration",
  "sea-query",
  "semver 1.0.18",
@@ -4703,32 +4703,13 @@ checksum = "61f6c7daef05dde3476d97001e11fca7a52b655aa3bf4fd610ab2da1176a2ed5"
 dependencies = [
  "async-stream",
  "async-trait",
- "futures 0.3.28",
- "log",
- "ouroboros",
- "sea-orm-macros 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "sea-query",
- "serde",
- "strum",
- "thiserror",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "sea-orm"
-version = "0.12.2"
-source = "git+https://github.com/SeaQL/sea-orm.git?rev=59754f5#59754f5ff9d1fea1b29bfd5f80614fa7af219ca8"
-dependencies = [
- "async-stream",
- "async-trait",
  "bigdecimal",
  "chrono",
  "futures 0.3.28",
  "log",
  "ouroboros",
  "rust_decimal",
- "sea-orm-macros 0.12.2 (git+https://github.com/SeaQL/sea-orm.git?rev=59754f5)",
+ "sea-orm-macros",
  "sea-query",
  "sea-query-binder",
  "serde",
@@ -4774,19 +4755,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sea-orm-macros"
-version = "0.12.2"
-source = "git+https://github.com/SeaQL/sea-orm.git?rev=59754f5#59754f5ff9d1fea1b29bfd5f80614fa7af219ca8"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "sea-bae",
- "syn 2.0.29",
- "unicode-ident",
-]
-
-[[package]]
 name = "sea-orm-migration"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4796,7 +4764,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "futures 0.3.28",
- "sea-orm 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sea-orm",
  "sea-orm-cli",
  "sea-schema",
  "tracing",

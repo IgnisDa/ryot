@@ -69,7 +69,7 @@ schematic = { version = "0.11.4", features = [
     "valid_url",
 ] }
 scraper = "0.17.1"
-sea-orm = { git = "https://github.com/SeaQL/sea-orm.git", rev = "59754f5", features = [
+sea-orm = { version = "0.12.2", features = [
     "debug-print",
     "macros",
     "runtime-tokio-rustls",
