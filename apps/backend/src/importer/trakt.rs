@@ -186,12 +186,17 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     } else {
                         (None, None)
                     };
-                if d.lot == MetadataLot::Show && show_season_number.is_none() {
+                if d.lot == MetadataLot::Show
+                    && (show_season_number.is_none() || show_episode_number.is_none())
+                {
                     failed_items.push(ImportFailedItem {
                         lot: d.lot,
                         step: ImportFailStep::ItemDetailsFromSource,
                         identifier: "".to_owned(),
-                        error: Some("Item is a show but does not have a season number".to_owned()),
+                        error: Some(
+                            "Item is a show but does not have a season or episode number"
+                                .to_owned(),
+                        ),
                     });
                     continue;
                 }
