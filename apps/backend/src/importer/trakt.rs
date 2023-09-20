@@ -207,7 +207,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     ..Default::default()
                 });
                 if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
-                    a.seen_history = d.seen_history;
+                    a.seen_history.extend(d.seen_history);
                 } else {
                     media_items.push(d)
                 }
