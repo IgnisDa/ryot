@@ -1,3 +1,5 @@
+// TODO: Create a similar `Person` model and deprecate this one
+
 use sea_orm_migration::prelude::*;
 
 use super::Metadata;
@@ -7,6 +9,7 @@ pub struct Migration;
 
 pub static METADATA_TO_CREATOR_PRIMARY_KEY: &str = "pk-media-item_creator";
 
+// FIXME: Remove this
 #[derive(Iden)]
 pub enum Creator {
     Table,
@@ -16,6 +19,7 @@ pub enum Creator {
     ExtraInformation,
 }
 
+// FIXME: Remove this
 #[derive(Iden)]
 pub enum MetadataToCreator {
     Table,

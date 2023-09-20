@@ -243,7 +243,8 @@ pub mod media {
             where
                 E: de::Error,
             {
-                NaiveDate::parse_from_str(v, "%Y-%m-%d").map_err(|_| E::custom("Could not convert timestamp"))
+                NaiveDate::parse_from_str(v, "%Y-%m-%d")
+                    .map_err(|_| E::custom("Could not convert timestamp"))
             }
         }
 
@@ -920,6 +921,9 @@ pub mod media {
         Hash,
     )]
     pub struct MetadataCreator {
+        // TODO: Using these details, we will fetch creators later using the API.
+        // pub identifier: String,
+        // pub source: MetadataSource,
         pub name: String,
         pub role: String,
         pub image: Option<String>,
